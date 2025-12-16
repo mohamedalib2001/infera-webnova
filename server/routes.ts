@@ -2,8 +2,9 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateWebsiteCode, refineWebsiteCode } from "./openai";
-import { insertProjectSchema, insertMessageSchema } from "@shared/schema";
+import { insertProjectSchema, insertMessageSchema, insertProjectVersionSchema, insertShareLinkSchema } from "@shared/schema";
 import { z } from "zod";
+import { randomBytes } from "crypto";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -172,6 +173,190 @@ export async function registerRoutes(
         error: "Failed to generate code",
         message: error instanceof Error ? error.message : "Unknown error"
       });
+    }
+  });
+
+  // ============ Project Versions Routes ============
+
+  // Get all versions for a project
+  app.get("/api/projects/:projectId/versions", async (req, res) => {
+    try {
+      const versions = await storage.getProjectVersions(req.params.projectId);
+      res.json(versions);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch versions" });
+    }
+  });
+
+  // Get single version
+  app.get("/api/versions/:id", async (req, res) => {
+    try {
+      const version = await storage.getProjectVersion(req.params.id);
+      if (!version) {
+        return res.status(404).json({ error: "Version not found" });
+      }
+      res.json(version);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch version" });
+    }
+  });
+
+  // Create version (save snapshot)
+  app.post("/api/projects/:projectId/versions", async (req, res) => {
+    try {
+      const project = await storage.getProject(req.params.projectId);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+
+      // Get existing versions to determine version number
+      const existingVersions = await storage.getProjectVersions(req.params.projectId);
+      const versionNumber = `v${existingVersions.length + 1}`;
+
+      const versionData = {
+        projectId: req.params.projectId,
+        versionNumber,
+        htmlCode: project.htmlCode,
+        cssCode: project.cssCode,
+        jsCode: project.jsCode,
+        description: req.body.description || `Snapshot ${versionNumber}`,
+      };
+
+      const version = await storage.createProjectVersion(versionData);
+      res.status(201).json(version);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create version" });
+    }
+  });
+
+  // Restore version
+  app.post("/api/projects/:projectId/restore/:versionId", async (req, res) => {
+    try {
+      const version = await storage.getProjectVersion(req.params.versionId);
+      if (!version) {
+        return res.status(404).json({ error: "Version not found" });
+      }
+
+      const project = await storage.updateProject(req.params.projectId, {
+        htmlCode: version.htmlCode,
+        cssCode: version.cssCode,
+        jsCode: version.jsCode,
+      });
+
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+
+      res.json(project);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to restore version" });
+    }
+  });
+
+  // ============ Share Links Routes ============
+
+  // Get share links for a project
+  app.get("/api/projects/:projectId/shares", async (req, res) => {
+    try {
+      const shares = await storage.getShareLinksByProject(req.params.projectId);
+      res.json(shares);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch share links" });
+    }
+  });
+
+  // Create share link
+  app.post("/api/projects/:projectId/share", async (req, res) => {
+    try {
+      const project = await storage.getProject(req.params.projectId);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+
+      const shareCode = randomBytes(8).toString("hex");
+      const shareLink = await storage.createShareLink({
+        projectId: req.params.projectId,
+        shareCode,
+        isActive: "true",
+        expiresAt: req.body.expiresAt ? new Date(req.body.expiresAt) : null,
+      });
+
+      res.status(201).json(shareLink);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create share link" });
+    }
+  });
+
+  // Get shared project by share code (public)
+  app.get("/api/share/:shareCode", async (req, res) => {
+    try {
+      const shareLink = await storage.getShareLink(req.params.shareCode);
+      if (!shareLink) {
+        return res.status(404).json({ error: "Share link not found" });
+      }
+
+      if (shareLink.isActive !== "true") {
+        return res.status(403).json({ error: "Share link is no longer active" });
+      }
+
+      if (shareLink.expiresAt && new Date(shareLink.expiresAt) < new Date()) {
+        return res.status(403).json({ error: "Share link has expired" });
+      }
+
+      const project = await storage.getProject(shareLink.projectId);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+
+      res.json({
+        name: project.name,
+        htmlCode: project.htmlCode,
+        cssCode: project.cssCode,
+        jsCode: project.jsCode,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch shared project" });
+    }
+  });
+
+  // Deactivate share link
+  app.delete("/api/shares/:id", async (req, res) => {
+    try {
+      const deactivated = await storage.deactivateShareLink(req.params.id);
+      if (!deactivated) {
+        return res.status(404).json({ error: "Share link not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to deactivate share link" });
+    }
+  });
+
+  // ============ Components Routes ============
+
+  // Get all components
+  app.get("/api/components", async (req, res) => {
+    try {
+      const category = req.query.category as string | undefined;
+      const allComponents = category 
+        ? await storage.getComponentsByCategory(category)
+        : await storage.getComponents();
+      res.json(allComponents);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch components" });
+    }
+  });
+
+  // Get single component
+  app.get("/api/components/:id", async (req, res) => {
+    try {
+      const component = await storage.getComponent(req.params.id);
+      if (!component) {
+        return res.status(404).json({ error: "Component not found" });
+      }
+      res.json(component);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch component" });
     }
   });
 

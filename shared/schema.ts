@@ -76,11 +76,69 @@ export const insertTemplateSchema = createInsertSchema(templates).omit({
 export type InsertTemplate = z.infer<typeof insertTemplateSchema>;
 export type Template = typeof templates.$inferSelect;
 
+// Project Versions table - for version history
+export const projectVersions = pgTable("project_versions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  versionNumber: text("version_number").notNull(),
+  htmlCode: text("html_code").notNull(),
+  cssCode: text("css_code").notNull(),
+  jsCode: text("js_code").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertProjectVersionSchema = createInsertSchema(projectVersions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertProjectVersion = z.infer<typeof insertProjectVersionSchema>;
+export type ProjectVersion = typeof projectVersions.$inferSelect;
+
+// Share Links table - for sharing projects
+export const shareLinks = pgTable("share_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  shareCode: varchar("share_code").notNull().unique(),
+  isActive: text("is_active").notNull().default("true"),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertShareLinkSchema = createInsertSchema(shareLinks).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertShareLink = z.infer<typeof insertShareLinkSchema>;
+export type ShareLink = typeof shareLinks.$inferSelect;
+
+// Component Library table - for reusable components
+export const components = pgTable("components", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  category: text("category").notNull(),
+  htmlCode: text("html_code").notNull(),
+  cssCode: text("css_code").notNull(),
+  jsCode: text("js_code").notNull().default(""),
+  thumbnail: text("thumbnail"),
+  framework: text("framework").notNull().default("vanilla"),
+});
+
+export const insertComponentSchema = createInsertSchema(components).omit({
+  id: true,
+});
+
+export type InsertComponent = z.infer<typeof insertComponentSchema>;
+export type Component = typeof components.$inferSelect;
+
 // API Types
 export interface GenerateCodeRequest {
   prompt: string;
   projectId?: string;
   context?: string;
+  framework?: 'vanilla' | 'tailwind' | 'bootstrap';
 }
 
 export interface GenerateCodeResponse {

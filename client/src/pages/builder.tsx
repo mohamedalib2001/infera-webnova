@@ -5,6 +5,9 @@ import { ChatInput } from "@/components/chat-input";
 import { ChatMessage } from "@/components/chat-message";
 import { CodePreview } from "@/components/code-preview";
 import { EmptyState } from "@/components/empty-state";
+import { VersionHistory } from "@/components/version-history";
+import { ShareDialog } from "@/components/share-dialog";
+import { ComponentLibrary } from "@/components/component-library";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -220,6 +223,18 @@ export default function Builder() {
         />
         
         <div className="flex-1" />
+
+        <ComponentLibrary
+          onInsertComponent={(newHtml, newCss, newJs) => {
+            setHtml((prev) => prev + "\n" + newHtml);
+            setCss((prev) => prev + "\n" + newCss);
+            if (newJs) setJs((prev) => prev + "\n" + newJs);
+          }}
+        />
+        
+        {projectId && <VersionHistory projectId={projectId} onRestore={(h, c, j) => { setHtml(h); setCss(c); setJs(j); }} />}
+        
+        {projectId && <ShareDialog projectId={projectId} />}
         
         <Button
           onClick={handleSave}
