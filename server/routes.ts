@@ -951,6 +951,317 @@ export async function registerRoutes(
     }
   });
 
+  // ============ Owner Routes - مسارات المالك ============
+
+  // Middleware to check owner access
+  const requireOwner = async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.session?.user;
+    if (!user) {
+      return res.status(401).json({ error: "غير مصرح / Unauthorized" });
+    }
+    if (user.role !== 'owner') {
+      return res.status(403).json({ 
+        error: "هذه الصفحة متاحة للمالك فقط / This page is available for owner only" 
+      });
+    }
+    next();
+  };
+
+  // Get all AI assistants
+  app.get("/api/owner/assistants", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const assistants = await storage.getAiAssistants();
+      res.json(assistants);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب المساعدين" });
+    }
+  });
+
+  // Create AI assistant
+  app.post("/api/owner/assistants", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const assistant = await storage.createAiAssistant(req.body);
+      res.status(201).json(assistant);
+    } catch (error) {
+      console.error("Create assistant error:", error);
+      res.status(500).json({ error: "فشل في إنشاء المساعد" });
+    }
+  });
+
+  // Get all instructions
+  app.get("/api/owner/instructions", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const instructions = await storage.getAllInstructions();
+      res.json(instructions);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب الأوامر" });
+    }
+  });
+
+  // Create instruction
+  app.post("/api/owner/instructions", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { assistantId, title, instruction, priority, category, approvalRequired } = req.body;
+      
+      if (!assistantId || !title || !instruction) {
+        return res.status(400).json({ error: "البيانات ناقصة / Missing required fields" });
+      }
+      
+      const newInstruction = await storage.createInstruction({
+        assistantId,
+        title,
+        instruction,
+        priority: priority || "normal",
+        category: category || "general",
+        approvalRequired: approvalRequired ?? true,
+        status: "pending",
+      });
+      
+      // Log the action
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "instruction_created",
+        entityType: "instruction",
+        entityId: newInstruction.id,
+        details: { title, assistantId },
+      });
+      
+      res.status(201).json(newInstruction);
+    } catch (error) {
+      console.error("Create instruction error:", error);
+      res.status(500).json({ error: "فشل في إنشاء الأمر" });
+    }
+  });
+
+  // Execute instruction with AI
+  app.post("/api/owner/instructions/:id/execute", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Get the instruction
+      const instructions = await storage.getAllInstructions();
+      const instruction = instructions.find(i => i.id === id);
+      
+      if (!instruction) {
+        return res.status(404).json({ error: "الأمر غير موجود" });
+      }
+      
+      // Update status to in_progress
+      await storage.updateInstruction(id, { status: "in_progress" });
+      
+      // Check if API key is available
+      if (!process.env.ANTHROPIC_API_KEY && !process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY) {
+        await storage.updateInstruction(id, { 
+          status: "failed", 
+          response: "AI service is currently unavailable. Please configure the API key." 
+        });
+        return res.status(503).json({ 
+          error: "خدمة AI غير متاحة حالياً / AI service is currently unavailable" 
+        });
+      }
+      
+      // Get assistant
+      const assistant = await storage.getAiAssistant(instruction.assistantId);
+      
+      // Execute with Claude
+      const Anthropic = (await import("@anthropic-ai/sdk")).default;
+      const anthropic = new Anthropic();
+      
+      const startTime = Date.now();
+      
+      const response = await anthropic.messages.create({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: assistant?.maxTokens || 4000,
+        system: assistant?.systemPrompt || "You are an AI assistant helping with platform development. Execute the given instruction and provide detailed output.",
+        messages: [
+          { role: "user", content: `Execute this instruction:\n\nTitle: ${instruction.title}\n\nDetails:\n${instruction.instruction}\n\nProvide a detailed response with any code, recommendations, or actions taken.` }
+        ],
+      });
+
+      const textContent = response.content.find(c => c.type === "text");
+      const executionTime = Math.round((Date.now() - startTime) / 1000);
+      
+      // Update instruction with response
+      await storage.updateInstruction(id, { 
+        status: "completed",
+        response: textContent?.text || "No response generated",
+        executionTime,
+        completedAt: new Date(),
+      });
+      
+      // Update assistant stats
+      if (assistant) {
+        await storage.updateAiAssistant(assistant.id, {
+          totalTasksCompleted: (assistant.totalTasksCompleted || 0) + 1,
+        });
+      }
+      
+      // Log the action
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "instruction_executed",
+        entityType: "instruction",
+        entityId: id,
+        details: { executionTime },
+      });
+      
+      res.json({ 
+        success: true, 
+        response: textContent?.text,
+        executionTime,
+      });
+    } catch (error: any) {
+      console.error("Execute instruction error:", error);
+      
+      // Update instruction as failed
+      await storage.updateInstruction(req.params.id, { 
+        status: "failed",
+        response: error.message || "Execution failed",
+      });
+      
+      res.status(500).json({ error: "فشل في تنفيذ الأمر / Failed to execute instruction" });
+    }
+  });
+
+  // Get owner settings
+  app.get("/api/owner/settings", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const settings = await storage.getOwnerSettings(req.session.userId!);
+      res.json(settings || null);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب الإعدادات" });
+    }
+  });
+
+  // Update owner settings
+  app.post("/api/owner/settings", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const existingSettings = await storage.getOwnerSettings(userId);
+      
+      if (existingSettings) {
+        const updated = await storage.updateOwnerSettings(userId, req.body);
+        res.json(updated);
+      } else {
+        const created = await storage.createOwnerSettings({ userId, ...req.body });
+        res.json(created);
+      }
+    } catch (error) {
+      console.error("Update settings error:", error);
+      res.status(500).json({ error: "فشل في حفظ الإعدادات" });
+    }
+  });
+
+  // Get audit logs
+  app.get("/api/owner/logs", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const logs = await storage.getAuditLogs(limit);
+      res.json(logs);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب السجلات" });
+    }
+  });
+
+  // Initialize default AI assistants
+  app.post("/api/owner/initialize-assistants", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const existingAssistants = await storage.getAiAssistants();
+      if (existingAssistants.length > 0) {
+        return res.json({ message: "Assistants already initialized", assistants: existingAssistants });
+      }
+      
+      const defaultAssistants = [
+        {
+          name: "Nova Developer",
+          nameAr: "نوفا المطور",
+          description: "Expert in web development, coding, and technical implementation",
+          descriptionAr: "خبير في تطوير الويب والبرمجة والتنفيذ التقني",
+          specialty: "development",
+          capabilities: ["code_generation", "bug_fixing", "api_integration", "database_design"],
+          systemPrompt: "You are Nova Developer, an expert AI assistant specializing in web development. You help with coding, debugging, API integrations, and technical implementations. Provide clean, efficient, and well-documented code.",
+          model: "claude-sonnet-4-20250514",
+          temperature: 70,
+          maxTokens: 4000,
+          isActive: true,
+          totalTasksCompleted: 0,
+          successRate: 100,
+        },
+        {
+          name: "Nova Designer",
+          nameAr: "نوفا المصمم",
+          description: "Expert in UI/UX design, styling, and visual aesthetics",
+          descriptionAr: "خبير في تصميم واجهات المستخدم والتجربة البصرية",
+          specialty: "design",
+          capabilities: ["ui_design", "css_styling", "responsive_design", "color_schemes"],
+          systemPrompt: "You are Nova Designer, an expert AI assistant specializing in UI/UX design. You help create beautiful, intuitive, and accessible user interfaces with modern design principles.",
+          model: "claude-sonnet-4-20250514",
+          temperature: 80,
+          maxTokens: 3000,
+          isActive: true,
+          totalTasksCompleted: 0,
+          successRate: 100,
+        },
+        {
+          name: "Nova Content",
+          nameAr: "نوفا المحتوى",
+          description: "Expert in content creation, copywriting, and localization",
+          descriptionAr: "خبير في إنشاء المحتوى والكتابة الإبداعية والتوطين",
+          specialty: "content",
+          capabilities: ["copywriting", "translation", "seo_content", "localization"],
+          systemPrompt: "You are Nova Content, an expert AI assistant specializing in content creation. You help write compelling copy, translate content between Arabic and English, and optimize content for SEO.",
+          model: "claude-sonnet-4-20250514",
+          temperature: 85,
+          maxTokens: 3000,
+          isActive: true,
+          totalTasksCompleted: 0,
+          successRate: 100,
+        },
+        {
+          name: "Nova Analyst",
+          nameAr: "نوفا المحلل",
+          description: "Expert in data analysis, metrics, and business intelligence",
+          descriptionAr: "خبير في تحليل البيانات والمقاييس وذكاء الأعمال",
+          specialty: "analytics",
+          capabilities: ["data_analysis", "reporting", "metrics", "optimization"],
+          systemPrompt: "You are Nova Analyst, an expert AI assistant specializing in data analysis and business intelligence. You help analyze metrics, identify trends, and provide actionable insights.",
+          model: "claude-sonnet-4-20250514",
+          temperature: 60,
+          maxTokens: 3000,
+          isActive: true,
+          totalTasksCompleted: 0,
+          successRate: 100,
+        },
+        {
+          name: "Nova Security",
+          nameAr: "نوفا الأمني",
+          description: "Expert in security, compliance, and best practices",
+          descriptionAr: "خبير في الأمان والامتثال وأفضل الممارسات",
+          specialty: "security",
+          capabilities: ["security_audit", "vulnerability_check", "compliance", "best_practices"],
+          systemPrompt: "You are Nova Security, an expert AI assistant specializing in security and compliance. You help identify vulnerabilities, ensure best practices, and maintain platform security.",
+          model: "claude-sonnet-4-20250514",
+          temperature: 50,
+          maxTokens: 3000,
+          isActive: true,
+          totalTasksCompleted: 0,
+          successRate: 100,
+        },
+      ];
+      
+      const createdAssistants = [];
+      for (const assistant of defaultAssistants) {
+        const created = await storage.createAiAssistant(assistant);
+        createdAssistants.push(created);
+      }
+      
+      res.status(201).json({ message: "Assistants initialized", assistants: createdAssistants });
+    } catch (error) {
+      console.error("Initialize assistants error:", error);
+      res.status(500).json({ error: "فشل في تهيئة المساعدين" });
+    }
+  });
+
   // ============ Analytics Routes ============
 
   // Get analytics for user

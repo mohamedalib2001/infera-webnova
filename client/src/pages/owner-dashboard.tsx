@@ -1,0 +1,863 @@
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLanguage } from "@/hooks/use-language";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { 
+  Crown, 
+  Bot, 
+  Settings, 
+  Users, 
+  Activity, 
+  Shield,
+  Send,
+  Play,
+  Pause,
+  CheckCircle,
+  Clock,
+  AlertCircle,
+  Code,
+  Paintbrush,
+  FileText,
+  BarChart3,
+  Sparkles,
+  Terminal,
+  Globe,
+  Server,
+  Database,
+  Zap,
+  MessageSquare,
+  Plus,
+  RefreshCw,
+  Eye,
+  History
+} from "lucide-react";
+import type { AiAssistant, AssistantInstruction, User } from "@shared/schema";
+
+const translations = {
+  ar: {
+    title: "لوحة تحكم المالك",
+    subtitle: "التحكم الكامل في منصة INFERA WebNova",
+    tabs: {
+      command: "مركز القيادة",
+      assistants: "المساعدين AI",
+      platform: "إعدادات المنصة",
+      users: "المستخدمين",
+      logs: "سجل العمليات",
+    },
+    command: {
+      title: "مركز القيادة الاستراتيجي",
+      subtitle: "أرسل أوامرك للمساعدين AI ليقوموا بتنفيذها",
+      newInstruction: "أمر جديد",
+      selectAssistant: "اختر المساعد",
+      instructionTitle: "عنوان الأمر",
+      instructionContent: "تفاصيل الأمر",
+      priority: "الأولوية",
+      priorities: {
+        low: "منخفضة",
+        normal: "عادية",
+        high: "عالية",
+        urgent: "عاجلة",
+      },
+      category: "التصنيف",
+      categories: {
+        development: "تطوير",
+        design: "تصميم",
+        content: "محتوى",
+        fix: "إصلاح",
+        improvement: "تحسين",
+      },
+      requireApproval: "يتطلب موافقة",
+      send: "إرسال الأمر",
+      recentInstructions: "الأوامر الأخيرة",
+      noInstructions: "لا توجد أوامر بعد",
+    },
+    assistants: {
+      title: "فريق المساعدين AI",
+      subtitle: "مساعدون ذكاء اصطناعي يعملون بأوامرك",
+      createNew: "إنشاء مساعد جديد",
+      specialties: {
+        development: "التطوير",
+        design: "التصميم",
+        content: "المحتوى",
+        analytics: "التحليلات",
+        security: "الأمان",
+      },
+      tasksCompleted: "مهام مكتملة",
+      successRate: "نسبة النجاح",
+      active: "نشط",
+      inactive: "غير نشط",
+      sendCommand: "إرسال أمر",
+    },
+    platform: {
+      title: "إعدادات المنصة",
+      subtitle: "التحكم الكامل في إعدادات النظام",
+      general: "عام",
+      platformName: "اسم المنصة",
+      platformNameAr: "اسم المنصة (عربي)",
+      primaryDomain: "النطاق الرئيسي",
+      supportEmail: "بريد الدعم",
+      defaultLanguage: "اللغة الافتراضية",
+      maintenance: "وضع الصيانة",
+      registrationEnabled: "التسجيل مفتوح",
+      announcement: "إعلان عام",
+      announcementAr: "إعلان عام (عربي)",
+      save: "حفظ الإعدادات",
+    },
+    users: {
+      title: "إدارة المستخدمين",
+      subtitle: "عرض وإدارة جميع مستخدمي المنصة",
+      totalUsers: "إجمالي المستخدمين",
+      activeUsers: "المستخدمين النشطين",
+      paidUsers: "المستخدمين المدفوعين",
+    },
+    logs: {
+      title: "سجل العمليات",
+      subtitle: "تتبع جميع الأنشطة والتغييرات",
+      noLogs: "لا توجد سجلات",
+    },
+    stats: {
+      totalUsers: "إجمالي المستخدمين",
+      activeProjects: "المشاريع النشطة",
+      aiGenerations: "توليدات AI",
+      revenue: "الإيرادات",
+    },
+    status: {
+      pending: "قيد الانتظار",
+      in_progress: "جاري التنفيذ",
+      completed: "مكتمل",
+      failed: "فشل",
+    },
+  },
+  en: {
+    title: "Owner Dashboard",
+    subtitle: "Complete control of INFERA WebNova platform",
+    tabs: {
+      command: "Command Center",
+      assistants: "AI Assistants",
+      platform: "Platform Settings",
+      users: "Users",
+      logs: "Audit Logs",
+    },
+    command: {
+      title: "Strategic Command Center",
+      subtitle: "Send commands to your AI assistants for execution",
+      newInstruction: "New Command",
+      selectAssistant: "Select Assistant",
+      instructionTitle: "Command Title",
+      instructionContent: "Command Details",
+      priority: "Priority",
+      priorities: {
+        low: "Low",
+        normal: "Normal",
+        high: "High",
+        urgent: "Urgent",
+      },
+      category: "Category",
+      categories: {
+        development: "Development",
+        design: "Design",
+        content: "Content",
+        fix: "Fix",
+        improvement: "Improvement",
+      },
+      requireApproval: "Requires Approval",
+      send: "Send Command",
+      recentInstructions: "Recent Commands",
+      noInstructions: "No commands yet",
+    },
+    assistants: {
+      title: "AI Assistant Team",
+      subtitle: "AI assistants working under your command",
+      createNew: "Create New Assistant",
+      specialties: {
+        development: "Development",
+        design: "Design",
+        content: "Content",
+        analytics: "Analytics",
+        security: "Security",
+      },
+      tasksCompleted: "Tasks Completed",
+      successRate: "Success Rate",
+      active: "Active",
+      inactive: "Inactive",
+      sendCommand: "Send Command",
+    },
+    platform: {
+      title: "Platform Settings",
+      subtitle: "Complete control of system settings",
+      general: "General",
+      platformName: "Platform Name",
+      platformNameAr: "Platform Name (Arabic)",
+      primaryDomain: "Primary Domain",
+      supportEmail: "Support Email",
+      defaultLanguage: "Default Language",
+      maintenance: "Maintenance Mode",
+      registrationEnabled: "Registration Open",
+      announcement: "Global Announcement",
+      announcementAr: "Global Announcement (Arabic)",
+      save: "Save Settings",
+    },
+    users: {
+      title: "User Management",
+      subtitle: "View and manage all platform users",
+      totalUsers: "Total Users",
+      activeUsers: "Active Users",
+      paidUsers: "Paid Users",
+    },
+    logs: {
+      title: "Audit Logs",
+      subtitle: "Track all activities and changes",
+      noLogs: "No logs available",
+    },
+    stats: {
+      totalUsers: "Total Users",
+      activeProjects: "Active Projects",
+      aiGenerations: "AI Generations",
+      revenue: "Revenue",
+    },
+    status: {
+      pending: "Pending",
+      in_progress: "In Progress",
+      completed: "Completed",
+      failed: "Failed",
+    },
+  },
+};
+
+const specialtyIcons: Record<string, any> = {
+  development: Code,
+  design: Paintbrush,
+  content: FileText,
+  analytics: BarChart3,
+  security: Shield,
+};
+
+const specialtyColors: Record<string, string> = {
+  development: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+  design: "bg-pink-500/10 text-pink-600 dark:text-pink-400",
+  content: "bg-green-500/10 text-green-600 dark:text-green-400",
+  analytics: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
+  security: "bg-red-500/10 text-red-600 dark:text-red-400",
+};
+
+export default function OwnerDashboard() {
+  const { language } = useLanguage();
+  const t = translations[language];
+  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("command");
+  const [showNewInstructionDialog, setShowNewInstructionDialog] = useState(false);
+  const [selectedAssistant, setSelectedAssistant] = useState<string>("");
+  const [instructionForm, setInstructionForm] = useState({
+    title: "",
+    instruction: "",
+    priority: "normal",
+    category: "development",
+    approvalRequired: true,
+  });
+
+  const { data: assistants = [], isLoading: assistantsLoading } = useQuery<AiAssistant[]>({
+    queryKey: ['/api/owner/assistants'],
+  });
+
+  const { data: instructions = [] } = useQuery<AssistantInstruction[]>({
+    queryKey: ['/api/owner/instructions'],
+  });
+
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ['/api/sovereign/users'],
+  });
+
+  const { data: stats } = useQuery<any>({
+    queryKey: ['/api/sovereign/stats'],
+  });
+
+  const sendInstructionMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest('POST', '/api/owner/instructions', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/instructions'] });
+      setShowNewInstructionDialog(false);
+      setInstructionForm({
+        title: "",
+        instruction: "",
+        priority: "normal",
+        category: "development",
+        approvalRequired: true,
+      });
+      toast({
+        title: language === 'ar' ? "تم إرسال الأمر" : "Command Sent",
+        description: language === 'ar' ? "جاري تنفيذ الأمر بواسطة المساعد" : "Command is being executed by the assistant",
+      });
+    },
+  });
+
+  const executeInstructionMutation = useMutation({
+    mutationFn: async (instructionId: string) => {
+      return apiRequest('POST', `/api/owner/instructions/${instructionId}/execute`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/instructions'] });
+      toast({
+        title: language === 'ar' ? "جاري التنفيذ" : "Executing",
+        description: language === 'ar' ? "المساعد يعمل على تنفيذ الأمر" : "Assistant is working on the command",
+      });
+    },
+  });
+
+  const getStatusBadge = (status: string) => {
+    const statusConfig: Record<string, { icon: any; className: string }> = {
+      pending: { icon: Clock, className: "bg-yellow-500/10 text-yellow-600" },
+      in_progress: { icon: RefreshCw, className: "bg-blue-500/10 text-blue-600" },
+      completed: { icon: CheckCircle, className: "bg-green-500/10 text-green-600" },
+      failed: { icon: AlertCircle, className: "bg-red-500/10 text-red-600" },
+    };
+    const config = statusConfig[status] || statusConfig.pending;
+    const Icon = config.icon;
+    return (
+      <Badge className={config.className}>
+        <Icon className="w-3 h-3 ml-1" />
+        {t.status[status as keyof typeof t.status] || status}
+      </Badge>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 text-white">
+              <Crown className="w-8 h-8" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold" data-testid="text-owner-title">{t.title}</h1>
+              <p className="text-muted-foreground">{t.subtitle}</p>
+            </div>
+          </div>
+          <Badge className="bg-gradient-to-r from-amber-500 to-orange-600 text-white text-lg px-4 py-2">
+            <Crown className="w-5 h-5 ml-2" />
+            {language === 'ar' ? 'المالك' : 'Owner'}
+          </Badge>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">{t.stats.totalUsers}</p>
+                  <p className="text-3xl font-bold">{stats?.totalUsers || users.length || 0}</p>
+                </div>
+                <Users className="w-10 h-10 text-blue-500 opacity-50" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">{t.stats.activeProjects}</p>
+                  <p className="text-3xl font-bold">{stats?.totalProjects || 0}</p>
+                </div>
+                <Activity className="w-10 h-10 text-green-500 opacity-50" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">{t.stats.aiGenerations}</p>
+                  <p className="text-3xl font-bold">{stats?.aiGenerations || 0}</p>
+                </div>
+                <Sparkles className="w-10 h-10 text-purple-500 opacity-50" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">{t.stats.revenue}</p>
+                  <p className="text-3xl font-bold">$0</p>
+                </div>
+                <Zap className="w-10 h-10 text-amber-500 opacity-50" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
+            <TabsTrigger value="command" className="gap-2" data-testid="tab-command">
+              <Terminal className="w-4 h-4" />
+              <span className="hidden sm:inline">{t.tabs.command}</span>
+            </TabsTrigger>
+            <TabsTrigger value="assistants" className="gap-2" data-testid="tab-assistants">
+              <Bot className="w-4 h-4" />
+              <span className="hidden sm:inline">{t.tabs.assistants}</span>
+            </TabsTrigger>
+            <TabsTrigger value="platform" className="gap-2" data-testid="tab-platform">
+              <Settings className="w-4 h-4" />
+              <span className="hidden sm:inline">{t.tabs.platform}</span>
+            </TabsTrigger>
+            <TabsTrigger value="users" className="gap-2" data-testid="tab-users">
+              <Users className="w-4 h-4" />
+              <span className="hidden sm:inline">{t.tabs.users}</span>
+            </TabsTrigger>
+            <TabsTrigger value="logs" className="gap-2" data-testid="tab-logs">
+              <History className="w-4 h-4" />
+              <span className="hidden sm:inline">{t.tabs.logs}</span>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="command" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Terminal className="w-5 h-5" />
+                      {t.command.title}
+                    </CardTitle>
+                    <CardDescription>{t.command.subtitle}</CardDescription>
+                  </div>
+                  <Dialog open={showNewInstructionDialog} onOpenChange={setShowNewInstructionDialog}>
+                    <DialogTrigger asChild>
+                      <Button data-testid="button-new-instruction">
+                        <Plus className="w-4 h-4 ml-2" />
+                        {t.command.newInstruction}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle>{t.command.newInstruction}</DialogTitle>
+                        <DialogDescription>
+                          {language === 'ar' ? 'أرسل أمراً جديداً لأحد المساعدين' : 'Send a new command to an assistant'}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label>{t.command.selectAssistant}</Label>
+                          <Select value={selectedAssistant} onValueChange={setSelectedAssistant}>
+                            <SelectTrigger data-testid="select-assistant">
+                              <SelectValue placeholder={t.command.selectAssistant} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {assistants.map((assistant) => (
+                                <SelectItem key={assistant.id} value={assistant.id}>
+                                  {language === 'ar' ? assistant.nameAr : assistant.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>{t.command.instructionTitle}</Label>
+                          <Input
+                            value={instructionForm.title}
+                            onChange={(e) => setInstructionForm({ ...instructionForm, title: e.target.value })}
+                            placeholder={language === 'ar' ? 'مثال: تحسين أداء الصفحة الرئيسية' : 'Example: Improve homepage performance'}
+                            data-testid="input-instruction-title"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>{t.command.instructionContent}</Label>
+                          <Textarea
+                            value={instructionForm.instruction}
+                            onChange={(e) => setInstructionForm({ ...instructionForm, instruction: e.target.value })}
+                            placeholder={language === 'ar' ? 'اكتب تفاصيل الأمر هنا...' : 'Write command details here...'}
+                            rows={5}
+                            data-testid="textarea-instruction"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>{t.command.priority}</Label>
+                            <Select 
+                              value={instructionForm.priority} 
+                              onValueChange={(v) => setInstructionForm({ ...instructionForm, priority: v })}
+                            >
+                              <SelectTrigger data-testid="select-priority">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="low">{t.command.priorities.low}</SelectItem>
+                                <SelectItem value="normal">{t.command.priorities.normal}</SelectItem>
+                                <SelectItem value="high">{t.command.priorities.high}</SelectItem>
+                                <SelectItem value="urgent">{t.command.priorities.urgent}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>{t.command.category}</Label>
+                            <Select 
+                              value={instructionForm.category} 
+                              onValueChange={(v) => setInstructionForm({ ...instructionForm, category: v })}
+                            >
+                              <SelectTrigger data-testid="select-category">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="development">{t.command.categories.development}</SelectItem>
+                                <SelectItem value="design">{t.command.categories.design}</SelectItem>
+                                <SelectItem value="content">{t.command.categories.content}</SelectItem>
+                                <SelectItem value="fix">{t.command.categories.fix}</SelectItem>
+                                <SelectItem value="improvement">{t.command.categories.improvement}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={instructionForm.approvalRequired}
+                            onCheckedChange={(checked) => setInstructionForm({ ...instructionForm, approvalRequired: checked })}
+                            data-testid="switch-approval"
+                          />
+                          <Label>{t.command.requireApproval}</Label>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button
+                          onClick={() => {
+                            if (selectedAssistant && instructionForm.title && instructionForm.instruction) {
+                              sendInstructionMutation.mutate({
+                                assistantId: selectedAssistant,
+                                ...instructionForm,
+                              });
+                            }
+                          }}
+                          disabled={!selectedAssistant || !instructionForm.title || !instructionForm.instruction}
+                          data-testid="button-send-instruction"
+                        >
+                          <Send className="w-4 h-4 ml-2" />
+                          {t.command.send}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <h3 className="font-semibold">{t.command.recentInstructions}</h3>
+                  {instructions.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>{t.command.noInstructions}</p>
+                    </div>
+                  ) : (
+                    <ScrollArea className="h-[400px]">
+                      <div className="space-y-3">
+                        {instructions.map((instruction) => (
+                          <Card key={instruction.id} className="hover-elevate">
+                            <CardContent className="p-4">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    {getStatusBadge(instruction.status)}
+                                    <Badge variant="outline">{instruction.category}</Badge>
+                                    <Badge variant="outline">{instruction.priority}</Badge>
+                                  </div>
+                                  <h4 className="font-medium">{instruction.title}</h4>
+                                  <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+                                    {instruction.instruction}
+                                  </p>
+                                  {instruction.response && (
+                                    <div className="mt-2 p-2 bg-muted rounded text-sm">
+                                      <p className="font-medium mb-1">{language === 'ar' ? 'الرد:' : 'Response:'}</p>
+                                      <p className="text-muted-foreground">{instruction.response}</p>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex gap-2">
+                                  {instruction.status === 'pending' && (
+                                    <Button
+                                      size="sm"
+                                      onClick={() => executeInstructionMutation.mutate(instruction.id)}
+                                      data-testid={`button-execute-${instruction.id}`}
+                                    >
+                                      <Play className="w-4 h-4" />
+                                    </Button>
+                                  )}
+                                  <Button size="icon" variant="ghost">
+                                    <Eye className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="assistants" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Bot className="w-5 h-5" />
+                      {t.assistants.title}
+                    </CardTitle>
+                    <CardDescription>{t.assistants.subtitle}</CardDescription>
+                  </div>
+                  <Button data-testid="button-create-assistant">
+                    <Plus className="w-4 h-4 ml-2" />
+                    {t.assistants.createNew}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {assistantsLoading ? (
+                  <div className="text-center py-8">
+                    <RefreshCw className="w-8 h-8 animate-spin mx-auto" />
+                  </div>
+                ) : assistants.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Bot className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                    <p>{language === 'ar' ? 'لا يوجد مساعدين بعد' : 'No assistants yet'}</p>
+                    <p className="text-sm">{language === 'ar' ? 'أنشئ مساعدك الأول للبدء' : 'Create your first assistant to get started'}</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {assistants.map((assistant) => {
+                      const SpecialtyIcon = specialtyIcons[assistant.specialty] || Bot;
+                      return (
+                        <Card key={assistant.id} className="hover-elevate">
+                          <CardHeader className="pb-3">
+                            <div className="flex items-center gap-3">
+                              <div className={`p-3 rounded-xl ${specialtyColors[assistant.specialty]}`}>
+                                <SpecialtyIcon className="w-6 h-6" />
+                              </div>
+                              <div className="flex-1">
+                                <CardTitle className="text-lg">
+                                  {language === 'ar' ? assistant.nameAr : assistant.name}
+                                </CardTitle>
+                                <Badge className={assistant.isActive ? "bg-green-500/10 text-green-600" : "bg-gray-500/10 text-gray-600"}>
+                                  {assistant.isActive ? t.assistants.active : t.assistants.inactive}
+                                </Badge>
+                              </div>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="space-y-3">
+                            <p className="text-sm text-muted-foreground">
+                              {language === 'ar' ? assistant.descriptionAr : assistant.description}
+                            </p>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div>
+                                <p className="text-muted-foreground">{t.assistants.tasksCompleted}</p>
+                                <p className="font-semibold">{assistant.totalTasksCompleted}</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">{t.assistants.successRate}</p>
+                                <p className="font-semibold">{assistant.successRate}%</p>
+                              </div>
+                            </div>
+                            <Progress value={assistant.successRate} className="h-2" />
+                          </CardContent>
+                          <CardFooter>
+                            <Button 
+                              className="w-full" 
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedAssistant(assistant.id);
+                                setShowNewInstructionDialog(true);
+                              }}
+                              data-testid={`button-command-${assistant.id}`}
+                            >
+                              <Send className="w-4 h-4 ml-2" />
+                              {t.assistants.sendCommand}
+                            </Button>
+                          </CardFooter>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="platform" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="w-5 h-5" />
+                  {t.platform.title}
+                </CardTitle>
+                <CardDescription>{t.platform.subtitle}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>{t.platform.platformName}</Label>
+                      <Input defaultValue="INFERA WebNova" data-testid="input-platform-name" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t.platform.platformNameAr}</Label>
+                      <Input defaultValue="إنفيرا ويب نوفا" data-testid="input-platform-name-ar" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t.platform.primaryDomain}</Label>
+                      <Input placeholder="webnova.infera.com" data-testid="input-domain" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t.platform.supportEmail}</Label>
+                      <Input placeholder="support@infera.com" data-testid="input-support-email" />
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>{t.platform.defaultLanguage}</Label>
+                      <Select defaultValue="ar">
+                        <SelectTrigger data-testid="select-language">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ar">العربية</SelectItem>
+                          <SelectItem value="en">English</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center justify-between p-4 rounded-lg border">
+                      <div>
+                        <Label>{t.platform.maintenance}</Label>
+                        <p className="text-sm text-muted-foreground">
+                          {language === 'ar' ? 'إيقاف المنصة مؤقتاً للصيانة' : 'Temporarily disable the platform'}
+                        </p>
+                      </div>
+                      <Switch data-testid="switch-maintenance" />
+                    </div>
+                    <div className="flex items-center justify-between p-4 rounded-lg border">
+                      <div>
+                        <Label>{t.platform.registrationEnabled}</Label>
+                        <p className="text-sm text-muted-foreground">
+                          {language === 'ar' ? 'السماح بتسجيل مستخدمين جدد' : 'Allow new user registrations'}
+                        </p>
+                      </div>
+                      <Switch defaultChecked data-testid="switch-registration" />
+                    </div>
+                  </div>
+                </div>
+                <Separator />
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>{t.platform.announcement}</Label>
+                    <Textarea placeholder={language === 'ar' ? 'إعلان يظهر لجميع المستخدمين...' : 'Announcement visible to all users...'} data-testid="textarea-announcement" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t.platform.announcementAr}</Label>
+                    <Textarea placeholder="إعلان يظهر لجميع المستخدمين..." data-testid="textarea-announcement-ar" />
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button data-testid="button-save-settings">
+                  <Settings className="w-4 h-4 ml-2" />
+                  {t.platform.save}
+                </Button>
+              </CardFooter>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="users" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="w-5 h-5" />
+                  {t.users.title}
+                </CardTitle>
+                <CardDescription>{t.users.subtitle}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <Card>
+                    <CardContent className="pt-4 text-center">
+                      <p className="text-3xl font-bold">{users.length}</p>
+                      <p className="text-sm text-muted-foreground">{t.users.totalUsers}</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-4 text-center">
+                      <p className="text-3xl font-bold">{users.filter(u => u.isActive).length}</p>
+                      <p className="text-sm text-muted-foreground">{t.users.activeUsers}</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-4 text-center">
+                      <p className="text-3xl font-bold">{users.filter(u => u.role !== 'free').length}</p>
+                      <p className="text-sm text-muted-foreground">{t.users.paidUsers}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+                <ScrollArea className="h-[400px]">
+                  <div className="space-y-2">
+                    {users.map((user) => (
+                      <div key={user.id} className="flex items-center justify-between p-3 rounded-lg border hover-elevate">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold">
+                            {user.username.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-medium">{user.username}</p>
+                            <p className="text-sm text-muted-foreground">{user.email}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge>{user.role}</Badge>
+                          <Badge variant={user.isActive ? "default" : "secondary"}>
+                            {user.isActive ? (language === 'ar' ? 'نشط' : 'Active') : (language === 'ar' ? 'معطل' : 'Inactive')}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="logs" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <History className="w-5 h-5" />
+                  {t.logs.title}
+                </CardTitle>
+                <CardDescription>{t.logs.subtitle}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-12 text-muted-foreground">
+                  <History className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                  <p>{t.logs.noLogs}</p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+}

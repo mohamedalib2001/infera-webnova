@@ -43,7 +43,10 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     pro: { ar: "احترافي", en: "Pro", color: "default" },
     enterprise: { ar: "مؤسسي", en: "Enterprise", color: "default" },
     sovereign: { ar: "سيادي", en: "Sovereign", color: "destructive" },
+    owner: { ar: "المالك", en: "Owner", color: "destructive" },
   };
+
+  const isOwner = user?.role === "owner";
 
   const getInitials = (name?: string | null, email?: string) => {
     if (name) return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
@@ -127,7 +130,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
           </SidebarGroup>
         )}
 
-        {isSovereign && (
+        {(isSovereign || isOwner) && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-amber-600 dark:text-amber-400">
               <Crown className="h-3 w-3 me-1" />
@@ -140,6 +143,27 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                     <Link href="/sovereign" data-testid="nav-sovereign">
                       <Settings className="h-4 w-4" />
                       <span>{language === "ar" ? "إدارة المنظومة" : "System Management"}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {isOwner && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="bg-gradient-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent font-bold">
+              <Crown className="h-3 w-3 me-1 text-amber-500" />
+              {language === "ar" ? "لوحة تحكم المالك" : "Owner Dashboard"}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location === "/owner"}>
+                    <Link href="/owner" data-testid="nav-owner">
+                      <Crown className="h-4 w-4 text-amber-500" />
+                      <span>{language === "ar" ? "مركز القيادة" : "Command Center"}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

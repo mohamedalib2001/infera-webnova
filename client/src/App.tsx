@@ -21,6 +21,7 @@ import ChatbotBuilder from "@/pages/chatbot-builder";
 import Analytics from "@/pages/analytics";
 import SEOOptimizer from "@/pages/seo-optimizer";
 import WhiteLabel from "@/pages/white-label";
+import OwnerDashboard from "@/pages/owner-dashboard";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -38,6 +39,7 @@ function Router() {
       <Route path="/analytics" component={Analytics} />
       <Route path="/seo-optimizer" component={SEOOptimizer} />
       <Route path="/white-label" component={WhiteLabel} />
+      <Route path="/owner" component={OwnerDashboard} />
       <Route path="/preview/:shareCode" component={Preview} />
       <Route component={NotFound} />
     </Switch>
