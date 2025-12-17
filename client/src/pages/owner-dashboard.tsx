@@ -67,7 +67,7 @@ import {
   Monitor,
   Link as LinkIcon
 } from "lucide-react";
-import type { AiAssistant, AssistantInstruction, User, PaymentMethod, AuthMethod } from "@shared/schema";
+import type { AiAssistant, AssistantInstruction, User, PaymentMethod, AuthMethod, SovereignAssistant, SovereignCommand, SovereignActionLog } from "@shared/schema";
 
 const translations = {
   ar: {
@@ -76,6 +76,7 @@ const translations = {
     tabs: {
       command: "مركز القيادة",
       assistants: "المساعدين AI",
+      sovereign: "المساعدين السياديين",
       payments: "بوابات الدفع",
       auth: "طرق الدخول",
       platform: "إعدادات المنصة",
@@ -219,6 +220,44 @@ const translations = {
       completed: "مكتمل",
       failed: "فشل",
     },
+    sovereign: {
+      title: "المساعدون السياديون",
+      subtitle: "وكلاء AI على مستوى المنصة ينفذون الرؤية الاستراتيجية للمالك",
+      initialize: "تهيئة المساعدين السياديين",
+      noAssistants: "لم يتم تهيئة المساعدين السياديين بعد.",
+      issueCommand: "إصدار أمر",
+      viewLogs: "عرض السجلات",
+      types: {
+        ai_governor: "حاكم الذكاء الاصطناعي",
+        platform_architect: "مهندس المنصة",
+        operations_commander: "قائد العمليات",
+        security_sentinel: "حارس الأمان",
+        revenue_strategist: "استراتيجي الإيرادات",
+      },
+      capabilities: "القدرات",
+      constraints: "القيود",
+      scope: "نطاق الصلاحيات",
+      autonomy: "الاستقلالية",
+      autonomousMode: "وضع مستقل",
+      manualMode: "وضع يدوي",
+      active: "نشط",
+      inactive: "غير نشط",
+      commandQueue: "قائمة الأوامر",
+      commandStatus: {
+        pending: "قيد الانتظار",
+        approved: "معتمد",
+        executing: "قيد التنفيذ",
+        completed: "مكتمل",
+        failed: "فشل",
+        cancelled: "ملغي",
+        rolled_back: "تم التراجع",
+      },
+      approve: "اعتماد",
+      cancel: "إلغاء",
+      rollback: "تراجع",
+      recentActivity: "النشاط الأخير",
+      noActivity: "لا يوجد نشاط حتى الآن",
+    },
   },
   en: {
     title: "Owner Dashboard",
@@ -226,6 +265,7 @@ const translations = {
     tabs: {
       command: "Command Center",
       assistants: "AI Assistants",
+      sovereign: "Sovereign AI",
       payments: "Payment Gateways",
       auth: "Login Methods",
       platform: "Platform Settings",
@@ -369,6 +409,44 @@ const translations = {
       completed: "Completed",
       failed: "Failed",
     },
+    sovereign: {
+      title: "Sovereign AI Assistants",
+      subtitle: "Platform-level AI agents executing the owner's strategic intent",
+      initialize: "Initialize Sovereign Assistants",
+      noAssistants: "Sovereign assistants have not been initialized yet.",
+      issueCommand: "Issue Command",
+      viewLogs: "View Logs",
+      types: {
+        ai_governor: "AI Governor",
+        platform_architect: "Platform Architect",
+        operations_commander: "Operations Commander",
+        security_sentinel: "Security Sentinel",
+        revenue_strategist: "Revenue Strategist",
+      },
+      capabilities: "Capabilities",
+      constraints: "Constraints",
+      scope: "Scope of Authority",
+      autonomy: "Autonomy",
+      autonomousMode: "Autonomous Mode",
+      manualMode: "Manual Mode",
+      active: "Active",
+      inactive: "Inactive",
+      commandQueue: "Command Queue",
+      commandStatus: {
+        pending: "Pending",
+        approved: "Approved",
+        executing: "Executing",
+        completed: "Completed",
+        failed: "Failed",
+        cancelled: "Cancelled",
+        rolled_back: "Rolled Back",
+      },
+      approve: "Approve",
+      cancel: "Cancel",
+      rollback: "Rollback",
+      recentActivity: "Recent Activity",
+      noActivity: "No activity yet",
+    },
   },
 };
 
@@ -398,6 +476,22 @@ const specialtyColors: Record<string, string> = {
   content: "bg-green-500/10 text-green-600 dark:text-green-400",
   analytics: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
   security: "bg-red-500/10 text-red-600 dark:text-red-400",
+};
+
+const sovereignAssistantIcons: Record<string, any> = {
+  ai_governor: Sparkles,
+  platform_architect: Building,
+  operations_commander: Shield,
+  security_sentinel: Shield,
+  revenue_strategist: TrendingUp,
+};
+
+const sovereignAssistantColors: Record<string, string> = {
+  ai_governor: "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/30",
+  platform_architect: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30",
+  operations_commander: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30",
+  security_sentinel: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30",
+  revenue_strategist: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
 };
 
 export default function OwnerDashboard() {
@@ -441,6 +535,102 @@ export default function OwnerDashboard() {
 
   const { data: authMethods = [], isLoading: authMethodsLoading } = useQuery<AuthMethod[]>({
     queryKey: ['/api/owner/auth-methods'],
+  });
+
+  const { data: sovereignAssistants = [], isLoading: sovereignAssistantsLoading } = useQuery<SovereignAssistant[]>({
+    queryKey: ['/api/owner/sovereign-assistants'],
+  });
+
+  const { data: sovereignCommands = [] } = useQuery<SovereignCommand[]>({
+    queryKey: ['/api/owner/sovereign-commands'],
+  });
+
+  const { data: sovereignLogs = [] } = useQuery<SovereignActionLog[]>({
+    queryKey: ['/api/owner/sovereign-logs'],
+  });
+
+  const initializeSovereignAssistantsMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', '/api/owner/initialize-sovereign-assistants');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/sovereign-assistants'] });
+      toast({
+        title: language === 'ar' ? "تم تهيئة المساعدين السياديين" : "Sovereign Assistants Initialized",
+        description: language === 'ar' ? "تمت إضافة جميع المساعدين السياديين بنجاح" : "All sovereign assistants have been added successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: language === 'ar' ? "خطأ" : "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const toggleSovereignAssistantMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      return apiRequest('PATCH', `/api/owner/sovereign-assistants/${id}/toggle`, { isActive });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/sovereign-assistants'] });
+    },
+  });
+
+  const toggleSovereignAutonomyMutation = useMutation({
+    mutationFn: async ({ id, isAutonomous }: { id: string; isAutonomous: boolean }) => {
+      return apiRequest('PATCH', `/api/owner/sovereign-assistants/${id}/autonomy`, { isAutonomous });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/sovereign-assistants'] });
+      toast({
+        title: language === 'ar' ? "تم تحديث الاستقلالية" : "Autonomy Updated",
+        description: language === 'ar' ? "تم تحديث وضع الاستقلالية" : "Autonomy mode has been updated",
+      });
+    },
+  });
+
+  const approveSovereignCommandMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest('PATCH', `/api/owner/sovereign-commands/${id}/approve`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/sovereign-commands'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/sovereign-logs'] });
+      toast({
+        title: language === 'ar' ? "تمت الموافقة" : "Approved",
+        description: language === 'ar' ? "تمت الموافقة على الأمر" : "Command has been approved",
+      });
+    },
+  });
+
+  const cancelSovereignCommandMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest('PATCH', `/api/owner/sovereign-commands/${id}/cancel`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/sovereign-commands'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/sovereign-logs'] });
+      toast({
+        title: language === 'ar' ? "تم الإلغاء" : "Cancelled",
+        description: language === 'ar' ? "تم إلغاء الأمر" : "Command has been cancelled",
+      });
+    },
+  });
+
+  const rollbackSovereignCommandMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest('PATCH', `/api/owner/sovereign-commands/${id}/rollback`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/sovereign-commands'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/sovereign-logs'] });
+      toast({
+        title: language === 'ar' ? "تم التراجع" : "Rolled Back",
+        description: language === 'ar' ? "تم التراجع عن الأمر" : "Command has been rolled back",
+      });
+    },
   });
 
   const initializeAuthMethodsMutation = useMutation({
@@ -662,10 +852,14 @@ export default function OwnerDashboard() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 lg:w-auto lg:inline-grid gap-1">
             <TabsTrigger value="command" className="gap-2" data-testid="tab-command">
               <Terminal className="w-4 h-4" />
               <span className="hidden sm:inline">{t.tabs.command}</span>
+            </TabsTrigger>
+            <TabsTrigger value="sovereign" className="gap-2" data-testid="tab-sovereign">
+              <Crown className="w-4 h-4" />
+              <span className="hidden sm:inline">{t.tabs.sovereign}</span>
             </TabsTrigger>
             <TabsTrigger value="assistants" className="gap-2" data-testid="tab-assistants">
               <Bot className="w-4 h-4" />
@@ -876,6 +1070,236 @@ export default function OwnerDashboard() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="sovereign" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Crown className="w-5 h-5 text-amber-500" />
+                      {t.sovereign.title}
+                    </CardTitle>
+                    <CardDescription>{t.sovereign.subtitle}</CardDescription>
+                  </div>
+                  {sovereignAssistants.length === 0 && (
+                    <Button 
+                      onClick={() => initializeSovereignAssistantsMutation.mutate()}
+                      disabled={initializeSovereignAssistantsMutation.isPending}
+                      data-testid="button-initialize-sovereign"
+                    >
+                      {initializeSovereignAssistantsMutation.isPending ? (
+                        <RefreshCw className="w-4 h-4 animate-spin ml-2" />
+                      ) : (
+                        <Plus className="w-4 h-4 ml-2" />
+                      )}
+                      {t.sovereign.initialize}
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {sovereignAssistantsLoading ? (
+                  <div className="text-center py-8">
+                    <RefreshCw className="w-8 h-8 animate-spin mx-auto" />
+                  </div>
+                ) : sovereignAssistants.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Crown className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                    <p>{t.sovereign.noAssistants}</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {sovereignAssistants.map((assistant) => {
+                      const AssistantIcon = sovereignAssistantIcons[assistant.type] || Crown;
+                      const colorClass = sovereignAssistantColors[assistant.type] || "bg-gray-500/10 text-gray-600";
+                      return (
+                        <Card key={assistant.id} className={`hover-elevate border ${colorClass.split(' ')[2] || 'border-border'}`}>
+                          <CardHeader className="pb-3">
+                            <div className="flex items-center gap-3">
+                              <div className={`p-3 rounded-xl ${colorClass}`}>
+                                <AssistantIcon className="w-6 h-6" />
+                              </div>
+                              <div className="flex-1">
+                                <CardTitle className="text-lg">
+                                  {language === 'ar' ? assistant.nameAr : assistant.name}
+                                </CardTitle>
+                                <p className="text-sm text-muted-foreground line-clamp-1">
+                                  {language === 'ar' ? assistant.descriptionAr : assistant.description}
+                                </p>
+                              </div>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <div className="flex items-center justify-between gap-2">
+                              <Badge className={assistant.isActive ? "bg-green-500/10 text-green-600" : "bg-gray-500/10 text-gray-600"}>
+                                {assistant.isActive ? t.sovereign.active : t.sovereign.inactive}
+                              </Badge>
+                              <Switch
+                                checked={assistant.isActive}
+                                onCheckedChange={(checked) => toggleSovereignAssistantMutation.mutate({ id: assistant.id, isActive: checked })}
+                                data-testid={`switch-sovereign-active-${assistant.id}`}
+                              />
+                            </div>
+                            
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm text-muted-foreground">{t.sovereign.autonomy}:</span>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className={assistant.isAutonomous ? "bg-amber-500/10 text-amber-600" : ""}>
+                                  {assistant.isAutonomous ? t.sovereign.autonomousMode : t.sovereign.manualMode}
+                                </Badge>
+                                <Switch
+                                  checked={assistant.isAutonomous}
+                                  onCheckedChange={(checked) => toggleSovereignAutonomyMutation.mutate({ id: assistant.id, isAutonomous: checked })}
+                                  data-testid={`switch-sovereign-autonomy-${assistant.id}`}
+                                />
+                              </div>
+                            </div>
+
+                            <Separator />
+
+                            <div className="space-y-2">
+                              <p className="text-sm font-medium">{t.sovereign.capabilities}:</p>
+                              <div className="flex flex-wrap gap-1">
+                                {((language === 'ar' ? assistant.capabilitiesAr : assistant.capabilities) || []).slice(0, 3).map((cap, idx) => (
+                                  <Badge key={idx} variant="secondary" className="text-xs">
+                                    {cap}
+                                  </Badge>
+                                ))}
+                                {(assistant.capabilities?.length || 0) > 3 && (
+                                  <Badge variant="outline" className="text-xs">+{(assistant.capabilities?.length || 0) - 3}</Badge>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <p className="text-sm font-medium">{t.sovereign.constraints}:</p>
+                              <div className="flex flex-wrap gap-1">
+                                {(assistant.constraints || []).slice(0, 2).map((constraint, idx) => (
+                                  <Badge key={idx} variant="outline" className="text-xs text-muted-foreground">
+                                    {constraint}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          </CardContent>
+                          <CardFooter className="pt-0">
+                            <Button variant="outline" size="sm" className="w-full" data-testid={`button-command-${assistant.id}`}>
+                              <Send className="w-4 h-4 ml-2" />
+                              {t.sovereign.issueCommand}
+                            </Button>
+                          </CardFooter>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {sovereignCommands.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Terminal className="w-5 h-5" />
+                    {t.sovereign.commandQueue}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[300px]">
+                    <div className="space-y-3">
+                      {sovereignCommands.map((command) => (
+                        <Card key={command.id} className="hover-elevate">
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Badge className={
+                                    command.status === 'completed' ? "bg-green-500/10 text-green-600" :
+                                    command.status === 'executing' ? "bg-blue-500/10 text-blue-600" :
+                                    command.status === 'failed' ? "bg-red-500/10 text-red-600" :
+                                    command.status === 'cancelled' ? "bg-gray-500/10 text-gray-600" :
+                                    command.status === 'rolled_back' ? "bg-orange-500/10 text-orange-600" :
+                                    "bg-yellow-500/10 text-yellow-600"
+                                  }>
+                                    {t.sovereign.commandStatus[command.status as keyof typeof t.sovereign.commandStatus] || command.status}
+                                  </Badge>
+                                  <Badge variant="outline">{command.priority}</Badge>
+                                </div>
+                                <h4 className="font-medium">{command.directive}</h4>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  {new Date(command.createdAt).toLocaleString(language === 'ar' ? 'ar-SA' : 'en-US')}
+                                </p>
+                              </div>
+                              <div className="flex gap-2">
+                                {command.status === 'pending' && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      onClick={() => approveSovereignCommandMutation.mutate(command.id)}
+                                      data-testid={`button-approve-${command.id}`}
+                                    >
+                                      <CheckCircle className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => cancelSovereignCommandMutation.mutate(command.id)}
+                                      data-testid={`button-cancel-${command.id}`}
+                                    >
+                                      <AlertCircle className="w-4 h-4" />
+                                    </Button>
+                                  </>
+                                )}
+                                {(command.status === 'completed' || command.status === 'executing') && (
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => rollbackSovereignCommandMutation.mutate(command.id)}
+                                    data-testid={`button-rollback-${command.id}`}
+                                  >
+                                    <History className="w-4 h-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            )}
+
+            {sovereignLogs.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <History className="w-5 h-5" />
+                    {t.sovereign.recentActivity}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[200px]">
+                    <div className="space-y-2">
+                      {sovereignLogs.slice(0, 10).map((log) => (
+                        <div key={log.id} className="flex items-center gap-3 p-2 rounded hover-elevate">
+                          <div className="w-2 h-2 rounded-full bg-blue-500" />
+                          <div className="flex-1">
+                            <p className="text-sm">{language === 'ar' ? log.eventDescriptionAr : log.eventDescription}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(log.createdAt).toLocaleString(language === 'ar' ? 'ar-SA' : 'en-US')}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="assistants" className="space-y-6">
