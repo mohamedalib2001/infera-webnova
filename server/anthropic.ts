@@ -8,6 +8,54 @@ const anthropic = new Anthropic({
   ...(baseURL && { baseURL }),
 });
 
+function extractField(content: string, fieldName: string): string {
+  const patterns = [
+    new RegExp(`"${fieldName}"\\s*:\\s*"((?:[^"\\\\]|\\\\[\\s\\S])*)"`, 's'),
+    new RegExp(`"${fieldName}"\\s*:\\s*\`((?:[^\`\\\\]|\\\\[\\s\\S])*)\``, 's'),
+    new RegExp(`"${fieldName}"\\s*:\\s*'((?:[^'\\\\]|\\\\[\\s\\S])*)'`, 's'),
+  ];
+  
+  for (const pattern of patterns) {
+    const match = content.match(pattern);
+    if (match) {
+      return match[1]
+        .replace(/\\n/g, '\n')
+        .replace(/\\t/g, '\t')
+        .replace(/\\"/g, '"')
+        .replace(/\\\\/g, '\\');
+    }
+  }
+  
+  const startMarker = `"${fieldName}": "`;
+  const startIdx = content.indexOf(startMarker);
+  if (startIdx !== -1) {
+    let endIdx = startIdx + startMarker.length;
+    let depth = 0;
+    let escaped = false;
+    
+    while (endIdx < content.length) {
+      const char = content[endIdx];
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === '"' && depth === 0) {
+        break;
+      }
+      endIdx++;
+    }
+    
+    const extracted = content.substring(startIdx + startMarker.length, endIdx);
+    return extracted
+      .replace(/\\n/g, '\n')
+      .replace(/\\t/g, '\t')
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, '\\');
+  }
+  
+  return '';
+}
+
 function parseJsonResponse(content: string): any {
   let jsonContent = content.trim();
   
@@ -28,19 +76,19 @@ function parseJsonResponse(content: string): any {
   try {
     return JSON.parse(jsonContent);
   } catch (parseError) {
-    const htmlMatch = jsonContent.match(/"html"\s*:\s*"((?:[^"\\]|\\[\s\S])*)"/);
-    const cssMatch = jsonContent.match(/"css"\s*:\s*"((?:[^"\\]|\\[\s\S])*)"/);
-    const jsMatch = jsonContent.match(/"js"\s*:\s*"((?:[^"\\]|\\[\s\S])*)"/);
-    const messageMatch = jsonContent.match(/"message"\s*:\s*"((?:[^"\\]|\\[\s\S])*)"/)
+    console.log("JSON parse failed, trying field extraction...");
     
-    if (htmlMatch || cssMatch) {
-      return {
-        html: htmlMatch ? htmlMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : '',
-        css: cssMatch ? cssMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : '',
-        js: jsMatch ? jsMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : '',
-        message: messageMatch ? messageMatch[1] : 'Generated successfully!'
-      };
+    const html = extractField(jsonContent, 'html');
+    const css = extractField(jsonContent, 'css');
+    const js = extractField(jsonContent, 'js');
+    const message = extractField(jsonContent, 'message');
+    
+    if (html || css) {
+      console.log("Field extraction successful");
+      return { html, css, js, message: message || 'Website generated!' };
     }
+    
+    console.error("All parsing methods failed");
     throw parseError;
   }
 }
