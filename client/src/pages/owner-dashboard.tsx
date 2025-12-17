@@ -257,6 +257,36 @@ const translations = {
       rollback: "تراجع",
       recentActivity: "النشاط الأخير",
       noActivity: "لا يوجد نشاط حتى الآن",
+      // Platform State Overview
+      platformState: "نظرة عامة على حالة المنصة",
+      healthScore: "درجة الصحة",
+      healthStatus: {
+        healthy: "سليم",
+        degraded: "متدهور",
+        critical: "حرج",
+        emergency: "طوارئ",
+      },
+      systemStatus: "حالة النظام",
+      servicesOperational: "خدمات تعمل",
+      // Simulation Mode
+      simulationMode: "وضع المحاكاة",
+      runSimulation: "تشغيل محاكاة",
+      simulationDescription: "معاينة تأثير الأوامر بدون تنفيذ فعلي",
+      projectedImpact: "التأثير المتوقع",
+      affectedEntities: "الكيانات المتأثرة",
+      riskScore: "درجة المخاطر",
+      recommendations: "التوصيات",
+      // Emergency Controls
+      emergencyControls: "ضوابط الطوارئ",
+      emergencyDescription: "مفاتيح إيقاف شاملة للمنصة",
+      activateEmergency: "تفعيل ضابط طوارئ",
+      deactivateEmergency: "إلغاء تفعيل",
+      emergencyTypes: {
+        ai_suspension: "تعليق خدمات AI",
+        platform_lockdown: "إغلاق المنصة",
+        feature_disable: "تعطيل ميزة",
+      },
+      noActiveEmergency: "لا توجد ضوابط طوارئ نشطة",
     },
   },
   en: {
@@ -446,6 +476,36 @@ const translations = {
       rollback: "Rollback",
       recentActivity: "Recent Activity",
       noActivity: "No activity yet",
+      // Platform State Overview
+      platformState: "Platform State Overview",
+      healthScore: "Health Score",
+      healthStatus: {
+        healthy: "Healthy",
+        degraded: "Degraded",
+        critical: "Critical",
+        emergency: "Emergency",
+      },
+      systemStatus: "System Status",
+      servicesOperational: "Services Operational",
+      // Simulation Mode
+      simulationMode: "Simulation Mode",
+      runSimulation: "Run Simulation",
+      simulationDescription: "Preview command impact without live execution",
+      projectedImpact: "Projected Impact",
+      affectedEntities: "Affected Entities",
+      riskScore: "Risk Score",
+      recommendations: "Recommendations",
+      // Emergency Controls
+      emergencyControls: "Emergency Controls",
+      emergencyDescription: "Platform-wide kill switches and safety mechanisms",
+      activateEmergency: "Activate Emergency Control",
+      deactivateEmergency: "Deactivate",
+      emergencyTypes: {
+        ai_suspension: "AI Services Suspension",
+        platform_lockdown: "Platform Lockdown",
+        feature_disable: "Feature Disable",
+      },
+      noActiveEmergency: "No active emergency controls",
     },
   },
 };
@@ -549,6 +609,15 @@ export default function OwnerDashboard() {
     queryKey: ['/api/owner/sovereign-logs'],
   });
 
+  const { data: platformState } = useQuery<any>({
+    queryKey: ['/api/owner/platform-state'],
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  const { data: emergencyControls = [] } = useQuery<any[]>({
+    queryKey: ['/api/owner/emergency-controls'],
+  });
+
   const initializeSovereignAssistantsMutation = useMutation({
     mutationFn: async () => {
       return apiRequest('POST', '/api/owner/initialize-sovereign-assistants');
@@ -629,6 +698,37 @@ export default function OwnerDashboard() {
       toast({
         title: language === 'ar' ? "تم التراجع" : "Rolled Back",
         description: language === 'ar' ? "تم التراجع عن الأمر" : "Command has been rolled back",
+      });
+    },
+  });
+
+  const activateEmergencyMutation = useMutation({
+    mutationFn: async (data: { type: string; scope: string; reason: string; reasonAr?: string }) => {
+      return apiRequest('POST', '/api/owner/emergency-controls/activate', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/emergency-controls'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/platform-state'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/sovereign-logs'] });
+      toast({
+        title: language === 'ar' ? "تم تفعيل ضابط الطوارئ" : "Emergency Control Activated",
+        description: language === 'ar' ? "تم تفعيل ضابط الطوارئ بنجاح" : "Emergency control has been activated",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deactivateEmergencyMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest('POST', `/api/owner/emergency-controls/${id}/deactivate`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/emergency-controls'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/platform-state'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/sovereign-logs'] });
+      toast({
+        title: language === 'ar' ? "تم إلغاء تفعيل الطوارئ" : "Emergency Control Deactivated",
+        description: language === 'ar' ? "تم إلغاء تفعيل ضابط الطوارئ" : "Emergency control has been deactivated",
       });
     },
   });
@@ -1073,6 +1173,148 @@ export default function OwnerDashboard() {
           </TabsContent>
 
           <TabsContent value="sovereign" className="space-y-6">
+            {/* Platform State Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card className={platformState?.healthStatus === 'emergency' ? 'border-red-500' : platformState?.healthStatus === 'critical' ? 'border-orange-500' : ''}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm text-muted-foreground">{t.sovereign.healthScore}</p>
+                      <p className="text-2xl font-bold">{platformState?.overallHealthScore || 100}%</p>
+                    </div>
+                    <div className={`p-3 rounded-xl ${
+                      platformState?.healthStatus === 'healthy' ? 'bg-green-500/10 text-green-600' :
+                      platformState?.healthStatus === 'degraded' ? 'bg-yellow-500/10 text-yellow-600' :
+                      platformState?.healthStatus === 'critical' ? 'bg-orange-500/10 text-orange-600' :
+                      'bg-red-500/10 text-red-600'
+                    }`}>
+                      <Activity className="w-6 h-6" />
+                    </div>
+                  </div>
+                  <Badge className={`mt-2 ${
+                    platformState?.healthStatus === 'healthy' ? 'bg-green-500/10 text-green-600' :
+                    platformState?.healthStatus === 'degraded' ? 'bg-yellow-500/10 text-yellow-600' :
+                    platformState?.healthStatus === 'critical' ? 'bg-orange-500/10 text-orange-600' :
+                    'bg-red-500/10 text-red-600'
+                  }`}>
+                    {(t.sovereign.healthStatus as any)?.[platformState?.healthStatus || 'healthy'] || platformState?.healthStatus}
+                  </Badge>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm text-muted-foreground">{language === 'ar' ? 'المساعدون النشطون' : 'Active Assistants'}</p>
+                      <p className="text-2xl font-bold">{platformState?.activeSovereignAssistants || 0}/5</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-violet-500/10 text-violet-600">
+                      <Crown className="w-6 h-6" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm text-muted-foreground">{language === 'ar' ? 'أوامر قيد الانتظار' : 'Pending Commands'}</p>
+                      <p className="text-2xl font-bold">{platformState?.pendingCommands || 0}</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-blue-500/10 text-blue-600">
+                      <FileText className="w-6 h-6" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className={emergencyControls.filter((c: any) => c.isActive).length > 0 ? 'border-red-500 bg-red-500/5' : ''}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm text-muted-foreground">{t.sovereign.emergencyControls}</p>
+                      <p className="text-2xl font-bold">{emergencyControls.filter((c: any) => c.isActive).length}</p>
+                    </div>
+                    <div className={`p-3 rounded-xl ${emergencyControls.filter((c: any) => c.isActive).length > 0 ? 'bg-red-500/10 text-red-600' : 'bg-gray-500/10 text-gray-600'}`}>
+                      <AlertCircle className="w-6 h-6" />
+                    </div>
+                  </div>
+                  {emergencyControls.filter((c: any) => c.isActive).length > 0 && (
+                    <Badge className="mt-2 bg-red-500/10 text-red-600">
+                      {language === 'ar' ? 'نشط' : 'Active'}
+                    </Badge>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Emergency Controls Section */}
+            <Card className="border-red-500/30">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-red-600">
+                      <AlertCircle className="w-5 h-5" />
+                      {t.sovereign.emergencyControls}
+                    </CardTitle>
+                    <CardDescription>{t.sovereign.emergencyDescription}</CardDescription>
+                  </div>
+                  <Button 
+                    variant="destructive"
+                    onClick={() => activateEmergencyMutation.mutate({
+                      type: 'ai_suspension',
+                      scope: 'global',
+                      reason: 'Manual activation by owner',
+                      reasonAr: 'تفعيل يدوي من المالك'
+                    })}
+                    disabled={activateEmergencyMutation.isPending}
+                    data-testid="button-activate-emergency"
+                  >
+                    <AlertCircle className="w-4 h-4 ml-2" />
+                    {t.sovereign.activateEmergency}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {emergencyControls.filter((c: any) => c.isActive).length === 0 ? (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <Shield className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p>{t.sovereign.noActiveEmergency}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {emergencyControls.filter((c: any) => c.isActive).map((control: any) => (
+                      <div key={control.id} className="flex items-center justify-between gap-4 p-3 bg-red-500/10 rounded-lg border border-red-500/30">
+                        <div className="flex items-center gap-3">
+                          <AlertCircle className="w-5 h-5 text-red-600" />
+                          <div>
+                            <p className="font-medium text-red-600">
+                              {(t.sovereign.emergencyTypes as any)?.[control.type] || control.type}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {language === 'ar' ? control.reasonAr || control.reason : control.reason}
+                            </p>
+                          </div>
+                        </div>
+                        <Button 
+                          variant="outline"
+                          size="sm"
+                          onClick={() => deactivateEmergencyMutation.mutate(control.id)}
+                          disabled={deactivateEmergencyMutation.isPending}
+                          data-testid={`button-deactivate-emergency-${control.id}`}
+                        >
+                          {t.sovereign.deactivateEmergency}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Sovereign Assistants */}
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between gap-4 flex-wrap">

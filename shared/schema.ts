@@ -1120,6 +1120,14 @@ export const sovereignCommands = pgTable("sovereign_commands", {
     estimatedDuration: number;
     riskAssessment: string;
   }>(),
+  // Simulation mode - preview impact without execution
+  isSimulation: boolean("is_simulation").notNull().default(false),
+  simulationResult: jsonb("simulation_result").$type<{
+    projectedImpact: Record<string, any>;
+    affectedEntities: string[];
+    riskScore: number;
+    recommendations: string[];
+  }>(),
   // Approval workflow
   requiresApproval: boolean("requires_approval").notNull().default(true),
   isApproved: boolean("is_approved").default(false),
@@ -1251,3 +1259,35 @@ export const insertSovereignPolicySchema = createInsertSchema(sovereignPolicies)
 
 export type InsertSovereignPolicy = z.infer<typeof insertSovereignPolicySchema>;
 export type SovereignPolicy = typeof sovereignPolicies.$inferSelect;
+
+// ==================== PLATFORM STATE OVERVIEW ====================
+
+// Platform State - Real-time health and risk monitoring
+export interface PlatformStateOverview {
+  // Health metrics
+  overallHealthScore: number; // 0-100
+  healthStatus: 'healthy' | 'degraded' | 'critical' | 'emergency';
+  // Risk indicators
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  activeThreats: number;
+  pendingAlerts: number;
+  // System status
+  aiServicesStatus: 'operational' | 'limited' | 'down';
+  paymentServicesStatus: 'operational' | 'limited' | 'down';
+  authServicesStatus: 'operational' | 'limited' | 'down';
+  // Sovereign assistants
+  activeSovereignAssistants: number;
+  pendingCommands: number;
+  executingCommands: number;
+  // Emergency controls
+  activeEmergencyControls: number;
+  lastEmergencyEvent: string | null;
+  // Anomalies
+  anomalyAlerts: Array<{
+    type: string;
+    severity: string;
+    message: string;
+    messageAr: string;
+    timestamp: string;
+  }>;
+}

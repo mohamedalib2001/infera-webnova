@@ -2208,65 +2208,6 @@ export async function registerRoutes(
     }
   });
 
-  // ============ Emergency Controls Routes (Owner) ============
-  
-  app.get("/api/owner/emergency-controls", requireAuth, requireOwner, async (req, res) => {
-    try {
-      const controls = await storage.getEmergencyControls();
-      res.json(controls);
-    } catch (error) {
-      res.status(500).json({ error: "فشل في جلب عناصر التحكم في الطوارئ / Failed to get emergency controls" });
-    }
-  });
-
-  app.get("/api/owner/emergency-controls/active", requireAuth, requireOwner, async (req, res) => {
-    try {
-      const controls = await storage.getActiveEmergencyControls();
-      res.json(controls);
-    } catch (error) {
-      res.status(500).json({ error: "فشل في جلب عناصر التحكم النشطة / Failed to get active emergency controls" });
-    }
-  });
-
-  app.post("/api/owner/emergency-controls", requireAuth, requireOwner, async (req, res) => {
-    try {
-      const validatedData = insertEmergencyControlSchema.parse({
-        ...req.body,
-        activatedBy: req.session.userId!,
-      });
-      const control = await storage.createEmergencyControl(validatedData);
-      await storage.createAuditLog({
-        userId: req.session.userId!,
-        action: "emergency_control_activated",
-        entityType: "emergency_control",
-        entityId: control.id,
-        details: { type: control.type, scope: control.scope, reason: control.reason },
-      });
-      res.status(201).json(control);
-    } catch (error: any) {
-      if (error.name === "ZodError") {
-        return res.status(400).json({ error: "بيانات غير صالحة / Invalid data", details: error.errors });
-      }
-      res.status(500).json({ error: "فشل في إنشاء تحكم الطوارئ / Failed to create emergency control" });
-    }
-  });
-
-  app.patch("/api/owner/emergency-controls/:id/deactivate", requireAuth, requireOwner, async (req, res) => {
-    try {
-      const control = await storage.deactivateEmergencyControl(req.params.id, req.session.userId!);
-      if (!control) return res.status(404).json({ error: "التحكم غير موجود / Control not found" });
-      await storage.createAuditLog({
-        userId: req.session.userId!,
-        action: "emergency_control_deactivated",
-        entityType: "emergency_control",
-        entityId: control.id,
-      });
-      res.json(control);
-    } catch (error) {
-      res.status(500).json({ error: "فشل في إلغاء تفعيل التحكم / Failed to deactivate control" });
-    }
-  });
-
   // ============ Feature Flags Routes (Owner) ============
   
   app.get("/api/owner/feature-flags", requireAuth, requireOwner, async (req, res) => {
@@ -3139,6 +3080,237 @@ export async function registerRoutes(
       res.json({ message: "تم حذف السياسة بنجاح / Policy deleted successfully" });
     } catch (error) {
       res.status(500).json({ error: "فشل في حذف السياسة / Failed to delete policy" });
+    }
+  });
+
+  // ============ Platform State Overview (Owner) ============
+  
+  app.get("/api/owner/platform-state", requireAuth, requireOwner, async (req, res) => {
+    try {
+      // Get all required data in parallel
+      const [
+        sovereignAssistants,
+        pendingCommands,
+        activeEmergencyControls,
+        recentLogs
+      ] = await Promise.all([
+        storage.getSovereignAssistants(),
+        storage.getSovereignCommands(100),
+        storage.getActiveEmergencyControls(),
+        storage.getSovereignActionLogs(20)
+      ]);
+
+      const activeSovereignAssistants = sovereignAssistants.filter(a => a.isActive).length;
+      const pendingCount = pendingCommands.filter(c => c.status === 'pending' || c.status === 'awaiting_approval').length;
+      const executingCount = pendingCommands.filter(c => c.status === 'executing').length;
+
+      // Calculate health score based on various factors
+      let healthScore = 100;
+      if (activeEmergencyControls.length > 0) healthScore -= activeEmergencyControls.length * 20;
+      if (activeSovereignAssistants < 3) healthScore -= 10;
+      
+      let healthStatus: 'healthy' | 'degraded' | 'critical' | 'emergency' = 'healthy';
+      if (healthScore < 90) healthStatus = 'degraded';
+      if (healthScore < 70) healthStatus = 'critical';
+      if (activeEmergencyControls.length > 0) healthStatus = 'emergency';
+
+      const platformState = {
+        overallHealthScore: Math.max(0, healthScore),
+        healthStatus,
+        riskLevel: healthScore >= 80 ? 'low' : healthScore >= 60 ? 'medium' : healthScore >= 40 ? 'high' : 'critical',
+        activeThreats: 0,
+        pendingAlerts: pendingCount,
+        aiServicesStatus: 'operational' as const,
+        paymentServicesStatus: 'operational' as const,
+        authServicesStatus: 'operational' as const,
+        activeSovereignAssistants,
+        pendingCommands: pendingCount,
+        executingCommands: executingCount,
+        activeEmergencyControls: activeEmergencyControls.length,
+        lastEmergencyEvent: activeEmergencyControls.length > 0 
+          ? activeEmergencyControls[0].activatedAt?.toISOString() || null
+          : null,
+        anomalyAlerts: [],
+      };
+
+      res.json(platformState);
+    } catch (error) {
+      console.error("Platform state error:", error);
+      res.status(500).json({ error: "فشل في جلب حالة المنصة / Failed to get platform state" });
+    }
+  });
+
+  // ============ Simulation Mode for Commands (Owner) ============
+  
+  const simulateCommandSchema = z.object({
+    assistantId: z.string(),
+    directive: z.string(),
+    directiveAr: z.string().optional(),
+  });
+
+  app.post("/api/owner/sovereign-commands/simulate", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { assistantId, directive, directiveAr } = simulateCommandSchema.parse(req.body);
+      
+      const assistant = await storage.getSovereignAssistant(assistantId);
+      if (!assistant) {
+        return res.status(404).json({ error: "المساعد غير موجود / Assistant not found" });
+      }
+
+      // Create a simulation result (in a real system, this would use AI to predict impact)
+      const simulationResult = {
+        projectedImpact: {
+          estimatedDuration: "5-10 minutes",
+          affectedUsers: 0,
+          affectedServices: assistant.scopeOfAuthority || [],
+          costImpact: "None",
+        },
+        affectedEntities: assistant.scopeOfAuthority || [],
+        riskScore: 25, // Low risk for simulation
+        recommendations: [
+          "Review the proposed changes before approval",
+          "Ensure backup systems are ready",
+          "Monitor logs during execution"
+        ],
+        recommendationsAr: [
+          "مراجعة التغييرات المقترحة قبل الموافقة",
+          "التأكد من جاهزية أنظمة النسخ الاحتياطي",
+          "مراقبة السجلات أثناء التنفيذ"
+        ],
+      };
+
+      // Create command in simulation mode
+      const command = await storage.createSovereignCommand({
+        assistantId,
+        issuedBy: req.session.userId!,
+        directive,
+        directiveAr,
+        isSimulation: true,
+        simulationResult,
+        status: "completed",
+        requiresApproval: false,
+      });
+
+      await storage.createSovereignActionLog({
+        commandId: command.id,
+        assistantId,
+        actorId: req.session.userId!,
+        actorType: "owner",
+        eventType: "simulation_completed",
+        eventDescription: `Simulation completed for: ${directive}`,
+        eventDescriptionAr: `اكتمال المحاكاة لـ: ${directive}`,
+      });
+
+      res.json({
+        message: "تم إكمال المحاكاة بنجاح / Simulation completed successfully",
+        command,
+        simulationResult
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "بيانات غير صالحة / Invalid data", details: error.errors });
+      }
+      console.error("Simulation error:", error);
+      res.status(500).json({ error: "فشل في تشغيل المحاكاة / Failed to run simulation" });
+    }
+  });
+
+  // ============ Emergency Controls (Owner) ============
+  
+  app.get("/api/owner/emergency-controls", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const controls = await storage.getEmergencyControls();
+      res.json(controls);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب ضوابط الطوارئ / Failed to get emergency controls" });
+    }
+  });
+
+  const activateEmergencySchema = z.object({
+    type: z.string(),
+    scope: z.string(),
+    scopeValue: z.string().optional(),
+    reason: z.string(),
+    reasonAr: z.string().optional(),
+    autoDeactivateMinutes: z.number().optional(),
+  });
+
+  app.post("/api/owner/emergency-controls/activate", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const data = activateEmergencySchema.parse(req.body);
+      
+      const control = await storage.createEmergencyControl({
+        type: data.type,
+        scope: data.scope,
+        scopeValue: data.scopeValue,
+        reason: data.reason,
+        reasonAr: data.reasonAr,
+        activatedBy: req.session.userId!,
+        isActive: true,
+        autoDeactivateAt: data.autoDeactivateMinutes 
+          ? new Date(Date.now() + data.autoDeactivateMinutes * 60 * 1000)
+          : undefined,
+      });
+
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "emergency_control_activated",
+        entityType: "emergency_control",
+        entityId: control.id,
+        details: { type: data.type, scope: data.scope, reason: data.reason },
+      });
+
+      // Log to sovereign action logs for visibility
+      await storage.createSovereignActionLog({
+        assistantId: "system",
+        actorId: req.session.userId!,
+        actorType: "owner",
+        eventType: "emergency_activated",
+        eventDescription: `Emergency control activated: ${data.type} - ${data.reason}`,
+        eventDescriptionAr: `تم تفعيل ضابط طوارئ: ${data.type} - ${data.reasonAr || data.reason}`,
+      });
+
+      res.status(201).json({
+        message: "تم تفعيل ضابط الطوارئ / Emergency control activated",
+        control
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "بيانات غير صالحة / Invalid data", details: error.errors });
+      }
+      res.status(500).json({ error: "فشل في تفعيل ضابط الطوارئ / Failed to activate emergency control" });
+    }
+  });
+
+  app.post("/api/owner/emergency-controls/:id/deactivate", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const control = await storage.deactivateEmergencyControl(req.params.id, req.session.userId!);
+      if (!control) {
+        return res.status(404).json({ error: "ضابط الطوارئ غير موجود / Emergency control not found" });
+      }
+
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "emergency_control_deactivated",
+        entityType: "emergency_control",
+        entityId: control.id,
+      });
+
+      await storage.createSovereignActionLog({
+        assistantId: "system",
+        actorId: req.session.userId!,
+        actorType: "owner",
+        eventType: "emergency_deactivated",
+        eventDescription: `Emergency control deactivated: ${control.type}`,
+        eventDescriptionAr: `تم إلغاء تفعيل ضابط الطوارئ: ${control.type}`,
+      });
+
+      res.json({
+        message: "تم إلغاء تفعيل ضابط الطوارئ / Emergency control deactivated",
+        control
+      });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في إلغاء تفعيل ضابط الطوارئ / Failed to deactivate emergency control" });
     }
   });
 
