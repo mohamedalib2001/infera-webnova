@@ -83,6 +83,12 @@ import {
   type InsertRuntimeInstance,
   type ConsoleLog,
   type InsertConsoleLog,
+  type DevDatabaseTable,
+  type InsertDevDatabaseTable,
+  type DevDatabaseColumn,
+  type InsertDevDatabaseColumn,
+  type DevDatabaseRelationship,
+  type InsertDevDatabaseRelationship,
   users,
   projects,
   messages,
@@ -125,6 +131,9 @@ import {
   projectFiles,
   runtimeInstances,
   consoleLogs,
+  devDatabaseTables,
+  devDatabaseColumns,
+  devDatabaseRelationships,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt } from "drizzle-orm";
@@ -409,6 +418,27 @@ export interface IStorage {
   getConsoleLogs(projectId: string, limit?: number): Promise<ConsoleLog[]>;
   createConsoleLog(log: InsertConsoleLog): Promise<ConsoleLog>;
   clearConsoleLogs(projectId: string): Promise<boolean>;
+  
+  // Dev Database Tables
+  getDevDatabaseTables(projectId: string): Promise<DevDatabaseTable[]>;
+  getDevDatabaseTable(id: string): Promise<DevDatabaseTable | undefined>;
+  createDevDatabaseTable(table: InsertDevDatabaseTable): Promise<DevDatabaseTable>;
+  updateDevDatabaseTable(id: string, data: Partial<InsertDevDatabaseTable>): Promise<DevDatabaseTable | undefined>;
+  deleteDevDatabaseTable(id: string): Promise<boolean>;
+  
+  // Dev Database Columns
+  getDevDatabaseColumns(tableId: string): Promise<DevDatabaseColumn[]>;
+  getDevDatabaseColumn(id: string): Promise<DevDatabaseColumn | undefined>;
+  createDevDatabaseColumn(column: InsertDevDatabaseColumn): Promise<DevDatabaseColumn>;
+  updateDevDatabaseColumn(id: string, data: Partial<InsertDevDatabaseColumn>): Promise<DevDatabaseColumn | undefined>;
+  deleteDevDatabaseColumn(id: string): Promise<boolean>;
+  
+  // Dev Database Relationships
+  getDevDatabaseRelationships(projectId: string): Promise<DevDatabaseRelationship[]>;
+  getDevDatabaseRelationship(id: string): Promise<DevDatabaseRelationship | undefined>;
+  createDevDatabaseRelationship(rel: InsertDevDatabaseRelationship): Promise<DevDatabaseRelationship>;
+  updateDevDatabaseRelationship(id: string, data: Partial<InsertDevDatabaseRelationship>): Promise<DevDatabaseRelationship | undefined>;
+  deleteDevDatabaseRelationship(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2251,6 +2281,110 @@ body { font-family: 'Tajawal', sans-serif; }
   async clearConsoleLogs(projectId: string): Promise<boolean> {
     const result = await db.delete(consoleLogs).where(eq(consoleLogs.projectId, projectId));
     return (result.rowCount ?? 0) >= 0;
+  }
+
+  // ============ Dev Database Tables Implementation ============
+  
+  async getDevDatabaseTables(projectId: string): Promise<DevDatabaseTable[]> {
+    return db.select().from(devDatabaseTables)
+      .where(eq(devDatabaseTables.projectId, projectId))
+      .orderBy(asc(devDatabaseTables.tableName));
+  }
+
+  async getDevDatabaseTable(id: string): Promise<DevDatabaseTable | undefined> {
+    const [table] = await db.select().from(devDatabaseTables).where(eq(devDatabaseTables.id, id));
+    return table || undefined;
+  }
+
+  async createDevDatabaseTable(table: InsertDevDatabaseTable): Promise<DevDatabaseTable> {
+    const [created] = await db.insert(devDatabaseTables).values(table).returning();
+    return created;
+  }
+
+  async updateDevDatabaseTable(id: string, data: Partial<InsertDevDatabaseTable>): Promise<DevDatabaseTable | undefined> {
+    const [updated] = await db.update(devDatabaseTables)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(devDatabaseTables.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteDevDatabaseTable(id: string): Promise<boolean> {
+    // Delete columns first
+    await db.delete(devDatabaseColumns).where(eq(devDatabaseColumns.tableId, id));
+    // Delete relationships involving this table
+    const table = await this.getDevDatabaseTable(id);
+    if (table) {
+      await db.delete(devDatabaseRelationships)
+        .where(eq(devDatabaseRelationships.sourceTableId, id));
+      await db.delete(devDatabaseRelationships)
+        .where(eq(devDatabaseRelationships.targetTableId, id));
+    }
+    // Delete the table
+    const result = await db.delete(devDatabaseTables).where(eq(devDatabaseTables.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // ============ Dev Database Columns Implementation ============
+  
+  async getDevDatabaseColumns(tableId: string): Promise<DevDatabaseColumn[]> {
+    return db.select().from(devDatabaseColumns)
+      .where(eq(devDatabaseColumns.tableId, tableId))
+      .orderBy(asc(devDatabaseColumns.displayOrder));
+  }
+
+  async getDevDatabaseColumn(id: string): Promise<DevDatabaseColumn | undefined> {
+    const [column] = await db.select().from(devDatabaseColumns).where(eq(devDatabaseColumns.id, id));
+    return column || undefined;
+  }
+
+  async createDevDatabaseColumn(column: InsertDevDatabaseColumn): Promise<DevDatabaseColumn> {
+    const [created] = await db.insert(devDatabaseColumns).values(column).returning();
+    return created;
+  }
+
+  async updateDevDatabaseColumn(id: string, data: Partial<InsertDevDatabaseColumn>): Promise<DevDatabaseColumn | undefined> {
+    const [updated] = await db.update(devDatabaseColumns)
+      .set(data)
+      .where(eq(devDatabaseColumns.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteDevDatabaseColumn(id: string): Promise<boolean> {
+    const result = await db.delete(devDatabaseColumns).where(eq(devDatabaseColumns.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // ============ Dev Database Relationships Implementation ============
+  
+  async getDevDatabaseRelationships(projectId: string): Promise<DevDatabaseRelationship[]> {
+    return db.select().from(devDatabaseRelationships)
+      .where(eq(devDatabaseRelationships.projectId, projectId))
+      .orderBy(asc(devDatabaseRelationships.relationshipName));
+  }
+
+  async getDevDatabaseRelationship(id: string): Promise<DevDatabaseRelationship | undefined> {
+    const [rel] = await db.select().from(devDatabaseRelationships).where(eq(devDatabaseRelationships.id, id));
+    return rel || undefined;
+  }
+
+  async createDevDatabaseRelationship(rel: InsertDevDatabaseRelationship): Promise<DevDatabaseRelationship> {
+    const [created] = await db.insert(devDatabaseRelationships).values(rel).returning();
+    return created;
+  }
+
+  async updateDevDatabaseRelationship(id: string, data: Partial<InsertDevDatabaseRelationship>): Promise<DevDatabaseRelationship | undefined> {
+    const [updated] = await db.update(devDatabaseRelationships)
+      .set(data)
+      .where(eq(devDatabaseRelationships.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteDevDatabaseRelationship(id: string): Promise<boolean> {
+    const result = await db.delete(devDatabaseRelationships).where(eq(devDatabaseRelationships.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 }
 

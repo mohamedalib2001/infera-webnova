@@ -1506,6 +1506,117 @@ export const insertConsoleLogSchema = createInsertSchema(consoleLogs).omit({
 export type InsertConsoleLog = z.infer<typeof insertConsoleLogSchema>;
 export type ConsoleLog = typeof consoleLogs.$inferSelect;
 
+// ==================== CLOUD IDE DATABASE MANAGEMENT ====================
+
+// Column Types supported in Schema Builder
+export const columnDataTypes = ['text', 'integer', 'boolean', 'timestamp', 'jsonb', 'varchar', 'uuid', 'decimal', 'date', 'time', 'array'] as const;
+export type ColumnDataType = typeof columnDataTypes[number];
+
+// Dev Database Tables - User-defined tables in Cloud IDE projects
+export const devDatabaseTables = pgTable("dev_database_tables", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  // Table info
+  tableName: text("table_name").notNull(), // e.g., users, products
+  tableNameDisplay: text("table_name_display"), // Human-readable name
+  tableNameDisplayAr: text("table_name_display_ar"), // Arabic display name
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  // Schema config
+  hasPrimaryKey: boolean("has_primary_key").notNull().default(true),
+  primaryKeyType: text("primary_key_type").default("uuid"), // uuid, serial, custom
+  hasTimestamps: boolean("has_timestamps").notNull().default(true), // createdAt, updatedAt
+  isSoftDelete: boolean("is_soft_delete").notNull().default(false), // deletedAt column
+  // API config
+  generateCrudApi: boolean("generate_crud_api").notNull().default(true),
+  apiPrefix: text("api_prefix").default("/api"),
+  requireAuth: boolean("require_auth").notNull().default(false),
+  // Status
+  isActive: boolean("is_active").notNull().default(true),
+  isMigrated: boolean("is_migrated").notNull().default(false),
+  migrationError: text("migration_error"),
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertDevDatabaseTableSchema = createInsertSchema(devDatabaseTables).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertDevDatabaseTable = z.infer<typeof insertDevDatabaseTableSchema>;
+export type DevDatabaseTable = typeof devDatabaseTables.$inferSelect;
+
+// Dev Database Columns - Columns for user-defined tables
+export const devDatabaseColumns = pgTable("dev_database_columns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tableId: varchar("table_id").notNull(),
+  projectId: varchar("project_id").notNull(),
+  // Column info
+  columnName: text("column_name").notNull(),
+  columnNameDisplay: text("column_name_display"),
+  columnNameDisplayAr: text("column_name_display_ar"),
+  dataType: text("data_type").notNull(), // text, integer, boolean, timestamp, jsonb, etc.
+  // Constraints
+  isNullable: boolean("is_nullable").notNull().default(true),
+  isUnique: boolean("is_unique").notNull().default(false),
+  defaultValue: text("default_value"),
+  // Validation
+  minLength: integer("min_length"),
+  maxLength: integer("max_length"),
+  minValue: text("min_value"),
+  maxValue: text("max_value"),
+  pattern: text("pattern"), // Regex pattern for validation
+  // References (Foreign Keys)
+  referencesTable: varchar("references_table"),
+  referencesColumn: varchar("references_column"),
+  onDelete: text("on_delete").default("CASCADE"), // CASCADE, SET NULL, RESTRICT
+  // Display
+  displayOrder: integer("display_order").notNull().default(0),
+  isVisible: boolean("is_visible").notNull().default(true),
+  isSearchable: boolean("is_searchable").notNull().default(false),
+  isFilterable: boolean("is_filterable").notNull().default(false),
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertDevDatabaseColumnSchema = createInsertSchema(devDatabaseColumns).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertDevDatabaseColumn = z.infer<typeof insertDevDatabaseColumnSchema>;
+export type DevDatabaseColumn = typeof devDatabaseColumns.$inferSelect;
+
+// Dev Database Relationships - Table relationships
+export const devDatabaseRelationships = pgTable("dev_database_relationships", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  // Relationship info
+  relationshipName: text("relationship_name").notNull(),
+  relationshipType: text("relationship_type").notNull(), // oneToOne, oneToMany, manyToMany
+  // Source
+  sourceTableId: varchar("source_table_id").notNull(),
+  sourceColumnId: varchar("source_column_id"),
+  // Target
+  targetTableId: varchar("target_table_id").notNull(),
+  targetColumnId: varchar("target_column_id"),
+  // For many-to-many relationships
+  junctionTableName: text("junction_table_name"),
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertDevDatabaseRelationshipSchema = createInsertSchema(devDatabaseRelationships).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertDevDatabaseRelationship = z.infer<typeof insertDevDatabaseRelationshipSchema>;
+export type DevDatabaseRelationship = typeof devDatabaseRelationships.$inferSelect;
+
 // ==================== PLATFORM STATE OVERVIEW ====================
 
 // Platform State - Real-time health and risk monitoring

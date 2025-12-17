@@ -34,3 +34,20 @@ The platform features an AI Chat Interface for natural language interaction, a l
 *   **ORM**: Drizzle ORM
 *   **AI**: OpenAI API (GPT-5)
 *   **Payment Gateways**: Stripe, PayPal, Tap, mada, Apple Pay, Google Pay, STC Pay, Bank Transfer, Crypto
+
+## Cloud IDE Security Model
+The Cloud IDE implements comprehensive security:
+- REST API protection with requireAuth middleware
+- Token-based WebSocket authentication (one-time use, 5-minute expiry)
+- Command whitelist for terminal execution
+- Project ownership checks
+
+## Database Schema Builder (Phase 2)
+- Visual table/column creation with bilingual support
+- Auto API generation from database schema
+- Input sanitization to prevent SQL injection
+- Data type validation for columns
+
+## Recent Development Progress
+- Phase 1 Complete: Secure terminal service, real file execution, live preview
+- Phase 2 Complete: Schema Builder with auto API generation

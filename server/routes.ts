@@ -3960,6 +3960,502 @@ export async function registerRoutes(
     }
   });
 
+  // ==================== DATABASE SCHEMA BUILDER API ====================
+  
+  // Get all database tables for a project
+  app.get("/api/dev-projects/:projectId/database/tables", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      const project = await storage.getDevProject(req.params.projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const tables = await storage.getDevDatabaseTables(req.params.projectId);
+      res.json(tables);
+    } catch (error) {
+      console.error("Error fetching database tables:", error);
+      res.status(500).json({ error: "Failed to fetch database tables" });
+    }
+  });
+
+  // Create a new database table - with validation
+  app.post("/api/dev-projects/:projectId/database/tables", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      const project = await storage.getDevProject(req.params.projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Validate input - sanitize table name to prevent SQL injection
+      const tableName = (req.body.tableName || "").toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 64);
+      if (!tableName || tableName.length < 2) {
+        return res.status(400).json({ error: "Invalid table name" });
+      }
+      
+      const tableData = {
+        tableName,
+        tableNameDisplay: (req.body.tableNameDisplay || tableName).slice(0, 100),
+        tableNameDisplayAr: (req.body.tableNameDisplayAr || "").slice(0, 100),
+        description: (req.body.description || "").slice(0, 500),
+        hasPrimaryKey: Boolean(req.body.hasPrimaryKey ?? true),
+        primaryKeyType: ["uuid", "serial"].includes(req.body.primaryKeyType) ? req.body.primaryKeyType : "uuid",
+        hasTimestamps: Boolean(req.body.hasTimestamps ?? true),
+        isSoftDelete: Boolean(req.body.isSoftDelete ?? false),
+        generateCrudApi: Boolean(req.body.generateCrudApi ?? true),
+        apiPrefix: "/api",
+        requireAuth: Boolean(req.body.requireAuth ?? false),
+        projectId: req.params.projectId,
+      };
+      
+      const table = await storage.createDevDatabaseTable(tableData);
+      res.status(201).json(table);
+    } catch (error) {
+      console.error("Error creating database table:", error);
+      res.status(500).json({ error: "Failed to create database table" });
+    }
+  });
+
+  // Get a specific database table
+  app.get("/api/dev-projects/:projectId/database/tables/:tableId", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      const project = await storage.getDevProject(req.params.projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const table = await storage.getDevDatabaseTable(req.params.tableId);
+      if (!table || table.projectId !== req.params.projectId) {
+        return res.status(404).json({ error: "Table not found" });
+      }
+      
+      res.json(table);
+    } catch (error) {
+      console.error("Error fetching database table:", error);
+      res.status(500).json({ error: "Failed to fetch database table" });
+    }
+  });
+
+  // Update a database table
+  app.patch("/api/dev-projects/:projectId/database/tables/:tableId", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      const project = await storage.getDevProject(req.params.projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const table = await storage.getDevDatabaseTable(req.params.tableId);
+      if (!table || table.projectId !== req.params.projectId) {
+        return res.status(404).json({ error: "Table not found" });
+      }
+      
+      const updated = await storage.updateDevDatabaseTable(req.params.tableId, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating database table:", error);
+      res.status(500).json({ error: "Failed to update database table" });
+    }
+  });
+
+  // Delete a database table
+  app.delete("/api/dev-projects/:projectId/database/tables/:tableId", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      const project = await storage.getDevProject(req.params.projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const table = await storage.getDevDatabaseTable(req.params.tableId);
+      if (!table || table.projectId !== req.params.projectId) {
+        return res.status(404).json({ error: "Table not found" });
+      }
+      
+      await storage.deleteDevDatabaseTable(req.params.tableId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting database table:", error);
+      res.status(500).json({ error: "Failed to delete database table" });
+    }
+  });
+
+  // Get columns for a table
+  app.get("/api/dev-projects/:projectId/database/tables/:tableId/columns", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      const project = await storage.getDevProject(req.params.projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const columns = await storage.getDevDatabaseColumns(req.params.tableId);
+      res.json(columns);
+    } catch (error) {
+      console.error("Error fetching table columns:", error);
+      res.status(500).json({ error: "Failed to fetch table columns" });
+    }
+  });
+
+  // Create a column for a table - with validation
+  app.post("/api/dev-projects/:projectId/database/tables/:tableId/columns", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      const project = await storage.getDevProject(req.params.projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Validate input - sanitize column name
+      const columnName = (req.body.columnName || "").toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 64);
+      if (!columnName || columnName.length < 1) {
+        return res.status(400).json({ error: "Invalid column name" });
+      }
+      
+      // Validate data type
+      const validDataTypes = ["text", "varchar", "integer", "boolean", "timestamp", "jsonb", "decimal", "date", "time", "uuid", "array"];
+      const dataType = validDataTypes.includes(req.body.dataType) ? req.body.dataType : "text";
+      
+      const columnData = {
+        columnName,
+        columnNameDisplay: (req.body.columnNameDisplay || columnName).slice(0, 100),
+        columnNameDisplayAr: (req.body.columnNameDisplayAr || "").slice(0, 100),
+        dataType,
+        isNullable: Boolean(req.body.isNullable ?? true),
+        isUnique: Boolean(req.body.isUnique ?? false),
+        defaultValue: (req.body.defaultValue || "").slice(0, 255),
+        displayOrder: typeof req.body.displayOrder === "number" ? req.body.displayOrder : 0,
+        isVisible: Boolean(req.body.isVisible ?? true),
+        isSearchable: Boolean(req.body.isSearchable ?? false),
+        isFilterable: Boolean(req.body.isFilterable ?? false),
+        tableId: req.params.tableId,
+        projectId: req.params.projectId,
+      };
+      
+      const column = await storage.createDevDatabaseColumn(columnData);
+      res.status(201).json(column);
+    } catch (error) {
+      console.error("Error creating column:", error);
+      res.status(500).json({ error: "Failed to create column" });
+    }
+  });
+
+  // Update a column
+  app.patch("/api/dev-projects/:projectId/database/columns/:columnId", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      const project = await storage.getDevProject(req.params.projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const updated = await storage.updateDevDatabaseColumn(req.params.columnId, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating column:", error);
+      res.status(500).json({ error: "Failed to update column" });
+    }
+  });
+
+  // Delete a column
+  app.delete("/api/dev-projects/:projectId/database/columns/:columnId", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      const project = await storage.getDevProject(req.params.projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      await storage.deleteDevDatabaseColumn(req.params.columnId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting column:", error);
+      res.status(500).json({ error: "Failed to delete column" });
+    }
+  });
+
+  // Get relationships for a project
+  app.get("/api/dev-projects/:projectId/database/relationships", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      const project = await storage.getDevProject(req.params.projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const relationships = await storage.getDevDatabaseRelationships(req.params.projectId);
+      res.json(relationships);
+    } catch (error) {
+      console.error("Error fetching relationships:", error);
+      res.status(500).json({ error: "Failed to fetch relationships" });
+    }
+  });
+
+  // Create a relationship
+  app.post("/api/dev-projects/:projectId/database/relationships", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      const project = await storage.getDevProject(req.params.projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const relData = {
+        ...req.body,
+        projectId: req.params.projectId,
+      };
+      
+      const relationship = await storage.createDevDatabaseRelationship(relData);
+      res.status(201).json(relationship);
+    } catch (error) {
+      console.error("Error creating relationship:", error);
+      res.status(500).json({ error: "Failed to create relationship" });
+    }
+  });
+
+  // Delete a relationship
+  app.delete("/api/dev-projects/:projectId/database/relationships/:relationshipId", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      const project = await storage.getDevProject(req.params.projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      await storage.deleteDevDatabaseRelationship(req.params.relationshipId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting relationship:", error);
+      res.status(500).json({ error: "Failed to delete relationship" });
+    }
+  });
+
+  // Generate API code from database schema
+  app.post("/api/dev-projects/:projectId/database/generate-api", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      const project = await storage.getDevProject(req.params.projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Get all tables and columns for the project
+      const tables = await storage.getDevDatabaseTables(req.params.projectId);
+      const tablesWithColumns = await Promise.all(
+        tables.map(async (table) => {
+          const columns = await storage.getDevDatabaseColumns(table.id);
+          return { ...table, columns };
+        })
+      );
+      
+      const relationships = await storage.getDevDatabaseRelationships(req.params.projectId);
+      
+      // Generate Drizzle schema code
+      let schemaCode = `// Auto-generated schema by INFERA WebNova\n`;
+      schemaCode += `import { pgTable, varchar, text, integer, boolean, timestamp, jsonb, decimal, date, time, serial, uuid } from 'drizzle-orm/pg-core';\n`;
+      schemaCode += `import { sql } from 'drizzle-orm';\n\n`;
+      
+      for (const table of tablesWithColumns) {
+        schemaCode += `export const ${table.tableName} = pgTable("${table.tableName}", {\n`;
+        
+        // Add primary key
+        if (table.hasPrimaryKey) {
+          if (table.primaryKeyType === 'serial') {
+            schemaCode += `  id: serial("id").primaryKey(),\n`;
+          } else {
+            schemaCode += `  id: varchar("id").primaryKey().default(sql\`gen_random_uuid()\`),\n`;
+          }
+        }
+        
+        // Add columns
+        for (const col of table.columns) {
+          let colDef = `  ${col.columnName}: `;
+          
+          switch (col.dataType) {
+            case 'text':
+              colDef += `text("${col.columnName}")`;
+              break;
+            case 'varchar':
+              colDef += `varchar("${col.columnName}")`;
+              break;
+            case 'integer':
+              colDef += `integer("${col.columnName}")`;
+              break;
+            case 'boolean':
+              colDef += `boolean("${col.columnName}")`;
+              break;
+            case 'timestamp':
+              colDef += `timestamp("${col.columnName}")`;
+              break;
+            case 'jsonb':
+              colDef += `jsonb("${col.columnName}")`;
+              break;
+            case 'decimal':
+              colDef += `decimal("${col.columnName}")`;
+              break;
+            case 'date':
+              colDef += `date("${col.columnName}")`;
+              break;
+            case 'time':
+              colDef += `time("${col.columnName}")`;
+              break;
+            default:
+              colDef += `text("${col.columnName}")`;
+          }
+          
+          if (!col.isNullable) {
+            colDef += `.notNull()`;
+          }
+          if (col.isUnique) {
+            colDef += `.unique()`;
+          }
+          if (col.defaultValue) {
+            colDef += `.default(${col.defaultValue})`;
+          }
+          
+          schemaCode += colDef + `,\n`;
+        }
+        
+        // Add timestamps if enabled
+        if (table.hasTimestamps) {
+          schemaCode += `  createdAt: timestamp("created_at").defaultNow(),\n`;
+          schemaCode += `  updatedAt: timestamp("updated_at").defaultNow(),\n`;
+        }
+        
+        schemaCode += `});\n\n`;
+      }
+      
+      // Generate Express routes
+      let routesCode = `// Auto-generated CRUD API by INFERA WebNova\n`;
+      routesCode += `import express from 'express';\n`;
+      routesCode += `import { db } from './db';\n`;
+      routesCode += `import { eq } from 'drizzle-orm';\n`;
+      
+      for (const table of tablesWithColumns) {
+        routesCode += `import { ${table.tableName} } from './schema';\n`;
+      }
+      
+      routesCode += `\nconst router = express.Router();\n\n`;
+      
+      for (const table of tablesWithColumns) {
+        const apiPath = table.apiPrefix || '/api';
+        const endpoint = `${apiPath}/${table.tableName}`;
+        
+        // GET all
+        routesCode += `// ${table.tableNameDisplay || table.tableName} CRUD\n`;
+        routesCode += `router.get('${endpoint}', async (req, res) => {\n`;
+        routesCode += `  const items = await db.select().from(${table.tableName});\n`;
+        routesCode += `  res.json(items);\n`;
+        routesCode += `});\n\n`;
+        
+        // GET one
+        routesCode += `router.get('${endpoint}/:id', async (req, res) => {\n`;
+        routesCode += `  const [item] = await db.select().from(${table.tableName}).where(eq(${table.tableName}.id, req.params.id));\n`;
+        routesCode += `  if (!item) return res.status(404).json({ error: 'Not found' });\n`;
+        routesCode += `  res.json(item);\n`;
+        routesCode += `});\n\n`;
+        
+        // POST
+        routesCode += `router.post('${endpoint}', async (req, res) => {\n`;
+        routesCode += `  const [created] = await db.insert(${table.tableName}).values(req.body).returning();\n`;
+        routesCode += `  res.status(201).json(created);\n`;
+        routesCode += `});\n\n`;
+        
+        // PATCH
+        routesCode += `router.patch('${endpoint}/:id', async (req, res) => {\n`;
+        routesCode += `  const [updated] = await db.update(${table.tableName}).set(req.body).where(eq(${table.tableName}.id, req.params.id)).returning();\n`;
+        routesCode += `  if (!updated) return res.status(404).json({ error: 'Not found' });\n`;
+        routesCode += `  res.json(updated);\n`;
+        routesCode += `});\n\n`;
+        
+        // DELETE
+        routesCode += `router.delete('${endpoint}/:id', async (req, res) => {\n`;
+        routesCode += `  await db.delete(${table.tableName}).where(eq(${table.tableName}.id, req.params.id));\n`;
+        routesCode += `  res.json({ success: true });\n`;
+        routesCode += `});\n\n`;
+      }
+      
+      routesCode += `export default router;\n`;
+      
+      res.json({
+        schemaCode,
+        routesCode,
+        tables: tablesWithColumns,
+        relationships,
+      });
+    } catch (error) {
+      console.error("Error generating API:", error);
+      res.status(500).json({ error: "Failed to generate API" });
+    }
+  });
+
   return httpServer;
 }
 

@@ -49,6 +49,8 @@ import {
   X,
 } from "lucide-react";
 import type { DevProject, ProjectFile, RuntimeInstance, ConsoleLog } from "@shared/schema";
+import { SchemaBuilder } from "@/components/schema-builder";
+import { Database } from "lucide-react";
 
 interface FileTreeNode {
   id: string;
@@ -68,7 +70,7 @@ export default function CloudIDE() {
   const [editorContent, setEditorContent] = useState("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(["/"]));
-  const [activeTab, setActiveTab] = useState<"preview" | "console">("preview");
+  const [activeTab, setActiveTab] = useState<"preview" | "console" | "database">("preview");
   const [showPackageManager, setShowPackageManager] = useState(false);
   const [showDeployDialog, setShowDeployDialog] = useState(false);
   const [packageSearch, setPackageSearch] = useState("");
@@ -884,7 +886,7 @@ export default function CloudIDE() {
 
         {/* Preview / Console Panel */}
         <aside className="w-96 border-r flex flex-col bg-card">
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "preview" | "console")} className="flex flex-col h-full">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "preview" | "console" | "database")} className="flex flex-col h-full">
             <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0">
               <TabsTrigger
                 value="preview"
@@ -901,6 +903,14 @@ export default function CloudIDE() {
               >
                 <Terminal className="w-4 h-4 ml-1" />
                 {txt.console}
+              </TabsTrigger>
+              <TabsTrigger
+                value="database"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary"
+                data-testid="tab-database"
+              >
+                <Database className="w-4 h-4 ml-1" />
+                {language === "ar" ? "قاعدة البيانات" : "Database"}
               </TabsTrigger>
             </TabsList>
 
@@ -1004,6 +1014,12 @@ export default function CloudIDE() {
                   data-testid="input-terminal"
                 />
               </div>
+            </TabsContent>
+
+            <TabsContent value="database" className="flex-1 m-0 overflow-hidden">
+              {projectId && (
+                <SchemaBuilder projectId={projectId} language={language} />
+              )}
             </TabsContent>
           </Tabs>
         </aside>
