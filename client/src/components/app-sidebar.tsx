@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, FolderOpen, LayoutTemplate, Settings, Plus, Sparkles, LogIn, LogOut, Crown } from "lucide-react";
+import { Home, FolderOpen, LayoutTemplate, Settings, Plus, LogIn, LogOut, Crown } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -57,9 +57,11 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     <Sidebar side={side}>
       <SidebarHeader className="p-4">
         <Link href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center">
-            <Sparkles className="h-5 w-5 text-white" />
-          </div>
+          <img 
+            src="/assets/infera-logo.jpg" 
+            alt="INFERA WebNova" 
+            className="w-8 h-8 rounded-full object-cover"
+          />
           <div className="flex flex-col">
             <span className="font-bold text-lg leading-tight">INFERA</span>
             <span className="text-xs text-muted-foreground leading-tight">WebNova</span>

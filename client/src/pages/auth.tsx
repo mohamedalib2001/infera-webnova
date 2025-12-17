@@ -112,19 +112,21 @@ export default function Auth() {
   };
 
   const SocialButton = ({ provider, icon: Icon, label }: { provider: string; icon: typeof SiGoogle; label: string }) => (
-    <Button
-      variant="outline"
-      className="flex-1 gap-2 relative"
-      onClick={() => handleSocialLogin(provider)}
-      type="button"
-      data-testid={`button-${provider.toLowerCase()}-login`}
-    >
-      <Icon className="h-4 w-4" />
-      <span className="hidden sm:inline">{label}</span>
-      <Badge variant="secondary" className="absolute -top-2 -end-2 text-[10px] px-1">
+    <div className="flex-1 flex flex-col items-center gap-1">
+      <Button
+        variant="outline"
+        className="w-full gap-2"
+        onClick={() => handleSocialLogin(provider)}
+        type="button"
+        data-testid={`button-${provider.toLowerCase()}-login`}
+      >
+        <Icon className="h-4 w-4" />
+        <span className="hidden sm:inline">{label}</span>
+      </Button>
+      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
         {t("auth.comingSoon")}
       </Badge>
-    </Button>
+    </div>
   );
 
   return (
@@ -136,9 +138,11 @@ export default function Auth() {
 
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <div className="mx-auto w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center mb-4">
-              <Sparkles className="h-7 w-7 text-white" />
-            </div>
+            <img 
+              src="/assets/infera-logo.jpg" 
+              alt="INFERA WebNova" 
+              className="mx-auto w-16 h-16 rounded-full mb-4 object-cover"
+            />
             <CardTitle className="text-2xl">{t("auth.welcome")}</CardTitle>
             <CardDescription>{t("auth.subtitle")}</CardDescription>
           </CardHeader>
