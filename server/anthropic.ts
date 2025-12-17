@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-// Use user's API key first, then fall back to Replit's integration
-const apiKey = process.env.ANTHROPIC_API_KEY || process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+// Use Replit's integration for reliable model access, fall back to user's key
+const apiKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
 const baseURL = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
 
 const anthropic = new Anthropic({
@@ -45,7 +45,7 @@ Important: Only respond with valid JSON. No markdown code blocks.`;
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-20241022",
+      model: "claude-sonnet-4-5",
       max_tokens: 8192,
       messages: [
         { role: "user", content: prompt },
@@ -107,7 +107,7 @@ Important: Only respond with valid JSON. No markdown code blocks.`;
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-20241022",
+      model: "claude-sonnet-4-5",
       max_tokens: 8192,
       messages: [
         { role: "user", content: prompt },
