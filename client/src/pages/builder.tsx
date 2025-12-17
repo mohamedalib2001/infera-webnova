@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowRight, ArrowLeft, Save, Loader2, Sparkles } from "lucide-react";
+import { ThinkingIndicator } from "@/components/thinking-indicator";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/use-language";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -286,17 +287,7 @@ export default function Builder() {
                   <ChatMessage key={message.id} message={message} />
                 ))}
                 {isGenerating && (
-                  <div className="flex gap-3">
-                    <div className="h-8 w-8 shrink-0 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center">
-                      <Sparkles className="h-4 w-4 text-white" />
-                    </div>
-                    <div className="bg-muted rounded-2xl px-4 py-3 flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">
-                        {t("common.generating")}...
-                      </span>
-                    </div>
-                  </div>
+                  <ThinkingIndicator isActive={isGenerating} />
                 )}
                 <div ref={messagesEndRef} />
               </div>
