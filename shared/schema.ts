@@ -675,3 +675,372 @@ export const insertAuthMethodSchema = createInsertSchema(authMethods).omit({
 
 export type InsertAuthMethod = z.infer<typeof insertAuthMethodSchema>;
 export type AuthMethod = typeof authMethods.$inferSelect;
+
+// ==================== AI GOVERNANCE ====================
+
+// AI Models configuration (owner-controlled)
+export const aiModels = pgTable("ai_models", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  provider: text("provider").notNull(), // openai, anthropic, google, local
+  modelId: text("model_id").notNull().unique(), // gpt-4, claude-3, gemini-pro
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  // Capabilities
+  capabilities: jsonb("capabilities").$type<string[]>().notNull().default([]), // text, code, vision, embedding
+  maxTokens: integer("max_tokens").notNull().default(4096),
+  contextWindow: integer("context_window").notNull().default(128000),
+  // Cost tracking (per 1M tokens)
+  inputCostPer1M: integer("input_cost_per_1m").notNull().default(0), // in cents
+  outputCostPer1M: integer("output_cost_per_1m").notNull().default(0), // in cents
+  // Status
+  isActive: boolean("is_active").notNull().default(true),
+  isDefault: boolean("is_default").notNull().default(false),
+  allowedPlans: jsonb("allowed_plans").$type<string[]>().notNull().default(["pro", "enterprise", "sovereign", "owner"]),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAiModelSchema = createInsertSchema(aiModels).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAiModel = z.infer<typeof insertAiModelSchema>;
+export type AiModel = typeof aiModels.$inferSelect;
+
+// AI Usage Policies by Plan (owner-controlled limits)
+export const aiUsagePolicies = pgTable("ai_usage_policies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  planRole: text("plan_role").notNull().unique(), // free, basic, pro, enterprise, sovereign
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  // Request limits
+  dailyRequestLimit: integer("daily_request_limit").notNull().default(10),
+  monthlyRequestLimit: integer("monthly_request_limit").notNull().default(100),
+  maxTokensPerRequest: integer("max_tokens_per_request").notNull().default(2000),
+  // Cost limits
+  dailyCostLimit: integer("daily_cost_limit").notNull().default(100), // in cents
+  monthlyCostLimit: integer("monthly_cost_limit").notNull().default(1000), // in cents
+  // Feature access
+  allowedModels: jsonb("allowed_models").$type<string[]>().notNull().default([]),
+  allowCodeGeneration: boolean("allow_code_generation").notNull().default(true),
+  allowImageGeneration: boolean("allow_image_generation").notNull().default(false),
+  allowVision: boolean("allow_vision").notNull().default(false),
+  // Rate limiting
+  requestsPerMinute: integer("requests_per_minute").notNull().default(5),
+  requestsPerHour: integer("requests_per_hour").notNull().default(50),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAiUsagePolicySchema = createInsertSchema(aiUsagePolicies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAiUsagePolicy = z.infer<typeof insertAiUsagePolicySchema>;
+export type AiUsagePolicy = typeof aiUsagePolicies.$inferSelect;
+
+// AI Cost Tracking (real-time cost monitoring)
+export const aiCostTracking = pgTable("ai_cost_tracking", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id"),
+  modelId: varchar("model_id").notNull(),
+  // Usage metrics
+  inputTokens: integer("input_tokens").notNull().default(0),
+  outputTokens: integer("output_tokens").notNull().default(0),
+  totalTokens: integer("total_tokens").notNull().default(0),
+  // Cost calculation
+  inputCost: integer("input_cost").notNull().default(0), // in cents
+  outputCost: integer("output_cost").notNull().default(0), // in cents
+  totalCost: integer("total_cost").notNull().default(0), // in cents
+  // Context
+  feature: text("feature").notNull().default("chat"), // chat, code_gen, image_gen, seo, chatbot
+  projectId: varchar("project_id"),
+  sessionId: varchar("session_id"),
+  // Timestamps
+  date: text("date").notNull(), // YYYY-MM-DD for daily aggregation
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAiCostTrackingSchema = createInsertSchema(aiCostTracking).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAiCostTracking = z.infer<typeof insertAiCostTrackingSchema>;
+export type AiCostTracking = typeof aiCostTracking.$inferSelect;
+
+// Emergency AI Controls
+export const emergencyControls = pgTable("emergency_controls", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: text("type").notNull(), // ai_suspension, platform_lockdown, feature_disable
+  scope: text("scope").notNull().default("global"), // global, feature, plan, user
+  scopeValue: text("scope_value"), // feature name, plan role, or user id
+  reason: text("reason").notNull(),
+  reasonAr: text("reason_ar"),
+  activatedBy: varchar("activated_by").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  activatedAt: timestamp("activated_at").defaultNow(),
+  deactivatedAt: timestamp("deactivated_at"),
+  deactivatedBy: varchar("deactivated_by"),
+  autoDeactivateAt: timestamp("auto_deactivate_at"), // Optional auto-deactivation
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertEmergencyControlSchema = createInsertSchema(emergencyControls).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertEmergencyControl = z.infer<typeof insertEmergencyControlSchema>;
+export type EmergencyControl = typeof emergencyControls.$inferSelect;
+
+// ==================== FEATURE FLAGS ====================
+
+// Feature flags for controlled rollout
+export const featureFlags = pgTable("feature_flags", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: text("key").notNull().unique(), // feature_chatbot, feature_seo, etc.
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  // Rollout configuration
+  isEnabled: boolean("is_enabled").notNull().default(false),
+  rolloutPercentage: integer("rollout_percentage").notNull().default(0), // 0-100
+  allowedPlans: jsonb("allowed_plans").$type<string[]>().notNull().default([]),
+  allowedUserIds: jsonb("allowed_user_ids").$type<string[]>().default([]), // Beta users
+  // A/B testing
+  isABTest: boolean("is_ab_test").notNull().default(false),
+  variants: jsonb("variants").$type<{ name: string; weight: number }[]>().default([]),
+  // Scheduling
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  // Metadata
+  category: text("category").notNull().default("feature"), // feature, experiment, operational
+  tags: jsonb("tags").$type<string[]>().default([]),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFeatureFlagSchema = createInsertSchema(featureFlags).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertFeatureFlag = z.infer<typeof insertFeatureFlagSchema>;
+export type FeatureFlag = typeof featureFlags.$inferSelect;
+
+// System Announcements
+export const systemAnnouncements = pgTable("system_announcements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  titleAr: text("title_ar").notNull(),
+  message: text("message").notNull(),
+  messageAr: text("message_ar").notNull(),
+  type: text("type").notNull().default("info"), // info, warning, error, success, maintenance
+  priority: text("priority").notNull().default("normal"), // low, normal, high, critical
+  // Targeting
+  targetPlans: jsonb("target_plans").$type<string[]>().default([]), // Empty = all plans
+  targetUserIds: jsonb("target_user_ids").$type<string[]>().default([]), // Specific users
+  // Display settings
+  isDismissible: boolean("is_dismissible").notNull().default(true),
+  showOnDashboard: boolean("show_on_dashboard").notNull().default(true),
+  showOnLogin: boolean("show_on_login").notNull().default(false),
+  showAsBanner: boolean("show_as_banner").notNull().default(false),
+  // Scheduling
+  startDate: timestamp("start_date").defaultNow(),
+  endDate: timestamp("end_date"),
+  isActive: boolean("is_active").notNull().default(true),
+  // Tracking
+  viewCount: integer("view_count").notNull().default(0),
+  dismissCount: integer("dismiss_count").notNull().default(0),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSystemAnnouncementSchema = createInsertSchema(systemAnnouncements).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSystemAnnouncement = z.infer<typeof insertSystemAnnouncementSchema>;
+export type SystemAnnouncement = typeof systemAnnouncements.$inferSelect;
+
+// ==================== RBAC & PERMISSIONS ====================
+
+// Admin Roles (granular permissions)
+export const adminRoles = pgTable("admin_roles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: text("key").notNull().unique(), // super_admin, content_admin, support_admin
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  // Permissions (bitfield or array)
+  permissions: jsonb("permissions").$type<string[]>().notNull().default([]),
+  // Hierarchy
+  level: integer("level").notNull().default(0), // Higher = more authority
+  parentRoleId: varchar("parent_role_id"),
+  isSystem: boolean("is_system").notNull().default(false), // Cannot be deleted
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAdminRoleSchema = createInsertSchema(adminRoles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAdminRole = z.infer<typeof insertAdminRoleSchema>;
+export type AdminRole = typeof adminRoles.$inferSelect;
+
+// User-Role assignments
+export const userAdminRoles = pgTable("user_admin_roles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  roleId: varchar("role_id").notNull(),
+  assignedBy: varchar("assigned_by").notNull(),
+  expiresAt: timestamp("expires_at"), // Optional expiration
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertUserAdminRoleSchema = createInsertSchema(userAdminRoles).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertUserAdminRole = z.infer<typeof insertUserAdminRoleSchema>;
+export type UserAdminRole = typeof userAdminRoles.$inferSelect;
+
+// Permission definitions
+export const permissions = [
+  // User management
+  "users:read", "users:create", "users:update", "users:delete", "users:ban",
+  // Subscriptions
+  "subscriptions:read", "subscriptions:create", "subscriptions:update", "subscriptions:cancel",
+  // Projects
+  "projects:read", "projects:create", "projects:update", "projects:delete", "projects:publish",
+  // AI
+  "ai:read", "ai:configure", "ai:suspend", "ai:manage_models",
+  // Platform
+  "platform:read", "platform:configure", "platform:maintenance",
+  // Payments
+  "payments:read", "payments:refund", "payments:configure",
+  // Features
+  "features:read", "features:create", "features:update", "features:delete",
+  // Announcements
+  "announcements:read", "announcements:create", "announcements:update", "announcements:delete",
+  // Audit
+  "audit:read", "audit:export",
+  // Owner
+  "owner:full_access"
+] as const;
+export type Permission = typeof permissions[number];
+
+// ==================== PLATFORM INTELLIGENCE ====================
+
+// Platform metrics snapshot (daily aggregation)
+export const platformMetrics = pgTable("platform_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  date: text("date").notNull(), // YYYY-MM-DD
+  // User metrics
+  totalUsers: integer("total_users").notNull().default(0),
+  activeUsers: integer("active_users").notNull().default(0),
+  newUsers: integer("new_users").notNull().default(0),
+  churnedUsers: integer("churned_users").notNull().default(0),
+  // Subscription metrics
+  usersByPlan: jsonb("users_by_plan").$type<Record<string, number>>().default({}),
+  newSubscriptions: integer("new_subscriptions").notNull().default(0),
+  cancelledSubscriptions: integer("cancelled_subscriptions").notNull().default(0),
+  upgrades: integer("upgrades").notNull().default(0),
+  downgrades: integer("downgrades").notNull().default(0),
+  // Revenue metrics
+  dailyRevenue: integer("daily_revenue").notNull().default(0), // in cents
+  mrr: integer("mrr").notNull().default(0), // Monthly recurring revenue
+  arr: integer("arr").notNull().default(0), // Annual recurring revenue
+  // AI metrics
+  aiRequests: integer("ai_requests").notNull().default(0),
+  aiTokensUsed: integer("ai_tokens_used").notNull().default(0),
+  aiCost: integer("ai_cost").notNull().default(0), // in cents
+  // Project metrics
+  totalProjects: integer("total_projects").notNull().default(0),
+  newProjects: integer("new_projects").notNull().default(0),
+  publishedProjects: integer("published_projects").notNull().default(0),
+  // System metrics
+  pageViews: integer("page_views").notNull().default(0),
+  apiCalls: integer("api_calls").notNull().default(0),
+  errorRate: integer("error_rate").notNull().default(0), // percentage * 100
+  avgResponseTime: integer("avg_response_time").notNull().default(0), // ms
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPlatformMetricsSchema = createInsertSchema(platformMetrics).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPlatformMetrics = z.infer<typeof insertPlatformMetricsSchema>;
+export type PlatformMetrics = typeof platformMetrics.$inferSelect;
+
+// Revenue Intelligence (subscription events)
+export const subscriptionEvents = pgTable("subscription_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  subscriptionId: varchar("subscription_id"),
+  eventType: text("event_type").notNull(), // created, activated, upgraded, downgraded, cancelled, expired, renewed
+  previousPlan: text("previous_plan"),
+  newPlan: text("new_plan"),
+  previousPrice: integer("previous_price"), // in cents
+  newPrice: integer("new_price"), // in cents
+  reason: text("reason"), // churn reason for cancellations
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSubscriptionEventSchema = createInsertSchema(subscriptionEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertSubscriptionEvent = z.infer<typeof insertSubscriptionEventSchema>;
+export type SubscriptionEvent = typeof subscriptionEvents.$inferSelect;
+
+// Executive Dashboard Summary Types
+export interface ExecutiveDashboardSummary {
+  // Overview
+  healthScore: number; // 0-100
+  criticalAlerts: number;
+  // User metrics
+  totalUsers: number;
+  activeUsersToday: number;
+  newUsersThisWeek: number;
+  churnRate: number;
+  // Revenue metrics
+  mrr: number;
+  arr: number;
+  revenueGrowth: number;
+  avgRevenuePerUser: number;
+  // AI metrics
+  aiRequestsToday: number;
+  aiCostToday: number;
+  aiEmergencyActive: boolean;
+  // Platform status
+  maintenanceMode: boolean;
+  activeEmergencyControls: number;
+  systemAnnouncements: number;
+}

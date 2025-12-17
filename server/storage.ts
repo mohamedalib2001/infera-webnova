@@ -39,6 +39,26 @@ import {
   type InsertPaymentTransaction,
   type AuthMethod,
   type InsertAuthMethod,
+  type AiModel,
+  type InsertAiModel,
+  type AiUsagePolicy,
+  type InsertAiUsagePolicy,
+  type AiCostTracking,
+  type InsertAiCostTracking,
+  type EmergencyControl,
+  type InsertEmergencyControl,
+  type FeatureFlag,
+  type InsertFeatureFlag,
+  type SystemAnnouncement,
+  type InsertSystemAnnouncement,
+  type AdminRole,
+  type InsertAdminRole,
+  type UserAdminRole,
+  type InsertUserAdminRole,
+  type PlatformMetrics,
+  type InsertPlatformMetrics,
+  type SubscriptionEvent,
+  type InsertSubscriptionEvent,
   users,
   projects,
   messages,
@@ -59,6 +79,16 @@ import {
   paymentMethods,
   paymentTransactions,
   authMethods,
+  aiModels,
+  aiUsagePolicies,
+  aiCostTracking,
+  emergencyControls,
+  featureFlags,
+  systemAnnouncements,
+  adminRoles,
+  userAdminRoles,
+  platformMetrics,
+  subscriptionEvents,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt } from "drizzle-orm";
@@ -187,6 +217,78 @@ export interface IStorage {
   toggleAuthMethod(id: string, isActive: boolean): Promise<AuthMethod | undefined>;
   toggleAuthMethodVisibility(id: string, isVisible: boolean): Promise<AuthMethod | undefined>;
   deleteAuthMethod(id: string): Promise<boolean>;
+  
+  // AI Models (Owner)
+  getAiModels(): Promise<AiModel[]>;
+  getActiveAiModels(): Promise<AiModel[]>;
+  getAiModel(id: string): Promise<AiModel | undefined>;
+  getDefaultAiModel(): Promise<AiModel | undefined>;
+  createAiModel(model: InsertAiModel): Promise<AiModel>;
+  updateAiModel(id: string, model: Partial<InsertAiModel>): Promise<AiModel | undefined>;
+  toggleAiModel(id: string, isActive: boolean): Promise<AiModel | undefined>;
+  setDefaultAiModel(id: string): Promise<AiModel | undefined>;
+  deleteAiModel(id: string): Promise<boolean>;
+  
+  // AI Usage Policies (Owner)
+  getAiUsagePolicies(): Promise<AiUsagePolicy[]>;
+  getAiUsagePolicy(id: string): Promise<AiUsagePolicy | undefined>;
+  getAiUsagePolicyByPlan(planRole: string): Promise<AiUsagePolicy | undefined>;
+  createAiUsagePolicy(policy: InsertAiUsagePolicy): Promise<AiUsagePolicy>;
+  updateAiUsagePolicy(id: string, policy: Partial<InsertAiUsagePolicy>): Promise<AiUsagePolicy | undefined>;
+  
+  // AI Cost Tracking
+  getAiCostTracking(date: string): Promise<AiCostTracking[]>;
+  getAiCostTrackingByUser(userId: string, startDate: string, endDate: string): Promise<AiCostTracking[]>;
+  createAiCostTracking(tracking: InsertAiCostTracking): Promise<AiCostTracking>;
+  getAiCostSummary(startDate: string, endDate: string): Promise<{ totalCost: number; totalTokens: number; byModel: Record<string, number>; byFeature: Record<string, number> }>;
+  
+  // Emergency Controls
+  getEmergencyControls(): Promise<EmergencyControl[]>;
+  getActiveEmergencyControls(): Promise<EmergencyControl[]>;
+  getEmergencyControl(id: string): Promise<EmergencyControl | undefined>;
+  createEmergencyControl(control: InsertEmergencyControl): Promise<EmergencyControl>;
+  deactivateEmergencyControl(id: string, deactivatedBy: string): Promise<EmergencyControl | undefined>;
+  
+  // Feature Flags
+  getFeatureFlags(): Promise<FeatureFlag[]>;
+  getFeatureFlag(id: string): Promise<FeatureFlag | undefined>;
+  getFeatureFlagByKey(key: string): Promise<FeatureFlag | undefined>;
+  createFeatureFlag(flag: InsertFeatureFlag): Promise<FeatureFlag>;
+  updateFeatureFlag(id: string, flag: Partial<InsertFeatureFlag>): Promise<FeatureFlag | undefined>;
+  toggleFeatureFlag(id: string, isEnabled: boolean): Promise<FeatureFlag | undefined>;
+  deleteFeatureFlag(id: string): Promise<boolean>;
+  
+  // System Announcements
+  getSystemAnnouncements(): Promise<SystemAnnouncement[]>;
+  getActiveSystemAnnouncements(): Promise<SystemAnnouncement[]>;
+  getSystemAnnouncement(id: string): Promise<SystemAnnouncement | undefined>;
+  createSystemAnnouncement(announcement: InsertSystemAnnouncement): Promise<SystemAnnouncement>;
+  updateSystemAnnouncement(id: string, announcement: Partial<InsertSystemAnnouncement>): Promise<SystemAnnouncement | undefined>;
+  deleteSystemAnnouncement(id: string): Promise<boolean>;
+  
+  // Admin Roles (RBAC)
+  getAdminRoles(): Promise<AdminRole[]>;
+  getAdminRole(id: string): Promise<AdminRole | undefined>;
+  getAdminRoleByKey(key: string): Promise<AdminRole | undefined>;
+  createAdminRole(role: InsertAdminRole): Promise<AdminRole>;
+  updateAdminRole(id: string, role: Partial<InsertAdminRole>): Promise<AdminRole | undefined>;
+  deleteAdminRole(id: string): Promise<boolean>;
+  
+  // User Admin Roles
+  getUserAdminRoles(userId: string): Promise<UserAdminRole[]>;
+  assignAdminRole(assignment: InsertUserAdminRole): Promise<UserAdminRole>;
+  revokeAdminRole(userId: string, roleId: string): Promise<boolean>;
+  
+  // Platform Metrics
+  getPlatformMetrics(date: string): Promise<PlatformMetrics | undefined>;
+  getPlatformMetricsRange(startDate: string, endDate: string): Promise<PlatformMetrics[]>;
+  createPlatformMetrics(metrics: InsertPlatformMetrics): Promise<PlatformMetrics>;
+  updatePlatformMetrics(date: string, metrics: Partial<InsertPlatformMetrics>): Promise<PlatformMetrics | undefined>;
+  
+  // Subscription Events
+  getSubscriptionEvents(limit?: number): Promise<SubscriptionEvent[]>;
+  getSubscriptionEventsByUser(userId: string): Promise<SubscriptionEvent[]>;
+  createSubscriptionEvent(event: InsertSubscriptionEvent): Promise<SubscriptionEvent>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1299,6 +1401,338 @@ body { font-family: 'Tajawal', sans-serif; }
     }
     const result = await db.delete(authMethods).where(eq(authMethods.id, id));
     return (result.rowCount ?? 0) > 0;
+  }
+
+  // AI Models implementation
+  async getAiModels(): Promise<AiModel[]> {
+    return db.select().from(aiModels).orderBy(asc(aiModels.sortOrder));
+  }
+
+  async getActiveAiModels(): Promise<AiModel[]> {
+    return db.select().from(aiModels)
+      .where(eq(aiModels.isActive, true))
+      .orderBy(asc(aiModels.sortOrder));
+  }
+
+  async getAiModel(id: string): Promise<AiModel | undefined> {
+    const [model] = await db.select().from(aiModels).where(eq(aiModels.id, id));
+    return model || undefined;
+  }
+
+  async getDefaultAiModel(): Promise<AiModel | undefined> {
+    const [model] = await db.select().from(aiModels)
+      .where(and(eq(aiModels.isDefault, true), eq(aiModels.isActive, true)));
+    return model || undefined;
+  }
+
+  async createAiModel(model: InsertAiModel): Promise<AiModel> {
+    const [created] = await db.insert(aiModels).values(model).returning();
+    return created;
+  }
+
+  async updateAiModel(id: string, updateData: Partial<InsertAiModel>): Promise<AiModel | undefined> {
+    const [updated] = await db.update(aiModels)
+      .set({ ...updateData, updatedAt: new Date() })
+      .where(eq(aiModels.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async toggleAiModel(id: string, isActive: boolean): Promise<AiModel | undefined> {
+    const model = await this.getAiModel(id);
+    if (!model) return undefined;
+    if (model.isDefault && !isActive) {
+      throw new Error("Cannot deactivate the default AI model");
+    }
+    const [updated] = await db.update(aiModels)
+      .set({ isActive, updatedAt: new Date() })
+      .where(eq(aiModels.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async setDefaultAiModel(id: string): Promise<AiModel | undefined> {
+    await db.update(aiModels).set({ isDefault: false, updatedAt: new Date() });
+    const [updated] = await db.update(aiModels)
+      .set({ isDefault: true, isActive: true, updatedAt: new Date() })
+      .where(eq(aiModels.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteAiModel(id: string): Promise<boolean> {
+    const model = await this.getAiModel(id);
+    if (!model) return false;
+    if (model.isDefault) {
+      throw new Error("Cannot delete the default AI model");
+    }
+    const result = await db.delete(aiModels).where(eq(aiModels.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // AI Usage Policies implementation
+  async getAiUsagePolicies(): Promise<AiUsagePolicy[]> {
+    return db.select().from(aiUsagePolicies);
+  }
+
+  async getAiUsagePolicy(id: string): Promise<AiUsagePolicy | undefined> {
+    const [policy] = await db.select().from(aiUsagePolicies).where(eq(aiUsagePolicies.id, id));
+    return policy || undefined;
+  }
+
+  async getAiUsagePolicyByPlan(planRole: string): Promise<AiUsagePolicy | undefined> {
+    const [policy] = await db.select().from(aiUsagePolicies).where(eq(aiUsagePolicies.planRole, planRole));
+    return policy || undefined;
+  }
+
+  async createAiUsagePolicy(policy: InsertAiUsagePolicy): Promise<AiUsagePolicy> {
+    const [created] = await db.insert(aiUsagePolicies).values(policy).returning();
+    return created;
+  }
+
+  async updateAiUsagePolicy(id: string, updateData: Partial<InsertAiUsagePolicy>): Promise<AiUsagePolicy | undefined> {
+    const [updated] = await db.update(aiUsagePolicies)
+      .set({ ...updateData, updatedAt: new Date() })
+      .where(eq(aiUsagePolicies.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // AI Cost Tracking implementation
+  async getAiCostTracking(date: string): Promise<AiCostTracking[]> {
+    return db.select().from(aiCostTracking).where(eq(aiCostTracking.date, date));
+  }
+
+  async getAiCostTrackingByUser(userId: string, startDate: string, endDate: string): Promise<AiCostTracking[]> {
+    return db.select().from(aiCostTracking)
+      .where(and(eq(aiCostTracking.userId, userId), gt(aiCostTracking.date, startDate)));
+  }
+
+  async createAiCostTracking(tracking: InsertAiCostTracking): Promise<AiCostTracking> {
+    const [created] = await db.insert(aiCostTracking).values(tracking).returning();
+    return created;
+  }
+
+  async getAiCostSummary(startDate: string, endDate: string): Promise<{ totalCost: number; totalTokens: number; byModel: Record<string, number>; byFeature: Record<string, number> }> {
+    const records = await db.select().from(aiCostTracking);
+    let totalCost = 0;
+    let totalTokens = 0;
+    const byModel: Record<string, number> = {};
+    const byFeature: Record<string, number> = {};
+    for (const record of records) {
+      totalCost += record.totalCost;
+      totalTokens += record.totalTokens;
+      byModel[record.modelId] = (byModel[record.modelId] || 0) + record.totalCost;
+      byFeature[record.feature] = (byFeature[record.feature] || 0) + record.totalCost;
+    }
+    return { totalCost, totalTokens, byModel, byFeature };
+  }
+
+  // Emergency Controls implementation
+  async getEmergencyControls(): Promise<EmergencyControl[]> {
+    return db.select().from(emergencyControls).orderBy(desc(emergencyControls.createdAt));
+  }
+
+  async getActiveEmergencyControls(): Promise<EmergencyControl[]> {
+    return db.select().from(emergencyControls)
+      .where(eq(emergencyControls.isActive, true))
+      .orderBy(desc(emergencyControls.createdAt));
+  }
+
+  async getEmergencyControl(id: string): Promise<EmergencyControl | undefined> {
+    const [control] = await db.select().from(emergencyControls).where(eq(emergencyControls.id, id));
+    return control || undefined;
+  }
+
+  async createEmergencyControl(control: InsertEmergencyControl): Promise<EmergencyControl> {
+    const [created] = await db.insert(emergencyControls).values(control).returning();
+    return created;
+  }
+
+  async deactivateEmergencyControl(id: string, deactivatedBy: string): Promise<EmergencyControl | undefined> {
+    const [updated] = await db.update(emergencyControls)
+      .set({ isActive: false, deactivatedAt: new Date(), deactivatedBy })
+      .where(eq(emergencyControls.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // Feature Flags implementation
+  async getFeatureFlags(): Promise<FeatureFlag[]> {
+    return db.select().from(featureFlags).orderBy(asc(featureFlags.key));
+  }
+
+  async getFeatureFlag(id: string): Promise<FeatureFlag | undefined> {
+    const [flag] = await db.select().from(featureFlags).where(eq(featureFlags.id, id));
+    return flag || undefined;
+  }
+
+  async getFeatureFlagByKey(key: string): Promise<FeatureFlag | undefined> {
+    const [flag] = await db.select().from(featureFlags).where(eq(featureFlags.key, key));
+    return flag || undefined;
+  }
+
+  async createFeatureFlag(flag: InsertFeatureFlag): Promise<FeatureFlag> {
+    const [created] = await db.insert(featureFlags).values(flag).returning();
+    return created;
+  }
+
+  async updateFeatureFlag(id: string, updateData: Partial<InsertFeatureFlag>): Promise<FeatureFlag | undefined> {
+    const [updated] = await db.update(featureFlags)
+      .set({ ...updateData, updatedAt: new Date() })
+      .where(eq(featureFlags.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async toggleFeatureFlag(id: string, isEnabled: boolean): Promise<FeatureFlag | undefined> {
+    const [updated] = await db.update(featureFlags)
+      .set({ isEnabled, updatedAt: new Date() })
+      .where(eq(featureFlags.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteFeatureFlag(id: string): Promise<boolean> {
+    const result = await db.delete(featureFlags).where(eq(featureFlags.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // System Announcements implementation
+  async getSystemAnnouncements(): Promise<SystemAnnouncement[]> {
+    return db.select().from(systemAnnouncements).orderBy(desc(systemAnnouncements.createdAt));
+  }
+
+  async getActiveSystemAnnouncements(): Promise<SystemAnnouncement[]> {
+    return db.select().from(systemAnnouncements)
+      .where(eq(systemAnnouncements.isActive, true))
+      .orderBy(desc(systemAnnouncements.createdAt));
+  }
+
+  async getSystemAnnouncement(id: string): Promise<SystemAnnouncement | undefined> {
+    const [announcement] = await db.select().from(systemAnnouncements).where(eq(systemAnnouncements.id, id));
+    return announcement || undefined;
+  }
+
+  async createSystemAnnouncement(announcement: InsertSystemAnnouncement): Promise<SystemAnnouncement> {
+    const [created] = await db.insert(systemAnnouncements).values(announcement).returning();
+    return created;
+  }
+
+  async updateSystemAnnouncement(id: string, updateData: Partial<InsertSystemAnnouncement>): Promise<SystemAnnouncement | undefined> {
+    const [updated] = await db.update(systemAnnouncements)
+      .set({ ...updateData, updatedAt: new Date() })
+      .where(eq(systemAnnouncements.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteSystemAnnouncement(id: string): Promise<boolean> {
+    const result = await db.delete(systemAnnouncements).where(eq(systemAnnouncements.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // Admin Roles implementation
+  async getAdminRoles(): Promise<AdminRole[]> {
+    return db.select().from(adminRoles).orderBy(desc(adminRoles.level));
+  }
+
+  async getAdminRole(id: string): Promise<AdminRole | undefined> {
+    const [role] = await db.select().from(adminRoles).where(eq(adminRoles.id, id));
+    return role || undefined;
+  }
+
+  async getAdminRoleByKey(key: string): Promise<AdminRole | undefined> {
+    const [role] = await db.select().from(adminRoles).where(eq(adminRoles.key, key));
+    return role || undefined;
+  }
+
+  async createAdminRole(role: InsertAdminRole): Promise<AdminRole> {
+    const [created] = await db.insert(adminRoles).values(role).returning();
+    return created;
+  }
+
+  async updateAdminRole(id: string, updateData: Partial<InsertAdminRole>): Promise<AdminRole | undefined> {
+    const role = await this.getAdminRole(id);
+    if (!role) return undefined;
+    if (role.isSystem) {
+      throw new Error("Cannot modify system roles");
+    }
+    const [updated] = await db.update(adminRoles)
+      .set({ ...updateData, updatedAt: new Date() })
+      .where(eq(adminRoles.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteAdminRole(id: string): Promise<boolean> {
+    const role = await this.getAdminRole(id);
+    if (!role) return false;
+    if (role.isSystem) {
+      throw new Error("Cannot delete system roles");
+    }
+    const result = await db.delete(adminRoles).where(eq(adminRoles.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // User Admin Roles implementation
+  async getUserAdminRoles(userId: string): Promise<UserAdminRole[]> {
+    return db.select().from(userAdminRoles)
+      .where(and(eq(userAdminRoles.userId, userId), eq(userAdminRoles.isActive, true)));
+  }
+
+  async assignAdminRole(assignment: InsertUserAdminRole): Promise<UserAdminRole> {
+    const [created] = await db.insert(userAdminRoles).values(assignment).returning();
+    return created;
+  }
+
+  async revokeAdminRole(userId: string, roleId: string): Promise<boolean> {
+    const [updated] = await db.update(userAdminRoles)
+      .set({ isActive: false })
+      .where(and(eq(userAdminRoles.userId, userId), eq(userAdminRoles.roleId, roleId)))
+      .returning();
+    return !!updated;
+  }
+
+  // Platform Metrics implementation
+  async getPlatformMetrics(date: string): Promise<PlatformMetrics | undefined> {
+    const [metrics] = await db.select().from(platformMetrics).where(eq(platformMetrics.date, date));
+    return metrics || undefined;
+  }
+
+  async getPlatformMetricsRange(startDate: string, endDate: string): Promise<PlatformMetrics[]> {
+    return db.select().from(platformMetrics)
+      .where(gt(platformMetrics.date, startDate))
+      .orderBy(asc(platformMetrics.date));
+  }
+
+  async createPlatformMetrics(metrics: InsertPlatformMetrics): Promise<PlatformMetrics> {
+    const [created] = await db.insert(platformMetrics).values(metrics).returning();
+    return created;
+  }
+
+  async updatePlatformMetrics(date: string, updateData: Partial<InsertPlatformMetrics>): Promise<PlatformMetrics | undefined> {
+    const [updated] = await db.update(platformMetrics)
+      .set(updateData)
+      .where(eq(platformMetrics.date, date))
+      .returning();
+    return updated || undefined;
+  }
+
+  // Subscription Events implementation
+  async getSubscriptionEvents(limit: number = 100): Promise<SubscriptionEvent[]> {
+    return db.select().from(subscriptionEvents).orderBy(desc(subscriptionEvents.createdAt)).limit(limit);
+  }
+
+  async getSubscriptionEventsByUser(userId: string): Promise<SubscriptionEvent[]> {
+    return db.select().from(subscriptionEvents)
+      .where(eq(subscriptionEvents.userId, userId))
+      .orderBy(desc(subscriptionEvents.createdAt));
+  }
+
+  async createSubscriptionEvent(event: InsertSubscriptionEvent): Promise<SubscriptionEvent> {
+    const [created] = await db.insert(subscriptionEvents).values(event).returning();
+    return created;
   }
 }
 

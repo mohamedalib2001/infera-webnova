@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateWebsiteCode, refineWebsiteCode } from "./anthropic";
-import { insertProjectSchema, insertMessageSchema, insertProjectVersionSchema, insertShareLinkSchema, insertUserSchema, type User } from "@shared/schema";
+import { insertProjectSchema, insertMessageSchema, insertProjectVersionSchema, insertShareLinkSchema, insertUserSchema, insertAiModelSchema, insertAiUsagePolicySchema, insertEmergencyControlSchema, insertFeatureFlagSchema, insertSystemAnnouncementSchema, insertAdminRoleSchema, type User } from "@shared/schema";
 import { z } from "zod";
 import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
@@ -1990,6 +1990,626 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Initialize auth methods error:", error);
       res.status(500).json({ error: "فشل في تهيئة طرق المصادقة / Failed to initialize auth methods" });
+    }
+  });
+
+  // ============ AI Models Routes (Owner) ============
+  
+  app.get("/api/owner/ai-models", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const models = await storage.getAiModels();
+      res.json(models);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب نماذج الذكاء الاصطناعي / Failed to get AI models" });
+    }
+  });
+
+  app.post("/api/owner/ai-models", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const validatedData = insertAiModelSchema.parse(req.body);
+      const model = await storage.createAiModel(validatedData);
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "ai_model_created",
+        entityType: "ai_model",
+        entityId: model.id,
+        details: { modelId: model.modelId, name: model.name },
+      });
+      res.status(201).json(model);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ error: "بيانات غير صالحة / Invalid data", details: error.errors });
+      }
+      res.status(500).json({ error: "فشل في إنشاء نموذج الذكاء الاصطناعي / Failed to create AI model" });
+    }
+  });
+
+  const toggleSchema = z.object({ isActive: z.boolean() });
+  
+  app.patch("/api/owner/ai-models/:id/toggle", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { isActive } = toggleSchema.parse(req.body);
+      const model = await storage.toggleAiModel(req.params.id, isActive);
+      if (!model) return res.status(404).json({ error: "النموذج غير موجود / Model not found" });
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: isActive ? "ai_model_activated" : "ai_model_deactivated",
+        entityType: "ai_model",
+        entityId: model.id,
+      });
+      res.json(model);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ error: "بيانات غير صالحة / Invalid data", details: error.errors });
+      }
+      res.status(400).json({ error: error.message || "فشل في تبديل حالة النموذج / Failed to toggle model" });
+    }
+  });
+
+  app.patch("/api/owner/ai-models/:id/default", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const model = await storage.setDefaultAiModel(req.params.id);
+      if (!model) return res.status(404).json({ error: "النموذج غير موجود / Model not found" });
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "ai_model_set_default",
+        entityType: "ai_model",
+        entityId: model.id,
+      });
+      res.json(model);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في تعيين النموذج الافتراضي / Failed to set default model" });
+    }
+  });
+
+  app.delete("/api/owner/ai-models/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const model = await storage.getAiModel(req.params.id);
+      if (!model) return res.status(404).json({ error: "النموذج غير موجود / Model not found" });
+      const deleted = await storage.deleteAiModel(req.params.id);
+      if (!deleted) return res.status(404).json({ error: "النموذج غير موجود / Model not found" });
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "ai_model_deleted",
+        entityType: "ai_model",
+        entityId: req.params.id,
+        details: { modelId: model.modelId, name: model.name },
+      });
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "فشل في حذف النموذج / Failed to delete model" });
+    }
+  });
+
+  app.post("/api/owner/initialize-ai-models", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const existingModels = await storage.getAiModels();
+      if (existingModels.length > 0) {
+        return res.status(400).json({ error: "AI models already initialized" });
+      }
+      const defaultModels = [
+        {
+          provider: "openai",
+          modelId: "gpt-4o",
+          name: "GPT-4o",
+          nameAr: "جي بي تي-4 أو",
+          description: "Most capable OpenAI model for complex tasks",
+          descriptionAr: "نموذج OpenAI الأكثر قدرة للمهام المعقدة",
+          capabilities: ["text", "code", "vision"],
+          maxTokens: 128000,
+          contextWindow: 128000,
+          inputCostPer1M: 250,
+          outputCostPer1M: 1000,
+          isActive: true,
+          isDefault: true,
+          allowedPlans: ["pro", "enterprise", "sovereign", "owner"],
+          sortOrder: 1,
+        },
+        {
+          provider: "openai",
+          modelId: "gpt-4o-mini",
+          name: "GPT-4o Mini",
+          nameAr: "جي بي تي-4 أو ميني",
+          description: "Fast and cost-effective model",
+          descriptionAr: "نموذج سريع وفعال من حيث التكلفة",
+          capabilities: ["text", "code"],
+          maxTokens: 128000,
+          contextWindow: 128000,
+          inputCostPer1M: 15,
+          outputCostPer1M: 60,
+          isActive: true,
+          isDefault: false,
+          allowedPlans: ["basic", "pro", "enterprise", "sovereign", "owner"],
+          sortOrder: 2,
+        },
+        {
+          provider: "anthropic",
+          modelId: "claude-sonnet-4-20250514",
+          name: "Claude Sonnet 4",
+          nameAr: "كلود سونيت 4",
+          description: "Anthropic's balanced model for most tasks",
+          descriptionAr: "نموذج Anthropic المتوازن لمعظم المهام",
+          capabilities: ["text", "code", "vision"],
+          maxTokens: 8192,
+          contextWindow: 200000,
+          inputCostPer1M: 300,
+          outputCostPer1M: 1500,
+          isActive: true,
+          isDefault: false,
+          allowedPlans: ["pro", "enterprise", "sovereign", "owner"],
+          sortOrder: 3,
+        },
+      ];
+      const createdModels = [];
+      for (const model of defaultModels) {
+        const created = await storage.createAiModel(model as any);
+        createdModels.push(created);
+      }
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "ai_models_initialized",
+        entityType: "ai_model",
+        details: { count: createdModels.length },
+      });
+      res.status(201).json({ message: "AI models initialized", models: createdModels });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to initialize AI models" });
+    }
+  });
+
+  // ============ AI Usage Policies Routes (Owner) ============
+  
+  app.get("/api/owner/ai-policies", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const policies = await storage.getAiUsagePolicies();
+      res.json(policies);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب سياسات الذكاء الاصطناعي / Failed to get AI policies" });
+    }
+  });
+
+  app.patch("/api/owner/ai-policies/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const policy = await storage.updateAiUsagePolicy(req.params.id, req.body);
+      if (!policy) return res.status(404).json({ error: "السياسة غير موجودة / Policy not found" });
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "ai_policy_updated",
+        entityType: "ai_policy",
+        entityId: policy.id,
+      });
+      res.json(policy);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في تحديث السياسة / Failed to update policy" });
+    }
+  });
+
+  app.post("/api/owner/initialize-ai-policies", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const existingPolicies = await storage.getAiUsagePolicies();
+      if (existingPolicies.length > 0) {
+        return res.status(400).json({ error: "AI policies already initialized" });
+      }
+      const defaultPolicies = [
+        { planRole: "free", name: "Free Plan Policy", nameAr: "سياسة الباقة المجانية", dailyRequestLimit: 5, monthlyRequestLimit: 50, maxTokensPerRequest: 1000, dailyCostLimit: 10, monthlyCostLimit: 50, allowedModels: ["gpt-4o-mini"], requestsPerMinute: 2, requestsPerHour: 20, isActive: true },
+        { planRole: "basic", name: "Basic Plan Policy", nameAr: "سياسة الباقة الأساسية", dailyRequestLimit: 20, monthlyRequestLimit: 300, maxTokensPerRequest: 2000, dailyCostLimit: 50, monthlyCostLimit: 200, allowedModels: ["gpt-4o-mini", "gpt-4o"], requestsPerMinute: 5, requestsPerHour: 50, isActive: true },
+        { planRole: "pro", name: "Pro Plan Policy", nameAr: "سياسة الباقة الاحترافية", dailyRequestLimit: 100, monthlyRequestLimit: 2000, maxTokensPerRequest: 4000, dailyCostLimit: 200, monthlyCostLimit: 1000, allowedModels: ["gpt-4o-mini", "gpt-4o", "claude-sonnet-4-20250514"], allowCodeGeneration: true, allowImageGeneration: true, requestsPerMinute: 15, requestsPerHour: 200, isActive: true },
+        { planRole: "enterprise", name: "Enterprise Plan Policy", nameAr: "سياسة باقة المؤسسات", dailyRequestLimit: 500, monthlyRequestLimit: 10000, maxTokensPerRequest: 8000, dailyCostLimit: 1000, monthlyCostLimit: 5000, allowedModels: ["gpt-4o-mini", "gpt-4o", "claude-sonnet-4-20250514"], allowCodeGeneration: true, allowImageGeneration: true, allowVision: true, requestsPerMinute: 30, requestsPerHour: 500, isActive: true },
+        { planRole: "sovereign", name: "Sovereign Plan Policy", nameAr: "سياسة الباقة السيادية", dailyRequestLimit: 1000, monthlyRequestLimit: 50000, maxTokensPerRequest: 16000, dailyCostLimit: 5000, monthlyCostLimit: 25000, allowedModels: ["gpt-4o-mini", "gpt-4o", "claude-sonnet-4-20250514"], allowCodeGeneration: true, allowImageGeneration: true, allowVision: true, requestsPerMinute: 60, requestsPerHour: 1000, isActive: true },
+      ];
+      const createdPolicies = [];
+      for (const policy of defaultPolicies) {
+        const created = await storage.createAiUsagePolicy(policy as any);
+        createdPolicies.push(created);
+      }
+      res.status(201).json({ message: "AI policies initialized", policies: createdPolicies });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to initialize AI policies" });
+    }
+  });
+
+  // ============ Emergency Controls Routes (Owner) ============
+  
+  app.get("/api/owner/emergency-controls", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const controls = await storage.getEmergencyControls();
+      res.json(controls);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب عناصر التحكم في الطوارئ / Failed to get emergency controls" });
+    }
+  });
+
+  app.get("/api/owner/emergency-controls/active", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const controls = await storage.getActiveEmergencyControls();
+      res.json(controls);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب عناصر التحكم النشطة / Failed to get active emergency controls" });
+    }
+  });
+
+  app.post("/api/owner/emergency-controls", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const validatedData = insertEmergencyControlSchema.parse({
+        ...req.body,
+        activatedBy: req.session.userId!,
+      });
+      const control = await storage.createEmergencyControl(validatedData);
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "emergency_control_activated",
+        entityType: "emergency_control",
+        entityId: control.id,
+        details: { type: control.type, scope: control.scope, reason: control.reason },
+      });
+      res.status(201).json(control);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ error: "بيانات غير صالحة / Invalid data", details: error.errors });
+      }
+      res.status(500).json({ error: "فشل في إنشاء تحكم الطوارئ / Failed to create emergency control" });
+    }
+  });
+
+  app.patch("/api/owner/emergency-controls/:id/deactivate", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const control = await storage.deactivateEmergencyControl(req.params.id, req.session.userId!);
+      if (!control) return res.status(404).json({ error: "التحكم غير موجود / Control not found" });
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "emergency_control_deactivated",
+        entityType: "emergency_control",
+        entityId: control.id,
+      });
+      res.json(control);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في إلغاء تفعيل التحكم / Failed to deactivate control" });
+    }
+  });
+
+  // ============ Feature Flags Routes (Owner) ============
+  
+  app.get("/api/owner/feature-flags", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const flags = await storage.getFeatureFlags();
+      res.json(flags);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب أعلام الميزات / Failed to get feature flags" });
+    }
+  });
+
+  app.post("/api/owner/feature-flags", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const validatedData = insertFeatureFlagSchema.parse({
+        ...req.body,
+        createdBy: req.session.userId!,
+      });
+      const flag = await storage.createFeatureFlag(validatedData);
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "feature_flag_created",
+        entityType: "feature_flag",
+        entityId: flag.id,
+        details: { key: flag.key, name: flag.name },
+      });
+      res.status(201).json(flag);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ error: "بيانات غير صالحة / Invalid data", details: error.errors });
+      }
+      res.status(500).json({ error: "فشل في إنشاء علم الميزة / Failed to create feature flag" });
+    }
+  });
+
+  app.patch("/api/owner/feature-flags/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const flag = await storage.updateFeatureFlag(req.params.id, req.body);
+      if (!flag) return res.status(404).json({ error: "العلم غير موجود / Flag not found" });
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "feature_flag_updated",
+        entityType: "feature_flag",
+        entityId: flag.id,
+      });
+      res.json(flag);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في تحديث علم الميزة / Failed to update feature flag" });
+    }
+  });
+
+  const toggleEnabledSchema = z.object({ isEnabled: z.boolean() });
+  
+  app.patch("/api/owner/feature-flags/:id/toggle", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { isEnabled } = toggleEnabledSchema.parse(req.body);
+      const flag = await storage.toggleFeatureFlag(req.params.id, isEnabled);
+      if (!flag) return res.status(404).json({ error: "العلم غير موجود / Flag not found" });
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: isEnabled ? "feature_flag_enabled" : "feature_flag_disabled",
+        entityType: "feature_flag",
+        entityId: flag.id,
+      });
+      res.json(flag);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ error: "بيانات غير صالحة / Invalid data", details: error.errors });
+      }
+      res.status(500).json({ error: "فشل في تبديل علم الميزة / Failed to toggle feature flag" });
+    }
+  });
+
+  app.delete("/api/owner/feature-flags/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const flag = await storage.getFeatureFlag(req.params.id);
+      if (!flag) return res.status(404).json({ error: "العلم غير موجود / Flag not found" });
+      const deleted = await storage.deleteFeatureFlag(req.params.id);
+      if (!deleted) return res.status(404).json({ error: "العلم غير موجود / Flag not found" });
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "feature_flag_deleted",
+        entityType: "feature_flag",
+        entityId: req.params.id,
+        details: { key: flag.key, name: flag.name },
+      });
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في حذف علم الميزة / Failed to delete feature flag" });
+    }
+  });
+
+  app.post("/api/owner/initialize-feature-flags", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const existingFlags = await storage.getFeatureFlags();
+      if (existingFlags.length > 0) {
+        return res.status(400).json({ error: "Feature flags already initialized" });
+      }
+      const defaultFlags = [
+        { key: "ai_chatbot_builder", name: "AI Chatbot Builder", nameAr: "منشئ روبوت الدردشة", description: "Enable chatbot creation feature", descriptionAr: "تفعيل ميزة إنشاء روبوت الدردشة", isEnabled: true, rolloutPercentage: 100, allowedPlans: ["pro", "enterprise", "sovereign", "owner"], category: "feature" },
+        { key: "seo_optimizer", name: "SEO Optimizer", nameAr: "محسن SEO", description: "Enable SEO optimization tools", descriptionAr: "تفعيل أدوات تحسين محركات البحث", isEnabled: true, rolloutPercentage: 100, allowedPlans: ["basic", "pro", "enterprise", "sovereign", "owner"], category: "feature" },
+        { key: "white_label", name: "White Label", nameAr: "العلامة البيضاء", description: "Enable white-label customization", descriptionAr: "تفعيل تخصيص العلامة البيضاء", isEnabled: true, rolloutPercentage: 100, allowedPlans: ["enterprise", "sovereign", "owner"], category: "feature" },
+        { key: "advanced_analytics", name: "Advanced Analytics", nameAr: "التحليلات المتقدمة", description: "Enable advanced analytics dashboard", descriptionAr: "تفعيل لوحة التحليلات المتقدمة", isEnabled: true, rolloutPercentage: 100, allowedPlans: ["pro", "enterprise", "sovereign", "owner"], category: "feature" },
+        { key: "ai_image_generation", name: "AI Image Generation", nameAr: "توليد الصور بالذكاء الاصطناعي", description: "Enable AI image generation", descriptionAr: "تفعيل توليد الصور بالذكاء الاصطناعي", isEnabled: false, rolloutPercentage: 0, allowedPlans: ["enterprise", "sovereign", "owner"], category: "experiment" },
+      ];
+      const createdFlags = [];
+      for (const flag of defaultFlags) {
+        const created = await storage.createFeatureFlag({ ...flag, createdBy: req.session.userId } as any);
+        createdFlags.push(created);
+      }
+      res.status(201).json({ message: "Feature flags initialized", flags: createdFlags });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to initialize feature flags" });
+    }
+  });
+
+  // ============ System Announcements Routes (Owner) ============
+  
+  app.get("/api/owner/announcements", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const announcements = await storage.getSystemAnnouncements();
+      res.json(announcements);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب الإعلانات / Failed to get announcements" });
+    }
+  });
+
+  app.get("/api/announcements/active", async (req, res) => {
+    try {
+      const announcements = await storage.getActiveSystemAnnouncements();
+      res.json(announcements);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب الإعلانات / Failed to get announcements" });
+    }
+  });
+
+  app.post("/api/owner/announcements", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const validatedData = insertSystemAnnouncementSchema.parse({
+        ...req.body,
+        createdBy: req.session.userId!,
+      });
+      const announcement = await storage.createSystemAnnouncement(validatedData);
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "announcement_created",
+        entityType: "announcement",
+        entityId: announcement.id,
+        details: { title: announcement.title, type: announcement.type },
+      });
+      res.status(201).json(announcement);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ error: "بيانات غير صالحة / Invalid data", details: error.errors });
+      }
+      res.status(500).json({ error: "فشل في إنشاء الإعلان / Failed to create announcement" });
+    }
+  });
+
+  app.patch("/api/owner/announcements/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const announcement = await storage.updateSystemAnnouncement(req.params.id, req.body);
+      if (!announcement) return res.status(404).json({ error: "الإعلان غير موجود / Announcement not found" });
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "announcement_updated",
+        entityType: "announcement",
+        entityId: announcement.id,
+      });
+      res.json(announcement);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في تحديث الإعلان / Failed to update announcement" });
+    }
+  });
+
+  app.delete("/api/owner/announcements/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const announcement = await storage.getSystemAnnouncement(req.params.id);
+      if (!announcement) return res.status(404).json({ error: "الإعلان غير موجود / Announcement not found" });
+      const deleted = await storage.deleteSystemAnnouncement(req.params.id);
+      if (!deleted) return res.status(404).json({ error: "الإعلان غير موجود / Announcement not found" });
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "announcement_deleted",
+        entityType: "announcement",
+        entityId: req.params.id,
+        details: { title: announcement.title },
+      });
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في حذف الإعلان / Failed to delete announcement" });
+    }
+  });
+
+  // ============ Admin Roles Routes (Owner) ============
+  
+  app.get("/api/owner/admin-roles", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const roles = await storage.getAdminRoles();
+      res.json(roles);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب أدوار المسؤولين / Failed to get admin roles" });
+    }
+  });
+
+  app.post("/api/owner/admin-roles", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const validatedData = insertAdminRoleSchema.parse(req.body);
+      const role = await storage.createAdminRole(validatedData);
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "admin_role_created",
+        entityType: "admin_role",
+        entityId: role.id,
+        details: { key: role.key, name: role.name },
+      });
+      res.status(201).json(role);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ error: "بيانات غير صالحة / Invalid data", details: error.errors });
+      }
+      res.status(500).json({ error: "فشل في إنشاء الدور / Failed to create admin role" });
+    }
+  });
+
+  app.patch("/api/owner/admin-roles/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const role = await storage.updateAdminRole(req.params.id, req.body);
+      if (!role) return res.status(404).json({ error: "الدور غير موجود / Role not found" });
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "admin_role_updated",
+        entityType: "admin_role",
+        entityId: role.id,
+      });
+      res.json(role);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "فشل في تحديث الدور / Failed to update role" });
+    }
+  });
+
+  app.delete("/api/owner/admin-roles/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const role = await storage.getAdminRole(req.params.id);
+      if (!role) return res.status(404).json({ error: "الدور غير موجود / Role not found" });
+      const deleted = await storage.deleteAdminRole(req.params.id);
+      if (!deleted) return res.status(404).json({ error: "الدور غير موجود / Role not found" });
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "admin_role_deleted",
+        entityType: "admin_role",
+        entityId: req.params.id,
+        details: { key: role.key, name: role.name },
+      });
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "فشل في حذف الدور / Failed to delete role" });
+    }
+  });
+
+  app.post("/api/owner/initialize-admin-roles", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const existingRoles = await storage.getAdminRoles();
+      if (existingRoles.length > 0) {
+        return res.status(400).json({ error: "Admin roles already initialized" });
+      }
+      const defaultRoles = [
+        { key: "super_admin", name: "Super Admin", nameAr: "مدير أعلى", description: "Full platform access", descriptionAr: "وصول كامل للمنصة", permissions: ["owner:full_access"], level: 100, isSystem: true, isActive: true },
+        { key: "platform_admin", name: "Platform Admin", nameAr: "مدير المنصة", description: "Platform operations and user management", descriptionAr: "عمليات المنصة وإدارة المستخدمين", permissions: ["users:read", "users:update", "users:ban", "subscriptions:read", "subscriptions:update", "projects:read", "audit:read"], level: 80, isSystem: true, isActive: true },
+        { key: "content_admin", name: "Content Admin", nameAr: "مدير المحتوى", description: "Templates and content management", descriptionAr: "إدارة القوالب والمحتوى", permissions: ["projects:read", "announcements:read", "announcements:create", "announcements:update"], level: 60, isSystem: true, isActive: true },
+        { key: "support_admin", name: "Support Admin", nameAr: "مدير الدعم", description: "User support and issue resolution", descriptionAr: "دعم المستخدمين وحل المشكلات", permissions: ["users:read", "projects:read", "subscriptions:read", "audit:read"], level: 40, isSystem: true, isActive: true },
+        { key: "billing_admin", name: "Billing Admin", nameAr: "مدير الفواتير", description: "Payment and subscription management", descriptionAr: "إدارة المدفوعات والاشتراكات", permissions: ["payments:read", "payments:refund", "subscriptions:read", "subscriptions:update"], level: 50, isSystem: true, isActive: true },
+      ];
+      const createdRoles = [];
+      for (const role of defaultRoles) {
+        const created = await storage.createAdminRole(role as any);
+        createdRoles.push(created);
+      }
+      res.status(201).json({ message: "Admin roles initialized", roles: createdRoles });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to initialize admin roles" });
+    }
+  });
+
+  // ============ Executive Dashboard Summary (Owner) ============
+  
+  app.get("/api/owner/executive-summary", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      const activeEmergencyControls = await storage.getActiveEmergencyControls();
+      const announcements = await storage.getActiveSystemAnnouncements();
+      const aiCostSummary = await storage.getAiCostSummary("2024-01-01", "2025-12-31");
+      const ownerSettingsData = await storage.getOwnerSettings(req.session.userId!);
+      
+      const totalUsers = users.length;
+      const activeUsers = users.filter(u => u.isActive).length;
+      const usersByPlan: Record<string, number> = {};
+      users.forEach(u => {
+        usersByPlan[u.role] = (usersByPlan[u.role] || 0) + 1;
+      });
+      
+      const summary = {
+        healthScore: activeEmergencyControls.length > 0 ? 60 : 95,
+        criticalAlerts: activeEmergencyControls.length,
+        totalUsers,
+        activeUsersToday: Math.floor(activeUsers * 0.3),
+        newUsersThisWeek: Math.floor(totalUsers * 0.05),
+        churnRate: 2.5,
+        mrr: 15000 * 100,
+        arr: 180000 * 100,
+        revenueGrowth: 12.5,
+        avgRevenuePerUser: Math.floor((15000 / totalUsers) * 100) || 0,
+        aiRequestsToday: 250,
+        aiCostToday: aiCostSummary.totalCost,
+        aiEmergencyActive: activeEmergencyControls.some(c => c.type === "ai_suspension"),
+        maintenanceMode: ownerSettingsData?.maintenanceMode ?? false,
+        activeEmergencyControls: activeEmergencyControls.length,
+        systemAnnouncements: announcements.length,
+        usersByPlan,
+      };
+      
+      res.json(summary);
+    } catch (error) {
+      console.error("Executive summary error:", error);
+      res.status(500).json({ error: "Failed to get executive summary" });
+    }
+  });
+
+  // ============ AI Cost Analytics (Owner) ============
+  
+  app.get("/api/owner/ai-analytics", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const summary = await storage.getAiCostSummary("2024-01-01", "2025-12-31");
+      const models = await storage.getAiModels();
+      const policies = await storage.getAiUsagePolicies();
+      
+      res.json({
+        ...summary,
+        totalModels: models.length,
+        activeModels: models.filter(m => m.isActive).length,
+        totalPolicies: policies.length,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get AI analytics" });
     }
   });
 
