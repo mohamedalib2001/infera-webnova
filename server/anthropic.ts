@@ -72,7 +72,7 @@ Respond ONLY with JSON (no markdown):
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-opus-4-5",
+      model: "claude-sonnet-4-5",
       max_tokens: 8000,
       messages: [
         { role: "user", content: prompt },
@@ -118,7 +118,7 @@ Respond ONLY with JSON:
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-opus-4-5",
+      model: "claude-sonnet-4-5",
       max_tokens: 8000,
       messages: [
         { role: "user", content: prompt },
