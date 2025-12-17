@@ -63,6 +63,17 @@ const translations: Record<string, Record<Language, string>> = {
   "auth.registerSuccess": { ar: "تم إنشاء الحساب بنجاح", en: "Account created successfully" },
   "auth.error": { ar: "حدث خطأ", en: "An error occurred" },
   "auth.logout": { ar: "تسجيل الخروج", en: "Logout" },
+  "auth.or": { ar: "أو", en: "or" },
+  "auth.continueWith": { ar: "المتابعة باستخدام", en: "Continue with" },
+  "auth.comingSoon": { ar: "قريباً", en: "Coming Soon" },
+  "auth.google": { ar: "Google", en: "Google" },
+  "auth.github": { ar: "GitHub", en: "GitHub" },
+  "auth.apple": { ar: "Apple", en: "Apple" },
+  "auth.otp": { ar: "التحقق بخطوتين", en: "Two-Factor Auth" },
+  "auth.otpSent": { ar: "تم إرسال رمز التحقق إلى بريدك الإلكتروني", en: "Verification code sent to your email" },
+  "auth.enterOtp": { ar: "أدخل رمز التحقق", en: "Enter verification code" },
+  "auth.verifyOtp": { ar: "تحقق", en: "Verify" },
+  "auth.resendOtp": { ar: "إعادة إرسال الرمز", en: "Resend code" },
   
   // Sidebar
   "sidebar.free": { ar: "مجاني", en: "Free" },
