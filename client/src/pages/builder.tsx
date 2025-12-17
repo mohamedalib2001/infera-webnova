@@ -276,6 +276,7 @@ export default function Builder() {
             html={html}
             css={css}
             js={js}
+            isGenerating={isGenerating}
           />
         </div>
         

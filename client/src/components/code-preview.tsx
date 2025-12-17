@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Monitor, Tablet, Smartphone, RefreshCw, Maximize2, Copy, Check, Download } from "lucide-react";
+import { Monitor, Tablet, Smartphone, RefreshCw, Maximize2, Copy, Check, Download, Sparkles, Code2, Palette, Zap, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/hooks/use-language";
 
 interface CodePreviewProps {
   html: string;
   css: string;
   js: string;
   onRefresh?: () => void;
+  isGenerating?: boolean;
 }
 
 type ViewportSize = "desktop" | "tablet" | "mobile";
@@ -19,12 +21,32 @@ const viewportSizes: Record<ViewportSize, { width: string; icon: React.ReactNode
   mobile: { width: "375px", icon: <Smartphone className="h-4 w-4" /> },
 };
 
-export function CodePreview({ html, css, js, onRefresh }: CodePreviewProps) {
+const generationStages = [
+  { id: "planning", icon: Sparkles, labelEn: "Planning your website...", labelAr: "جاري التخطيط لموقعك..." },
+  { id: "designing", icon: Palette, labelEn: "Designing the layout...", labelAr: "جاري تصميم التخطيط..." },
+  { id: "coding", icon: Code2, labelEn: "Writing the code...", labelAr: "جاري كتابة الكود..." },
+  { id: "optimizing", icon: Zap, labelEn: "Optimizing for performance...", labelAr: "جاري تحسين الأداء..." },
+  { id: "finishing", icon: CheckCircle2, labelEn: "Finishing touches...", labelAr: "اللمسات النهائية..." },
+];
+
+export function CodePreview({ html, css, js, onRefresh, isGenerating = false }: CodePreviewProps) {
   const [viewport, setViewport] = useState<ViewportSize>("desktop");
   const [activeTab, setActiveTab] = useState<"preview" | "html" | "css" | "js">("preview");
   const [copied, setCopied] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [currentStage, setCurrentStage] = useState(0);
   const { toast } = useToast();
+  const { isRtl } = useLanguage();
+  
+  useEffect(() => {
+    if (isGenerating) {
+      setCurrentStage(0);
+      const interval = setInterval(() => {
+        setCurrentStage(prev => (prev + 1) % generationStages.length);
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [isGenerating]);
   
   console.log("CodePreview render - html:", html?.length || 0, "css:", css?.length || 0, "js:", js?.length || 0);
 
@@ -151,7 +173,45 @@ export function CodePreview({ html, css, js, onRefresh }: CodePreviewProps) {
               className="h-full bg-white rounded-lg shadow-lg overflow-hidden transition-all duration-300"
               style={{ width: viewportSizes[viewport].width, maxWidth: "100%" }}
             >
-              {html || css || js ? (
+              {isGenerating ? (
+                <div className="h-full flex flex-col items-center justify-center gap-8 p-8">
+                  <div className="relative">
+                    <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-primary/20 to-primary/40 animate-pulse" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center animate-spin" style={{ animationDuration: "3s" }}>
+                        {(() => {
+                          const StageIcon = generationStages[currentStage].icon;
+                          return <StageIcon className="w-8 h-8 text-primary-foreground" />;
+                        })()}
+                      </div>
+                    </div>
+                    <div className="absolute -inset-4 rounded-full border-2 border-primary/30 animate-ping" style={{ animationDuration: "2s" }} />
+                  </div>
+                  
+                  <div className="text-center space-y-3">
+                    <p className="text-lg font-medium text-foreground animate-pulse">
+                      {isRtl ? generationStages[currentStage].labelAr : generationStages[currentStage].labelEn}
+                    </p>
+                    <div className="flex items-center justify-center gap-2">
+                      {generationStages.map((stage, idx) => (
+                        <div
+                          key={stage.id}
+                          className={`w-2 h-2 rounded-full transition-all duration-500 ${
+                            idx === currentStage 
+                              ? "bg-primary w-6" 
+                              : idx < currentStage 
+                                ? "bg-primary/60" 
+                                : "bg-muted-foreground/30"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {isRtl ? "يرجى الانتظار بينما نقوم بإنشاء موقعك الاحترافي" : "Please wait while we create your professional website"}
+                    </p>
+                  </div>
+                </div>
+              ) : html || css || js ? (
                 <iframe
                   srcDoc={generatePreviewContent()}
                   className="w-full h-full border-0"
@@ -161,7 +221,7 @@ export function CodePreview({ html, css, js, onRefresh }: CodePreviewProps) {
                 />
               ) : (
                 <div className="h-full flex items-center justify-center text-muted-foreground">
-                  <p>Your website preview will appear here</p>
+                  <p>{isRtl ? "ستظهر معاينة موقعك هنا" : "Your website preview will appear here"}</p>
                 </div>
               )}
             </div>
