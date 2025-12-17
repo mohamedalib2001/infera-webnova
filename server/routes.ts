@@ -156,6 +156,75 @@ export async function registerRoutes(
     res.json({ user: req.session.user });
   });
 
+  // ============ OTP Routes - التحقق بخطوتين ============
+  
+  // Request OTP - طلب رمز التحقق
+  app.post("/api/auth/request-otp", requireAuth, async (req, res) => {
+    try {
+      const { generateOTP, sendOTPEmail } = await import("./email");
+      
+      const user = req.session.user!;
+      const code = generateOTP();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+      
+      // Save OTP to database
+      await storage.createOtpCode({
+        userId: user.id,
+        email: user.email,
+        code,
+        type: "email",
+        isUsed: false,
+        expiresAt,
+      });
+      
+      // Send email
+      const emailSent = await sendOTPEmail(user.email, code, user.language as "ar" | "en");
+      
+      res.json({ 
+        success: true,
+        message: emailSent ? "تم إرسال رمز التحقق" : "تم إنشاء الرمز (وضع التطوير)",
+      });
+    } catch (error) {
+      console.error("OTP request error:", error);
+      res.status(500).json({ error: "فشل في إرسال رمز التحقق" });
+    }
+  });
+
+  // Verify OTP - التحقق من الرمز
+  app.post("/api/auth/verify-otp", requireAuth, async (req, res) => {
+    try {
+      const { code } = req.body;
+      
+      if (!code || code.length !== 6) {
+        return res.status(400).json({ error: "رمز التحقق غير صحيح" });
+      }
+      
+      const user = req.session.user!;
+      const otpCode = await storage.getValidOtpCode(user.id, code);
+      
+      if (!otpCode) {
+        return res.status(400).json({ error: "رمز التحقق غير صحيح أو منتهي الصلاحية" });
+      }
+      
+      // Mark OTP as used
+      await storage.markOtpUsed(otpCode.id);
+      
+      // Update user email verification
+      await storage.updateUser(user.id, { emailVerified: true });
+      
+      // Update session
+      req.session.user = { ...user, emailVerified: true };
+      
+      res.json({ 
+        success: true,
+        message: "تم التحقق بنجاح",
+      });
+    } catch (error) {
+      console.error("OTP verification error:", error);
+      res.status(500).json({ error: "فشل في التحقق" });
+    }
+  });
+
   // ============ Subscription Plans Routes - خطط الاشتراك ============
   
   // Get all subscription plans

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, FolderOpen, LayoutTemplate, Settings, Plus, LogIn, LogOut, Crown } from "lucide-react";
+import { Home, FolderOpen, LayoutTemplate, Settings, Plus, LogIn, LogOut, Crown, CreditCard } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -31,6 +31,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     { title: t("nav.home"), url: "/", icon: Home, testId: "nav-home" },
     { title: t("nav.projects"), url: "/projects", icon: FolderOpen, testId: "nav-projects" },
     { title: t("nav.templates"), url: "/templates", icon: LayoutTemplate, testId: "nav-templates" },
+    { title: language === "ar" ? "الأسعار" : "Pricing", url: "/pricing", icon: CreditCard, testId: "nav-pricing" },
   ];
 
   const roleLabels: Record<string, { ar: string; en: string; color: "secondary" | "default" | "destructive" }> = {

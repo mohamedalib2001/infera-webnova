@@ -291,6 +291,28 @@ export const insertAiUsageSchema = createInsertSchema(aiUsage).omit({
 export type InsertAiUsage = z.infer<typeof insertAiUsageSchema>;
 export type AiUsage = typeof aiUsage.$inferSelect;
 
+// ==================== OTP VERIFICATION ====================
+
+// OTP codes for 2FA and email verification
+export const otpCodes = pgTable("otp_codes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  email: text("email").notNull(),
+  code: varchar("code", { length: 6 }).notNull(),
+  type: text("type").notNull().default("email"), // email, authenticator
+  isUsed: boolean("is_used").notNull().default(false),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertOtpCodeSchema = createInsertSchema(otpCodes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertOtpCode = z.infer<typeof insertOtpCodeSchema>;
+export type OtpCode = typeof otpCodes.$inferSelect;
+
 // ==================== API TYPES ====================
 
 export interface GenerateCodeRequest {

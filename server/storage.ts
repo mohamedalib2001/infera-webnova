@@ -21,6 +21,8 @@ import {
   type InsertPayment,
   type AiUsage,
   type InsertAiUsage,
+  type OtpCode,
+  type InsertOtpCode,
   users,
   projects,
   messages,
@@ -32,9 +34,10 @@ import {
   userSubscriptions,
   payments,
   aiUsage,
+  otpCodes,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, asc, and } from "drizzle-orm";
+import { eq, desc, asc, and, gt } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -99,6 +102,11 @@ export interface IStorage {
   getComponentsByCategory(category: string): Promise<Component[]>;
   getComponent(id: string): Promise<Component | undefined>;
   createComponent(component: InsertComponent): Promise<Component>;
+  
+  // OTP Codes
+  createOtpCode(otp: InsertOtpCode): Promise<OtpCode>;
+  getValidOtpCode(userId: string, code: string): Promise<OtpCode | undefined>;
+  markOtpUsed(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -940,6 +948,38 @@ body { font-family: 'Tajawal', sans-serif; }
   async createComponent(insertComponent: InsertComponent): Promise<Component> {
     const [component] = await db.insert(components).values(insertComponent).returning();
     return component;
+  }
+
+  // OTP methods
+  async createOtpCode(insertOtp: InsertOtpCode): Promise<OtpCode> {
+    const [otp] = await db.insert(otpCodes).values(insertOtp).returning();
+    return otp;
+  }
+
+  async getValidOtpCode(userId: string, code: string): Promise<OtpCode | undefined> {
+    const [otp] = await db
+      .select()
+      .from(otpCodes)
+      .where(
+        and(
+          eq(otpCodes.userId, userId),
+          eq(otpCodes.code, code),
+          eq(otpCodes.isUsed, false)
+        )
+      );
+    
+    if (!otp) return undefined;
+    
+    // Check if expired
+    if (new Date() > otp.expiresAt) {
+      return undefined;
+    }
+    
+    return otp;
+  }
+
+  async markOtpUsed(id: string): Promise<void> {
+    await db.update(otpCodes).set({ isUsed: true }).where(eq(otpCodes.id, id));
   }
 }
 

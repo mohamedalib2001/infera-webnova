@@ -15,6 +15,7 @@ import Builder from "@/pages/builder";
 import Projects from "@/pages/projects";
 import Templates from "@/pages/templates";
 import Preview from "@/pages/preview";
+import Pricing from "@/pages/pricing";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -26,6 +27,7 @@ function Router() {
       <Route path="/builder/:id" component={Builder} />
       <Route path="/projects" component={Projects} />
       <Route path="/templates" component={Templates} />
+      <Route path="/pricing" component={Pricing} />
       <Route path="/preview/:shareCode" component={Preview} />
       <Route component={NotFound} />
     </Switch>
