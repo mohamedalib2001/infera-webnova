@@ -95,11 +95,13 @@ export default function Home() {
       <div className="bg-background/80 backdrop-blur-xl border-t">
         <div className="max-w-7xl mx-auto px-4 py-8">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="mb-6">
-              <TabsTrigger value="recent" data-testid="tab-recent">{t("home.recent")}</TabsTrigger>
-              <TabsTrigger value="projects" data-testid="tab-projects">{t("home.myProjects")}</TabsTrigger>
-              <TabsTrigger value="templates" data-testid="tab-templates">{t("home.templates")}</TabsTrigger>
-            </TabsList>
+            <div className="flex justify-end mb-6">
+              <TabsList>
+                <TabsTrigger value="recent" data-testid="tab-recent">{t("home.recent")}</TabsTrigger>
+                <TabsTrigger value="projects" data-testid="tab-projects">{t("home.myProjects")}</TabsTrigger>
+                <TabsTrigger value="templates" data-testid="tab-templates">{t("home.templates")}</TabsTrigger>
+              </TabsList>
+            </div>
             
             <TabsContent value="recent">
               {projectsLoading ? (
