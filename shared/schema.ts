@@ -1044,3 +1044,210 @@ export interface ExecutiveDashboardSummary {
   activeEmergencyControls: number;
   systemAnnouncements: number;
 }
+
+// ==================== SOVEREIGN AI ASSISTANTS ====================
+
+// Sovereign Assistant Types
+export const sovereignAssistantTypes = [
+  'ai_governor',        // Manages AI lifecycle, costs, and policy enforcement
+  'platform_architect', // Oversees structural integrity and infrastructure improvements
+  'operations_commander', // Handles emergencies, stability control, and high-risk actions
+  'security_sentinel',  // Detects threats and enforces compliance
+  'revenue_strategist'  // Executes strategic pricing and retention adjustments
+] as const;
+export type SovereignAssistantType = typeof sovereignAssistantTypes[number];
+
+// Sovereign AI Assistants - Platform-level autonomous AI agents
+export const sovereignAssistants = pgTable("sovereign_assistants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: text("type").notNull(), // ai_governor, platform_architect, operations_commander, security_sentinel, revenue_strategist
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  description: text("description").notNull(),
+  descriptionAr: text("description_ar").notNull(),
+  avatar: text("avatar"),
+  // Capabilities and scope
+  capabilities: jsonb("capabilities").$type<string[]>().notNull().default([]),
+  capabilitiesAr: jsonb("capabilities_ar").$type<string[]>().default([]),
+  scopeOfAuthority: jsonb("scope_of_authority").$type<string[]>().notNull().default([]),
+  constraints: jsonb("constraints").$type<string[]>().notNull().default([]),
+  // AI configuration
+  systemPrompt: text("system_prompt").notNull(),
+  model: text("model").notNull().default("claude-sonnet-4-20250514"),
+  temperature: integer("temperature").notNull().default(50), // Lower for more deterministic actions
+  maxTokens: integer("max_tokens").notNull().default(8000),
+  // Status and metrics
+  isActive: boolean("is_active").notNull().default(true),
+  isAutonomous: boolean("is_autonomous").notNull().default(false), // Can execute without approval
+  totalCommandsExecuted: integer("total_commands_executed").notNull().default(0),
+  totalActionsExecuted: integer("total_actions_executed").notNull().default(0),
+  successRate: integer("success_rate").notNull().default(100),
+  lastActiveAt: timestamp("last_active_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSovereignAssistantSchema = createInsertSchema(sovereignAssistants).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSovereignAssistant = z.infer<typeof insertSovereignAssistantSchema>;
+export type SovereignAssistant = typeof sovereignAssistants.$inferSelect;
+
+// Sovereign Commands - High-level directives from Owner
+export const sovereignCommands = pgTable("sovereign_commands", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  assistantId: varchar("assistant_id").notNull(),
+  issuedBy: varchar("issued_by").notNull(), // Owner user ID
+  // Command details
+  directive: text("directive").notNull(), // The high-level command (e.g., "reduce AI costs by 20%")
+  directiveAr: text("directive_ar"),
+  category: text("category").notNull().default("general"), // governance, operations, security, revenue, infrastructure
+  priority: text("priority").notNull().default("normal"), // low, normal, high, critical
+  // Interpretation and planning
+  interpretation: text("interpretation"), // AI's understanding of the directive
+  proposedPlan: jsonb("proposed_plan").$type<{
+    steps: Array<{
+      order: number;
+      action: string;
+      target: string;
+      parameters: Record<string, any>;
+      riskLevel: string;
+      reversible: boolean;
+    }>;
+    estimatedDuration: number;
+    riskAssessment: string;
+  }>(),
+  // Approval workflow
+  requiresApproval: boolean("requires_approval").notNull().default(true),
+  isApproved: boolean("is_approved").default(false),
+  approvedBy: varchar("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  // Execution status
+  status: text("status").notNull().default("pending"), // pending, planning, awaiting_approval, executing, completed, failed, cancelled, rolled_back
+  progress: integer("progress").notNull().default(0), // 0-100
+  currentStep: integer("current_step").notNull().default(0),
+  totalSteps: integer("total_steps").notNull().default(0),
+  // Results
+  result: text("result"),
+  resultAr: text("result_ar"),
+  metrics: jsonb("metrics").$type<Record<string, any>>(), // Command-specific metrics
+  errors: jsonb("errors").$type<Array<{ step: number; error: string; timestamp: string }>>().default([]),
+  // Reversibility
+  isReversible: boolean("is_reversible").notNull().default(true),
+  rollbackPlan: jsonb("rollback_plan").$type<Array<{ action: string; target: string; parameters: Record<string, any> }>>(),
+  rolledBackAt: timestamp("rolled_back_at"),
+  rolledBackBy: varchar("rolled_back_by"),
+  // Timestamps
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSovereignCommandSchema = createInsertSchema(sovereignCommands).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertSovereignCommand = z.infer<typeof insertSovereignCommandSchema>;
+export type SovereignCommand = typeof sovereignCommands.$inferSelect;
+
+// Sovereign Actions - Individual actions within a command execution
+export const sovereignActions = pgTable("sovereign_actions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  commandId: varchar("command_id").notNull(),
+  assistantId: varchar("assistant_id").notNull(),
+  // Action details
+  stepNumber: integer("step_number").notNull(),
+  actionType: text("action_type").notNull(), // adjust_model, update_policy, toggle_feature, allocate_resource, send_alert, etc.
+  target: text("target").notNull(), // What is being acted upon
+  targetId: varchar("target_id"), // ID of the target entity
+  parameters: jsonb("parameters").$type<Record<string, any>>().default({}),
+  // Before/after state for reversibility
+  previousState: jsonb("previous_state").$type<Record<string, any>>(),
+  newState: jsonb("new_state").$type<Record<string, any>>(),
+  // Execution
+  status: text("status").notNull().default("pending"), // pending, executing, completed, failed, skipped, rolled_back
+  result: text("result"),
+  errorMessage: text("error_message"),
+  // Risk assessment
+  riskLevel: text("risk_level").notNull().default("low"), // low, medium, high, critical
+  isReversible: boolean("is_reversible").notNull().default(true),
+  // Timestamps
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSovereignActionSchema = createInsertSchema(sovereignActions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertSovereignAction = z.infer<typeof insertSovereignActionSchema>;
+export type SovereignAction = typeof sovereignActions.$inferSelect;
+
+// Sovereign Action Logs - Immutable audit trail
+export const sovereignActionLogs = pgTable("sovereign_action_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  commandId: varchar("command_id"),
+  actionId: varchar("action_id"),
+  assistantId: varchar("assistant_id").notNull(),
+  actorId: varchar("actor_id").notNull(), // User or assistant that triggered
+  actorType: text("actor_type").notNull().default("assistant"), // assistant, owner, system
+  // Log details
+  eventType: text("event_type").notNull(), // command_issued, plan_created, approval_requested, action_started, action_completed, action_failed, rollback_initiated, override_applied
+  eventDescription: text("event_description").notNull(),
+  eventDescriptionAr: text("event_description_ar"),
+  // Context
+  targetEntity: text("target_entity"),
+  targetId: varchar("target_id"),
+  previousValue: jsonb("previous_value").$type<Record<string, any>>(),
+  newValue: jsonb("new_value").$type<Record<string, any>>(),
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  // Immutability
+  checksum: text("checksum"), // SHA-256 of log entry for integrity verification
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSovereignActionLogSchema = createInsertSchema(sovereignActionLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertSovereignActionLog = z.infer<typeof insertSovereignActionLogSchema>;
+export type SovereignActionLog = typeof sovereignActionLogs.$inferSelect;
+
+// Sovereign Governance Policies - Rules and constraints for assistants
+export const sovereignPolicies = pgTable("sovereign_policies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  assistantType: text("assistant_type").notNull(), // Which assistant type this applies to
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  // Policy rules
+  ruleType: text("rule_type").notNull(), // limit, threshold, approval_required, forbidden, allowed
+  target: text("target").notNull(), // What the policy affects (e.g., "ai_model_changes", "feature_flags")
+  conditions: jsonb("conditions").$type<Record<string, any>>().default({}), // Conditions for the rule
+  value: jsonb("value").$type<any>(), // The limit/threshold value
+  // Enforcement
+  isActive: boolean("is_active").notNull().default(true),
+  enforcementLevel: text("enforcement_level").notNull().default("strict"), // strict, warn, log_only
+  violationAction: text("violation_action").notNull().default("block"), // block, notify, escalate, log
+  // Metadata
+  createdBy: varchar("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSovereignPolicySchema = createInsertSchema(sovereignPolicies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSovereignPolicy = z.infer<typeof insertSovereignPolicySchema>;
+export type SovereignPolicy = typeof sovereignPolicies.$inferSelect;

@@ -59,6 +59,16 @@ import {
   type InsertPlatformMetrics,
   type SubscriptionEvent,
   type InsertSubscriptionEvent,
+  type SovereignAssistant,
+  type InsertSovereignAssistant,
+  type SovereignCommand,
+  type InsertSovereignCommand,
+  type SovereignAction,
+  type InsertSovereignAction,
+  type SovereignActionLog,
+  type InsertSovereignActionLog,
+  type SovereignPolicy,
+  type InsertSovereignPolicy,
   users,
   projects,
   messages,
@@ -89,6 +99,11 @@ import {
   userAdminRoles,
   platformMetrics,
   subscriptionEvents,
+  sovereignAssistants,
+  sovereignCommands,
+  sovereignActions,
+  sovereignActionLogs,
+  sovereignPolicies,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt } from "drizzle-orm";
@@ -289,6 +304,46 @@ export interface IStorage {
   getSubscriptionEvents(limit?: number): Promise<SubscriptionEvent[]>;
   getSubscriptionEventsByUser(userId: string): Promise<SubscriptionEvent[]>;
   createSubscriptionEvent(event: InsertSubscriptionEvent): Promise<SubscriptionEvent>;
+  
+  // Sovereign AI Assistants
+  getSovereignAssistants(): Promise<SovereignAssistant[]>;
+  getSovereignAssistant(id: string): Promise<SovereignAssistant | undefined>;
+  getSovereignAssistantByType(type: string): Promise<SovereignAssistant | undefined>;
+  createSovereignAssistant(assistant: InsertSovereignAssistant): Promise<SovereignAssistant>;
+  updateSovereignAssistant(id: string, data: Partial<InsertSovereignAssistant>): Promise<SovereignAssistant | undefined>;
+  toggleSovereignAssistant(id: string, isActive: boolean): Promise<SovereignAssistant | undefined>;
+  toggleSovereignAutonomy(id: string, isAutonomous: boolean): Promise<SovereignAssistant | undefined>;
+  
+  // Sovereign Commands
+  getSovereignCommands(limit?: number): Promise<SovereignCommand[]>;
+  getSovereignCommandsByAssistant(assistantId: string): Promise<SovereignCommand[]>;
+  getSovereignCommand(id: string): Promise<SovereignCommand | undefined>;
+  createSovereignCommand(command: InsertSovereignCommand): Promise<SovereignCommand>;
+  updateSovereignCommand(id: string, data: Partial<InsertSovereignCommand>): Promise<SovereignCommand | undefined>;
+  approveSovereignCommand(id: string, approvedBy: string): Promise<SovereignCommand | undefined>;
+  cancelSovereignCommand(id: string): Promise<SovereignCommand | undefined>;
+  rollbackSovereignCommand(id: string, rolledBackBy: string): Promise<SovereignCommand | undefined>;
+  
+  // Sovereign Actions
+  getSovereignActionsByCommand(commandId: string): Promise<SovereignAction[]>;
+  getSovereignAction(id: string): Promise<SovereignAction | undefined>;
+  createSovereignAction(action: InsertSovereignAction): Promise<SovereignAction>;
+  updateSovereignAction(id: string, data: Partial<InsertSovereignAction>): Promise<SovereignAction | undefined>;
+  
+  // Sovereign Action Logs
+  getSovereignActionLogs(limit?: number): Promise<SovereignActionLog[]>;
+  getSovereignActionLogsByCommand(commandId: string): Promise<SovereignActionLog[]>;
+  getSovereignActionLogsByAssistant(assistantId: string, limit?: number): Promise<SovereignActionLog[]>;
+  createSovereignActionLog(log: InsertSovereignActionLog): Promise<SovereignActionLog>;
+  
+  // Sovereign Policies
+  getSovereignPolicies(): Promise<SovereignPolicy[]>;
+  getSovereignPoliciesByType(assistantType: string): Promise<SovereignPolicy[]>;
+  getSovereignPolicy(id: string): Promise<SovereignPolicy | undefined>;
+  createSovereignPolicy(policy: InsertSovereignPolicy): Promise<SovereignPolicy>;
+  updateSovereignPolicy(id: string, data: Partial<InsertSovereignPolicy>): Promise<SovereignPolicy | undefined>;
+  toggleSovereignPolicy(id: string, isActive: boolean): Promise<SovereignPolicy | undefined>;
+  deleteSovereignPolicy(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1733,6 +1788,206 @@ body { font-family: 'Tajawal', sans-serif; }
   async createSubscriptionEvent(event: InsertSubscriptionEvent): Promise<SubscriptionEvent> {
     const [created] = await db.insert(subscriptionEvents).values(event).returning();
     return created;
+  }
+
+  // ============ Sovereign AI Assistants Implementation ============
+  
+  async getSovereignAssistants(): Promise<SovereignAssistant[]> {
+    return db.select().from(sovereignAssistants).orderBy(asc(sovereignAssistants.type));
+  }
+
+  async getSovereignAssistant(id: string): Promise<SovereignAssistant | undefined> {
+    const [assistant] = await db.select().from(sovereignAssistants).where(eq(sovereignAssistants.id, id));
+    return assistant || undefined;
+  }
+
+  async getSovereignAssistantByType(type: string): Promise<SovereignAssistant | undefined> {
+    const [assistant] = await db.select().from(sovereignAssistants).where(eq(sovereignAssistants.type, type));
+    return assistant || undefined;
+  }
+
+  async createSovereignAssistant(assistant: InsertSovereignAssistant): Promise<SovereignAssistant> {
+    const [created] = await db.insert(sovereignAssistants).values(assistant).returning();
+    return created;
+  }
+
+  async updateSovereignAssistant(id: string, data: Partial<InsertSovereignAssistant>): Promise<SovereignAssistant | undefined> {
+    const [updated] = await db.update(sovereignAssistants)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(sovereignAssistants.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async toggleSovereignAssistant(id: string, isActive: boolean): Promise<SovereignAssistant | undefined> {
+    const [updated] = await db.update(sovereignAssistants)
+      .set({ isActive, updatedAt: new Date() })
+      .where(eq(sovereignAssistants.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async toggleSovereignAutonomy(id: string, isAutonomous: boolean): Promise<SovereignAssistant | undefined> {
+    const [updated] = await db.update(sovereignAssistants)
+      .set({ isAutonomous, updatedAt: new Date() })
+      .where(eq(sovereignAssistants.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // ============ Sovereign Commands Implementation ============
+  
+  async getSovereignCommands(limit: number = 100): Promise<SovereignCommand[]> {
+    return db.select().from(sovereignCommands).orderBy(desc(sovereignCommands.createdAt)).limit(limit);
+  }
+
+  async getSovereignCommandsByAssistant(assistantId: string): Promise<SovereignCommand[]> {
+    return db.select().from(sovereignCommands)
+      .where(eq(sovereignCommands.assistantId, assistantId))
+      .orderBy(desc(sovereignCommands.createdAt));
+  }
+
+  async getSovereignCommand(id: string): Promise<SovereignCommand | undefined> {
+    const [command] = await db.select().from(sovereignCommands).where(eq(sovereignCommands.id, id));
+    return command || undefined;
+  }
+
+  async createSovereignCommand(command: InsertSovereignCommand): Promise<SovereignCommand> {
+    const [created] = await db.insert(sovereignCommands).values(command).returning();
+    return created;
+  }
+
+  async updateSovereignCommand(id: string, data: Partial<InsertSovereignCommand>): Promise<SovereignCommand | undefined> {
+    const [updated] = await db.update(sovereignCommands)
+      .set(data)
+      .where(eq(sovereignCommands.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async approveSovereignCommand(id: string, approvedBy: string): Promise<SovereignCommand | undefined> {
+    const [updated] = await db.update(sovereignCommands)
+      .set({ 
+        isApproved: true, 
+        approvedBy, 
+        approvedAt: new Date(),
+        status: "executing"
+      })
+      .where(eq(sovereignCommands.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async cancelSovereignCommand(id: string): Promise<SovereignCommand | undefined> {
+    const [updated] = await db.update(sovereignCommands)
+      .set({ status: "cancelled" })
+      .where(eq(sovereignCommands.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async rollbackSovereignCommand(id: string, rolledBackBy: string): Promise<SovereignCommand | undefined> {
+    const [updated] = await db.update(sovereignCommands)
+      .set({ 
+        status: "rolled_back",
+        rolledBackBy,
+        rolledBackAt: new Date()
+      })
+      .where(eq(sovereignCommands.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // ============ Sovereign Actions Implementation ============
+  
+  async getSovereignActionsByCommand(commandId: string): Promise<SovereignAction[]> {
+    return db.select().from(sovereignActions)
+      .where(eq(sovereignActions.commandId, commandId))
+      .orderBy(asc(sovereignActions.stepNumber));
+  }
+
+  async getSovereignAction(id: string): Promise<SovereignAction | undefined> {
+    const [action] = await db.select().from(sovereignActions).where(eq(sovereignActions.id, id));
+    return action || undefined;
+  }
+
+  async createSovereignAction(action: InsertSovereignAction): Promise<SovereignAction> {
+    const [created] = await db.insert(sovereignActions).values(action).returning();
+    return created;
+  }
+
+  async updateSovereignAction(id: string, data: Partial<InsertSovereignAction>): Promise<SovereignAction | undefined> {
+    const [updated] = await db.update(sovereignActions)
+      .set(data)
+      .where(eq(sovereignActions.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // ============ Sovereign Action Logs Implementation ============
+  
+  async getSovereignActionLogs(limit: number = 100): Promise<SovereignActionLog[]> {
+    return db.select().from(sovereignActionLogs).orderBy(desc(sovereignActionLogs.createdAt)).limit(limit);
+  }
+
+  async getSovereignActionLogsByCommand(commandId: string): Promise<SovereignActionLog[]> {
+    return db.select().from(sovereignActionLogs)
+      .where(eq(sovereignActionLogs.commandId, commandId))
+      .orderBy(asc(sovereignActionLogs.createdAt));
+  }
+
+  async getSovereignActionLogsByAssistant(assistantId: string, limit: number = 100): Promise<SovereignActionLog[]> {
+    return db.select().from(sovereignActionLogs)
+      .where(eq(sovereignActionLogs.assistantId, assistantId))
+      .orderBy(desc(sovereignActionLogs.createdAt))
+      .limit(limit);
+  }
+
+  async createSovereignActionLog(log: InsertSovereignActionLog): Promise<SovereignActionLog> {
+    const [created] = await db.insert(sovereignActionLogs).values(log).returning();
+    return created;
+  }
+
+  // ============ Sovereign Policies Implementation ============
+  
+  async getSovereignPolicies(): Promise<SovereignPolicy[]> {
+    return db.select().from(sovereignPolicies).orderBy(asc(sovereignPolicies.assistantType));
+  }
+
+  async getSovereignPoliciesByType(assistantType: string): Promise<SovereignPolicy[]> {
+    return db.select().from(sovereignPolicies)
+      .where(eq(sovereignPolicies.assistantType, assistantType));
+  }
+
+  async getSovereignPolicy(id: string): Promise<SovereignPolicy | undefined> {
+    const [policy] = await db.select().from(sovereignPolicies).where(eq(sovereignPolicies.id, id));
+    return policy || undefined;
+  }
+
+  async createSovereignPolicy(policy: InsertSovereignPolicy): Promise<SovereignPolicy> {
+    const [created] = await db.insert(sovereignPolicies).values(policy).returning();
+    return created;
+  }
+
+  async updateSovereignPolicy(id: string, data: Partial<InsertSovereignPolicy>): Promise<SovereignPolicy | undefined> {
+    const [updated] = await db.update(sovereignPolicies)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(sovereignPolicies.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async toggleSovereignPolicy(id: string, isActive: boolean): Promise<SovereignPolicy | undefined> {
+    const [updated] = await db.update(sovereignPolicies)
+      .set({ isActive, updatedAt: new Date() })
+      .where(eq(sovereignPolicies.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteSovereignPolicy(id: string): Promise<boolean> {
+    const result = await db.delete(sovereignPolicies).where(eq(sovereignPolicies.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 }
 
