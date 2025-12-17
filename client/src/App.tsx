@@ -5,6 +5,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/lib/theme";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LanguageToggle } from "@/components/language-toggle";
+import { LanguageProvider, useLanguage } from "@/hooks/use-language";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import Home from "@/pages/home";
@@ -31,6 +33,8 @@ function Router() {
 }
 
 function AppContent() {
+  const { isRtl } = useLanguage();
+  
   const style = {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
@@ -38,12 +42,15 @@ function AppContent() {
 
   return (
     <SidebarProvider style={style as React.CSSProperties}>
-      <div className="flex h-screen w-full" dir="rtl">
+      <div className="flex h-screen w-full" dir={isRtl ? "rtl" : "ltr"}>
         <AppSidebar />
         <div className="flex flex-col flex-1 min-w-0">
-          <header className="flex items-center justify-between p-3 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
+          <header className="flex items-center justify-between gap-2 p-3 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
-            <ThemeToggle />
+            <div className="flex items-center gap-2">
+              <LanguageToggle />
+              <ThemeToggle />
+            </div>
           </header>
           <main className="flex-1 overflow-auto">
             <Router />
@@ -58,10 +65,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <TooltipProvider>
-          <AppContent />
-          <Toaster />
-        </TooltipProvider>
+        <LanguageProvider>
+          <TooltipProvider>
+            <AppContent />
+            <Toaster />
+          </TooltipProvider>
+        </LanguageProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

@@ -11,8 +11,9 @@ import { ComponentLibrary } from "@/components/component-library";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowRight, Save, Loader2, Sparkles } from "lucide-react";
+import { ArrowRight, ArrowLeft, Save, Loader2, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/hooks/use-language";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Project, Message, Template, ChatMessage as ChatMessageType, GenerateCodeResponse } from "@shared/schema";
 
@@ -24,8 +25,9 @@ export default function Builder() {
   const initialPrompt = searchParams.get("prompt");
   const templateId = searchParams.get("template");
   const { toast } = useToast();
+  const { t, isRtl } = useLanguage();
   
-  const [projectName, setProjectName] = useState("مشروع جديد");
+  const [projectName, setProjectName] = useState(t("builder.newProject"));
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [html, setHtml] = useState("");
   const [css, setCss] = useState("");
@@ -76,7 +78,7 @@ export default function Builder() {
       setHtml(template.htmlCode);
       setCss(template.cssCode);
       setJs(template.jsCode);
-      setProjectName(`${template.name} - نسخة`);
+      setProjectName(`${template.name} - Copy`);
     }
   }, [template]);
 
@@ -108,10 +110,10 @@ export default function Builder() {
         window.history.replaceState({}, "", `/builder/${data.id}`);
       }
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      toast({ title: "تم حفظ المشروع!" });
+      toast({ title: t("builder.saved") });
     },
     onError: () => {
-      toast({ title: "فشل في حفظ المشروع", variant: "destructive" });
+      toast({ title: t("builder.saveFailed"), variant: "destructive" });
     },
   });
 
@@ -160,9 +162,9 @@ export default function Builder() {
         saveMessageMutation.mutate({ projectId, role: "assistant", content: data.message });
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "حاول مرة أخرى";
+      const errorMessage = error instanceof Error ? error.message : t("builder.tryAgain");
       toast({
-        title: "فشل في التوليد",
+        title: t("builder.generateFailed"),
         description: errorMessage,
         variant: "destructive",
       });
@@ -188,8 +190,10 @@ export default function Builder() {
     );
   }
 
+  const BackIcon = isRtl ? ArrowRight : ArrowLeft;
+
   return (
-    <div className="flex flex-col h-full" dir="rtl">
+    <div className="flex flex-col h-full">
       {/* Header */}
       <header className="flex items-center gap-4 p-3 border-b bg-background/95 backdrop-blur-sm">
         <Button
@@ -198,13 +202,13 @@ export default function Builder() {
           onClick={() => setLocation("/")}
           data-testid="button-back"
         >
-          <ArrowRight className="h-5 w-5" />
+          <BackIcon className="h-5 w-5" />
         </Button>
         
         <Input
           value={projectName}
           onChange={(e) => setProjectName(e.target.value)}
-          className="max-w-xs font-semibold text-right"
+          className="max-w-xs font-semibold"
           data-testid="input-project-name"
         />
         
@@ -233,13 +237,13 @@ export default function Builder() {
           ) : (
             <Save className="h-4 w-4" />
           )}
-          حفظ
+          {t("builder.save")}
         </Button>
       </header>
       
-      {/* Main content - Preview on left, Chat on right for RTL */}
+      {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Preview Panel - appears on left in RTL */}
+        {/* Preview Panel */}
         <div className="flex-1 p-4 bg-muted/30">
           <CodePreview
             html={html}
@@ -248,17 +252,17 @@ export default function Builder() {
           />
         </div>
         
-        {/* Chat Panel - appears on right in RTL */}
-        <div className="w-[380px] flex flex-col border-r bg-background">
+        {/* Chat Panel */}
+        <div className="w-[380px] flex flex-col border-s bg-background">
           <ScrollArea className="flex-1 p-4">
             {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center py-12">
                 <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center mb-4">
                   <Sparkles className="h-8 w-8 text-white" />
                 </div>
-                <h3 className="text-lg font-semibold mb-2">ابدأ محادثة</h3>
+                <h3 className="text-lg font-semibold mb-2">{t("builder.startConversation")}</h3>
                 <p className="text-sm text-muted-foreground max-w-[250px]">
-                  صِف الموقع الذي تريد بناءه وسيساعدك الذكاء الاصطناعي في إنشائه
+                  {t("builder.startDescription")}
                 </p>
               </div>
             ) : (
@@ -275,7 +279,7 @@ export default function Builder() {
             <ChatInput
               onSend={handleSendMessage}
               isLoading={isGenerating}
-              placeholder="صِف ما تريد تغييره..."
+              placeholder={t("builder.describePlaceholder")}
             />
           </div>
         </div>

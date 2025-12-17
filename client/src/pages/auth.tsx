@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -11,20 +10,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Mail, Lock, User, Globe } from "lucide-react";
+import { useLanguage } from "@/hooks/use-language";
+import { Loader2, Mail, Lock, User, Sparkles } from "lucide-react";
 import { GradientBackground } from "@/components/gradient-background";
+import { LanguageToggle } from "@/components/language-toggle";
 
 const loginSchema = z.object({
-  email: z.string().email("البريد الإلكتروني غير صحيح"),
-  password: z.string().min(1, "كلمة المرور مطلوبة"),
+  email: z.string().email(),
+  password: z.string().min(1),
 });
 
 const registerSchema = z.object({
-  email: z.string().email("البريد الإلكتروني غير صحيح"),
-  username: z.string().min(3, "اسم المستخدم يجب أن يكون 3 أحرف على الأقل"),
-  password: z.string().min(6, "كلمة المرور يجب أن تكون 6 أحرف على الأقل"),
+  email: z.string().email(),
+  username: z.string().min(3),
+  password: z.string().min(6),
   fullName: z.string().optional(),
-  language: z.enum(["ar", "en"]).default("ar"),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
@@ -33,43 +33,7 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 export default function Auth() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [language, setLanguage] = useState<"ar" | "en">("ar");
-  const isRtl = language === "ar";
-
-  const t = {
-    ar: {
-      welcome: "مرحباً بك في INFERA WebNova",
-      subtitle: "المنصة الذكية لبناء المواقع بالذكاء الاصطناعي",
-      login: "تسجيل الدخول",
-      register: "إنشاء حساب",
-      email: "البريد الإلكتروني",
-      password: "كلمة المرور",
-      username: "اسم المستخدم",
-      fullName: "الاسم الكامل (اختياري)",
-      loginBtn: "دخول",
-      registerBtn: "إنشاء حساب جديد",
-      loginSuccess: "تم تسجيل الدخول بنجاح",
-      registerSuccess: "تم إنشاء الحساب بنجاح",
-      error: "حدث خطأ",
-    },
-    en: {
-      welcome: "Welcome to INFERA WebNova",
-      subtitle: "The intelligent AI-powered website builder",
-      login: "Login",
-      register: "Register",
-      email: "Email",
-      password: "Password",
-      username: "Username",
-      fullName: "Full Name (optional)",
-      loginBtn: "Sign In",
-      registerBtn: "Create Account",
-      loginSuccess: "Login successful",
-      registerSuccess: "Account created successfully",
-      error: "An error occurred",
-    },
-  };
-
-  const text = t[language];
+  const { t, language, isRtl } = useLanguage();
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -93,7 +57,7 @@ export default function Auth() {
         return error.message;
       }
     }
-    return text.error;
+    return t("auth.error");
   };
 
   const loginMutation = useMutation({
@@ -102,12 +66,12 @@ export default function Auth() {
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: text.loginSuccess });
+      toast({ title: t("auth.loginSuccess") });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       setLocation("/projects");
     },
     onError: (error: unknown) => {
-      toast({ title: text.error, description: handleApiError(error), variant: "destructive" });
+      toast({ title: t("auth.error"), description: handleApiError(error), variant: "destructive" });
     },
   });
 
@@ -118,156 +82,192 @@ export default function Auth() {
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: text.registerSuccess });
+      toast({ title: t("auth.registerSuccess") });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       setLocation("/projects");
     },
     onError: (error: unknown) => {
-      toast({ title: text.error, description: handleApiError(error), variant: "destructive" });
+      toast({ title: t("auth.error"), description: handleApiError(error), variant: "destructive" });
     },
   });
 
   return (
     <GradientBackground>
-      <div className={`min-h-screen flex items-center justify-center p-4 ${isRtl ? "rtl" : "ltr"}`} dir={isRtl ? "rtl" : "ltr"}>
-        <div className="absolute top-4 left-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setLanguage(language === "ar" ? "en" : "ar")}
-            data-testid="button-language-toggle"
-          >
-            <Globe className="h-4 w-4 ml-2" />
-            {language === "ar" ? "English" : "عربي"}
-          </Button>
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="absolute top-4 end-4">
+          <LanguageToggle />
         </div>
 
-        <Card className="w-full max-w-md bg-card/95 backdrop-blur-sm">
-          <CardHeader className="text-center space-y-2">
-            <div className="mx-auto w-16 h-16 bg-gradient-to-br from-primary to-primary/60 rounded-xl flex items-center justify-center mb-2">
-              <span className="text-2xl font-bold text-primary-foreground">IN</span>
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center mb-4">
+              <Sparkles className="h-7 w-7 text-white" />
             </div>
-            <CardTitle className="text-2xl font-bold">{text.welcome}</CardTitle>
-            <CardDescription>{text.subtitle}</CardDescription>
+            <CardTitle className="text-2xl">{t("auth.welcome")}</CardTitle>
+            <CardDescription>{t("auth.subtitle")}</CardDescription>
           </CardHeader>
-
           <CardContent>
-            <Tabs defaultValue="login" className="w-full">
+            <Tabs defaultValue="login">
               <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="login" data-testid="tab-login">{text.login}</TabsTrigger>
-                <TabsTrigger value="register" data-testid="tab-register">{text.register}</TabsTrigger>
+                <TabsTrigger value="login" data-testid="tab-login">{t("auth.login")}</TabsTrigger>
+                <TabsTrigger value="register" data-testid="tab-register">{t("auth.register")}</TabsTrigger>
               </TabsList>
-
+              
               <TabsContent value="login">
                 <Form {...loginForm}>
-                  <form onSubmit={loginForm.handleSubmit((d) => loginMutation.mutate(d))} className="space-y-4">
+                  <form onSubmit={loginForm.handleSubmit((data) => loginMutation.mutate(data))} className="space-y-4">
                     <FormField
                       control={loginForm.control}
                       name="email"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>{text.email}</FormLabel>
+                          <FormLabel>{t("auth.email")}</FormLabel>
                           <FormControl>
                             <div className="relative">
-                              <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                              <Input {...field} type="email" className="pr-10" data-testid="input-login-email" />
+                              <Mail className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input 
+                                {...field} 
+                                type="email" 
+                                className="ps-10" 
+                                placeholder="email@example.com"
+                                data-testid="input-login-email"
+                              />
                             </div>
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
+                    
                     <FormField
                       control={loginForm.control}
                       name="password"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>{text.password}</FormLabel>
+                          <FormLabel>{t("auth.password")}</FormLabel>
                           <FormControl>
                             <div className="relative">
-                              <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                              <Input {...field} type="password" className="pr-10" data-testid="input-login-password" />
+                              <Lock className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input 
+                                {...field} 
+                                type="password" 
+                                className="ps-10"
+                                data-testid="input-login-password"
+                              />
                             </div>
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    <Button type="submit" className="w-full" disabled={loginMutation.isPending} data-testid="button-login">
-                      {loginMutation.isPending && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
-                      {text.loginBtn}
+                    
+                    <Button 
+                      type="submit" 
+                      className="w-full" 
+                      disabled={loginMutation.isPending}
+                      data-testid="button-login-submit"
+                    >
+                      {loginMutation.isPending && <Loader2 className="h-4 w-4 animate-spin me-2" />}
+                      {t("auth.loginBtn")}
                     </Button>
                   </form>
                 </Form>
               </TabsContent>
-
+              
               <TabsContent value="register">
                 <Form {...registerForm}>
-                  <form onSubmit={registerForm.handleSubmit((d) => registerMutation.mutate(d))} className="space-y-4">
+                  <form onSubmit={registerForm.handleSubmit((data) => registerMutation.mutate(data))} className="space-y-4">
                     <FormField
                       control={registerForm.control}
                       name="email"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>{text.email}</FormLabel>
+                          <FormLabel>{t("auth.email")}</FormLabel>
                           <FormControl>
                             <div className="relative">
-                              <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                              <Input {...field} type="email" className="pr-10" data-testid="input-register-email" />
+                              <Mail className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input 
+                                {...field} 
+                                type="email" 
+                                className="ps-10"
+                                placeholder="email@example.com"
+                                data-testid="input-register-email"
+                              />
                             </div>
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
+                    
                     <FormField
                       control={registerForm.control}
                       name="username"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>{text.username}</FormLabel>
+                          <FormLabel>{t("auth.username")}</FormLabel>
                           <FormControl>
                             <div className="relative">
-                              <User className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                              <Input {...field} className="pr-10" data-testid="input-register-username" />
+                              <User className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input 
+                                {...field} 
+                                className="ps-10"
+                                data-testid="input-register-username"
+                              />
                             </div>
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
+                    
                     <FormField
                       control={registerForm.control}
                       name="fullName"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>{text.fullName}</FormLabel>
+                          <FormLabel>{t("auth.fullName")}</FormLabel>
                           <FormControl>
-                            <Input {...field} data-testid="input-register-fullname" />
+                            <Input 
+                              {...field}
+                              data-testid="input-register-fullname"
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
+                    
                     <FormField
                       control={registerForm.control}
                       name="password"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>{text.password}</FormLabel>
+                          <FormLabel>{t("auth.password")}</FormLabel>
                           <FormControl>
                             <div className="relative">
-                              <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                              <Input {...field} type="password" className="pr-10" data-testid="input-register-password" />
+                              <Lock className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input 
+                                {...field} 
+                                type="password" 
+                                className="ps-10"
+                                data-testid="input-register-password"
+                              />
                             </div>
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    <Button type="submit" className="w-full" disabled={registerMutation.isPending} data-testid="button-register">
-                      {registerMutation.isPending && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
-                      {text.registerBtn}
+                    
+                    <Button 
+                      type="submit" 
+                      className="w-full" 
+                      disabled={registerMutation.isPending}
+                      data-testid="button-register-submit"
+                    >
+                      {registerMutation.isPending && <Loader2 className="h-4 w-4 animate-spin me-2" />}
+                      {t("auth.registerBtn")}
                     </Button>
                   </form>
                 </Form>
