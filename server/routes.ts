@@ -3960,6 +3960,44 @@ export async function registerRoutes(
     }
   });
 
+  // ==================== AI ASSISTANT API ====================
+  
+  // AI code assistance endpoint
+  app.post("/api/dev-projects/:projectId/ai/assist", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      const project = await storage.getDevProject(req.params.projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const { prompt, context, language } = req.body;
+      
+      if (!prompt || typeof prompt !== "string" || prompt.length > 10000) {
+        return res.status(400).json({ error: "Invalid prompt" });
+      }
+      
+      const { generateCodeAssistance } = await import("./ai-engine");
+      
+      const result = await generateCodeAssistance(
+        prompt,
+        context?.content || "",
+        context?.fileName || "",
+        language || "en"
+      );
+      
+      res.json({ response: result });
+    } catch (error) {
+      console.error("AI assist error:", error);
+      res.status(500).json({ error: "AI assistance failed" });
+    }
+  });
+
   // ==================== DATABASE SCHEMA BUILDER API ====================
   
   // Get all database tables for a project
@@ -4243,7 +4281,7 @@ export async function registerRoutes(
     }
   });
 
-  // Create a relationship
+  // Create a relationship - with validation
   app.post("/api/dev-projects/:projectId/database/relationships", requireAuth, async (req, res) => {
     try {
       const userId = req.session.user?.id;
@@ -4257,8 +4295,28 @@ export async function registerRoutes(
         return res.status(403).json({ error: "Access denied" });
       }
       
+      // Validate relationship type
+      const validRelTypes = ["one_to_one", "one_to_many", "many_to_many"];
+      if (!validRelTypes.includes(req.body.relationshipType)) {
+        return res.status(400).json({ error: "Invalid relationship type" });
+      }
+      
+      // Validate table IDs exist
+      if (!req.body.sourceTableId || !req.body.targetTableId) {
+        return res.status(400).json({ error: "Source and target table IDs are required" });
+      }
+      
+      const relationshipName = (req.body.relationshipName || "").toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 64) || "relationship";
+      
       const relData = {
-        ...req.body,
+        relationshipName,
+        relationshipType: req.body.relationshipType,
+        sourceTableId: req.body.sourceTableId,
+        targetTableId: req.body.targetTableId,
+        sourceColumnId: req.body.sourceColumnId || null,
+        targetColumnId: req.body.targetColumnId || null,
+        onDelete: ["cascade", "set_null", "restrict", "no_action"].includes(req.body.onDelete) ? req.body.onDelete : "cascade",
+        onUpdate: ["cascade", "set_null", "restrict", "no_action"].includes(req.body.onUpdate) ? req.body.onUpdate : "cascade",
         projectId: req.params.projectId,
       };
       

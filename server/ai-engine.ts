@@ -442,6 +442,44 @@ export async function generateWebsite(userRequest: string): Promise<GenerationRe
   }
 }
 
+export async function generateCodeAssistance(
+  prompt: string,
+  codeContext: string,
+  fileName: string,
+  language: "ar" | "en"
+): Promise<string> {
+  const systemPrompt = language === "ar" 
+    ? `أنت مساعد برمجة ذكي. ساعد المستخدم في كتابة الكود وحل المشاكل البرمجية.
+أجب بشكل مختصر ومفيد. إذا كان السؤال عن كود، قدم الكود مع شرح بسيط.
+إذا تم توفير سياق كود، استخدمه لتقديم إجابة أكثر دقة.`
+    : `You are an intelligent coding assistant. Help the user write code and solve programming problems.
+Answer concisely and helpfully. If the question is about code, provide code with a brief explanation.
+If code context is provided, use it to give a more accurate answer.`;
+
+  const userMessage = codeContext 
+    ? `File: ${fileName || "unknown"}\n\nCode context:\n\`\`\`\n${codeContext.substring(0, 3000)}\n\`\`\`\n\nUser request: ${prompt}`
+    : prompt;
+
+  try {
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-5",
+      max_tokens: 2000,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userMessage }],
+    });
+
+    const textBlock = response.content.find(block => block.type === "text");
+    if (!textBlock || textBlock.type !== "text") {
+      return language === "ar" ? "لم أتمكن من معالجة طلبك. حاول مرة أخرى." : "I couldn't process your request. Please try again.";
+    }
+
+    return textBlock.text;
+  } catch (error) {
+    console.error("AI assistance error:", error);
+    return language === "ar" ? "حدث خطأ. حاول مرة أخرى." : "An error occurred. Please try again.";
+  }
+}
+
 export async function refineWebsite(userRequest: string, currentCode: GeneratedCode): Promise<GenerationResult> {
   console.log("=== AI REFINEMENT ===");
   

@@ -70,7 +70,7 @@ export default function CloudIDE() {
   const [editorContent, setEditorContent] = useState("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(["/"]));
-  const [activeTab, setActiveTab] = useState<"preview" | "console" | "database">("preview");
+  const [activeTab, setActiveTab] = useState<"preview" | "console" | "database" | "ai">("preview");
   const [showPackageManager, setShowPackageManager] = useState(false);
   const [showDeployDialog, setShowDeployDialog] = useState(false);
   const [packageSearch, setPackageSearch] = useState("");
@@ -81,6 +81,9 @@ export default function CloudIDE() {
   const [terminalHistory, setTerminalHistory] = useState<Array<{type: "input" | "output" | "error" | "system", content: string}>>([]);
   const [wsTerminal, setWsTerminal] = useState<WebSocket | null>(null);
   const [isTerminalConnected, setIsTerminalConnected] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiMessages, setAiMessages] = useState<Array<{role: "user" | "assistant", content: string, timestamp: Date}>>([]);
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
 
   const t = {
     ar: {
@@ -886,7 +889,7 @@ export default function CloudIDE() {
 
         {/* Preview / Console Panel */}
         <aside className="w-96 border-r flex flex-col bg-card">
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "preview" | "console" | "database")} className="flex flex-col h-full">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "preview" | "console" | "database" | "ai")} className="flex flex-col h-full">
             <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0">
               <TabsTrigger
                 value="preview"
@@ -911,6 +914,16 @@ export default function CloudIDE() {
               >
                 <Database className="w-4 h-4 ml-1" />
                 {language === "ar" ? "قاعدة البيانات" : "Database"}
+              </TabsTrigger>
+              <TabsTrigger
+                value="ai"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-gradient-to-r from-purple-500/10 to-blue-500/10"
+                data-testid="tab-ai"
+              >
+                <Sparkles className="w-4 h-4 ml-1 text-purple-500" />
+                <span className="bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent font-semibold">
+                  {language === "ar" ? "مساعد AI" : "AI Assistant"}
+                </span>
               </TabsTrigger>
             </TabsList>
 
@@ -1020,6 +1033,182 @@ export default function CloudIDE() {
               {projectId && (
                 <SchemaBuilder projectId={projectId} language={language} />
               )}
+            </TabsContent>
+
+            <TabsContent value="ai" className="flex-1 m-0 flex flex-col overflow-hidden">
+              <div className="flex-1 flex flex-col">
+                <div className="px-4 py-3 border-b bg-gradient-to-r from-purple-500/5 to-blue-500/5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 flex items-center justify-center">
+                      <Sparkles className="w-4 h-4 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-sm">
+                        {language === "ar" ? "مساعد INFERA AI" : "INFERA AI Assistant"}
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        {language === "ar" ? "مدعوم بـ Claude" : "Powered by Claude"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <ScrollArea className="flex-1 p-4">
+                  {aiMessages.length === 0 ? (
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-purple-600/20 to-blue-600/20 flex items-center justify-center">
+                        <Sparkles className="w-8 h-8 text-purple-500" />
+                      </div>
+                      <h4 className="font-semibold mb-2">
+                        {language === "ar" ? "كيف يمكنني مساعدتك؟" : "How can I help you?"}
+                      </h4>
+                      <p className="text-sm text-muted-foreground mb-6 max-w-xs mx-auto">
+                        {language === "ar" 
+                          ? "اسألني عن أي شيء متعلق بالبرمجة، أو اطلب مني كتابة كود"
+                          : "Ask me anything about coding, or request me to write code"}
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 max-w-sm mx-auto">
+                        {[
+                          { ar: "اكتب دالة API", en: "Write an API endpoint" },
+                          { ar: "اشرح هذا الكود", en: "Explain this code" },
+                          { ar: "أصلح الأخطاء", en: "Fix bugs" },
+                          { ar: "حسّن الأداء", en: "Optimize performance" },
+                        ].map((item, idx) => (
+                          <Button
+                            key={idx}
+                            variant="outline"
+                            size="sm"
+                            className="text-xs"
+                            onClick={() => setAiPrompt(language === "ar" ? item.ar : item.en)}
+                            data-testid={`button-ai-suggestion-${idx}`}
+                          >
+                            {language === "ar" ? item.ar : item.en}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {aiMessages.map((msg, idx) => (
+                        <div
+                          key={idx}
+                          className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                        >
+                          <div
+                            className={`max-w-[85%] rounded-2xl px-4 py-3 ${
+                              msg.role === "user"
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-muted"
+                            }`}
+                          >
+                            <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                            <p className="text-xs opacity-60 mt-1">
+                              {msg.timestamp.toLocaleTimeString()}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                      {isAiGenerating && (
+                        <div className="flex justify-start">
+                          <div className="bg-muted rounded-2xl px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <Loader2 className="w-4 h-4 animate-spin text-purple-500" />
+                              <span className="text-sm text-muted-foreground">
+                                {language === "ar" ? "جاري التفكير..." : "Thinking..."}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </ScrollArea>
+
+                <div className="p-3 border-t bg-gradient-to-r from-purple-500/5 to-blue-500/5">
+                  <div className="flex gap-2">
+                    <Input
+                      value={aiPrompt}
+                      onChange={(e) => setAiPrompt(e.target.value)}
+                      placeholder={language === "ar" ? "اكتب رسالتك هنا..." : "Type your message..."}
+                      className="flex-1"
+                      onKeyDown={async (e) => {
+                        if (e.key === "Enter" && aiPrompt.trim() && !isAiGenerating) {
+                          const userMessage = aiPrompt.trim();
+                          setAiPrompt("");
+                          setAiMessages(prev => [...prev, { role: "user", content: userMessage, timestamp: new Date() }]);
+                          setIsAiGenerating(true);
+                          
+                          try {
+                            const response = await apiRequest("POST", `/api/dev-projects/${projectId}/ai/assist`, {
+                              prompt: userMessage,
+                              context: selectedFile ? { fileName: selectedFile.filename, content: editorContent } : null,
+                              language
+                            });
+                            const data = await response.json();
+                            setAiMessages(prev => [...prev, { 
+                              role: "assistant", 
+                              content: data.response || data.message || (language === "ar" ? "تم بنجاح" : "Done successfully"),
+                              timestamp: new Date() 
+                            }]);
+                          } catch (error) {
+                            setAiMessages(prev => [...prev, { 
+                              role: "assistant", 
+                              content: language === "ar" ? "حدث خطأ. حاول مرة أخرى." : "An error occurred. Please try again.",
+                              timestamp: new Date() 
+                            }]);
+                          } finally {
+                            setIsAiGenerating(false);
+                          }
+                        }
+                      }}
+                      disabled={isAiGenerating}
+                      data-testid="input-ai-prompt"
+                    />
+                    <Button
+                      size="icon"
+                      disabled={!aiPrompt.trim() || isAiGenerating}
+                      className="bg-gradient-to-r from-purple-600 to-blue-600"
+                      onClick={async () => {
+                        if (aiPrompt.trim() && !isAiGenerating) {
+                          const userMessage = aiPrompt.trim();
+                          setAiPrompt("");
+                          setAiMessages(prev => [...prev, { role: "user", content: userMessage, timestamp: new Date() }]);
+                          setIsAiGenerating(true);
+                          
+                          try {
+                            const response = await apiRequest("POST", `/api/dev-projects/${projectId}/ai/assist`, {
+                              prompt: userMessage,
+                              context: selectedFile ? { fileName: selectedFile.filename, content: editorContent } : null,
+                              language
+                            });
+                            const data = await response.json();
+                            setAiMessages(prev => [...prev, { 
+                              role: "assistant", 
+                              content: data.response || data.message || (language === "ar" ? "تم بنجاح" : "Done successfully"),
+                              timestamp: new Date() 
+                            }]);
+                          } catch (error) {
+                            setAiMessages(prev => [...prev, { 
+                              role: "assistant", 
+                              content: language === "ar" ? "حدث خطأ. حاول مرة أخرى." : "An error occurred. Please try again.",
+                              timestamp: new Date() 
+                            }]);
+                          } finally {
+                            setIsAiGenerating(false);
+                          }
+                        }
+                      }}
+                      data-testid="button-ai-send"
+                    >
+                      {isAiGenerating ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </TabsContent>
           </Tabs>
         </aside>
