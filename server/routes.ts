@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { generateWebsiteCode, refineWebsiteCode } from "./openai";
+import { generateWebsiteCode, refineWebsiteCode } from "./anthropic";
 import { insertProjectSchema, insertMessageSchema, insertProjectVersionSchema, insertShareLinkSchema } from "@shared/schema";
 import { z } from "zod";
 import { randomBytes } from "crypto";
