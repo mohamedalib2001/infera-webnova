@@ -5,8 +5,8 @@ import { z } from "zod";
 
 // ==================== USERS & AUTH ====================
 
-// User roles enum
-export const userRoles = ['free', 'basic', 'pro', 'enterprise', 'sovereign'] as const;
+// User roles enum - owner is platform owner (highest level)
+export const userRoles = ['free', 'basic', 'pro', 'enterprise', 'sovereign', 'owner'] as const;
 export type UserRole = typeof userRoles[number];
 
 // Users table - Extended with roles and subscription info
@@ -416,3 +416,112 @@ export const insertWhiteLabelSettingsSchema = createInsertSchema(whiteLabelSetti
 
 export type InsertWhiteLabelSettings = z.infer<typeof insertWhiteLabelSettingsSchema>;
 export type WhiteLabelSettings = typeof whiteLabelSettings.$inferSelect;
+
+// ==================== OWNER AI ASSISTANTS ====================
+
+// AI Development Assistants for platform owner
+export const aiAssistants = pgTable("ai_assistants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  avatar: text("avatar"), // Avatar/icon for the assistant
+  specialty: text("specialty").notNull(), // development, design, content, analytics, security
+  capabilities: jsonb("capabilities").$type<string[]>().notNull().default([]),
+  systemPrompt: text("system_prompt").notNull(),
+  model: text("model").notNull().default("claude-sonnet-4-20250514"),
+  temperature: integer("temperature").notNull().default(70),
+  maxTokens: integer("max_tokens").notNull().default(4000),
+  isActive: boolean("is_active").notNull().default(true),
+  totalTasksCompleted: integer("total_tasks_completed").notNull().default(0),
+  successRate: integer("success_rate").notNull().default(100), // percentage
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAiAssistantSchema = createInsertSchema(aiAssistants).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAiAssistant = z.infer<typeof insertAiAssistantSchema>;
+export type AiAssistant = typeof aiAssistants.$inferSelect;
+
+// AI Assistant Instructions/Commands from owner
+export const assistantInstructions = pgTable("assistant_instructions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  assistantId: varchar("assistant_id").notNull(),
+  title: text("title").notNull(),
+  titleAr: text("title_ar"),
+  instruction: text("instruction").notNull(), // The command/directive from owner
+  priority: text("priority").notNull().default("normal"), // low, normal, high, urgent
+  status: text("status").notNull().default("pending"), // pending, in_progress, completed, failed, cancelled
+  category: text("category").notNull().default("general"), // development, design, content, fix, improvement
+  response: text("response"), // AI assistant's response/output
+  codeGenerated: text("code_generated"), // Any code generated
+  filesAffected: jsonb("files_affected").$type<string[]>().default([]),
+  executionTime: integer("execution_time"), // in seconds
+  approvalRequired: boolean("approval_required").notNull().default(true),
+  isApproved: boolean("is_approved").default(false),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAssistantInstructionSchema = createInsertSchema(assistantInstructions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAssistantInstruction = z.infer<typeof insertAssistantInstructionSchema>;
+export type AssistantInstruction = typeof assistantInstructions.$inferSelect;
+
+// Owner Platform Settings
+export const ownerSettings = pgTable("owner_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique(),
+  platformName: text("platform_name").notNull().default("INFERA WebNova"),
+  platformNameAr: text("platform_name_ar").notNull().default("إنفيرا ويب نوفا"),
+  primaryDomain: text("primary_domain"),
+  supportEmail: text("support_email"),
+  defaultLanguage: text("default_language").notNull().default("ar"),
+  maintenanceMode: boolean("maintenance_mode").notNull().default(false),
+  registrationEnabled: boolean("registration_enabled").notNull().default(true),
+  globalAnnouncement: text("global_announcement"),
+  globalAnnouncementAr: text("global_announcement_ar"),
+  analyticsEnabled: boolean("analytics_enabled").notNull().default(true),
+  aiAssistantsEnabled: boolean("ai_assistants_enabled").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertOwnerSettingsSchema = createInsertSchema(ownerSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertOwnerSettings = z.infer<typeof insertOwnerSettingsSchema>;
+export type OwnerSettings = typeof ownerSettings.$inferSelect;
+
+// Audit Log for owner actions
+export const auditLogs = pgTable("audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  action: text("action").notNull(), // user_created, subscription_activated, assistant_command, etc
+  entityType: text("entity_type"), // user, subscription, assistant, project
+  entityId: varchar("entity_id"),
+  details: jsonb("details").$type<Record<string, any>>(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+export type AuditLog = typeof auditLogs.$inferSelect;

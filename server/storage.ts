@@ -25,6 +25,14 @@ import {
   type InsertOtpCode,
   type Chatbot,
   type InsertChatbot,
+  type AiAssistant,
+  type InsertAiAssistant,
+  type AssistantInstruction,
+  type InsertAssistantInstruction,
+  type OwnerSettings,
+  type InsertOwnerSettings,
+  type AuditLog,
+  type InsertAuditLog,
   users,
   projects,
   messages,
@@ -38,6 +46,10 @@ import {
   aiUsage,
   otpCodes,
   chatbots,
+  aiAssistants,
+  assistantInstructions,
+  ownerSettings,
+  auditLogs,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt } from "drizzle-orm";
@@ -117,6 +129,27 @@ export interface IStorage {
   createChatbot(chatbot: InsertChatbot): Promise<Chatbot>;
   updateChatbot(id: string, chatbot: Partial<InsertChatbot>): Promise<Chatbot | undefined>;
   deleteChatbot(id: string): Promise<boolean>;
+  
+  // AI Assistants (Owner)
+  getAiAssistants(): Promise<AiAssistant[]>;
+  getAiAssistant(id: string): Promise<AiAssistant | undefined>;
+  createAiAssistant(assistant: InsertAiAssistant): Promise<AiAssistant>;
+  updateAiAssistant(id: string, assistant: Partial<InsertAiAssistant>): Promise<AiAssistant | undefined>;
+  
+  // Assistant Instructions
+  getInstructionsByAssistant(assistantId: string): Promise<AssistantInstruction[]>;
+  getAllInstructions(): Promise<AssistantInstruction[]>;
+  createInstruction(instruction: InsertAssistantInstruction): Promise<AssistantInstruction>;
+  updateInstruction(id: string, instruction: Partial<InsertAssistantInstruction>): Promise<AssistantInstruction | undefined>;
+  
+  // Owner Settings
+  getOwnerSettings(userId: string): Promise<OwnerSettings | undefined>;
+  createOwnerSettings(settings: InsertOwnerSettings): Promise<OwnerSettings>;
+  updateOwnerSettings(userId: string, settings: Partial<InsertOwnerSettings>): Promise<OwnerSettings | undefined>;
+  
+  // Audit Logs
+  getAuditLogs(limit?: number): Promise<AuditLog[]>;
+  createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1015,6 +1048,73 @@ body { font-family: 'Tajawal', sans-serif; }
   async deleteChatbot(id: string): Promise<boolean> {
     const result = await db.delete(chatbots).where(eq(chatbots.id, id));
     return (result.rowCount ?? 0) > 0;
+  }
+
+  // AI Assistants methods
+  async getAiAssistants(): Promise<AiAssistant[]> {
+    return db.select().from(aiAssistants).orderBy(asc(aiAssistants.name));
+  }
+
+  async getAiAssistant(id: string): Promise<AiAssistant | undefined> {
+    const [assistant] = await db.select().from(aiAssistants).where(eq(aiAssistants.id, id));
+    return assistant || undefined;
+  }
+
+  async createAiAssistant(assistant: InsertAiAssistant): Promise<AiAssistant> {
+    const [created] = await db.insert(aiAssistants).values(assistant).returning();
+    return created;
+  }
+
+  async updateAiAssistant(id: string, updateData: Partial<InsertAiAssistant>): Promise<AiAssistant | undefined> {
+    const [updated] = await db.update(aiAssistants).set(updateData).where(eq(aiAssistants.id, id)).returning();
+    return updated || undefined;
+  }
+
+  // Assistant Instructions methods
+  async getInstructionsByAssistant(assistantId: string): Promise<AssistantInstruction[]> {
+    return db.select().from(assistantInstructions)
+      .where(eq(assistantInstructions.assistantId, assistantId))
+      .orderBy(desc(assistantInstructions.createdAt));
+  }
+
+  async getAllInstructions(): Promise<AssistantInstruction[]> {
+    return db.select().from(assistantInstructions).orderBy(desc(assistantInstructions.createdAt));
+  }
+
+  async createInstruction(instruction: InsertAssistantInstruction): Promise<AssistantInstruction> {
+    const [created] = await db.insert(assistantInstructions).values(instruction).returning();
+    return created;
+  }
+
+  async updateInstruction(id: string, updateData: Partial<InsertAssistantInstruction>): Promise<AssistantInstruction | undefined> {
+    const [updated] = await db.update(assistantInstructions).set(updateData).where(eq(assistantInstructions.id, id)).returning();
+    return updated || undefined;
+  }
+
+  // Owner Settings methods
+  async getOwnerSettings(userId: string): Promise<OwnerSettings | undefined> {
+    const [settings] = await db.select().from(ownerSettings).where(eq(ownerSettings.userId, userId));
+    return settings || undefined;
+  }
+
+  async createOwnerSettings(settings: InsertOwnerSettings): Promise<OwnerSettings> {
+    const [created] = await db.insert(ownerSettings).values(settings).returning();
+    return created;
+  }
+
+  async updateOwnerSettings(userId: string, updateData: Partial<InsertOwnerSettings>): Promise<OwnerSettings | undefined> {
+    const [updated] = await db.update(ownerSettings).set(updateData).where(eq(ownerSettings.userId, userId)).returning();
+    return updated || undefined;
+  }
+
+  // Audit Logs methods
+  async getAuditLogs(limit: number = 100): Promise<AuditLog[]> {
+    return db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt)).limit(limit);
+  }
+
+  async createAuditLog(log: InsertAuditLog): Promise<AuditLog> {
+    const [created] = await db.insert(auditLogs).values(log).returning();
+    return created;
   }
 }
 
