@@ -1,16 +1,237 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateWebsiteCode, refineWebsiteCode } from "./anthropic";
-import { insertProjectSchema, insertMessageSchema, insertProjectVersionSchema, insertShareLinkSchema } from "@shared/schema";
+import { insertProjectSchema, insertMessageSchema, insertProjectVersionSchema, insertShareLinkSchema, insertUserSchema, type User } from "@shared/schema";
 import { z } from "zod";
 import { randomBytes } from "crypto";
+import bcrypt from "bcryptjs";
+
+// Session user type
+declare module 'express-session' {
+  interface SessionData {
+    userId?: string;
+    user?: Omit<User, 'password'>;
+  }
+}
+
+// Auth middleware
+const requireAuth = (req: Request, res: Response, next: NextFunction) => {
+  if (!req.session?.userId) {
+    return res.status(401).json({ error: "يجب تسجيل الدخول أولاً / Authentication required" });
+  }
+  next();
+};
+
+// Admin/Sovereign middleware
+const requireSovereign = (req: Request, res: Response, next: NextFunction) => {
+  if (!req.session?.user || req.session.user.role !== 'sovereign') {
+    return res.status(403).json({ error: "صلاحيات سيادية مطلوبة / Sovereign access required" });
+  }
+  next();
+};
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
   
+  // ============ Auth Routes - INFERA نظام المصادقة ============
+  
+  // Register - إنشاء حساب جديد
+  const registerSchema = z.object({
+    email: z.string().email("البريد الإلكتروني غير صحيح"),
+    username: z.string().min(3, "اسم المستخدم يجب أن يكون 3 أحرف على الأقل"),
+    password: z.string().min(6, "كلمة المرور يجب أن تكون 6 أحرف على الأقل"),
+    fullName: z.string().optional(),
+    language: z.enum(["ar", "en"]).default("ar"),
+  });
+
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const data = registerSchema.parse(req.body);
+      
+      // Check if user exists
+      const existingUser = await storage.getUserByEmail(data.email);
+      if (existingUser) {
+        return res.status(400).json({ error: "البريد الإلكتروني مستخدم بالفعل / Email already exists" });
+      }
+      
+      const existingUsername = await storage.getUserByUsername(data.username);
+      if (existingUsername) {
+        return res.status(400).json({ error: "اسم المستخدم مستخدم بالفعل / Username already exists" });
+      }
+      
+      // Hash password
+      const hashedPassword = await bcrypt.hash(data.password, 12);
+      
+      // Create user with free role
+      const user = await storage.createUser({
+        email: data.email,
+        username: data.username,
+        password: hashedPassword,
+        fullName: data.fullName || null,
+        language: data.language,
+        role: "free",
+        isActive: true,
+        emailVerified: false,
+      });
+      
+      // Set session
+      const { password: _, ...userWithoutPassword } = user;
+      req.session.userId = user.id;
+      req.session.user = userWithoutPassword;
+      
+      res.status(201).json({ 
+        message: "تم إنشاء الحساب بنجاح / Account created successfully",
+        user: userWithoutPassword 
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error("Registration error:", error);
+      res.status(500).json({ error: "فشل في إنشاء الحساب / Failed to create account" });
+    }
+  });
+
+  // Login - تسجيل الدخول
+  const loginSchema = z.object({
+    email: z.string().email(),
+    password: z.string(),
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { email, password } = loginSchema.parse(req.body);
+      
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(401).json({ error: "بيانات الدخول غير صحيحة / Invalid credentials" });
+      }
+      
+      if (!user.isActive) {
+        return res.status(403).json({ error: "الحساب معطل / Account is disabled" });
+      }
+      
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ error: "بيانات الدخول غير صحيحة / Invalid credentials" });
+      }
+      
+      // Set session
+      const { password: _, ...userWithoutPassword } = user;
+      req.session.userId = user.id;
+      req.session.user = userWithoutPassword;
+      
+      res.json({ 
+        message: "تم تسجيل الدخول بنجاح / Login successful",
+        user: userWithoutPassword 
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "فشل في تسجيل الدخول / Login failed" });
+    }
+  });
+
+  // Logout - تسجيل الخروج
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ error: "فشل في تسجيل الخروج / Logout failed" });
+      }
+      res.json({ message: "تم تسجيل الخروج بنجاح / Logout successful" });
+    });
+  });
+
+  // Get current user - الحصول على المستخدم الحالي
+  app.get("/api/auth/me", (req, res) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ error: "غير مسجل الدخول / Not logged in" });
+    }
+    res.json({ user: req.session.user });
+  });
+
+  // ============ Subscription Plans Routes - خطط الاشتراك ============
+  
+  // Get all subscription plans
+  app.get("/api/plans", async (req, res) => {
+    try {
+      const plans = await storage.getSubscriptionPlans();
+      res.json(plans);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب خطط الاشتراك" });
+    }
+  });
+
+  // Get current user subscription
+  app.get("/api/subscription", requireAuth, async (req, res) => {
+    try {
+      const subscription = await storage.getUserSubscription(req.session.userId!);
+      res.json(subscription || null);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب الاشتراك" });
+    }
+  });
+
+  // ============ Sovereign Routes - مسارات سيادية ============
+  
+  // Get all users (sovereign only)
+  app.get("/api/sovereign/users", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users.map(u => {
+        const { password: _, ...rest } = u;
+        return rest;
+      }));
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب المستخدمين" });
+    }
+  });
+
+  // Activate user subscription manually (sovereign only)
+  app.post("/api/sovereign/activate-subscription", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { userId, planId, billingCycle } = req.body;
+      
+      // Update user role based on plan
+      const plan = await storage.getSubscriptionPlan(planId);
+      if (!plan) {
+        return res.status(404).json({ error: "الخطة غير موجودة" });
+      }
+      
+      // Create subscription
+      const now = new Date();
+      const periodEnd = new Date();
+      switch (billingCycle) {
+        case 'monthly': periodEnd.setMonth(periodEnd.getMonth() + 1); break;
+        case 'quarterly': periodEnd.setMonth(periodEnd.getMonth() + 3); break;
+        case 'semi_annual': periodEnd.setMonth(periodEnd.getMonth() + 6); break;
+        case 'yearly': periodEnd.setFullYear(periodEnd.getFullYear() + 1); break;
+      }
+      
+      const subscription = await storage.createUserSubscription({
+        userId,
+        planId,
+        status: "active",
+        billingCycle,
+        paymentMethod: "manual",
+        currentPeriodStart: now,
+        currentPeriodEnd: periodEnd,
+      });
+      
+      // Update user role
+      await storage.updateUser(userId, { role: plan.role });
+      
+      res.json({ message: "تم تفعيل الاشتراك بنجاح", subscription });
+    } catch (error) {
+      console.error("Subscription activation error:", error);
+      res.status(500).json({ error: "فشل في تفعيل الاشتراك" });
+    }
+  });
+
   // ============ Projects Routes ============
   
   // Get all projects
