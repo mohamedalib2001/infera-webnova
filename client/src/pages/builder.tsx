@@ -97,11 +97,9 @@ export default function Builder() {
   const saveMutation = useMutation({
     mutationFn: async (data: { name: string; htmlCode: string; cssCode: string; jsCode: string }) => {
       if (projectId) {
-        const response = await apiRequest("PATCH", `/api/projects/${projectId}`, data);
-        return response.json();
+        return apiRequest("PATCH", `/api/projects/${projectId}`, data);
       } else {
-        const response = await apiRequest("POST", "/api/projects", data);
-        return response.json();
+        return apiRequest("POST", "/api/projects", data);
       }
     },
     onSuccess: async (data) => {
@@ -119,8 +117,7 @@ export default function Builder() {
 
   const saveMessageMutation = useMutation({
     mutationFn: async (message: { projectId: string; role: string; content: string }) => {
-      const response = await apiRequest("POST", "/api/messages", message);
-      return response.json();
+      return apiRequest("POST", "/api/messages", message);
     },
   });
 
@@ -136,13 +133,11 @@ export default function Builder() {
     setIsGenerating(true);
     
     try {
-      const response = await apiRequest("POST", "/api/generate", {
+      const data: GenerateCodeResponse = await apiRequest("POST", "/api/generate", {
         prompt: content,
         projectId,
         context: html ? `Current HTML: ${html}\nCurrent CSS: ${css}\nCurrent JS: ${js}` : undefined,
       });
-      
-      const data: GenerateCodeResponse = await response.json();
       
       setHtml(data.html);
       setCss(data.css);
