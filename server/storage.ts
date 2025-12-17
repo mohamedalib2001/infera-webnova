@@ -37,6 +37,8 @@ import {
   type InsertPaymentMethod,
   type PaymentTransaction,
   type InsertPaymentTransaction,
+  type AuthMethod,
+  type InsertAuthMethod,
   users,
   projects,
   messages,
@@ -56,6 +58,7 @@ import {
   auditLogs,
   paymentMethods,
   paymentTransactions,
+  authMethods,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt } from "drizzle-orm";
@@ -172,6 +175,18 @@ export interface IStorage {
   getPaymentTransaction(id: string): Promise<PaymentTransaction | undefined>;
   createPaymentTransaction(transaction: InsertPaymentTransaction): Promise<PaymentTransaction>;
   updatePaymentTransaction(id: string, transaction: Partial<InsertPaymentTransaction>): Promise<PaymentTransaction | undefined>;
+  
+  // Authentication Methods (Owner)
+  getAuthMethods(): Promise<AuthMethod[]>;
+  getActiveAuthMethods(): Promise<AuthMethod[]>;
+  getVisibleAuthMethods(): Promise<AuthMethod[]>;
+  getAuthMethod(id: string): Promise<AuthMethod | undefined>;
+  getAuthMethodByKey(key: string): Promise<AuthMethod | undefined>;
+  createAuthMethod(method: InsertAuthMethod): Promise<AuthMethod>;
+  updateAuthMethod(id: string, method: Partial<InsertAuthMethod>): Promise<AuthMethod | undefined>;
+  toggleAuthMethod(id: string, isActive: boolean): Promise<AuthMethod | undefined>;
+  toggleAuthMethodVisibility(id: string, isVisible: boolean): Promise<AuthMethod | undefined>;
+  deleteAuthMethod(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1208,6 +1223,82 @@ body { font-family: 'Tajawal', sans-serif; }
       .where(eq(paymentTransactions.id, id))
       .returning();
     return updated || undefined;
+  }
+
+  // Authentication Methods implementation
+  async getAuthMethods(): Promise<AuthMethod[]> {
+    return db.select().from(authMethods).orderBy(asc(authMethods.sortOrder));
+  }
+
+  async getActiveAuthMethods(): Promise<AuthMethod[]> {
+    return db.select().from(authMethods)
+      .where(eq(authMethods.isActive, true))
+      .orderBy(asc(authMethods.sortOrder));
+  }
+
+  async getVisibleAuthMethods(): Promise<AuthMethod[]> {
+    return db.select().from(authMethods)
+      .where(and(eq(authMethods.isActive, true), eq(authMethods.isVisible, true)))
+      .orderBy(asc(authMethods.sortOrder));
+  }
+
+  async getAuthMethod(id: string): Promise<AuthMethod | undefined> {
+    const [method] = await db.select().from(authMethods).where(eq(authMethods.id, id));
+    return method || undefined;
+  }
+
+  async getAuthMethodByKey(key: string): Promise<AuthMethod | undefined> {
+    const [method] = await db.select().from(authMethods).where(eq(authMethods.key, key));
+    return method || undefined;
+  }
+
+  async createAuthMethod(method: InsertAuthMethod): Promise<AuthMethod> {
+    const [created] = await db.insert(authMethods).values(method).returning();
+    return created;
+  }
+
+  async updateAuthMethod(id: string, updateData: Partial<InsertAuthMethod>): Promise<AuthMethod | undefined> {
+    const [updated] = await db.update(authMethods)
+      .set({ ...updateData, updatedAt: new Date() })
+      .where(eq(authMethods.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async toggleAuthMethod(id: string, isActive: boolean): Promise<AuthMethod | undefined> {
+    const method = await this.getAuthMethod(id);
+    if (!method) return undefined;
+    if (method.isDefault && !isActive) {
+      throw new Error("Cannot deactivate the default authentication method");
+    }
+    const [updated] = await db.update(authMethods)
+      .set({ isActive, updatedAt: new Date() })
+      .where(eq(authMethods.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async toggleAuthMethodVisibility(id: string, isVisible: boolean): Promise<AuthMethod | undefined> {
+    const method = await this.getAuthMethod(id);
+    if (!method) return undefined;
+    if (method.isDefault && !isVisible) {
+      throw new Error("Cannot hide the default authentication method");
+    }
+    const [updated] = await db.update(authMethods)
+      .set({ isVisible, updatedAt: new Date() })
+      .where(eq(authMethods.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteAuthMethod(id: string): Promise<boolean> {
+    const method = await this.getAuthMethod(id);
+    if (!method) return false;
+    if (method.isDefault) {
+      throw new Error("Cannot delete the default authentication method");
+    }
+    const result = await db.delete(authMethods).where(eq(authMethods.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 }
 

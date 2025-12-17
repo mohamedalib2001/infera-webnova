@@ -631,3 +631,47 @@ export interface PaymentAnalytics {
   revenueByMonth: { month: string; revenue: number; count: number }[];
   topCountries: { country: string; revenue: number; count: number }[];
 }
+
+// ==================== AUTHENTICATION METHODS ====================
+
+// Available authentication method types
+export const authMethodTypes = [
+  'email_password', 'google', 'facebook', 'twitter', 'github', 
+  'apple', 'microsoft', 'otp_email', 'otp_sms', 'magic_link'
+] as const;
+export type AuthMethodType = typeof authMethodTypes[number];
+
+// Authentication methods configuration (owner-controlled)
+export const authMethods = pgTable("auth_methods", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: text("key").notNull().unique(), // email_password, google, facebook, etc.
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  icon: text("icon"), // Icon name from lucide-react
+  // Configuration
+  clientId: text("client_id"), // OAuth client ID
+  clientSecretRef: text("client_secret_ref"), // Reference to secret in vault
+  redirectUri: text("redirect_uri"),
+  scopes: jsonb("scopes").$type<string[]>().default([]),
+  // Status controls
+  isActive: boolean("is_active").notNull().default(false),
+  isVisible: boolean("is_visible").notNull().default(true),
+  isDefault: boolean("is_default").notNull().default(false), // Default method cannot be disabled
+  isConfigured: boolean("is_configured").notNull().default(false),
+  sortOrder: integer("sort_order").notNull().default(0),
+  // Additional settings
+  settings: jsonb("settings").$type<Record<string, any>>().default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAuthMethodSchema = createInsertSchema(authMethods).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAuthMethod = z.infer<typeof insertAuthMethodSchema>;
+export type AuthMethod = typeof authMethods.$inferSelect;
