@@ -1385,6 +1385,127 @@ export const insertAiBuildArtifactSchema = createInsertSchema(aiBuildArtifacts).
 export type InsertAiBuildArtifact = z.infer<typeof insertAiBuildArtifactSchema>;
 export type AiBuildArtifact = typeof aiBuildArtifacts.$inferSelect;
 
+// ==================== CLOUD DEVELOPMENT ENVIRONMENT ====================
+
+// Development Project Types
+export const devProjectTypes = ['nodejs', 'python', 'html', 'react', 'fullstack'] as const;
+export type DevProjectType = typeof devProjectTypes[number];
+
+// Development Projects - Cloud IDE projects with multi-file support
+export const devProjects = pgTable("dev_projects", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id"),
+  // Project info
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  projectType: text("project_type").notNull().default("nodejs"), // nodejs, python, html, react, fullstack
+  language: text("language").notNull().default("ar"), // UI language
+  // Runtime config
+  entryFile: text("entry_file").default("index.js"),
+  port: integer("port").default(3000),
+  envVariables: jsonb("env_variables").$type<Record<string, string>>().default({}),
+  // Status
+  status: text("status").notNull().default("stopped"), // stopped, starting, running, error
+  lastRunAt: timestamp("last_run_at"),
+  // Deployment
+  isPublished: boolean("is_published").notNull().default(false),
+  publishedUrl: text("published_url"),
+  subdomain: text("subdomain"),
+  // Metadata
+  thumbnail: text("thumbnail"),
+  tags: jsonb("tags").$type<string[]>().default([]),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertDevProjectSchema = createInsertSchema(devProjects).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertDevProject = z.infer<typeof insertDevProjectSchema>;
+export type DevProject = typeof devProjects.$inferSelect;
+
+// Project Files - Multi-file storage for development projects
+export const projectFiles = pgTable("project_files", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  // File info
+  fileName: text("file_name").notNull(),
+  filePath: text("file_path").notNull(), // e.g., /src/components/Button.tsx
+  fileType: text("file_type").notNull(), // js, ts, tsx, css, html, json, md, etc.
+  isDirectory: boolean("is_directory").notNull().default(false),
+  // Content
+  content: text("content").notNull().default(""),
+  // Metadata
+  size: integer("size").default(0),
+  isLocked: boolean("is_locked").notNull().default(false),
+  lastModifiedBy: varchar("last_modified_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertProjectFileSchema = createInsertSchema(projectFiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertProjectFile = z.infer<typeof insertProjectFileSchema>;
+export type ProjectFile = typeof projectFiles.$inferSelect;
+
+// Runtime Instances - Sandboxed execution environments
+export const runtimeInstances = pgTable("runtime_instances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  userId: varchar("user_id"),
+  // Instance info
+  status: text("status").notNull().default("stopped"), // stopped, starting, running, stopping, error
+  port: integer("port"),
+  pid: integer("pid"),
+  // Resources
+  cpuLimit: integer("cpu_limit").default(50), // percentage
+  memoryLimit: integer("memory_limit").default(256), // MB
+  networkEnabled: boolean("network_enabled").notNull().default(true),
+  // Logs
+  lastOutput: text("last_output"),
+  lastError: text("last_error"),
+  // Timing
+  startedAt: timestamp("started_at"),
+  stoppedAt: timestamp("stopped_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertRuntimeInstanceSchema = createInsertSchema(runtimeInstances).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertRuntimeInstance = z.infer<typeof insertRuntimeInstanceSchema>;
+export type RuntimeInstance = typeof runtimeInstances.$inferSelect;
+
+// Console Logs - Runtime output history
+export const consoleLogs = pgTable("console_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  instanceId: varchar("instance_id"),
+  // Log info
+  logType: text("log_type").notNull().default("stdout"), // stdout, stderr, system
+  content: text("content").notNull(),
+  timestamp: timestamp("timestamp").defaultNow(),
+});
+
+export const insertConsoleLogSchema = createInsertSchema(consoleLogs).omit({
+  id: true,
+  timestamp: true,
+});
+
+export type InsertConsoleLog = z.infer<typeof insertConsoleLogSchema>;
+export type ConsoleLog = typeof consoleLogs.$inferSelect;
+
 // ==================== PLATFORM STATE OVERVIEW ====================
 
 // Platform State - Real-time health and risk monitoring

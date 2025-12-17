@@ -75,6 +75,14 @@ import {
   type InsertAiBuildTask,
   type AiBuildArtifact,
   type InsertAiBuildArtifact,
+  type DevProject,
+  type InsertDevProject,
+  type ProjectFile,
+  type InsertProjectFile,
+  type RuntimeInstance,
+  type InsertRuntimeInstance,
+  type ConsoleLog,
+  type InsertConsoleLog,
   users,
   projects,
   messages,
@@ -113,6 +121,10 @@ import {
   aiBuildSessions,
   aiBuildTasks,
   aiBuildArtifacts,
+  devProjects,
+  projectFiles,
+  runtimeInstances,
+  consoleLogs,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt } from "drizzle-orm";
@@ -372,6 +384,31 @@ export interface IStorage {
   getAiBuildArtifactsByTask(taskId: string): Promise<AiBuildArtifact[]>;
   createAiBuildArtifact(artifact: InsertAiBuildArtifact): Promise<AiBuildArtifact>;
   updateAiBuildArtifact(id: string, data: Partial<InsertAiBuildArtifact>): Promise<AiBuildArtifact | undefined>;
+  
+  // Cloud Development Projects
+  getDevProjects(userId?: string): Promise<DevProject[]>;
+  getDevProject(id: string): Promise<DevProject | undefined>;
+  createDevProject(project: InsertDevProject): Promise<DevProject>;
+  updateDevProject(id: string, data: Partial<InsertDevProject>): Promise<DevProject | undefined>;
+  deleteDevProject(id: string): Promise<boolean>;
+  
+  // Project Files
+  getProjectFiles(projectId: string): Promise<ProjectFile[]>;
+  getProjectFile(id: string): Promise<ProjectFile | undefined>;
+  getProjectFileByPath(projectId: string, filePath: string): Promise<ProjectFile | undefined>;
+  createProjectFile(file: InsertProjectFile): Promise<ProjectFile>;
+  updateProjectFile(id: string, data: Partial<InsertProjectFile>): Promise<ProjectFile | undefined>;
+  deleteProjectFile(id: string): Promise<boolean>;
+  
+  // Runtime Instances
+  getRuntimeInstance(projectId: string): Promise<RuntimeInstance | undefined>;
+  createRuntimeInstance(instance: InsertRuntimeInstance): Promise<RuntimeInstance>;
+  updateRuntimeInstance(id: string, data: Partial<InsertRuntimeInstance>): Promise<RuntimeInstance | undefined>;
+  
+  // Console Logs
+  getConsoleLogs(projectId: string, limit?: number): Promise<ConsoleLog[]>;
+  createConsoleLog(log: InsertConsoleLog): Promise<ConsoleLog>;
+  clearConsoleLogs(projectId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
