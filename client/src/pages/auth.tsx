@@ -14,7 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/use-language";
-import { Loader2, Mail, Lock, User, Sparkles } from "lucide-react";
+import { Loader2, Mail, Lock, User, Sparkles, Smartphone, QrCode } from "lucide-react";
 import { SiGoogle, SiGithub, SiApple } from "react-icons/si";
 import { GradientBackground } from "@/components/gradient-background";
 import { LanguageToggle } from "@/components/language-toggle";
@@ -44,6 +44,7 @@ export default function Auth() {
   const { toast } = useToast();
   const { t, language, isRtl } = useLanguage();
   const [showOtp, setShowOtp] = useState(false);
+  const [otpMethod, setOtpMethod] = useState<"email" | "authenticator">("email");
   const [otpValue, setOtpValue] = useState("");
   const [pendingEmail, setPendingEmail] = useState("");
 
@@ -144,12 +145,38 @@ export default function Auth() {
           <CardContent>
             {showOtp ? (
               <div className="space-y-6">
-                <div className="text-center">
-                  <p className="text-sm text-muted-foreground mb-4">
-                    {t("auth.otpSent")}
-                  </p>
-                  <p className="text-sm font-medium mb-6">{pendingEmail}</p>
-                </div>
+                <Tabs value={otpMethod} onValueChange={(v) => setOtpMethod(v as "email" | "authenticator")} dir={isRtl ? "rtl" : "ltr"}>
+                  <TabsList className="grid w-full grid-cols-2 mb-6">
+                    <TabsTrigger value="email" data-testid="tab-email-otp" className="gap-2">
+                      <Mail className="h-4 w-4" />
+                      {t("auth.emailOtp")}
+                    </TabsTrigger>
+                    <TabsTrigger value="authenticator" data-testid="tab-authenticator-otp" className="gap-2">
+                      <Smartphone className="h-4 w-4" />
+                      {t("auth.authenticatorApp")}
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="email">
+                    <div className="text-center mb-4">
+                      <p className="text-sm text-muted-foreground mb-2">
+                        {t("auth.otpSent")}
+                      </p>
+                      <p className="text-sm font-medium">{pendingEmail}</p>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="authenticator">
+                    <div className="text-center mb-4">
+                      <div className="mx-auto w-32 h-32 rounded-lg bg-muted flex items-center justify-center mb-4">
+                        <QrCode className="h-16 w-16 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {t("auth.authenticatorDesc")}
+                      </p>
+                    </div>
+                  </TabsContent>
+                </Tabs>
                 
                 <div className="flex justify-center" dir="ltr">
                   <InputOTP
@@ -185,7 +212,7 @@ export default function Auth() {
                   className="w-full"
                   onClick={() => setShowOtp(false)}
                 >
-                  {t("auth.resendOtp")}
+                  {t("auth.backToLogin")}
                 </Button>
               </div>
             ) : (

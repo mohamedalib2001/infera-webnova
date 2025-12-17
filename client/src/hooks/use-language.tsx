@@ -74,6 +74,11 @@ const translations: Record<string, Record<Language, string>> = {
   "auth.enterOtp": { ar: "أدخل رمز التحقق", en: "Enter verification code" },
   "auth.verifyOtp": { ar: "تحقق", en: "Verify" },
   "auth.resendOtp": { ar: "إعادة إرسال الرمز", en: "Resend code" },
+  "auth.emailOtp": { ar: "رمز البريد", en: "Email Code" },
+  "auth.authenticatorApp": { ar: "تطبيق المصادقة", en: "Authenticator App" },
+  "auth.authenticatorDesc": { ar: "أدخل الرمز من تطبيق Google Authenticator أو أي تطبيق مصادقة آخر", en: "Enter the code from Google Authenticator or any other authenticator app" },
+  "auth.scanQr": { ar: "امسح رمز QR باستخدام تطبيق المصادقة", en: "Scan QR code with your authenticator app" },
+  "auth.backToLogin": { ar: "العودة لتسجيل الدخول", en: "Back to login" },
   
   // Sidebar
   "sidebar.free": { ar: "مجاني", en: "Free" },
