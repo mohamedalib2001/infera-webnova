@@ -1262,6 +1262,411 @@ export async function registerRoutes(
     }
   });
 
+  // ============ Payment Methods Routes (Owner) ============
+
+  // Get all payment methods
+  app.get("/api/owner/payment-methods", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const methods = await storage.getPaymentMethods();
+      // Redact secret keys before sending
+      const redactedMethods = methods.map(m => ({
+        ...m,
+        secretKeyRef: m.secretKeyRef ? "********" : null,
+        webhookSecret: m.webhookSecret ? "********" : null,
+      }));
+      res.json(redactedMethods);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب طرق الدفع / Failed to fetch payment methods" });
+    }
+  });
+
+  // Get active payment methods (for checkout - public)
+  app.get("/api/payment-methods/active", async (req, res) => {
+    try {
+      const methods = await storage.getActivePaymentMethods();
+      // Only return safe public info
+      const publicMethods = methods.map(m => ({
+        id: m.id,
+        provider: m.provider,
+        name: m.name,
+        nameAr: m.nameAr,
+        description: m.description,
+        descriptionAr: m.descriptionAr,
+        icon: m.icon,
+        supportedCurrencies: m.supportedCurrencies,
+        minAmount: m.minAmount,
+        maxAmount: m.maxAmount,
+      }));
+      res.json(publicMethods);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب طرق الدفع / Failed to fetch payment methods" });
+    }
+  });
+
+  // Create payment method
+  app.post("/api/owner/payment-methods", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const method = await storage.createPaymentMethod(req.body);
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "payment_method_created",
+        entityType: "payment_method",
+        entityId: method.id,
+        details: { provider: method.provider, name: method.name },
+      });
+      
+      res.status(201).json(method);
+    } catch (error) {
+      console.error("Create payment method error:", error);
+      res.status(500).json({ error: "فشل في إنشاء طريقة الدفع / Failed to create payment method" });
+    }
+  });
+
+  // Update payment method
+  app.patch("/api/owner/payment-methods/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updated = await storage.updatePaymentMethod(id, req.body);
+      
+      if (!updated) {
+        return res.status(404).json({ error: "طريقة الدفع غير موجودة / Payment method not found" });
+      }
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "payment_method_updated",
+        entityType: "payment_method",
+        entityId: id,
+        details: { changes: Object.keys(req.body) },
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Update payment method error:", error);
+      res.status(500).json({ error: "فشل في تحديث طريقة الدفع / Failed to update payment method" });
+    }
+  });
+
+  // Toggle payment method status
+  app.patch("/api/owner/payment-methods/:id/toggle", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { isActive } = req.body;
+      
+      const updated = await storage.togglePaymentMethod(id, isActive);
+      
+      if (!updated) {
+        return res.status(404).json({ error: "طريقة الدفع غير موجودة / Payment method not found" });
+      }
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: isActive ? "payment_method_activated" : "payment_method_deactivated",
+        entityType: "payment_method",
+        entityId: id,
+        details: { provider: updated.provider },
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Toggle payment method error:", error);
+      res.status(500).json({ error: "فشل في تحديث حالة طريقة الدفع / Failed to toggle payment method" });
+    }
+  });
+
+  // Delete payment method
+  app.delete("/api/owner/payment-methods/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const method = await storage.getPaymentMethod(id);
+      
+      if (!method) {
+        return res.status(404).json({ error: "طريقة الدفع غير موجودة / Payment method not found" });
+      }
+      
+      await storage.deletePaymentMethod(id);
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "payment_method_deleted",
+        entityType: "payment_method",
+        entityId: id,
+        details: { provider: method.provider },
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete payment method error:", error);
+      res.status(500).json({ error: "فشل في حذف طريقة الدفع / Failed to delete payment method" });
+    }
+  });
+
+  // Initialize default payment methods
+  app.post("/api/owner/initialize-payment-methods", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const existingMethods = await storage.getPaymentMethods();
+      if (existingMethods.length > 0) {
+        return res.json({ message: "Payment methods already initialized", methods: existingMethods });
+      }
+      
+      const defaultMethods = [
+        {
+          provider: "stripe",
+          name: "Credit/Debit Card (Stripe)",
+          nameAr: "بطاقة ائتمان/خصم (Stripe)",
+          description: "Accept Visa, Mastercard, and other major cards",
+          descriptionAr: "قبول فيزا وماستركارد والبطاقات الرئيسية",
+          icon: "CreditCard",
+          supportedCurrencies: ["USD", "EUR", "GBP", "SAR", "AED"],
+          supportedCountries: ["US", "EU", "SA", "AE", "KW", "BH", "QA", "OM"],
+          minAmount: 50,
+          maxAmount: 9999900,
+          transactionFee: 290,
+          fixedFee: 30,
+          sandboxMode: true,
+          isActive: false,
+          isConfigured: false,
+          sortOrder: 1,
+        },
+        {
+          provider: "paypal",
+          name: "PayPal",
+          nameAr: "باي بال",
+          description: "Accept PayPal payments worldwide",
+          descriptionAr: "قبول مدفوعات باي بال عالمياً",
+          icon: "Wallet",
+          supportedCurrencies: ["USD", "EUR", "GBP"],
+          supportedCountries: ["US", "EU", "UK"],
+          minAmount: 100,
+          maxAmount: 5000000,
+          transactionFee: 349,
+          fixedFee: 49,
+          sandboxMode: true,
+          isActive: false,
+          isConfigured: false,
+          sortOrder: 2,
+        },
+        {
+          provider: "tap",
+          name: "Tap Payments",
+          nameAr: "تاب للمدفوعات",
+          description: "Leading payment gateway for MENA region",
+          descriptionAr: "بوابة الدفع الرائدة في منطقة الشرق الأوسط",
+          icon: "Smartphone",
+          supportedCurrencies: ["SAR", "AED", "KWD", "BHD", "QAR", "OMR"],
+          supportedCountries: ["SA", "AE", "KW", "BH", "QA", "OM"],
+          minAmount: 100,
+          maxAmount: 9999900,
+          transactionFee: 250,
+          fixedFee: 100,
+          sandboxMode: true,
+          isActive: false,
+          isConfigured: false,
+          sortOrder: 3,
+        },
+        {
+          provider: "mada",
+          name: "Mada",
+          nameAr: "مدى",
+          description: "Saudi debit card network",
+          descriptionAr: "شبكة بطاقات الخصم السعودية",
+          icon: "CreditCard",
+          supportedCurrencies: ["SAR"],
+          supportedCountries: ["SA"],
+          minAmount: 100,
+          maxAmount: 9999900,
+          transactionFee: 150,
+          fixedFee: 0,
+          sandboxMode: true,
+          isActive: false,
+          isConfigured: false,
+          sortOrder: 4,
+        },
+        {
+          provider: "apple_pay",
+          name: "Apple Pay",
+          nameAr: "أبل باي",
+          description: "Fast and secure Apple Pay checkout",
+          descriptionAr: "دفع سريع وآمن عبر أبل باي",
+          icon: "Smartphone",
+          supportedCurrencies: ["USD", "EUR", "GBP", "SAR", "AED"],
+          supportedCountries: ["US", "EU", "UK", "SA", "AE"],
+          minAmount: 50,
+          maxAmount: 9999900,
+          transactionFee: 290,
+          fixedFee: 30,
+          sandboxMode: true,
+          isActive: false,
+          isConfigured: false,
+          sortOrder: 5,
+        },
+        {
+          provider: "google_pay",
+          name: "Google Pay",
+          nameAr: "جوجل باي",
+          description: "Fast checkout with Google Pay",
+          descriptionAr: "دفع سريع عبر جوجل باي",
+          icon: "Smartphone",
+          supportedCurrencies: ["USD", "EUR", "GBP", "SAR", "AED"],
+          supportedCountries: ["US", "EU", "UK", "SA", "AE"],
+          minAmount: 50,
+          maxAmount: 9999900,
+          transactionFee: 290,
+          fixedFee: 30,
+          sandboxMode: true,
+          isActive: false,
+          isConfigured: false,
+          sortOrder: 6,
+        },
+        {
+          provider: "stc_pay",
+          name: "STC Pay",
+          nameAr: "STC Pay",
+          description: "Saudi digital wallet by STC",
+          descriptionAr: "المحفظة الرقمية السعودية من STC",
+          icon: "Wallet",
+          supportedCurrencies: ["SAR"],
+          supportedCountries: ["SA"],
+          minAmount: 100,
+          maxAmount: 5000000,
+          transactionFee: 200,
+          fixedFee: 0,
+          sandboxMode: true,
+          isActive: false,
+          isConfigured: false,
+          sortOrder: 7,
+        },
+        {
+          provider: "bank_transfer",
+          name: "Bank Transfer",
+          nameAr: "تحويل بنكي",
+          description: "Direct bank transfer payment",
+          descriptionAr: "الدفع عبر التحويل البنكي المباشر",
+          icon: "Building",
+          supportedCurrencies: ["USD", "EUR", "SAR", "AED"],
+          supportedCountries: ["SA", "AE", "US", "EU"],
+          minAmount: 10000,
+          maxAmount: 99999900,
+          transactionFee: 0,
+          fixedFee: 500,
+          sandboxMode: false,
+          isActive: false,
+          isConfigured: false,
+          sortOrder: 8,
+        },
+        {
+          provider: "crypto",
+          name: "Cryptocurrency",
+          nameAr: "العملات الرقمية",
+          description: "Accept Bitcoin, Ethereum, and more",
+          descriptionAr: "قبول بيتكوين وإيثيريوم والمزيد",
+          icon: "Bitcoin",
+          supportedCurrencies: ["BTC", "ETH", "USDT", "USDC"],
+          supportedCountries: [],
+          minAmount: 1000,
+          maxAmount: 99999900,
+          transactionFee: 100,
+          fixedFee: 0,
+          sandboxMode: true,
+          isActive: false,
+          isConfigured: false,
+          sortOrder: 9,
+        },
+      ];
+      
+      const createdMethods = [];
+      for (const method of defaultMethods) {
+        const created = await storage.createPaymentMethod(method as any);
+        createdMethods.push(created);
+      }
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "payment_methods_initialized",
+        entityType: "payment_method",
+        details: { count: createdMethods.length },
+      });
+      
+      res.status(201).json({ message: "Payment methods initialized", methods: createdMethods });
+    } catch (error) {
+      console.error("Initialize payment methods error:", error);
+      res.status(500).json({ error: "فشل في تهيئة طرق الدفع / Failed to initialize payment methods" });
+    }
+  });
+
+  // Get payment transactions (Owner)
+  app.get("/api/owner/payment-transactions", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const transactions = await storage.getPaymentTransactions(limit);
+      res.json(transactions);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب المعاملات / Failed to fetch transactions" });
+    }
+  });
+
+  // Get payment analytics (Owner)
+  app.get("/api/owner/payment-analytics", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const transactions = await storage.getPaymentTransactions(1000);
+      const methods = await storage.getPaymentMethods();
+      
+      // Calculate analytics
+      const completedTx = transactions.filter(t => t.status === "completed");
+      const failedTx = transactions.filter(t => t.status === "failed");
+      const refundedTx = transactions.filter(t => t.status === "refunded");
+      
+      const totalRevenue = completedTx.reduce((sum, t) => sum + t.netAmount, 0);
+      const avgValue = completedTx.length > 0 ? totalRevenue / completedTx.length : 0;
+      
+      // Revenue by provider
+      const byProvider: Record<string, { revenue: number; count: number }> = {};
+      completedTx.forEach(t => {
+        if (!byProvider[t.provider]) {
+          byProvider[t.provider] = { revenue: 0, count: 0 };
+        }
+        byProvider[t.provider].revenue += t.netAmount;
+        byProvider[t.provider].count += 1;
+      });
+      
+      // Revenue by month
+      const byMonth: Record<string, { revenue: number; count: number }> = {};
+      completedTx.forEach(t => {
+        const month = t.createdAt ? new Date(t.createdAt).toISOString().slice(0, 7) : "unknown";
+        if (!byMonth[month]) {
+          byMonth[month] = { revenue: 0, count: 0 };
+        }
+        byMonth[month].revenue += t.netAmount;
+        byMonth[month].count += 1;
+      });
+      
+      res.json({
+        totalRevenue,
+        totalTransactions: transactions.length,
+        successfulTransactions: completedTx.length,
+        failedTransactions: failedTx.length,
+        refundedTransactions: refundedTx.length,
+        averageTransactionValue: Math.round(avgValue),
+        activePaymentMethods: methods.filter(m => m.isActive).length,
+        totalPaymentMethods: methods.length,
+        revenueByProvider: Object.entries(byProvider).map(([provider, data]) => ({
+          provider,
+          ...data,
+        })),
+        revenueByMonth: Object.entries(byMonth)
+          .sort((a, b) => a[0].localeCompare(b[0]))
+          .map(([month, data]) => ({
+            month,
+            ...data,
+          })),
+      });
+    } catch (error) {
+      console.error("Payment analytics error:", error);
+      res.status(500).json({ error: "فشل في جلب تحليلات الدفع / Failed to fetch payment analytics" });
+    }
+  });
+
   // ============ Analytics Routes ============
 
   // Get analytics for user
