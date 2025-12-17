@@ -1049,18 +1049,18 @@ export interface ExecutiveDashboardSummary {
 
 // Sovereign Assistant Types
 export const sovereignAssistantTypes = [
-  'ai_governor',        // Manages AI lifecycle, costs, and policy enforcement
-  'platform_architect', // Oversees structural integrity and infrastructure improvements
-  'operations_commander', // Handles emergencies, stability control, and high-risk actions
-  'security_sentinel',  // Detects threats and enforces compliance
-  'revenue_strategist'  // Executes strategic pricing and retention adjustments
+  'ai_governor',        // Manages AI lifecycle, costs, usage ceilings, behavioral integrity
+  'platform_architect', // Oversees system architecture, scalability, feature flags, phased deployments
+  'operations_commander', // Maintains system health, incident response, emergency protocols
+  'security_guardian',  // Security & Compliance Guardian - detects anomalies, isolates breaches, enforces compliance
+  'growth_strategist'   // Business & Growth Strategist - revenue, churn, conversion, engagement optimization
 ] as const;
 export type SovereignAssistantType = typeof sovereignAssistantTypes[number];
 
 // Sovereign AI Assistants - Platform-level autonomous AI agents
 export const sovereignAssistants = pgTable("sovereign_assistants", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  type: text("type").notNull(), // ai_governor, platform_architect, operations_commander, security_sentinel, revenue_strategist
+  type: text("type").notNull(), // ai_governor, platform_architect, operations_commander, security_guardian, growth_strategist
   name: text("name").notNull(),
   nameAr: text("name_ar").notNull(),
   description: text("description").notNull(),
