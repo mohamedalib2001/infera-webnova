@@ -88,7 +88,8 @@ export async function registerRoutes(
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: error.errors });
+        const messages = error.errors.map(e => e.message).join(", ");
+        return res.status(400).json({ error: messages });
       }
       console.error("Registration error:", error);
       res.status(500).json({ error: "فشل في إنشاء الحساب / Failed to create account" });
@@ -130,7 +131,8 @@ export async function registerRoutes(
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: error.errors });
+        const messages = error.errors.map(e => e.message).join(", ");
+        return res.status(400).json({ error: messages });
       }
       res.status(500).json({ error: "فشل في تسجيل الدخول / Login failed" });
     }
@@ -182,7 +184,7 @@ export async function registerRoutes(
   app.get("/api/sovereign/users", requireAuth, requireSovereign, async (req, res) => {
     try {
       const users = await storage.getAllUsers();
-      res.json(users.map(u => {
+      res.json(users.map((u: User) => {
         const { password: _, ...rest } = u;
         return rest;
       }));
