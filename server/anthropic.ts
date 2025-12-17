@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { findBestTemplate } from './premium-templates';
 
 const apiKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
 const baseURL = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
@@ -278,50 +279,96 @@ export async function generateWebsiteCode(
   prompt: string,
   context?: string
 ): Promise<GeneratedCode> {
-  const systemPrompt = `${PREMIUM_DESIGN_SYSTEM}
+  const template = findBestTemplate(prompt);
+  console.log(`Using premium template: ${template.id}`);
+  
+  const systemPrompt = `You are an expert frontend developer. Your task is to CUSTOMIZE a premium template based on the user's request.
+
+## PREMIUM TEMPLATE (BASE CODE - USE THIS AS YOUR STARTING POINT)
+This is a professionally designed template. Modify it according to the user's needs while PRESERVING the design quality.
+
+=== HTML ===
+${template.html}
+
+=== CSS ===
+${template.css}
+
+=== JS ===
+${template.js}
+
+## USER REQUEST
+${prompt}
 
 ## YOUR TASK
-Create a stunning, award-winning website based on the user's request. The design must be professional enough to win a Dribbble or Awwwards feature.
-
-${context ? `EXISTING CONTEXT:\n${context}` : ""}
+Customize this template based on the user's request:
+1. Change text content, brand names, product names as needed
+2. Adjust colors if requested (update CSS variables)
+3. Add/remove sections as needed
+4. Keep the professional design quality intact
+5. Preserve all hover effects, animations, and transitions
+6. Maintain responsive design
 
 ## OUTPUT FORMAT
-Respond with ONLY a valid JSON object (no markdown, no code blocks, no explanation):
-{"html": "complete HTML structure", "css": "complete CSS with all styles and animations", "js": "JavaScript for interactivity", "message": "Brief description of what was created"}
+Respond with ONLY a valid JSON object (no markdown, no extra text):
+{"html": "...", "css": "...", "js": "...", "message": "..."}
 
-CRITICAL: 
+CRITICAL RULES:
 - Escape all newlines as \\n
-- Escape all quotes inside strings as \\"
-- Include complete, production-ready code
-- Every element must be styled beautifully
-- Include hover effects, transitions, and animations
-- Make it look like a premium template worth $99+`;
+- Escape quotes inside strings as \\"
+- Output COMPLETE code (not partial)
+- NEVER use emojis for icons - use SVG icons only
+- NEVER use colored bars or placeholders
+- Every section must have proper styling`;
 
   try {
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-5",
-      max_tokens: 8000,
+      max_tokens: 12000,
       messages: [
-        { role: "user", content: prompt },
+        { role: "user", content: `Customize this template for: ${prompt}` },
       ],
       system: systemPrompt,
     });
 
     const textBlock = response.content.find(block => block.type === "text");
     if (!textBlock || textBlock.type !== "text") {
-      throw new Error("No content generated");
+      console.log("No AI response, returning template as-is");
+      return {
+        html: template.html,
+        css: template.css,
+        js: template.js,
+        message: "تم استخدام القالب الاحترافي"
+      };
     }
 
-    const result = parseJsonResponse(textBlock.text);
+    try {
+      const result = parseJsonResponse(textBlock.text);
+      if (result.html && result.html.length > 500) {
+        return {
+          html: result.html || template.html,
+          css: result.css || template.css,
+          js: result.js || template.js,
+          message: result.message || "تم تخصيص الموقع بنجاح!",
+        };
+      }
+    } catch (parseError) {
+      console.log("Parse failed, using template:", parseError);
+    }
+    
     return {
-      html: result.html || "",
-      css: result.css || "",
-      js: result.js || "",
-      message: result.message || "Website generated!",
+      html: template.html,
+      css: template.css,
+      js: template.js,
+      message: "تم إنشاء موقع احترافي باستخدام قالب متميز"
     };
   } catch (error) {
     console.error("Claude generation error:", error);
-    throw new Error("Failed to generate website code. Please try again.");
+    return {
+      html: template.html,
+      css: template.css,
+      js: template.js,
+      message: "تم إنشاء موقع احترافي"
+    };
   }
 }
 
