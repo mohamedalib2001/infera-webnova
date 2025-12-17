@@ -56,24 +56,24 @@ export async function generateWebsiteCode(
   prompt: string,
   context?: string
 ): Promise<GeneratedCode> {
-  const systemPrompt = `You are an expert web developer. Generate clean, modern website code.
+  const systemPrompt = `You are a web developer. Generate HTML, CSS, JS code.
 
 RULES:
-1. Generate concise but complete HTML, CSS, and JavaScript
-2. Use modern CSS with flexbox/grid
-3. Use a gradient color scheme (purple/violet/cyan)
-4. Support RTL for Arabic content
-5. Keep code minimal but functional
+1. Concise complete code
+2. Modern CSS flexbox/grid
+3. Purple/cyan gradient theme
+4. RTL for Arabic
+5. Minimal but functional
 
 ${context ? `Context:\n${context}` : ""}
 
-Respond ONLY with a JSON object (no markdown):
+Respond ONLY with JSON (no markdown):
 {"html": "...", "css": "...", "js": "...", "message": "..."}`;
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5",
-      max_tokens: 16384,
+      model: "claude-3-5-haiku-20241022",
+      max_tokens: 6000,
       messages: [
         { role: "user", content: prompt },
       ],
@@ -104,22 +104,22 @@ export async function refineWebsiteCode(
   currentCss: string,
   currentJs: string
 ): Promise<GeneratedCode> {
-  const systemPrompt = `You are an expert web developer modifying existing code.
+  const systemPrompt = `Modify existing code per request.
 
-CURRENT CODE:
-HTML: ${currentHtml.substring(0, 2000)}
-CSS: ${currentCss.substring(0, 1000)}
-JS: ${currentJs.substring(0, 500)}
+CURRENT:
+HTML: ${currentHtml.substring(0, 1500)}
+CSS: ${currentCss.substring(0, 800)}
+JS: ${currentJs.substring(0, 400)}
 
-USER REQUEST: ${prompt}
+REQUEST: ${prompt}
 
-Respond ONLY with a JSON object (no markdown):
+Respond ONLY with JSON:
 {"html": "...", "css": "...", "js": "...", "message": "..."}`;
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5",
-      max_tokens: 16384,
+      model: "claude-3-5-haiku-20241022",
+      max_tokens: 6000,
       messages: [
         { role: "user", content: prompt },
       ],
