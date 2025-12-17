@@ -16,7 +16,7 @@ import type { Project, Template } from "@shared/schema";
 export default function Home() {
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("recent");
-  const { t, isRtl } = useLanguage();
+  const { t, isRtl, language } = useLanguage();
 
   const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -94,8 +94,8 @@ export default function Home() {
       
       <div className="bg-background/80 backdrop-blur-xl border-t">
         <div className="max-w-7xl mx-auto px-4 py-8">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="mb-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} dir={isRtl ? "rtl" : "ltr"}>
+            <TabsList className="mb-6 w-fit">
               <TabsTrigger value="recent" data-testid="tab-recent">{t("home.recent")}</TabsTrigger>
               <TabsTrigger value="projects" data-testid="tab-projects">{t("home.myProjects")}</TabsTrigger>
               <TabsTrigger value="templates" data-testid="tab-templates">{t("home.templates")}</TabsTrigger>
