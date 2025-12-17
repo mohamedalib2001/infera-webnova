@@ -174,6 +174,31 @@ The Owner can command specialized AI assistants:
 - **Nova Analyst**: Data analysis, metrics, business intelligence
 - **Nova Security**: Security audits, vulnerability checks, compliance
 
+## Sovereign AI Assistants
+Platform-level autonomous AI agents that execute the owner's strategic intent:
+- **AI Governor**: Platform policies, compliance rules, governance decisions
+- **Platform Architect**: System design, infrastructure changes, optimization
+- **Operations Commander**: Resource management, deployment, monitoring
+- **Security Sentinel**: Threat detection, access control, incident response
+- **Revenue Strategist**: Pricing optimization, subscription management, financial insights
+
+### Sovereign Assistant Database Tables
+- `sovereign_assistants` - Platform-level AI agents with 5 types and constrained autonomy
+- `sovereign_commands` - Multi-step commands with approval workflow and reversibility
+- `sovereign_actions` - Individual actions within commands with governance constraints
+- `sovereign_action_logs` - Immutable audit trail for all sovereign agent actions
+
+### Sovereign Assistant API Endpoints (Owner role only)
+- `GET /api/owner/sovereign-assistants` - Get all sovereign assistants
+- `POST /api/owner/initialize-sovereign-assistants` - Initialize default 5 sovereign assistants
+- `PATCH /api/owner/sovereign-assistants/:id/toggle` - Toggle active status
+- `PATCH /api/owner/sovereign-assistants/:id/autonomy` - Toggle autonomy mode
+- `GET /api/owner/sovereign-commands` - Get pending commands
+- `POST /api/owner/sovereign-commands/:id/approve` - Approve command execution
+- `POST /api/owner/sovereign-commands/:id/cancel` - Cancel pending command
+- `POST /api/owner/sovereign-commands/:id/rollback` - Rollback executed command
+- `GET /api/owner/sovereign-action-logs` - Get action audit logs
+
 ## Recent Changes
 - Added PostgreSQL database with Drizzle ORM
 - Implemented version history system
@@ -190,3 +215,7 @@ The Owner can command specialized AI assistants:
 - Implemented Payment Control Center in Owner Dashboard with analytics
 - Added support for 9 payment providers: Stripe, PayPal, Tap, mada, Apple Pay, Google Pay, STC Pay, Bank Transfer, Crypto
 - Payment method toggle (activate/deactivate) with transaction tracking
+- Added Sovereign AI Assistants with 5 specialized platform-level agents
+- Implemented command approval workflow with governance constraints
+- Added reversible operations and immutable audit trails
+- Full bilingual support (Arabic/English) for all sovereign features
