@@ -18,7 +18,11 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  side?: "left" | "right";
+}
+
+export function AppSidebar({ side = "left" }: AppSidebarProps) {
   const [location] = useLocation();
   const { user, isAuthenticated, logout, isLoggingOut, isSovereign } = useAuth();
   const { t, language } = useLanguage();
@@ -50,7 +54,7 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar>
+    <Sidebar side={side}>
       <SidebarHeader className="p-4">
         <Link href="/" className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center">
@@ -99,7 +103,7 @@ export function AppSidebar() {
         {isSovereign && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-amber-600 dark:text-amber-400">
-              <Crown className="h-3 w-3 ms-1" />
+              <Crown className="h-3 w-3 me-1" />
               {language === "ar" ? "لوحة التحكم السيادية" : "Sovereign Dashboard"}
             </SidebarGroupLabel>
             <SidebarGroupContent>
