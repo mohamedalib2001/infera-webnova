@@ -525,3 +525,109 @@ export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
 
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 export type AuditLog = typeof auditLogs.$inferSelect;
+
+// ==================== PAYMENT METHODS ====================
+
+// Available payment provider types
+export const paymentProviders = [
+  'stripe', 'paypal', 'tap', 'mada', 'apple_pay', 'google_pay', 
+  'stc_pay', 'bank_transfer', 'cash_on_delivery', 'crypto'
+] as const;
+export type PaymentProvider = typeof paymentProviders[number];
+
+// Payment methods configuration (owner-controlled)
+export const paymentMethods = pgTable("payment_methods", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  provider: text("provider").notNull(), // stripe, paypal, tap, mada, apple_pay, google_pay, stc_pay, bank_transfer, cash_on_delivery, crypto
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  icon: text("icon"), // Icon name or URL
+  // Configuration (API keys stored as secret references)
+  publicKey: text("public_key"), // Public/publishable key (safe to expose)
+  secretKeyRef: text("secret_key_ref"), // Reference to secret in vault (never exposed)
+  webhookSecret: text("webhook_secret"), // Webhook signing secret reference
+  sandboxMode: boolean("sandbox_mode").notNull().default(true),
+  // Settings
+  supportedCurrencies: jsonb("supported_currencies").$type<string[]>().notNull().default(["USD", "SAR", "AED"]),
+  minAmount: integer("min_amount").notNull().default(100), // in cents
+  maxAmount: integer("max_amount").notNull().default(1000000), // in cents
+  transactionFee: integer("transaction_fee").notNull().default(0), // percentage * 100 (e.g., 250 = 2.5%)
+  fixedFee: integer("fixed_fee").notNull().default(0), // fixed fee in cents
+  // Regional settings
+  supportedCountries: jsonb("supported_countries").$type<string[]>().notNull().default([]),
+  // Status
+  isActive: boolean("is_active").notNull().default(false),
+  isConfigured: boolean("is_configured").notNull().default(false),
+  sortOrder: integer("sort_order").notNull().default(0),
+  // Metadata
+  settings: jsonb("settings").$type<Record<string, any>>().default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPaymentMethodSchema = createInsertSchema(paymentMethods).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertPaymentMethod = z.infer<typeof insertPaymentMethodSchema>;
+export type PaymentMethod = typeof paymentMethods.$inferSelect;
+
+// ==================== PAYMENT TRANSACTIONS ====================
+
+// Detailed payment transactions log
+export const paymentTransactions = pgTable("payment_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  paymentMethodId: varchar("payment_method_id").notNull(),
+  subscriptionId: varchar("subscription_id"),
+  // Transaction details
+  provider: text("provider").notNull(),
+  providerTransactionId: text("provider_transaction_id"), // ID from payment provider
+  amount: integer("amount").notNull(), // in cents
+  currency: text("currency").notNull().default("USD"),
+  fee: integer("fee").notNull().default(0), // transaction fee in cents
+  netAmount: integer("net_amount").notNull(), // amount after fees
+  // Status
+  status: text("status").notNull().default("pending"), // pending, processing, completed, failed, refunded, cancelled
+  failureReason: text("failure_reason"),
+  failureCode: text("failure_code"),
+  // Customer info
+  customerEmail: text("customer_email"),
+  customerName: text("customer_name"),
+  // Billing
+  billingCycle: text("billing_cycle"), // monthly, quarterly, semi_annual, yearly
+  planName: text("plan_name"),
+  // Metadata
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  // Timestamps
+  processedAt: timestamp("processed_at"),
+  refundedAt: timestamp("refunded_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPaymentTransactionSchema = createInsertSchema(paymentTransactions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPaymentTransaction = z.infer<typeof insertPaymentTransactionSchema>;
+export type PaymentTransaction = typeof paymentTransactions.$inferSelect;
+
+// Payment Analytics type for dashboard
+export interface PaymentAnalytics {
+  totalRevenue: number;
+  totalTransactions: number;
+  successfulTransactions: number;
+  failedTransactions: number;
+  refundedTransactions: number;
+  averageTransactionValue: number;
+  revenueByProvider: { provider: string; revenue: number; count: number }[];
+  revenueByMonth: { month: string; revenue: number; count: number }[];
+  topCountries: { country: string; revenue: number; count: number }[];
+}

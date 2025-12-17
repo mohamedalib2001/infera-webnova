@@ -33,6 +33,10 @@ import {
   type InsertOwnerSettings,
   type AuditLog,
   type InsertAuditLog,
+  type PaymentMethod,
+  type InsertPaymentMethod,
+  type PaymentTransaction,
+  type InsertPaymentTransaction,
   users,
   projects,
   messages,
@@ -50,6 +54,8 @@ import {
   assistantInstructions,
   ownerSettings,
   auditLogs,
+  paymentMethods,
+  paymentTransactions,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt } from "drizzle-orm";
@@ -150,6 +156,22 @@ export interface IStorage {
   // Audit Logs
   getAuditLogs(limit?: number): Promise<AuditLog[]>;
   createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
+  
+  // Payment Methods (Owner)
+  getPaymentMethods(): Promise<PaymentMethod[]>;
+  getActivePaymentMethods(): Promise<PaymentMethod[]>;
+  getPaymentMethod(id: string): Promise<PaymentMethod | undefined>;
+  createPaymentMethod(method: InsertPaymentMethod): Promise<PaymentMethod>;
+  updatePaymentMethod(id: string, method: Partial<InsertPaymentMethod>): Promise<PaymentMethod | undefined>;
+  togglePaymentMethod(id: string, isActive: boolean): Promise<PaymentMethod | undefined>;
+  deletePaymentMethod(id: string): Promise<boolean>;
+  
+  // Payment Transactions
+  getPaymentTransactions(limit?: number): Promise<PaymentTransaction[]>;
+  getPaymentTransactionsByUser(userId: string): Promise<PaymentTransaction[]>;
+  getPaymentTransaction(id: string): Promise<PaymentTransaction | undefined>;
+  createPaymentTransaction(transaction: InsertPaymentTransaction): Promise<PaymentTransaction>;
+  updatePaymentTransaction(id: string, transaction: Partial<InsertPaymentTransaction>): Promise<PaymentTransaction | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1115,6 +1137,77 @@ body { font-family: 'Tajawal', sans-serif; }
   async createAuditLog(log: InsertAuditLog): Promise<AuditLog> {
     const [created] = await db.insert(auditLogs).values(log).returning();
     return created;
+  }
+
+  // Payment Methods methods
+  async getPaymentMethods(): Promise<PaymentMethod[]> {
+    return db.select().from(paymentMethods).orderBy(asc(paymentMethods.sortOrder));
+  }
+
+  async getActivePaymentMethods(): Promise<PaymentMethod[]> {
+    return db.select().from(paymentMethods)
+      .where(and(eq(paymentMethods.isActive, true), eq(paymentMethods.isConfigured, true)))
+      .orderBy(asc(paymentMethods.sortOrder));
+  }
+
+  async getPaymentMethod(id: string): Promise<PaymentMethod | undefined> {
+    const [method] = await db.select().from(paymentMethods).where(eq(paymentMethods.id, id));
+    return method || undefined;
+  }
+
+  async createPaymentMethod(method: InsertPaymentMethod): Promise<PaymentMethod> {
+    const [created] = await db.insert(paymentMethods).values(method).returning();
+    return created;
+  }
+
+  async updatePaymentMethod(id: string, updateData: Partial<InsertPaymentMethod>): Promise<PaymentMethod | undefined> {
+    const [updated] = await db.update(paymentMethods)
+      .set({ ...updateData, updatedAt: new Date() })
+      .where(eq(paymentMethods.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async togglePaymentMethod(id: string, isActive: boolean): Promise<PaymentMethod | undefined> {
+    const [updated] = await db.update(paymentMethods)
+      .set({ isActive, updatedAt: new Date() })
+      .where(eq(paymentMethods.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deletePaymentMethod(id: string): Promise<boolean> {
+    const result = await db.delete(paymentMethods).where(eq(paymentMethods.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // Payment Transactions methods
+  async getPaymentTransactions(limit: number = 100): Promise<PaymentTransaction[]> {
+    return db.select().from(paymentTransactions).orderBy(desc(paymentTransactions.createdAt)).limit(limit);
+  }
+
+  async getPaymentTransactionsByUser(userId: string): Promise<PaymentTransaction[]> {
+    return db.select().from(paymentTransactions)
+      .where(eq(paymentTransactions.userId, userId))
+      .orderBy(desc(paymentTransactions.createdAt));
+  }
+
+  async getPaymentTransaction(id: string): Promise<PaymentTransaction | undefined> {
+    const [transaction] = await db.select().from(paymentTransactions).where(eq(paymentTransactions.id, id));
+    return transaction || undefined;
+  }
+
+  async createPaymentTransaction(transaction: InsertPaymentTransaction): Promise<PaymentTransaction> {
+    const [created] = await db.insert(paymentTransactions).values(transaction).returning();
+    return created;
+  }
+
+  async updatePaymentTransaction(id: string, updateData: Partial<InsertPaymentTransaction>): Promise<PaymentTransaction | undefined> {
+    const [updated] = await db.update(paymentTransactions)
+      .set(updateData)
+      .where(eq(paymentTransactions.id, id))
+      .returning();
+    return updated || undefined;
   }
 }
 
