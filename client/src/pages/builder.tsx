@@ -27,15 +27,29 @@ export default function Builder() {
   const { toast } = useToast();
   const { t, isRtl } = useLanguage();
   
+  const getStoredCode = () => {
+    try {
+      const stored = sessionStorage.getItem('builder_code');
+      return stored ? JSON.parse(stored) : { html: '', css: '', js: '' };
+    } catch { return { html: '', css: '', js: '' }; }
+  };
+  
+  const storedCode = getStoredCode();
   const [projectName, setProjectName] = useState(t("builder.newProject"));
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
-  const [html, setHtml] = useState("");
-  const [css, setCss] = useState("");
-  const [js, setJs] = useState("");
+  const [html, setHtml] = useState(storedCode.html);
+  const [css, setCss] = useState(storedCode.css);
+  const [js, setJs] = useState(storedCode.js);
   const [isGenerating, setIsGenerating] = useState(false);
   const [projectId, setProjectId] = useState<string | null>(params.id || null);
   const [hasProcessedInitialPrompt, setHasProcessedInitialPrompt] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    if (html || css || js) {
+      sessionStorage.setItem('builder_code', JSON.stringify({ html, css, js }));
+    }
+  }, [html, css, js]);
 
   const { data: project, isLoading: projectLoading } = useQuery<Project>({
     queryKey: ["/api/projects", projectId],
