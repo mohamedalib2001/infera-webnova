@@ -43,9 +43,21 @@ import {
   Plus,
   RefreshCw,
   Eye,
-  History
+  History,
+  CreditCard,
+  Wallet,
+  Smartphone,
+  Building,
+  Bitcoin,
+  ToggleLeft,
+  ToggleRight,
+  Trash2,
+  Edit,
+  DollarSign,
+  TrendingUp,
+  ArrowUpRight
 } from "lucide-react";
-import type { AiAssistant, AssistantInstruction, User } from "@shared/schema";
+import type { AiAssistant, AssistantInstruction, User, PaymentMethod } from "@shared/schema";
 
 const translations = {
   ar: {
@@ -54,6 +66,7 @@ const translations = {
     tabs: {
       command: "مركز القيادة",
       assistants: "المساعدين AI",
+      payments: "بوابات الدفع",
       platform: "إعدادات المنصة",
       users: "المستخدمين",
       logs: "سجل العمليات",
@@ -129,6 +142,31 @@ const translations = {
       subtitle: "تتبع جميع الأنشطة والتغييرات",
       noLogs: "لا توجد سجلات",
     },
+    payments: {
+      title: "مركز التحكم بالدفع",
+      subtitle: "إدارة وتفعيل بوابات الدفع المتعددة",
+      initialize: "تهيئة بوابات الدفع",
+      noMethods: "لا توجد طرق دفع. اضغط على تهيئة لإضافتها.",
+      active: "مفعّل",
+      inactive: "غير مفعّل",
+      configured: "مُهيأ",
+      notConfigured: "غير مُهيأ",
+      sandbox: "وضع الاختبار",
+      production: "وضع الإنتاج",
+      configure: "تهيئة",
+      toggle: "تفعيل/تعطيل",
+      delete: "حذف",
+      currencies: "العملات المدعومة",
+      countries: "الدول المدعومة",
+      fees: "الرسوم",
+      analytics: {
+        title: "تحليلات الدفع",
+        totalRevenue: "إجمالي الإيرادات",
+        totalTransactions: "إجمالي المعاملات",
+        successRate: "نسبة النجاح",
+        activeGateways: "البوابات النشطة",
+      },
+    },
     stats: {
       totalUsers: "إجمالي المستخدمين",
       activeProjects: "المشاريع النشطة",
@@ -148,6 +186,7 @@ const translations = {
     tabs: {
       command: "Command Center",
       assistants: "AI Assistants",
+      payments: "Payment Gateways",
       platform: "Platform Settings",
       users: "Users",
       logs: "Audit Logs",
@@ -223,6 +262,31 @@ const translations = {
       subtitle: "Track all activities and changes",
       noLogs: "No logs available",
     },
+    payments: {
+      title: "Payment Control Center",
+      subtitle: "Manage and activate multiple payment gateways",
+      initialize: "Initialize Payment Methods",
+      noMethods: "No payment methods. Click initialize to add them.",
+      active: "Active",
+      inactive: "Inactive",
+      configured: "Configured",
+      notConfigured: "Not Configured",
+      sandbox: "Sandbox Mode",
+      production: "Production Mode",
+      configure: "Configure",
+      toggle: "Toggle Status",
+      delete: "Delete",
+      currencies: "Supported Currencies",
+      countries: "Supported Countries",
+      fees: "Fees",
+      analytics: {
+        title: "Payment Analytics",
+        totalRevenue: "Total Revenue",
+        totalTransactions: "Total Transactions",
+        successRate: "Success Rate",
+        activeGateways: "Active Gateways",
+      },
+    },
     stats: {
       totalUsers: "Total Users",
       activeProjects: "Active Projects",
@@ -236,6 +300,18 @@ const translations = {
       failed: "Failed",
     },
   },
+};
+
+const paymentProviderIcons: Record<string, any> = {
+  stripe: CreditCard,
+  paypal: Wallet,
+  tap: Smartphone,
+  mada: CreditCard,
+  apple_pay: Smartphone,
+  google_pay: Smartphone,
+  stc_pay: Wallet,
+  bank_transfer: Building,
+  crypto: Bitcoin,
 };
 
 const specialtyIcons: Record<string, any> = {
@@ -283,6 +359,50 @@ export default function OwnerDashboard() {
 
   const { data: stats } = useQuery<any>({
     queryKey: ['/api/sovereign/stats'],
+  });
+
+  const { data: paymentMethods = [], isLoading: paymentMethodsLoading } = useQuery<PaymentMethod[]>({
+    queryKey: ['/api/owner/payment-methods'],
+  });
+
+  const { data: paymentAnalytics } = useQuery<any>({
+    queryKey: ['/api/owner/payment-analytics'],
+  });
+
+  const initializePaymentMethodsMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', '/api/owner/initialize-payment-methods');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/payment-methods'] });
+      toast({
+        title: language === 'ar' ? "تم تهيئة بوابات الدفع" : "Payment Methods Initialized",
+        description: language === 'ar' ? "تمت إضافة جميع بوابات الدفع بنجاح" : "All payment gateways have been added successfully",
+      });
+    },
+  });
+
+  const togglePaymentMethodMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      return apiRequest('PATCH', `/api/owner/payment-methods/${id}/toggle`, { isActive });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/payment-methods'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/payment-analytics'] });
+    },
+  });
+
+  const deletePaymentMethodMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest('DELETE', `/api/owner/payment-methods/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/payment-methods'] });
+      toast({
+        title: language === 'ar' ? "تم الحذف" : "Deleted",
+        description: language === 'ar' ? "تم حذف طريقة الدفع" : "Payment method has been deleted",
+      });
+    },
   });
 
   const sendInstructionMutation = useMutation({
@@ -403,7 +523,7 @@ export default function OwnerDashboard() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
             <TabsTrigger value="command" className="gap-2" data-testid="tab-command">
               <Terminal className="w-4 h-4" />
               <span className="hidden sm:inline">{t.tabs.command}</span>
@@ -411,6 +531,10 @@ export default function OwnerDashboard() {
             <TabsTrigger value="assistants" className="gap-2" data-testid="tab-assistants">
               <Bot className="w-4 h-4" />
               <span className="hidden sm:inline">{t.tabs.assistants}</span>
+            </TabsTrigger>
+            <TabsTrigger value="payments" className="gap-2" data-testid="tab-payments">
+              <CreditCard className="w-4 h-4" />
+              <span className="hidden sm:inline">{t.tabs.payments}</span>
             </TabsTrigger>
             <TabsTrigger value="platform" className="gap-2" data-testid="tab-platform">
               <Settings className="w-4 h-4" />
@@ -688,6 +812,188 @@ export default function OwnerDashboard() {
                             >
                               <Send className="w-4 h-4 ml-2" />
                               {t.assistants.sendCommand}
+                            </Button>
+                          </CardFooter>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="payments" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm text-muted-foreground">{t.payments.analytics.totalRevenue}</p>
+                      <p className="text-2xl font-bold">${((paymentAnalytics?.totalRevenue || 0) / 100).toLocaleString()}</p>
+                    </div>
+                    <DollarSign className="w-8 h-8 text-green-500 opacity-50" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm text-muted-foreground">{t.payments.analytics.totalTransactions}</p>
+                      <p className="text-2xl font-bold">{paymentAnalytics?.totalTransactions || 0}</p>
+                    </div>
+                    <TrendingUp className="w-8 h-8 text-blue-500 opacity-50" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm text-muted-foreground">{t.payments.analytics.successRate}</p>
+                      <p className="text-2xl font-bold">
+                        {paymentAnalytics?.totalTransactions > 0 
+                          ? Math.round((paymentAnalytics.successfulTransactions / paymentAnalytics.totalTransactions) * 100) 
+                          : 0}%
+                      </p>
+                    </div>
+                    <CheckCircle className="w-8 h-8 text-emerald-500 opacity-50" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm text-muted-foreground">{t.payments.analytics.activeGateways}</p>
+                      <p className="text-2xl font-bold">{paymentAnalytics?.activePaymentMethods || 0}</p>
+                    </div>
+                    <CreditCard className="w-8 h-8 text-purple-500 opacity-50" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <CreditCard className="w-5 h-5" />
+                      {t.payments.title}
+                    </CardTitle>
+                    <CardDescription>{t.payments.subtitle}</CardDescription>
+                  </div>
+                  {paymentMethods.length === 0 && (
+                    <Button 
+                      onClick={() => initializePaymentMethodsMutation.mutate()}
+                      disabled={initializePaymentMethodsMutation.isPending}
+                      data-testid="button-initialize-payments"
+                    >
+                      {initializePaymentMethodsMutation.isPending ? (
+                        <RefreshCw className="w-4 h-4 animate-spin ml-2" />
+                      ) : (
+                        <Plus className="w-4 h-4 ml-2" />
+                      )}
+                      {t.payments.initialize}
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {paymentMethodsLoading ? (
+                  <div className="text-center py-8">
+                    <RefreshCw className="w-8 h-8 animate-spin mx-auto" />
+                  </div>
+                ) : paymentMethods.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <CreditCard className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                    <p>{t.payments.noMethods}</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {paymentMethods.map((method) => {
+                      const ProviderIcon = paymentProviderIcons[method.provider] || CreditCard;
+                      return (
+                        <Card key={method.id} className="hover-elevate">
+                          <CardHeader className="pb-3">
+                            <div className="flex items-center gap-3">
+                              <div className={`p-3 rounded-xl ${method.isActive ? 'bg-green-500/10 text-green-600' : 'bg-muted text-muted-foreground'}`}>
+                                <ProviderIcon className="w-6 h-6" />
+                              </div>
+                              <div className="flex-1">
+                                <CardTitle className="text-lg">
+                                  {language === 'ar' ? method.nameAr : method.name}
+                                </CardTitle>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Badge className={method.isActive ? "bg-green-500/10 text-green-600" : "bg-gray-500/10 text-gray-600"}>
+                                    {method.isActive ? t.payments.active : t.payments.inactive}
+                                  </Badge>
+                                  <Badge className={method.isConfigured ? "bg-blue-500/10 text-blue-600" : "bg-amber-500/10 text-amber-600"}>
+                                    {method.isConfigured ? t.payments.configured : t.payments.notConfigured}
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="space-y-3">
+                            <p className="text-sm text-muted-foreground">
+                              {language === 'ar' ? method.descriptionAr : method.description}
+                            </p>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-muted-foreground">{t.payments.currencies}:</span>
+                                <div className="flex flex-wrap gap-1 justify-end">
+                                  {method.supportedCurrencies?.slice(0, 3).map((cur) => (
+                                    <Badge key={cur} variant="outline" className="text-xs">{cur}</Badge>
+                                  ))}
+                                  {(method.supportedCurrencies?.length || 0) > 3 && (
+                                    <Badge variant="outline" className="text-xs">+{(method.supportedCurrencies?.length || 0) - 3}</Badge>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-muted-foreground">{t.payments.fees}:</span>
+                                <span>{(method.transactionFee || 0) / 100}% + ${(method.fixedFee || 0) / 100}</span>
+                              </div>
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-muted-foreground">
+                                  {method.sandboxMode ? t.payments.sandbox : t.payments.production}
+                                </span>
+                                <Badge variant="outline" className={method.sandboxMode ? "text-amber-600" : "text-green-600"}>
+                                  {method.sandboxMode ? "Test" : "Live"}
+                                </Badge>
+                              </div>
+                            </div>
+                          </CardContent>
+                          <CardFooter className="gap-2 flex-wrap">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className="flex-1"
+                              onClick={() => togglePaymentMethodMutation.mutate({ 
+                                id: method.id, 
+                                isActive: !method.isActive 
+                              })}
+                              disabled={togglePaymentMethodMutation.isPending}
+                              data-testid={`button-toggle-${method.id}`}
+                            >
+                              {method.isActive ? (
+                                <ToggleRight className="w-4 h-4 ml-1" />
+                              ) : (
+                                <ToggleLeft className="w-4 h-4 ml-1" />
+                              )}
+                              {t.payments.toggle}
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => deletePaymentMethodMutation.mutate(method.id)}
+                              disabled={deletePaymentMethodMutation.isPending}
+                              data-testid={`button-delete-${method.id}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
                             </Button>
                           </CardFooter>
                         </Card>

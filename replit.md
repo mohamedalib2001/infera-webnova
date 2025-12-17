@@ -78,6 +78,8 @@ shared/
 - `audit_logs` - Platform activity logging for owner oversight
 - `owner_settings` - Platform-wide configuration
 - `sovereign_settings` - Tenant-level governance settings
+- `payment_methods` - Payment gateway configurations (Stripe, PayPal, Tap, mada, Apple Pay, Google Pay, STC Pay, Bank Transfer, Crypto)
+- `payment_transactions` - Payment transaction history and tracking
 
 ## API Endpoints
 ### Projects
@@ -125,6 +127,17 @@ shared/
 - `GET /api/owner/logs` - Get audit logs
 - `POST /api/owner/initialize-assistants` - Initialize default AI workforce
 
+### Payment Methods (Owner role only)
+- `GET /api/owner/payment-methods` - Get all payment methods
+- `POST /api/owner/payment-methods` - Create payment method
+- `PATCH /api/owner/payment-methods/:id` - Update payment method
+- `PATCH /api/owner/payment-methods/:id/toggle` - Toggle payment method active status
+- `DELETE /api/owner/payment-methods/:id` - Delete payment method
+- `POST /api/owner/initialize-payment-methods` - Initialize default payment gateways
+- `GET /api/owner/payment-transactions` - Get payment transactions
+- `GET /api/owner/payment-analytics` - Get payment analytics
+- `GET /api/payment-methods/active` - Get active payment methods (public for checkout)
+
 ## Environment Variables
 - `DATABASE_URL` - PostgreSQL connection string
 - `OPENAI_API_KEY` - Required for AI code generation
@@ -163,3 +176,7 @@ The Owner can command specialized AI assistants:
 - Added instruction execution system with priority queuing
 - Created audit logging for platform governance
 - Bilingual support (Arabic/English) throughout the platform
+- Added Payment Orchestration System with owner-controlled payment gateways
+- Implemented Payment Control Center in Owner Dashboard with analytics
+- Added support for 9 payment providers: Stripe, PayPal, Tap, mada, Apple Pay, Google Pay, STC Pay, Bank Transfer, Crypto
+- Payment method toggle (activate/deactivate) with transaction tracking
