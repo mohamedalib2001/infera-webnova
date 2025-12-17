@@ -9,6 +9,29 @@ const anthropic = new Anthropic({
   ...(baseURL && { baseURL }),
 });
 
+function parseJsonResponse(content: string): any {
+  let jsonContent = content.trim();
+  
+  // Try to extract JSON from markdown code blocks
+  const jsonMatch = jsonContent.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (jsonMatch) {
+    jsonContent = jsonMatch[1].trim();
+  } else {
+    // Clean any stray backticks
+    jsonContent = jsonContent.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/g, '').trim();
+  }
+  
+  // Try to find JSON object if content has extra text
+  if (!jsonContent.startsWith('{')) {
+    const objMatch = jsonContent.match(/\{[\s\S]*\}/);
+    if (objMatch) {
+      jsonContent = objMatch[0];
+    }
+  }
+  
+  return JSON.parse(jsonContent);
+}
+
 export interface GeneratedCode {
   html: string;
   css: string;
@@ -58,15 +81,7 @@ Important: Only respond with valid JSON. No markdown code blocks.`;
       throw new Error("No content generated");
     }
 
-    const content = textBlock.text;
-    
-    let jsonContent = content;
-    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-      jsonContent = jsonMatch[1].trim();
-    }
-
-    const result = JSON.parse(jsonContent);
+    const result = parseJsonResponse(textBlock.text);
     return {
       html: result.html || "",
       css: result.css || "",
@@ -120,15 +135,7 @@ Important: Only respond with valid JSON. No markdown code blocks.`;
       throw new Error("No content generated");
     }
 
-    const content = textBlock.text;
-    
-    let jsonContent = content;
-    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-      jsonContent = jsonMatch[1].trim();
-    }
-
-    const result = JSON.parse(jsonContent);
+    const result = parseJsonResponse(textBlock.text);
     return {
       html: result.html || currentHtml,
       css: result.css || currentCss,
