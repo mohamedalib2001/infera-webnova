@@ -13,6 +13,14 @@ import {
   type InsertShareLink,
   type Component,
   type InsertComponent,
+  type SubscriptionPlan,
+  type InsertSubscriptionPlan,
+  type UserSubscription,
+  type InsertUserSubscription,
+  type Payment,
+  type InsertPayment,
+  type AiUsage,
+  type InsertAiUsage,
   users,
   projects,
   messages,
@@ -20,19 +28,46 @@ import {
   projectVersions,
   shareLinks,
   components,
+  subscriptionPlans,
+  userSubscriptions,
+  payments,
+  aiUsage,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, asc } from "drizzle-orm";
-import { randomUUID } from "crypto";
+import { eq, desc, asc, and } from "drizzle-orm";
 
 export interface IStorage {
   // Users
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined>;
+  
+  // Subscription Plans
+  getSubscriptionPlans(): Promise<SubscriptionPlan[]>;
+  getSubscriptionPlan(id: string): Promise<SubscriptionPlan | undefined>;
+  getSubscriptionPlanByRole(role: string): Promise<SubscriptionPlan | undefined>;
+  createSubscriptionPlan(plan: InsertSubscriptionPlan): Promise<SubscriptionPlan>;
+  
+  // User Subscriptions
+  getUserSubscription(userId: string): Promise<UserSubscription | undefined>;
+  createUserSubscription(subscription: InsertUserSubscription): Promise<UserSubscription>;
+  updateUserSubscription(id: string, subscription: Partial<InsertUserSubscription>): Promise<UserSubscription | undefined>;
+  
+  // Payments
+  getPaymentsByUser(userId: string): Promise<Payment[]>;
+  createPayment(payment: InsertPayment): Promise<Payment>;
+  updatePayment(id: string, payment: Partial<InsertPayment>): Promise<Payment | undefined>;
+  
+  // AI Usage
+  getAiUsage(userId: string, month: string): Promise<AiUsage | undefined>;
+  createAiUsage(usage: InsertAiUsage): Promise<AiUsage>;
+  updateAiUsage(id: string, usage: Partial<InsertAiUsage>): Promise<AiUsage | undefined>;
   
   // Projects
   getProjects(): Promise<Project[]>;
+  getProjectsByUser(userId: string): Promise<Project[]>;
   getProject(id: string): Promise<Project | undefined>;
   createProject(project: InsertProject): Promise<Project>;
   updateProject(id: string, project: Partial<InsertProject>): Promise<Project | undefined>;
@@ -67,10 +102,142 @@ export interface IStorage {
 
 export class DatabaseStorage implements IStorage {
   constructor() {
-    // Initialize sample templates
+    this.initializeSubscriptionPlans();
     this.initializeTemplates();
-    // Initialize sample components
     this.initializeComponents();
+  }
+
+  // Initialize subscription plans
+  private async initializeSubscriptionPlans() {
+    const existingPlans = await db.select().from(subscriptionPlans);
+    if (existingPlans.length > 0) return;
+
+    const plans: InsertSubscriptionPlan[] = [
+      {
+        name: "Free",
+        nameAr: "مجاني",
+        description: "Get started with basic features",
+        descriptionAr: "ابدأ مع الميزات الأساسية",
+        role: "free",
+        priceMonthly: 0,
+        priceQuarterly: 0,
+        priceSemiAnnual: 0,
+        priceYearly: 0,
+        currency: "USD",
+        features: ["1 Project", "5 Pages per Project", "10 AI Generations/month", "Basic Templates"],
+        featuresAr: ["مشروع واحد", "5 صفحات لكل مشروع", "10 توليدات AI شهرياً", "قوالب أساسية"],
+        maxProjects: 1,
+        maxPagesPerProject: 5,
+        aiGenerationsPerMonth: 10,
+        customDomain: false,
+        whiteLabel: false,
+        prioritySupport: false,
+        analyticsAccess: false,
+        chatbotBuilder: false,
+        teamMembers: 1,
+        sortOrder: 0,
+      },
+      {
+        name: "Basic",
+        nameAr: "أساسي",
+        description: "Perfect for individuals",
+        descriptionAr: "مثالي للأفراد",
+        role: "basic",
+        priceMonthly: 999, // $9.99
+        priceQuarterly: 2499, // $24.99 (save ~17%)
+        priceSemiAnnual: 4499, // $44.99 (save ~25%)
+        priceYearly: 7999, // $79.99 (save ~33%)
+        currency: "USD",
+        features: ["5 Projects", "20 Pages per Project", "50 AI Generations/month", "All Templates", "Export Code"],
+        featuresAr: ["5 مشاريع", "20 صفحة لكل مشروع", "50 توليد AI شهرياً", "جميع القوالب", "تصدير الكود"],
+        maxProjects: 5,
+        maxPagesPerProject: 20,
+        aiGenerationsPerMonth: 50,
+        customDomain: false,
+        whiteLabel: false,
+        prioritySupport: false,
+        analyticsAccess: true,
+        chatbotBuilder: false,
+        teamMembers: 1,
+        sortOrder: 1,
+      },
+      {
+        name: "Pro",
+        nameAr: "احترافي",
+        description: "For professionals and small businesses",
+        descriptionAr: "للمحترفين والشركات الصغيرة",
+        role: "pro",
+        priceMonthly: 2999, // $29.99
+        priceQuarterly: 7499, // $74.99
+        priceSemiAnnual: 13499, // $134.99
+        priceYearly: 23999, // $239.99
+        currency: "USD",
+        features: ["Unlimited Projects", "Unlimited Pages", "200 AI Generations/month", "Custom Domain", "Analytics Dashboard", "ChatBot Builder", "Priority Support"],
+        featuresAr: ["مشاريع غير محدودة", "صفحات غير محدودة", "200 توليد AI شهرياً", "نطاق مخصص", "لوحة تحليلات", "منشئ الشات بوت", "دعم أولوية"],
+        maxProjects: -1, // unlimited
+        maxPagesPerProject: -1,
+        aiGenerationsPerMonth: 200,
+        customDomain: true,
+        whiteLabel: false,
+        prioritySupport: true,
+        analyticsAccess: true,
+        chatbotBuilder: true,
+        teamMembers: 3,
+        sortOrder: 2,
+      },
+      {
+        name: "Enterprise",
+        nameAr: "مؤسسي",
+        description: "For agencies and large teams",
+        descriptionAr: "للوكالات والفرق الكبيرة",
+        role: "enterprise",
+        priceMonthly: 9999, // $99.99
+        priceQuarterly: 24999,
+        priceSemiAnnual: 44999,
+        priceYearly: 79999,
+        currency: "USD",
+        features: ["Everything in Pro", "White Label Mode", "Team Management", "API Access", "Dedicated Support", "Custom Integrations"],
+        featuresAr: ["كل ميزات Pro", "وضع White Label", "إدارة الفريق", "الوصول لـ API", "دعم مخصص", "تكاملات مخصصة"],
+        maxProjects: -1,
+        maxPagesPerProject: -1,
+        aiGenerationsPerMonth: 1000,
+        customDomain: true,
+        whiteLabel: true,
+        prioritySupport: true,
+        analyticsAccess: true,
+        chatbotBuilder: true,
+        teamMembers: 10,
+        sortOrder: 3,
+      },
+      {
+        name: "Sovereign",
+        nameAr: "سيادي",
+        description: "Complete control for government and enterprises",
+        descriptionAr: "تحكم كامل للحكومات والمؤسسات الكبرى",
+        role: "sovereign",
+        priceMonthly: 49999, // $499.99
+        priceQuarterly: 124999,
+        priceSemiAnnual: 224999,
+        priceYearly: 399999,
+        currency: "USD",
+        features: ["Everything in Enterprise", "Sovereign Dashboard", "Emergency Stop Button", "Global Analytics", "Multi-tenant Management", "Custom Deployment"],
+        featuresAr: ["كل ميزات Enterprise", "لوحة تحكم سيادية", "زر إيقاف طوارئ", "تحليلات عالمية", "إدارة متعددة المستأجرين", "نشر مخصص"],
+        maxProjects: -1,
+        maxPagesPerProject: -1,
+        aiGenerationsPerMonth: -1, // unlimited
+        customDomain: true,
+        whiteLabel: true,
+        prioritySupport: true,
+        analyticsAccess: true,
+        chatbotBuilder: true,
+        teamMembers: -1, // unlimited
+        sortOrder: 4,
+      },
+    ];
+
+    for (const plan of plans) {
+      await db.insert(subscriptionPlans).values(plan as any);
+    }
   }
 
   private async initializeTemplates() {
@@ -80,44 +247,57 @@ export class DatabaseStorage implements IStorage {
     const sampleTemplates: InsertTemplate[] = [
       {
         name: "Modern Landing Page",
+        nameAr: "صفحة هبوط عصرية",
         description: "A clean, modern landing page with hero section and features",
+        descriptionAr: "صفحة هبوط نظيفة وعصرية مع قسم بطل وميزات",
         category: "Landing",
-        htmlCode: `<div class="landing">
-  <header class="header">
-    <nav class="nav">
-      <div class="logo">Brand</div>
-      <ul class="nav-links">
-        <li><a href="#features">Features</a></li>
-        <li><a href="#about">About</a></li>
-        <li><a href="#contact">Contact</a></li>
-      </ul>
-    </nav>
-  </header>
-  <main class="hero">
-    <h1>Build Something Amazing</h1>
-    <p>Create beautiful websites with our powerful platform</p>
-    <button class="cta-button">Get Started</button>
-  </main>
-  <section class="features" id="features">
-    <h2>Features</h2>
-    <div class="feature-grid">
-      <div class="feature-card">
-        <h3>Fast</h3>
-        <p>Lightning-fast performance</p>
+        industry: "All",
+        htmlCode: `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>موقعك الجديد</title>
+</head>
+<body>
+  <div class="landing">
+    <header class="header">
+      <nav class="nav">
+        <div class="logo">العلامة التجارية</div>
+        <ul class="nav-links">
+          <li><a href="#features">المميزات</a></li>
+          <li><a href="#about">من نحن</a></li>
+          <li><a href="#contact">تواصل</a></li>
+        </ul>
+      </nav>
+    </header>
+    <main class="hero">
+      <h1>ابنِ شيئاً مذهلاً</h1>
+      <p>أنشئ مواقع جميلة باستخدام منصتنا القوية</p>
+      <button class="cta-button">ابدأ الآن</button>
+    </main>
+    <section class="features" id="features">
+      <h2>المميزات</h2>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <h3>سريع</h3>
+          <p>أداء فائق السرعة</p>
+        </div>
+        <div class="feature-card">
+          <h3>آمن</h3>
+          <p>حماية على مستوى المؤسسات</p>
+        </div>
+        <div class="feature-card">
+          <h3>قابل للتوسع</h3>
+          <p>نمو بلا حدود</p>
+        </div>
       </div>
-      <div class="feature-card">
-        <h3>Secure</h3>
-        <p>Enterprise-grade security</p>
-      </div>
-      <div class="feature-card">
-        <h3>Scalable</h3>
-        <p>Grow without limits</p>
-      </div>
-    </div>
-  </section>
-</div>`,
+    </section>
+  </div>
+</body>
+</html>`,
         cssCode: `* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Inter', sans-serif; }
+body { font-family: 'Tajawal', 'Inter', sans-serif; }
 .landing { min-height: 100vh; }
 .header { padding: 1rem 2rem; background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
 .nav { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto; }
@@ -134,121 +314,159 @@ body { font-family: 'Inter', sans-serif; }
 .feature-card { padding: 2rem; background: #f9fafb; border-radius: 12px; }
 .feature-card h3 { color: #6366f1; margin-bottom: 0.5rem; }`,
         jsCode: `document.querySelector('.cta-button').addEventListener('click', () => {
-  alert('Welcome! Let\\'s get started.');
+  alert('مرحباً بك! لنبدأ.');
 });`,
         thumbnail: null,
+        isPremium: false,
+        requiredPlan: "free",
       },
       {
-        name: "Portfolio",
-        description: "Personal portfolio with project showcase",
-        category: "Portfolio",
-        htmlCode: `<div class="portfolio">
-  <header class="portfolio-header">
-    <h1>John Doe</h1>
-    <p>Full Stack Developer</p>
-  </header>
-  <section class="about">
-    <h2>About Me</h2>
-    <p>I'm a passionate developer creating amazing digital experiences.</p>
-  </section>
-  <section class="projects">
-    <h2>My Projects</h2>
-    <div class="project-grid">
-      <div class="project-card">
-        <div class="project-image"></div>
-        <h3>Project One</h3>
-        <p>A modern web application</p>
-      </div>
-      <div class="project-card">
-        <div class="project-image"></div>
-        <h3>Project Two</h3>
-        <p>Mobile-first design</p>
-      </div>
-    </div>
-  </section>
-  <footer class="contact">
-    <h2>Get In Touch</h2>
-    <a href="mailto:hello@example.com">hello@example.com</a>
-  </footer>
-</div>`,
-        cssCode: `* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Inter', sans-serif; background: #0f172a; color: white; }
-.portfolio { max-width: 1000px; margin: 0 auto; padding: 4rem 2rem; }
-.portfolio-header { text-align: center; margin-bottom: 4rem; }
-.portfolio-header h1 { font-size: 3rem; margin-bottom: 0.5rem; background: linear-gradient(90deg, #a855f7, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.portfolio-header p { color: #94a3b8; font-size: 1.25rem; }
-section { margin-bottom: 4rem; }
-h2 { font-size: 2rem; margin-bottom: 1.5rem; }
-.about p { color: #94a3b8; font-size: 1.1rem; line-height: 1.8; }
-.project-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem; }
-.project-card { background: #1e293b; border-radius: 12px; overflow: hidden; }
-.project-image { height: 200px; background: linear-gradient(135deg, #a855f7, #ec4899); }
-.project-card h3, .project-card p { padding: 0 1.5rem; }
-.project-card h3 { padding-top: 1.5rem; margin-bottom: 0.5rem; }
-.project-card p { color: #94a3b8; padding-bottom: 1.5rem; }
-.contact { text-align: center; }
-.contact a { color: #a855f7; font-size: 1.25rem; }`,
-        jsCode: `document.querySelectorAll('.project-card').forEach(card => {
-  card.addEventListener('mouseenter', () => {
-    card.style.transform = 'translateY(-5px)';
-    card.style.transition = 'transform 0.3s ease';
-  });
-  card.addEventListener('mouseleave', () => {
-    card.style.transform = 'translateY(0)';
-  });
-});`,
-        thumbnail: null,
-      },
-      {
-        name: "E-commerce Product",
-        description: "Product showcase page with cart functionality",
+        name: "E-commerce Store",
+        nameAr: "متجر إلكتروني",
+        description: "Complete e-commerce template with product showcase",
+        descriptionAr: "قالب متجر إلكتروني كامل مع عرض المنتجات",
         category: "E-commerce",
-        htmlCode: `<div class="product-page">
-  <nav class="shop-nav">
-    <div class="brand">ShopName</div>
-    <div class="cart-icon">Cart (0)</div>
-  </nav>
-  <main class="product-container">
-    <div class="product-image">
-      <div class="image-placeholder"></div>
-    </div>
-    <div class="product-info">
-      <span class="category">Electronics</span>
-      <h1>Premium Wireless Headphones</h1>
-      <div class="rating">4.8 (120 reviews)</div>
-      <p class="price">$299.99</p>
-      <p class="description">Experience crystal-clear audio with our premium wireless headphones.</p>
-      <div class="actions">
-        <button class="add-to-cart">Add to Cart</button>
-        <button class="buy-now">Buy Now</button>
+        industry: "Retail",
+        htmlCode: `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>متجرنا</title>
+</head>
+<body>
+  <div class="store">
+    <nav class="shop-nav">
+      <div class="brand">المتجر</div>
+      <div class="cart-icon">السلة (0)</div>
+    </nav>
+    <main class="products">
+      <h1>منتجاتنا</h1>
+      <div class="product-grid">
+        <div class="product-card">
+          <div class="product-image"></div>
+          <h3>منتج رائع</h3>
+          <p class="price">99.99$</p>
+          <button class="add-btn">أضف للسلة</button>
+        </div>
+        <div class="product-card">
+          <div class="product-image"></div>
+          <h3>منتج مميز</h3>
+          <p class="price">149.99$</p>
+          <button class="add-btn">أضف للسلة</button>
+        </div>
+        <div class="product-card">
+          <div class="product-image"></div>
+          <h3>منتج فاخر</h3>
+          <p class="price">199.99$</p>
+          <button class="add-btn">أضف للسلة</button>
+        </div>
       </div>
-    </div>
-  </main>
-</div>`,
+    </main>
+  </div>
+</body>
+</html>`,
         cssCode: `* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Inter', sans-serif; background: #f8fafc; }
-.shop-nav { display: flex; justify-content: space-between; align-items: center; padding: 1.5rem 2rem; background: white; border-bottom: 1px solid #e2e8f0; }
-.brand { font-size: 1.5rem; font-weight: bold; }
-.cart-icon { cursor: pointer; }
-.product-container { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; max-width: 1200px; margin: 3rem auto; padding: 2rem; }
-.product-image { background: white; border-radius: 16px; padding: 2rem; }
-.image-placeholder { aspect-ratio: 1; background: linear-gradient(135deg, #e0e7ff, #c7d2fe); border-radius: 12px; }
-.product-info { display: flex; flex-direction: column; gap: 1rem; }
-.category { color: #6366f1; font-weight: 500; text-transform: uppercase; font-size: 0.875rem; }
-h1 { font-size: 2.5rem; color: #0f172a; }
-.rating { color: #64748b; }
-.price { font-size: 2rem; font-weight: bold; color: #0f172a; }
-.description { color: #64748b; line-height: 1.7; }
-.actions { display: flex; gap: 1rem; margin-top: 1rem; }
-.add-to-cart, .buy-now { padding: 1rem 2rem; font-size: 1rem; border-radius: 8px; cursor: pointer; font-weight: 600; }
-.add-to-cart { background: white; border: 2px solid #6366f1; color: #6366f1; }
-.buy-now { background: #6366f1; border: none; color: white; }`,
+body { font-family: 'Tajawal', sans-serif; background: #f8fafc; }
+.shop-nav { display: flex; justify-content: space-between; padding: 1.5rem 2rem; background: white; border-bottom: 1px solid #e5e7eb; }
+.brand { font-size: 1.5rem; font-weight: bold; color: #1f2937; }
+.cart-icon { cursor: pointer; color: #6366f1; font-weight: 500; }
+.products { max-width: 1200px; margin: 0 auto; padding: 3rem 2rem; }
+.products h1 { text-align: center; margin-bottom: 3rem; color: #1f2937; }
+.product-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem; }
+.product-card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+.product-image { height: 200px; background: linear-gradient(135deg, #667eea, #764ba2); }
+.product-card h3, .product-card .price, .product-card .add-btn { padding: 0 1.5rem; }
+.product-card h3 { padding-top: 1.5rem; color: #1f2937; }
+.price { color: #6366f1; font-size: 1.25rem; font-weight: bold; margin: 0.5rem 0; padding: 0 1.5rem; }
+.add-btn { width: calc(100% - 3rem); margin: 1rem 1.5rem 1.5rem; padding: 0.75rem; background: #6366f1; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }`,
         jsCode: `let cartCount = 0;
-document.querySelector('.add-to-cart').addEventListener('click', () => {
-  cartCount++;
-  document.querySelector('.cart-icon').textContent = 'Cart (' + cartCount + ')';
+document.querySelectorAll('.add-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    cartCount++;
+    document.querySelector('.cart-icon').textContent = 'السلة (' + cartCount + ')';
+  });
 });`,
         thumbnail: null,
+        isPremium: false,
+        requiredPlan: "free",
+      },
+      {
+        name: "Business Services",
+        nameAr: "خدمات الشركات",
+        description: "Professional services website template",
+        descriptionAr: "قالب موقع خدمات احترافي",
+        category: "Services",
+        industry: "Business",
+        htmlCode: `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>خدماتنا المتميزة</title>
+</head>
+<body>
+  <header class="header">
+    <nav class="nav">
+      <div class="logo">شركتنا</div>
+      <ul class="nav-links">
+        <li><a href="#services">خدماتنا</a></li>
+        <li><a href="#about">من نحن</a></li>
+        <li><a href="#contact">تواصل معنا</a></li>
+      </ul>
+    </nav>
+  </header>
+  <section class="hero">
+    <h1>حلول أعمال متكاملة</h1>
+    <p>نقدم خدمات استشارية وتقنية عالية الجودة</p>
+    <button class="cta">احجز استشارة مجانية</button>
+  </section>
+  <section class="services" id="services">
+    <h2>خدماتنا</h2>
+    <div class="services-grid">
+      <div class="service-card">
+        <div class="icon">📊</div>
+        <h3>استشارات الأعمال</h3>
+        <p>تحليل وتطوير استراتيجيات النمو</p>
+      </div>
+      <div class="service-card">
+        <div class="icon">💻</div>
+        <h3>حلول تقنية</h3>
+        <p>تطوير أنظمة مخصصة لأعمالك</p>
+      </div>
+      <div class="service-card">
+        <div class="icon">📈</div>
+        <h3>التسويق الرقمي</h3>
+        <p>زيادة وصولك وتحويلاتك</p>
+      </div>
+    </div>
+  </section>
+</body>
+</html>`,
+        cssCode: `* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Tajawal', sans-serif; }
+.header { background: #1f2937; padding: 1rem 2rem; }
+.nav { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto; }
+.logo { color: white; font-size: 1.5rem; font-weight: bold; }
+.nav-links { display: flex; list-style: none; gap: 2rem; }
+.nav-links a { color: #d1d5db; text-decoration: none; }
+.hero { background: linear-gradient(135deg, #1f2937, #374151); color: white; text-align: center; padding: 6rem 2rem; }
+.hero h1 { font-size: 3rem; margin-bottom: 1rem; }
+.hero p { font-size: 1.25rem; margin-bottom: 2rem; opacity: 0.9; }
+.cta { padding: 1rem 2.5rem; background: #10b981; color: white; border: none; border-radius: 8px; font-size: 1.1rem; cursor: pointer; font-weight: 600; }
+.services { padding: 5rem 2rem; max-width: 1200px; margin: 0 auto; text-align: center; }
+.services h2 { font-size: 2.5rem; margin-bottom: 3rem; color: #1f2937; }
+.services-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; }
+.service-card { background: white; padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+.icon { font-size: 3rem; margin-bottom: 1rem; }
+.service-card h3 { color: #1f2937; margin-bottom: 0.5rem; }
+.service-card p { color: #6b7280; }`,
+        jsCode: `document.querySelector('.cta').addEventListener('click', () => {
+  alert('شكراً لاهتمامك! سنتواصل معك قريباً.');
+});`,
+        thumbnail: null,
+        isPremium: false,
+        requiredPlan: "free",
       },
     ];
 
@@ -263,186 +481,215 @@ document.querySelector('.add-to-cart').addEventListener('click', () => {
 
     const sampleComponents: InsertComponent[] = [
       {
-        name: "Primary Button",
-        category: "Buttons",
-        htmlCode: `<button class="btn-primary">Click Me</button>`,
-        cssCode: `.btn-primary { padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: transform 0.2s; }
-.btn-primary:hover { transform: translateY(-2px); }`,
-        jsCode: "",
-        thumbnail: null,
-        framework: "vanilla",
-      },
-      {
-        name: "Outline Button",
-        category: "Buttons",
-        htmlCode: `<button class="btn-outline">Learn More</button>`,
-        cssCode: `.btn-outline { padding: 0.75rem 1.5rem; background: transparent; color: #6366f1; border: 2px solid #6366f1; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-.btn-outline:hover { background: #6366f1; color: white; }`,
-        jsCode: "",
-        thumbnail: null,
-        framework: "vanilla",
-      },
-      {
-        name: "Card with Image",
-        category: "Cards",
-        htmlCode: `<div class="card">
-  <div class="card-image"></div>
-  <div class="card-content">
-    <h3 class="card-title">Card Title</h3>
-    <p class="card-text">This is a description of the card content.</p>
-  </div>
-</div>`,
-        cssCode: `.card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-.card-image { height: 200px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-.card-content { padding: 1.5rem; }
-.card-title { font-size: 1.25rem; margin-bottom: 0.5rem; color: #1f2937; }
-.card-text { color: #6b7280; line-height: 1.6; }`,
-        jsCode: "",
-        thumbnail: null,
-        framework: "vanilla",
-      },
-      {
-        name: "Contact Form",
-        category: "Forms",
-        htmlCode: `<form class="contact-form">
-  <div class="form-group">
-    <label for="name">Name</label>
-    <input type="text" id="name" placeholder="Your name" />
-  </div>
-  <div class="form-group">
-    <label for="email">Email</label>
-    <input type="email" id="email" placeholder="your@email.com" />
-  </div>
-  <div class="form-group">
-    <label for="message">Message</label>
-    <textarea id="message" rows="4" placeholder="Your message..."></textarea>
-  </div>
-  <button type="submit" class="submit-btn">Send Message</button>
-</form>`,
-        cssCode: `.contact-form { max-width: 400px; padding: 2rem; background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-.form-group { margin-bottom: 1rem; }
-.form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151; }
-.form-group input, .form-group textarea { width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 1rem; }
-.form-group input:focus, .form-group textarea:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
-.submit-btn { width: 100%; padding: 0.75rem; background: #6366f1; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }`,
-        jsCode: "",
-        thumbnail: null,
-        framework: "vanilla",
-      },
-      {
-        name: "Navigation Bar",
-        category: "Navigation",
-        htmlCode: `<nav class="navbar">
-  <div class="nav-brand">Brand</div>
-  <ul class="nav-menu">
-    <li><a href="#" class="nav-link">Home</a></li>
-    <li><a href="#" class="nav-link">About</a></li>
-    <li><a href="#" class="nav-link">Services</a></li>
-    <li><a href="#" class="nav-link">Contact</a></li>
-  </ul>
-</nav>`,
-        cssCode: `.navbar { display: flex; justify-content: space-between; align-items: center; padding: 1rem 2rem; background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-.nav-brand { font-size: 1.5rem; font-weight: bold; color: #6366f1; }
-.nav-menu { display: flex; list-style: none; gap: 2rem; margin: 0; padding: 0; }
-.nav-link { text-decoration: none; color: #374151; font-weight: 500; transition: color 0.2s; }
-.nav-link:hover { color: #6366f1; }`,
-        jsCode: "",
-        thumbnail: null,
-        framework: "vanilla",
-      },
-      {
         name: "Hero Section",
+        nameAr: "قسم البطل",
         category: "Sections",
+        industry: "All",
         htmlCode: `<section class="hero-section">
   <div class="hero-content">
-    <h1 class="hero-title">Welcome to Our Platform</h1>
-    <p class="hero-subtitle">Build amazing things with our powerful tools</p>
+    <h1>مرحباً بك في منصتنا</h1>
+    <p>ابنِ موقعك الإلكتروني باستخدام الذكاء الاصطناعي</p>
     <div class="hero-buttons">
-      <button class="btn-hero-primary">Get Started</button>
-      <button class="btn-hero-secondary">Learn More</button>
+      <button class="btn-primary">ابدأ الآن</button>
+      <button class="btn-secondary">اعرف المزيد</button>
     </div>
   </div>
 </section>`,
         cssCode: `.hero-section { min-height: 80vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-align: center; padding: 2rem; }
-.hero-title { font-size: 3.5rem; margin-bottom: 1rem; }
-.hero-subtitle { font-size: 1.25rem; opacity: 0.9; margin-bottom: 2rem; }
-.hero-buttons { display: flex; gap: 1rem; justify-content: center; }
-.btn-hero-primary { padding: 1rem 2rem; background: white; color: #6366f1; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
-.btn-hero-secondary { padding: 1rem 2rem; background: transparent; color: white; border: 2px solid white; border-radius: 8px; font-weight: 600; cursor: pointer; }`,
+.hero-content h1 { font-size: 3.5rem; margin-bottom: 1rem; }
+.hero-content p { font-size: 1.25rem; opacity: 0.9; margin-bottom: 2rem; }
+.hero-buttons { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+.btn-primary { padding: 1rem 2rem; background: white; color: #6366f1; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+.btn-secondary { padding: 1rem 2rem; background: transparent; color: white; border: 2px solid white; border-radius: 8px; font-weight: 600; cursor: pointer; }`,
         jsCode: "",
         thumbnail: null,
         framework: "vanilla",
+        isPremium: false,
+        requiredPlan: "free",
+      },
+      {
+        name: "Features Grid",
+        nameAr: "شبكة المميزات",
+        category: "Sections",
+        industry: "All",
+        htmlCode: `<section class="features-section">
+  <h2>لماذا تختارنا؟</h2>
+  <div class="features-grid">
+    <div class="feature-item">
+      <div class="feature-icon">⚡</div>
+      <h3>سرعة فائقة</h3>
+      <p>أداء محسّن وتحميل سريع</p>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon">🔒</div>
+      <h3>أمان متقدم</h3>
+      <p>حماية على مستوى المؤسسات</p>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon">🎨</div>
+      <h3>تصميم مرن</h3>
+      <p>تخصيص كامل حسب احتياجاتك</p>
+    </div>
+  </div>
+</section>`,
+        cssCode: `.features-section { padding: 5rem 2rem; max-width: 1200px; margin: 0 auto; text-align: center; }
+.features-section h2 { font-size: 2.5rem; margin-bottom: 3rem; color: #1f2937; }
+.features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem; }
+.feature-item { padding: 2rem; background: #f9fafb; border-radius: 12px; }
+.feature-icon { font-size: 3rem; margin-bottom: 1rem; }
+.feature-item h3 { color: #6366f1; margin-bottom: 0.5rem; }
+.feature-item p { color: #6b7280; }`,
+        jsCode: "",
+        thumbnail: null,
+        framework: "vanilla",
+        isPremium: false,
+        requiredPlan: "free",
+      },
+      {
+        name: "Pricing Table",
+        nameAr: "جدول الأسعار",
+        category: "Sections",
+        industry: "All",
+        htmlCode: `<section class="pricing-section">
+  <h2>اختر خطتك</h2>
+  <div class="pricing-grid">
+    <div class="pricing-card">
+      <h3>أساسي</h3>
+      <p class="price">$9.99<span>/شهرياً</span></p>
+      <ul class="features-list">
+        <li>5 مشاريع</li>
+        <li>50 توليد AI</li>
+        <li>دعم البريد</li>
+      </ul>
+      <button class="pricing-btn">اشترك الآن</button>
+    </div>
+    <div class="pricing-card featured">
+      <h3>احترافي</h3>
+      <p class="price">$29.99<span>/شهرياً</span></p>
+      <ul class="features-list">
+        <li>مشاريع غير محدودة</li>
+        <li>200 توليد AI</li>
+        <li>دعم أولوية</li>
+        <li>نطاق مخصص</li>
+      </ul>
+      <button class="pricing-btn">اشترك الآن</button>
+    </div>
+    <div class="pricing-card">
+      <h3>مؤسسي</h3>
+      <p class="price">$99.99<span>/شهرياً</span></p>
+      <ul class="features-list">
+        <li>كل ميزات Pro</li>
+        <li>White Label</li>
+        <li>API Access</li>
+      </ul>
+      <button class="pricing-btn">اشترك الآن</button>
+    </div>
+  </div>
+</section>`,
+        cssCode: `.pricing-section { padding: 5rem 2rem; background: #f9fafb; text-align: center; }
+.pricing-section h2 { font-size: 2.5rem; margin-bottom: 3rem; }
+.pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem; max-width: 1000px; margin: 0 auto; }
+.pricing-card { background: white; padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+.pricing-card.featured { border: 2px solid #6366f1; transform: scale(1.05); }
+.pricing-card h3 { color: #1f2937; margin-bottom: 1rem; }
+.price { font-size: 2.5rem; font-weight: bold; color: #6366f1; }
+.price span { font-size: 1rem; color: #6b7280; }
+.features-list { list-style: none; padding: 1.5rem 0; text-align: right; }
+.features-list li { padding: 0.5rem 0; color: #374151; }
+.features-list li::before { content: "✓ "; color: #10b981; }
+.pricing-btn { width: 100%; padding: 1rem; background: #6366f1; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }`,
+        jsCode: "",
+        thumbnail: null,
+        framework: "vanilla",
+        isPremium: false,
+        requiredPlan: "free",
+      },
+      {
+        name: "Contact Form",
+        nameAr: "نموذج التواصل",
+        category: "Forms",
+        industry: "All",
+        htmlCode: `<section class="contact-section">
+  <h2>تواصل معنا</h2>
+  <form class="contact-form">
+    <div class="form-group">
+      <label for="name">الاسم</label>
+      <input type="text" id="name" placeholder="اسمك الكامل" required />
+    </div>
+    <div class="form-group">
+      <label for="email">البريد الإلكتروني</label>
+      <input type="email" id="email" placeholder="example@email.com" required />
+    </div>
+    <div class="form-group">
+      <label for="message">الرسالة</label>
+      <textarea id="message" rows="4" placeholder="رسالتك..." required></textarea>
+    </div>
+    <button type="submit" class="submit-btn">إرسال</button>
+  </form>
+</section>`,
+        cssCode: `.contact-section { padding: 5rem 2rem; max-width: 600px; margin: 0 auto; }
+.contact-section h2 { text-align: center; font-size: 2.5rem; margin-bottom: 2rem; color: #1f2937; }
+.contact-form { background: white; padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+.form-group { margin-bottom: 1.5rem; }
+.form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151; }
+.form-group input, .form-group textarea { width: 100%; padding: 0.875rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 1rem; }
+.form-group input:focus, .form-group textarea:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+.submit-btn { width: 100%; padding: 1rem; background: #6366f1; color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; }`,
+        jsCode: `document.querySelector('.contact-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  alert('تم إرسال رسالتك بنجاح!');
+});`,
+        thumbnail: null,
+        framework: "vanilla",
+        isPremium: false,
+        requiredPlan: "free",
       },
       {
         name: "Footer",
+        nameAr: "تذييل الصفحة",
         category: "Sections",
+        industry: "All",
         htmlCode: `<footer class="site-footer">
   <div class="footer-content">
     <div class="footer-section">
-      <h4>Company</h4>
+      <h4>عن الشركة</h4>
+      <p>نحن نقدم حلولاً مبتكرة لبناء مواقع إلكترونية احترافية باستخدام الذكاء الاصطناعي.</p>
+    </div>
+    <div class="footer-section">
+      <h4>روابط سريعة</h4>
       <ul>
-        <li><a href="#">About</a></li>
-        <li><a href="#">Careers</a></li>
-        <li><a href="#">Contact</a></li>
+        <li><a href="#">الرئيسية</a></li>
+        <li><a href="#">الخدمات</a></li>
+        <li><a href="#">من نحن</a></li>
+        <li><a href="#">تواصل معنا</a></li>
       </ul>
     </div>
     <div class="footer-section">
-      <h4>Resources</h4>
+      <h4>تواصل معنا</h4>
       <ul>
-        <li><a href="#">Blog</a></li>
-        <li><a href="#">Docs</a></li>
-        <li><a href="#">Help</a></li>
+        <li>info@example.com</li>
+        <li>+966 50 000 0000</li>
       </ul>
     </div>
   </div>
   <div class="footer-bottom">
-    <p>2024 Company. All rights reserved.</p>
+    <p>© 2025 جميع الحقوق محفوظة</p>
   </div>
 </footer>`,
-        cssCode: `.site-footer { background: #1f2937; color: white; padding: 3rem 2rem 1rem; }
-.footer-content { display: flex; gap: 4rem; max-width: 1200px; margin: 0 auto 2rem; }
-.footer-section h4 { margin-bottom: 1rem; font-size: 1.1rem; }
+        cssCode: `.site-footer { background: #1f2937; color: white; padding: 4rem 2rem 1rem; }
+.footer-content { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem; max-width: 1200px; margin: 0 auto 3rem; }
+.footer-section h4 { margin-bottom: 1.5rem; font-size: 1.1rem; color: white; }
+.footer-section p { color: #9ca3af; line-height: 1.7; }
 .footer-section ul { list-style: none; padding: 0; }
-.footer-section li { margin-bottom: 0.5rem; }
+.footer-section li { margin-bottom: 0.75rem; color: #9ca3af; }
 .footer-section a { color: #9ca3af; text-decoration: none; }
 .footer-section a:hover { color: white; }
 .footer-bottom { text-align: center; padding-top: 2rem; border-top: 1px solid #374151; color: #9ca3af; }`,
         jsCode: "",
         thumbnail: null,
         framework: "vanilla",
-      },
-      {
-        name: "Tailwind Card",
-        category: "Cards",
-        htmlCode: `<div class="max-w-sm rounded-lg overflow-hidden shadow-lg bg-white">
-  <div class="h-48 bg-gradient-to-br from-indigo-500 to-purple-600"></div>
-  <div class="p-6">
-    <h3 class="text-xl font-bold text-gray-900 mb-2">Card Title</h3>
-    <p class="text-gray-600">This is a Tailwind CSS styled card component.</p>
-    <button class="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">Learn More</button>
-  </div>
-</div>`,
-        cssCode: "",
-        jsCode: "",
-        thumbnail: null,
-        framework: "tailwind",
-      },
-      {
-        name: "Bootstrap Alert",
-        category: "Alerts",
-        htmlCode: `<div class="alert alert-primary" role="alert">
-  <strong>Info!</strong> This is a Bootstrap styled alert component.
-</div>
-<div class="alert alert-success" role="alert">
-  <strong>Success!</strong> Operation completed successfully.
-</div>
-<div class="alert alert-danger" role="alert">
-  <strong>Error!</strong> Something went wrong.
-</div>`,
-        cssCode: "",
-        jsCode: "",
-        thumbnail: null,
-        framework: "bootstrap",
+        isPremium: false,
+        requiredPlan: "free",
       },
     ];
 
@@ -462,14 +709,118 @@ document.querySelector('.add-to-cart').addEventListener('click', () => {
     return user || undefined;
   }
 
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
+  }
+
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
 
+  async updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return user || undefined;
+  }
+
+  // Subscription Plans methods
+  async getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
+    return db.select().from(subscriptionPlans).where(eq(subscriptionPlans.isActive, true)).orderBy(asc(subscriptionPlans.sortOrder));
+  }
+
+  async getSubscriptionPlan(id: string): Promise<SubscriptionPlan | undefined> {
+    const [plan] = await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.id, id));
+    return plan || undefined;
+  }
+
+  async getSubscriptionPlanByRole(role: string): Promise<SubscriptionPlan | undefined> {
+    const [plan] = await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.role, role));
+    return plan || undefined;
+  }
+
+  async createSubscriptionPlan(plan: InsertSubscriptionPlan): Promise<SubscriptionPlan> {
+    const [created] = await db.insert(subscriptionPlans).values(plan as any).returning();
+    return created;
+  }
+
+  // User Subscriptions methods
+  async getUserSubscription(userId: string): Promise<UserSubscription | undefined> {
+    const [subscription] = await db
+      .select()
+      .from(userSubscriptions)
+      .where(eq(userSubscriptions.userId, userId))
+      .orderBy(desc(userSubscriptions.createdAt));
+    return subscription || undefined;
+  }
+
+  async createUserSubscription(subscription: InsertUserSubscription): Promise<UserSubscription> {
+    const [created] = await db.insert(userSubscriptions).values(subscription).returning();
+    return created;
+  }
+
+  async updateUserSubscription(id: string, updates: Partial<InsertUserSubscription>): Promise<UserSubscription | undefined> {
+    const [subscription] = await db
+      .update(userSubscriptions)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(userSubscriptions.id, id))
+      .returning();
+    return subscription || undefined;
+  }
+
+  // Payments methods
+  async getPaymentsByUser(userId: string): Promise<Payment[]> {
+    return db.select().from(payments).where(eq(payments.userId, userId)).orderBy(desc(payments.createdAt));
+  }
+
+  async createPayment(payment: InsertPayment): Promise<Payment> {
+    const [created] = await db.insert(payments).values(payment).returning();
+    return created;
+  }
+
+  async updatePayment(id: string, updates: Partial<InsertPayment>): Promise<Payment | undefined> {
+    const [payment] = await db
+      .update(payments)
+      .set(updates)
+      .where(eq(payments.id, id))
+      .returning();
+    return payment || undefined;
+  }
+
+  // AI Usage methods
+  async getAiUsage(userId: string, month: string): Promise<AiUsage | undefined> {
+    const [usage] = await db
+      .select()
+      .from(aiUsage)
+      .where(and(eq(aiUsage.userId, userId), eq(aiUsage.month, month)));
+    return usage || undefined;
+  }
+
+  async createAiUsage(usage: InsertAiUsage): Promise<AiUsage> {
+    const [created] = await db.insert(aiUsage).values(usage).returning();
+    return created;
+  }
+
+  async updateAiUsage(id: string, updates: Partial<InsertAiUsage>): Promise<AiUsage | undefined> {
+    const [usage] = await db
+      .update(aiUsage)
+      .set(updates)
+      .where(eq(aiUsage.id, id))
+      .returning();
+    return usage || undefined;
+  }
+
   // Project methods
   async getProjects(): Promise<Project[]> {
     return db.select().from(projects).orderBy(desc(projects.updatedAt));
+  }
+
+  async getProjectsByUser(userId: string): Promise<Project[]> {
+    return db.select().from(projects).where(eq(projects.userId, userId)).orderBy(desc(projects.updatedAt));
   }
 
   async getProject(id: string): Promise<Project | undefined> {
