@@ -1,8 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 
+// Use user's API key first, then fall back to Replit's integration
+const apiKey = process.env.ANTHROPIC_API_KEY || process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+const baseURL = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
+
 const anthropic = new Anthropic({
-  apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
+  apiKey: apiKey,
+  ...(baseURL && { baseURL }),
 });
 
 export interface GeneratedCode {
