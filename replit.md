@@ -64,6 +64,7 @@ shared/
 17. **Chatbot Builder**: AI-powered chatbot creation
 18. **SEO Optimizer**: Website optimization tools
 19. **White Label**: Branding customization for enterprise/sovereign users
+20. **AI App Builder**: Full-stack application builder that works like Replit Agent - builds complete apps from natural language
 
 ## Database Tables
 - `users` - User accounts with role hierarchy (free/basic/pro/enterprise/sovereign/owner)
@@ -219,3 +220,7 @@ Platform-level autonomous AI agents that execute the owner's strategic intent:
 - Implemented command approval workflow with governance constraints
 - Added reversible operations and immutable audit trails
 - Full bilingual support (Arabic/English) for all sovereign features
+- Added AI App Builder with full-stack application generation from natural language
+- AI App Builder includes: planning service, execution engine, artifact management, and progress tracking
+- Database tables: ai_build_sessions, ai_build_tasks, ai_build_artifacts
+- New route: /ai-builder with complete bilingual UI

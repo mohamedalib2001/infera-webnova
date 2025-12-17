@@ -3314,5 +3314,116 @@ export async function registerRoutes(
     }
   });
 
+  // ============ AI App Builder Routes - مسارات منشئ التطبيقات بالذكاء الاصطناعي ============
+  
+  const { createBuildPlan, executeBuildStep, executeFullBuild, getSessionWithTasks, cancelBuild } = await import("./ai-app-builder");
+
+  // Get all build sessions
+  app.get("/api/ai-builder/sessions", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      const sessions = await storage.getAiBuildSessions(userId || undefined);
+      res.json(sessions);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب جلسات البناء / Failed to get build sessions" });
+    }
+  });
+
+  // Get a specific session with tasks and artifacts
+  app.get("/api/ai-builder/sessions/:id", async (req, res) => {
+    try {
+      const result = await getSessionWithTasks(req.params.id);
+      if (!result) {
+        return res.status(404).json({ error: "الجلسة غير موجودة / Session not found" });
+      }
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب تفاصيل الجلسة / Failed to get session details" });
+    }
+  });
+
+  // Create a new build plan from a prompt
+  const createBuildSchema = z.object({
+    prompt: z.string().min(10, "الطلب قصير جداً / Prompt too short"),
+  });
+
+  app.post("/api/ai-builder/plan", async (req, res) => {
+    try {
+      const { prompt } = createBuildSchema.parse(req.body);
+      const userId = req.session?.userId;
+      
+      const session = await createBuildPlan(prompt, userId || undefined);
+      res.status(201).json(session);
+    } catch (error) {
+      console.error("Plan creation error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "بيانات غير صالحة / Invalid data", details: error.errors });
+      }
+      const message = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ error: `فشل في إنشاء خطة البناء / Failed to create build plan: ${message}` });
+    }
+  });
+
+  // Execute a single build step
+  app.post("/api/ai-builder/sessions/:sessionId/tasks/:taskId/execute", async (req, res) => {
+    try {
+      const { sessionId, taskId } = req.params;
+      
+      const result = await executeBuildStep(sessionId, taskId);
+      res.json({ success: true, output: result });
+    } catch (error) {
+      console.error("Task execution error:", error);
+      const message = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ error: `فشل في تنفيذ المهمة / Failed to execute task: ${message}` });
+    }
+  });
+
+  // Execute full build (all steps)
+  app.post("/api/ai-builder/sessions/:sessionId/execute", async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      
+      const session = await executeFullBuild(sessionId);
+      res.json({ success: true, session });
+    } catch (error) {
+      console.error("Full build error:", error);
+      const message = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ error: `فشل في تنفيذ البناء / Failed to execute build: ${message}` });
+    }
+  });
+
+  // Cancel a build
+  app.post("/api/ai-builder/sessions/:sessionId/cancel", async (req, res) => {
+    try {
+      await cancelBuild(req.params.sessionId);
+      res.json({ message: "تم إلغاء البناء / Build cancelled" });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في إلغاء البناء / Failed to cancel build" });
+    }
+  });
+
+  // Delete a session
+  app.delete("/api/ai-builder/sessions/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteAiBuildSession(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "الجلسة غير موجودة / Session not found" });
+      }
+      res.json({ message: "تم حذف الجلسة / Session deleted" });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في حذف الجلسة / Failed to delete session" });
+    }
+  });
+
+  // Get artifacts for a session
+  app.get("/api/ai-builder/sessions/:sessionId/artifacts", async (req, res) => {
+    try {
+      const artifacts = await storage.getAiBuildArtifacts(req.params.sessionId);
+      res.json(artifacts);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب الملفات / Failed to get artifacts" });
+    }
+  });
+
   return httpServer;
 }

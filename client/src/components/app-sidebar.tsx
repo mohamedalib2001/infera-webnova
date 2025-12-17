@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, FolderOpen, LayoutTemplate, Settings, Plus, LogIn, LogOut, Crown, CreditCard, Bot, BarChart3, Search, Paintbrush } from "lucide-react";
+import { Home, FolderOpen, LayoutTemplate, Settings, Plus, LogIn, LogOut, Crown, CreditCard, Bot, BarChart3, Search, Paintbrush, Sparkles } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -29,6 +29,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
 
   const navItems = [
     { title: t("nav.home"), url: "/", icon: Home, testId: "nav-home" },
+    { title: language === "ar" ? "منشئ التطبيقات بالذكاء" : "AI App Builder", url: "/ai-builder", icon: Sparkles, testId: "nav-ai-builder" },
     { title: t("nav.projects"), url: "/projects", icon: FolderOpen, testId: "nav-projects" },
     { title: t("nav.templates"), url: "/templates", icon: LayoutTemplate, testId: "nav-templates" },
     { title: language === "ar" ? "منشئ الروبوتات" : "Chatbot Builder", url: "/chatbot-builder", icon: Bot, testId: "nav-chatbot" },

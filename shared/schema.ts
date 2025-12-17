@@ -1260,6 +1260,131 @@ export const insertSovereignPolicySchema = createInsertSchema(sovereignPolicies)
 export type InsertSovereignPolicy = z.infer<typeof insertSovereignPolicySchema>;
 export type SovereignPolicy = typeof sovereignPolicies.$inferSelect;
 
+// ==================== AI APP BUILDER ====================
+
+// AI App Builder Sessions - Tracks complete app generation sessions
+export const aiBuildSessions = pgTable("ai_build_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id"), // Can be null for anonymous users
+  // Request details
+  prompt: text("prompt").notNull(), // Original user prompt
+  promptAr: text("prompt_ar"), // Arabic version of prompt
+  appType: text("app_type"), // Detected app type (hr_platform, ecommerce, blog, etc.)
+  appName: text("app_name").notNull().default("New Application"),
+  appNameAr: text("app_name_ar"),
+  // Planning
+  plan: jsonb("plan").$type<{
+    summary: string;
+    summaryAr: string;
+    estimatedTime: number; // in minutes
+    steps: Array<{
+      order: number;
+      type: 'database' | 'backend' | 'frontend' | 'auth' | 'styling' | 'integration';
+      title: string;
+      titleAr: string;
+      description: string;
+      descriptionAr: string;
+      estimatedTime: number;
+    }>;
+    features: string[];
+    featuresAr: string[];
+    techStack: {
+      database: string;
+      backend: string;
+      frontend: string;
+      styling: string;
+    };
+  }>(),
+  // Progress
+  status: text("status").notNull().default("planning"), // planning, building, completed, failed, cancelled
+  progress: integer("progress").notNull().default(0), // 0-100
+  currentStep: integer("current_step").notNull().default(0),
+  totalSteps: integer("total_steps").notNull().default(0),
+  // Generated output
+  projectId: varchar("project_id"), // Links to generated project
+  generatedSchema: text("generated_schema"), // Database schema
+  generatedBackend: text("generated_backend"), // Backend code
+  generatedFrontend: text("generated_frontend"), // Frontend code
+  generatedStyles: text("generated_styles"), // CSS/styling
+  // Metadata
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAiBuildSessionSchema = createInsertSchema(aiBuildSessions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAiBuildSession = z.infer<typeof insertAiBuildSessionSchema>;
+export type AiBuildSession = typeof aiBuildSessions.$inferSelect;
+
+// AI Build Tasks - Individual tasks within a build session
+export const aiBuildTasks = pgTable("ai_build_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull(),
+  // Task details
+  stepNumber: integer("step_number").notNull(),
+  taskType: text("task_type").notNull(), // database, backend, frontend, auth, styling, integration
+  title: text("title").notNull(),
+  titleAr: text("title_ar"),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  // Execution
+  status: text("status").notNull().default("pending"), // pending, running, completed, failed, skipped
+  progress: integer("progress").notNull().default(0), // 0-100
+  // Input/Output
+  input: jsonb("input").$type<Record<string, any>>().default({}),
+  output: text("output"), // Generated code or result
+  outputType: text("output_type"), // code, schema, config, etc.
+  // AI interaction
+  aiPrompt: text("ai_prompt"),
+  aiResponse: text("ai_response"),
+  tokensUsed: integer("tokens_used").default(0),
+  // Timing
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAiBuildTaskSchema = createInsertSchema(aiBuildTasks).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAiBuildTask = z.infer<typeof insertAiBuildTaskSchema>;
+export type AiBuildTask = typeof aiBuildTasks.$inferSelect;
+
+// AI Build Artifacts - Generated files and assets
+export const aiBuildArtifacts = pgTable("ai_build_artifacts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull(),
+  taskId: varchar("task_id"),
+  // Artifact details
+  fileName: text("file_name").notNull(),
+  filePath: text("file_path").notNull(),
+  fileType: text("file_type").notNull(), // ts, tsx, sql, css, json, etc.
+  category: text("category").notNull(), // schema, route, component, style, config
+  // Content
+  content: text("content").notNull(),
+  contentHash: text("content_hash"), // For detecting changes
+  // Metadata
+  version: integer("version").notNull().default(1),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAiBuildArtifactSchema = createInsertSchema(aiBuildArtifacts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAiBuildArtifact = z.infer<typeof insertAiBuildArtifactSchema>;
+export type AiBuildArtifact = typeof aiBuildArtifacts.$inferSelect;
+
 // ==================== PLATFORM STATE OVERVIEW ====================
 
 // Platform State - Real-time health and risk monitoring

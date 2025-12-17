@@ -69,6 +69,12 @@ import {
   type InsertSovereignActionLog,
   type SovereignPolicy,
   type InsertSovereignPolicy,
+  type AiBuildSession,
+  type InsertAiBuildSession,
+  type AiBuildTask,
+  type InsertAiBuildTask,
+  type AiBuildArtifact,
+  type InsertAiBuildArtifact,
   users,
   projects,
   messages,
@@ -104,6 +110,9 @@ import {
   sovereignActions,
   sovereignActionLogs,
   sovereignPolicies,
+  aiBuildSessions,
+  aiBuildTasks,
+  aiBuildArtifacts,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt } from "drizzle-orm";
@@ -344,6 +353,25 @@ export interface IStorage {
   updateSovereignPolicy(id: string, data: Partial<InsertSovereignPolicy>): Promise<SovereignPolicy | undefined>;
   toggleSovereignPolicy(id: string, isActive: boolean): Promise<SovereignPolicy | undefined>;
   deleteSovereignPolicy(id: string): Promise<boolean>;
+  
+  // AI App Builder Sessions
+  getAiBuildSessions(userId?: string): Promise<AiBuildSession[]>;
+  getAiBuildSession(id: string): Promise<AiBuildSession | undefined>;
+  createAiBuildSession(session: InsertAiBuildSession): Promise<AiBuildSession>;
+  updateAiBuildSession(id: string, data: Partial<InsertAiBuildSession>): Promise<AiBuildSession | undefined>;
+  deleteAiBuildSession(id: string): Promise<boolean>;
+  
+  // AI Build Tasks
+  getAiBuildTasks(sessionId: string): Promise<AiBuildTask[]>;
+  getAiBuildTask(id: string): Promise<AiBuildTask | undefined>;
+  createAiBuildTask(task: InsertAiBuildTask): Promise<AiBuildTask>;
+  updateAiBuildTask(id: string, data: Partial<InsertAiBuildTask>): Promise<AiBuildTask | undefined>;
+  
+  // AI Build Artifacts
+  getAiBuildArtifacts(sessionId: string): Promise<AiBuildArtifact[]>;
+  getAiBuildArtifactsByTask(taskId: string): Promise<AiBuildArtifact[]>;
+  createAiBuildArtifact(artifact: InsertAiBuildArtifact): Promise<AiBuildArtifact>;
+  updateAiBuildArtifact(id: string, data: Partial<InsertAiBuildArtifact>): Promise<AiBuildArtifact | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1988,6 +2016,93 @@ body { font-family: 'Tajawal', sans-serif; }
   async deleteSovereignPolicy(id: string): Promise<boolean> {
     const result = await db.delete(sovereignPolicies).where(eq(sovereignPolicies.id, id));
     return (result.rowCount ?? 0) > 0;
+  }
+
+  // ============ AI App Builder Sessions Implementation ============
+  
+  async getAiBuildSessions(userId?: string): Promise<AiBuildSession[]> {
+    if (userId) {
+      return db.select().from(aiBuildSessions)
+        .where(eq(aiBuildSessions.userId, userId))
+        .orderBy(desc(aiBuildSessions.createdAt));
+    }
+    return db.select().from(aiBuildSessions).orderBy(desc(aiBuildSessions.createdAt));
+  }
+
+  async getAiBuildSession(id: string): Promise<AiBuildSession | undefined> {
+    const [session] = await db.select().from(aiBuildSessions).where(eq(aiBuildSessions.id, id));
+    return session || undefined;
+  }
+
+  async createAiBuildSession(session: InsertAiBuildSession): Promise<AiBuildSession> {
+    const [created] = await db.insert(aiBuildSessions).values(session).returning();
+    return created;
+  }
+
+  async updateAiBuildSession(id: string, data: Partial<InsertAiBuildSession>): Promise<AiBuildSession | undefined> {
+    const [updated] = await db.update(aiBuildSessions)
+      .set(data)
+      .where(eq(aiBuildSessions.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteAiBuildSession(id: string): Promise<boolean> {
+    const result = await db.delete(aiBuildSessions).where(eq(aiBuildSessions.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // ============ AI Build Tasks Implementation ============
+  
+  async getAiBuildTasks(sessionId: string): Promise<AiBuildTask[]> {
+    return db.select().from(aiBuildTasks)
+      .where(eq(aiBuildTasks.sessionId, sessionId))
+      .orderBy(asc(aiBuildTasks.stepNumber));
+  }
+
+  async getAiBuildTask(id: string): Promise<AiBuildTask | undefined> {
+    const [task] = await db.select().from(aiBuildTasks).where(eq(aiBuildTasks.id, id));
+    return task || undefined;
+  }
+
+  async createAiBuildTask(task: InsertAiBuildTask): Promise<AiBuildTask> {
+    const [created] = await db.insert(aiBuildTasks).values(task).returning();
+    return created;
+  }
+
+  async updateAiBuildTask(id: string, data: Partial<InsertAiBuildTask>): Promise<AiBuildTask | undefined> {
+    const [updated] = await db.update(aiBuildTasks)
+      .set(data)
+      .where(eq(aiBuildTasks.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // ============ AI Build Artifacts Implementation ============
+  
+  async getAiBuildArtifacts(sessionId: string): Promise<AiBuildArtifact[]> {
+    return db.select().from(aiBuildArtifacts)
+      .where(eq(aiBuildArtifacts.sessionId, sessionId))
+      .orderBy(asc(aiBuildArtifacts.fileName));
+  }
+
+  async getAiBuildArtifactsByTask(taskId: string): Promise<AiBuildArtifact[]> {
+    return db.select().from(aiBuildArtifacts)
+      .where(eq(aiBuildArtifacts.taskId, taskId))
+      .orderBy(asc(aiBuildArtifacts.fileName));
+  }
+
+  async createAiBuildArtifact(artifact: InsertAiBuildArtifact): Promise<AiBuildArtifact> {
+    const [created] = await db.insert(aiBuildArtifacts).values(artifact).returning();
+    return created;
+  }
+
+  async updateAiBuildArtifact(id: string, data: Partial<InsertAiBuildArtifact>): Promise<AiBuildArtifact | undefined> {
+    const [updated] = await db.update(aiBuildArtifacts)
+      .set(data)
+      .where(eq(aiBuildArtifacts.id, id))
+      .returning();
+    return updated || undefined;
   }
 }
 
