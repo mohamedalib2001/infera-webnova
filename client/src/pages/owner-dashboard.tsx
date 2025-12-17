@@ -868,6 +868,43 @@ export default function OwnerDashboard() {
     },
   });
 
+  const initializeAssistantsMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', '/api/owner/initialize-assistants');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/assistants'] });
+      toast({
+        title: language === 'ar' ? "تمت التهيئة" : "Initialized",
+        description: language === 'ar' ? "تم إنشاء المساعدين بنجاح" : "Assistants created successfully",
+      });
+    },
+  });
+
+  const savePlatformSettingsMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest('POST', '/api/owner/settings', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/settings'] });
+      toast({
+        title: language === 'ar' ? "تم الحفظ" : "Saved",
+        description: language === 'ar' ? "تم حفظ الإعدادات بنجاح" : "Settings saved successfully",
+      });
+    },
+  });
+
+  const [platformSettings, setPlatformSettings] = useState({
+    platformName: "INFERA WebNova",
+    platformNameAr: "منصة انفيرا ويب نوفا",
+    primaryDomain: "",
+    supportEmail: "",
+    maintenanceMode: false,
+    registrationEnabled: true,
+    announcement: "",
+    announcementAr: "",
+  });
+
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { icon: any; className: string }> = {
       pending: { icon: Clock, className: "bg-yellow-500/10 text-yellow-600" },
@@ -1471,7 +1508,7 @@ export default function OwnerDashboard() {
                                 </div>
                                 <h4 className="font-medium">{command.directive}</h4>
                                 <p className="text-sm text-muted-foreground mt-1">
-                                  {new Date(command.createdAt).toLocaleString(language === 'ar' ? 'ar-SA' : 'en-US')}
+                                  {command.createdAt ? new Date(command.createdAt).toLocaleString(language === 'ar' ? 'ar-SA' : 'en-US') : '-'}
                                 </p>
                               </div>
                               <div className="flex gap-2">
@@ -1532,7 +1569,7 @@ export default function OwnerDashboard() {
                           <div className="flex-1">
                             <p className="text-sm">{language === 'ar' ? log.eventDescriptionAr : log.eventDescription}</p>
                             <p className="text-xs text-muted-foreground">
-                              {new Date(log.createdAt).toLocaleString(language === 'ar' ? 'ar-SA' : 'en-US')}
+                              {log.createdAt ? new Date(log.createdAt).toLocaleString(language === 'ar' ? 'ar-SA' : 'en-US') : '-'}
                             </p>
                           </div>
                         </div>
@@ -1555,8 +1592,16 @@ export default function OwnerDashboard() {
                     </CardTitle>
                     <CardDescription>{t.assistants.subtitle}</CardDescription>
                   </div>
-                  <Button data-testid="button-create-assistant">
-                    <Plus className="w-4 h-4 ml-2" />
+                  <Button 
+                    onClick={() => initializeAssistantsMutation.mutate()}
+                    disabled={initializeAssistantsMutation.isPending}
+                    data-testid="button-create-assistant"
+                  >
+                    {initializeAssistantsMutation.isPending ? (
+                      <RefreshCw className="w-4 h-4 ml-2 animate-spin" />
+                    ) : (
+                      <Plus className="w-4 h-4 ml-2" />
+                    )}
                     {t.assistants.createNew}
                   </Button>
                 </div>
@@ -1972,19 +2017,37 @@ export default function OwnerDashboard() {
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <Label>{t.platform.platformName}</Label>
-                      <Input defaultValue="INFERA WebNova" data-testid="input-platform-name" />
+                      <Input 
+                        value={platformSettings.platformName}
+                        onChange={(e) => setPlatformSettings({...platformSettings, platformName: e.target.value})}
+                        data-testid="input-platform-name" 
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label>{t.platform.platformNameAr}</Label>
-                      <Input defaultValue="إنفيرا ويب نوفا" data-testid="input-platform-name-ar" />
+                      <Input 
+                        value={platformSettings.platformNameAr}
+                        onChange={(e) => setPlatformSettings({...platformSettings, platformNameAr: e.target.value})}
+                        data-testid="input-platform-name-ar" 
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label>{t.platform.primaryDomain}</Label>
-                      <Input placeholder="webnova.infera.com" data-testid="input-domain" />
+                      <Input 
+                        value={platformSettings.primaryDomain}
+                        onChange={(e) => setPlatformSettings({...platformSettings, primaryDomain: e.target.value})}
+                        placeholder="webnova.infera.com" 
+                        data-testid="input-domain" 
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label>{t.platform.supportEmail}</Label>
-                      <Input placeholder="support@infera.com" data-testid="input-support-email" />
+                      <Input 
+                        value={platformSettings.supportEmail}
+                        onChange={(e) => setPlatformSettings({...platformSettings, supportEmail: e.target.value})}
+                        placeholder="support@infera.com" 
+                        data-testid="input-support-email" 
+                      />
                     </div>
                   </div>
                   <div className="space-y-4">
@@ -2007,7 +2070,11 @@ export default function OwnerDashboard() {
                           {language === 'ar' ? 'إيقاف المنصة مؤقتاً للصيانة' : 'Temporarily disable the platform'}
                         </p>
                       </div>
-                      <Switch data-testid="switch-maintenance" />
+                      <Switch 
+                        checked={platformSettings.maintenanceMode}
+                        onCheckedChange={(checked) => setPlatformSettings({...platformSettings, maintenanceMode: checked})}
+                        data-testid="switch-maintenance" 
+                      />
                     </div>
                     <div className="flex items-center justify-between p-4 rounded-lg border">
                       <div>
@@ -2016,7 +2083,11 @@ export default function OwnerDashboard() {
                           {language === 'ar' ? 'السماح بتسجيل مستخدمين جدد' : 'Allow new user registrations'}
                         </p>
                       </div>
-                      <Switch defaultChecked data-testid="switch-registration" />
+                      <Switch 
+                        checked={platformSettings.registrationEnabled}
+                        onCheckedChange={(checked) => setPlatformSettings({...platformSettings, registrationEnabled: checked})}
+                        data-testid="switch-registration" 
+                      />
                     </div>
                   </div>
                 </div>
@@ -2024,17 +2095,35 @@ export default function OwnerDashboard() {
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label>{t.platform.announcement}</Label>
-                    <Textarea placeholder={language === 'ar' ? 'إعلان يظهر لجميع المستخدمين...' : 'Announcement visible to all users...'} data-testid="textarea-announcement" />
+                    <Textarea 
+                      value={platformSettings.announcement}
+                      onChange={(e) => setPlatformSettings({...platformSettings, announcement: e.target.value})}
+                      placeholder={language === 'ar' ? 'إعلان يظهر لجميع المستخدمين...' : 'Announcement visible to all users...'} 
+                      data-testid="textarea-announcement" 
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>{t.platform.announcementAr}</Label>
-                    <Textarea placeholder="إعلان يظهر لجميع المستخدمين..." data-testid="textarea-announcement-ar" />
+                    <Textarea 
+                      value={platformSettings.announcementAr}
+                      onChange={(e) => setPlatformSettings({...platformSettings, announcementAr: e.target.value})}
+                      placeholder="إعلان يظهر لجميع المستخدمين..." 
+                      data-testid="textarea-announcement-ar" 
+                    />
                   </div>
                 </div>
               </CardContent>
               <CardFooter>
-                <Button data-testid="button-save-settings">
-                  <Settings className="w-4 h-4 ml-2" />
+                <Button 
+                  onClick={() => savePlatformSettingsMutation.mutate(platformSettings)}
+                  disabled={savePlatformSettingsMutation.isPending}
+                  data-testid="button-save-settings"
+                >
+                  {savePlatformSettingsMutation.isPending ? (
+                    <RefreshCw className="w-4 h-4 ml-2 animate-spin" />
+                  ) : (
+                    <Settings className="w-4 h-4 ml-2" />
+                  )}
                   {t.platform.save}
                 </Button>
               </CardFooter>
