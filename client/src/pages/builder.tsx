@@ -133,15 +133,21 @@ export default function Builder() {
     setIsGenerating(true);
     
     try {
+      console.log("Starting generation request...");
       const data: GenerateCodeResponse = await apiRequest("POST", "/api/generate", {
         prompt: content,
         projectId,
         context: html ? `Current HTML: ${html}\nCurrent CSS: ${css}\nCurrent JS: ${js}` : undefined,
       });
       
-      setHtml(data.html);
-      setCss(data.css);
-      setJs(data.js);
+      console.log("Generation response received:", data);
+      console.log("HTML length:", data.html?.length || 0);
+      console.log("CSS length:", data.css?.length || 0);
+      console.log("JS length:", data.js?.length || 0);
+      
+      setHtml(data.html || "");
+      setCss(data.css || "");
+      setJs(data.js || "");
       
       const aiMessage: ChatMessageType = {
         id: crypto.randomUUID(),

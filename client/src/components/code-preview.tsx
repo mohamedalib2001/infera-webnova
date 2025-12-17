@@ -25,6 +25,8 @@ export function CodePreview({ html, css, js, onRefresh }: CodePreviewProps) {
   const [copied, setCopied] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { toast } = useToast();
+  
+  console.log("CodePreview render - html:", html?.length || 0, "css:", css?.length || 0, "js:", js?.length || 0);
 
   const generatePreviewContent = () => {
     return `
