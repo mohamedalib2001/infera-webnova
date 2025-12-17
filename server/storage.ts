@@ -2141,6 +2141,117 @@ body { font-family: 'Tajawal', sans-serif; }
       .returning();
     return updated || undefined;
   }
+
+  // ============ Cloud Development Projects Implementation ============
+  
+  async getDevProjects(userId?: string): Promise<DevProject[]> {
+    if (userId) {
+      return db.select().from(devProjects)
+        .where(eq(devProjects.userId, userId))
+        .orderBy(desc(devProjects.updatedAt));
+    }
+    return db.select().from(devProjects).orderBy(desc(devProjects.updatedAt));
+  }
+
+  async getDevProject(id: string): Promise<DevProject | undefined> {
+    const [project] = await db.select().from(devProjects).where(eq(devProjects.id, id));
+    return project || undefined;
+  }
+
+  async createDevProject(project: InsertDevProject): Promise<DevProject> {
+    const [created] = await db.insert(devProjects).values(project).returning();
+    return created;
+  }
+
+  async updateDevProject(id: string, data: Partial<InsertDevProject>): Promise<DevProject | undefined> {
+    const [updated] = await db.update(devProjects)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(devProjects.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteDevProject(id: string): Promise<boolean> {
+    const result = await db.delete(devProjects).where(eq(devProjects.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // ============ Project Files Implementation ============
+  
+  async getProjectFiles(projectId: string): Promise<ProjectFile[]> {
+    return db.select().from(projectFiles)
+      .where(eq(projectFiles.projectId, projectId))
+      .orderBy(asc(projectFiles.filePath));
+  }
+
+  async getProjectFile(id: string): Promise<ProjectFile | undefined> {
+    const [file] = await db.select().from(projectFiles).where(eq(projectFiles.id, id));
+    return file || undefined;
+  }
+
+  async getProjectFileByPath(projectId: string, filePath: string): Promise<ProjectFile | undefined> {
+    const [file] = await db.select().from(projectFiles)
+      .where(and(eq(projectFiles.projectId, projectId), eq(projectFiles.filePath, filePath)));
+    return file || undefined;
+  }
+
+  async createProjectFile(file: InsertProjectFile): Promise<ProjectFile> {
+    const [created] = await db.insert(projectFiles).values(file).returning();
+    return created;
+  }
+
+  async updateProjectFile(id: string, data: Partial<InsertProjectFile>): Promise<ProjectFile | undefined> {
+    const [updated] = await db.update(projectFiles)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(projectFiles.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteProjectFile(id: string): Promise<boolean> {
+    const result = await db.delete(projectFiles).where(eq(projectFiles.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // ============ Runtime Instances Implementation ============
+  
+  async getRuntimeInstance(projectId: string): Promise<RuntimeInstance | undefined> {
+    const [instance] = await db.select().from(runtimeInstances)
+      .where(eq(runtimeInstances.projectId, projectId));
+    return instance || undefined;
+  }
+
+  async createRuntimeInstance(instance: InsertRuntimeInstance): Promise<RuntimeInstance> {
+    const [created] = await db.insert(runtimeInstances).values(instance).returning();
+    return created;
+  }
+
+  async updateRuntimeInstance(id: string, data: Partial<InsertRuntimeInstance>): Promise<RuntimeInstance | undefined> {
+    const [updated] = await db.update(runtimeInstances)
+      .set(data)
+      .where(eq(runtimeInstances.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // ============ Console Logs Implementation ============
+  
+  async getConsoleLogs(projectId: string, limit: number = 100): Promise<ConsoleLog[]> {
+    return db.select().from(consoleLogs)
+      .where(eq(consoleLogs.projectId, projectId))
+      .orderBy(desc(consoleLogs.timestamp))
+      .limit(limit);
+  }
+
+  async createConsoleLog(log: InsertConsoleLog): Promise<ConsoleLog> {
+    const [created] = await db.insert(consoleLogs).values(log).returning();
+    return created;
+  }
+
+  async clearConsoleLogs(projectId: string): Promise<boolean> {
+    const result = await db.delete(consoleLogs).where(eq(consoleLogs.projectId, projectId));
+    return (result.rowCount ?? 0) >= 0;
+  }
 }
 
 export const storage = new DatabaseStorage();

@@ -23,6 +23,9 @@ import SEOOptimizer from "@/pages/seo-optimizer";
 import WhiteLabel from "@/pages/white-label";
 import OwnerDashboard from "@/pages/owner-dashboard";
 import AiAppBuilder from "@/pages/ai-app-builder";
+import IDEProjects from "@/pages/ide-projects";
+import CloudIDE from "@/pages/cloud-ide";
+import SovereignControlCenter from "@/pages/sovereign-control-center";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -42,6 +45,9 @@ function Router() {
       <Route path="/white-label" component={WhiteLabel} />
       <Route path="/owner" component={OwnerDashboard} />
       <Route path="/ai-builder" component={AiAppBuilder} />
+      <Route path="/ide" component={IDEProjects} />
+      <Route path="/ide/:id" component={CloudIDE} />
+      <Route path="/sovereign-control" component={SovereignControlCenter} />
       <Route path="/preview/:shareCode" component={Preview} />
       <Route component={NotFound} />
     </Switch>

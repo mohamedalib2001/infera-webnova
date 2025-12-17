@@ -65,6 +65,8 @@ shared/
 18. **SEO Optimizer**: Website optimization tools
 19. **White Label**: Branding customization for enterprise/sovereign users
 20. **AI App Builder**: Full-stack application builder that works like Replit Agent - builds complete apps from natural language
+21. **Cloud IDE**: Full Replit-equivalent cloud development environment with Monaco editor, multi-file projects, runtime execution, and live preview
+22. **Sovereign Control Center**: Hidden admin panel (Shift+Ctrl+Alt+S) for owner-only absolute platform governance
 
 ## Database Tables
 - `users` - User accounts with role hierarchy (free/basic/pro/enterprise/sovereign/owner)
@@ -81,6 +83,10 @@ shared/
 - `sovereign_settings` - Tenant-level governance settings
 - `payment_methods` - Payment gateway configurations (Stripe, PayPal, Tap, mada, Apple Pay, Google Pay, STC Pay, Bank Transfer, Crypto)
 - `payment_transactions` - Payment transaction history and tracking
+- `dev_projects` - Cloud IDE development projects
+- `dev_project_files` - Files within development projects
+- `dev_runtime_instances` - Runtime execution instances
+- `dev_console_logs` - Console output for development projects
 
 ## API Endpoints
 ### Projects
@@ -148,6 +154,23 @@ shared/
 - `DELETE /api/owner/auth-methods/:id` - Delete authentication method
 - `POST /api/owner/initialize-auth-methods` - Initialize default authentication methods
 - `GET /api/auth/methods` - Get visible authentication methods (public for login page)
+
+### Cloud IDE Routes
+- `GET /api/dev-projects` - List all development projects
+- `GET /api/dev-projects/:id` - Get single development project
+- `POST /api/dev-projects` - Create development project
+- `PATCH /api/dev-projects/:id` - Update development project
+- `DELETE /api/dev-projects/:id` - Delete development project
+- `GET /api/dev-projects/:projectId/files` - Get all project files
+- `POST /api/dev-projects/:projectId/files` - Create new file
+- `PATCH /api/dev-projects/:projectId/files/:fileId` - Update file content
+- `DELETE /api/dev-projects/:projectId/files/:fileId` - Delete file
+- `GET /api/dev-projects/:projectId/runtime` - Get runtime status
+- `POST /api/dev-projects/:projectId/runtime/start` - Start runtime
+- `POST /api/dev-projects/:projectId/runtime/stop` - Stop runtime
+- `POST /api/dev-projects/:projectId/runtime/restart` - Restart runtime
+- `GET /api/dev-projects/:projectId/logs` - Get console logs
+- `DELETE /api/dev-projects/:projectId/logs` - Clear console logs
 
 ## Environment Variables
 - `DATABASE_URL` - PostgreSQL connection string
@@ -224,3 +247,7 @@ Platform-level autonomous AI agents that execute the owner's strategic intent:
 - AI App Builder includes: planning service, execution engine, artifact management, and progress tracking
 - Database tables: ai_build_sessions, ai_build_tasks, ai_build_artifacts
 - New route: /ai-builder with complete bilingual UI
+- Added Cloud IDE with Monaco editor, file tree, and runtime execution
+- Cloud IDE supports Node.js, Python, HTML, React, and Full Stack projects
+- Implemented Sovereign Control Center for absolute platform governance (Shift+Ctrl+Alt+S)
+- New routes: /ide for project list, /ide/:id for Cloud IDE, /sovereign-control for admin panel

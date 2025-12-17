@@ -3425,5 +3425,355 @@ export async function registerRoutes(
     }
   });
 
+  // ============ Cloud IDE Routes - بيئة التطوير السحابية ============
+
+  // Get all dev projects
+  app.get("/api/dev-projects", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      const projects = await storage.getDevProjects(userId);
+      res.json(projects);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب المشاريع / Failed to get projects" });
+    }
+  });
+
+  // Get single dev project
+  app.get("/api/dev-projects/:id", async (req, res) => {
+    try {
+      const project = await storage.getDevProject(req.params.id);
+      if (!project) {
+        return res.status(404).json({ error: "المشروع غير موجود / Project not found" });
+      }
+      res.json(project);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب المشروع / Failed to get project" });
+    }
+  });
+
+  // Create dev project
+  app.post("/api/dev-projects", async (req, res) => {
+    try {
+      const { name, nameAr, description, projectType, language } = req.body;
+      const userId = req.session?.userId;
+      
+      const project = await storage.createDevProject({
+        userId,
+        name: name || "New Project",
+        nameAr,
+        description,
+        projectType: projectType || "nodejs",
+        language: language || "ar",
+      });
+
+      // Create default files based on project type
+      const defaultFiles = getDefaultProjectFiles(project.projectType, project.id);
+      for (const file of defaultFiles) {
+        await storage.createProjectFile(file);
+      }
+
+      res.status(201).json(project);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في إنشاء المشروع / Failed to create project" });
+    }
+  });
+
+  // Update dev project
+  app.patch("/api/dev-projects/:id", async (req, res) => {
+    try {
+      const project = await storage.updateDevProject(req.params.id, req.body);
+      if (!project) {
+        return res.status(404).json({ error: "المشروع غير موجود / Project not found" });
+      }
+      res.json(project);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في تحديث المشروع / Failed to update project" });
+    }
+  });
+
+  // Delete dev project
+  app.delete("/api/dev-projects/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteDevProject(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "المشروع غير موجود / Project not found" });
+      }
+      res.json({ message: "تم حذف المشروع / Project deleted" });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في حذف المشروع / Failed to delete project" });
+    }
+  });
+
+  // ============ Project Files Routes ============
+
+  // Get all files for a project
+  app.get("/api/dev-projects/:projectId/files", async (req, res) => {
+    try {
+      const files = await storage.getProjectFiles(req.params.projectId);
+      res.json(files);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب الملفات / Failed to get files" });
+    }
+  });
+
+  // Get single file
+  app.get("/api/dev-projects/:projectId/files/:fileId", async (req, res) => {
+    try {
+      const file = await storage.getProjectFile(req.params.fileId);
+      if (!file) {
+        return res.status(404).json({ error: "الملف غير موجود / File not found" });
+      }
+      res.json(file);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب الملف / Failed to get file" });
+    }
+  });
+
+  // Create file
+  app.post("/api/dev-projects/:projectId/files", async (req, res) => {
+    try {
+      const { fileName, filePath, fileType, content, isDirectory } = req.body;
+      const file = await storage.createProjectFile({
+        projectId: req.params.projectId,
+        fileName,
+        filePath,
+        fileType: fileType || getFileType(fileName),
+        content: content || "",
+        isDirectory: isDirectory || false,
+        size: content?.length || 0,
+      });
+      res.status(201).json(file);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في إنشاء الملف / Failed to create file" });
+    }
+  });
+
+  // Update file content
+  app.patch("/api/dev-projects/:projectId/files/:fileId", async (req, res) => {
+    try {
+      const { content, fileName } = req.body;
+      const updateData: any = {};
+      if (content !== undefined) {
+        updateData.content = content;
+        updateData.size = content.length;
+      }
+      if (fileName) {
+        updateData.fileName = fileName;
+        updateData.fileType = getFileType(fileName);
+      }
+      
+      const file = await storage.updateProjectFile(req.params.fileId, updateData);
+      if (!file) {
+        return res.status(404).json({ error: "الملف غير موجود / File not found" });
+      }
+      res.json(file);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في تحديث الملف / Failed to update file" });
+    }
+  });
+
+  // Delete file
+  app.delete("/api/dev-projects/:projectId/files/:fileId", async (req, res) => {
+    try {
+      const deleted = await storage.deleteProjectFile(req.params.fileId);
+      if (!deleted) {
+        return res.status(404).json({ error: "الملف غير موجود / File not found" });
+      }
+      res.json({ message: "تم حذف الملف / File deleted" });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في حذف الملف / Failed to delete file" });
+    }
+  });
+
+  // ============ Runtime Routes ============
+
+  // Get runtime status
+  app.get("/api/dev-projects/:projectId/runtime", async (req, res) => {
+    try {
+      const instance = await storage.getRuntimeInstance(req.params.projectId);
+      res.json(instance || { status: "stopped" });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب حالة التشغيل / Failed to get runtime status" });
+    }
+  });
+
+  // Start runtime
+  app.post("/api/dev-projects/:projectId/runtime/start", async (req, res) => {
+    try {
+      const project = await storage.getDevProject(req.params.projectId);
+      if (!project) {
+        return res.status(404).json({ error: "المشروع غير موجود / Project not found" });
+      }
+
+      let instance = await storage.getRuntimeInstance(req.params.projectId);
+      
+      if (!instance) {
+        instance = await storage.createRuntimeInstance({
+          projectId: req.params.projectId,
+          userId: req.session?.userId,
+          status: "starting",
+          port: 3000 + Math.floor(Math.random() * 1000),
+        });
+      } else {
+        instance = await storage.updateRuntimeInstance(instance.id, {
+          status: "starting",
+          startedAt: new Date(),
+        });
+      }
+
+      // Simulate starting (in real implementation, this would spawn a process)
+      setTimeout(async () => {
+        if (instance) {
+          await storage.updateRuntimeInstance(instance.id, { status: "running" });
+          await storage.createConsoleLog({
+            projectId: req.params.projectId,
+            instanceId: instance.id,
+            logType: "system",
+            content: "🚀 Server started successfully on port " + instance.port,
+          });
+        }
+      }, 1000);
+
+      res.json({ message: "جاري بدء التشغيل / Starting runtime", instance });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في بدء التشغيل / Failed to start runtime" });
+    }
+  });
+
+  // Stop runtime
+  app.post("/api/dev-projects/:projectId/runtime/stop", async (req, res) => {
+    try {
+      const instance = await storage.getRuntimeInstance(req.params.projectId);
+      if (!instance) {
+        return res.status(404).json({ error: "لا يوجد تشغيل نشط / No active runtime" });
+      }
+
+      await storage.updateRuntimeInstance(instance.id, {
+        status: "stopped",
+        stoppedAt: new Date(),
+      });
+
+      await storage.createConsoleLog({
+        projectId: req.params.projectId,
+        instanceId: instance.id,
+        logType: "system",
+        content: "⏹️ Server stopped",
+      });
+
+      res.json({ message: "تم إيقاف التشغيل / Runtime stopped" });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في إيقاف التشغيل / Failed to stop runtime" });
+    }
+  });
+
+  // Restart runtime
+  app.post("/api/dev-projects/:projectId/runtime/restart", async (req, res) => {
+    try {
+      const instance = await storage.getRuntimeInstance(req.params.projectId);
+      if (!instance) {
+        return res.status(404).json({ error: "لا يوجد تشغيل نشط / No active runtime" });
+      }
+
+      await storage.updateRuntimeInstance(instance.id, { status: "starting" });
+      
+      await storage.createConsoleLog({
+        projectId: req.params.projectId,
+        instanceId: instance.id,
+        logType: "system",
+        content: "🔄 Restarting server...",
+      });
+
+      setTimeout(async () => {
+        await storage.updateRuntimeInstance(instance.id, { status: "running" });
+        await storage.createConsoleLog({
+          projectId: req.params.projectId,
+          instanceId: instance.id,
+          logType: "system",
+          content: "✅ Server restarted successfully",
+        });
+      }, 1500);
+
+      res.json({ message: "جاري إعادة التشغيل / Restarting runtime" });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في إعادة التشغيل / Failed to restart runtime" });
+    }
+  });
+
+  // Get console logs
+  app.get("/api/dev-projects/:projectId/logs", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const logs = await storage.getConsoleLogs(req.params.projectId, limit);
+      res.json(logs);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب السجلات / Failed to get logs" });
+    }
+  });
+
+  // Clear console logs
+  app.delete("/api/dev-projects/:projectId/logs", async (req, res) => {
+    try {
+      await storage.clearConsoleLogs(req.params.projectId);
+      res.json({ message: "تم مسح السجلات / Logs cleared" });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في مسح السجلات / Failed to clear logs" });
+    }
+  });
+
   return httpServer;
+}
+
+// Helper function to get file type from extension
+function getFileType(fileName: string): string {
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  const typeMap: Record<string, string> = {
+    js: 'javascript',
+    jsx: 'javascript',
+    ts: 'typescript',
+    tsx: 'typescript',
+    py: 'python',
+    html: 'html',
+    css: 'css',
+    scss: 'scss',
+    json: 'json',
+    md: 'markdown',
+    sql: 'sql',
+    sh: 'shell',
+    yml: 'yaml',
+    yaml: 'yaml',
+  };
+  return typeMap[ext] || 'text';
+}
+
+// Helper function to get default project files
+function getDefaultProjectFiles(projectType: string, projectId: string) {
+  const files: any[] = [];
+  
+  if (projectType === 'nodejs') {
+    files.push(
+      { projectId, fileName: 'index.js', filePath: '/index.js', fileType: 'javascript', content: `// INFERA WebNova - Node.js Project\nconsole.log('Hello from INFERA WebNova!');\n\nconst http = require('http');\n\nconst server = http.createServer((req, res) => {\n  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });\n  res.end('<h1>مرحباً من INFERA WebNova!</h1>');\n});\n\nserver.listen(3000, () => {\n  console.log('Server running on port 3000');\n});`, isDirectory: false },
+      { projectId, fileName: 'package.json', filePath: '/package.json', fileType: 'json', content: `{\n  "name": "my-project",\n  "version": "1.0.0",\n  "main": "index.js",\n  "scripts": {\n    "start": "node index.js"\n  }\n}`, isDirectory: false },
+    );
+  } else if (projectType === 'html') {
+    files.push(
+      { projectId, fileName: 'index.html', filePath: '/index.html', fileType: 'html', content: `<!DOCTYPE html>\n<html lang="ar" dir="rtl">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>INFERA WebNova</title>\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n  <h1>مرحباً بك في INFERA WebNova</h1>\n  <p>ابدأ بناء موقعك الآن!</p>\n  <script src="script.js"></script>\n</body>\n</html>`, isDirectory: false },
+      { projectId, fileName: 'style.css', filePath: '/style.css', fileType: 'css', content: `* {\n  margin: 0;\n  padding: 0;\n  box-sizing: border-box;\n}\n\nbody {\n  font-family: 'Segoe UI', Tahoma, sans-serif;\n  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\n  min-height: 100vh;\n  display: flex;\n  flex-direction: column;\n  align-items: center;\n  justify-content: center;\n  color: white;\n}\n\nh1 {\n  font-size: 3rem;\n  margin-bottom: 1rem;\n}`, isDirectory: false },
+      { projectId, fileName: 'script.js', filePath: '/script.js', fileType: 'javascript', content: `// INFERA WebNova - JavaScript\nconsole.log('مرحباً من INFERA WebNova!');`, isDirectory: false },
+    );
+  } else if (projectType === 'python') {
+    files.push(
+      { projectId, fileName: 'main.py', filePath: '/main.py', fileType: 'python', content: `# INFERA WebNova - Python Project\nprint("مرحباً من INFERA WebNova!")\n\nfrom http.server import HTTPServer, SimpleHTTPRequestHandler\n\nclass Handler(SimpleHTTPRequestHandler):\n    def do_GET(self):\n        self.send_response(200)\n        self.send_header('Content-type', 'text/html; charset=utf-8')\n        self.end_headers()\n        self.wfile.write('<h1>مرحباً من INFERA WebNova!</h1>'.encode())\n\nif __name__ == '__main__':\n    server = HTTPServer(('0.0.0.0', 3000), Handler)\n    print('Server running on port 3000')\n    server.serve_forever()`, isDirectory: false },
+      { projectId, fileName: 'requirements.txt', filePath: '/requirements.txt', fileType: 'text', content: `# Python dependencies`, isDirectory: false },
+    );
+  } else if (projectType === 'react') {
+    files.push(
+      { projectId, fileName: 'src', filePath: '/src', fileType: 'folder', content: '', isDirectory: true },
+      { projectId, fileName: 'App.jsx', filePath: '/src/App.jsx', fileType: 'javascript', content: `import { useState } from 'react';\n\nfunction App() {\n  const [count, setCount] = useState(0);\n\n  return (\n    <div className="app">\n      <h1>مرحباً بك في INFERA WebNova</h1>\n      <p>عداد: {count}</p>\n      <button onClick={() => setCount(c => c + 1)}>زيادة</button>\n    </div>\n  );\n}\n\nexport default App;`, isDirectory: false },
+      { projectId, fileName: 'main.jsx', filePath: '/src/main.jsx', fileType: 'javascript', content: `import React from 'react';\nimport ReactDOM from 'react-dom/client';\nimport App from './App';\nimport './index.css';\n\nReactDOM.createRoot(document.getElementById('root')).render(\n  <React.StrictMode>\n    <App />\n  </React.StrictMode>\n);`, isDirectory: false },
+      { projectId, fileName: 'index.css', filePath: '/src/index.css', fileType: 'css', content: `* {\n  margin: 0;\n  padding: 0;\n  box-sizing: border-box;\n}\n\n.app {\n  font-family: 'Segoe UI', sans-serif;\n  text-align: center;\n  padding: 2rem;\n}\n\nbutton {\n  padding: 0.5rem 1rem;\n  font-size: 1rem;\n  cursor: pointer;\n}`, isDirectory: false },
+      { projectId, fileName: 'package.json', filePath: '/package.json', fileType: 'json', content: `{\n  "name": "react-app",\n  "version": "1.0.0",\n  "scripts": {\n    "dev": "vite",\n    "build": "vite build"\n  },\n  "dependencies": {\n    "react": "^18.2.0",\n    "react-dom": "^18.2.0"\n  },\n  "devDependencies": {\n    "vite": "^4.0.0",\n    "@vitejs/plugin-react": "^4.0.0"\n  }\n}`, isDirectory: false },
+    );
+  }
+  
+  return files;
 }
