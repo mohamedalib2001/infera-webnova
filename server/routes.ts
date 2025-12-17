@@ -1667,6 +1667,332 @@ export async function registerRoutes(
     }
   });
 
+  // ============ Authentication Methods Routes (Owner) ============
+
+  // Get all auth methods
+  app.get("/api/owner/auth-methods", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const methods = await storage.getAuthMethods();
+      res.json(methods);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب طرق المصادقة / Failed to fetch auth methods" });
+    }
+  });
+
+  // Get visible auth methods (public - for login page)
+  app.get("/api/auth/methods", async (req, res) => {
+    try {
+      const methods = await storage.getVisibleAuthMethods();
+      const publicMethods = methods.map(m => ({
+        id: m.id,
+        key: m.key,
+        name: m.name,
+        nameAr: m.nameAr,
+        icon: m.icon,
+        isDefault: m.isDefault,
+      }));
+      res.json(publicMethods);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب طرق الدخول / Failed to fetch login methods" });
+    }
+  });
+
+  // Create auth method
+  app.post("/api/owner/auth-methods", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const method = await storage.createAuthMethod(req.body);
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "auth_method_created",
+        entityType: "auth_method",
+        entityId: method.id,
+        details: { key: method.key, name: method.name },
+      });
+      
+      res.status(201).json(method);
+    } catch (error) {
+      console.error("Create auth method error:", error);
+      res.status(500).json({ error: "فشل في إنشاء طريقة المصادقة / Failed to create auth method" });
+    }
+  });
+
+  // Update auth method
+  app.patch("/api/owner/auth-methods/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updated = await storage.updateAuthMethod(id, req.body);
+      
+      if (!updated) {
+        return res.status(404).json({ error: "طريقة المصادقة غير موجودة / Auth method not found" });
+      }
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "auth_method_updated",
+        entityType: "auth_method",
+        entityId: id,
+        details: { changes: Object.keys(req.body) },
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Update auth method error:", error);
+      res.status(500).json({ error: "فشل في تحديث طريقة المصادقة / Failed to update auth method" });
+    }
+  });
+
+  // Toggle auth method activation
+  app.patch("/api/owner/auth-methods/:id/toggle", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { isActive } = req.body;
+      
+      const updated = await storage.toggleAuthMethod(id, isActive);
+      
+      if (!updated) {
+        return res.status(404).json({ error: "طريقة المصادقة غير موجودة / Auth method not found" });
+      }
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: isActive ? "auth_method_activated" : "auth_method_deactivated",
+        entityType: "auth_method",
+        entityId: id,
+        details: { key: updated.key },
+      });
+      
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Toggle auth method error:", error);
+      if (error.message?.includes("default")) {
+        return res.status(400).json({ error: "لا يمكن تعطيل طريقة المصادقة الافتراضية / Cannot deactivate default auth method" });
+      }
+      res.status(500).json({ error: "فشل في تحديث حالة طريقة المصادقة / Failed to toggle auth method" });
+    }
+  });
+
+  // Toggle auth method visibility
+  app.patch("/api/owner/auth-methods/:id/visibility", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { isVisible } = req.body;
+      
+      const updated = await storage.toggleAuthMethodVisibility(id, isVisible);
+      
+      if (!updated) {
+        return res.status(404).json({ error: "طريقة المصادقة غير موجودة / Auth method not found" });
+      }
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: isVisible ? "auth_method_shown" : "auth_method_hidden",
+        entityType: "auth_method",
+        entityId: id,
+        details: { key: updated.key },
+      });
+      
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Toggle auth method visibility error:", error);
+      if (error.message?.includes("default")) {
+        return res.status(400).json({ error: "لا يمكن إخفاء طريقة المصادقة الافتراضية / Cannot hide default auth method" });
+      }
+      res.status(500).json({ error: "فشل في تحديث ظهور طريقة المصادقة / Failed to toggle auth method visibility" });
+    }
+  });
+
+  // Delete auth method
+  app.delete("/api/owner/auth-methods/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const method = await storage.getAuthMethod(id);
+      
+      if (!method) {
+        return res.status(404).json({ error: "طريقة المصادقة غير موجودة / Auth method not found" });
+      }
+      
+      await storage.deleteAuthMethod(id);
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "auth_method_deleted",
+        entityType: "auth_method",
+        entityId: id,
+        details: { key: method.key },
+      });
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Delete auth method error:", error);
+      if (error.message?.includes("default")) {
+        return res.status(400).json({ error: "لا يمكن حذف طريقة المصادقة الافتراضية / Cannot delete default auth method" });
+      }
+      res.status(500).json({ error: "فشل في حذف طريقة المصادقة / Failed to delete auth method" });
+    }
+  });
+
+  // Initialize default auth methods
+  app.post("/api/owner/initialize-auth-methods", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const existingMethods = await storage.getAuthMethods();
+      if (existingMethods.length > 0) {
+        return res.json({ message: "Auth methods already initialized", methods: existingMethods });
+      }
+      
+      const defaultMethods = [
+        {
+          key: "email_password",
+          name: "Email & Password",
+          nameAr: "البريد الإلكتروني وكلمة المرور",
+          description: "Traditional email and password login",
+          descriptionAr: "تسجيل الدخول بالبريد الإلكتروني وكلمة المرور",
+          icon: "Mail",
+          isActive: true,
+          isVisible: true,
+          isDefault: true,
+          isConfigured: true,
+          sortOrder: 1,
+        },
+        {
+          key: "otp_email",
+          name: "Email OTP",
+          nameAr: "رمز التحقق عبر البريد",
+          description: "One-time password sent to email",
+          descriptionAr: "رمز تحقق يُرسل للبريد الإلكتروني",
+          icon: "KeyRound",
+          isActive: true,
+          isVisible: true,
+          isDefault: false,
+          isConfigured: true,
+          sortOrder: 2,
+        },
+        {
+          key: "google",
+          name: "Google",
+          nameAr: "جوجل",
+          description: "Sign in with Google account",
+          descriptionAr: "تسجيل الدخول بحساب جوجل",
+          icon: "Chrome",
+          isActive: false,
+          isVisible: false,
+          isDefault: false,
+          isConfigured: false,
+          sortOrder: 3,
+        },
+        {
+          key: "facebook",
+          name: "Facebook",
+          nameAr: "فيسبوك",
+          description: "Sign in with Facebook account",
+          descriptionAr: "تسجيل الدخول بحساب فيسبوك",
+          icon: "Facebook",
+          isActive: false,
+          isVisible: false,
+          isDefault: false,
+          isConfigured: false,
+          sortOrder: 4,
+        },
+        {
+          key: "twitter",
+          name: "X (Twitter)",
+          nameAr: "إكس (تويتر)",
+          description: "Sign in with X/Twitter account",
+          descriptionAr: "تسجيل الدخول بحساب إكس/تويتر",
+          icon: "Twitter",
+          isActive: false,
+          isVisible: false,
+          isDefault: false,
+          isConfigured: false,
+          sortOrder: 5,
+        },
+        {
+          key: "github",
+          name: "GitHub",
+          nameAr: "جيت هاب",
+          description: "Sign in with GitHub account",
+          descriptionAr: "تسجيل الدخول بحساب جيت هاب",
+          icon: "Github",
+          isActive: false,
+          isVisible: false,
+          isDefault: false,
+          isConfigured: false,
+          sortOrder: 6,
+        },
+        {
+          key: "apple",
+          name: "Apple",
+          nameAr: "أبل",
+          description: "Sign in with Apple ID",
+          descriptionAr: "تسجيل الدخول بحساب أبل",
+          icon: "Apple",
+          isActive: false,
+          isVisible: false,
+          isDefault: false,
+          isConfigured: false,
+          sortOrder: 7,
+        },
+        {
+          key: "microsoft",
+          name: "Microsoft",
+          nameAr: "مايكروسوفت",
+          description: "Sign in with Microsoft account",
+          descriptionAr: "تسجيل الدخول بحساب مايكروسوفت",
+          icon: "Monitor",
+          isActive: false,
+          isVisible: false,
+          isDefault: false,
+          isConfigured: false,
+          sortOrder: 8,
+        },
+        {
+          key: "magic_link",
+          name: "Magic Link",
+          nameAr: "رابط سحري",
+          description: "Passwordless login via email link",
+          descriptionAr: "تسجيل دخول بدون كلمة مرور عبر رابط بالبريد",
+          icon: "Link",
+          isActive: false,
+          isVisible: false,
+          isDefault: false,
+          isConfigured: false,
+          sortOrder: 9,
+        },
+        {
+          key: "otp_sms",
+          name: "SMS OTP",
+          nameAr: "رمز التحقق عبر الجوال",
+          description: "One-time password sent via SMS",
+          descriptionAr: "رمز تحقق يُرسل عبر رسالة نصية",
+          icon: "Smartphone",
+          isActive: false,
+          isVisible: false,
+          isDefault: false,
+          isConfigured: false,
+          sortOrder: 10,
+        },
+      ];
+      
+      const createdMethods = [];
+      for (const method of defaultMethods) {
+        const created = await storage.createAuthMethod(method as any);
+        createdMethods.push(created);
+      }
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "auth_methods_initialized",
+        entityType: "auth_method",
+        details: { count: createdMethods.length },
+      });
+      
+      res.status(201).json({ message: "Auth methods initialized", methods: createdMethods });
+    } catch (error) {
+      console.error("Initialize auth methods error:", error);
+      res.status(500).json({ error: "فشل في تهيئة طرق المصادقة / Failed to initialize auth methods" });
+    }
+  });
+
   // ============ Analytics Routes ============
 
   // Get analytics for user
