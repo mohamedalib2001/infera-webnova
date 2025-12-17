@@ -3704,7 +3704,7 @@ export async function registerRoutes(
     try {
       const project = await storage.getDevProject(req.params.projectId);
       if (!project) {
-        return res.status(404).json({ error: "المشروع غير موجود / Project not found" });
+        return res.status(404).json({ error: "Project not found" });
       }
 
       const files = await storage.getProjectFiles(req.params.projectId);
@@ -3714,11 +3714,98 @@ export async function registerRoutes(
       const cssFiles = files.filter(f => f.fileType === "css");
       const jsFiles = files.filter(f => f.fileType === "javascript" && !f.fileName.includes("test"));
       
+      // For Node.js/Python backend projects, show terminal-based preview info
+      if (project.projectType === "nodejs" || project.projectType === "python" || project.projectType === "fullstack") {
+        const mainFile = files.find(f => f.fileName.includes("index") || f.fileName.includes("main") || f.fileName.includes("app"));
+        const content = `<!DOCTYPE html>
+<html dir="${req.query.lang === 'ar' ? 'rtl' : 'ltr'}" lang="${req.query.lang || 'en'}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${project.name}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { 
+      font-family: 'Segoe UI', system-ui, sans-serif; 
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); 
+      color: #e2e8f0; 
+      margin: 0; 
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .container { 
+      max-width: 600px; 
+      text-align: center;
+    }
+    .icon {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 1.5rem;
+      background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+    }
+    h1 { color: #60a5fa; margin-bottom: 0.5rem; font-size: 1.5rem; }
+    .type { 
+      display: inline-block;
+      background: #3b82f6; 
+      color: white; 
+      padding: 0.25rem 0.75rem; 
+      border-radius: 9999px; 
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+    }
+    .instructions {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      border-radius: 12px;
+      padding: 1.5rem;
+      text-align: ${req.query.lang === 'ar' ? 'right' : 'left'};
+    }
+    .instructions h3 { color: #93c5fd; margin: 0 0 0.75rem; font-size: 0.875rem; }
+    .instructions p { color: #94a3b8; margin: 0; font-size: 0.875rem; line-height: 1.6; }
+    code { 
+      background: #1e293b; 
+      padding: 0.25rem 0.5rem; 
+      border-radius: 4px;
+      font-family: 'Monaco', 'Menlo', monospace;
+      color: #a5f3fc;
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">${project.projectType === 'nodejs' ? '&#9881;' : project.projectType === 'python' ? '&#128013;' : '&#128187;'}</div>
+    <h1>${project.name}</h1>
+    <span class="type">${project.projectType.toUpperCase()}</span>
+    <div class="instructions">
+      <h3>${req.query.lang === 'ar' ? 'تعليمات التشغيل' : 'How to Run'}</h3>
+      <p>${req.query.lang === 'ar' 
+        ? 'استخدم الـ Console للتشغيل. اكتب الأمر المناسب:'
+        : 'Use the Console tab to run. Type the command:'}</p>
+      <p style="margin-top: 0.75rem;">
+        <code>${project.projectType === 'nodejs' ? 'node index.js' : project.projectType === 'python' ? 'python main.py' : 'npm run dev'}</code>
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+        res.setHeader("Content-Type", "text/html");
+        return res.send(content);
+      }
+      
       if (!htmlFile) {
-        // Generate basic HTML for non-HTML projects
         const mainFile = files.find(f => !f.isDirectory);
         const content = `<!DOCTYPE html>
-<html dir="rtl" lang="ar">
+<html dir="${req.query.lang === 'ar' ? 'rtl' : 'ltr'}" lang="${req.query.lang || 'en'}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -3764,7 +3851,7 @@ export async function registerRoutes(
       res.setHeader("Content-Type", "text/html");
       res.send(html);
     } catch (error) {
-      res.status(500).json({ error: "فشل في إنشاء المعاينة / Failed to generate preview" });
+      res.status(500).json({ error: "Failed to generate preview" });
     }
   });
 
@@ -3789,9 +3876,43 @@ export async function registerRoutes(
     }
   });
 
-  // Sync files to disk for execution
-  app.post("/api/dev-projects/:projectId/sync", async (req, res) => {
+  // Generate WebSocket token for terminal/runtime access (requires auth)
+  app.post("/api/dev-projects/:projectId/ws-token", requireAuth, async (req, res) => {
     try {
+      const project = await storage.getDevProject(req.params.projectId);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      // Verify user owns this project (or is admin)
+      const userId = req.session.userId!;
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const { generateWsToken } = await import("./terminal-service");
+      const token = generateWsToken(req.params.projectId, userId);
+      
+      res.json({ token, expiresIn: 300 }); // 5 minutes
+    } catch (error) {
+      res.status(500).json({ error: "Failed to generate token" });
+    }
+  });
+
+  // Sync files to disk for execution (requires auth)
+  app.post("/api/dev-projects/:projectId/sync", requireAuth, async (req, res) => {
+    try {
+      const project = await storage.getDevProject(req.params.projectId);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      // Verify user owns this project (or is admin)
+      const userId = req.session.userId!;
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
       const { syncFilesToDisk } = await import("./terminal-service");
       const files = await storage.getProjectFiles(req.params.projectId);
       
@@ -3803,19 +3924,30 @@ export async function registerRoutes(
         }));
       
       syncFilesToDisk(req.params.projectId, filesToSync);
-      res.json({ message: "تم مزامنة الملفات / Files synced", count: filesToSync.length });
+      res.json({ message: "Files synced", count: filesToSync.length });
     } catch (error) {
       console.error("Sync error:", error);
-      res.status(500).json({ error: "فشل في مزامنة الملفات / Failed to sync files" });
+      res.status(500).json({ error: "Failed to sync files" });
     }
   });
 
-  // Execute command in project directory
-  app.post("/api/dev-projects/:projectId/execute", async (req, res) => {
+  // Execute command in project directory (requires auth)
+  app.post("/api/dev-projects/:projectId/execute", requireAuth, async (req, res) => {
     try {
+      const project = await storage.getDevProject(req.params.projectId);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      // Verify user owns this project (or is admin)
+      const userId = req.session.userId!;
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
       const { command } = req.body;
       if (!command) {
-        return res.status(400).json({ error: "الأمر مطلوب / Command required" });
+        return res.status(400).json({ error: "Command required" });
       }
       
       const { executeCommand } = await import("./terminal-service");
@@ -3824,7 +3956,7 @@ export async function registerRoutes(
       res.json(result);
     } catch (error) {
       console.error("Execute error:", error);
-      res.status(500).json({ error: "فشل في تنفيذ الأمر / Failed to execute command" });
+      res.status(500).json({ error: "Failed to execute command" });
     }
   });
 

@@ -907,10 +907,10 @@ export default function CloudIDE() {
             <TabsContent value="preview" className="flex-1 m-0 overflow-hidden">
               {runtime?.status === "running" || runtime?.status === "starting" ? (
                 <iframe
-                  src={`/api/dev-projects/${projectId}/preview`}
-                  className="w-full h-full border-0 bg-white"
+                  src={`/api/dev-projects/${projectId}/preview?lang=${language}`}
+                  className="w-full h-full border-0 bg-white dark:bg-slate-900"
                   title="Preview"
-                  key={runtime?.status}
+                  key={`${runtime?.status}-${language}`}
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-sm text-center p-4 gap-4">

@@ -3,6 +3,41 @@ import { spawn, ChildProcess } from "child_process";
 import { Server, IncomingMessage } from "http";
 import path from "path";
 import fs from "fs";
+import crypto from "crypto";
+
+// Secure token store for WebSocket authentication
+const wsTokenStore = new Map<string, { projectId: string; userId: string; expiresAt: number }>();
+
+// Generate a secure token for WebSocket connection
+export function generateWsToken(projectId: string, userId: string): string {
+  const token = crypto.randomBytes(32).toString("hex");
+  const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minute expiry
+  wsTokenStore.set(token, { projectId, userId, expiresAt });
+  
+  // Cleanup expired tokens
+  for (const [key, value] of wsTokenStore.entries()) {
+    if (value.expiresAt < Date.now()) {
+      wsTokenStore.delete(key);
+    }
+  }
+  
+  return token;
+}
+
+// Validate token and return associated data (checks both projectId and userId)
+function validateWsToken(token: string, projectId: string): { valid: boolean; userId?: string } {
+  const data = wsTokenStore.get(token);
+  if (!data) return { valid: false };
+  if (data.expiresAt < Date.now()) {
+    wsTokenStore.delete(token);
+    return { valid: false };
+  }
+  if (data.projectId !== projectId) return { valid: false };
+  
+  // Token is valid, consume it (one-time use)
+  wsTokenStore.delete(token);
+  return { valid: true, userId: data.userId };
+}
 
 const ALLOWED_COMMANDS = [
   "ls", "pwd", "cat", "head", "tail", "echo", "grep", "find",
@@ -65,11 +100,12 @@ export function initializeTerminalService(server: Server): void {
     path: "/ws/terminal"
   });
 
-  console.log("[Terminal] Restricted WebSocket service initialized on /ws/terminal");
+  console.log("[Terminal] Secure WebSocket service initialized on /ws/terminal");
 
   wss.on("connection", (ws, req) => {
     const url = new URL(req.url || "", `http://${req.headers.host}`);
     const projectId = url.searchParams.get("projectId");
+    const token = url.searchParams.get("token");
     const sessionId = `terminal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     if (!projectId) {
@@ -77,8 +113,16 @@ export function initializeTerminalService(server: Server): void {
       ws.close();
       return;
     }
+    
+    // Validate authentication token (checks projectId and returns userId)
+    const tokenResult = token ? validateWsToken(token, projectId) : { valid: false };
+    if (!tokenResult.valid) {
+      ws.send(JSON.stringify({ type: "error", message: "Authentication required / مطلوب تسجيل الدخول" }));
+      ws.close();
+      return;
+    }
 
-    console.log(`[Terminal] New restricted connection for project ${projectId}`);
+    console.log(`[Terminal] Authenticated connection for project ${projectId}, user ${tokenResult.userId}`);
     const projectDir = ensureProjectDir(projectId);
 
     const session: TerminalSession = {
@@ -148,11 +192,12 @@ export function initializeRuntimeService(server: Server): void {
     path: "/ws/runtime"
   });
 
-  console.log("[Runtime] WebSocket service initialized on /ws/runtime");
+  console.log("[Runtime] Secure WebSocket service initialized on /ws/runtime");
 
   wss.on("connection", (ws, req) => {
     const url = new URL(req.url || "", `http://${req.headers.host}`);
     const projectId = url.searchParams.get("projectId");
+    const token = url.searchParams.get("token");
     const type = (url.searchParams.get("type") || "node") as "node" | "python" | "shell";
     const entryFile = url.searchParams.get("entry") || "index.js";
 
@@ -161,7 +206,16 @@ export function initializeRuntimeService(server: Server): void {
       ws.close();
       return;
     }
+    
+    // Validate authentication token (checks projectId and returns userId)
+    const tokenResult = token ? validateWsToken(token, projectId) : { valid: false };
+    if (!tokenResult.valid) {
+      ws.send(JSON.stringify({ type: "error", message: "Authentication required / مطلوب تسجيل الدخول" }));
+      ws.close();
+      return;
+    }
 
+    console.log(`[Runtime] Authenticated runtime request for project ${projectId}, user ${tokenResult.userId}`);
     const sessionId = `runtime-${projectId}`;
     const projectDir = ensureProjectDir(projectId);
     const entryPath = path.join(projectDir, entryFile);
