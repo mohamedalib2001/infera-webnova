@@ -231,26 +231,69 @@ Return ONLY a valid JSON object:
 CRITICAL: Escape newlines as \\n, quotes as \\", output COMPLETE code for all fields.`;
 }
 
-async function buildWebsite(plan: WebsitePlan, userRequest: string, validationFeedback?: string): Promise<GeneratedCode> {
+async function buildWebsite(
+  plan: WebsitePlan, 
+  userRequest: string, 
+  previousOutput?: GeneratedCode,
+  validationFeedback?: string
+): Promise<GeneratedCode> {
   const template = findBestTemplate(userRequest);
-  console.log(`Building with template: ${template.id}${validationFeedback ? " (with fixes)" : ""}`);
+  const baseCode = previousOutput || template;
+  const isRetry = !!previousOutput;
+  
+  console.log(`Building ${isRetry ? "(retry with fixes)" : "with template: " + template.id}`);
   
   try {
+    const systemPrompt = isRetry 
+      ? generateRetryPrompt(plan, previousOutput!, validationFeedback!)
+      : generateBuilderPrompt(plan, template);
+    
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-5",
       max_tokens: 16000,
       messages: [{ role: "user", content: `Build this website: ${userRequest}` }],
-      system: generateBuilderPrompt(plan, template, validationFeedback),
+      system: systemPrompt,
     });
 
     const textBlock = response.content.find(block => block.type === "text");
-    if (!textBlock || textBlock.type !== "text") return template;
+    if (!textBlock || textBlock.type !== "text") return baseCode;
 
-    return parseBuilderResponse(textBlock.text, template);
+    return parseBuilderResponse(textBlock.text, baseCode);
   } catch (error) {
     console.error("Builder error:", error);
-    return template;
+    return baseCode;
   }
+}
+
+function generateRetryPrompt(plan: WebsitePlan, previousOutput: GeneratedCode, feedback: string): string {
+  return `You are an elite frontend developer. Your previous output had quality issues that MUST be fixed.
+
+## CRITICAL FIXES REQUIRED:
+${feedback}
+
+## YOUR PREVIOUS OUTPUT (FIX THIS CODE):
+=== HTML ===
+${previousOutput.html}
+
+=== CSS ===
+${previousOutput.css}
+
+=== JAVASCRIPT ===
+${previousOutput.js}
+
+## REQUIREMENTS:
+1. Keep the overall structure and design
+2. Fix ALL the issues listed above
+3. Use ONLY SVG icons - NO emojis, NO unicode symbols
+4. Every button needs :hover effects
+5. Include media queries for responsive design
+6. ${plan.language === "ar" ? 'Arabic text with dir="rtl" on html tag' : "English text"}
+
+## OUTPUT FORMAT
+Return ONLY a valid JSON object:
+{"html": "fixed html", "css": "fixed css", "js": "fixed js"}
+
+CRITICAL: Fix the specific issues mentioned. Escape newlines as \\n, quotes as \\".`;
 }
 
 function parseBuilderResponse(text: string, fallback: GeneratedCode): GeneratedCode {
@@ -348,7 +391,6 @@ export async function generateWebsite(userRequest: string): Promise<GenerationRe
   let lastResult: GeneratedCode | null = null;
   let lastValidation: ValidationResult | null = null;
   let plan: WebsitePlan | null = null;
-  let validationFeedback: string | undefined = undefined;
 
   try {
     console.log("[planning] Analyzing request...");
@@ -359,7 +401,15 @@ export async function generateWebsite(userRequest: string): Promise<GenerationRe
       attempts++;
       console.log(`[building] Attempt ${attempts}/${MAX_ATTEMPTS}...`);
       
-      lastResult = await buildWebsite(plan, userRequest, validationFeedback);
+      if (attempts === 1) {
+        // First attempt: use template as base
+        lastResult = await buildWebsite(plan, userRequest);
+      } else {
+        // Retry: use previous output + validation feedback
+        const feedback = formatValidationFeedback(lastValidation!);
+        console.log("[retry] Passing previous output + feedback to builder...");
+        lastResult = await buildWebsite(plan, userRequest, lastResult!, feedback);
+      }
       
       console.log("[validating] Checking quality...");
       lastValidation = validateGeneratedCode(lastResult);
@@ -372,10 +422,6 @@ export async function generateWebsite(userRequest: string): Promise<GenerationRe
           plan, validation: lastValidation, attempts
         };
       }
-      
-      // Prepare feedback for retry
-      validationFeedback = formatValidationFeedback(lastValidation);
-      console.log("[retry] Preparing feedback for next attempt...");
     }
 
     if (lastResult && lastResult.html.length > 500) {
