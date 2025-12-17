@@ -1,7 +1,7 @@
-# BuilderAI - AI Website Builder Platform
+# INFERA WebNova - AI Website Builder Platform
 
 ## Overview
-BuilderAI is an intelligent platform for building and publishing websites using AI. Users can describe their website requirements in natural language, and the AI generates the HTML, CSS, and JavaScript code automatically.
+INFERA WebNova is the flagship platform in the 22-platform INFERA Engine ecosystem. It's an AI-powered website builder with comprehensive bilingual support (Arabic/English), natural language website generation, multi-tier subscription system, Owner Control Panel for platform-wide administration, and AI Development Assistants that execute owner instructions autonomously.
 
 ## Tech Stack
 - **Frontend**: React + TypeScript + Vite
@@ -56,15 +56,28 @@ shared/
 9. **Project Sharing**: Create shareable preview links
 10. **Component Library**: Pre-built UI components (buttons, cards, forms, sections)
 11. **Framework Support**: Components for vanilla CSS, Tailwind, and Bootstrap
+12. **Bilingual Support**: Full Arabic/English with language toggle
+13. **Multi-tier Subscriptions**: Free/Basic/Pro/Enterprise/Sovereign/Owner tiers
+14. **Owner Dashboard**: Platform-wide administration with AI workforce management
+15. **AI Development Assistants**: Autonomous AI workers (Nova Developer, Designer, Content, Analyst, Security) that execute owner instructions
+16. **Sovereign Dashboard**: Advanced tenant governance for enterprise clients
+17. **Chatbot Builder**: AI-powered chatbot creation
+18. **SEO Optimizer**: Website optimization tools
+19. **White Label**: Branding customization for enterprise/sovereign users
 
 ## Database Tables
-- `users` - User accounts
+- `users` - User accounts with role hierarchy (free/basic/pro/enterprise/sovereign/owner)
 - `projects` - Website projects with HTML/CSS/JS code
 - `messages` - Chat history for each project
 - `templates` - Pre-built website templates
 - `project_versions` - Version history snapshots
 - `share_links` - Shareable preview links
 - `components` - Reusable UI components
+- `ai_assistants` - AI workforce configuration (Nova Developer, Designer, Content, Analyst, Security)
+- `assistant_instructions` - Commands and tasks for AI assistants with execution tracking
+- `audit_logs` - Platform activity logging for owner oversight
+- `owner_settings` - Platform-wide configuration
+- `sovereign_settings` - Tenant-level governance settings
 
 ## API Endpoints
 ### Projects
@@ -101,6 +114,17 @@ shared/
 - `GET /api/components?category=Buttons` - Filter by category
 - `GET /api/components/:id` - Get single component
 
+### Owner Routes (Owner role only)
+- `GET /api/owner/assistants` - Get all AI assistants
+- `POST /api/owner/assistants` - Create AI assistant
+- `GET /api/owner/instructions` - Get all instructions
+- `POST /api/owner/instructions` - Create instruction for AI assistant
+- `POST /api/owner/instructions/:id/execute` - Execute instruction with Claude AI
+- `GET /api/owner/settings` - Get owner settings
+- `POST /api/owner/settings` - Update owner settings
+- `GET /api/owner/logs` - Get audit logs
+- `POST /api/owner/initialize-assistants` - Initialize default AI workforce
+
 ## Environment Variables
 - `DATABASE_URL` - PostgreSQL connection string
 - `OPENAI_API_KEY` - Required for AI code generation
@@ -111,6 +135,22 @@ The app runs on port 5000 with `npm run dev`.
 
 Database migrations: `npm run db:push`
 
+## Role Hierarchy
+- **Owner**: Supreme platform administrator with AI workforce control
+- **Sovereign**: Multi-tenant governance and advanced customization
+- **Enterprise**: Full feature access with white-label capabilities
+- **Pro**: Advanced features and priority support
+- **Basic**: Essential website building features
+- **Free**: Limited access for evaluation
+
+## AI Assistants (Nova Workforce)
+The Owner can command specialized AI assistants:
+- **Nova Developer**: Code generation, bug fixing, API integration
+- **Nova Designer**: UI/UX design, styling, responsive layouts
+- **Nova Content**: Copywriting, translation, SEO content
+- **Nova Analyst**: Data analysis, metrics, business intelligence
+- **Nova Security**: Security audits, vulnerability checks, compliance
+
 ## Recent Changes
 - Added PostgreSQL database with Drizzle ORM
 - Implemented version history system
@@ -118,3 +158,8 @@ Database migrations: `npm run db:push`
 - Created component library with drag-and-drop UI components
 - Added support for Tailwind and Bootstrap styled components
 - Preview page for shared projects (/preview/:shareCode)
+- Added Owner Dashboard with AI Workforce Console
+- Implemented AI Development Assistants with Claude AI integration
+- Added instruction execution system with priority queuing
+- Created audit logging for platform governance
+- Bilingual support (Arabic/English) throughout the platform
