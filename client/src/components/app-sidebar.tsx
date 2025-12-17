@@ -58,9 +58,9 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
       <SidebarHeader className="p-4">
         <Link href="/" className="flex items-center gap-2">
           <img 
-            src="/assets/infera-logo.jpg" 
+            src="/assets/infera-logo.png" 
             alt="INFERA WebNova" 
-            className="w-8 h-8 rounded-full object-cover"
+            className="w-8 h-8 object-contain"
           />
           <div className="flex flex-col">
             <span className="font-bold text-lg leading-tight">INFERA</span>

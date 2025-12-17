@@ -139,9 +139,9 @@ export default function Auth() {
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <img 
-              src="/assets/infera-logo.jpg" 
+              src="/assets/infera-logo.png" 
               alt="INFERA WebNova" 
-              className="mx-auto w-16 h-16 rounded-full mb-4 object-cover"
+              className="mx-auto w-16 h-16 mb-4 object-contain"
             />
             <CardTitle className="text-2xl">{t("auth.welcome")}</CardTitle>
             <CardDescription>{t("auth.subtitle")}</CardDescription>
