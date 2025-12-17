@@ -135,7 +135,7 @@ export async function registerRoutes(
   
   const generateSchema = z.object({
     prompt: z.string().min(1, "Prompt is required"),
-    projectId: z.string().optional(),
+    projectId: z.string().optional().nullable(),
     context: z.string().optional(),
   });
 
