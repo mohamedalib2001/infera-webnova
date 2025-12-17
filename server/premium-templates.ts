@@ -26,7 +26,7 @@ export const PREMIUM_TEMPLATES: PremiumTemplate[] = [
   <nav class="navbar">
     <div class="container nav-content">
       <a href="#" class="logo">
-        <span class="logo-icon">◆</span>
+        <svg class="logo-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 12l10 10 10-10L12 2z"/></svg>
         <span class="logo-text">تقنية</span>
       </a>
       <div class="nav-links">
@@ -141,10 +141,10 @@ export const PREMIUM_TEMPLATES: PremiumTemplate[] = [
             </div>
           </div>
           <ul class="pricing-features">
-            <li><span class="check">✓</span> 5 مستخدمين</li>
-            <li><span class="check">✓</span> 10GB تخزين</li>
-            <li><span class="check">✓</span> دعم بالبريد</li>
-            <li><span class="check">✓</span> تقارير أساسية</li>
+            <li><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> 5 مستخدمين</li>
+            <li><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> 10GB تخزين</li>
+            <li><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> دعم بالبريد</li>
+            <li><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> تقارير أساسية</li>
           </ul>
           <a href="#" class="btn-outline btn-block">ابدأ الآن</a>
         </div>
@@ -159,11 +159,11 @@ export const PREMIUM_TEMPLATES: PremiumTemplate[] = [
             </div>
           </div>
           <ul class="pricing-features">
-            <li><span class="check">✓</span> 25 مستخدم</li>
-            <li><span class="check">✓</span> 100GB تخزين</li>
-            <li><span class="check">✓</span> دعم على مدار الساعة</li>
-            <li><span class="check">✓</span> تحليلات متقدمة</li>
-            <li><span class="check">✓</span> API كامل</li>
+            <li><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> 25 مستخدم</li>
+            <li><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> 100GB تخزين</li>
+            <li><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> دعم على مدار الساعة</li>
+            <li><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> تحليلات متقدمة</li>
+            <li><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> API كامل</li>
           </ul>
           <a href="#" class="btn-primary btn-block">ابدأ الآن</a>
         </div>
@@ -177,11 +177,11 @@ export const PREMIUM_TEMPLATES: PremiumTemplate[] = [
             </div>
           </div>
           <ul class="pricing-features">
-            <li><span class="check">✓</span> مستخدمين غير محدود</li>
-            <li><span class="check">✓</span> تخزين غير محدود</li>
-            <li><span class="check">✓</span> مدير حساب مخصص</li>
-            <li><span class="check">✓</span> SLA مضمون</li>
-            <li><span class="check">✓</span> تخصيص كامل</li>
+            <li><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> مستخدمين غير محدود</li>
+            <li><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> تخزين غير محدود</li>
+            <li><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> مدير حساب مخصص</li>
+            <li><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> SLA مضمون</li>
+            <li><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> تخصيص كامل</li>
           </ul>
           <a href="#" class="btn-outline btn-block">تواصل معنا</a>
         </div>
@@ -197,7 +197,7 @@ export const PREMIUM_TEMPLATES: PremiumTemplate[] = [
       </div>
       <div class="testimonials-grid">
         <div class="testimonial-card">
-          <div class="stars">★★★★★</div>
+          <div class="stars"><svg class="star-rating" width="80" height="16" viewBox="0 0 80 16" fill="#fbbf24"><path d="M8 0l2.47 5 5.53.8-4 3.9.94 5.5L8 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L8 0z"/><path d="M24 0l2.47 5 5.53.8-4 3.9.94 5.5L24 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L24 0z"/><path d="M40 0l2.47 5 5.53.8-4 3.9.94 5.5L40 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L40 0z"/><path d="M56 0l2.47 5 5.53.8-4 3.9.94 5.5L56 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L56 0z"/><path d="M72 0l2.47 5 5.53.8-4 3.9.94 5.5L72 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L72 0z"/></svg></div>
           <p>"منصة رائعة غيرت طريقة عملنا بالكامل. الدعم الفني متميز والأداء لا يصدق."</p>
           <div class="testimonial-author">
             <div class="avatar">م</div>
@@ -208,7 +208,7 @@ export const PREMIUM_TEMPLATES: PremiumTemplate[] = [
           </div>
         </div>
         <div class="testimonial-card">
-          <div class="stars">★★★★★</div>
+          <div class="stars"><svg class="star-rating" width="80" height="16" viewBox="0 0 80 16" fill="#fbbf24"><path d="M8 0l2.47 5 5.53.8-4 3.9.94 5.5L8 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L8 0z"/><path d="M24 0l2.47 5 5.53.8-4 3.9.94 5.5L24 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L24 0z"/><path d="M40 0l2.47 5 5.53.8-4 3.9.94 5.5L40 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L40 0z"/><path d="M56 0l2.47 5 5.53.8-4 3.9.94 5.5L56 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L56 0z"/><path d="M72 0l2.47 5 5.53.8-4 3.9.94 5.5L72 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L72 0z"/></svg></div>
           <p>"وفرت لنا ساعات عمل كثيرة وحسنت من إنتاجية الفريق بشكل ملحوظ."</p>
           <div class="testimonial-author">
             <div class="avatar">س</div>
@@ -219,7 +219,7 @@ export const PREMIUM_TEMPLATES: PremiumTemplate[] = [
           </div>
         </div>
         <div class="testimonial-card">
-          <div class="stars">★★★★★</div>
+          <div class="stars"><svg class="star-rating" width="80" height="16" viewBox="0 0 80 16" fill="#fbbf24"><path d="M8 0l2.47 5 5.53.8-4 3.9.94 5.5L8 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L8 0z"/><path d="M24 0l2.47 5 5.53.8-4 3.9.94 5.5L24 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L24 0z"/><path d="M40 0l2.47 5 5.53.8-4 3.9.94 5.5L40 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L40 0z"/><path d="M56 0l2.47 5 5.53.8-4 3.9.94 5.5L56 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L56 0z"/><path d="M72 0l2.47 5 5.53.8-4 3.9.94 5.5L72 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L72 0z"/></svg></div>
           <p>"أفضل استثمار قمنا به هذا العام. النتائج فاقت توقعاتنا."</p>
           <div class="testimonial-author">
             <div class="avatar">أ</div>
@@ -249,7 +249,7 @@ export const PREMIUM_TEMPLATES: PremiumTemplate[] = [
       <div class="footer-grid">
         <div class="footer-brand">
           <a href="#" class="logo">
-            <span class="logo-icon">◆</span>
+            <svg class="logo-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 12l10 10 10-10L12 2z"/></svg>
             <span class="logo-text">تقنية</span>
           </a>
           <p>نبني مستقبل التقنية العربية بأيدٍ عربية</p>
@@ -1047,7 +1047,7 @@ body {
           <div class="product-info">
             <h3>هاتف ذكي برو</h3>
             <div class="product-rating">
-              <span class="stars">★★★★★</span>
+              <span class="stars"><svg class="star-rating" width="80" height="16" viewBox="0 0 80 16" fill="#fbbf24"><path d="M8 0l2.47 5 5.53.8-4 3.9.94 5.5L8 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L8 0z"/><path d="M24 0l2.47 5 5.53.8-4 3.9.94 5.5L24 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L24 0z"/><path d="M40 0l2.47 5 5.53.8-4 3.9.94 5.5L40 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L40 0z"/><path d="M56 0l2.47 5 5.53.8-4 3.9.94 5.5L56 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L56 0z"/><path d="M72 0l2.47 5 5.53.8-4 3.9.94 5.5L72 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L72 0z"/></svg></span>
               <span class="reviews">(128)</span>
             </div>
             <div class="product-price">
@@ -1070,7 +1070,7 @@ body {
           <div class="product-info">
             <h3>سماعات لاسلكية</h3>
             <div class="product-rating">
-              <span class="stars">★★★★☆</span>
+              <span class="stars"><svg class="star-rating" width="80" height="16" viewBox="0 0 80 16"><path fill="#fbbf24" d="M8 0l2.47 5 5.53.8-4 3.9.94 5.5L8 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L8 0z"/><path fill="#fbbf24" d="M24 0l2.47 5 5.53.8-4 3.9.94 5.5L24 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L24 0z"/><path fill="#fbbf24" d="M40 0l2.47 5 5.53.8-4 3.9.94 5.5L40 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L40 0z"/><path fill="#fbbf24" d="M56 0l2.47 5 5.53.8-4 3.9.94 5.5L56 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L56 0z"/><path fill="#e5e7eb" d="M72 0l2.47 5 5.53.8-4 3.9.94 5.5L72 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L72 0z"/></svg></span>
               <span class="reviews">(89)</span>
             </div>
             <div class="product-price">
@@ -1092,7 +1092,7 @@ body {
           <div class="product-info">
             <h3>لابتوب احترافي</h3>
             <div class="product-rating">
-              <span class="stars">★★★★★</span>
+              <span class="stars"><svg class="star-rating" width="80" height="16" viewBox="0 0 80 16" fill="#fbbf24"><path d="M8 0l2.47 5 5.53.8-4 3.9.94 5.5L8 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L8 0z"/><path d="M24 0l2.47 5 5.53.8-4 3.9.94 5.5L24 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L24 0z"/><path d="M40 0l2.47 5 5.53.8-4 3.9.94 5.5L40 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L40 0z"/><path d="M56 0l2.47 5 5.53.8-4 3.9.94 5.5L56 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L56 0z"/><path d="M72 0l2.47 5 5.53.8-4 3.9.94 5.5L72 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L72 0z"/></svg></span>
               <span class="reviews">(256)</span>
             </div>
             <div class="product-price">
@@ -1113,7 +1113,7 @@ body {
           <div class="product-info">
             <h3>ساعة ذكية</h3>
             <div class="product-rating">
-              <span class="stars">★★★★☆</span>
+              <span class="stars"><svg class="star-rating" width="80" height="16" viewBox="0 0 80 16"><path fill="#fbbf24" d="M8 0l2.47 5 5.53.8-4 3.9.94 5.5L8 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L8 0z"/><path fill="#fbbf24" d="M24 0l2.47 5 5.53.8-4 3.9.94 5.5L24 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L24 0z"/><path fill="#fbbf24" d="M40 0l2.47 5 5.53.8-4 3.9.94 5.5L40 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L40 0z"/><path fill="#fbbf24" d="M56 0l2.47 5 5.53.8-4 3.9.94 5.5L56 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L56 0z"/><path fill="#e5e7eb" d="M72 0l2.47 5 5.53.8-4 3.9.94 5.5L72 12.77l-4.94 2.43.94-5.5-4-3.9 5.53-.8L72 0z"/></svg></span>
               <span class="reviews">(67)</span>
             </div>
             <div class="product-price">
