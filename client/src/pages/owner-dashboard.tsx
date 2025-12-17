@@ -55,9 +55,19 @@ import {
   Edit,
   DollarSign,
   TrendingUp,
-  ArrowUpRight
+  ArrowUpRight,
+  KeyRound,
+  EyeOff,
+  Mail,
+  Chrome,
+  Facebook,
+  Twitter,
+  Github,
+  Apple,
+  Monitor,
+  Link as LinkIcon
 } from "lucide-react";
-import type { AiAssistant, AssistantInstruction, User, PaymentMethod } from "@shared/schema";
+import type { AiAssistant, AssistantInstruction, User, PaymentMethod, AuthMethod } from "@shared/schema";
 
 const translations = {
   ar: {
@@ -67,6 +77,7 @@ const translations = {
       command: "مركز القيادة",
       assistants: "المساعدين AI",
       payments: "بوابات الدفع",
+      auth: "طرق الدخول",
       platform: "إعدادات المنصة",
       users: "المستخدمين",
       logs: "سجل العمليات",
@@ -167,6 +178,35 @@ const translations = {
         activeGateways: "البوابات النشطة",
       },
     },
+    auth: {
+      title: "التحكم في طرق الدخول",
+      subtitle: "تفعيل وإدارة طرق تسجيل الدخول للمستخدمين",
+      initialize: "تهيئة طرق الدخول",
+      noMethods: "لا توجد طرق دخول. اضغط على تهيئة لإضافتها.",
+      active: "مفعّل",
+      inactive: "غير مفعّل",
+      visible: "ظاهر",
+      hidden: "مخفي",
+      default: "افتراضي",
+      configured: "مُهيأ",
+      notConfigured: "غير مُهيأ",
+      toggleActive: "تفعيل/تعطيل",
+      toggleVisibility: "إظهار/إخفاء",
+      delete: "حذف",
+      cannotModifyDefault: "لا يمكن تعديل الطريقة الافتراضية",
+      methods: {
+        email_password: "البريد وكلمة المرور",
+        otp_email: "رمز تحقق البريد",
+        google: "جوجل",
+        facebook: "فيسبوك",
+        twitter: "إكس (تويتر)",
+        github: "جيت هاب",
+        apple: "أبل",
+        microsoft: "مايكروسوفت",
+        magic_link: "رابط سحري",
+        otp_sms: "رمز تحقق الجوال",
+      },
+    },
     stats: {
       totalUsers: "إجمالي المستخدمين",
       activeProjects: "المشاريع النشطة",
@@ -187,6 +227,7 @@ const translations = {
       command: "Command Center",
       assistants: "AI Assistants",
       payments: "Payment Gateways",
+      auth: "Login Methods",
       platform: "Platform Settings",
       users: "Users",
       logs: "Audit Logs",
@@ -287,6 +328,35 @@ const translations = {
         activeGateways: "Active Gateways",
       },
     },
+    auth: {
+      title: "Login Methods Control",
+      subtitle: "Activate and manage user login methods",
+      initialize: "Initialize Login Methods",
+      noMethods: "No login methods. Click initialize to add them.",
+      active: "Active",
+      inactive: "Inactive",
+      visible: "Visible",
+      hidden: "Hidden",
+      default: "Default",
+      configured: "Configured",
+      notConfigured: "Not Configured",
+      toggleActive: "Toggle Active",
+      toggleVisibility: "Toggle Visibility",
+      delete: "Delete",
+      cannotModifyDefault: "Cannot modify default method",
+      methods: {
+        email_password: "Email & Password",
+        otp_email: "Email OTP",
+        google: "Google",
+        facebook: "Facebook",
+        twitter: "X (Twitter)",
+        github: "GitHub",
+        apple: "Apple",
+        microsoft: "Microsoft",
+        magic_link: "Magic Link",
+        otp_sms: "SMS OTP",
+      },
+    },
     stats: {
       totalUsers: "Total Users",
       activeProjects: "Active Projects",
@@ -367,6 +437,75 @@ export default function OwnerDashboard() {
 
   const { data: paymentAnalytics } = useQuery<any>({
     queryKey: ['/api/owner/payment-analytics'],
+  });
+
+  const { data: authMethods = [], isLoading: authMethodsLoading } = useQuery<AuthMethod[]>({
+    queryKey: ['/api/owner/auth-methods'],
+  });
+
+  const initializeAuthMethodsMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', '/api/owner/initialize-auth-methods');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/auth-methods'] });
+      toast({
+        title: language === 'ar' ? "تم تهيئة طرق الدخول" : "Login Methods Initialized",
+        description: language === 'ar' ? "تمت إضافة جميع طرق الدخول بنجاح" : "All login methods have been added successfully",
+      });
+    },
+  });
+
+  const toggleAuthMethodMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      return apiRequest('PATCH', `/api/owner/auth-methods/${id}/toggle`, { isActive });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/auth-methods'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: language === 'ar' ? "خطأ" : "Error",
+        description: error.message || (language === 'ar' ? "لا يمكن تعديل هذه الطريقة" : "Cannot modify this method"),
+        variant: "destructive",
+      });
+    },
+  });
+
+  const toggleAuthMethodVisibilityMutation = useMutation({
+    mutationFn: async ({ id, isVisible }: { id: string; isVisible: boolean }) => {
+      return apiRequest('PATCH', `/api/owner/auth-methods/${id}/visibility`, { isVisible });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/auth-methods'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: language === 'ar' ? "خطأ" : "Error",
+        description: error.message || (language === 'ar' ? "لا يمكن تعديل هذه الطريقة" : "Cannot modify this method"),
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteAuthMethodMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest('DELETE', `/api/owner/auth-methods/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/auth-methods'] });
+      toast({
+        title: language === 'ar' ? "تم الحذف" : "Deleted",
+        description: language === 'ar' ? "تم حذف طريقة الدخول" : "Login method has been deleted",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: language === 'ar' ? "خطأ" : "Error",
+        description: error.message || (language === 'ar' ? "لا يمكن حذف هذه الطريقة" : "Cannot delete this method"),
+        variant: "destructive",
+      });
+    },
   });
 
   const initializePaymentMethodsMutation = useMutation({
@@ -523,7 +662,7 @@ export default function OwnerDashboard() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid">
             <TabsTrigger value="command" className="gap-2" data-testid="tab-command">
               <Terminal className="w-4 h-4" />
               <span className="hidden sm:inline">{t.tabs.command}</span>
@@ -535,6 +674,10 @@ export default function OwnerDashboard() {
             <TabsTrigger value="payments" className="gap-2" data-testid="tab-payments">
               <CreditCard className="w-4 h-4" />
               <span className="hidden sm:inline">{t.tabs.payments}</span>
+            </TabsTrigger>
+            <TabsTrigger value="auth" className="gap-2" data-testid="tab-auth">
+              <KeyRound className="w-4 h-4" />
+              <span className="hidden sm:inline">{t.tabs.auth}</span>
             </TabsTrigger>
             <TabsTrigger value="platform" className="gap-2" data-testid="tab-platform">
               <Settings className="w-4 h-4" />
@@ -992,6 +1135,150 @@ export default function OwnerDashboard() {
                               onClick={() => deletePaymentMethodMutation.mutate(method.id)}
                               disabled={deletePaymentMethodMutation.isPending}
                               data-testid={`button-delete-${method.id}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </CardFooter>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="auth" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <KeyRound className="w-5 h-5" />
+                      {t.auth.title}
+                    </CardTitle>
+                    <CardDescription>{t.auth.subtitle}</CardDescription>
+                  </div>
+                  {authMethods.length === 0 && (
+                    <Button 
+                      onClick={() => initializeAuthMethodsMutation.mutate()}
+                      disabled={initializeAuthMethodsMutation.isPending}
+                      data-testid="button-initialize-auth"
+                    >
+                      {initializeAuthMethodsMutation.isPending ? (
+                        <RefreshCw className="w-4 h-4 animate-spin ml-2" />
+                      ) : (
+                        <Plus className="w-4 h-4 ml-2" />
+                      )}
+                      {t.auth.initialize}
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {authMethodsLoading ? (
+                  <div className="text-center py-8">
+                    <RefreshCw className="w-8 h-8 animate-spin mx-auto" />
+                  </div>
+                ) : authMethods.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <KeyRound className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                    <p>{t.auth.noMethods}</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {authMethods.map((method) => {
+                      const authMethodIcons: Record<string, any> = {
+                        email_password: Mail,
+                        otp_email: KeyRound,
+                        google: Chrome,
+                        facebook: Facebook,
+                        twitter: Twitter,
+                        github: Github,
+                        apple: Apple,
+                        microsoft: Monitor,
+                        magic_link: LinkIcon,
+                        otp_sms: Smartphone,
+                      };
+                      const MethodIcon = authMethodIcons[method.key] || KeyRound;
+                      return (
+                        <Card key={method.id} className="hover-elevate">
+                          <CardHeader className="pb-3">
+                            <div className="flex items-center gap-3">
+                              <div className={`p-3 rounded-xl ${method.isActive ? 'bg-green-500/10 text-green-600' : 'bg-muted text-muted-foreground'}`}>
+                                <MethodIcon className="w-6 h-6" />
+                              </div>
+                              <div className="flex-1">
+                                <CardTitle className="text-lg">
+                                  {language === 'ar' ? method.nameAr : method.name}
+                                </CardTitle>
+                                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                  {method.isDefault && (
+                                    <Badge className="bg-amber-500/10 text-amber-600">
+                                      {t.auth.default}
+                                    </Badge>
+                                  )}
+                                  <Badge className={method.isActive ? "bg-green-500/10 text-green-600" : "bg-gray-500/10 text-gray-600"}>
+                                    {method.isActive ? t.auth.active : t.auth.inactive}
+                                  </Badge>
+                                  <Badge className={method.isVisible ? "bg-blue-500/10 text-blue-600" : "bg-gray-500/10 text-gray-600"}>
+                                    {method.isVisible ? t.auth.visible : t.auth.hidden}
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+                          </CardHeader>
+                          <CardContent>
+                            <p className="text-sm text-muted-foreground">
+                              {language === 'ar' ? method.descriptionAr : method.description}
+                            </p>
+                            <div className="flex items-center gap-2 mt-3">
+                              <Badge className={method.isConfigured ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"}>
+                                {method.isConfigured ? t.auth.configured : t.auth.notConfigured}
+                              </Badge>
+                            </div>
+                          </CardContent>
+                          <CardFooter className="gap-2 flex-wrap">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className="flex-1"
+                              onClick={() => toggleAuthMethodMutation.mutate({ 
+                                id: method.id, 
+                                isActive: !method.isActive 
+                              })}
+                              disabled={toggleAuthMethodMutation.isPending || method.isDefault}
+                              data-testid={`button-toggle-auth-${method.id}`}
+                            >
+                              {method.isActive ? (
+                                <ToggleRight className="w-4 h-4 ml-1" />
+                              ) : (
+                                <ToggleLeft className="w-4 h-4 ml-1" />
+                              )}
+                              {t.auth.toggleActive}
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => toggleAuthMethodVisibilityMutation.mutate({ 
+                                id: method.id, 
+                                isVisible: !method.isVisible 
+                              })}
+                              disabled={toggleAuthMethodVisibilityMutation.isPending || method.isDefault}
+                              data-testid={`button-visibility-${method.id}`}
+                            >
+                              {method.isVisible ? (
+                                <Eye className="w-4 h-4" />
+                              ) : (
+                                <EyeOff className="w-4 h-4" />
+                              )}
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => deleteAuthMethodMutation.mutate(method.id)}
+                              disabled={deleteAuthMethodMutation.isPending || method.isDefault}
+                              data-testid={`button-delete-auth-${method.id}`}
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>

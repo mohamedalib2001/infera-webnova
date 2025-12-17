@@ -138,6 +138,16 @@ shared/
 - `GET /api/owner/payment-analytics` - Get payment analytics
 - `GET /api/payment-methods/active` - Get active payment methods (public for checkout)
 
+### Authentication Methods (Owner role only)
+- `GET /api/owner/auth-methods` - Get all authentication methods
+- `POST /api/owner/auth-methods` - Create authentication method
+- `PATCH /api/owner/auth-methods/:id` - Update authentication method
+- `PATCH /api/owner/auth-methods/:id/toggle` - Toggle authentication method active status
+- `PATCH /api/owner/auth-methods/:id/visibility` - Toggle authentication method visibility
+- `DELETE /api/owner/auth-methods/:id` - Delete authentication method
+- `POST /api/owner/initialize-auth-methods` - Initialize default authentication methods
+- `GET /api/auth/methods` - Get visible authentication methods (public for login page)
+
 ## Environment Variables
 - `DATABASE_URL` - PostgreSQL connection string
 - `OPENAI_API_KEY` - Required for AI code generation
