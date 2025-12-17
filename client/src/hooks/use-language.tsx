@@ -86,6 +86,7 @@ const translations: Record<string, Record<Language, string>> = {
   // Common
   "common.loading": { ar: "جاري التحميل...", en: "Loading..." },
   "common.error": { ar: "حدث خطأ", en: "An error occurred" },
+  "common.generating": { ar: "جاري الإنشاء", en: "Generating" },
 };
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
