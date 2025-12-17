@@ -356,3 +356,63 @@ export interface AuthResponse {
   user: Omit<User, 'password'>;
   token?: string;
 }
+
+// ==================== AI CHATBOTS ====================
+
+// Chatbots table for custom AI assistants
+export const chatbots = pgTable("chatbots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  welcomeMessage: text("welcome_message"),
+  welcomeMessageAr: text("welcome_message_ar"),
+  systemPrompt: text("system_prompt").notNull(),
+  primaryColor: varchar("primary_color", { length: 7 }).notNull().default("#8B5CF6"),
+  position: text("position").notNull().default("bottom-right"), // bottom-right, bottom-left
+  model: text("model").notNull().default("gpt-4o"),
+  temperature: integer("temperature").notNull().default(70), // stored as 70 = 0.7
+  maxTokens: integer("max_tokens").notNull().default(1000),
+  suggestedQuestions: jsonb("suggested_questions").$type<string[]>().notNull().default([]),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertChatbotSchema = createInsertSchema(chatbots).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertChatbot = z.infer<typeof insertChatbotSchema>;
+export type Chatbot = typeof chatbots.$inferSelect;
+
+// ==================== WHITE LABEL SETTINGS ====================
+
+// White label configuration for enterprise/sovereign users
+export const whiteLabelSettings = pgTable("white_label_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique(),
+  brandName: text("brand_name").notNull(),
+  brandNameAr: text("brand_name_ar"),
+  logoUrl: text("logo_url"),
+  faviconUrl: text("favicon_url"),
+  primaryColor: varchar("primary_color", { length: 7 }).notNull().default("#8B5CF6"),
+  secondaryColor: varchar("secondary_color", { length: 7 }),
+  customDomain: text("custom_domain"),
+  customCss: text("custom_css"),
+  hideWatermark: boolean("hide_watermark").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertWhiteLabelSettingsSchema = createInsertSchema(whiteLabelSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertWhiteLabelSettings = z.infer<typeof insertWhiteLabelSettingsSchema>;
+export type WhiteLabelSettings = typeof whiteLabelSettings.$inferSelect;

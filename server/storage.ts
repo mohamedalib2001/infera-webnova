@@ -23,6 +23,8 @@ import {
   type InsertAiUsage,
   type OtpCode,
   type InsertOtpCode,
+  type Chatbot,
+  type InsertChatbot,
   users,
   projects,
   messages,
@@ -35,6 +37,7 @@ import {
   payments,
   aiUsage,
   otpCodes,
+  chatbots,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt } from "drizzle-orm";
@@ -107,6 +110,13 @@ export interface IStorage {
   createOtpCode(otp: InsertOtpCode): Promise<OtpCode>;
   getValidOtpCode(userId: string, code: string): Promise<OtpCode | undefined>;
   markOtpUsed(id: string): Promise<void>;
+  
+  // Chatbots
+  getChatbotsByUser(userId: string): Promise<Chatbot[]>;
+  getChatbot(id: string): Promise<Chatbot | undefined>;
+  createChatbot(chatbot: InsertChatbot): Promise<Chatbot>;
+  updateChatbot(id: string, chatbot: Partial<InsertChatbot>): Promise<Chatbot | undefined>;
+  deleteChatbot(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -980,6 +990,31 @@ body { font-family: 'Tajawal', sans-serif; }
 
   async markOtpUsed(id: string): Promise<void> {
     await db.update(otpCodes).set({ isUsed: true }).where(eq(otpCodes.id, id));
+  }
+
+  // Chatbot methods
+  async getChatbotsByUser(userId: string): Promise<Chatbot[]> {
+    return db.select().from(chatbots).where(eq(chatbots.userId, userId)).orderBy(desc(chatbots.createdAt));
+  }
+
+  async getChatbot(id: string): Promise<Chatbot | undefined> {
+    const [chatbot] = await db.select().from(chatbots).where(eq(chatbots.id, id));
+    return chatbot || undefined;
+  }
+
+  async createChatbot(insertChatbot: InsertChatbot): Promise<Chatbot> {
+    const [chatbot] = await db.insert(chatbots).values(insertChatbot).returning();
+    return chatbot;
+  }
+
+  async updateChatbot(id: string, updateData: Partial<InsertChatbot>): Promise<Chatbot | undefined> {
+    const [chatbot] = await db.update(chatbots).set(updateData).where(eq(chatbots.id, id)).returning();
+    return chatbot || undefined;
+  }
+
+  async deleteChatbot(id: string): Promise<boolean> {
+    const result = await db.delete(chatbots).where(eq(chatbots.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 }
 

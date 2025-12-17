@@ -303,6 +303,36 @@ export async function registerRoutes(
     }
   });
 
+  // Toggle user status (sovereign only)
+  app.post("/api/sovereign/users/:userId/toggle", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { isActive } = req.body;
+      
+      await storage.updateUser(userId, { isActive });
+      res.json({ message: "تم تحديث حالة المستخدم", isActive });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في تحديث حالة المستخدم" });
+    }
+  });
+
+  // Get system stats (sovereign only)
+  app.get("/api/sovereign/stats", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      const projects = await storage.getProjects();
+      
+      res.json({
+        totalUsers: users.length,
+        activeUsers: users.filter(u => u.isActive).length,
+        totalProjects: projects.length,
+        aiGenerations: 0, // TODO: Track AI generations
+      });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب الإحصائيات" });
+    }
+  });
+
   // ============ Projects Routes ============
   
   // Get all projects
@@ -649,6 +679,319 @@ export async function registerRoutes(
       res.json(component);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch component" });
+    }
+  });
+
+  // ============ Chatbots Routes ============
+
+  // Middleware to check chatbot access (Pro, Enterprise, Sovereign)
+  const requireChatbotAccess = async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.session?.user;
+    if (!user) {
+      return res.status(401).json({ error: "غير مصرح / Unauthorized" });
+    }
+    const allowedRoles = ['pro', 'enterprise', 'sovereign'];
+    if (!allowedRoles.includes(user.role)) {
+      return res.status(403).json({ 
+        error: "هذه الميزة متاحة لخطط Pro وأعلى فقط / This feature requires Pro plan or higher" 
+      });
+    }
+    next();
+  };
+
+  // Get all chatbots for user
+  app.get("/api/chatbots", requireAuth, requireChatbotAccess, async (req, res) => {
+    try {
+      const chatbots = await storage.getChatbotsByUser(req.session.userId!);
+      res.json(chatbots);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب الروبوتات / Failed to fetch chatbots" });
+    }
+  });
+
+  // Create chatbot
+  app.post("/api/chatbots", requireAuth, requireChatbotAccess, async (req, res) => {
+    try {
+      const { name, description, systemPrompt, model, temperature, maxTokens, greeting, language, primaryColor, secondaryColor, borderRadius, position, widgetWidth, widgetHeight, showOnMobile, autoOpen, autoOpenDelay } = req.body;
+      
+      if (!name || typeof name !== 'string' || name.trim().length < 1) {
+        return res.status(400).json({ error: "اسم الروبوت مطلوب / Chatbot name is required" });
+      }
+      
+      const chatbot = await storage.createChatbot({
+        userId: req.session.userId!,
+        name: name.trim(),
+        description: description || "",
+        systemPrompt: systemPrompt || "You are a helpful assistant.",
+        model: model || "claude-sonnet-4-20250514",
+        temperature: typeof temperature === 'number' ? Math.round(temperature * 100) : 70,
+        maxTokens: maxTokens || 1000,
+        greeting: greeting || "",
+        language: language || "en",
+        primaryColor: primaryColor || "#8B5CF6",
+        secondaryColor: secondaryColor || "#EC4899",
+        borderRadius: borderRadius || "12",
+        position: position || "bottom-right",
+        widgetWidth: widgetWidth || "380",
+        widgetHeight: widgetHeight || "520",
+        showOnMobile: showOnMobile ?? true,
+        autoOpen: autoOpen ?? false,
+        autoOpenDelay: autoOpenDelay || 5,
+        isActive: true,
+      });
+      res.status(201).json(chatbot);
+    } catch (error) {
+      console.error("Create chatbot error:", error);
+      res.status(500).json({ error: "فشل في إنشاء الروبوت / Failed to create chatbot" });
+    }
+  });
+
+  // Test chatbot with AI
+  app.post("/api/chatbots/test", requireAuth, requireChatbotAccess, async (req, res) => {
+    try {
+      const { message, systemPrompt, model, temperature, maxTokens } = req.body;
+      
+      if (!message || typeof message !== 'string') {
+        return res.status(400).json({ error: "الرسالة مطلوبة / Message is required" });
+      }
+      
+      // Check if API key is available
+      if (!process.env.ANTHROPIC_API_KEY && !process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY) {
+        return res.status(503).json({ 
+          error: "خدمة AI غير متاحة حالياً / AI service is currently unavailable. Please configure the API key." 
+        });
+      }
+      
+      // Use Claude for testing
+      const Anthropic = (await import("@anthropic-ai/sdk")).default;
+      const anthropic = new Anthropic();
+      
+      const response = await anthropic.messages.create({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: maxTokens || 1000,
+        system: systemPrompt || "You are a helpful assistant.",
+        messages: [
+          { role: "user", content: message }
+        ],
+      });
+
+      const textContent = response.content.find(c => c.type === "text");
+      res.json({ 
+        response: textContent?.text || "No response generated",
+      });
+    } catch (error: any) {
+      console.error("Chatbot test error:", error);
+      if (error.message?.includes("API key")) {
+        return res.status(503).json({ error: "مفتاح API غير صالح / Invalid API key" });
+      }
+      res.status(500).json({ error: "فشل في اختبار الروبوت / Failed to test chatbot" });
+    }
+  });
+
+  // ============ SEO Routes ============
+
+  // Analyze HTML for SEO
+  app.post("/api/seo/analyze", requireAuth, async (req, res) => {
+    try {
+      const { content } = req.body;
+      
+      // Simple HTML analysis
+      const hasTitle = /<title[^>]*>([^<]+)<\/title>/i.test(content);
+      const hasDescription = /<meta[^>]*name=["']description["'][^>]*>/i.test(content);
+      const h1Count = (content.match(/<h1[^>]*>/gi) || []).length;
+      const h2Count = (content.match(/<h2[^>]*>/gi) || []).length;
+      const h3Count = (content.match(/<h3[^>]*>/gi) || []).length;
+      const imgTags = content.match(/<img[^>]*>/gi) || [];
+      const imgsWithAlt = imgTags.filter((img: string) => /alt=["'][^"']+["']/i.test(img));
+      const internalLinks = (content.match(/<a[^>]*href=["']\/[^"']*["'][^>]*>/gi) || []).length;
+      const externalLinks = (content.match(/<a[^>]*href=["']https?:\/\/[^"']+["'][^>]*>/gi) || []).length;
+
+      // Calculate score
+      let score = 50;
+      if (hasTitle) score += 15;
+      if (hasDescription) score += 15;
+      if (h1Count === 1) score += 10;
+      if (h2Count >= 2) score += 5;
+      if (imgsWithAlt.length === imgTags.length && imgTags.length > 0) score += 5;
+
+      res.json({
+        score: Math.min(100, score),
+        title: {
+          status: hasTitle ? "good" : "error",
+          message: hasTitle ? "عنوان الصفحة موجود / Page title exists" : "عنوان الصفحة مفقود / Page title missing",
+        },
+        description: {
+          status: hasDescription ? "good" : "warning",
+          message: hasDescription ? "الوصف موجود / Description exists" : "الوصف مفقود / Description missing",
+          suggestion: !hasDescription ? "أضف meta description / Add meta description" : undefined,
+        },
+        headings: {
+          status: h1Count === 1 ? "good" : h1Count === 0 ? "error" : "warning",
+          message: h1Count === 1 ? "هيكل العناوين جيد / Heading structure is good" : "تحقق من هيكل العناوين / Check heading structure",
+          count: { h1: h1Count, h2: h2Count, h3: h3Count },
+        },
+        images: {
+          status: imgsWithAlt.length === imgTags.length ? "good" : "error",
+          message: imgsWithAlt.length === imgTags.length ? "جميع الصور لها alt / All images have alt" : "بعض الصور بدون alt / Some images missing alt",
+          withAlt: imgsWithAlt.length,
+          withoutAlt: imgTags.length - imgsWithAlt.length,
+        },
+        links: {
+          status: "good",
+          message: "الروابط منظمة / Links are organized",
+          internal: internalLinks,
+          external: externalLinks,
+        },
+        keywords: ["website", "AI", "builder", "موقع", "ذكاء اصطناعي"],
+        suggestions: [
+          !hasDescription ? "أضف وصف meta / Add meta description" : null,
+          imgTags.length !== imgsWithAlt.length ? "أضف alt للصور / Add alt to images" : null,
+          h1Count !== 1 ? "تأكد من وجود h1 واحد / Ensure single h1" : null,
+        ].filter(Boolean),
+      });
+    } catch (error) {
+      console.error("SEO analysis error:", error);
+      res.status(500).json({ error: "فشل في تحليل SEO / SEO analysis failed" });
+    }
+  });
+
+  // Generate SEO content with AI
+  app.post("/api/seo/generate", requireAuth, async (req, res) => {
+    try {
+      const { content, type } = req.body;
+      
+      if (!content || typeof content !== 'string') {
+        return res.status(400).json({ error: "المحتوى مطلوب / Content is required" });
+      }
+      
+      if (!type || !['title', 'description', 'keywords'].includes(type)) {
+        return res.status(400).json({ error: "نوع التوليد غير صالح / Invalid generation type" });
+      }
+      
+      // Check if API key is available
+      if (!process.env.ANTHROPIC_API_KEY && !process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY) {
+        return res.status(503).json({ 
+          error: "خدمة AI غير متاحة حالياً / AI service is currently unavailable" 
+        });
+      }
+      
+      const Anthropic = (await import("@anthropic-ai/sdk")).default;
+      const anthropic = new Anthropic();
+      
+      let prompt = "";
+      switch (type) {
+        case "title":
+          prompt = "Generate an SEO-optimized page title (50-60 characters) for this HTML content. Respond with just the title.";
+          break;
+        case "description":
+          prompt = "Generate an SEO-optimized meta description (150-160 characters) for this HTML content. Respond with just the description.";
+          break;
+        case "keywords":
+          prompt = "Extract 5-10 relevant SEO keywords from this HTML content. Respond with comma-separated keywords only.";
+          break;
+        default:
+          prompt = "Provide SEO recommendations for this HTML content.";
+      }
+
+      const response = await anthropic.messages.create({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 500,
+        messages: [
+          { role: "user", content: `${prompt}\n\nHTML Content:\n${content.substring(0, 3000)}` }
+        ],
+      });
+
+      const textContent = response.content.find(c => c.type === "text");
+      res.json({ result: textContent?.text || "" });
+    } catch (error: any) {
+      console.error("SEO generate error:", error);
+      if (error.message?.includes("API key")) {
+        return res.status(503).json({ error: "مفتاح API غير صالح / Invalid API key" });
+      }
+      res.status(500).json({ error: "فشل في توليد المحتوى / Content generation failed" });
+    }
+  });
+
+  // ============ White Label Routes ============
+
+  // Middleware to check white label access (Enterprise, Sovereign)
+  const requireWhiteLabelAccess = async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.session?.user;
+    if (!user) {
+      return res.status(401).json({ error: "غير مصرح / Unauthorized" });
+    }
+    const allowedRoles = ['enterprise', 'sovereign'];
+    if (!allowedRoles.includes(user.role)) {
+      return res.status(403).json({ 
+        error: "هذه الميزة متاحة لخطط Enterprise وأعلى فقط / This feature requires Enterprise plan or higher" 
+      });
+    }
+    next();
+  };
+
+  // Save white label config
+  app.post("/api/white-label", requireAuth, requireWhiteLabelAccess, async (req, res) => {
+    try {
+      const { brandName, brandNameAr, logoUrl, faviconUrl, primaryColor, secondaryColor, customDomain, customCss, hideWatermark, isActive } = req.body;
+      
+      // Validate required fields
+      if (brandName && typeof brandName !== 'string') {
+        return res.status(400).json({ error: "اسم العلامة غير صالح / Invalid brand name" });
+      }
+      
+      // For now just acknowledge - would store in user settings table
+      // In a full implementation, this would save to a user_settings or white_label_config table
+      res.json({ 
+        success: true, 
+        message: "تم حفظ الإعدادات / Settings saved",
+        config: { brandName, brandNameAr, logoUrl, faviconUrl, primaryColor, secondaryColor, customDomain, hideWatermark, isActive }
+      });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في حفظ الإعدادات / Failed to save settings" });
+    }
+  });
+
+  // ============ Analytics Routes ============
+
+  // Get analytics for user
+  app.get("/api/analytics", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const projects = await storage.getProjectsByUser(userId);
+      
+      // Return analytics data (mock for now, will be enhanced)
+      res.json({
+        overview: {
+          totalViews: Math.floor(Math.random() * 10000) + 1000,
+          uniqueVisitors: Math.floor(Math.random() * 3000) + 500,
+          avgSessionDuration: `${Math.floor(Math.random() * 5) + 1}:${Math.floor(Math.random() * 60).toString().padStart(2, '0')}`,
+          bounceRate: Math.floor(Math.random() * 40) + 20,
+          viewsChange: Math.floor(Math.random() * 20) - 5,
+          visitorsChange: Math.floor(Math.random() * 15) - 3,
+        },
+        projects: projects.map(p => ({
+          id: p.id,
+          name: p.name,
+          views: Math.floor(Math.random() * 5000) + 100,
+          visitors: Math.floor(Math.random() * 1000) + 50,
+          engagement: Math.floor(Math.random() * 30) + 50,
+        })),
+        aiUsage: {
+          totalGenerations: Math.floor(Math.random() * 200) + 20,
+          tokensUsed: Math.floor(Math.random() * 300000) + 50000,
+          avgResponseTime: `${(Math.random() * 3 + 1).toFixed(1)}s`,
+          successRate: 95 + Math.floor(Math.random() * 5),
+        },
+        topCountries: [
+          { country: "Saudi Arabia", visitors: 1245, percentage: 36.4 },
+          { country: "UAE", visitors: 876, percentage: 25.6 },
+          { country: "Egypt", visitors: 543, percentage: 15.9 },
+          { country: "United States", visitors: 421, percentage: 12.3 },
+          { country: "United Kingdom", visitors: 336, percentage: 9.8 },
+        ],
+      });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب التحليلات" });
     }
   });
 

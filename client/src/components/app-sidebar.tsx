@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, FolderOpen, LayoutTemplate, Settings, Plus, LogIn, LogOut, Crown, CreditCard } from "lucide-react";
+import { Home, FolderOpen, LayoutTemplate, Settings, Plus, LogIn, LogOut, Crown, CreditCard, Bot, BarChart3, Search, Paintbrush } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -31,6 +31,9 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     { title: t("nav.home"), url: "/", icon: Home, testId: "nav-home" },
     { title: t("nav.projects"), url: "/projects", icon: FolderOpen, testId: "nav-projects" },
     { title: t("nav.templates"), url: "/templates", icon: LayoutTemplate, testId: "nav-templates" },
+    { title: language === "ar" ? "منشئ الروبوتات" : "Chatbot Builder", url: "/chatbot-builder", icon: Bot, testId: "nav-chatbot" },
+    { title: language === "ar" ? "محسّن SEO" : "SEO Optimizer", url: "/seo-optimizer", icon: Search, testId: "nav-seo" },
+    { title: language === "ar" ? "التحليلات" : "Analytics", url: "/analytics", icon: BarChart3, testId: "nav-analytics" },
     { title: language === "ar" ? "الأسعار" : "Pricing", url: "/pricing", icon: CreditCard, testId: "nav-pricing" },
   ];
 
@@ -103,6 +106,27 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
           </SidebarGroupContent>
         </SidebarGroup>
 
+        {(user?.role === "enterprise" || user?.role === "sovereign") && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-pink-600 dark:text-pink-400">
+              <Paintbrush className="h-3 w-3 me-1" />
+              {language === "ar" ? "أدوات متقدمة" : "Advanced Tools"}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location === "/white-label"}>
+                    <Link href="/white-label" data-testid="nav-whitelabel">
+                      <Paintbrush className="h-4 w-4" />
+                      <span>{language === "ar" ? "العلامة البيضاء" : "White Label"}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
         {isSovereign && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-amber-600 dark:text-amber-400">
@@ -112,7 +136,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton asChild isActive={location === "/sovereign"}>
                     <Link href="/sovereign" data-testid="nav-sovereign">
                       <Settings className="h-4 w-4" />
                       <span>{language === "ar" ? "إدارة المنظومة" : "System Management"}</span>

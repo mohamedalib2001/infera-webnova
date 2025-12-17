@@ -16,6 +16,11 @@ import Projects from "@/pages/projects";
 import Templates from "@/pages/templates";
 import Preview from "@/pages/preview";
 import Pricing from "@/pages/pricing";
+import Sovereign from "@/pages/sovereign";
+import ChatbotBuilder from "@/pages/chatbot-builder";
+import Analytics from "@/pages/analytics";
+import SEOOptimizer from "@/pages/seo-optimizer";
+import WhiteLabel from "@/pages/white-label";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -28,6 +33,11 @@ function Router() {
       <Route path="/projects" component={Projects} />
       <Route path="/templates" component={Templates} />
       <Route path="/pricing" component={Pricing} />
+      <Route path="/sovereign" component={Sovereign} />
+      <Route path="/chatbot-builder" component={ChatbotBuilder} />
+      <Route path="/analytics" component={Analytics} />
+      <Route path="/seo-optimizer" component={SEOOptimizer} />
+      <Route path="/white-label" component={WhiteLabel} />
       <Route path="/preview/:shareCode" component={Preview} />
       <Route component={NotFound} />
     </Switch>
