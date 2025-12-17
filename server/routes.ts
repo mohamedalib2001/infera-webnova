@@ -3789,6 +3789,45 @@ export async function registerRoutes(
     }
   });
 
+  // Sync files to disk for execution
+  app.post("/api/dev-projects/:projectId/sync", async (req, res) => {
+    try {
+      const { syncFilesToDisk } = await import("./terminal-service");
+      const files = await storage.getProjectFiles(req.params.projectId);
+      
+      const filesToSync = files
+        .filter(f => !f.isDirectory)
+        .map(f => ({
+          path: f.filePath.startsWith("/") ? f.filePath.substring(1) : f.filePath,
+          content: f.content || "",
+        }));
+      
+      syncFilesToDisk(req.params.projectId, filesToSync);
+      res.json({ message: "تم مزامنة الملفات / Files synced", count: filesToSync.length });
+    } catch (error) {
+      console.error("Sync error:", error);
+      res.status(500).json({ error: "فشل في مزامنة الملفات / Failed to sync files" });
+    }
+  });
+
+  // Execute command in project directory
+  app.post("/api/dev-projects/:projectId/execute", async (req, res) => {
+    try {
+      const { command } = req.body;
+      if (!command) {
+        return res.status(400).json({ error: "الأمر مطلوب / Command required" });
+      }
+      
+      const { executeCommand } = await import("./terminal-service");
+      const result = await executeCommand(req.params.projectId, command);
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Execute error:", error);
+      res.status(500).json({ error: "فشل في تنفيذ الأمر / Failed to execute command" });
+    }
+  });
+
   return httpServer;
 }
 

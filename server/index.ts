@@ -4,9 +4,13 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import MemoryStore from "memorystore";
+import { initializeTerminalService, initializeRuntimeService } from "./terminal-service";
 
 const app = express();
 const httpServer = createServer(app);
+
+initializeTerminalService(httpServer);
+initializeRuntimeService(httpServer);
 
 declare module "http" {
   interface IncomingMessage {

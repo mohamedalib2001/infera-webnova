@@ -76,7 +76,9 @@ export default function CloudIDE() {
   const [showGitDialog, setShowGitDialog] = useState(false);
   const [gitCommitMessage, setGitCommitMessage] = useState("");
   const [terminalInput, setTerminalInput] = useState("");
-  const [terminalHistory, setTerminalHistory] = useState<Array<{type: "input" | "output", content: string}>>([]);
+  const [terminalHistory, setTerminalHistory] = useState<Array<{type: "input" | "output" | "error" | "system", content: string}>>([]);
+  const [wsTerminal, setWsTerminal] = useState<WebSocket | null>(null);
+  const [isTerminalConnected, setIsTerminalConnected] = useState(false);
 
   const t = {
     ar: {
@@ -183,42 +185,65 @@ export default function CloudIDE() {
 
   const txt = t[language];
 
-  // Terminal command handler
-  const handleTerminalCommand = (command: string) => {
+  // Sync files to disk before running
+  const syncFilesMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", `/api/dev-projects/${projectId}/sync`);
+    },
+    onSuccess: () => {
+      setTerminalHistory(prev => [...prev, { type: "system", content: language === "ar" ? "تم مزامنة الملفات" : "Files synced to disk" }]);
+    },
+  });
+
+  // Execute command via API
+  const executeCommandMutation = useMutation({
+    mutationFn: async (command: string) => {
+      return apiRequest("POST", `/api/dev-projects/${projectId}/execute`, { command });
+    },
+    onSuccess: (data: { stdout: string; stderr: string; code: number }) => {
+      if (data.stdout) {
+        setTerminalHistory(prev => [...prev, { type: "output", content: data.stdout }]);
+      }
+      if (data.stderr) {
+        setTerminalHistory(prev => [...prev, { type: "error", content: data.stderr }]);
+      }
+    },
+    onError: () => {
+      setTerminalHistory(prev => [...prev, { type: "error", content: language === "ar" ? "فشل في تنفيذ الأمر" : "Command execution failed" }]);
+    },
+  });
+
+  // Terminal command handler - now uses real execution
+  const handleTerminalCommand = async (command: string) => {
     setTerminalHistory(prev => [...prev, { type: "input", content: `$ ${command}` }]);
     
-    // Simulate command responses
-    let output = "";
     const cmd = command.trim().toLowerCase();
     
-    if (cmd === "ls" || cmd === "dir") {
-      output = files.map(f => f.fileName).join("\n") || "No files";
-    } else if (cmd === "pwd") {
-      output = `/home/user/projects/${project?.name || "project"}`;
-    } else if (cmd.startsWith("echo ")) {
-      output = command.substring(5);
-    } else if (cmd === "node --version") {
-      output = "v20.10.0";
-    } else if (cmd === "npm --version") {
-      output = "10.2.3";
-    } else if (cmd === "python --version") {
-      output = "Python 3.11.6";
-    } else if (cmd === "git status") {
-      output = "On branch main\nYour branch is up to date with 'origin/main'.\n\nnothing to commit, working tree clean";
-    } else if (cmd === "npm install" || cmd === "npm i") {
-      output = "added 0 packages, and audited 1 package in 1s\nfound 0 vulnerabilities";
-    } else if (cmd === "clear") {
+    if (cmd === "clear") {
       setTerminalHistory([]);
       return;
-    } else if (cmd === "help") {
-      output = "Available commands:\n  ls, pwd, echo, node --version, npm --version, python --version, git status, npm install, clear, help";
-    } else if (cmd) {
-      output = `Command not found: ${command}`;
     }
     
-    if (output) {
-      setTerminalHistory(prev => [...prev, { type: "output", content: output }]);
+    if (cmd === "help") {
+      const helpText = language === "ar" 
+        ? "الأوامر المتاحة:\n  ls - عرض الملفات\n  node <file> - تشغيل ملف Node.js\n  python <file> - تشغيل ملف Python\n  npm install - تثبيت الحزم\n  sync - مزامنة الملفات\n  clear - مسح الشاشة\n  help - هذه المساعدة"
+        : "Available commands:\n  ls - list files\n  node <file> - run Node.js file\n  python <file> - run Python file\n  npm install - install packages\n  sync - sync files to disk\n  clear - clear screen\n  help - this help";
+      setTerminalHistory(prev => [...prev, { type: "output", content: helpText }]);
+      return;
     }
+    
+    if (cmd === "sync") {
+      await syncFilesMutation.mutateAsync();
+      return;
+    }
+    
+    // Sync files before any command that might need them
+    if (cmd.startsWith("node ") || cmd.startsWith("python ") || cmd.startsWith("npm ")) {
+      await syncFilesMutation.mutateAsync();
+    }
+    
+    // Execute real command
+    executeCommandMutation.mutate(command);
   };
 
   // Fetch project
@@ -943,7 +968,13 @@ export default function CloudIDE() {
                     <div
                       key={idx}
                       className={`py-0.5 whitespace-pre-wrap ${
-                        entry.type === "input" ? "text-cyan-400" : "text-gray-300"
+                        entry.type === "input" 
+                          ? "text-cyan-400" 
+                          : entry.type === "error"
+                          ? "text-red-400"
+                          : entry.type === "system"
+                          ? "text-yellow-400"
+                          : "text-gray-300"
                       }`}
                     >
                       {entry.content}
