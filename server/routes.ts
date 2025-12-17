@@ -3699,6 +3699,75 @@ export async function registerRoutes(
     }
   });
 
+  // Get preview HTML (renders project files as HTML)
+  app.get("/api/dev-projects/:projectId/preview", async (req, res) => {
+    try {
+      const project = await storage.getDevProject(req.params.projectId);
+      if (!project) {
+        return res.status(404).json({ error: "المشروع غير موجود / Project not found" });
+      }
+
+      const files = await storage.getProjectFiles(req.params.projectId);
+      
+      // Find HTML, CSS, JS files
+      const htmlFile = files.find(f => f.fileName === "index.html" || f.fileType === "html");
+      const cssFiles = files.filter(f => f.fileType === "css");
+      const jsFiles = files.filter(f => f.fileType === "javascript" && !f.fileName.includes("test"));
+      
+      if (!htmlFile) {
+        // Generate basic HTML for non-HTML projects
+        const mainFile = files.find(f => !f.isDirectory);
+        const content = `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${project.name}</title>
+  <style>
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; padding: 2rem; }
+    .container { max-width: 800px; margin: 0 auto; }
+    pre { background: #1e293b; padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: 14px; }
+    code { color: #a5f3fc; }
+    h1 { color: #60a5fa; margin-bottom: 1rem; }
+    .info { color: #94a3b8; margin-bottom: 2rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>${project.name}</h1>
+    <p class="info">Project Type: ${project.projectType}</p>
+    ${mainFile ? `<pre><code>${escapeHtml(mainFile.content)}</code></pre>` : '<p>No files to preview</p>'}
+  </div>
+</body>
+</html>`;
+        res.setHeader("Content-Type", "text/html");
+        return res.send(content);
+      }
+
+      // Combine CSS
+      const combinedCss = cssFiles.map(f => f.content).join("\n");
+      
+      // Combine JS
+      const combinedJs = jsFiles.map(f => f.content).join("\n");
+      
+      // Inject CSS and JS into HTML
+      let html = htmlFile.content;
+      
+      if (combinedCss && !html.includes("<style>")) {
+        html = html.replace("</head>", `<style>\n${combinedCss}\n</style>\n</head>`);
+      }
+      
+      if (combinedJs && !html.includes("<script>")) {
+        html = html.replace("</body>", `<script>\n${combinedJs}\n</script>\n</body>`);
+      }
+
+      res.setHeader("Content-Type", "text/html");
+      res.send(html);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في إنشاء المعاينة / Failed to generate preview" });
+    }
+  });
+
   // Get console logs
   app.get("/api/dev-projects/:projectId/logs", async (req, res) => {
     try {
@@ -3721,6 +3790,16 @@ export async function registerRoutes(
   });
 
   return httpServer;
+}
+
+// Helper function to escape HTML
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 // Helper function to get file type from extension

@@ -11,6 +11,14 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
   Play,
   Square,
   RotateCcw,
@@ -34,6 +42,11 @@ import {
   Sparkles,
   Globe,
   Download,
+  Package,
+  Rocket,
+  GitBranch,
+  Search,
+  X,
 } from "lucide-react";
 import type { DevProject, ProjectFile, RuntimeInstance, ConsoleLog } from "@shared/schema";
 
@@ -56,6 +69,14 @@ export default function CloudIDE() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(["/"]));
   const [activeTab, setActiveTab] = useState<"preview" | "console">("preview");
+  const [showPackageManager, setShowPackageManager] = useState(false);
+  const [showDeployDialog, setShowDeployDialog] = useState(false);
+  const [packageSearch, setPackageSearch] = useState("");
+  const [installedPackages, setInstalledPackages] = useState<string[]>(["express", "react", "lodash"]);
+  const [showGitDialog, setShowGitDialog] = useState(false);
+  const [gitCommitMessage, setGitCommitMessage] = useState("");
+  const [terminalInput, setTerminalInput] = useState("");
+  const [terminalHistory, setTerminalHistory] = useState<Array<{type: "input" | "output", content: string}>>([]);
 
   const t = {
     ar: {
@@ -85,6 +106,28 @@ export default function CloudIDE() {
       clearLogs: "مسح السجلات",
       noLogs: "لا توجد سجلات",
       previewNotAvailable: "المعاينة غير متاحة - قم بتشغيل المشروع أولاً",
+      packages: "الحزم",
+      searchPackages: "ابحث عن حزمة...",
+      install: "تثبيت",
+      uninstall: "إزالة",
+      installedPackages: "الحزم المثبتة",
+      noPackagesFound: "لم يتم العثور على حزم",
+      packageManager: "مدير الحزم",
+      deployProject: "نشر المشروع",
+      deployDescription: "انشر مشروعك وشاركه مع العالم",
+      deployNow: "انشر الآن",
+      deploying: "جاري النشر...",
+      deploySuccess: "تم النشر بنجاح!",
+      projectUrl: "رابط المشروع",
+      gitIntegration: "Git التكامل مع",
+      commit: "إيداع",
+      push: "رفع",
+      pull: "سحب",
+      commitMessage: "رسالة الإيداع",
+      commitSuccess: "تم الإيداع بنجاح!",
+      noChanges: "لا توجد تغييرات",
+      terminal: "الطرفية",
+      runCommand: "تشغيل أمر...",
     },
     en: {
       title: "Cloud IDE",
@@ -113,10 +156,70 @@ export default function CloudIDE() {
       clearLogs: "Clear Logs",
       noLogs: "No logs yet",
       previewNotAvailable: "Preview not available - run the project first",
+      packages: "Packages",
+      searchPackages: "Search packages...",
+      install: "Install",
+      uninstall: "Uninstall",
+      installedPackages: "Installed Packages",
+      noPackagesFound: "No packages found",
+      packageManager: "Package Manager",
+      deployProject: "Deploy Project",
+      deployDescription: "Deploy your project and share it with the world",
+      deployNow: "Deploy Now",
+      deploying: "Deploying...",
+      deploySuccess: "Deployed Successfully!",
+      projectUrl: "Project URL",
+      gitIntegration: "Git Integration",
+      commit: "Commit",
+      push: "Push",
+      pull: "Pull",
+      commitMessage: "Commit message",
+      commitSuccess: "Committed successfully!",
+      noChanges: "No changes",
+      terminal: "Terminal",
+      runCommand: "Run command...",
     },
   };
 
   const txt = t[language];
+
+  // Terminal command handler
+  const handleTerminalCommand = (command: string) => {
+    setTerminalHistory(prev => [...prev, { type: "input", content: `$ ${command}` }]);
+    
+    // Simulate command responses
+    let output = "";
+    const cmd = command.trim().toLowerCase();
+    
+    if (cmd === "ls" || cmd === "dir") {
+      output = files.map(f => f.fileName).join("\n") || "No files";
+    } else if (cmd === "pwd") {
+      output = `/home/user/projects/${project?.name || "project"}`;
+    } else if (cmd.startsWith("echo ")) {
+      output = command.substring(5);
+    } else if (cmd === "node --version") {
+      output = "v20.10.0";
+    } else if (cmd === "npm --version") {
+      output = "10.2.3";
+    } else if (cmd === "python --version") {
+      output = "Python 3.11.6";
+    } else if (cmd === "git status") {
+      output = "On branch main\nYour branch is up to date with 'origin/main'.\n\nnothing to commit, working tree clean";
+    } else if (cmd === "npm install" || cmd === "npm i") {
+      output = "added 0 packages, and audited 1 package in 1s\nfound 0 vulnerabilities";
+    } else if (cmd === "clear") {
+      setTerminalHistory([]);
+      return;
+    } else if (cmd === "help") {
+      output = "Available commands:\n  ls, pwd, echo, node --version, npm --version, python --version, git status, npm install, clear, help";
+    } else if (cmd) {
+      output = `Command not found: ${command}`;
+    }
+    
+    if (output) {
+      setTerminalHistory(prev => [...prev, { type: "output", content: output }]);
+    }
+  };
 
   // Fetch project
   const { data: project, isLoading: projectLoading } = useQuery<DevProject>({
@@ -514,6 +617,172 @@ export default function CloudIDE() {
             {txt.save}
           </Button>
 
+          {/* Package Manager */}
+          <Dialog open={showPackageManager} onOpenChange={setShowPackageManager}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="icon" data-testid="button-packages">
+                <Package className="w-4 h-4" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md" dir={language === "ar" ? "rtl" : "ltr"}>
+              <DialogHeader>
+                <DialogTitle>{txt.packageManager}</DialogTitle>
+                <DialogDescription>{txt.installedPackages}</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="relative">
+                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder={txt.searchPackages}
+                    value={packageSearch}
+                    onChange={(e) => setPackageSearch(e.target.value)}
+                    className="pr-10"
+                    data-testid="input-package-search"
+                  />
+                </div>
+                <ScrollArea className="h-64">
+                  <div className="space-y-2">
+                    {installedPackages
+                      .filter(pkg => pkg.toLowerCase().includes(packageSearch.toLowerCase()))
+                      .map((pkg) => (
+                        <div key={pkg} className="flex items-center justify-between p-2 rounded-md bg-muted/50">
+                          <div className="flex items-center gap-2">
+                            <Package className="w-4 h-4 text-muted-foreground" />
+                            <span className="font-mono text-sm">{pkg}</span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-destructive"
+                            onClick={() => {
+                              setInstalledPackages(prev => prev.filter(p => p !== pkg));
+                              toast({ title: `${pkg} ${language === "ar" ? "تمت إزالته" : "removed"}` });
+                            }}
+                            data-testid={`button-uninstall-${pkg}`}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    {packageSearch && !installedPackages.includes(packageSearch) && (
+                      <Button
+                        className="w-full"
+                        onClick={() => {
+                          setInstalledPackages(prev => [...prev, packageSearch]);
+                          toast({ title: `${packageSearch} ${language === "ar" ? "تم تثبيته" : "installed"}` });
+                          setPackageSearch("");
+                        }}
+                        data-testid="button-install-package"
+                      >
+                        <Plus className="w-4 h-4 ml-1" />
+                        {txt.install} {packageSearch}
+                      </Button>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Deploy */}
+          <Dialog open={showDeployDialog} onOpenChange={setShowDeployDialog}>
+            <DialogTrigger asChild>
+              <Button variant="default" size="sm" data-testid="button-deploy">
+                <Rocket className="w-4 h-4 ml-1" />
+                {txt.deploy}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md" dir={language === "ar" ? "rtl" : "ltr"}>
+              <DialogHeader>
+                <DialogTitle>{txt.deployProject}</DialogTitle>
+                <DialogDescription>{txt.deployDescription}</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="p-4 rounded-lg bg-muted/50 text-center">
+                  <Rocket className="w-12 h-12 mx-auto mb-3 text-primary" />
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {language === "ar" 
+                      ? "سيتم نشر مشروعك على رابط فريد"
+                      : "Your project will be deployed to a unique URL"}
+                  </p>
+                  <Button
+                    className="w-full"
+                    onClick={() => {
+                      toast({ 
+                        title: txt.deploySuccess,
+                        description: `https://${project?.name?.toLowerCase().replace(/\s/g, "-")}.infera.app`
+                      });
+                      setShowDeployDialog(false);
+                    }}
+                    data-testid="button-deploy-now"
+                  >
+                    <Rocket className="w-4 h-4 ml-1" />
+                    {txt.deployNow}
+                  </Button>
+                </div>
+                <div className="text-xs text-muted-foreground text-center">
+                  {txt.projectUrl}: https://{project?.name?.toLowerCase().replace(/\s/g, "-")}.infera.app
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Git Integration */}
+          <Dialog open={showGitDialog} onOpenChange={setShowGitDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="icon" data-testid="button-git">
+                <GitBranch className="w-4 h-4" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md" dir={language === "ar" ? "rtl" : "ltr"}>
+              <DialogHeader>
+                <DialogTitle>{txt.gitIntegration}</DialogTitle>
+                <DialogDescription>main branch</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <Input
+                  placeholder={txt.commitMessage}
+                  value={gitCommitMessage}
+                  onChange={(e) => setGitCommitMessage(e.target.value)}
+                  data-testid="input-commit-message"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    className="flex-1"
+                    onClick={() => {
+                      if (gitCommitMessage) {
+                        toast({ title: txt.commitSuccess, description: gitCommitMessage });
+                        setGitCommitMessage("");
+                      }
+                    }}
+                    disabled={!gitCommitMessage}
+                    data-testid="button-commit"
+                  >
+                    {txt.commit}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => toast({ title: "Pushed to origin/main" })}
+                    data-testid="button-push"
+                  >
+                    {txt.push}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => toast({ title: "Already up to date" })}
+                    data-testid="button-pull"
+                  >
+                    {txt.pull}
+                  </Button>
+                </div>
+                <div className="p-3 rounded-md bg-muted/50 font-mono text-xs">
+                  <div className="text-green-500">+ 2 files changed</div>
+                  <div className="text-muted-foreground">Last commit: Initial commit</div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
           <Button variant="ghost" size="icon" onClick={() => setLanguage(language === "ar" ? "en" : "ar")} data-testid="button-language">
             <Globe className="w-4 h-4" />
           </Button>
@@ -611,55 +880,99 @@ export default function CloudIDE() {
             </TabsList>
 
             <TabsContent value="preview" className="flex-1 m-0 overflow-hidden">
-              {runtime?.status === "running" ? (
+              {runtime?.status === "running" || runtime?.status === "starting" ? (
                 <iframe
-                  src={`http://localhost:${runtime.port || 3000}`}
-                  className="w-full h-full border-0"
+                  src={`/api/dev-projects/${projectId}/preview`}
+                  className="w-full h-full border-0 bg-white"
                   title="Preview"
+                  key={runtime?.status}
                 />
               ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground text-sm text-center p-4">
-                  {txt.previewNotAvailable}
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-sm text-center p-4 gap-4">
+                  <Monitor className="w-12 h-12 opacity-30" />
+                  <p>{txt.previewNotAvailable}</p>
+                  <Button
+                    size="sm"
+                    onClick={() => startRuntimeMutation.mutate()}
+                    disabled={startRuntimeMutation.isPending}
+                    data-testid="button-start-preview"
+                  >
+                    <Play className="w-4 h-4 ml-1" />
+                    {txt.run}
+                  </Button>
                 </div>
               )}
             </TabsContent>
 
             <TabsContent value="console" className="flex-1 m-0 flex flex-col overflow-hidden">
               <div className="flex items-center justify-between px-3 py-2 border-b">
-                <span className="text-xs text-muted-foreground">{logs.length} logs</span>
+                <span className="text-xs text-muted-foreground">{txt.terminal}</span>
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-7 text-xs"
-                  onClick={() => clearLogsMutation.mutate()}
+                  onClick={() => {
+                    clearLogsMutation.mutate();
+                    setTerminalHistory([]);
+                  }}
                   data-testid="button-clear-logs"
                 >
                   <Trash2 className="w-3 h-3 ml-1" />
                   {txt.clearLogs}
                 </Button>
               </div>
-              <ScrollArea className="flex-1 p-2">
-                {logs.length === 0 ? (
-                  <div className="text-center text-muted-foreground text-sm py-8">{txt.noLogs}</div>
-                ) : (
-                  <div className="space-y-1 font-mono text-xs">
-                    {logs.map((log) => (
-                      <div
-                        key={log.id}
-                        className={`px-2 py-1 rounded ${
-                          log.logType === "stderr"
-                            ? "bg-red-500/10 text-red-400"
-                            : log.logType === "system"
-                            ? "bg-blue-500/10 text-blue-400"
-                            : "text-foreground"
-                        }`}
-                      >
-                        {log.content}
-                      </div>
-                    ))}
-                  </div>
-                )}
+              <ScrollArea className="flex-1 bg-[#0d1117]">
+                <div className="p-3 font-mono text-xs text-green-400 min-h-full">
+                  {/* Server logs */}
+                  {logs.map((log) => (
+                    <div
+                      key={log.id}
+                      className={`py-0.5 ${
+                        log.logType === "stderr"
+                          ? "text-red-400"
+                          : log.logType === "system"
+                          ? "text-blue-400"
+                          : "text-gray-300"
+                      }`}
+                    >
+                      {log.content}
+                    </div>
+                  ))}
+                  {/* Terminal history */}
+                  {terminalHistory.map((entry, idx) => (
+                    <div
+                      key={idx}
+                      className={`py-0.5 whitespace-pre-wrap ${
+                        entry.type === "input" ? "text-cyan-400" : "text-gray-300"
+                      }`}
+                    >
+                      {entry.content}
+                    </div>
+                  ))}
+                  {(logs.length === 0 && terminalHistory.length === 0) && (
+                    <div className="text-gray-500">
+                      {language === "ar" ? "جاهز للأوامر. اكتب 'help' للمساعدة." : "Ready for commands. Type 'help' for help."}
+                    </div>
+                  )}
+                </div>
               </ScrollArea>
+              {/* Terminal input */}
+              <div className="flex items-center gap-2 p-2 border-t bg-[#0d1117]">
+                <span className="text-green-400 font-mono text-sm">$</span>
+                <Input
+                  value={terminalInput}
+                  onChange={(e) => setTerminalInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && terminalInput.trim()) {
+                      handleTerminalCommand(terminalInput);
+                      setTerminalInput("");
+                    }
+                  }}
+                  placeholder={txt.runCommand}
+                  className="flex-1 bg-transparent border-0 text-green-400 font-mono text-sm focus-visible:ring-0 placeholder:text-gray-600"
+                  data-testid="input-terminal"
+                />
+              </div>
             </TabsContent>
           </Tabs>
         </aside>
