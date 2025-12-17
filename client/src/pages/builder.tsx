@@ -147,12 +147,23 @@ export default function Builder() {
     setMessages((prev) => [...prev, userMessage]);
     setIsGenerating(true);
     
+    const newProjectKeywords = [
+      'أنشئ', 'اصنع', 'ابني', 'صمم', 'جديد', 'موقع', 'صفحة', 'منصة', 'متجر', 'بورتفوليو',
+      'create', 'build', 'make', 'design', 'new', 'website', 'page', 'landing', 'portfolio', 'store'
+    ];
+    const isNewProjectRequest = newProjectKeywords.some(kw => content.toLowerCase().includes(kw)) && 
+                                 !content.toLowerCase().includes('عدل') && 
+                                 !content.toLowerCase().includes('غير') &&
+                                 !content.toLowerCase().includes('modify') &&
+                                 !content.toLowerCase().includes('change') &&
+                                 !content.toLowerCase().includes('update');
+    
     try {
-      console.log("Starting generation request...");
+      console.log("Starting generation request...", isNewProjectRequest ? "(NEW)" : "(MODIFY)");
       const data: GenerateCodeResponse = await apiRequest("POST", "/api/generate", {
         prompt: content,
         projectId,
-        context: html ? `Current HTML: ${html}\nCurrent CSS: ${css}\nCurrent JS: ${js}` : undefined,
+        context: (!isNewProjectRequest && html) ? `Current HTML: ${html}\nCurrent CSS: ${css}\nCurrent JS: ${js}` : undefined,
       });
       
       console.log("Generation response received:", data);
