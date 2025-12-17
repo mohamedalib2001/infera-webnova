@@ -11,7 +11,7 @@ import { ComponentLibrary } from "@/components/component-library";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Save, Loader2 } from "lucide-react";
+import { ArrowRight, Save, Loader2, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Project, Message, Template, ChatMessage as ChatMessageType, GenerateCodeResponse } from "@shared/schema";
@@ -25,7 +25,7 @@ export default function Builder() {
   const templateId = searchParams.get("template");
   const { toast } = useToast();
   
-  const [projectName, setProjectName] = useState("Untitled Project");
+  const [projectName, setProjectName] = useState("مشروع جديد");
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [html, setHtml] = useState("");
   const [css, setCss] = useState("");
@@ -35,25 +35,21 @@ export default function Builder() {
   const [hasProcessedInitialPrompt, setHasProcessedInitialPrompt] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Fetch existing project if editing
   const { data: project, isLoading: projectLoading } = useQuery<Project>({
     queryKey: ["/api/projects", projectId],
     enabled: !!projectId,
   });
 
-  // Fetch existing messages for project
   const { data: existingMessages } = useQuery<Message[]>({
     queryKey: ["/api/projects", projectId, "messages"],
     enabled: !!projectId,
   });
 
-  // Fetch template if starting from template
   const { data: template } = useQuery<Template>({
     queryKey: ["/api/templates", templateId],
     enabled: !!templateId,
   });
 
-  // Load project data when fetched
   useEffect(() => {
     if (project) {
       setProjectName(project.name);
@@ -63,7 +59,6 @@ export default function Builder() {
     }
   }, [project]);
 
-  // Load existing messages when fetched
   useEffect(() => {
     if (existingMessages && existingMessages.length > 0) {
       const formattedMessages: ChatMessageType[] = existingMessages.map((m) => ({
@@ -76,32 +71,27 @@ export default function Builder() {
     }
   }, [existingMessages]);
 
-  // Load template data when fetched
   useEffect(() => {
     if (template) {
       setHtml(template.htmlCode);
       setCss(template.cssCode);
       setJs(template.jsCode);
-      setProjectName(`${template.name} - Copy`);
+      setProjectName(`${template.name} - نسخة`);
     }
   }, [template]);
 
-  // Process initial prompt (only once)
   useEffect(() => {
     if (initialPrompt && !projectId && !hasProcessedInitialPrompt) {
       setHasProcessedInitialPrompt(true);
       handleSendMessage(initialPrompt);
-      // Clear the URL parameter
       window.history.replaceState({}, "", "/builder");
     }
   }, [initialPrompt, projectId, hasProcessedInitialPrompt]);
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Save project mutation
   const saveMutation = useMutation({
     mutationFn: async (data: { name: string; htmlCode: string; cssCode: string; jsCode: string }) => {
       if (projectId) {
@@ -118,14 +108,13 @@ export default function Builder() {
         window.history.replaceState({}, "", `/builder/${data.id}`);
       }
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      toast({ title: "Project saved!" });
+      toast({ title: "تم حفظ المشروع!" });
     },
     onError: () => {
-      toast({ title: "Failed to save project", variant: "destructive" });
+      toast({ title: "فشل في حفظ المشروع", variant: "destructive" });
     },
   });
 
-  // Save message mutation
   const saveMessageMutation = useMutation({
     mutationFn: async (message: { projectId: string; role: string; content: string }) => {
       const response = await apiRequest("POST", "/api/messages", message);
@@ -153,12 +142,10 @@ export default function Builder() {
       
       const data: GenerateCodeResponse = await response.json();
       
-      // Update code
       setHtml(data.html);
       setCss(data.css);
       setJs(data.js);
       
-      // Add AI response
       const aiMessage: ChatMessageType = {
         id: crypto.randomUUID(),
         role: "assistant",
@@ -168,15 +155,14 @@ export default function Builder() {
       
       setMessages((prev) => [...prev, aiMessage]);
 
-      // Save messages to backend if we have a project
       if (projectId) {
         saveMessageMutation.mutate({ projectId, role: "user", content });
         saveMessageMutation.mutate({ projectId, role: "assistant", content: data.message });
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Please try again";
+      const errorMessage = error instanceof Error ? error.message : "حاول مرة أخرى";
       toast({
-        title: "Generation failed",
+        title: "فشل في التوليد",
         description: errorMessage,
         variant: "destructive",
       });
@@ -203,22 +189,22 @@ export default function Builder() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full" dir="rtl">
       {/* Header */}
-      <header className="flex items-center gap-4 p-4 border-b">
+      <header className="flex items-center gap-4 p-3 border-b bg-background/95 backdrop-blur-sm">
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setLocation("/")}
           data-testid="button-back"
         >
-          <ArrowLeft className="h-5 w-5" />
+          <ArrowRight className="h-5 w-5" />
         </Button>
         
         <Input
           value={projectName}
           onChange={(e) => setProjectName(e.target.value)}
-          className="max-w-xs font-semibold"
+          className="max-w-xs font-semibold text-right"
           data-testid="input-project-name"
         />
         
@@ -247,17 +233,34 @@ export default function Builder() {
           ) : (
             <Save className="h-4 w-4" />
           )}
-          Save
+          حفظ
         </Button>
       </header>
       
-      {/* Main content */}
+      {/* Main content - Preview on left, Chat on right for RTL */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Chat Panel */}
-        <div className="w-[400px] flex flex-col border-r bg-background">
+        {/* Preview Panel - appears on left in RTL */}
+        <div className="flex-1 p-4 bg-muted/30">
+          <CodePreview
+            html={html}
+            css={css}
+            js={js}
+          />
+        </div>
+        
+        {/* Chat Panel - appears on right in RTL */}
+        <div className="w-[380px] flex flex-col border-r bg-background">
           <ScrollArea className="flex-1 p-4">
             {messages.length === 0 ? (
-              <EmptyState type="chat" />
+              <div className="flex flex-col items-center justify-center h-full text-center py-12">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center mb-4">
+                  <Sparkles className="h-8 w-8 text-white" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">ابدأ محادثة</h3>
+                <p className="text-sm text-muted-foreground max-w-[250px]">
+                  صِف الموقع الذي تريد بناءه وسيساعدك الذكاء الاصطناعي في إنشائه
+                </p>
+              </div>
             ) : (
               <div className="space-y-4">
                 {messages.map((message) => (
@@ -272,18 +275,9 @@ export default function Builder() {
             <ChatInput
               onSend={handleSendMessage}
               isLoading={isGenerating}
-              placeholder="Describe what you want to change..."
+              placeholder="صِف ما تريد تغييره..."
             />
           </div>
-        </div>
-        
-        {/* Preview Panel */}
-        <div className="flex-1 p-4">
-          <CodePreview
-            html={html}
-            css={css}
-            js={js}
-          />
         </div>
       </div>
     </div>
