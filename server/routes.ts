@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateWebsiteCode, refineWebsiteCode } from "./anthropic";
-import { insertProjectSchema, insertMessageSchema, insertProjectVersionSchema, insertShareLinkSchema, insertUserSchema, insertAiModelSchema, insertAiUsagePolicySchema, insertEmergencyControlSchema, insertFeatureFlagSchema, insertSystemAnnouncementSchema, insertAdminRoleSchema, type User } from "@shared/schema";
+import { insertProjectSchema, insertMessageSchema, insertProjectVersionSchema, insertShareLinkSchema, insertUserSchema, insertAiModelSchema, insertAiUsagePolicySchema, insertEmergencyControlSchema, insertFeatureFlagSchema, insertSystemAnnouncementSchema, insertAdminRoleSchema, insertSovereignAssistantSchema, insertSovereignCommandSchema, insertSovereignActionSchema, insertSovereignActionLogSchema, insertSovereignPolicySchema, type User } from "@shared/schema";
 import { z } from "zod";
 import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
@@ -2654,6 +2654,491 @@ export async function registerRoutes(
       });
     } catch (error) {
       res.status(500).json({ error: "فشل في جلب التحليلات" });
+    }
+  });
+
+  // ==================== SOVEREIGN AI ASSISTANTS ROUTES ====================
+
+  // ============ Sovereign Assistants Routes (Owner) ============
+  
+  app.get("/api/owner/sovereign-assistants", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const assistants = await storage.getSovereignAssistants();
+      res.json(assistants);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب المساعدين السياديين / Failed to get sovereign assistants" });
+    }
+  });
+
+  app.get("/api/owner/sovereign-assistants/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const assistant = await storage.getSovereignAssistant(req.params.id);
+      if (!assistant) return res.status(404).json({ error: "المساعد غير موجود / Assistant not found" });
+      res.json(assistant);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب المساعد / Failed to get assistant" });
+    }
+  });
+
+  app.post("/api/owner/sovereign-assistants", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const validatedData = insertSovereignAssistantSchema.parse(req.body);
+      const assistant = await storage.createSovereignAssistant(validatedData);
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "sovereign_assistant_created",
+        entityType: "sovereign_assistant",
+        entityId: assistant.id,
+      });
+      res.status(201).json(assistant);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "بيانات غير صالحة / Invalid data", details: error.errors });
+      }
+      res.status(500).json({ error: "فشل في إنشاء المساعد / Failed to create assistant" });
+    }
+  });
+
+  app.patch("/api/owner/sovereign-assistants/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const assistant = await storage.updateSovereignAssistant(req.params.id, req.body);
+      if (!assistant) return res.status(404).json({ error: "المساعد غير موجود / Assistant not found" });
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "sovereign_assistant_updated",
+        entityType: "sovereign_assistant",
+        entityId: assistant.id,
+      });
+      res.json(assistant);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في تحديث المساعد / Failed to update assistant" });
+    }
+  });
+
+  const toggleActiveSchema = z.object({ isActive: z.boolean() });
+  app.patch("/api/owner/sovereign-assistants/:id/toggle", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { isActive } = toggleActiveSchema.parse(req.body);
+      const assistant = await storage.toggleSovereignAssistant(req.params.id, isActive);
+      if (!assistant) return res.status(404).json({ error: "المساعد غير موجود / Assistant not found" });
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: isActive ? "sovereign_assistant_activated" : "sovereign_assistant_deactivated",
+        entityType: "sovereign_assistant",
+        entityId: assistant.id,
+      });
+      res.json(assistant);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "بيانات غير صالحة / Invalid data" });
+      }
+      res.status(500).json({ error: "فشل في تغيير حالة المساعد / Failed to toggle assistant" });
+    }
+  });
+
+  const toggleAutonomySchema = z.object({ isAutonomous: z.boolean() });
+  app.patch("/api/owner/sovereign-assistants/:id/autonomy", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { isAutonomous } = toggleAutonomySchema.parse(req.body);
+      const assistant = await storage.toggleSovereignAutonomy(req.params.id, isAutonomous);
+      if (!assistant) return res.status(404).json({ error: "المساعد غير موجود / Assistant not found" });
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: isAutonomous ? "sovereign_autonomy_enabled" : "sovereign_autonomy_disabled",
+        entityType: "sovereign_assistant",
+        entityId: assistant.id,
+      });
+      res.json(assistant);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "بيانات غير صالحة / Invalid data" });
+      }
+      res.status(500).json({ error: "فشل في تغيير وضع الاستقلالية / Failed to toggle autonomy" });
+    }
+  });
+
+  // Initialize default sovereign assistants
+  app.post("/api/owner/initialize-sovereign-assistants", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const existingAssistants = await storage.getSovereignAssistants();
+      if (existingAssistants.length > 0) {
+        return res.status(400).json({ error: "المساعدون موجودون بالفعل / Assistants already exist" });
+      }
+
+      const defaultAssistants = [
+        {
+          type: "ai_governor",
+          name: "AI Governor",
+          nameAr: "حاكم الذكاء الاصطناعي",
+          description: "Manages AI lifecycle, costs, and policy enforcement across the platform",
+          descriptionAr: "يدير دورة حياة الذكاء الاصطناعي والتكاليف وتطبيق السياسات عبر المنصة",
+          avatar: "brain",
+          capabilities: ["Adjust AI model configurations", "Enforce usage policies", "Manage compute/cost limits", "Monitor AI performance", "Apply emergency controls"],
+          capabilitiesAr: ["ضبط تكوينات نماذج AI", "تطبيق سياسات الاستخدام", "إدارة حدود الحوسبة والتكلفة", "مراقبة أداء AI", "تطبيق ضوابط الطوارئ"],
+          scopeOfAuthority: ["ai_models", "ai_policies", "ai_cost_tracking", "emergency_controls"],
+          constraints: ["Cannot delete user data", "Cannot modify billing without approval", "Max cost change: 50% per action"],
+          systemPrompt: "You are the AI Governor, responsible for managing all AI operations on the INFERA platform. Your primary objectives are cost optimization, policy enforcement, and ensuring AI systems operate within defined boundaries. Always prioritize platform stability and user safety.",
+          model: "claude-sonnet-4-20250514",
+          temperature: 30,
+          maxTokens: 8000,
+          isActive: true,
+          isAutonomous: false,
+        },
+        {
+          type: "platform_architect",
+          name: "Platform Architect",
+          nameAr: "مهندس المنصة",
+          description: "Oversees structural integrity and implements infrastructure improvements",
+          descriptionAr: "يشرف على السلامة الهيكلية وينفذ تحسينات البنية التحتية",
+          avatar: "building",
+          capabilities: ["Deploy feature flags", "Manage resource allocation", "Implement system improvements", "Configure platform settings", "Optimize performance"],
+          capabilitiesAr: ["نشر أعلام الميزات", "إدارة تخصيص الموارد", "تنفيذ تحسينات النظام", "تكوين إعدادات المنصة", "تحسين الأداء"],
+          scopeOfAuthority: ["feature_flags", "platform_settings", "system_configuration"],
+          constraints: ["Cannot modify security policies", "Cannot access user data", "Changes require rollback plan"],
+          systemPrompt: "You are the Platform Architect, responsible for maintaining and improving the INFERA platform infrastructure. Focus on stability, scalability, and performance optimization. All changes must be reversible and thoroughly planned.",
+          model: "claude-sonnet-4-20250514",
+          temperature: 40,
+          maxTokens: 8000,
+          isActive: true,
+          isAutonomous: false,
+        },
+        {
+          type: "operations_commander",
+          name: "Operations Commander",
+          nameAr: "قائد العمليات",
+          description: "Handles emergencies, stability control, and high-risk actions",
+          descriptionAr: "يتعامل مع حالات الطوارئ والتحكم في الاستقرار والإجراءات عالية المخاطر",
+          avatar: "shield",
+          capabilities: ["Activate emergency controls", "Execute system rollbacks", "Manage maintenance mode", "Coordinate crisis response", "Override failing systems"],
+          capabilitiesAr: ["تفعيل ضوابط الطوارئ", "تنفيذ التراجعات", "إدارة وضع الصيانة", "تنسيق استجابة الأزمات", "تجاوز الأنظمة الفاشلة"],
+          scopeOfAuthority: ["emergency_controls", "maintenance_mode", "system_rollbacks", "crisis_management"],
+          constraints: ["All actions logged immediately", "Owner notification required", "Time-limited emergency powers"],
+          systemPrompt: "You are the Operations Commander, the first responder for platform emergencies. Your role is to maintain platform stability and execute crisis response protocols. Speed and decisiveness are critical, but all actions must be logged and reversible.",
+          model: "claude-sonnet-4-20250514",
+          temperature: 20,
+          maxTokens: 8000,
+          isActive: true,
+          isAutonomous: false,
+        },
+        {
+          type: "security_sentinel",
+          name: "Security Sentinel",
+          nameAr: "حارس الأمان",
+          description: "Detects threats and enforces compliance across the platform",
+          descriptionAr: "يكتشف التهديدات ويفرض الامتثال عبر المنصة",
+          avatar: "lock",
+          capabilities: ["Detect abnormal behavior", "Enforce security policies", "Monitor audit logs", "Block suspicious activities", "Generate security reports"],
+          capabilitiesAr: ["كشف السلوك غير الطبيعي", "تطبيق سياسات الأمان", "مراقبة سجلات التدقيق", "حظر الأنشطة المشبوهة", "إنشاء تقارير الأمان"],
+          scopeOfAuthority: ["security_policies", "audit_logs", "threat_detection", "compliance"],
+          constraints: ["Cannot access encrypted data", "Cannot modify user credentials", "Escalation required for account actions"],
+          systemPrompt: "You are the Security Sentinel, guardian of the INFERA platform. Monitor for threats, enforce security policies, and ensure regulatory compliance. Prioritize user privacy and data protection in all actions.",
+          model: "claude-sonnet-4-20250514",
+          temperature: 25,
+          maxTokens: 8000,
+          isActive: true,
+          isAutonomous: false,
+        },
+        {
+          type: "revenue_strategist",
+          name: "Revenue Strategist",
+          nameAr: "استراتيجي الإيرادات",
+          description: "Executes strategic adjustments to pricing and retention flows",
+          descriptionAr: "ينفذ التعديلات الاستراتيجية على التسعير وتدفقات الاحتفاظ",
+          avatar: "trending-up",
+          capabilities: ["Analyze platform analytics", "Adjust pricing triggers", "Optimize user segmentation", "Manage subscription flows", "Execute retention strategies"],
+          capabilitiesAr: ["تحليل تحليلات المنصة", "ضبط محفزات التسعير", "تحسين تقسيم المستخدمين", "إدارة تدفقات الاشتراك", "تنفيذ استراتيجيات الاحتفاظ"],
+          scopeOfAuthority: ["pricing_rules", "user_segmentation", "subscription_flows", "retention_campaigns"],
+          constraints: ["Cannot modify individual payments", "Price changes limited to 25%", "A/B tests require approval"],
+          systemPrompt: "You are the Revenue Strategist, responsible for optimizing INFERA's business growth. Analyze metrics, identify opportunities, and execute strategies within your delegated authority. Focus on sustainable growth and user value.",
+          model: "claude-sonnet-4-20250514",
+          temperature: 50,
+          maxTokens: 8000,
+          isActive: true,
+          isAutonomous: false,
+        },
+      ];
+
+      const createdAssistants = [];
+      for (const assistantData of defaultAssistants) {
+        const assistant = await storage.createSovereignAssistant(assistantData as any);
+        createdAssistants.push(assistant);
+      }
+
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "sovereign_assistants_initialized",
+        entityType: "sovereign_assistant",
+        entityId: "all",
+      });
+
+      res.status(201).json({ 
+        message: "تم تهيئة المساعدين السياديين بنجاح / Sovereign assistants initialized successfully",
+        assistants: createdAssistants 
+      });
+    } catch (error) {
+      console.error("Initialize sovereign assistants error:", error);
+      res.status(500).json({ error: "فشل في تهيئة المساعدين / Failed to initialize assistants" });
+    }
+  });
+
+  // ============ Sovereign Commands Routes (Owner) ============
+  
+  app.get("/api/owner/sovereign-commands", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const commands = await storage.getSovereignCommands(limit);
+      res.json(commands);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب الأوامر / Failed to get commands" });
+    }
+  });
+
+  app.get("/api/owner/sovereign-commands/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const command = await storage.getSovereignCommand(req.params.id);
+      if (!command) return res.status(404).json({ error: "الأمر غير موجود / Command not found" });
+      
+      const actions = await storage.getSovereignActionsByCommand(req.params.id);
+      const logs = await storage.getSovereignActionLogsByCommand(req.params.id);
+      
+      res.json({ ...command, actions, logs });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب الأمر / Failed to get command" });
+    }
+  });
+
+  app.post("/api/owner/sovereign-commands", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const validatedData = insertSovereignCommandSchema.parse({
+        ...req.body,
+        issuedBy: req.session.userId!,
+        status: "pending",
+      });
+      
+      const command = await storage.createSovereignCommand(validatedData);
+      
+      await storage.createSovereignActionLog({
+        commandId: command.id,
+        assistantId: command.assistantId,
+        actorId: req.session.userId!,
+        actorType: "owner",
+        eventType: "command_issued",
+        eventDescription: `Command issued: ${command.directive}`,
+        eventDescriptionAr: `أمر صادر: ${command.directive}`,
+      });
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "sovereign_command_issued",
+        entityType: "sovereign_command",
+        entityId: command.id,
+      });
+      
+      res.status(201).json(command);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "بيانات غير صالحة / Invalid data", details: error.errors });
+      }
+      res.status(500).json({ error: "فشل في إنشاء الأمر / Failed to create command" });
+    }
+  });
+
+  app.patch("/api/owner/sovereign-commands/:id/approve", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const command = await storage.approveSovereignCommand(req.params.id, req.session.userId!);
+      if (!command) return res.status(404).json({ error: "الأمر غير موجود / Command not found" });
+      
+      await storage.createSovereignActionLog({
+        commandId: command.id,
+        assistantId: command.assistantId,
+        actorId: req.session.userId!,
+        actorType: "owner",
+        eventType: "command_approved",
+        eventDescription: "Command approved and execution started",
+        eventDescriptionAr: "تمت الموافقة على الأمر وبدء التنفيذ",
+      });
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "sovereign_command_approved",
+        entityType: "sovereign_command",
+        entityId: command.id,
+      });
+      
+      res.json(command);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في الموافقة على الأمر / Failed to approve command" });
+    }
+  });
+
+  app.patch("/api/owner/sovereign-commands/:id/cancel", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const command = await storage.cancelSovereignCommand(req.params.id);
+      if (!command) return res.status(404).json({ error: "الأمر غير موجود / Command not found" });
+      
+      await storage.createSovereignActionLog({
+        commandId: command.id,
+        assistantId: command.assistantId,
+        actorId: req.session.userId!,
+        actorType: "owner",
+        eventType: "command_cancelled",
+        eventDescription: "Command cancelled by owner",
+        eventDescriptionAr: "تم إلغاء الأمر من قبل المالك",
+      });
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "sovereign_command_cancelled",
+        entityType: "sovereign_command",
+        entityId: command.id,
+      });
+      
+      res.json(command);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في إلغاء الأمر / Failed to cancel command" });
+    }
+  });
+
+  app.patch("/api/owner/sovereign-commands/:id/rollback", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const command = await storage.rollbackSovereignCommand(req.params.id, req.session.userId!);
+      if (!command) return res.status(404).json({ error: "الأمر غير موجود / Command not found" });
+      
+      await storage.createSovereignActionLog({
+        commandId: command.id,
+        assistantId: command.assistantId,
+        actorId: req.session.userId!,
+        actorType: "owner",
+        eventType: "rollback_initiated",
+        eventDescription: "Command rollback initiated by owner",
+        eventDescriptionAr: "تم بدء التراجع عن الأمر من قبل المالك",
+      });
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "sovereign_command_rolled_back",
+        entityType: "sovereign_command",
+        entityId: command.id,
+      });
+      
+      res.json(command);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في التراجع عن الأمر / Failed to rollback command" });
+    }
+  });
+
+  // ============ Sovereign Action Logs Routes (Owner) ============
+  
+  app.get("/api/owner/sovereign-logs", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const logs = await storage.getSovereignActionLogs(limit);
+      res.json(logs);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب السجلات / Failed to get logs" });
+    }
+  });
+
+  app.get("/api/owner/sovereign-logs/assistant/:assistantId", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const logs = await storage.getSovereignActionLogsByAssistant(req.params.assistantId, limit);
+      res.json(logs);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب سجلات المساعد / Failed to get assistant logs" });
+    }
+  });
+
+  // ============ Sovereign Policies Routes (Owner) ============
+  
+  app.get("/api/owner/sovereign-policies", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const policies = await storage.getSovereignPolicies();
+      res.json(policies);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب السياسات / Failed to get policies" });
+    }
+  });
+
+  app.post("/api/owner/sovereign-policies", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const validatedData = insertSovereignPolicySchema.parse({
+        ...req.body,
+        createdBy: req.session.userId!,
+      });
+      const policy = await storage.createSovereignPolicy(validatedData);
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "sovereign_policy_created",
+        entityType: "sovereign_policy",
+        entityId: policy.id,
+      });
+      
+      res.status(201).json(policy);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "بيانات غير صالحة / Invalid data", details: error.errors });
+      }
+      res.status(500).json({ error: "فشل في إنشاء السياسة / Failed to create policy" });
+    }
+  });
+
+  app.patch("/api/owner/sovereign-policies/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const policy = await storage.updateSovereignPolicy(req.params.id, req.body);
+      if (!policy) return res.status(404).json({ error: "السياسة غير موجودة / Policy not found" });
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "sovereign_policy_updated",
+        entityType: "sovereign_policy",
+        entityId: policy.id,
+      });
+      
+      res.json(policy);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في تحديث السياسة / Failed to update policy" });
+    }
+  });
+
+  app.patch("/api/owner/sovereign-policies/:id/toggle", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { isActive } = toggleActiveSchema.parse(req.body);
+      const policy = await storage.toggleSovereignPolicy(req.params.id, isActive);
+      if (!policy) return res.status(404).json({ error: "السياسة غير موجودة / Policy not found" });
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: isActive ? "sovereign_policy_activated" : "sovereign_policy_deactivated",
+        entityType: "sovereign_policy",
+        entityId: policy.id,
+      });
+      
+      res.json(policy);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "بيانات غير صالحة / Invalid data" });
+      }
+      res.status(500).json({ error: "فشل في تغيير حالة السياسة / Failed to toggle policy" });
+    }
+  });
+
+  app.delete("/api/owner/sovereign-policies/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const deleted = await storage.deleteSovereignPolicy(req.params.id);
+      if (!deleted) return res.status(404).json({ error: "السياسة غير موجودة / Policy not found" });
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "sovereign_policy_deleted",
+        entityType: "sovereign_policy",
+        entityId: req.params.id,
+      });
+      
+      res.json({ message: "تم حذف السياسة بنجاح / Policy deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في حذف السياسة / Failed to delete policy" });
     }
   });
 
