@@ -45,7 +45,7 @@ Important: Only respond with valid JSON. No markdown code blocks.`;
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5",
+      model: "claude-sonnet-4-20250514",
       max_tokens: 8192,
       messages: [
         { role: "user", content: prompt },
@@ -107,7 +107,7 @@ Important: Only respond with valid JSON. No markdown code blocks.`;
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5",
+      model: "claude-sonnet-4-20250514",
       max_tokens: 8192,
       messages: [
         { role: "user", content: prompt },
