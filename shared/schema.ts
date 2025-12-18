@@ -304,6 +304,54 @@ export const insertComponentSchema = createInsertSchema(components).omit({
 export type InsertComponent = z.infer<typeof insertComponentSchema>;
 export type Component = typeof components.$inferSelect;
 
+// ==================== NOTIFICATIONS ====================
+
+// Notifications table - for user notifications
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  type: text("type").notNull(), // system, payment, project, collaboration, ai, security
+  title: text("title").notNull(),
+  titleAr: text("title_ar"),
+  message: text("message").notNull(),
+  messageAr: text("message_ar"),
+  isRead: boolean("is_read").notNull().default(false),
+  link: text("link"), // Optional link to navigate to
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Notification = typeof notifications.$inferSelect;
+
+// ==================== COLLABORATORS ====================
+
+// Collaborators table - for project collaboration
+export const collaborators = pgTable("collaborators", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  invitedBy: varchar("invited_by").notNull(),
+  role: text("role").notNull().default("viewer"), // owner, editor, viewer
+  status: text("status").notNull().default("pending"), // pending, accepted, rejected
+  inviteEmail: text("invite_email"),
+  createdAt: timestamp("created_at").defaultNow(),
+  acceptedAt: timestamp("accepted_at"),
+});
+
+export const insertCollaboratorSchema = createInsertSchema(collaborators).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCollaborator = z.infer<typeof insertCollaboratorSchema>;
+export type Collaborator = typeof collaborators.$inferSelect;
+
 // ==================== AI USAGE TRACKING ====================
 
 // AI Usage tracking for rate limiting

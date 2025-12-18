@@ -1,6 +1,6 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/lib/theme";
@@ -9,6 +9,10 @@ import { LanguageToggle } from "@/components/language-toggle";
 import { LanguageProvider, useLanguage } from "@/hooks/use-language";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Bell } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import Home from "@/pages/home";
 import Auth from "@/pages/auth";
 import Builder from "@/pages/builder";
@@ -34,6 +38,7 @@ import PaymentsDashboard from "@/pages/payments-dashboard";
 import PaymentSuccess from "@/pages/payment-success";
 import PaymentCancel from "@/pages/payment-cancel";
 import Subscription from "@/pages/subscription";
+import Notifications from "@/pages/notifications";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -64,9 +69,45 @@ function Router() {
       <Route path="/payment/success" component={PaymentSuccess} />
       <Route path="/payment/cancel" component={PaymentCancel} />
       <Route path="/subscription" component={Subscription} />
+      <Route path="/notifications" component={Notifications} />
       <Route path="/preview/:shareCode" component={Preview} />
       <Route component={NotFound} />
     </Switch>
+  );
+}
+
+function NotificationBell() {
+  const [, setLocation] = useLocation();
+  const { isAuthenticated } = useAuth();
+  
+  const { data: countData } = useQuery<{ count: number }>({
+    queryKey: ["/api/notifications/unread-count"],
+    enabled: isAuthenticated,
+    refetchInterval: 30000,
+  });
+
+  if (!isAuthenticated) return null;
+
+  const unreadCount = countData?.count || 0;
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={() => setLocation("/notifications")}
+      className="relative"
+      data-testid="button-notifications"
+    >
+      <Bell className="h-5 w-5" />
+      {unreadCount > 0 && (
+        <Badge 
+          variant="destructive" 
+          className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+        >
+          {unreadCount > 9 ? "9+" : unreadCount}
+        </Badge>
+      )}
+    </Button>
   );
 }
 
@@ -87,6 +128,7 @@ function AppContent() {
             <header className="flex items-center justify-between gap-2 p-3 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
               <SidebarTrigger data-testid="button-sidebar-toggle" />
               <div className="flex items-center gap-2">
+                <NotificationBell />
                 <LanguageToggle />
                 <ThemeToggle />
               </div>

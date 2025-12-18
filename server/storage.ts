@@ -73,6 +73,12 @@ import {
   type AiBuildSession,
   type InsertAiBuildSession,
   type AiBuildTask,
+  type Notification,
+  type InsertNotification,
+  type Collaborator,
+  type InsertCollaborator,
+  notifications,
+  collaborators,
   type InsertAiBuildTask,
   type AiBuildArtifact,
   type InsertAiBuildArtifact,
@@ -268,6 +274,21 @@ export interface IStorage {
   getShareLinksByProject(projectId: string): Promise<ShareLink[]>;
   createShareLink(link: InsertShareLink): Promise<ShareLink>;
   deactivateShareLink(id: string): Promise<boolean>;
+
+  // Notifications
+  getNotifications(userId: string): Promise<Notification[]>;
+  getUnreadNotificationsCount(userId: string): Promise<number>;
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  markNotificationRead(id: string, userId: string): Promise<Notification | undefined>;
+  markAllNotificationsRead(userId: string): Promise<void>;
+  deleteNotification(id: string, userId: string): Promise<boolean>;
+
+  // Collaborators
+  getCollaborators(projectId: string): Promise<Collaborator[]>;
+  getCollaborationInvites(userId: string): Promise<Collaborator[]>;
+  createCollaborator(collaborator: InsertCollaborator): Promise<Collaborator>;
+  respondToCollaboration(id: string, userId: string, accept: boolean): Promise<Collaborator | undefined>;
+  deleteCollaborator(id: string): Promise<boolean>;
 
   // Components
   getComponents(): Promise<Component[]>;
@@ -1413,6 +1434,90 @@ body { font-family: 'Tajawal', sans-serif; }
       .update(shareLinks)
       .set({ isActive: "false" })
       .where(eq(shareLinks.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // Notifications methods
+  async getNotifications(userId: string): Promise<Notification[]> {
+    return db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.userId, userId))
+      .orderBy(desc(notifications.createdAt));
+  }
+
+  async getUnreadNotificationsCount(userId: string): Promise<number> {
+    const result = await db
+      .select()
+      .from(notifications)
+      .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
+    return result.length;
+  }
+
+  async createNotification(insertNotification: InsertNotification): Promise<Notification> {
+    const [notification] = await db.insert(notifications).values(insertNotification).returning();
+    return notification;
+  }
+
+  async markNotificationRead(id: string, userId: string): Promise<Notification | undefined> {
+    const [notification] = await db
+      .update(notifications)
+      .set({ isRead: true })
+      .where(and(eq(notifications.id, id), eq(notifications.userId, userId)))
+      .returning();
+    return notification || undefined;
+  }
+
+  async markAllNotificationsRead(userId: string): Promise<void> {
+    await db
+      .update(notifications)
+      .set({ isRead: true })
+      .where(eq(notifications.userId, userId));
+  }
+
+  async deleteNotification(id: string, userId: string): Promise<boolean> {
+    const result = await db
+      .delete(notifications)
+      .where(and(eq(notifications.id, id), eq(notifications.userId, userId)));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // Collaborators methods
+  async getCollaborators(projectId: string): Promise<Collaborator[]> {
+    return db
+      .select()
+      .from(collaborators)
+      .where(eq(collaborators.projectId, projectId))
+      .orderBy(desc(collaborators.createdAt));
+  }
+
+  async getCollaborationInvites(userId: string): Promise<Collaborator[]> {
+    return db
+      .select()
+      .from(collaborators)
+      .where(and(eq(collaborators.userId, userId), eq(collaborators.status, "pending")))
+      .orderBy(desc(collaborators.createdAt));
+  }
+
+  async createCollaborator(insertCollaborator: InsertCollaborator): Promise<Collaborator> {
+    const [collaborator] = await db.insert(collaborators).values(insertCollaborator).returning();
+    return collaborator;
+  }
+
+  async respondToCollaboration(id: string, userId: string, accept: boolean): Promise<Collaborator | undefined> {
+    const [collaborator] = await db
+      .update(collaborators)
+      .set({ 
+        status: accept ? "accepted" : "rejected",
+        acceptedAt: accept ? new Date() : null 
+      })
+      .where(and(eq(collaborators.id, id), eq(collaborators.userId, userId)))
+      .returning();
+    return collaborator || undefined;
+  }
+
+  async deleteCollaborator(id: string): Promise<boolean> {
+    const result = await db.delete(collaborators).where(eq(collaborators.id, id));
     return (result.rowCount ?? 0) > 0;
   }
 

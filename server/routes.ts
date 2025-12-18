@@ -452,6 +452,165 @@ export async function registerRoutes(
     }
   });
 
+  // ============ Notifications Routes - نظام الإشعارات ============
+  
+  // Get user notifications
+  app.get("/api/notifications", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const notifications = await storage.getNotifications(userId);
+      res.json(notifications);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch notifications" });
+    }
+  });
+
+  // Get unread notifications count
+  app.get("/api/notifications/unread-count", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const count = await storage.getUnreadNotificationsCount(userId);
+      res.json({ count });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch count" });
+    }
+  });
+
+  // Mark notification as read
+  app.patch("/api/notifications/:id/read", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const notification = await storage.markNotificationRead(req.params.id, userId);
+      res.json(notification);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update notification" });
+    }
+  });
+
+  // Mark all notifications as read
+  app.post("/api/notifications/mark-all-read", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      await storage.markAllNotificationsRead(userId);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update notifications" });
+    }
+  });
+
+  // Delete notification
+  app.delete("/api/notifications/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      await storage.deleteNotification(req.params.id, userId);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete notification" });
+    }
+  });
+
+  // ============ Collaborators Routes - نظام التعاون ============
+  
+  // Get project collaborators
+  app.get("/api/projects/:projectId/collaborators", requireAuth, async (req, res) => {
+    try {
+      const collaborators = await storage.getCollaborators(req.params.projectId);
+      res.json(collaborators);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch collaborators" });
+    }
+  });
+
+  // Invite collaborator
+  app.post("/api/projects/:projectId/collaborators", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { email, role = "viewer" } = req.body;
+      
+      // Find user by email
+      const invitedUser = await storage.getUserByEmail(email);
+      
+      const collaborator = await storage.createCollaborator({
+        projectId: req.params.projectId,
+        userId: invitedUser?.id || "",
+        invitedBy: userId,
+        role,
+        inviteEmail: email,
+        status: invitedUser ? "pending" : "pending",
+      });
+      
+      // Create notification for invited user if they exist
+      if (invitedUser) {
+        await storage.createNotification({
+          userId: invitedUser.id,
+          type: "collaboration",
+          title: "Project Invitation",
+          titleAr: "دعوة للتعاون",
+          message: `You've been invited to collaborate on a project`,
+          messageAr: `تم دعوتك للتعاون في مشروع`,
+          link: `/projects/${req.params.projectId}`,
+        });
+      }
+      
+      res.json(collaborator);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to invite collaborator" });
+    }
+  });
+
+  // Accept/Reject collaboration invite
+  app.patch("/api/collaborators/:id/respond", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { accept } = req.body;
+      const collaborator = await storage.respondToCollaboration(
+        req.params.id, 
+        userId, 
+        accept
+      );
+      res.json(collaborator);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to respond to invitation" });
+    }
+  });
+
+  // Remove collaborator
+  app.delete("/api/projects/:projectId/collaborators/:collaboratorId", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteCollaborator(req.params.collaboratorId);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to remove collaborator" });
+    }
+  });
+
+  // Get user's collaboration invites
+  app.get("/api/collaborations/invites", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const invites = await storage.getCollaborationInvites(userId);
+      res.json(invites);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch invites" });
+    }
+  });
+
   // ============ Projects Routes ============
   
   // Get all projects
