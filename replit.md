@@ -17,7 +17,7 @@ INFERA WebNova is built with a modern web stack: React + TypeScript + Vite for t
 The platform features an AI Chat Interface for natural language interaction, a live preview with responsive viewport controls, and a dark/light mode toggle. It includes pre-built UI components and templates for rapid development, with full bilingual support across the interface.
 
 **Technical Implementations & Feature Specifications:**
-*   **AI-Powered Generation**: Utilizes OpenAI API (GPT-5) for generating website code and full-stack applications from natural language prompts.
+*   **AI-Powered Generation**: Utilizes Anthropic Claude for generating website code and full-stack applications from natural language prompts.
 *   **Project Management**: Includes functionalities for saving, editing, deleting, exporting, and managing version history of projects.
 *   **Sharing & Collaboration**: Allows creation of shareable preview links.
 *   **Component Library**: Provides pre-built UI components with support for vanilla CSS, Tailwind, and Bootstrap.
@@ -32,22 +32,36 @@ The platform features an AI Chat Interface for natural language interaction, a l
 ## External Dependencies
 *   **Database**: PostgreSQL
 *   **ORM**: Drizzle ORM
-*   **AI**: OpenAI API (GPT-5)
+*   **AI**: Anthropic Claude API
 *   **Payment Gateways**: Stripe, PayPal, Tap, mada, Apple Pay, Google Pay, STC Pay, Bank Transfer, Crypto
 
-## Cloud IDE Security Model
-The Cloud IDE implements comprehensive security:
+## Cloud IDE Features (Current Status)
+
+### Completed Features
+- **Monaco Editor**: Full Monaco editor integration with syntax highlighting
+- **Multi-Tab Support**: Open multiple files simultaneously with tab switching and content preservation
+- **File Management**: Create, edit, delete, rename files and folders
+- **Terminal Execution**: Execute Node.js, Python, npm commands with real output
+- **Package Management**: npm install/uninstall with search functionality
+- **Git Integration**: init, commit, status, log with real git operations
+- **Deployment Pipeline**: Deploy projects with version tracking
+- **AI Code Assistant**: AI-powered code help and generation
+- **Database Schema Builder**: Visual table/column creation with auto API generation
+- **Live Preview**: Real-time preview of HTML/CSS/JS projects
+- **Bilingual UI**: Arabic/English toggle in Cloud IDE
+
+### Security Model
 - REST API protection with requireAuth middleware
 - Token-based WebSocket authentication (one-time use, 5-minute expiry)
 - Command whitelist for terminal execution
 - Project ownership checks
+- Input sanitization for SQL and command injection prevention
 
-## Database Schema Builder (Phase 2)
-- Visual table/column creation with bilingual support
-- Auto API generation from database schema
-- Input sanitization to prevent SQL injection
-- Data type validation for columns
-
-## Recent Development Progress
+## Recent Development Progress (December 2024)
 - Phase 1 Complete: Secure terminal service, real file execution, live preview
 - Phase 2 Complete: Schema Builder with auto API generation
+- Phase 3 Complete: Package Manager with npm CLI integration
+- Phase 4 Complete: Git Integration with init/commit/status/log
+- Phase 5 Complete: Deployment pipeline with version tracking
+- Phase 6 Complete: Multi-tab editor support
+- Current: Enhancing bilingual support and Git error handling
