@@ -2273,6 +2273,191 @@ export const insertAIConstitutionSchema = createInsertSchema(aiConstitution).omi
 export type InsertAIConstitution = z.infer<typeof insertAIConstitutionSchema>;
 export type AIConstitutionRecord = typeof aiConstitution.$inferSelect;
 
+// ==================== CUSTOM DOMAINS SYSTEM ====================
+
+// Domain status enum
+export const domainStatuses = ['pending', 'verifying', 'verified', 'ssl_pending', 'ssl_issued', 'active', 'error', 'suspended'] as const;
+export type DomainStatus = typeof domainStatuses[number];
+
+// Verification method enum
+export const verificationMethods = ['dns_txt', 'html_file', 'meta_tag'] as const;
+export type VerificationMethod = typeof verificationMethods[number];
+
+// SSL challenge type enum
+export const sslChallengeTypes = ['dns-01', 'http-01'] as const;
+export type SSLChallengeType = typeof sslChallengeTypes[number];
+
+// Custom Domains table - النطاقات المخصصة
+export const customDomains = pgTable("custom_domains", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull(), // المستأجر/المشترك
+  projectId: varchar("project_id"), // المشروع المرتبط (اختياري)
+  hostname: text("hostname").notNull().unique(), // النطاق الكامل مثل www.example.com
+  rootDomain: text("root_domain").notNull(), // النطاق الجذر مثل example.com
+  status: text("status").notNull().default("pending"), // pending, verifying, verified, ssl_pending, ssl_issued, active, error, suspended
+  statusMessage: text("status_message"), // رسالة الحالة
+  statusMessageAr: text("status_message_ar"), // رسالة الحالة بالعربي
+  verificationMethod: text("verification_method").notNull().default("dns_txt"), // dns_txt, html_file, meta_tag
+  verificationToken: text("verification_token").notNull(), // توكن التحقق الفريد
+  verificationExpiresAt: timestamp("verification_expires_at"), // انتهاء صلاحية التحقق
+  isVerified: boolean("is_verified").notNull().default(false),
+  verifiedAt: timestamp("verified_at"),
+  isPrimary: boolean("is_primary").notNull().default(false), // هل هو النطاق الرئيسي
+  dnsProvider: text("dns_provider"), // cloudflare, route53, gcloud, generic
+  sslStatus: text("ssl_status").notNull().default("none"), // none, pending, issued, expired, error
+  sslIssuedAt: timestamp("ssl_issued_at"),
+  sslExpiresAt: timestamp("ssl_expires_at"),
+  sslAutoRenew: boolean("ssl_auto_renew").notNull().default(true),
+  lastCheckAt: timestamp("last_check_at"),
+  checkAttempts: integer("check_attempts").notNull().default(0),
+  maxCheckAttempts: integer("max_check_attempts").notNull().default(10),
+  createdBy: varchar("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_custom_domains_tenant").on(table.tenantId),
+  index("IDX_custom_domains_status").on(table.status),
+]);
+
+export const insertCustomDomainSchema = createInsertSchema(customDomains).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertCustomDomain = z.infer<typeof insertCustomDomainSchema>;
+export type CustomDomainRecord = typeof customDomains.$inferSelect;
+
+// Domain Verifications table - سجل محاولات التحقق
+export const domainVerifications = pgTable("domain_verifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  domainId: varchar("domain_id").notNull(), // FK to customDomains
+  method: text("method").notNull(), // dns_txt, html_file, meta_tag
+  token: text("token").notNull(),
+  expectedValue: text("expected_value").notNull(), // القيمة المتوقعة
+  actualValue: text("actual_value"), // القيمة الفعلية عند التحقق
+  status: text("status").notNull().default("pending"), // pending, checking, success, failed, expired
+  attemptCount: integer("attempt_count").notNull().default(0),
+  lastAttemptAt: timestamp("last_attempt_at"),
+  nextAttemptAt: timestamp("next_attempt_at"),
+  verifiedAt: timestamp("verified_at"),
+  expiresAt: timestamp("expires_at"),
+  errorMessage: text("error_message"),
+  errorMessageAr: text("error_message_ar"),
+  verifiedBy: varchar("verified_by"), // النظام أو المستخدم
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_domain_verifications_domain").on(table.domainId),
+  index("IDX_domain_verifications_status").on(table.status),
+]);
+
+export const insertDomainVerificationSchema = createInsertSchema(domainVerifications).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertDomainVerification = z.infer<typeof insertDomainVerificationSchema>;
+export type DomainVerificationRecord = typeof domainVerifications.$inferSelect;
+
+// SSL Certificates table - شهادات SSL
+export const sslCertificates = pgTable("ssl_certificates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  domainId: varchar("domain_id").notNull().unique(), // FK to customDomains
+  hostname: text("hostname").notNull(),
+  provider: text("provider").notNull().default("letsencrypt"), // letsencrypt, custom
+  challengeType: text("challenge_type").notNull().default("dns-01"), // dns-01, http-01
+  status: text("status").notNull().default("pending"), // pending, issuing, issued, renewing, expired, error
+  certificateChain: text("certificate_chain"), // سلسلة الشهادة (مشفرة)
+  privateKeyRef: text("private_key_ref"), // مرجع للمفتاح الخاص (مخزن بشكل آمن)
+  issuedAt: timestamp("issued_at"),
+  expiresAt: timestamp("expires_at"),
+  renewAfter: timestamp("renew_after"), // تاريخ بدء التجديد (عادة 30 يوم قبل الانتهاء)
+  lastRenewalAt: timestamp("last_renewal_at"),
+  renewalAttempts: integer("renewal_attempts").notNull().default(0),
+  autoRenew: boolean("auto_renew").notNull().default(true),
+  lastError: text("last_error"),
+  lastErrorAr: text("last_error_ar"),
+  acmeOrderUrl: text("acme_order_url"), // رابط طلب ACME
+  acmeChallengeToken: text("acme_challenge_token"),
+  acmeChallengeResponse: text("acme_challenge_response"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_ssl_certificates_domain").on(table.domainId),
+  index("IDX_ssl_certificates_expires").on(table.expiresAt),
+]);
+
+export const insertSSLCertificateSchema = createInsertSchema(sslCertificates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSSLCertificate = z.infer<typeof insertSSLCertificateSchema>;
+export type SSLCertificateRecord = typeof sslCertificates.$inferSelect;
+
+// Domain Audit Logs table - سجل تدقيق النطاقات
+export const domainAuditLogs = pgTable("domain_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  domainId: varchar("domain_id").notNull(),
+  tenantId: varchar("tenant_id").notNull(),
+  action: text("action").notNull(), // DOMAIN_ADDED, VERIFICATION_STARTED, VERIFICATION_SUCCESS, SSL_ISSUED, DOMAIN_ACTIVATED, DOMAIN_REMOVED
+  actionAr: text("action_ar"),
+  performedBy: varchar("performed_by").notNull(),
+  previousState: jsonb("previous_state").$type<Record<string, unknown>>(),
+  newState: jsonb("new_state").$type<Record<string, unknown>>(),
+  details: jsonb("details").$type<Record<string, unknown>>(),
+  ipAddress: text("ip_address"),
+  timestamp: timestamp("timestamp").defaultNow(),
+});
+
+export const insertDomainAuditLogSchema = createInsertSchema(domainAuditLogs).omit({
+  id: true,
+  timestamp: true,
+});
+
+export type InsertDomainAuditLog = z.infer<typeof insertDomainAuditLogSchema>;
+export type DomainAuditLogRecord = typeof domainAuditLogs.$inferSelect;
+
+// Tenant Domain Quotas - حصص النطاقات لكل مستأجر
+export const tenantDomainQuotas = pgTable("tenant_domain_quotas", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().unique(),
+  maxDomains: integer("max_domains").notNull().default(1),
+  usedDomains: integer("used_domains").notNull().default(0),
+  maxVerificationAttempts: integer("max_verification_attempts").notNull().default(10),
+  canUseWildcard: boolean("can_use_wildcard").notNull().default(false),
+  tier: text("tier").notNull().default("free"), // free, basic, pro, enterprise, sovereign
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertTenantDomainQuotaSchema = createInsertSchema(tenantDomainQuotas).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertTenantDomainQuota = z.infer<typeof insertTenantDomainQuotaSchema>;
+export type TenantDomainQuotaRecord = typeof tenantDomainQuotas.$inferSelect;
+
+// Helper function to generate verification token
+export function generateVerificationToken(): string {
+  return `infera-verify-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+}
+
+// Helper function to get domain quota by tier
+export function getDomainQuotaByTier(tier: string): number {
+  switch (tier) {
+    case 'owner': return 999;
+    case 'sovereign': return 50;
+    case 'enterprise': return 20;
+    case 'pro': return 5;
+    case 'basic': return 2;
+    default: return 1;
+  }
+}
+
 // Helper functions for sovereign system
 export function isRootOwner(role: string): boolean {
   return role === 'owner';
