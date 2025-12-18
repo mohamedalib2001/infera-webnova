@@ -106,6 +106,32 @@ The platform features an AI Chat Interface for natural language interaction, a l
   - Bilingual UI (Arabic/English) in Owner Dashboard "Domains" tab
   - Verification wizard with DNS record instructions and copy-to-clipboard
   - Full bilingual UI for AI Sovereignty tab in Owner Dashboard
+- Phase 11 Complete: Sovereign AI Governance Directive Implementation
+  - Created AISovereignGuard middleware (`server/ai-sovereign-guard.ts`) enforcing:
+    - Mandatory sovereignty hierarchy: Owner > Governance System > Human > AI
+    - Absolute prevention rule: No AI without approved layer, explicit permission, governance context
+    - Sovereign prohibitions: AI cannot exceed layer, modify permissions, make independent decisions
+    - Human-in-the-Loop for high-impact/critical decisions
+    - Mandatory audit logging with digital signatures (SHA-256 checksums)
+    - Emergency Kill Switch with global/layer/external scopes
+    - Safe Rollback mechanism with incident logging
+    - Owner sovereignty with absolute authority
+    - Safe stop rule: Stop (not execute) on ambiguity/doubt/conflict
+  - Added Governance API endpoints:
+    - GET /api/governance/status - Operational completeness checks
+    - GET /api/governance/approvals - Pending human approvals
+    - POST /api/governance/approvals/:id/decide - Process approval
+    - POST /api/governance/kill-switch/activate - Emergency stop
+    - POST /api/governance/kill-switch/:id/deactivate - Resume operations
+    - POST /api/governance/safe-rollback - Trigger safe rollback
+    - POST /api/governance/validate-execution - Validate AI execution
+  - Added GovernanceSection UI in Owner Dashboard with:
+    - Sovereignty hierarchy visualization
+    - System status with completeness checks
+    - Kill switch controls (global/external)
+    - Pending approvals management
+    - Safe rollback trigger with confirmation
+  - Full bilingual support (Arabic/English)
 
 ## Core Platform Architecture
 
