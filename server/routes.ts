@@ -4481,11 +4481,11 @@ export async function registerRoutes(
       });
       await storage.createAISovereigntyAuditLog({
         action: "AI_LAYER_CREATED",
-        actionAr: "تم إنشاء طبقة ذكاء",
         performedBy: req.session.userId!,
+        performerRole: "ROOT_OWNER",
         targetType: "AI_LAYER",
         targetId: layer.id,
-        details: { name: layer.name, type: layer.type },
+        details: { name: layer.name, type: layer.type, actionAr: "تم إنشاء طبقة ذكاء" },
       });
       res.status(201).json(layer);
     } catch (error) {
@@ -4499,11 +4499,11 @@ export async function registerRoutes(
       if (!layer) return res.status(404).json({ error: "طبقة الذكاء غير موجودة / AI layer not found" });
       await storage.createAISovereigntyAuditLog({
         action: "AI_LAYER_UPDATED",
-        actionAr: "تم تحديث طبقة ذكاء",
         performedBy: req.session.userId!,
+        performerRole: "ROOT_OWNER",
         targetType: "AI_LAYER",
         targetId: layer.id,
-        details: { changes: Object.keys(req.body) },
+        details: { changes: Object.keys(req.body), actionAr: "تم تحديث طبقة ذكاء" },
       });
       res.json(layer);
     } catch (error) {
@@ -4521,11 +4521,11 @@ export async function registerRoutes(
       
       await storage.createAISovereigntyAuditLog({
         action: "AI_LAYER_DELETED",
-        actionAr: "تم حذف طبقة ذكاء",
         performedBy: req.session.userId!,
+        performerRole: "ROOT_OWNER",
         targetType: "AI_LAYER",
         targetId: req.params.id,
-        details: { name: layer.name },
+        details: { name: layer.name, actionAr: "تم حذف طبقة ذكاء" },
       });
       res.json({ success: true });
     } catch (error) {
@@ -4549,11 +4549,11 @@ export async function registerRoutes(
       const config = await storage.createAIPowerConfig(req.body);
       await storage.createAISovereigntyAuditLog({
         action: "POWER_CONFIG_CREATED",
-        actionAr: "تم إنشاء تكوين قوة",
         performedBy: req.session.userId!,
+        performerRole: "ROOT_OWNER",
         targetType: "POWER_CONFIG",
         targetId: config.layerId,
-        details: { powerLevel: config.powerLevel },
+        details: { powerLevel: config.powerLevel, actionAr: "تم إنشاء تكوين قوة" },
       });
       res.status(201).json(config);
     } catch (error) {
@@ -4567,11 +4567,11 @@ export async function registerRoutes(
       if (!config) return res.status(404).json({ error: "تكوين القوة غير موجود / Power config not found" });
       await storage.createAISovereigntyAuditLog({
         action: "POWER_CONFIG_UPDATED",
-        actionAr: "تم تحديث تكوين قوة",
         performedBy: req.session.userId!,
+        performerRole: "ROOT_OWNER",
         targetType: "POWER_CONFIG",
         targetId: config.layerId,
-        details: { changes: Object.keys(req.body), newPowerLevel: config.powerLevel },
+        details: { changes: Object.keys(req.body), newPowerLevel: config.powerLevel, actionAr: "تم تحديث تكوين قوة" },
       });
       res.json(config);
     } catch (error) {
@@ -4598,11 +4598,11 @@ export async function registerRoutes(
       });
       await storage.createAISovereigntyAuditLog({
         action: "EXTERNAL_PROVIDER_APPROVED",
-        actionAr: "تم الموافقة على مزود خارجي",
         performedBy: req.session.userId!,
+        performerRole: "ROOT_OWNER",
         targetType: "EXTERNAL_PROVIDER",
         targetId: provider.id,
-        details: { name: provider.name, providerType: provider.providerType },
+        details: { name: provider.name, provider: provider.provider, actionAr: "تم الموافقة على مزود خارجي" },
       });
       res.status(201).json(provider);
     } catch (error) {
@@ -4616,11 +4616,11 @@ export async function registerRoutes(
       if (!provider) return res.status(404).json({ error: "المزود غير موجود / Provider not found" });
       await storage.createAISovereigntyAuditLog({
         action: "EXTERNAL_PROVIDER_UPDATED",
-        actionAr: "تم تحديث مزود خارجي",
         performedBy: req.session.userId!,
+        performerRole: "ROOT_OWNER",
         targetType: "EXTERNAL_PROVIDER",
         targetId: provider.id,
-        details: { changes: Object.keys(req.body) },
+        details: { changes: Object.keys(req.body), actionAr: "تم تحديث مزود خارجي" },
       });
       res.json(provider);
     } catch (error) {
@@ -4636,11 +4636,11 @@ export async function registerRoutes(
       await storage.deleteExternalAIProvider(req.params.id);
       await storage.createAISovereigntyAuditLog({
         action: "EXTERNAL_PROVIDER_REVOKED",
-        actionAr: "تم إلغاء موافقة مزود خارجي",
         performedBy: req.session.userId!,
+        performerRole: "ROOT_OWNER",
         targetType: "EXTERNAL_PROVIDER",
         targetId: req.params.id,
-        details: { name: provider.name },
+        details: { name: provider.name, actionAr: "تم إلغاء موافقة مزود خارجي" },
       });
       res.json({ success: true });
     } catch (error) {
@@ -4669,12 +4669,11 @@ export async function registerRoutes(
       const state = await storage.activateKillSwitch(scope, req.session.userId!, reason, reasonAr, targetLayerId);
       await storage.createAISovereigntyAuditLog({
         action: "KILL_SWITCH_ACTIVATED",
-        actionAr: "تم تفعيل زر الطوارئ",
         performedBy: req.session.userId!,
+        performerRole: "ROOT_OWNER",
         targetType: "KILL_SWITCH",
         targetId: state.id,
-        details: { scope, reason, targetLayerId },
-        severity: "critical",
+        details: { scope, reason, targetLayerId, actionAr: "تم تفعيل زر الطوارئ", severity: "critical" },
       });
       res.json(state);
     } catch (error) {
@@ -4694,12 +4693,11 @@ export async function registerRoutes(
       
       await storage.createAISovereigntyAuditLog({
         action: "KILL_SWITCH_DEACTIVATED",
-        actionAr: "تم إلغاء تفعيل زر الطوارئ",
         performedBy: req.session.userId!,
+        performerRole: "ROOT_OWNER",
         targetType: "KILL_SWITCH",
         targetId: state.id,
-        details: { scope },
-        severity: "high",
+        details: { scope, actionAr: "تم إلغاء تفعيل زر الطوارئ", severity: "high" },
       });
       res.json(state);
     } catch (error) {
@@ -4726,11 +4724,11 @@ export async function registerRoutes(
       });
       await storage.createAISovereigntyAuditLog({
         action: "SUBSCRIBER_LIMIT_SET",
-        actionAr: "تم تحديد حد مشترك",
         performedBy: req.session.userId!,
+        performerRole: "ROOT_OWNER",
         targetType: "SUBSCRIBER_LIMIT",
         targetId: limit.role,
-        details: { role: limit.role, maxRequestsPerDay: limit.maxRequestsPerDay },
+        details: { role: limit.role, maxRequestsPerDay: limit.maxRequestsPerDay, actionAr: "تم تحديد حد مشترك" },
       });
       res.status(201).json(limit);
     } catch (error) {
@@ -4744,11 +4742,11 @@ export async function registerRoutes(
       if (!limit) return res.status(404).json({ error: "الحد غير موجود / Limit not found" });
       await storage.createAISovereigntyAuditLog({
         action: "SUBSCRIBER_LIMIT_UPDATED",
-        actionAr: "تم تحديث حد مشترك",
         performedBy: req.session.userId!,
+        performerRole: "ROOT_OWNER",
         targetType: "SUBSCRIBER_LIMIT",
         targetId: limit.role,
-        details: { changes: Object.keys(req.body) },
+        details: { changes: Object.keys(req.body), actionAr: "تم تحديث حد مشترك" },
       });
       res.json(limit);
     } catch (error) {
@@ -4789,11 +4787,11 @@ export async function registerRoutes(
       });
       await storage.createAISovereigntyAuditLog({
         action: "AI_AGENT_CREATED",
-        actionAr: "تم إنشاء وكيل ذكاء",
         performedBy: req.session.userId!,
+        performerRole: "ROOT_OWNER",
         targetType: "AI_AGENT",
         targetId: agent.id,
-        details: { name: agent.name, layerId: agent.layerId },
+        details: { name: agent.name, layerId: agent.layerId, actionAr: "تم إنشاء وكيل ذكاء" },
       });
       res.status(201).json(agent);
     } catch (error) {
@@ -4807,11 +4805,11 @@ export async function registerRoutes(
       if (!agent) return res.status(404).json({ error: "وكيل الذكاء غير موجود / AI agent not found" });
       await storage.createAISovereigntyAuditLog({
         action: "AI_AGENT_UPDATED",
-        actionAr: "تم تحديث وكيل ذكاء",
         performedBy: req.session.userId!,
+        performerRole: "ROOT_OWNER",
         targetType: "AI_AGENT",
         targetId: agent.id,
-        details: { changes: Object.keys(req.body) },
+        details: { changes: Object.keys(req.body), actionAr: "تم تحديث وكيل ذكاء" },
       });
       res.json(agent);
     } catch (error) {
@@ -4827,11 +4825,11 @@ export async function registerRoutes(
       await storage.deleteSovereignAIAgent(req.params.id);
       await storage.createAISovereigntyAuditLog({
         action: "AI_AGENT_DELETED",
-        actionAr: "تم حذف وكيل ذكاء",
         performedBy: req.session.userId!,
+        performerRole: "ROOT_OWNER",
         targetType: "AI_AGENT",
         targetId: req.params.id,
-        details: { name: agent.name },
+        details: { name: agent.name, actionAr: "تم حذف وكيل ذكاء" },
       });
       res.json({ success: true });
     } catch (error) {
@@ -4891,12 +4889,11 @@ export async function registerRoutes(
       if (!constitution) return res.status(404).json({ error: "الدستور غير موجود / Constitution not found" });
       await storage.createAISovereigntyAuditLog({
         action: "CONSTITUTION_AMENDED",
-        actionAr: "تم تعديل الدستور",
         performedBy: req.session.userId!,
+        performerRole: "ROOT_OWNER",
         targetType: "CONSTITUTION",
         targetId: constitution.id,
-        details: { changes: Object.keys(req.body), newVersion: constitution.version },
-        severity: "critical",
+        details: { changes: Object.keys(req.body), newVersion: constitution.version, actionAr: "تم تعديل الدستور", severity: "critical" },
       });
       res.json(constitution);
     } catch (error) {
@@ -9161,391 +9158,6 @@ export async function registerRoutes(
         success: false, 
         error: error instanceof Error ? error.message : "Failed to fetch unread count" 
       });
-    }
-  });
-
-  // ==================== AI SOVEREIGNTY LAYER API ROUTES ====================
-  // طبقة سيادة الذكاء - حصرية للمالك فقط
-  
-  // Get all AI layers
-  app.get("/api/owner/ai-sovereignty/layers", requireAuth, requireOwner, async (req, res) => {
-    try {
-      const layers = await storage.getAILayers();
-      res.json({ success: true, data: layers });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch AI layers" });
-    }
-  });
-
-  // Create AI layer
-  app.post("/api/owner/ai-sovereignty/layers", requireAuth, requireOwner, async (req, res) => {
-    try {
-      const userId = req.session.userId!;
-      const layer = await storage.createAILayer({ ...req.body, createdBy: userId });
-      
-      // Log to audit
-      await storage.createAISovereigntyAuditLog({
-        eventType: "LAYER_CREATED",
-        resourceType: "layer",
-        resourceId: layer.id,
-        actorId: userId,
-        actorRole: "owner",
-        action: "Created new AI layer",
-        details: { name: layer.name, type: layer.type },
-        newState: layer as any
-      });
-      
-      res.json({ success: true, data: layer });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to create AI layer" });
-    }
-  });
-
-  // Update AI layer
-  app.patch("/api/owner/ai-sovereignty/layers/:id", requireAuth, requireOwner, async (req, res) => {
-    try {
-      const userId = req.session.userId!;
-      const { id } = req.params;
-      const existingLayer = await storage.getAILayerById(id);
-      
-      if (!existingLayer) {
-        return res.status(404).json({ success: false, error: "Layer not found" });
-      }
-      
-      const layer = await storage.updateAILayer(id, req.body);
-      
-      // Log to audit
-      await storage.createAISovereigntyAuditLog({
-        eventType: "LAYER_UPDATED",
-        resourceType: "layer",
-        resourceId: id,
-        actorId: userId,
-        actorRole: "owner",
-        action: "Updated AI layer",
-        details: req.body,
-        previousState: existingLayer as any,
-        newState: layer as any
-      });
-      
-      res.json({ success: true, data: layer });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to update AI layer" });
-    }
-  });
-
-  // Delete AI layer
-  app.delete("/api/owner/ai-sovereignty/layers/:id", requireAuth, requireOwner, async (req, res) => {
-    try {
-      const userId = req.session.userId!;
-      const { id } = req.params;
-      const existingLayer = await storage.getAILayerById(id);
-      
-      if (!existingLayer) {
-        return res.status(404).json({ success: false, error: "Layer not found" });
-      }
-      
-      await storage.deleteAILayer(id);
-      
-      // Log to audit
-      await storage.createAISovereigntyAuditLog({
-        eventType: "LAYER_DELETED",
-        resourceType: "layer",
-        resourceId: id,
-        actorId: userId,
-        actorRole: "owner",
-        action: "Deleted AI layer",
-        details: { name: existingLayer.name },
-        previousState: existingLayer as any
-      });
-      
-      res.json({ success: true, message: "Layer deleted" });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to delete AI layer" });
-    }
-  });
-
-  // Get AI power configs
-  app.get("/api/owner/ai-sovereignty/power-configs", requireAuth, requireOwner, async (req, res) => {
-    try {
-      const configs = await storage.getAIPowerConfigs();
-      res.json({ success: true, data: configs });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch power configs" });
-    }
-  });
-
-  // Update AI power config
-  app.patch("/api/owner/ai-sovereignty/power-configs/:id", requireAuth, requireOwner, async (req, res) => {
-    try {
-      const userId = req.session.userId!;
-      const { id } = req.params;
-      const config = await storage.updateAIPowerConfig(id, req.body);
-      
-      // Log to audit
-      await storage.createAISovereigntyAuditLog({
-        eventType: "POWER_CONFIG_UPDATED",
-        resourceType: "power_config",
-        resourceId: id,
-        actorId: userId,
-        actorRole: "owner",
-        action: "Updated AI power config",
-        details: req.body,
-        newState: config as any
-      });
-      
-      res.json({ success: true, data: config });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to update power config" });
-    }
-  });
-
-  // Get external AI providers
-  app.get("/api/owner/ai-sovereignty/external-providers", requireAuth, requireOwner, async (req, res) => {
-    try {
-      const providers = await storage.getExternalAIProviders();
-      res.json({ success: true, data: providers });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch external providers" });
-    }
-  });
-
-  // Create external AI provider
-  app.post("/api/owner/ai-sovereignty/external-providers", requireAuth, requireOwner, async (req, res) => {
-    try {
-      const userId = req.session.userId!;
-      const provider = await storage.createExternalAIProvider({ ...req.body, addedBy: userId });
-      
-      // Log to audit
-      await storage.createAISovereigntyAuditLog({
-        eventType: "EXTERNAL_PROVIDER_ADDED",
-        resourceType: "external_provider",
-        resourceId: provider.id,
-        actorId: userId,
-        actorRole: "owner",
-        action: "Added external AI provider",
-        details: { name: provider.name, provider: provider.provider },
-        newState: provider as any
-      });
-      
-      res.json({ success: true, data: provider });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to create external provider" });
-    }
-  });
-
-  // Update external AI provider
-  app.patch("/api/owner/ai-sovereignty/external-providers/:id", requireAuth, requireOwner, async (req, res) => {
-    try {
-      const userId = req.session.userId!;
-      const { id } = req.params;
-      const provider = await storage.updateExternalAIProvider(id, req.body);
-      
-      res.json({ success: true, data: provider });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to update external provider" });
-    }
-  });
-
-  // Get subscriber AI limits
-  app.get("/api/owner/ai-sovereignty/subscriber-limits", requireAuth, requireOwner, async (req, res) => {
-    try {
-      const limits = await storage.getSubscriberAILimits();
-      res.json({ success: true, data: limits });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch subscriber limits" });
-    }
-  });
-
-  // Create/update subscriber AI limits
-  app.post("/api/owner/ai-sovereignty/subscriber-limits", requireAuth, requireOwner, async (req, res) => {
-    try {
-      const userId = req.session.userId!;
-      const limit = await storage.createSubscriberAILimit({ ...req.body, createdBy: userId });
-      
-      res.json({ success: true, data: limit });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to create subscriber limit" });
-    }
-  });
-
-  // Get AI kill switch state
-  app.get("/api/owner/ai-sovereignty/kill-switch", requireAuth, requireOwner, async (req, res) => {
-    try {
-      const state = await storage.getAIKillSwitchState();
-      res.json({ success: true, data: state });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch kill switch state" });
-    }
-  });
-
-  // Activate AI kill switch
-  app.post("/api/owner/ai-sovereignty/kill-switch/activate", requireAuth, requireOwner, async (req, res) => {
-    try {
-      const userId = req.session.userId!;
-      const { scope, targetLayerId, reason } = req.body;
-      
-      const state = await storage.activateAIKillSwitch({
-        scope: scope || "global",
-        targetLayerId,
-        isActivated: true,
-        activatedBy: userId,
-        activatedAt: new Date(),
-        reason
-      });
-      
-      // Log emergency action
-      await storage.createAISovereigntyAuditLog({
-        eventType: "KILL_SWITCH_ACTIVATED",
-        resourceType: "kill_switch",
-        resourceId: state.id,
-        actorId: userId,
-        actorRole: "owner",
-        action: "Activated AI kill switch",
-        details: { scope, reason, targetLayerId },
-        isEmergency: true,
-        newState: state as any
-      });
-      
-      res.json({ success: true, data: state, message: "AI Kill Switch activated" });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to activate kill switch" });
-    }
-  });
-
-  // Deactivate AI kill switch
-  app.post("/api/owner/ai-sovereignty/kill-switch/deactivate", requireAuth, requireOwner, async (req, res) => {
-    try {
-      const userId = req.session.userId!;
-      const state = await storage.deactivateAIKillSwitch(userId);
-      
-      // Log action
-      await storage.createAISovereigntyAuditLog({
-        eventType: "KILL_SWITCH_DEACTIVATED",
-        resourceType: "kill_switch",
-        resourceId: state?.id || "global",
-        actorId: userId,
-        actorRole: "owner",
-        action: "Deactivated AI kill switch"
-      });
-      
-      res.json({ success: true, data: state, message: "AI Kill Switch deactivated" });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to deactivate kill switch" });
-    }
-  });
-
-  // Get AI sovereignty audit logs
-  app.get("/api/owner/ai-sovereignty/audit-logs", requireAuth, requireOwner, async (req, res) => {
-    try {
-      const { limit, offset, eventType, resourceType, isViolation, isEmergency } = req.query;
-      const logs = await storage.getAISovereigntyAuditLogs({
-        limit: limit ? parseInt(limit as string) : 100,
-        offset: offset ? parseInt(offset as string) : 0,
-        eventType: eventType as string,
-        resourceType: resourceType as string,
-        isViolation: isViolation === "true",
-        isEmergency: isEmergency === "true"
-      });
-      res.json({ success: true, data: logs });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch audit logs" });
-    }
-  });
-
-  // Get AI constitution
-  app.get("/api/owner/ai-sovereignty/constitution", requireAuth, requireOwner, async (req, res) => {
-    try {
-      const constitution = await storage.getAIConstitution();
-      res.json({ success: true, data: constitution });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch AI constitution" });
-    }
-  });
-
-  // Update AI constitution
-  app.patch("/api/owner/ai-sovereignty/constitution", requireAuth, requireOwner, async (req, res) => {
-    try {
-      const userId = req.session.userId!;
-      const constitution = await storage.updateAIConstitution({ ...req.body, createdBy: userId });
-      
-      // Log to audit
-      await storage.createAISovereigntyAuditLog({
-        eventType: "CONSTITUTION_UPDATED",
-        resourceType: "constitution",
-        resourceId: constitution?.id || "main",
-        actorId: userId,
-        actorRole: "owner",
-        action: "Updated AI constitution",
-        details: req.body,
-        newState: constitution as any
-      });
-      
-      res.json({ success: true, data: constitution });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to update constitution" });
-    }
-  });
-
-  // Get sovereign AI agents
-  app.get("/api/owner/ai-sovereignty/agents", requireAuth, requireOwner, async (req, res) => {
-    try {
-      const agents = await storage.getSovereignAIAgents();
-      res.json({ success: true, data: agents });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch AI agents" });
-    }
-  });
-
-  // Create sovereign AI agent
-  app.post("/api/owner/ai-sovereignty/agents", requireAuth, requireOwner, async (req, res) => {
-    try {
-      const userId = req.session.userId!;
-      const agent = await storage.createSovereignAIAgent({ ...req.body, createdBy: userId });
-      
-      res.json({ success: true, data: agent });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to create AI agent" });
-    }
-  });
-
-  // Get AI sovereignty dashboard stats
-  app.get("/api/owner/ai-sovereignty/dashboard", requireAuth, requireOwner, async (req, res) => {
-    try {
-      const [layers, powerConfigs, providers, killSwitch, agents, constitution] = await Promise.all([
-        storage.getAILayers(),
-        storage.getAIPowerConfigs(),
-        storage.getExternalAIProviders(),
-        storage.getAIKillSwitchState(),
-        storage.getSovereignAIAgents(),
-        storage.getAIConstitution()
-      ]);
-      
-      const activeLayers = layers.filter((l: any) => l.status === "active").length;
-      const activeProviders = providers.filter((p: any) => p.isActive).length;
-      const activeAgents = agents.filter((a: any) => a.isActive).length;
-      const killSwitchActive = killSwitch.some((k: any) => k.isActivated);
-      
-      res.json({
-        success: true,
-        data: {
-          totalLayers: layers.length,
-          activeLayers,
-          totalProviders: providers.length,
-          activeProviders,
-          totalAgents: agents.length,
-          activeAgents,
-          killSwitchActive,
-          constitutionVersion: constitution?.version || "1.0.0",
-          powerConfigs: powerConfigs.length,
-          layers,
-          providers,
-          agents,
-          killSwitch,
-          constitution
-        }
-      });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch dashboard data" });
     }
   });
 
