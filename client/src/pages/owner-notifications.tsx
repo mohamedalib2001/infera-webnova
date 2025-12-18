@@ -212,25 +212,48 @@ export default function OwnerNotifications() {
   });
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
 
-  const { data: notifications, isLoading: loadingNotifications, refetch: refetchNotifications } = useQuery<SovereignNotification[]>({
+  const { data: notificationsData, isLoading: loadingNotifications, refetch: refetchNotifications } = useQuery<{
+    success: boolean;
+    notifications: SovereignNotification[];
+    stats?: { total: number; unread: number; critical: number; pendingAcknowledgment: number };
+  }>({
     queryKey: ['/api/owner/notifications']
   });
 
-  const { data: sovereignNotifications, isLoading: loadingSovereign } = useQuery<SovereignNotification[]>({
+  const { data: sovereignData, isLoading: loadingSovereign } = useQuery<{
+    success: boolean;
+    notifications: SovereignNotification[];
+  }>({
     queryKey: ['/api/owner/notifications/sovereign']
   });
 
-  const { data: escalations, isLoading: loadingEscalations } = useQuery({
+  const { data: escalationsData, isLoading: loadingEscalations } = useQuery<{
+    success: boolean;
+    notifications: SovereignNotification[];
+  }>({
     queryKey: ['/api/owner/notifications/escalations']
   });
 
-  const { data: templates, isLoading: loadingTemplates } = useQuery<NotificationTemplate[]>({
+  const { data: templatesData, isLoading: loadingTemplates } = useQuery<{
+    success: boolean;
+    templates: NotificationTemplate[];
+  }>({
     queryKey: ['/api/owner/notification-templates']
   });
 
-  const { data: analytics } = useQuery({
+  const { data: analyticsData } = useQuery<{
+    success: boolean;
+    analytics: any[];
+  }>({
     queryKey: ['/api/owner/notification-analytics']
   });
+
+  // Extract arrays from response objects
+  const notifications = notificationsData?.notifications || [];
+  const sovereignNotifications = sovereignData?.notifications || [];
+  const escalations = escalationsData?.notifications || [];
+  const templates = templatesData?.templates || [];
+  const analytics = analyticsData?.analytics || [];
 
   const markAsReadMutation = useMutation({
     mutationFn: (id: string) => apiRequest('PATCH', `/api/owner/notifications/${id}/read`),
