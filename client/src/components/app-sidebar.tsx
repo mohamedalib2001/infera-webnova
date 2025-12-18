@@ -18,11 +18,13 @@ import {
   Terminal,
   Globe,
   TrendingUp,
+  Megaphone,
   Shield,
   Wrench,
   ChevronDown,
   ChevronRight,
   Key,
+  Receipt,
 } from "lucide-react";
 import {
   Sidebar,
@@ -76,6 +78,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
   const growthItems = [
     { title: language === "ar" ? "محسّن SEO" : "SEO Optimizer", url: "/seo-optimizer", icon: Search, testId: "nav-seo" },
     { title: language === "ar" ? "التحليلات" : "Analytics", url: "/analytics", icon: BarChart3, testId: "nav-analytics" },
+    { title: language === "ar" ? "التسويق" : "Marketing", url: "/marketing", icon: Megaphone, testId: "nav-marketing" },
   ];
 
   const roleLabels: Record<string, { ar: string; en: string; color: "secondary" | "default" | "destructive" }> = {
@@ -214,6 +217,22 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                     <Link href="/pricing" data-testid="nav-pricing">
                       <CreditCard className="h-4 w-4" />
                       <span>{language === "ar" ? "الأسعار" : "Pricing"}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location === "/invoices"}>
+                    <Link href="/invoices" data-testid="nav-invoices">
+                      <Receipt className="h-4 w-4" />
+                      <span>{language === "ar" ? "الفواتير" : "Invoices"}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location === "/subscription"}>
+                    <Link href="/subscription" data-testid="nav-subscription">
+                      <Crown className="h-4 w-4" />
+                      <span>{language === "ar" ? "اشتراكي" : "My Subscription"}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

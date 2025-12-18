@@ -39,6 +39,8 @@ import PaymentSuccess from "@/pages/payment-success";
 import PaymentCancel from "@/pages/payment-cancel";
 import Subscription from "@/pages/subscription";
 import Notifications from "@/pages/notifications";
+import Marketing from "@/pages/marketing";
+import Invoices from "@/pages/invoices";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -70,6 +72,8 @@ function Router() {
       <Route path="/payment/cancel" component={PaymentCancel} />
       <Route path="/subscription" component={Subscription} />
       <Route path="/notifications" component={Notifications} />
+      <Route path="/marketing" component={Marketing} />
+      <Route path="/invoices" component={Invoices} />
       <Route path="/preview/:shareCode" component={Preview} />
       <Route component={NotFound} />
     </Switch>
