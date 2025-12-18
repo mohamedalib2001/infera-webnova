@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type KeyboardEvent } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -124,7 +124,7 @@ export function ChatInput({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -233,27 +233,36 @@ export function ChatInput({
                 {attachments.map((file) => (
                   <div
                     key={file.id}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 rounded-lg border border-border/50 group"
+                    className="flex flex-col gap-1 px-3 py-2 bg-muted/50 rounded-lg border border-border/50 group max-w-[200px]"
                   >
-                    {file.preview ? (
-                      <img 
-                        src={file.preview} 
-                        alt={file.name} 
-                        className="h-6 w-6 rounded object-cover"
-                      />
-                    ) : (
-                      getFileIcon(file.type)
+                    <div className="flex items-center gap-2">
+                      {file.preview ? (
+                        <img 
+                          src={file.preview} 
+                          alt={file.name} 
+                          className="h-8 w-8 rounded object-cover"
+                        />
+                      ) : (
+                        getFileIcon(file.type)
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm truncate block">{file.name}</span>
+                        <span className="text-xs text-muted-foreground">{formatFileSize(file.size)}</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                        onClick={() => removeAttachment(file.id)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    {file.content && (
+                      <div className="text-xs text-muted-foreground bg-background/50 rounded p-1.5 max-h-16 overflow-hidden">
+                        <pre className="whitespace-pre-wrap break-all line-clamp-3">{file.content.substring(0, 200)}{file.content.length > 200 ? '...' : ''}</pre>
+                      </div>
                     )}
-                    <span className="text-sm truncate max-w-[120px]">{file.name}</span>
-                    <span className="text-xs text-muted-foreground">{formatFileSize(file.size)}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => removeAttachment(file.id)}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
                   </div>
                 ))}
               </div>
