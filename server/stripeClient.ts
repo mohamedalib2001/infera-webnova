@@ -85,10 +85,22 @@ export async function initStripeSystem() {
     return false;
   }
 
+  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
+  if (!hostname) {
+    console.warn('[Stripe] REPLIT_CONNECTORS_HOSTNAME not set - skipping Stripe initialization');
+    return false;
+  }
+
   try {
     console.log('[Stripe] Initializing schema...');
     const { runMigrations } = await import('stripe-replit-sync');
-    await runMigrations({ databaseUrl });
+    
+    const migrationPromise = runMigrations({ databaseUrl });
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Migration timeout')), 10000)
+    );
+    
+    await Promise.race([migrationPromise, timeoutPromise]);
     console.log('[Stripe] Schema ready');
 
     const stripeSync = await getStripeSync();
