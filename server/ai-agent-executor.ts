@@ -324,12 +324,42 @@ export class AIAgentExecutor {
   }
   
   async getTaskHistory(filters: { assistantId?: string; userId?: string; limit?: number } = {}): Promise<any[]> {
-    let query = db.select()
+    const conditions: any[] = [];
+    
+    if (filters.assistantId) {
+      conditions.push(eq(aiTaskExecutions.assistantId, filters.assistantId));
+    }
+    if (filters.userId) {
+      conditions.push(eq(aiTaskExecutions.userId, filters.userId));
+    }
+    
+    if (conditions.length > 0) {
+      return db.select()
+        .from(aiTaskExecutions)
+        .where(and(...conditions))
+        .orderBy(desc(aiTaskExecutions.createdAt))
+        .limit(filters.limit || 50);
+    }
+    
+    return db.select()
       .from(aiTaskExecutions)
       .orderBy(desc(aiTaskExecutions.createdAt))
       .limit(filters.limit || 50);
+  }
+  
+  async getAssistantKillSwitchStatus(assistantId: string): Promise<{ active: boolean; reason?: string }> {
+    const [killSwitch] = await db.select()
+      .from(aiKillSwitch)
+      .where(and(
+        eq(aiKillSwitch.scope, 'agent'),
+        eq(aiKillSwitch.targetId, assistantId),
+        eq(aiKillSwitch.isActive, true)
+      ))
+      .limit(1);
     
-    return query;
+    return killSwitch 
+      ? { active: true, reason: killSwitch.reason || undefined } 
+      : { active: false };
   }
   
   async getAICostAnalytics(): Promise<{

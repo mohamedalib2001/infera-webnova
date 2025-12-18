@@ -2058,6 +2058,152 @@ export async function registerRoutes(
     }
   });
 
+  // ============ Direct Assistant Execution API ============
+
+  // Execute command directly on assistant (Sovereign AI Agent Execution)
+  app.post("/api/assistants/:assistantId/execute", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { assistantId } = req.params;
+      const { command, mode, preferredModel, preferredProvider, maxCost } = req.body;
+      
+      if (!command || command.trim().length === 0) {
+        return res.status(400).json({ error: "الأمر مطلوب / Command is required" });
+      }
+      
+      // Get assistant
+      const assistants = await storage.getAllAssistants();
+      const assistant = assistants.find(a => a.id === assistantId);
+      
+      if (!assistant) {
+        return res.status(404).json({ error: "المساعد غير موجود / Assistant not found" });
+      }
+      
+      if (!assistant.isActive) {
+        return res.status(403).json({ error: "المساعد معطل / Assistant is disabled" });
+      }
+      
+      const { aiAgentExecutor } = await import("./ai-agent-executor");
+      
+      // Check kill switch
+      const killSwitchCheck = await aiAgentExecutor.isKillSwitchActive(assistantId);
+      if (killSwitchCheck.active) {
+        return res.status(403).json({ 
+          error: `AI execution blocked: ${killSwitchCheck.reason}`,
+          killSwitch: true
+        });
+      }
+      
+      // Create instruction record for tracking
+      const instruction = await storage.createInstruction({
+        assistantId,
+        title: command.substring(0, 100),
+        instruction: command,
+        priority: 'high',
+        status: 'in_progress',
+      });
+      
+      // Execute with AI Agent Executor
+      const result = await aiAgentExecutor.executeTask({
+        instructionId: instruction.id,
+        assistantId,
+        userId: req.session.userId!,
+        prompt: command,
+        executionMode: mode || 'AUTO',
+        preferredModel,
+        preferredProvider,
+      });
+      
+      // Log the action
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "assistant_command_executed",
+        entityType: "assistant",
+        entityId: assistantId,
+        details: { 
+          instructionId: instruction.id,
+          model: result.model,
+          provider: result.provider,
+          tokens: result.tokens,
+          realCost: result.cost.real,
+          billedCost: result.cost.billed,
+          executionTimeMs: result.executionTimeMs,
+          success: result.success,
+        },
+      });
+      
+      res.json({
+        success: result.success,
+        instructionId: instruction.id,
+        executionId: result.executionId,
+        response: result.response,
+        model: result.model,
+        provider: result.provider,
+        tokens: result.tokens,
+        cost: result.cost,
+        executionTimeMs: result.executionTimeMs,
+        error: result.error,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "فشل في تنفيذ الأمر / Failed to execute command" });
+    }
+  });
+
+  // Get assistant task history
+  app.get("/api/assistants/:assistantId/history", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { assistantId } = req.params;
+      const limit = parseInt(req.query.limit as string) || 50;
+      
+      const { aiAgentExecutor } = await import("./ai-agent-executor");
+      const tasks = await aiAgentExecutor.getTaskHistory({ assistantId, limit });
+      
+      res.json(tasks);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب سجل المهام" });
+    }
+  });
+
+  // Toggle assistant kill switch
+  app.post("/api/assistants/:assistantId/kill-switch", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { assistantId } = req.params;
+      const { activate, reason } = req.body;
+      
+      const { aiAgentExecutor } = await import("./ai-agent-executor");
+      
+      if (activate) {
+        await aiAgentExecutor.activateKillSwitch(
+          'agent',
+          assistantId,
+          req.session.userId!,
+          reason || 'Manual deactivation by owner',
+          reason || 'تعطيل يدوي من المالك'
+        );
+      } else {
+        await aiAgentExecutor.deactivateKillSwitch(
+          'agent',
+          assistantId,
+          req.session.userId!
+        );
+      }
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: activate ? "assistant_kill_switch_activated" : "assistant_kill_switch_deactivated",
+        entityType: "assistant",
+        entityId: assistantId,
+        details: { reason },
+      });
+      
+      res.json({ 
+        success: true, 
+        message: activate ? "تم تفعيل Kill Switch للمساعد" : "تم إلغاء Kill Switch للمساعد" 
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "فشل في تحديث Kill Switch" });
+    }
+  });
+
   // ============ Owner User Management APIs ============
 
   // Get all users (owner only)
