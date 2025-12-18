@@ -123,8 +123,20 @@ export default function PaymentsDashboard() {
     enabled: isOwner,
   });
 
+  const { data: subscriptionsData, isLoading: subscriptionsLoading } = useQuery<any>({
+    queryKey: ['/api/payments/all-subscriptions'],
+    enabled: isOwner,
+  });
+
+  const { data: transactionsData, isLoading: transactionsLoading } = useQuery<any>({
+    queryKey: ['/api/payments/transactions'],
+    enabled: isOwner,
+  });
+
   const stats = statsData?.stats;
   const providers = providersData?.providers || [];
+  const allSubscriptions = subscriptionsData?.subscriptions || [];
+  const transactions = transactionsData?.transactions || [];
 
   if (!isAuthenticated) {
     return (
@@ -387,15 +399,45 @@ export default function PaymentsDashboard() {
         <TabsContent value="subscriptions" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Active Subscriptions</CardTitle>
-              <CardDescription>Manage user subscriptions</CardDescription>
+              <CardTitle>{language === 'ar' ? 'الاشتراكات النشطة' : 'Active Subscriptions'}</CardTitle>
+              <CardDescription>{language === 'ar' ? 'إدارة اشتراكات المستخدمين' : 'Manage user subscriptions'}</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Subscription management interface</p>
-                <p className="text-sm">View and manage all active subscriptions</p>
-              </div>
+              {subscriptionsLoading ? (
+                <p className="text-center py-4">{t.loading}</p>
+              ) : allSubscriptions.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>{t.noData}</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {allSubscriptions.map((sub: any) => (
+                    <div key={sub.id} className="flex items-center justify-between p-4 border rounded-lg gap-4">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{sub.userName}</p>
+                        <p className="text-sm text-muted-foreground truncate">{sub.userEmail}</p>
+                      </div>
+                      <div className="text-center">
+                        <Badge variant="secondary">{language === 'ar' ? sub.planNameAr : sub.planName}</Badge>
+                      </div>
+                      <div className="text-center">
+                        <Badge className={sub.status === 'active' ? 'bg-green-500/10 text-green-600' : 'bg-gray-500/10 text-gray-600'}>
+                          {sub.status === 'active' 
+                            ? (language === 'ar' ? 'نشط' : 'Active')
+                            : sub.status === 'cancelled' 
+                            ? (language === 'ar' ? 'ملغي' : 'Cancelled')
+                            : sub.status
+                          }
+                        </Badge>
+                      </div>
+                      <div className="text-sm text-muted-foreground hidden sm:block">
+                        {new Date(sub.currentPeriodEnd).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -403,15 +445,39 @@ export default function PaymentsDashboard() {
         <TabsContent value="transactions" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Transaction History</CardTitle>
-              <CardDescription>View all payment transactions</CardDescription>
+              <CardTitle>{language === 'ar' ? 'سجل المعاملات' : 'Transaction History'}</CardTitle>
+              <CardDescription>{language === 'ar' ? 'عرض جميع معاملات الدفع' : 'View all payment transactions'}</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Transaction history interface</p>
-                <p className="text-sm">View payments, refunds, and pending transactions</p>
-              </div>
+              {transactionsLoading ? (
+                <p className="text-center py-4">{t.loading}</p>
+              ) : transactions.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>{t.noData}</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {transactions.map((tx: any) => (
+                    <div key={tx.id} className="flex items-center justify-between p-4 border rounded-lg gap-4">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium">{tx.eventType}</p>
+                        <p className="text-sm text-muted-foreground truncate">
+                          {tx.stripeEventId?.slice(0, 30) || 'N/A'}
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <Badge className={tx.status === 'processed' ? 'bg-green-500/10 text-green-600' : 'bg-yellow-500/10 text-yellow-600'}>
+                          {tx.status}
+                        </Badge>
+                      </div>
+                      <div className="text-sm text-muted-foreground hidden sm:block">
+                        {new Date(tx.createdAt).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

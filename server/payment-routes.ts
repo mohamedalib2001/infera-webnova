@@ -408,4 +408,72 @@ router.get('/providers', async (req: Request, res: Response) => {
   }
 });
 
+router.get('/all-subscriptions', async (req: Request, res: Response) => {
+  try {
+    if (!isAuthenticated(req)) {
+      return res.status(401).json({ 
+        error: 'Authentication required',
+        errorAr: 'يجب تسجيل الدخول'
+      });
+    }
+    if (!isOwner(req)) {
+      return res.status(403).json({ 
+        error: 'Owner access required',
+        errorAr: 'مطلوب صلاحية المالك'
+      });
+    }
+
+    const subscriptions = await storage.getAllUserSubscriptions();
+    const plans = await storage.getSubscriptionPlans();
+    const users = await storage.getAllUsers();
+
+    const enrichedSubscriptions = subscriptions.map(sub => {
+      const plan = plans.find(p => p.id === sub.planId);
+      const user = users.find(u => u.id === sub.userId);
+      return {
+        ...sub,
+        planName: plan?.name || 'Unknown',
+        planNameAr: plan?.nameAr || 'غير معروف',
+        userEmail: user?.email || 'Unknown',
+        userName: user?.fullName || user?.email || 'Unknown',
+      };
+    });
+
+    res.json({ subscriptions: enrichedSubscriptions });
+  } catch (error: any) {
+    console.error('[Payment] All subscriptions error:', error.message);
+    res.status(500).json({ 
+      error: 'Failed to get subscriptions',
+      errorAr: 'فشل في جلب الاشتراكات'
+    });
+  }
+});
+
+router.get('/transactions', async (req: Request, res: Response) => {
+  try {
+    if (!isAuthenticated(req)) {
+      return res.status(401).json({ 
+        error: 'Authentication required',
+        errorAr: 'يجب تسجيل الدخول'
+      });
+    }
+    if (!isOwner(req)) {
+      return res.status(403).json({ 
+        error: 'Owner access required',
+        errorAr: 'مطلوب صلاحية المالك'
+      });
+    }
+
+    const events = await storage.getSubscriptionEvents(50);
+    
+    res.json({ transactions: events });
+  } catch (error: any) {
+    console.error('[Payment] Transactions error:', error.message);
+    res.status(500).json({ 
+      error: 'Failed to get transactions',
+      errorAr: 'فشل في جلب المعاملات'
+    });
+  }
+});
+
 export { router as paymentRoutes };

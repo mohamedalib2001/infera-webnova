@@ -31,6 +31,9 @@ import Settings from "@/pages/settings";
 import PlatformGenerator from "@/pages/platform-generator";
 import ApiKeys from "@/pages/api-keys";
 import PaymentsDashboard from "@/pages/payments-dashboard";
+import PaymentSuccess from "@/pages/payment-success";
+import PaymentCancel from "@/pages/payment-cancel";
+import Subscription from "@/pages/subscription";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -58,6 +61,9 @@ function Router() {
       <Route path="/platform-generator" component={PlatformGenerator} />
       <Route path="/api-keys" component={ApiKeys} />
       <Route path="/payments" component={PaymentsDashboard} />
+      <Route path="/payment/success" component={PaymentSuccess} />
+      <Route path="/payment/cancel" component={PaymentCancel} />
+      <Route path="/subscription" component={Subscription} />
       <Route path="/preview/:shareCode" component={Preview} />
       <Route component={NotFound} />
     </Switch>

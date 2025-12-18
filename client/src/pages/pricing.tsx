@@ -1,6 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,9 +13,29 @@ import type { SubscriptionPlan } from "@shared/schema";
 export default function Pricing() {
   const { t, language, isRtl } = useLanguage();
   const { user, isAuthenticated } = useAuth();
+  const { toast } = useToast();
 
   const { data: plans, isLoading } = useQuery<SubscriptionPlan[]>({
     queryKey: ["/api/plans"],
+  });
+
+  const checkoutMutation = useMutation({
+    mutationFn: async (planId: number) => {
+      const response = await apiRequest("POST", "/api/payments/checkout", { planId });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const translations = {
@@ -153,9 +175,22 @@ export default function Pricing() {
                     <Button variant="outline" className="w-full" asChild>
                       <a href="mailto:contact@infera.ai">{tr("contactUs")}</a>
                     </Button>
+                  ) : plan.priceMonthly === 0 ? (
+                    <Button variant="secondary" className="w-full" disabled>
+                      {tr("currentPlan")}
+                    </Button>
                   ) : (
-                    <Button className="w-full" data-testid={`select-plan-${plan.role}`}>
-                      {tr("selectPlan")}
+                    <Button 
+                      className="w-full" 
+                      data-testid={`select-plan-${plan.role}`}
+                      onClick={() => checkoutMutation.mutate(plan.id)}
+                      disabled={checkoutMutation.isPending}
+                    >
+                      {checkoutMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        tr("selectPlan")
+                      )}
                     </Button>
                   )
                 ) : (
