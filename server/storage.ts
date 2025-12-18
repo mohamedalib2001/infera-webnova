@@ -168,6 +168,21 @@ import {
   aiConstitution,
   type AIConstitutionRecord,
   type InsertAIConstitution,
+  customDomains,
+  type CustomDomainRecord,
+  type InsertCustomDomain,
+  domainVerifications,
+  type DomainVerificationRecord,
+  type InsertDomainVerification,
+  sslCertificates,
+  type SSLCertificateRecord,
+  type InsertSSLCertificate,
+  domainAuditLogs,
+  type DomainAuditLogRecord,
+  type InsertDomainAuditLog,
+  tenantDomainQuotas,
+  type TenantDomainQuotaRecord,
+  type InsertTenantDomainQuota,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt } from "drizzle-orm";
@@ -2827,6 +2842,157 @@ body { font-family: 'Tajawal', sans-serif; }
       .where(eq(aiConstitution.id, id))
       .returning();
     return updated || undefined;
+  }
+
+  // ============ CUSTOM DOMAINS SYSTEM - نظام النطاقات المخصصة ============
+
+  // Custom Domains - النطاقات المخصصة
+  async getCustomDomains(): Promise<CustomDomainRecord[]> {
+    return db.select().from(customDomains).orderBy(desc(customDomains.createdAt));
+  }
+
+  async getCustomDomainsByTenant(tenantId: string): Promise<CustomDomainRecord[]> {
+    return db.select().from(customDomains)
+      .where(eq(customDomains.tenantId, tenantId))
+      .orderBy(desc(customDomains.createdAt));
+  }
+
+  async getCustomDomain(id: string): Promise<CustomDomainRecord | undefined> {
+    const [domain] = await db.select().from(customDomains).where(eq(customDomains.id, id));
+    return domain || undefined;
+  }
+
+  async getCustomDomainByHostname(hostname: string): Promise<CustomDomainRecord | undefined> {
+    const [domain] = await db.select().from(customDomains).where(eq(customDomains.hostname, hostname));
+    return domain || undefined;
+  }
+
+  async getCustomDomainsByStatus(status: string): Promise<CustomDomainRecord[]> {
+    return db.select().from(customDomains).where(eq(customDomains.status, status));
+  }
+
+  async createCustomDomain(domain: InsertCustomDomain): Promise<CustomDomainRecord> {
+    const [created] = await db.insert(customDomains).values(domain).returning();
+    return created;
+  }
+
+  async updateCustomDomain(id: string, data: Partial<InsertCustomDomain>): Promise<CustomDomainRecord | undefined> {
+    const [updated] = await db.update(customDomains)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(customDomains.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteCustomDomain(id: string): Promise<boolean> {
+    const result = await db.delete(customDomains).where(eq(customDomains.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // Domain Verifications - سجل التحقق
+  async getDomainVerifications(domainId: string): Promise<DomainVerificationRecord[]> {
+    return db.select().from(domainVerifications)
+      .where(eq(domainVerifications.domainId, domainId))
+      .orderBy(desc(domainVerifications.createdAt));
+  }
+
+  async getLatestDomainVerification(domainId: string): Promise<DomainVerificationRecord | undefined> {
+    const [verification] = await db.select().from(domainVerifications)
+      .where(eq(domainVerifications.domainId, domainId))
+      .orderBy(desc(domainVerifications.createdAt))
+      .limit(1);
+    return verification || undefined;
+  }
+
+  async createDomainVerification(verification: InsertDomainVerification): Promise<DomainVerificationRecord> {
+    const [created] = await db.insert(domainVerifications).values(verification).returning();
+    return created;
+  }
+
+  async updateDomainVerification(id: string, data: Partial<InsertDomainVerification>): Promise<DomainVerificationRecord | undefined> {
+    const [updated] = await db.update(domainVerifications)
+      .set(data)
+      .where(eq(domainVerifications.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // SSL Certificates - شهادات SSL
+  async getSSLCertificate(domainId: string): Promise<SSLCertificateRecord | undefined> {
+    const [cert] = await db.select().from(sslCertificates).where(eq(sslCertificates.domainId, domainId));
+    return cert || undefined;
+  }
+
+  async getExpiringSSLCertificates(beforeDate: Date): Promise<SSLCertificateRecord[]> {
+    return db.select().from(sslCertificates)
+      .where(and(eq(sslCertificates.autoRenew, true), gt(sslCertificates.renewAfter, beforeDate)));
+  }
+
+  async createSSLCertificate(cert: InsertSSLCertificate): Promise<SSLCertificateRecord> {
+    const [created] = await db.insert(sslCertificates).values(cert).returning();
+    return created;
+  }
+
+  async updateSSLCertificate(domainId: string, data: Partial<InsertSSLCertificate>): Promise<SSLCertificateRecord | undefined> {
+    const [updated] = await db.update(sslCertificates)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(sslCertificates.domainId, domainId))
+      .returning();
+    return updated || undefined;
+  }
+
+  // Domain Audit Logs - سجل تدقيق النطاقات
+  async getDomainAuditLogs(domainId: string): Promise<DomainAuditLogRecord[]> {
+    return db.select().from(domainAuditLogs)
+      .where(eq(domainAuditLogs.domainId, domainId))
+      .orderBy(desc(domainAuditLogs.timestamp));
+  }
+
+  async getTenantDomainAuditLogs(tenantId: string, limit: number = 100): Promise<DomainAuditLogRecord[]> {
+    return db.select().from(domainAuditLogs)
+      .where(eq(domainAuditLogs.tenantId, tenantId))
+      .orderBy(desc(domainAuditLogs.timestamp))
+      .limit(limit);
+  }
+
+  async createDomainAuditLog(log: InsertDomainAuditLog): Promise<DomainAuditLogRecord> {
+    const [created] = await db.insert(domainAuditLogs).values(log).returning();
+    return created;
+  }
+
+  // Tenant Domain Quotas - حصص النطاقات
+  async getTenantDomainQuota(tenantId: string): Promise<TenantDomainQuotaRecord | undefined> {
+    const [quota] = await db.select().from(tenantDomainQuotas).where(eq(tenantDomainQuotas.tenantId, tenantId));
+    return quota || undefined;
+  }
+
+  async createTenantDomainQuota(quota: InsertTenantDomainQuota): Promise<TenantDomainQuotaRecord> {
+    const [created] = await db.insert(tenantDomainQuotas).values(quota).returning();
+    return created;
+  }
+
+  async updateTenantDomainQuota(tenantId: string, data: Partial<InsertTenantDomainQuota>): Promise<TenantDomainQuotaRecord | undefined> {
+    const [updated] = await db.update(tenantDomainQuotas)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(tenantDomainQuotas.tenantId, tenantId))
+      .returning();
+    return updated || undefined;
+  }
+
+  async incrementTenantDomainUsage(tenantId: string): Promise<TenantDomainQuotaRecord | undefined> {
+    const quota = await this.getTenantDomainQuota(tenantId);
+    if (quota) {
+      return this.updateTenantDomainQuota(tenantId, { usedDomains: quota.usedDomains + 1 });
+    }
+    return undefined;
+  }
+
+  async decrementTenantDomainUsage(tenantId: string): Promise<TenantDomainQuotaRecord | undefined> {
+    const quota = await this.getTenantDomainQuota(tenantId);
+    if (quota && quota.usedDomains > 0) {
+      return this.updateTenantDomainQuota(tenantId, { usedDomains: quota.usedDomains - 1 });
+    }
+    return undefined;
   }
 }
 
