@@ -50,6 +50,7 @@ import {
   ExternalLink,
   Search,
   X,
+  Check,
 } from "lucide-react";
 import type { DevProject, ProjectFile, RuntimeInstance, ConsoleLog } from "@shared/schema";
 import { SchemaBuilder } from "@/components/schema-builder";
@@ -295,6 +296,81 @@ export default function CloudIDE() {
     },
     onError: () => {
       toast({ title: language === "ar" ? "فشلت الإزالة" : "Uninstall failed", variant: "destructive" });
+    },
+  });
+
+  // Fetch git status
+  const { data: gitStatus, refetch: refetchGitStatus } = useQuery<{
+    initialized: boolean;
+    branch: string;
+    files: Array<{ path: string; status: string }>;
+    commitCount: number;
+    hasChanges: boolean;
+  }>({
+    queryKey: ["/api/dev-projects", projectId, "git", "status"],
+    enabled: !!projectId,
+  });
+
+  // Git commit mutation
+  const gitCommitMutation = useMutation({
+    mutationFn: async (message: string) => {
+      await syncFilesMutation.mutateAsync();
+      return apiRequest("POST", `/api/dev-projects/${projectId}/git/commit`, { message });
+    },
+    onSuccess: (data: { success: boolean; commitHash?: string }) => {
+      toast({ 
+        title: language === "ar" ? "تم الحفظ بنجاح" : "Committed successfully",
+        description: data.commitHash ? `Commit: ${data.commitHash}` : undefined
+      });
+      setGitCommitMessage("");
+      refetchGitStatus();
+    },
+    onError: () => {
+      toast({ title: language === "ar" ? "فشل الحفظ" : "Commit failed", variant: "destructive" });
+    },
+  });
+
+  // Git init mutation
+  const gitInitMutation = useMutation({
+    mutationFn: async () => {
+      await syncFilesMutation.mutateAsync();
+      return apiRequest("POST", `/api/dev-projects/${projectId}/git/init`);
+    },
+    onSuccess: () => {
+      toast({ title: language === "ar" ? "تم تهيئة Git" : "Git initialized" });
+      refetchGitStatus();
+    },
+    onError: () => {
+      toast({ title: language === "ar" ? "فشل التهيئة" : "Init failed", variant: "destructive" });
+    },
+  });
+
+  // Fetch deploy status
+  const { data: deployStatus, refetch: refetchDeployStatus } = useQuery<{
+    deployed: boolean;
+    url: string | null;
+    lastDeployed: string | null;
+    version: number;
+  }>({
+    queryKey: ["/api/dev-projects", projectId, "deploy", "status"],
+    enabled: !!projectId,
+  });
+
+  // Deploy mutation
+  const deployMutation = useMutation({
+    mutationFn: async () => {
+      await syncFilesMutation.mutateAsync();
+      return apiRequest("POST", `/api/dev-projects/${projectId}/deploy`);
+    },
+    onSuccess: (data: { success: boolean; url: string; version: number }) => {
+      toast({ 
+        title: language === "ar" ? "تم النشر بنجاح" : "Deployed successfully",
+        description: `v${data.version} - ${data.url}`
+      });
+      refetchDeployStatus();
+    },
+    onError: () => {
+      toast({ title: language === "ar" ? "فشل النشر" : "Deployment failed", variant: "destructive" });
     },
   });
 
@@ -802,6 +878,11 @@ export default function CloudIDE() {
               <Button size="sm" className="rounded-lg bg-gradient-to-r from-primary to-purple-600 gap-2" data-testid="button-deploy">
                 <Rocket className="w-4 h-4" />
                 {txt.deploy}
+                {deployStatus?.deployed && (
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+                    v{deployStatus.version}
+                  </Badge>
+                )}
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-md glass" dir={language === "ar" ? "rtl" : "ltr"}>
@@ -813,34 +894,70 @@ export default function CloudIDE() {
                 <DialogDescription>{txt.deployDescription}</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
+                {deployStatus?.deployed && (
+                  <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+                    <div className="flex items-center gap-2 text-green-500 mb-2">
+                      <Check className="w-4 h-4" />
+                      <span className="font-medium">
+                        {language === "ar" ? "تم النشر" : "Deployed"}
+                      </span>
+                      <Badge variant="outline" className="text-green-500 border-green-500/30">
+                        v{deployStatus.version}
+                      </Badge>
+                    </div>
+                    <a 
+                      href={deployStatus.url || "#"} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-sm text-primary hover:underline flex items-center gap-1"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      {deployStatus.url}
+                    </a>
+                    {deployStatus.lastDeployed && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {language === "ar" ? "آخر نشر:" : "Last deployed:"} {new Date(deployStatus.lastDeployed).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                )}
+                
                 <div className="p-6 rounded-xl bg-gradient-to-br from-primary/10 to-purple-600/10 border border-primary/20 text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center animate-pulse">
-                    <Rocket className="w-8 h-8 text-white" />
+                  <div className={`w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center ${deployMutation.isPending ? "animate-bounce" : ""}`}>
+                    {deployMutation.isPending ? (
+                      <Loader2 className="w-8 h-8 text-white animate-spin" />
+                    ) : (
+                      <Rocket className="w-8 h-8 text-white" />
+                    )}
                   </div>
                   <p className="text-sm text-muted-foreground mb-6">
-                    {language === "ar" 
-                      ? "سيتم نشر مشروعك على رابط فريد خلال ثوانٍ"
-                      : "Your project will be deployed to a unique URL in seconds"}
+                    {deployMutation.isPending 
+                      ? (language === "ar" ? "جاري النشر..." : "Deploying...")
+                      : (language === "ar" 
+                          ? "سيتم نشر مشروعك على رابط فريد خلال ثوانٍ"
+                          : "Your project will be deployed to a unique URL in seconds")}
                   </p>
                   <Button
                     className="w-full rounded-lg bg-gradient-to-r from-primary to-purple-600 gap-2"
-                    onClick={() => {
-                      toast({ 
-                        title: txt.deploySuccess,
-                        description: `https://${project?.name?.toLowerCase().replace(/\s/g, "-")}.infera.app`
-                      });
-                      setShowDeployDialog(false);
-                    }}
+                    onClick={() => deployMutation.mutate()}
+                    disabled={deployMutation.isPending}
                     data-testid="button-deploy-now"
                   >
-                    <Rocket className="w-4 h-4" />
-                    {txt.deployNow}
+                    {deployMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Rocket className="w-4 h-4" />
+                    )}
+                    {deployStatus?.deployed 
+                      ? (language === "ar" ? "تحديث النشر" : "Update Deployment")
+                      : txt.deployNow}
                   </Button>
                 </div>
+                
                 <div className="flex items-center justify-center gap-2 p-3 rounded-lg bg-muted/50">
                   <ExternalLink className="w-4 h-4 text-muted-foreground" />
                   <code className="text-xs text-muted-foreground">
-                    https://{project?.name?.toLowerCase().replace(/\s/g, "-")}.infera.app
+                    {deployStatus?.url || `https://${project?.name?.toLowerCase().replace(/[^a-z0-9]/g, "-")}.infera.app`}
                   </code>
                 </div>
               </div>
@@ -861,68 +978,134 @@ export default function CloudIDE() {
                   {txt.gitIntegration}
                 </DialogTitle>
                 <DialogDescription className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-xs">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                    main
-                  </span>
-                  <span className="text-muted-foreground">{language === "ar" ? "الفرع الرئيسي" : "main branch"}</span>
+                  {gitStatus?.initialized ? (
+                    <>
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-xs">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                        {gitStatus.branch || "main"}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {gitStatus.commitCount} {language === "ar" ? "حفظات" : "commits"}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground">
+                      {language === "ar" ? "Git غير مهيأ" : "Git not initialized"}
+                    </span>
+                  )}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">{txt.commitMessage}</label>
-                  <Input
-                    placeholder={language === "ar" ? "وصف التغييرات..." : "Describe your changes..."}
-                    value={gitCommitMessage}
-                    onChange={(e) => setGitCommitMessage(e.target.value)}
-                    className="rounded-lg"
-                    data-testid="input-commit-message"
-                  />
-                </div>
-                <div className="flex gap-2">
+                {!gitStatus?.initialized && (
                   <Button
-                    className="flex-1 rounded-lg gap-2"
-                    onClick={() => {
-                      if (gitCommitMessage) {
-                        toast({ title: txt.commitSuccess, description: gitCommitMessage });
-                        setGitCommitMessage("");
-                      }
-                    }}
-                    disabled={!gitCommitMessage}
-                    data-testid="button-commit"
+                    className="w-full rounded-lg gap-2"
+                    onClick={() => gitInitMutation.mutate()}
+                    disabled={gitInitMutation.isPending}
+                    data-testid="button-git-init"
                   >
-                    <GitCommit className="w-4 h-4" />
-                    {txt.commit}
+                    {gitInitMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <GitBranch className="w-4 h-4" />
+                    )}
+                    {language === "ar" ? "تهيئة Git" : "Initialize Git"}
                   </Button>
-                  <Button
-                    variant="outline"
-                    className="rounded-lg gap-2"
-                    onClick={() => toast({ title: language === "ar" ? "تم الرفع إلى origin/main" : "Pushed to origin/main" })}
-                    data-testid="button-push"
-                  >
-                    <Upload className="w-4 h-4" />
-                    {txt.push}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="rounded-lg gap-2"
-                    onClick={() => toast({ title: language === "ar" ? "محدث بالفعل" : "Already up to date" })}
-                    data-testid="button-pull"
-                  >
-                    <Download className="w-4 h-4" />
-                    {txt.pull}
-                  </Button>
-                </div>
-                <div className="p-4 rounded-lg bg-[#0d1117] border border-[#30363d] font-mono text-xs space-y-2">
-                  <div className="flex items-center gap-2 text-green-400">
-                    <Plus className="w-3 h-3" />
-                    <span>2 files changed, 45 insertions(+)</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <GitCommit className="w-3 h-3" />
-                    <span>Last commit: Initial commit</span>
-                  </div>
-                </div>
+                )}
+                
+                {gitStatus?.initialized && (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">{txt.commitMessage}</label>
+                      <Input
+                        placeholder={language === "ar" ? "وصف التغييرات..." : "Describe your changes..."}
+                        value={gitCommitMessage}
+                        onChange={(e) => setGitCommitMessage(e.target.value)}
+                        className="rounded-lg"
+                        data-testid="input-commit-message"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        className="flex-1 rounded-lg gap-2"
+                        onClick={() => gitCommitMutation.mutate(gitCommitMessage)}
+                        disabled={!gitCommitMessage || gitCommitMutation.isPending}
+                        data-testid="button-commit"
+                      >
+                        {gitCommitMutation.isPending ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <GitCommit className="w-4 h-4" />
+                        )}
+                        {txt.commit}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="rounded-lg gap-2"
+                        onClick={() => toast({ title: language === "ar" ? "يتطلب ربط GitHub" : "Requires GitHub connection" })}
+                        data-testid="button-push"
+                      >
+                        <Upload className="w-4 h-4" />
+                        {txt.push}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="rounded-lg gap-2"
+                        onClick={() => toast({ title: language === "ar" ? "يتطلب ربط GitHub" : "Requires GitHub connection" })}
+                        data-testid="button-pull"
+                      >
+                        <Download className="w-4 h-4" />
+                        {txt.pull}
+                      </Button>
+                    </div>
+                    
+                    {/* Git Status */}
+                    <div className="p-4 rounded-lg bg-[#0d1117] border border-[#30363d] font-mono text-xs space-y-2">
+                      {gitStatus.hasChanges && gitStatus.files.length > 0 ? (
+                        <>
+                          <div className="flex items-center gap-2 text-yellow-400">
+                            <span className="w-3 h-3 flex items-center justify-center">
+                              {gitStatus.files.length}
+                            </span>
+                            <span>
+                              {language === "ar" 
+                                ? `${gitStatus.files.length} ملفات متغيرة` 
+                                : `${gitStatus.files.length} files changed`}
+                            </span>
+                          </div>
+                          <ScrollArea className="max-h-24">
+                            {gitStatus.files.slice(0, 10).map((file, i) => (
+                              <div key={i} className="flex items-center gap-2 text-muted-foreground">
+                                <span className={
+                                  file.status === "modified" ? "text-yellow-400" :
+                                  file.status === "added" || file.status === "untracked" ? "text-green-400" :
+                                  file.status === "deleted" ? "text-red-400" : ""
+                                }>
+                                  {file.status === "modified" ? "M" :
+                                   file.status === "added" || file.status === "untracked" ? "+" :
+                                   file.status === "deleted" ? "-" : "?"}
+                                </span>
+                                <span className="truncate">{file.path}</span>
+                              </div>
+                            ))}
+                          </ScrollArea>
+                        </>
+                      ) : (
+                        <div className="flex items-center gap-2 text-green-400">
+                          <Check className="w-3 h-3" />
+                          <span>{language === "ar" ? "لا توجد تغييرات" : "No changes"}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 text-muted-foreground border-t border-[#30363d] pt-2 mt-2">
+                        <GitCommit className="w-3 h-3" />
+                        <span>
+                          {gitStatus.commitCount > 0 
+                            ? `${gitStatus.commitCount} ${language === "ar" ? "حفظات" : "commits"}`
+                            : language === "ar" ? "لا توجد حفظات بعد" : "No commits yet"}
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </DialogContent>
           </Dialog>

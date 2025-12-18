@@ -4106,6 +4106,394 @@ export async function registerRoutes(
     }
   });
 
+  // ==================== GIT INTEGRATION API ====================
+  
+  // Initialize git repository for project
+  app.post("/api/dev-projects/:projectId/git/init", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      const project = await storage.getDevProject(req.params.projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const projectPath = path.join(os.tmpdir(), "infera-projects", req.params.projectId);
+      
+      // Check if git is already initialized
+      const gitPath = path.join(projectPath, ".git");
+      if (fs.existsSync(gitPath)) {
+        return res.json({ success: true, message: "Git already initialized" });
+      }
+      
+      // Initialize git
+      const { execSync } = await import("child_process");
+      execSync("git init", { cwd: projectPath, encoding: "utf-8" });
+      execSync('git config user.email "user@infera.app"', { cwd: projectPath, encoding: "utf-8" });
+      execSync('git config user.name "INFERA User"', { cwd: projectPath, encoding: "utf-8" });
+      
+      res.json({ success: true, message: "Git repository initialized" });
+    } catch (error) {
+      console.error("Git init error:", error);
+      res.status(500).json({ error: "Failed to initialize git" });
+    }
+  });
+
+  // Get git status
+  app.get("/api/dev-projects/:projectId/git/status", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      const project = await storage.getDevProject(req.params.projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const projectPath = path.join(os.tmpdir(), "infera-projects", req.params.projectId);
+      const gitPath = path.join(projectPath, ".git");
+      
+      if (!fs.existsSync(gitPath)) {
+        return res.json({ initialized: false, files: [], branch: null });
+      }
+      
+      const { execSync } = await import("child_process");
+      
+      // Get current branch
+      let branch = "main";
+      try {
+        branch = execSync("git rev-parse --abbrev-ref HEAD", { cwd: projectPath, encoding: "utf-8" }).trim();
+      } catch {
+        branch = "main";
+      }
+      
+      // Get status
+      let statusOutput = "";
+      try {
+        statusOutput = execSync("git status --porcelain", { cwd: projectPath, encoding: "utf-8" });
+      } catch {
+        statusOutput = "";
+      }
+      
+      const files = statusOutput
+        .split("\n")
+        .filter(line => line.trim())
+        .map(line => {
+          const status = line.substring(0, 2).trim();
+          const filePath = line.substring(3).trim();
+          return {
+            path: filePath,
+            status: status === "M" ? "modified" : status === "A" ? "added" : status === "D" ? "deleted" : status === "??" ? "untracked" : "unknown"
+          };
+        });
+      
+      // Get commit count
+      let commitCount = 0;
+      try {
+        commitCount = parseInt(execSync("git rev-list --count HEAD", { cwd: projectPath, encoding: "utf-8" }).trim());
+      } catch {
+        commitCount = 0;
+      }
+      
+      res.json({
+        initialized: true,
+        branch,
+        files,
+        commitCount,
+        hasChanges: files.length > 0
+      });
+    } catch (error) {
+      console.error("Git status error:", error);
+      res.status(500).json({ error: "Failed to get git status" });
+    }
+  });
+
+  // Git add and commit
+  app.post("/api/dev-projects/:projectId/git/commit", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      const project = await storage.getDevProject(req.params.projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const { message } = req.body;
+      if (!message || typeof message !== "string" || message.length === 0) {
+        return res.status(400).json({ error: "Commit message required" });
+      }
+      
+      // Sanitize commit message
+      const sanitizedMessage = message.replace(/[`$\\]/g, "").substring(0, 500);
+
+      const projectPath = path.join(os.tmpdir(), "infera-projects", req.params.projectId);
+      
+      const { execSync } = await import("child_process");
+      
+      // Initialize if not already
+      const gitPath = path.join(projectPath, ".git");
+      if (!fs.existsSync(gitPath)) {
+        execSync("git init", { cwd: projectPath, encoding: "utf-8" });
+        execSync('git config user.email "user@infera.app"', { cwd: projectPath, encoding: "utf-8" });
+        execSync('git config user.name "INFERA User"', { cwd: projectPath, encoding: "utf-8" });
+      }
+      
+      // Add all files
+      execSync("git add -A", { cwd: projectPath, encoding: "utf-8" });
+      
+      // Commit
+      try {
+        execSync(`git commit -m "${sanitizedMessage}"`, { cwd: projectPath, encoding: "utf-8" });
+      } catch (commitError: unknown) {
+        if (commitError instanceof Error && commitError.message.includes("nothing to commit")) {
+          return res.json({ success: true, message: "No changes to commit" });
+        }
+        throw commitError;
+      }
+      
+      // Get new commit hash
+      const commitHash = execSync("git rev-parse --short HEAD", { cwd: projectPath, encoding: "utf-8" }).trim();
+      
+      res.json({
+        success: true,
+        message: "Changes committed successfully",
+        commitHash
+      });
+    } catch (error) {
+      console.error("Git commit error:", error);
+      res.status(500).json({ error: "Failed to commit changes" });
+    }
+  });
+
+  // Get commit history
+  app.get("/api/dev-projects/:projectId/git/log", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      const project = await storage.getDevProject(req.params.projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const projectPath = path.join(os.tmpdir(), "infera-projects", req.params.projectId);
+      const gitPath = path.join(projectPath, ".git");
+      
+      if (!fs.existsSync(gitPath)) {
+        return res.json({ commits: [] });
+      }
+      
+      const { execSync } = await import("child_process");
+      
+      let logOutput = "";
+      try {
+        logOutput = execSync(
+          'git log --pretty=format:"%H|%h|%s|%an|%ae|%ad" --date=iso -20',
+          { cwd: projectPath, encoding: "utf-8" }
+        );
+      } catch {
+        return res.json({ commits: [] });
+      }
+      
+      const commits = logOutput
+        .split("\n")
+        .filter(line => line.trim())
+        .map(line => {
+          const [hash, shortHash, message, author, email, date] = line.split("|");
+          return { hash, shortHash, message, author, email, date };
+        });
+      
+      res.json({ commits });
+    } catch (error) {
+      console.error("Git log error:", error);
+      res.status(500).json({ error: "Failed to get commit history" });
+    }
+  });
+
+  // ==================== DEPLOYMENT API ====================
+  
+  // Get deployment status
+  app.get("/api/dev-projects/:projectId/deploy/status", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      const project = await storage.getDevProject(req.params.projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      // Check if deployment exists
+      const projectPath = path.join(os.tmpdir(), "infera-projects", req.params.projectId);
+      const deployPath = path.join(os.tmpdir(), "infera-deployments", req.params.projectId);
+      
+      if (!fs.existsSync(deployPath)) {
+        return res.json({
+          deployed: false,
+          url: null,
+          lastDeployed: null
+        });
+      }
+      
+      // Get deployment info
+      const infoPath = path.join(deployPath, ".deploy-info.json");
+      let deployInfo = { lastDeployed: null, version: 0 };
+      if (fs.existsSync(infoPath)) {
+        try {
+          deployInfo = JSON.parse(fs.readFileSync(infoPath, "utf-8"));
+        } catch {
+          deployInfo = { lastDeployed: null, version: 0 };
+        }
+      }
+      
+      const slug = project.name?.toLowerCase().replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-") || req.params.projectId;
+      
+      res.json({
+        deployed: true,
+        url: `https://${slug}.infera.app`,
+        lastDeployed: deployInfo.lastDeployed,
+        version: deployInfo.version
+      });
+    } catch (error) {
+      console.error("Deploy status error:", error);
+      res.status(500).json({ error: "Failed to get deployment status" });
+    }
+  });
+
+  // Deploy project
+  app.post("/api/dev-projects/:projectId/deploy", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      const project = await storage.getDevProject(req.params.projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const projectPath = path.join(os.tmpdir(), "infera-projects", req.params.projectId);
+      const deployPath = path.join(os.tmpdir(), "infera-deployments", req.params.projectId);
+      
+      // Create deployment directory
+      if (!fs.existsSync(path.join(os.tmpdir(), "infera-deployments"))) {
+        fs.mkdirSync(path.join(os.tmpdir(), "infera-deployments"), { recursive: true });
+      }
+      
+      // Sync files first
+      const files = await storage.getProjectFiles(req.params.projectId);
+      if (!fs.existsSync(projectPath)) {
+        fs.mkdirSync(projectPath, { recursive: true });
+      }
+      
+      for (const file of files) {
+        const filePath = path.join(projectPath, file.filePath || file.fileName);
+        const fileDir = path.dirname(filePath);
+        if (!fs.existsSync(fileDir)) {
+          fs.mkdirSync(fileDir, { recursive: true });
+        }
+        fs.writeFileSync(filePath, file.content || "");
+      }
+      
+      // Copy project to deployment directory
+      const { execSync } = await import("child_process");
+      
+      if (fs.existsSync(deployPath)) {
+        execSync(`rm -rf "${deployPath}"`);
+      }
+      execSync(`cp -r "${projectPath}" "${deployPath}"`);
+      
+      // Get existing version
+      const infoPath = path.join(deployPath, ".deploy-info.json");
+      let version = 1;
+      if (fs.existsSync(infoPath)) {
+        try {
+          const existingInfo = JSON.parse(fs.readFileSync(infoPath, "utf-8"));
+          version = (existingInfo.version || 0) + 1;
+        } catch {
+          version = 1;
+        }
+      }
+      
+      // Save deployment info
+      const deployInfo = {
+        projectId: req.params.projectId,
+        projectName: project.name,
+        lastDeployed: new Date().toISOString(),
+        version,
+        userId
+      };
+      fs.writeFileSync(infoPath, JSON.stringify(deployInfo, null, 2));
+      
+      const slug = project.name?.toLowerCase().replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-") || req.params.projectId;
+      
+      res.json({
+        success: true,
+        url: `https://${slug}.infera.app`,
+        version,
+        message: "Deployed successfully"
+      });
+    } catch (error) {
+      console.error("Deploy error:", error);
+      res.status(500).json({ error: "Deployment failed" });
+    }
+  });
+
+  // Get deployment history
+  app.get("/api/dev-projects/:projectId/deploy/history", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      const project = await storage.getDevProject(req.params.projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const deployPath = path.join(os.tmpdir(), "infera-deployments", req.params.projectId);
+      const infoPath = path.join(deployPath, ".deploy-info.json");
+      
+      if (!fs.existsSync(infoPath)) {
+        return res.json({ deployments: [] });
+      }
+      
+      const deployInfo = JSON.parse(fs.readFileSync(infoPath, "utf-8"));
+      
+      res.json({
+        deployments: [{
+          version: deployInfo.version,
+          deployedAt: deployInfo.lastDeployed,
+          status: "active"
+        }]
+      });
+    } catch (error) {
+      console.error("Deploy history error:", error);
+      res.status(500).json({ error: "Failed to get deployment history" });
+    }
+  });
+
   // ==================== AI ASSISTANT API ====================
   
   // AI code assistance endpoint
