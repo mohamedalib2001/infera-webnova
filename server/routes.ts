@@ -9161,6 +9161,219 @@ export async function registerRoutes(
     }
   });
 
+  // ==================== AI SMART SUGGESTIONS API ====================
+  // نظام الاقتراحات الذكية
+  
+  // Get suggestions for a project
+  app.get("/api/suggestions", requireAuth, async (req, res) => {
+    try {
+      const projectId = req.query.projectId as string;
+      if (!projectId) {
+        return res.json({ success: true, suggestions: [] });
+      }
+      const suggestions = await storage.getSmartSuggestionsByProject(projectId);
+      res.json({ success: true, suggestions });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch suggestions" });
+    }
+  });
+
+  // Get analysis sessions for a project
+  app.get("/api/suggestions/sessions", requireAuth, async (req, res) => {
+    try {
+      const projectId = req.query.projectId as string;
+      if (!projectId) {
+        return res.json({ success: true, sessions: [] });
+      }
+      const sessions = await storage.getCodeAnalysisSessionsByProject(projectId);
+      res.json({ success: true, sessions });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch sessions" });
+    }
+  });
+
+  // Analyze code and generate suggestions
+  app.post("/api/suggestions/analyze", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const { projectId, analysisType } = req.body;
+      
+      if (!projectId || typeof projectId !== "string") {
+        return res.status(400).json({ success: false, error: "Project ID is required" });
+      }
+      
+      const validTypes = ["full", "quick", "security", "performance"];
+      const type = validTypes.includes(analysisType) ? analysisType : "full";
+      
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ success: false, error: "Project not found" });
+      }
+      
+      const code = {
+        html: project.html || "",
+        css: project.css || "",
+        js: project.js || "",
+      };
+      
+      const session = await storage.createCodeAnalysisSession({
+        projectId,
+        userId,
+        analysisType: type,
+        codeSnapshot: code,
+        status: "analyzing",
+      });
+      
+      const { analyzeCodeWithAI } = await import("./ai-suggestions-service");
+      const result = await analyzeCodeWithAI(code, type);
+      
+      for (const suggestion of result.suggestions) {
+        await storage.createSmartSuggestion({
+          sessionId: session.id,
+          projectId,
+          userId,
+          type: suggestion.type,
+          priority: suggestion.priority,
+          title: suggestion.title,
+          titleAr: suggestion.titleAr || suggestion.title,
+          description: suggestion.description,
+          descriptionAr: suggestion.descriptionAr || suggestion.description,
+          affectedFile: suggestion.affectedFile,
+          affectedCode: suggestion.affectedCode,
+          lineNumber: suggestion.lineNumber,
+          suggestedFix: suggestion.suggestedFix,
+          suggestedFixAr: suggestion.suggestedFixAr || suggestion.suggestedFix,
+          codeBeforefix: suggestion.codeBeforeFix,
+          codeAfterFix: suggestion.codeAfterFix,
+          canAutoApply: suggestion.canAutoApply || false,
+          expectedImpact: suggestion.expectedImpact,
+          expectedImpactAr: suggestion.expectedImpactAr || suggestion.expectedImpact,
+          estimatedEffort: suggestion.estimatedEffort,
+          status: "pending",
+        });
+      }
+
+      const criticalCount = result.suggestions.filter(s => s.priority === "critical").length;
+      
+      const updatedSession = await storage.updateCodeAnalysisSession(session.id, {
+        status: "completed",
+        totalSuggestions: result.suggestions.length,
+        criticalIssues: criticalCount,
+        overallScore: result.overallScore,
+        performanceScore: result.performanceScore,
+        securityScore: result.securityScore,
+        accessibilityScore: result.accessibilityScore,
+        seoScore: result.seoScore,
+        codeQualityScore: result.codeQualityScore,
+      });
+      
+      res.json({ success: true, session: updatedSession });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to analyze code" });
+    }
+  });
+
+  // Apply a suggestion
+  app.post("/api/suggestions/:id/apply", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const { id } = req.params;
+      
+      const suggestion = await storage.getSmartSuggestionById(id);
+      if (!suggestion) {
+        return res.status(404).json({ success: false, error: "Suggestion not found" });
+      }
+      
+      if (!suggestion.canAutoApply) {
+        return res.status(400).json({ success: false, error: "This suggestion cannot be auto-applied" });
+      }
+      
+      const updated = await storage.updateSmartSuggestion(id, {
+        status: "applied",
+        appliedBy: userId,
+      });
+      
+      if (updated && suggestion.codeAfterFix) {
+        await storage.createProjectImprovementHistory({
+          projectId: suggestion.projectId,
+          userId,
+          suggestionId: id,
+          improvementType: suggestion.type,
+          changeDescription: suggestion.description,
+          changeDescriptionAr: suggestion.descriptionAr,
+          filePath: suggestion.affectedFile,
+          codeBefore: suggestion.codeBeforefix || "",
+          codeAfter: suggestion.codeAfterFix,
+          wasAutoApplied: true,
+          canRevert: true,
+        });
+      }
+      
+      res.json({ success: true, suggestion: updated });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to apply suggestion" });
+    }
+  });
+
+  // Reject a suggestion
+  app.post("/api/suggestions/:id/reject", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+      
+      const suggestion = await storage.getSmartSuggestionById(id);
+      if (!suggestion) {
+        return res.status(404).json({ success: false, error: "Suggestion not found" });
+      }
+      
+      const updated = await storage.updateSmartSuggestion(id, {
+        status: "rejected",
+        rejectedReason: typeof reason === "string" ? reason : undefined,
+      });
+      
+      res.json({ success: true, suggestion: updated });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to reject suggestion" });
+    }
+  });
+
+  // Rate a suggestion
+  app.post("/api/suggestions/:id/rate", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { rating, feedback } = req.body;
+      
+      if (typeof rating !== "number" || rating < 1 || rating > 5) {
+        return res.status(400).json({ success: false, error: "Rating must be between 1 and 5" });
+      }
+      
+      const suggestion = await storage.getSmartSuggestionById(id);
+      if (!suggestion) {
+        return res.status(404).json({ success: false, error: "Suggestion not found" });
+      }
+      
+      const updated = await storage.updateSmartSuggestion(id, {
+        userRating: rating,
+        userFeedback: typeof feedback === "string" ? feedback : undefined,
+      });
+      
+      res.json({ success: true, suggestion: updated });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to rate suggestion" });
+    }
+  });
+
+  // Get project improvement history
+  app.get("/api/suggestions/history/:projectId", requireAuth, async (req, res) => {
+    try {
+      const { projectId } = req.params;
+      const history = await storage.getProjectImprovementHistory(projectId);
+      res.json({ success: true, history });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch history" });
+    }
+  });
+
   return httpServer;
 }
 

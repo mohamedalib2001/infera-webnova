@@ -46,6 +46,7 @@ import Notifications from "@/pages/notifications";
 import Marketing from "@/pages/marketing";
 import Invoices from "@/pages/invoices";
 import Integrations from "@/pages/integrations";
+import SmartSuggestions from "@/pages/smart-suggestions";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -84,6 +85,7 @@ function Router() {
       <Route path="/marketing" component={Marketing} />
       <Route path="/invoices" component={Invoices} />
       <Route path="/integrations" component={Integrations} />
+      <Route path="/smart-suggestions" component={SmartSuggestions} />
       <Route path="/preview/:shareCode" component={Preview} />
       <Route component={NotFound} />
     </Switch>

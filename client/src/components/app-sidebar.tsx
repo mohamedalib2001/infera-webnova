@@ -30,6 +30,7 @@ import {
   Link2,
   Bell,
   Brain,
+  Lightbulb,
 } from "lucide-react";
 import {
   Sidebar,
@@ -69,6 +70,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     { title: language === "ar" ? "الرئيسية" : "Home", url: "/", icon: Home, testId: "nav-home" },
     { title: language === "ar" ? "بيئة التطوير" : "Cloud IDE", url: "/ide", icon: Terminal, testId: "nav-cloud-ide" },
     { title: language === "ar" ? "منشئ التطبيقات" : "AI App Builder", url: "/ai-builder", icon: Sparkles, testId: "nav-ai-builder" },
+    { title: language === "ar" ? "الاقتراحات الذكية" : "Smart Suggestions", url: "/smart-suggestions", icon: Lightbulb, testId: "nav-smart-suggestions" },
     { title: language === "ar" ? "مولّد المنصات" : "Platform Generator", url: "/platform-generator", icon: TrendingUp, testId: "nav-platform-generator" },
     { title: language === "ar" ? "القوالب" : "Templates", url: "/templates", icon: LayoutTemplate, testId: "nav-templates" },
     { title: language === "ar" ? "منشئ الروبوتات" : "Chatbot Builder", url: "/chatbot-builder", icon: Bot, testId: "nav-chatbot" },

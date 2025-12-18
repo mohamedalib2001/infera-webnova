@@ -332,6 +332,19 @@ import {
   notificationAnalytics,
   type NotificationAnalytics,
   type InsertNotificationAnalytics,
+  // AI Smart Suggestions System
+  codeAnalysisSessions,
+  type CodeAnalysisSession,
+  type InsertCodeAnalysisSession,
+  smartSuggestions,
+  type SmartSuggestion,
+  type InsertSmartSuggestion,
+  analysisRules,
+  type AnalysisRule,
+  type InsertAnalysisRule,
+  projectImprovementHistory,
+  type ProjectImprovementHistory,
+  type InsertProjectImprovementHistory,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt, gte, lte } from "drizzle-orm";
@@ -5189,6 +5202,141 @@ body { font-family: 'Tajawal', sans-serif; }
       .where(eq(notificationAnalytics.id, id))
       .returning();
     return updated || undefined;
+  }
+
+  // ==================== AI Smart Suggestions ====================
+  
+  // Code Analysis Sessions
+  async createCodeAnalysisSession(data: InsertCodeAnalysisSession): Promise<CodeAnalysisSession> {
+    const [created] = await db.insert(codeAnalysisSessions).values(data).returning();
+    return created;
+  }
+
+  async getCodeAnalysisSession(id: string): Promise<CodeAnalysisSession | undefined> {
+    const [session] = await db.select().from(codeAnalysisSessions)
+      .where(eq(codeAnalysisSessions.id, id));
+    return session || undefined;
+  }
+
+  async getCodeAnalysisSessionsByProject(projectId: string): Promise<CodeAnalysisSession[]> {
+    return db.select().from(codeAnalysisSessions)
+      .where(eq(codeAnalysisSessions.projectId, projectId))
+      .orderBy(desc(codeAnalysisSessions.createdAt));
+  }
+
+  async getCodeAnalysisSessionsByUser(userId: string): Promise<CodeAnalysisSession[]> {
+    return db.select().from(codeAnalysisSessions)
+      .where(eq(codeAnalysisSessions.userId, userId))
+      .orderBy(desc(codeAnalysisSessions.createdAt));
+  }
+
+  async updateCodeAnalysisSession(id: string, data: Partial<InsertCodeAnalysisSession>): Promise<CodeAnalysisSession | undefined> {
+    const [updated] = await db.update(codeAnalysisSessions)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(codeAnalysisSessions.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // Smart Suggestions
+  async createSmartSuggestion(data: InsertSmartSuggestion): Promise<SmartSuggestion> {
+    const [created] = await db.insert(smartSuggestions).values(data).returning();
+    return created;
+  }
+
+  async getSmartSuggestionById(id: string): Promise<SmartSuggestion | undefined> {
+    const [suggestion] = await db.select().from(smartSuggestions)
+      .where(eq(smartSuggestions.id, id));
+    return suggestion || undefined;
+  }
+
+  async getSmartSuggestionsBySession(sessionId: string): Promise<SmartSuggestion[]> {
+    return db.select().from(smartSuggestions)
+      .where(eq(smartSuggestions.sessionId, sessionId))
+      .orderBy(desc(smartSuggestions.createdAt));
+  }
+
+  async getSmartSuggestionsByProject(projectId: string): Promise<SmartSuggestion[]> {
+    return db.select().from(smartSuggestions)
+      .where(eq(smartSuggestions.projectId, projectId))
+      .orderBy(desc(smartSuggestions.createdAt));
+  }
+
+  async getPendingSuggestionsByProject(projectId: string): Promise<SmartSuggestion[]> {
+    return db.select().from(smartSuggestions)
+      .where(and(
+        eq(smartSuggestions.projectId, projectId),
+        eq(smartSuggestions.status, "pending")
+      ))
+      .orderBy(desc(smartSuggestions.createdAt));
+  }
+
+  async updateSmartSuggestion(id: string, data: Partial<InsertSmartSuggestion>): Promise<SmartSuggestion | undefined> {
+    const [updated] = await db.update(smartSuggestions)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(smartSuggestions.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteSmartSuggestion(id: string): Promise<boolean> {
+    await db.delete(smartSuggestions).where(eq(smartSuggestions.id, id));
+    return true;
+  }
+
+  // Analysis Rules
+  async getAnalysisRules(): Promise<AnalysisRule[]> {
+    return db.select().from(analysisRules)
+      .orderBy(desc(analysisRules.createdAt));
+  }
+
+  async getActiveAnalysisRules(): Promise<AnalysisRule[]> {
+    return db.select().from(analysisRules)
+      .where(eq(analysisRules.isActive, true))
+      .orderBy(desc(analysisRules.createdAt));
+  }
+
+  async getAnalysisRuleById(id: string): Promise<AnalysisRule | undefined> {
+    const [rule] = await db.select().from(analysisRules)
+      .where(eq(analysisRules.id, id));
+    return rule || undefined;
+  }
+
+  async createAnalysisRule(data: InsertAnalysisRule): Promise<AnalysisRule> {
+    const [created] = await db.insert(analysisRules).values(data).returning();
+    return created;
+  }
+
+  async updateAnalysisRule(id: string, data: Partial<InsertAnalysisRule>): Promise<AnalysisRule | undefined> {
+    const [updated] = await db.update(analysisRules)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(analysisRules.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteAnalysisRule(id: string): Promise<boolean> {
+    await db.delete(analysisRules).where(eq(analysisRules.id, id));
+    return true;
+  }
+
+  // Project Improvement History
+  async createProjectImprovementHistory(data: InsertProjectImprovementHistory): Promise<ProjectImprovementHistory> {
+    const [created] = await db.insert(projectImprovementHistory).values(data).returning();
+    return created;
+  }
+
+  async getProjectImprovementHistory(projectId: string): Promise<ProjectImprovementHistory[]> {
+    return db.select().from(projectImprovementHistory)
+      .where(eq(projectImprovementHistory.projectId, projectId))
+      .orderBy(desc(projectImprovementHistory.createdAt));
+  }
+
+  async getRecentImprovements(projectId: string, limit: number = 10): Promise<ProjectImprovementHistory[]> {
+    return db.select().from(projectImprovementHistory)
+      .where(eq(projectImprovementHistory.projectId, projectId))
+      .orderBy(desc(projectImprovementHistory.createdAt))
+      .limit(limit);
   }
 }
 

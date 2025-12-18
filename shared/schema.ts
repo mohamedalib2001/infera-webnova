@@ -4816,3 +4816,241 @@ export const insertNotificationAnalyticsSchema = createInsertSchema(notification
 export type InsertNotificationAnalytics = z.infer<typeof insertNotificationAnalyticsSchema>;
 export type NotificationAnalytics = typeof notificationAnalytics.$inferSelect;
 
+// ==================== AI SMART SUGGESTIONS SYSTEM ====================
+// نظام الاقتراحات الذكية - يحلل الكود ويقترح تحسينات
+
+// أنواع الاقتراحات
+export const suggestionTypes = ['performance', 'security', 'accessibility', 'seo', 'best_practice', 'code_quality', 'ux', 'optimization'] as const;
+export type SuggestionType = typeof suggestionTypes[number];
+
+// مستويات الأهمية
+export const suggestionPriorities = ['critical', 'high', 'medium', 'low', 'info'] as const;
+export type SuggestionPriority = typeof suggestionPriorities[number];
+
+// حالة الاقتراح
+export const suggestionStatuses = ['pending', 'accepted', 'rejected', 'applied', 'deferred'] as const;
+export type SuggestionStatus = typeof suggestionStatuses[number];
+
+// جلسات تحليل الكود
+export const codeAnalysisSessions = pgTable("code_analysis_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  projectId: varchar("project_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  
+  // تفاصيل التحليل
+  analysisType: text("analysis_type").notNull().default("full"), // full, quick, security, performance
+  codeSnapshot: jsonb("code_snapshot").$type<{
+    html?: string;
+    css?: string;
+    js?: string;
+    backend?: string;
+  }>(),
+  
+  // إحصائيات
+  totalSuggestions: integer("total_suggestions").default(0),
+  criticalIssues: integer("critical_issues").default(0),
+  appliedSuggestions: integer("applied_suggestions").default(0),
+  
+  // نتائج التحليل
+  overallScore: integer("overall_score").default(0), // 0-100
+  performanceScore: integer("performance_score").default(0),
+  securityScore: integer("security_score").default(0),
+  accessibilityScore: integer("accessibility_score").default(0),
+  seoScore: integer("seo_score").default(0),
+  codeQualityScore: integer("code_quality_score").default(0),
+  
+  // الحالة
+  status: text("status").notNull().default("pending"), // pending, analyzing, completed, failed
+  completedAt: timestamp("completed_at"),
+  errorMessage: text("error_message"),
+  
+  // التكلفة
+  tokensUsed: integer("tokens_used").default(0),
+  costUsd: real("cost_usd").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_analysis_project").on(table.projectId),
+  index("IDX_analysis_user").on(table.userId),
+]);
+
+export const insertCodeAnalysisSessionSchema = createInsertSchema(codeAnalysisSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertCodeAnalysisSession = z.infer<typeof insertCodeAnalysisSessionSchema>;
+export type CodeAnalysisSession = typeof codeAnalysisSessions.$inferSelect;
+
+// الاقتراحات الذكية
+export const smartSuggestions = pgTable("smart_suggestions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  sessionId: varchar("session_id").notNull(),
+  projectId: varchar("project_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  
+  // نوع الاقتراح
+  type: text("type").notNull(), // performance, security, accessibility, seo, best_practice, code_quality, ux, optimization
+  priority: text("priority").notNull().default("medium"), // critical, high, medium, low, info
+  
+  // تفاصيل الاقتراح
+  title: text("title").notNull(),
+  titleAr: text("title_ar").notNull(),
+  description: text("description").notNull(),
+  descriptionAr: text("description_ar").notNull(),
+  
+  // الكود المتأثر
+  affectedFile: text("affected_file"), // html, css, js, backend
+  affectedCode: text("affected_code"), // snippet of affected code
+  lineNumber: integer("line_number"),
+  
+  // الحل المقترح
+  suggestedFix: text("suggested_fix"),
+  suggestedFixAr: text("suggested_fix_ar"),
+  codeBeforefix: text("code_before_fix"),
+  codeAfterFix: text("code_after_fix"),
+  
+  // التطبيق التلقائي
+  canAutoApply: boolean("can_auto_apply").notNull().default(false),
+  autoApplyScript: text("auto_apply_script"), // JSON with transformation instructions
+  
+  // التأثير المتوقع
+  expectedImpact: text("expected_impact"),
+  expectedImpactAr: text("expected_impact_ar"),
+  estimatedEffort: text("estimated_effort"), // minutes, hours, days
+  
+  // مصادر ومراجع
+  references: jsonb("references").$type<{
+    url: string;
+    title: string;
+  }[]>().default([]),
+  
+  // الحالة
+  status: text("status").notNull().default("pending"), // pending, accepted, rejected, applied, deferred
+  appliedAt: timestamp("applied_at"),
+  appliedBy: varchar("applied_by"),
+  rejectedReason: text("rejected_reason"),
+  
+  // تقييم المستخدم
+  userRating: integer("user_rating"), // 1-5
+  userFeedback: text("user_feedback"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_suggestion_session").on(table.sessionId),
+  index("IDX_suggestion_project").on(table.projectId),
+  index("IDX_suggestion_type").on(table.type),
+  index("IDX_suggestion_priority").on(table.priority),
+  index("IDX_suggestion_status").on(table.status),
+]);
+
+export const insertSmartSuggestionSchema = createInsertSchema(smartSuggestions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSmartSuggestion = z.infer<typeof insertSmartSuggestionSchema>;
+export type SmartSuggestion = typeof smartSuggestions.$inferSelect;
+
+// قواعد التحليل المخصصة (للمالك)
+export const analysisRules = pgTable("analysis_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // معلومات القاعدة
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  
+  // النوع والأولوية
+  type: text("type").notNull(), // performance, security, etc.
+  priority: text("priority").notNull().default("medium"),
+  
+  // نمط البحث
+  pattern: text("pattern").notNull(), // regex or code pattern
+  patternType: text("pattern_type").notNull().default("regex"), // regex, ast, literal
+  targetFiles: jsonb("target_files").$type<string[]>().default(['html', 'css', 'js']),
+  
+  // رسالة الاقتراح
+  suggestionTitle: text("suggestion_title").notNull(),
+  suggestionTitleAr: text("suggestion_title_ar").notNull(),
+  suggestionDescription: text("suggestion_description").notNull(),
+  suggestionDescriptionAr: text("suggestion_description_ar").notNull(),
+  suggestedFix: text("suggested_fix"),
+  suggestedFixAr: text("suggested_fix_ar"),
+  
+  // الحالة
+  isActive: boolean("is_active").notNull().default(true),
+  isBuiltIn: boolean("is_built_in").notNull().default(false),
+  
+  // الإنشاء
+  createdBy: varchar("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_rule_type").on(table.type),
+  index("IDX_rule_active").on(table.isActive),
+]);
+
+export const insertAnalysisRuleSchema = createInsertSchema(analysisRules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAnalysisRule = z.infer<typeof insertAnalysisRuleSchema>;
+export type AnalysisRule = typeof analysisRules.$inferSelect;
+
+// تاريخ تحسينات المشروع
+export const projectImprovementHistory = pgTable("project_improvement_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  projectId: varchar("project_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  suggestionId: varchar("suggestion_id"),
+  
+  // نوع التحسين
+  improvementType: text("improvement_type").notNull(),
+  
+  // التغييرات
+  changeDescription: text("change_description").notNull(),
+  changeDescriptionAr: text("change_description_ar").notNull(),
+  
+  // الكود
+  filePath: text("file_path"),
+  codeBefore: text("code_before"),
+  codeAfter: text("code_after"),
+  
+  // النتائج
+  scoreImprovement: integer("score_improvement").default(0),
+  impactMetrics: jsonb("impact_metrics").$type<{
+    performanceGain?: number;
+    securityScore?: number;
+    accessibilityScore?: number;
+  }>(),
+  
+  // الحالة
+  wasAutoApplied: boolean("was_auto_applied").notNull().default(false),
+  canRevert: boolean("can_revert").notNull().default(true),
+  revertedAt: timestamp("reverted_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_improvement_project").on(table.projectId),
+  index("IDX_improvement_type").on(table.improvementType),
+]);
+
+export const insertProjectImprovementHistorySchema = createInsertSchema(projectImprovementHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertProjectImprovementHistory = z.infer<typeof insertProjectImprovementHistorySchema>;
+export type ProjectImprovementHistory = typeof projectImprovementHistory.$inferSelect;
+

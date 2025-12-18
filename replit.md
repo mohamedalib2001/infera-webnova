@@ -139,6 +139,36 @@ Secure gateway for technical partner access (Replit, GitHub Copilot, etc.):
 *   `/owner/infrastructure` - Cloud infrastructure management dashboard
 *   `/owner/integrations` - External integration gateway management
 
+## AI Smart Suggestions System (New Feature - Dec 2024)
+Intelligent code analysis and improvement recommendations using Claude AI:
+
+**Features:**
+*   **Multi-Category Analysis**: Performance, Security, Accessibility, SEO, Best Practices, Code Quality, UX, Optimization
+*   **Scoring System**: 0-100 scores for overall quality and each category
+*   **Bilingual Support**: Full Arabic/English translations for all suggestions
+*   **Analysis Types**: Full, Quick, Security-focused, Performance-focused
+*   **Auto-Apply**: Safe suggestions can be automatically applied with revert capability
+*   **Rating System**: Users can rate suggestion quality (1-5 stars) with feedback
+*   **History Tracking**: Complete improvement history per project
+
+**Database Tables:**
+*   `codeAnalysisSessions`: Analysis session metadata with scores
+*   `smartSuggestions`: Individual suggestions with status tracking
+*   `analysisRules`: Configurable analysis rules
+*   `projectImprovementHistory`: Applied changes with revert capability
+
+**API Endpoints:**
+*   `GET /api/suggestions` - Get suggestions for a project
+*   `GET /api/suggestions/sessions` - Get analysis sessions
+*   `POST /api/suggestions/analyze` - Run AI code analysis
+*   `POST /api/suggestions/:id/apply` - Apply a suggestion
+*   `POST /api/suggestions/:id/reject` - Reject a suggestion
+*   `POST /api/suggestions/:id/rate` - Rate a suggestion
+*   `GET /api/suggestions/history/:projectId` - Get improvement history
+
+**UI Page:**
+*   `/smart-suggestions` - Smart suggestions dashboard with score cards, suggestion list, and history
+
 ## External Dependencies
 *   **Database**: PostgreSQL
 *   **ORM**: Drizzle ORM
