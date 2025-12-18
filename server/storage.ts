@@ -1076,21 +1076,38 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    const existingUser = await db.select().from(users).where(eq(users.id, userData.id)).limit(1);
+    const existingUserById = await db.select().from(users).where(eq(users.id, userData.id)).limit(1);
     
-    if (existingUser.length > 0) {
+    if (existingUserById.length > 0) {
       const [updated] = await db
         .update(users)
         .set({
-          email: userData.email || existingUser[0].email,
-          firstName: userData.firstName || existingUser[0].firstName,
-          lastName: userData.lastName || existingUser[0].lastName,
-          profileImageUrl: userData.profileImageUrl || existingUser[0].profileImageUrl,
+          firstName: userData.firstName || existingUserById[0].firstName,
+          lastName: userData.lastName || existingUserById[0].lastName,
+          profileImageUrl: userData.profileImageUrl || existingUserById[0].profileImageUrl,
           updatedAt: new Date(),
         })
         .where(eq(users.id, userData.id))
         .returning();
       return updated;
+    }
+    
+    if (userData.email) {
+      const existingUserByEmail = await db.select().from(users).where(eq(users.email, userData.email)).limit(1);
+      if (existingUserByEmail.length > 0) {
+        const [updated] = await db
+          .update(users)
+          .set({
+            firstName: userData.firstName || existingUserByEmail[0].firstName,
+            lastName: userData.lastName || existingUserByEmail[0].lastName,
+            profileImageUrl: userData.profileImageUrl || existingUserByEmail[0].profileImageUrl,
+            authProvider: userData.authProvider || existingUserByEmail[0].authProvider,
+            updatedAt: new Date(),
+          })
+          .where(eq(users.email, userData.email))
+          .returning();
+        return updated;
+      }
     }
     
     const [user] = await db
