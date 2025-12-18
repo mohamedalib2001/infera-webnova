@@ -62,6 +62,26 @@ const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
       }
       
       if (dbUser) {
+        // Check user status before allowing access
+        if (dbUser.status === 'BANNED') {
+          return res.status(403).json({ 
+            error: "Your account has been banned. Contact support. / تم حظر حسابك. تواصل مع الدعم.",
+            errorCode: "ACCOUNT_BANNED"
+          });
+        }
+        if (dbUser.status === 'SUSPENDED') {
+          return res.status(403).json({ 
+            error: "Your account is suspended. Contact support. / تم تعليق حسابك. تواصل مع الدعم.",
+            errorCode: "ACCOUNT_SUSPENDED"
+          });
+        }
+        if (dbUser.status === 'DEACTIVATED') {
+          return res.status(403).json({ 
+            error: "Your account is deactivated. Contact support to reactivate. / تم إلغاء تفعيل حسابك.",
+            errorCode: "ACCOUNT_DEACTIVATED"
+          });
+        }
+        
         req.session.userId = dbUser.id;
         // Strip password before storing in session
         const { password: _, ...userWithoutPassword } = dbUser;
@@ -71,8 +91,20 @@ const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
     }
   }
   
-  // Fallback to traditional session
+  // Fallback to traditional session - also check status
   if (req.session?.userId) {
+    const sessionUser = await storage.getUser(req.session.userId);
+    if (sessionUser) {
+      if (sessionUser.status === 'BANNED') {
+        return res.status(403).json({ error: "Your account has been banned.", errorCode: "ACCOUNT_BANNED" });
+      }
+      if (sessionUser.status === 'SUSPENDED') {
+        return res.status(403).json({ error: "Your account is suspended.", errorCode: "ACCOUNT_SUSPENDED" });
+      }
+      if (sessionUser.status === 'DEACTIVATED') {
+        return res.status(403).json({ error: "Your account is deactivated.", errorCode: "ACCOUNT_DEACTIVATED" });
+      }
+    }
     return next();
   }
   
