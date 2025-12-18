@@ -530,15 +530,15 @@ export default function CloudIDE() {
   const getRuntimeStatusColor = () => {
     switch (runtime?.status) {
       case "running":
-        return "bg-green-500";
+        return "status-running";
       case "starting":
-        return "bg-yellow-500";
+        return "status-starting";
       case "stopping":
         return "bg-orange-500";
       case "error":
         return "bg-red-500";
       default:
-        return "bg-muted-foreground";
+        return "status-stopped";
     }
   };
 
@@ -575,28 +575,34 @@ export default function CloudIDE() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-background" dir={language === "ar" ? "rtl" : "ltr"}>
-      {/* Header */}
-      <header className="flex items-center justify-between gap-4 px-4 py-2 border-b bg-card">
-        <div className="flex items-center gap-3">
+    <div className="flex flex-col h-screen bg-background gradient-mesh" dir={language === "ar" ? "rtl" : "ltr"}>
+      {/* Premium Header */}
+      <header className="ide-header flex items-center justify-between gap-4 px-4 py-3 sticky top-0 z-50">
+        <div className="flex items-center gap-4">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setLocation("/ide")}
+            className="rounded-lg"
             data-testid="button-back"
           >
             <ArrowLeft className="w-4 h-4" />
           </Button>
-          <div>
-            <h1 className="font-semibold">{project.name}</h1>
-            <p className="text-xs text-muted-foreground">{project.projectType}</p>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center">
+              <Code2 className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <h1 className="font-semibold text-sm">{project.name}</h1>
+              <p className="text-xs text-muted-foreground">{project.projectType}</p>
+            </div>
           </div>
-          <Badge variant="outline" className="gap-1">
+          <Badge variant="outline" className="gap-1.5 px-3 py-1 rounded-full glass">
             <span className={`w-2 h-2 rounded-full ${getRuntimeStatusColor()}`} />
-            {getRuntimeStatusText()}
+            <span className="text-xs font-medium">{getRuntimeStatusText()}</span>
           </Badge>
           {hasUnsavedChanges && (
-            <Badge variant="secondary" className="text-xs">
+            <Badge variant="secondary" className="text-xs rounded-full animate-pulse">
               {txt.unsavedChanges}
             </Badge>
           )}
@@ -821,15 +827,18 @@ export default function CloudIDE() {
 
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* File Tree Sidebar */}
-        <aside className="w-60 border-l bg-card flex flex-col">
-          <div className="flex items-center justify-between p-3 border-b">
-            <span className="font-medium text-sm">{txt.files}</span>
+        {/* Premium File Tree Sidebar */}
+        <aside className="w-64 border-l bg-card/50 glass flex flex-col">
+          <div className="flex items-center justify-between p-3 border-b border-border/50">
+            <div className="flex items-center gap-2">
+              <Folder className="w-4 h-4 text-primary" />
+              <span className="font-medium text-sm">{txt.files}</span>
+            </div>
             <div className="flex gap-1">
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7"
+                className="h-7 w-7 rounded-lg"
                 onClick={() => {
                   const name = prompt(language === "ar" ? "اسم الملف:" : "File name:");
                   if (name) {
@@ -846,54 +855,75 @@ export default function CloudIDE() {
               </Button>
             </div>
           </div>
-          <ScrollArea className="flex-1 p-2">
+          <ScrollArea className="flex-1 p-2 premium-scrollbar">
             {filesLoading ? (
               <div className="flex justify-center py-4">
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2 className="w-5 h-5 animate-spin text-primary" />
               </div>
             ) : (
-              renderFileTree(fileTree)
+              <div className="animate-slide-in">
+                {renderFileTree(fileTree)}
+              </div>
             )}
           </ScrollArea>
         </aside>
 
-        {/* Editor */}
-        <main className="flex-1 flex flex-col overflow-hidden">
+        {/* Premium Editor */}
+        <main className="flex-1 flex flex-col overflow-hidden bg-[#1e1e1e]">
           {selectedFile ? (
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 overflow-hidden editor-container">
+              <div className="flex items-center gap-2 px-4 py-2 bg-[#252526] border-b border-[#3c3c3c]">
+                <FileCode className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium text-gray-300">{selectedFile.fileName}</span>
+                <Badge variant="outline" className="text-xs ml-auto">
+                  {selectedFile.fileType}
+                </Badge>
+              </div>
               <Editor
-                height="100%"
+                height="calc(100% - 40px)"
                 language={getEditorLanguage(selectedFile.fileType)}
                 value={editorContent}
                 onChange={handleEditorChange}
                 theme="vs-dark"
                 options={{
-                  minimap: { enabled: true },
+                  minimap: { enabled: true, scale: 0.8 },
                   fontSize: 14,
+                  fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                  fontLigatures: true,
                   wordWrap: "on",
                   automaticLayout: true,
                   scrollBeyondLastLine: false,
-                  padding: { top: 10 },
+                  padding: { top: 16, bottom: 16 },
+                  smoothScrolling: true,
+                  cursorBlinking: "smooth",
+                  cursorSmoothCaretAnimation: "on",
+                  renderLineHighlight: "all",
+                  bracketPairColorization: { enabled: true },
                 }}
               />
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-muted-foreground">
-              <div className="text-center">
-                <Code2 className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                <p>{txt.noFileSelected}</p>
+            <div className="flex-1 flex items-center justify-center text-muted-foreground gradient-glow">
+              <div className="text-center animate-fade-scale">
+                <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-primary/20 to-purple-600/20 flex items-center justify-center">
+                  <Code2 className="w-10 h-10 text-primary/50" />
+                </div>
+                <p className="text-lg font-medium mb-2">{txt.noFileSelected}</p>
+                <p className="text-sm text-muted-foreground/60">
+                  {language === "ar" ? "اختر ملفاً من القائمة للبدء" : "Select a file from the sidebar to begin"}
+                </p>
               </div>
             </div>
           )}
         </main>
 
-        {/* Preview / Console Panel */}
-        <aside className="w-96 border-r flex flex-col bg-card">
+        {/* Premium Preview / Console Panel */}
+        <aside className="w-[420px] border-r flex flex-col bg-card/50 glass">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "preview" | "console" | "database" | "ai")} className="flex flex-col h-full">
-            <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0">
+            <TabsList className="w-full justify-start rounded-none border-b border-border/50 bg-transparent p-0 gap-0">
               <TabsTrigger
                 value="preview"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-primary/5 px-4 py-3 transition-all"
                 data-testid="tab-preview"
               >
                 <Monitor className="w-4 h-4 ml-1" />
@@ -901,7 +931,7 @@ export default function CloudIDE() {
               </TabsTrigger>
               <TabsTrigger
                 value="console"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-primary/5 px-4 py-3 transition-all"
                 data-testid="tab-console"
               >
                 <Terminal className="w-4 h-4 ml-1" />
@@ -909,7 +939,7 @@ export default function CloudIDE() {
               </TabsTrigger>
               <TabsTrigger
                 value="database"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-primary/5 px-4 py-3 transition-all"
                 data-testid="tab-database"
               >
                 <Database className="w-4 h-4 ml-1" />
@@ -917,7 +947,7 @@ export default function CloudIDE() {
               </TabsTrigger>
               <TabsTrigger
                 value="ai"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary bg-gradient-to-r from-purple-500/10 to-blue-500/10"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary px-4 py-3 transition-all bg-gradient-to-r from-purple-500/5 to-blue-500/5 data-[state=active]:from-purple-500/10 data-[state=active]:to-blue-500/10"
                 data-testid="tab-ai"
               >
                 <Sparkles className="w-4 h-4 ml-1 text-purple-500" />
@@ -1141,7 +1171,7 @@ export default function CloudIDE() {
                           try {
                             const response = await apiRequest("POST", `/api/dev-projects/${projectId}/ai/assist`, {
                               prompt: userMessage,
-                              context: selectedFile ? { fileName: selectedFile.filename, content: editorContent } : null,
+                              context: selectedFile ? { fileName: selectedFile.fileName, content: editorContent } : null,
                               language
                             });
                             const data = await response.json();
@@ -1178,7 +1208,7 @@ export default function CloudIDE() {
                           try {
                             const response = await apiRequest("POST", `/api/dev-projects/${projectId}/ai/assist`, {
                               prompt: userMessage,
-                              context: selectedFile ? { fileName: selectedFile.filename, content: editorContent } : null,
+                              context: selectedFile ? { fileName: selectedFile.fileName, content: editorContent } : null,
                               language
                             });
                             const data = await response.json();

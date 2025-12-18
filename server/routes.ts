@@ -3960,6 +3960,152 @@ export async function registerRoutes(
     }
   });
 
+  // ==================== PACKAGE MANAGER API ====================
+  
+  // Install package in project
+  app.post("/api/dev-projects/:projectId/packages/install", requireAuth, async (req, res) => {
+    try {
+      const project = await storage.getDevProject(req.params.projectId);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      const userId = req.session.userId!;
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const { packageName } = req.body;
+      if (!packageName || typeof packageName !== "string") {
+        return res.status(400).json({ error: "Package name required" });
+      }
+      
+      // Validate package name (alphanumeric, hyphens, underscores, @scope)
+      const validPackage = /^(@[a-zA-Z0-9_-]+\/)?[a-zA-Z0-9_-]+(@[a-zA-Z0-9._-]+)?$/.test(packageName);
+      if (!validPackage) {
+        return res.status(400).json({ error: "Invalid package name" });
+      }
+      
+      const { executeCommand } = await import("./terminal-service");
+      const result = await executeCommand(req.params.projectId, `npm install ${packageName}`);
+      
+      res.json({ 
+        success: true, 
+        package: packageName,
+        output: result.stdout,
+        error: result.stderr 
+      });
+    } catch (error) {
+      console.error("Package install error:", error);
+      res.status(500).json({ error: "Failed to install package" });
+    }
+  });
+  
+  // Uninstall package from project
+  app.post("/api/dev-projects/:projectId/packages/uninstall", requireAuth, async (req, res) => {
+    try {
+      const project = await storage.getDevProject(req.params.projectId);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      const userId = req.session.userId!;
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const { packageName } = req.body;
+      if (!packageName || typeof packageName !== "string") {
+        return res.status(400).json({ error: "Package name required" });
+      }
+      
+      const { executeCommand } = await import("./terminal-service");
+      const result = await executeCommand(req.params.projectId, `npm uninstall ${packageName}`);
+      
+      res.json({ 
+        success: true, 
+        package: packageName,
+        output: result.stdout 
+      });
+    } catch (error) {
+      console.error("Package uninstall error:", error);
+      res.status(500).json({ error: "Failed to uninstall package" });
+    }
+  });
+  
+  // Search npm packages
+  app.get("/api/packages/search", requireAuth, async (req, res) => {
+    try {
+      const query = req.query.q as string;
+      if (!query || query.length < 2) {
+        return res.json({ packages: [] });
+      }
+      
+      // Search npm registry
+      const response = await fetch(`https://registry.npmjs.org/-/v1/search?text=${encodeURIComponent(query)}&size=10`);
+      const data = await response.json();
+      
+      const packages = data.objects?.map((obj: any) => ({
+        name: obj.package.name,
+        version: obj.package.version,
+        description: obj.package.description,
+        downloads: obj.downloads?.all || 0,
+      })) || [];
+      
+      res.json({ packages });
+    } catch (error) {
+      console.error("Package search error:", error);
+      res.status(500).json({ error: "Failed to search packages" });
+    }
+  });
+  
+  // List installed packages for a project
+  app.get("/api/dev-projects/:projectId/packages", requireAuth, async (req, res) => {
+    try {
+      const project = await storage.getDevProject(req.params.projectId);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      const userId = req.session.userId!;
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Try to read package.json from project files
+      const files = await storage.getProjectFiles(req.params.projectId);
+      const packageJsonFile = files.find(f => f.fileName === "package.json");
+      
+      if (packageJsonFile && packageJsonFile.content) {
+        try {
+          const packageJson = JSON.parse(packageJsonFile.content);
+          const dependencies = Object.keys(packageJson.dependencies || {});
+          const devDependencies = Object.keys(packageJson.devDependencies || {});
+          
+          res.json({ 
+            dependencies: dependencies.map(name => ({
+              name,
+              version: packageJson.dependencies[name],
+              isDev: false
+            })),
+            devDependencies: devDependencies.map(name => ({
+              name,
+              version: packageJson.devDependencies[name],
+              isDev: true
+            }))
+          });
+        } catch {
+          res.json({ dependencies: [], devDependencies: [] });
+        }
+      } else {
+        res.json({ dependencies: [], devDependencies: [] });
+      }
+    } catch (error) {
+      console.error("List packages error:", error);
+      res.status(500).json({ error: "Failed to list packages" });
+    }
+  });
+
   // ==================== AI ASSISTANT API ====================
   
   // AI code assistance endpoint
