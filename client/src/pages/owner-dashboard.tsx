@@ -702,6 +702,113 @@ export default function OwnerDashboard() {
     queryKey: ['/api/owner/emergency-controls'],
   });
 
+  // AI Sovereignty Layer Queries
+  const { data: aiLayers = [], isLoading: aiLayersLoading } = useQuery<any[]>({
+    queryKey: ['/api/owner/ai-sovereignty/layers'],
+  });
+
+  const { data: aiPowerConfigs = [] } = useQuery<any[]>({
+    queryKey: ['/api/owner/ai-sovereignty/power-configs'],
+  });
+
+  const { data: aiExternalProviders = [] } = useQuery<any[]>({
+    queryKey: ['/api/owner/ai-sovereignty/external-providers'],
+  });
+
+  const { data: aiKillSwitch } = useQuery<any>({
+    queryKey: ['/api/owner/ai-sovereignty/kill-switch'],
+  });
+
+  const { data: aiAuditLogs = [], isLoading: aiAuditLogsLoading } = useQuery<any[]>({
+    queryKey: ['/api/owner/ai-sovereignty/audit-logs'],
+  });
+
+  // AI Sovereignty Mutations
+  const createAiLayerMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', '/api/owner/ai-sovereignty/layers', {
+        name: 'New AI Layer',
+        nameAr: 'طبقة ذكاء جديدة',
+        purpose: 'General purpose AI layer',
+        purposeAr: 'طبقة ذكاء متعددة الأغراض',
+        type: 'INTERNAL_SOVEREIGN',
+        status: 'active',
+        priority: 5,
+        allowedForSubscribers: false,
+        subscriberVisibility: 'hidden',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/ai-sovereignty/layers'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/ai-sovereignty/audit-logs'] });
+      toast({
+        title: language === 'ar' ? "تمت الإضافة" : "Layer Created",
+        description: language === 'ar' ? "تم إنشاء طبقة ذكاء جديدة" : "New AI layer has been created",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: language === 'ar' ? "خطأ" : "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const activateKillSwitchMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', '/api/owner/ai-sovereignty/kill-switch/activate', {
+        scope: 'global',
+        reason: 'Manual activation by owner',
+        reasonAr: 'تفعيل يدوي من المالك',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/ai-sovereignty/kill-switch'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/ai-sovereignty/audit-logs'] });
+      toast({
+        title: language === 'ar' ? "تم التفعيل" : "Kill Switch Activated",
+        description: language === 'ar' ? "تم تفعيل زر الطوارئ" : "Kill switch has been activated",
+        variant: "destructive",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: language === 'ar' ? "خطأ" : "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deactivateKillSwitchMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', '/api/owner/ai-sovereignty/kill-switch/deactivate', {
+        scope: 'global',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/ai-sovereignty/kill-switch'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/ai-sovereignty/audit-logs'] });
+      toast({
+        title: language === 'ar' ? "تم الإلغاء" : "Kill Switch Deactivated",
+        description: language === 'ar' ? "تم إلغاء تفعيل زر الطوارئ" : "Kill switch has been deactivated",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: language === 'ar' ? "خطأ" : "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Check if global kill switch is active
+  const isGlobalKillSwitchActive = Array.isArray(aiKillSwitch) 
+    ? aiKillSwitch.some((ks: any) => ks.scope === 'global' && ks.isActive)
+    : aiKillSwitch?.isActive;
+
   const initializeSovereignAssistantsMutation = useMutation({
     mutationFn: async () => {
       return apiRequest('POST', '/api/owner/initialize-sovereign-assistants');
@@ -1670,153 +1777,279 @@ export default function OwnerDashboard() {
           </TabsContent>
 
           <TabsContent value="aiSovereignty" className="space-y-6">
-            {/* AI Sovereignty Layer - Owner Only Control */}
-            <Card className="border-violet-500/30">
+            {/* AI Sovereignty Layer Header */}
+            <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
+              <div>
+                <h2 className="text-2xl font-bold flex items-center gap-2 text-violet-600">
+                  <Shield className="w-6 h-6" />
+                  {t.aiSovereignty.title}
+                </h2>
+                <p className="text-muted-foreground">{t.aiSovereignty.subtitle}</p>
+              </div>
+            </div>
+
+            {/* Overview Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm text-muted-foreground">{t.aiSovereignty.layers}</p>
+                      <p className="text-2xl font-bold" data-testid="text-ai-layers-count">
+                        {aiLayers?.length || 0}
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-blue-500/10 text-blue-600">
+                      <Database className="w-6 h-6" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm text-muted-foreground">{t.aiSovereignty.powerControl}</p>
+                      <p className="text-2xl font-bold" data-testid="text-power-configs-count">
+                        {aiPowerConfigs?.length || 0}
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-orange-500/10 text-orange-600">
+                      <Zap className="w-6 h-6" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm text-muted-foreground">{t.aiSovereignty.externalProviders}</p>
+                      <p className="text-2xl font-bold" data-testid="text-providers-count">
+                        {aiExternalProviders?.length || 0}
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-purple-500/10 text-purple-600">
+                      <Globe className="w-6 h-6" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className={isGlobalKillSwitchActive ? 'border-red-500 bg-red-500/5' : ''}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm text-muted-foreground">{t.aiSovereignty.killSwitch}</p>
+                      <p className="text-2xl font-bold" data-testid="text-kill-switch-status">
+                        {isGlobalKillSwitchActive ? (language === 'ar' ? 'نشط' : 'Active') : (language === 'ar' ? 'غير نشط' : 'Inactive')}
+                      </p>
+                    </div>
+                    <div className={`p-3 rounded-xl ${isGlobalKillSwitchActive ? 'bg-red-500/10 text-red-600' : 'bg-gray-500/10 text-gray-600'}`}>
+                      <AlertCircle className="w-6 h-6" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* AI Layers Section */}
+            <Card>
               <CardHeader>
                 <div className="flex items-center justify-between gap-4 flex-wrap">
-                  <div>
-                    <CardTitle className="flex items-center gap-2 text-violet-600">
-                      <Shield className="w-5 h-5" />
-                      {t.aiSovereignty.title}
-                    </CardTitle>
-                    <CardDescription>{t.aiSovereignty.subtitle}</CardDescription>
-                  </div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Database className="w-5 h-5" />
+                    {t.aiSovereignty.layers}
+                  </CardTitle>
+                  <Button onClick={() => createAiLayerMutation.mutate()} disabled={createAiLayerMutation?.isPending} data-testid="button-create-ai-layer">
+                    <Plus className="w-4 h-4 mr-2" />
+                    {language === 'ar' ? 'إضافة طبقة' : 'Add Layer'}
+                  </Button>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {/* AI Layers Card */}
-                  <Card className="hover-elevate">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-3 rounded-xl bg-blue-500/10 text-blue-600">
-                          <Database className="w-6 h-6" />
+                {aiLayersLoading ? (
+                  <div className="text-center py-8">
+                    <RefreshCw className="w-8 h-8 animate-spin mx-auto" />
+                  </div>
+                ) : aiLayers?.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Database className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p>{language === 'ar' ? 'لا توجد طبقات ذكاء' : 'No AI layers yet'}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {aiLayers?.map((layer: any) => (
+                      <div key={layer.id} className="flex items-center justify-between gap-4 p-3 bg-muted/50 rounded-lg" data-testid={`ai-layer-${layer.id}`}>
+                        <div className="flex items-center gap-3">
+                          <Badge className={
+                            layer.layerType === 'INTERNAL_SOVEREIGN' ? 'bg-blue-500/10 text-blue-600' :
+                            layer.layerType === 'EXTERNAL_MANAGED' ? 'bg-purple-500/10 text-purple-600' :
+                            layer.layerType === 'HYBRID' ? 'bg-green-500/10 text-green-600' :
+                            'bg-orange-500/10 text-orange-600'
+                          }>
+                            {layer.layerType}
+                          </Badge>
+                          <div>
+                            <p className="font-medium">{language === 'ar' ? layer.nameAr : layer.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {language === 'ar' ? 'القوة:' : 'Power:'} {layer.powerLevel || 1}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <h3 className="font-semibold">{t.aiSovereignty.layers}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {language === 'ar' ? 'إدارة طبقات الذكاء' : 'Manage AI Layers'}
-                          </p>
-                        </div>
+                        <Switch checked={layer.isActive} data-testid={`switch-layer-${layer.id}`} />
                       </div>
-                    </CardContent>
-                  </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-                  {/* Power Control Card */}
-                  <Card className="hover-elevate">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-3 rounded-xl bg-orange-500/10 text-orange-600">
-                          <Zap className="w-6 h-6" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold">{t.aiSovereignty.powerControl}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {language === 'ar' ? 'تحكم بمستويات القوة' : 'Control power levels'}
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* External Providers Card */}
-                  <Card className="hover-elevate">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-3 rounded-xl bg-purple-500/10 text-purple-600">
-                          <Globe className="w-6 h-6" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold">{t.aiSovereignty.externalProviders}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {language === 'ar' ? 'موافقة على المزودين' : 'Approve providers'}
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Subscriber Limits Card */}
-                  <Card className="hover-elevate">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-3 rounded-xl bg-green-500/10 text-green-600">
-                          <Users className="w-6 h-6" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold">{t.aiSovereignty.subscriberLimits}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {language === 'ar' ? 'تحديد حدود المشتركين' : 'Set subscriber limits'}
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Kill Switch Card */}
-                  <Card className="border-red-500/30 hover-elevate">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-3 rounded-xl bg-red-500/10 text-red-600">
-                          <AlertCircle className="w-6 h-6" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-red-600">{t.aiSovereignty.killSwitch}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {language === 'ar' ? 'إيقاف طارئ للذكاء' : 'Emergency AI stop'}
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Constitution Card */}
-                  <Card className="hover-elevate">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-3 rounded-xl bg-amber-500/10 text-amber-600">
-                          <FileText className="w-6 h-6" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold">{t.aiSovereignty.constitution}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {language === 'ar' ? 'قواعد دستورية للذكاء' : 'Constitutional AI rules'}
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+            {/* Kill Switch Section */}
+            <Card className="border-red-500/30">
+              <CardHeader>
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-red-600">
+                      <AlertCircle className="w-5 h-5" />
+                      {t.aiSovereignty.killSwitch}
+                    </CardTitle>
+                    <CardDescription>{language === 'ar' ? 'إيقاف طارئ لجميع عمليات الذكاء' : 'Emergency stop for all AI operations'}</CardDescription>
+                  </div>
+                  {isGlobalKillSwitchActive ? (
+                    <Button 
+                      variant="default"
+                      onClick={() => deactivateKillSwitchMutation.mutate()}
+                      disabled={deactivateKillSwitchMutation?.isPending}
+                      data-testid="button-deactivate-kill-switch"
+                    >
+                      {deactivateKillSwitchMutation?.isPending ? (
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Play className="w-4 h-4 mr-2" />
+                      )}
+                      {language === 'ar' ? 'إعادة التشغيل' : 'Reactivate'}
+                    </Button>
+                  ) : (
+                    <Button 
+                      variant="destructive"
+                      onClick={() => activateKillSwitchMutation.mutate()}
+                      disabled={activateKillSwitchMutation?.isPending}
+                      data-testid="button-activate-kill-switch"
+                    >
+                      {activateKillSwitchMutation?.isPending ? (
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Pause className="w-4 h-4 mr-2" />
+                      )}
+                      {language === 'ar' ? 'إيقاف طارئ' : 'Emergency Stop'}
+                    </Button>
+                  )}
                 </div>
-
-                {/* Constitutional Rules Display */}
-                <div className="mt-6 p-4 bg-muted/50 rounded-lg">
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <Shield className="w-4 h-4" />
-                    {t.aiSovereignty.constitution}
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <div className="flex items-center gap-2 text-sm">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      {t.aiSovereignty.constitutionRules.noAIWithoutLayer}
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      {t.aiSovereignty.constitutionRules.noAIWithoutLimits}
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      {t.aiSovereignty.constitutionRules.noUndefinedPower}
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      {t.aiSovereignty.constitutionRules.noExternalWithoutApproval}
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      {t.aiSovereignty.constitutionRules.noSubscriberAccessWithoutDecision}
+              </CardHeader>
+              <CardContent>
+                {isGlobalKillSwitchActive ? (
+                  <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <AlertCircle className="w-6 h-6 text-red-600" />
+                      <div>
+                        <p className="font-medium text-red-600">{language === 'ar' ? 'مفتاح الإيقاف نشط' : 'Kill Switch Active'}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {language === 'ar' ? 'جميع عمليات الذكاء متوقفة' : 'All AI operations are suspended'}
+                        </p>
+                        {Array.isArray(aiKillSwitch) && aiKillSwitch.find((ks: any) => ks.scope === 'global')?.reason && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {language === 'ar' ? 'السبب:' : 'Reason:'} {aiKillSwitch.find((ks: any) => ks.scope === 'global')?.reason}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
+                ) : (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <Shield className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p>{language === 'ar' ? 'النظام يعمل بشكل طبيعي' : 'System operating normally'}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Constitutional Rules */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="w-5 h-5" />
+                  {t.aiSovereignty.constitution}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                    <span className="text-sm">{t.aiSovereignty.constitutionRules.noAIWithoutLayer}</span>
+                  </div>
+                  <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                    <span className="text-sm">{t.aiSovereignty.constitutionRules.noAIWithoutLimits}</span>
+                  </div>
+                  <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                    <span className="text-sm">{t.aiSovereignty.constitutionRules.noUndefinedPower}</span>
+                  </div>
+                  <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                    <span className="text-sm">{t.aiSovereignty.constitutionRules.noExternalWithoutApproval}</span>
+                  </div>
+                  <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg md:col-span-2">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                    <span className="text-sm">{t.aiSovereignty.constitutionRules.noSubscriberAccessWithoutDecision}</span>
+                  </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Audit Logs */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <History className="w-5 h-5" />
+                  {t.aiSovereignty.auditLogs}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {aiAuditLogsLoading ? (
+                  <div className="text-center py-8">
+                    <RefreshCw className="w-8 h-8 animate-spin mx-auto" />
+                  </div>
+                ) : aiAuditLogs?.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <History className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p>{language === 'ar' ? 'لا توجد سجلات بعد' : 'No audit logs yet'}</p>
+                  </div>
+                ) : (
+                  <ScrollArea className="h-[200px]">
+                    <div className="space-y-2">
+                      {aiAuditLogs?.slice(0, 20).map((log: any) => (
+                        <div key={log.id} className="flex items-center gap-3 p-2 rounded hover-elevate" data-testid={`audit-log-${log.id}`}>
+                          <div className={`w-2 h-2 rounded-full ${
+                            log.actionType === 'CREATE' ? 'bg-green-500' :
+                            log.actionType === 'DELETE' ? 'bg-red-500' :
+                            log.actionType === 'UPDATE' ? 'bg-blue-500' :
+                            'bg-gray-500'
+                          }`} />
+                          <div className="flex-1">
+                            <p className="text-sm">{log.actionType} - {log.entityType}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {log.timestamp ? new Date(log.timestamp).toLocaleString(language === 'ar' ? 'ar-SA' : 'en-US') : '-'}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
