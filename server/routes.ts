@@ -2948,6 +2948,461 @@ export async function registerRoutes(
     }
   });
 
+  // ==================== AI SOVEREIGNTY LAYER ROUTES (OWNER ONLY) ====================
+  // طبقة سيادة الذكاء - تحكم كامل للمالك
+
+  // ============ AI Layers - طبقات الذكاء ============
+  
+  app.get("/api/owner/ai-sovereignty/layers", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const layers = await storage.getAILayers();
+      res.json(layers);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب طبقات الذكاء / Failed to get AI layers" });
+    }
+  });
+
+  app.get("/api/owner/ai-sovereignty/layers/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const layer = await storage.getAILayer(req.params.id);
+      if (!layer) return res.status(404).json({ error: "طبقة الذكاء غير موجودة / AI layer not found" });
+      res.json(layer);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب طبقة الذكاء / Failed to get AI layer" });
+    }
+  });
+
+  app.post("/api/owner/ai-sovereignty/layers", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const layer = await storage.createAILayer({
+        ...req.body,
+        createdBy: req.session.userId!,
+      });
+      await storage.createAISovereigntyAuditLog({
+        action: "AI_LAYER_CREATED",
+        actionAr: "تم إنشاء طبقة ذكاء",
+        performedBy: req.session.userId!,
+        targetType: "AI_LAYER",
+        targetId: layer.id,
+        details: { name: layer.name, type: layer.type },
+      });
+      res.status(201).json(layer);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في إنشاء طبقة الذكاء / Failed to create AI layer" });
+    }
+  });
+
+  app.patch("/api/owner/ai-sovereignty/layers/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const layer = await storage.updateAILayer(req.params.id, req.body);
+      if (!layer) return res.status(404).json({ error: "طبقة الذكاء غير موجودة / AI layer not found" });
+      await storage.createAISovereigntyAuditLog({
+        action: "AI_LAYER_UPDATED",
+        actionAr: "تم تحديث طبقة ذكاء",
+        performedBy: req.session.userId!,
+        targetType: "AI_LAYER",
+        targetId: layer.id,
+        details: { changes: Object.keys(req.body) },
+      });
+      res.json(layer);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في تحديث طبقة الذكاء / Failed to update AI layer" });
+    }
+  });
+
+  app.delete("/api/owner/ai-sovereignty/layers/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const layer = await storage.getAILayer(req.params.id);
+      if (!layer) return res.status(404).json({ error: "طبقة الذكاء غير موجودة / AI layer not found" });
+      
+      const deleted = await storage.deleteAILayer(req.params.id);
+      if (!deleted) return res.status(500).json({ error: "فشل في حذف طبقة الذكاء / Failed to delete AI layer" });
+      
+      await storage.createAISovereigntyAuditLog({
+        action: "AI_LAYER_DELETED",
+        actionAr: "تم حذف طبقة ذكاء",
+        performedBy: req.session.userId!,
+        targetType: "AI_LAYER",
+        targetId: req.params.id,
+        details: { name: layer.name },
+      });
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في حذف طبقة الذكاء / Failed to delete AI layer" });
+    }
+  });
+
+  // ============ AI Power Configs - تكوين قوة الذكاء ============
+  
+  app.get("/api/owner/ai-sovereignty/power-configs", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const configs = await storage.getAllAIPowerConfigs();
+      res.json(configs);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب تكوينات القوة / Failed to get power configs" });
+    }
+  });
+
+  app.post("/api/owner/ai-sovereignty/power-configs", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const config = await storage.createAIPowerConfig(req.body);
+      await storage.createAISovereigntyAuditLog({
+        action: "POWER_CONFIG_CREATED",
+        actionAr: "تم إنشاء تكوين قوة",
+        performedBy: req.session.userId!,
+        targetType: "POWER_CONFIG",
+        targetId: config.layerId,
+        details: { powerLevel: config.powerLevel },
+      });
+      res.status(201).json(config);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في إنشاء تكوين القوة / Failed to create power config" });
+    }
+  });
+
+  app.patch("/api/owner/ai-sovereignty/power-configs/:layerId", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const config = await storage.updateAIPowerConfig(req.params.layerId, req.body);
+      if (!config) return res.status(404).json({ error: "تكوين القوة غير موجود / Power config not found" });
+      await storage.createAISovereigntyAuditLog({
+        action: "POWER_CONFIG_UPDATED",
+        actionAr: "تم تحديث تكوين قوة",
+        performedBy: req.session.userId!,
+        targetType: "POWER_CONFIG",
+        targetId: config.layerId,
+        details: { changes: Object.keys(req.body), newPowerLevel: config.powerLevel },
+      });
+      res.json(config);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في تحديث تكوين القوة / Failed to update power config" });
+    }
+  });
+
+  // ============ External AI Providers - مزودي الذكاء الخارجيين ============
+  
+  app.get("/api/owner/ai-sovereignty/external-providers", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const providers = await storage.getExternalAIProviders();
+      res.json(providers);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب المزودين الخارجيين / Failed to get external providers" });
+    }
+  });
+
+  app.post("/api/owner/ai-sovereignty/external-providers", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const provider = await storage.createExternalAIProvider({
+        ...req.body,
+        approvedBy: req.session.userId!, // Owner approval required
+      });
+      await storage.createAISovereigntyAuditLog({
+        action: "EXTERNAL_PROVIDER_APPROVED",
+        actionAr: "تم الموافقة على مزود خارجي",
+        performedBy: req.session.userId!,
+        targetType: "EXTERNAL_PROVIDER",
+        targetId: provider.id,
+        details: { name: provider.name, providerType: provider.providerType },
+      });
+      res.status(201).json(provider);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في إضافة المزود الخارجي / Failed to add external provider" });
+    }
+  });
+
+  app.patch("/api/owner/ai-sovereignty/external-providers/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const provider = await storage.updateExternalAIProvider(req.params.id, req.body);
+      if (!provider) return res.status(404).json({ error: "المزود غير موجود / Provider not found" });
+      await storage.createAISovereigntyAuditLog({
+        action: "EXTERNAL_PROVIDER_UPDATED",
+        actionAr: "تم تحديث مزود خارجي",
+        performedBy: req.session.userId!,
+        targetType: "EXTERNAL_PROVIDER",
+        targetId: provider.id,
+        details: { changes: Object.keys(req.body) },
+      });
+      res.json(provider);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في تحديث المزود / Failed to update provider" });
+    }
+  });
+
+  app.delete("/api/owner/ai-sovereignty/external-providers/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const provider = await storage.getExternalAIProvider(req.params.id);
+      if (!provider) return res.status(404).json({ error: "المزود غير موجود / Provider not found" });
+      
+      await storage.deleteExternalAIProvider(req.params.id);
+      await storage.createAISovereigntyAuditLog({
+        action: "EXTERNAL_PROVIDER_REVOKED",
+        actionAr: "تم إلغاء موافقة مزود خارجي",
+        performedBy: req.session.userId!,
+        targetType: "EXTERNAL_PROVIDER",
+        targetId: req.params.id,
+        details: { name: provider.name },
+      });
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في حذف المزود / Failed to delete provider" });
+    }
+  });
+
+  // ============ AI Kill Switch - زر الطوارئ ============
+  
+  app.get("/api/owner/ai-sovereignty/kill-switch", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const states = await storage.getAIKillSwitchStates();
+      res.json(states);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب حالة زر الطوارئ / Failed to get kill switch states" });
+    }
+  });
+
+  app.post("/api/owner/ai-sovereignty/kill-switch/activate", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { scope, reason, reasonAr, targetLayerId } = req.body;
+      if (!scope || !reason || !reasonAr) {
+        return res.status(400).json({ error: "يجب تحديد النطاق والسبب / Scope and reason required" });
+      }
+      
+      const state = await storage.activateKillSwitch(scope, req.session.userId!, reason, reasonAr, targetLayerId);
+      await storage.createAISovereigntyAuditLog({
+        action: "KILL_SWITCH_ACTIVATED",
+        actionAr: "تم تفعيل زر الطوارئ",
+        performedBy: req.session.userId!,
+        targetType: "KILL_SWITCH",
+        targetId: state.id,
+        details: { scope, reason, targetLayerId },
+        severity: "critical",
+      });
+      res.json(state);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في تفعيل زر الطوارئ / Failed to activate kill switch" });
+    }
+  });
+
+  app.post("/api/owner/ai-sovereignty/kill-switch/deactivate", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { scope } = req.body;
+      if (!scope) {
+        return res.status(400).json({ error: "يجب تحديد النطاق / Scope required" });
+      }
+      
+      const state = await storage.deactivateKillSwitch(scope);
+      if (!state) return res.status(404).json({ error: "حالة غير موجودة / State not found" });
+      
+      await storage.createAISovereigntyAuditLog({
+        action: "KILL_SWITCH_DEACTIVATED",
+        actionAr: "تم إلغاء تفعيل زر الطوارئ",
+        performedBy: req.session.userId!,
+        targetType: "KILL_SWITCH",
+        targetId: state.id,
+        details: { scope },
+        severity: "high",
+      });
+      res.json(state);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في إلغاء تفعيل زر الطوارئ / Failed to deactivate kill switch" });
+    }
+  });
+
+  // ============ Subscriber AI Limits - حدود المشتركين ============
+  
+  app.get("/api/owner/ai-sovereignty/subscriber-limits", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const limits = await storage.getSubscriberAILimits();
+      res.json(limits);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب حدود المشتركين / Failed to get subscriber limits" });
+    }
+  });
+
+  app.post("/api/owner/ai-sovereignty/subscriber-limits", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const limit = await storage.createSubscriberAILimit({
+        ...req.body,
+        decidedBy: req.session.userId!,
+      });
+      await storage.createAISovereigntyAuditLog({
+        action: "SUBSCRIBER_LIMIT_SET",
+        actionAr: "تم تحديد حد مشترك",
+        performedBy: req.session.userId!,
+        targetType: "SUBSCRIBER_LIMIT",
+        targetId: limit.role,
+        details: { role: limit.role, maxRequestsPerDay: limit.maxRequestsPerDay },
+      });
+      res.status(201).json(limit);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في إنشاء حد المشترك / Failed to create subscriber limit" });
+    }
+  });
+
+  app.patch("/api/owner/ai-sovereignty/subscriber-limits/:role", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const limit = await storage.updateSubscriberAILimit(req.params.role, req.body);
+      if (!limit) return res.status(404).json({ error: "الحد غير موجود / Limit not found" });
+      await storage.createAISovereigntyAuditLog({
+        action: "SUBSCRIBER_LIMIT_UPDATED",
+        actionAr: "تم تحديث حد مشترك",
+        performedBy: req.session.userId!,
+        targetType: "SUBSCRIBER_LIMIT",
+        targetId: limit.role,
+        details: { changes: Object.keys(req.body) },
+      });
+      res.json(limit);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في تحديث حد المشترك / Failed to update subscriber limit" });
+    }
+  });
+
+  // ============ Sovereign AI Agents - وكلاء الذكاء السيادي ============
+  
+  app.get("/api/owner/ai-sovereignty/agents", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const agents = await storage.getSovereignAIAgents();
+      res.json(agents);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب وكلاء الذكاء / Failed to get AI agents" });
+    }
+  });
+
+  app.post("/api/owner/ai-sovereignty/agents", requireAuth, requireOwner, async (req, res) => {
+    try {
+      // CONSTITUTIONAL RULE: No AI without Layer
+      if (!req.body.layerId) {
+        return res.status(400).json({ 
+          error: "قاعدة دستورية: لا ذكاء بدون طبقة / Constitutional Rule: No AI without Layer",
+          constitutionalViolation: "noAIWithoutLayer"
+        });
+      }
+      
+      // Verify layer exists
+      const layer = await storage.getAILayer(req.body.layerId);
+      if (!layer) {
+        return res.status(400).json({ error: "طبقة الذكاء غير موجودة / AI layer not found" });
+      }
+      
+      const agent = await storage.createSovereignAIAgent({
+        ...req.body,
+        createdBy: req.session.userId!,
+      });
+      await storage.createAISovereigntyAuditLog({
+        action: "AI_AGENT_CREATED",
+        actionAr: "تم إنشاء وكيل ذكاء",
+        performedBy: req.session.userId!,
+        targetType: "AI_AGENT",
+        targetId: agent.id,
+        details: { name: agent.name, layerId: agent.layerId },
+      });
+      res.status(201).json(agent);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في إنشاء وكيل الذكاء / Failed to create AI agent" });
+    }
+  });
+
+  app.patch("/api/owner/ai-sovereignty/agents/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const agent = await storage.updateSovereignAIAgent(req.params.id, req.body);
+      if (!agent) return res.status(404).json({ error: "وكيل الذكاء غير موجود / AI agent not found" });
+      await storage.createAISovereigntyAuditLog({
+        action: "AI_AGENT_UPDATED",
+        actionAr: "تم تحديث وكيل ذكاء",
+        performedBy: req.session.userId!,
+        targetType: "AI_AGENT",
+        targetId: agent.id,
+        details: { changes: Object.keys(req.body) },
+      });
+      res.json(agent);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في تحديث وكيل الذكاء / Failed to update AI agent" });
+    }
+  });
+
+  app.delete("/api/owner/ai-sovereignty/agents/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const agent = await storage.getSovereignAIAgent(req.params.id);
+      if (!agent) return res.status(404).json({ error: "وكيل الذكاء غير موجود / AI agent not found" });
+      
+      await storage.deleteSovereignAIAgent(req.params.id);
+      await storage.createAISovereigntyAuditLog({
+        action: "AI_AGENT_DELETED",
+        actionAr: "تم حذف وكيل ذكاء",
+        performedBy: req.session.userId!,
+        targetType: "AI_AGENT",
+        targetId: req.params.id,
+        details: { name: agent.name },
+      });
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في حذف وكيل الذكاء / Failed to delete AI agent" });
+    }
+  });
+
+  // ============ AI Sovereignty Audit Logs - سجل التدقيق ============
+  
+  app.get("/api/owner/ai-sovereignty/audit-logs", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const logs = await storage.getAISovereigntyAuditLogs(limit);
+      res.json(logs);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب سجلات التدقيق / Failed to get audit logs" });
+    }
+  });
+
+  // ============ AI Constitution - دستور الذكاء ============
+  
+  app.get("/api/owner/ai-sovereignty/constitution", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const constitution = await storage.getAIConstitution();
+      if (!constitution) {
+        // Return default constitution
+        return res.json({
+          id: 'default',
+          version: '1.0.0',
+          rules: {
+            noAIWithoutLayer: true,
+            noAIWithoutLimits: true,
+            noUndefinedPower: true,
+            noExternalWithoutApproval: true,
+            noSubscriberAccessWithoutDecision: true,
+          },
+          rulesAr: {
+            noAIWithoutLayer: 'لا ذكاء بدون طبقة',
+            noAIWithoutLimits: 'لا ذكاء بدون حدود',
+            noUndefinedPower: 'لا قوة غير محددة',
+            noExternalWithoutApproval: 'لا خارجي بدون موافقة',
+            noSubscriberAccessWithoutDecision: 'لا وصول مشترك بدون قرار',
+          },
+          isActive: true,
+          createdBy: 'system',
+        });
+      }
+      res.json(constitution);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب الدستور / Failed to get constitution" });
+    }
+  });
+
+  app.patch("/api/owner/ai-sovereignty/constitution/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const constitution = await storage.updateAIConstitution(req.params.id, req.body);
+      if (!constitution) return res.status(404).json({ error: "الدستور غير موجود / Constitution not found" });
+      await storage.createAISovereigntyAuditLog({
+        action: "CONSTITUTION_AMENDED",
+        actionAr: "تم تعديل الدستور",
+        performedBy: req.session.userId!,
+        targetType: "CONSTITUTION",
+        targetId: constitution.id,
+        details: { changes: Object.keys(req.body), newVersion: constitution.version },
+        severity: "critical",
+      });
+      res.json(constitution);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في تحديث الدستور / Failed to update constitution" });
+    }
+  });
+
   // ==================== SOVEREIGN AI ASSISTANTS ROUTES ====================
 
   // ============ Sovereign Assistants Routes (Owner) ============
