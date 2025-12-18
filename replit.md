@@ -97,6 +97,48 @@ Comprehensive tracking of user resource consumption with regional pricing:
 *   `GET /api/owner/usage-analytics` - Owner analytics dashboard
 *   `GET /api/owner/monthly-summaries` - Monthly billing summaries
 
+## Sovereign Infrastructure Management (New Feature - Dec 2024)
+Cloud-agnostic infrastructure management with Provider Abstraction Layer (PAL):
+
+**Supported Providers:**
+*   Hetzner, Amazon AWS, Google Cloud, Microsoft Azure, DigitalOcean
+
+**Features:**
+*   **Infrastructure Providers**: Add/configure multiple cloud providers with credentials management
+*   **Server Management**: Create, monitor, and manage servers across providers
+*   **Deployment Engine**: One-click deployment with templates, auto-scaling, and rollback
+*   **Backup System**: Automated backups with retention policies
+*   **Cost Tracking**: Real-time cost monitoring with budget alerts
+
+**API Endpoints (Owner Only):**
+*   `GET/POST /api/owner/infrastructure/providers` - Manage cloud providers
+*   `GET/POST/PATCH/DELETE /api/owner/infrastructure/servers` - Server CRUD
+*   `GET/POST/PATCH /api/owner/infrastructure/deployments` - Deployment management
+*   `GET/POST/DELETE /api/owner/infrastructure/backups` - Backup management
+*   `GET /api/owner/infrastructure/cost-alerts` - Cost alerts
+*   `GET /api/owner/infrastructure/budgets` - Budget management
+
+## External Integration Gateway (New Feature - Dec 2024)
+Secure gateway for technical partner access (Replit, GitHub Copilot, etc.):
+
+**Features:**
+*   **Session-based Access**: Manual owner activation with MFA verification
+*   **Permission System**: Read/Write/Execute permissions with scope restrictions
+*   **Digital Signatures**: Owner signature for audit trail
+*   **Sandbox Mode**: Optional sandbox-only access for security
+*   **Auto-close**: Sessions can auto-terminate after task completion
+*   **Complete Logging**: All operations logged for audit compliance
+
+**API Endpoints (Owner Only):**
+*   `GET/POST /api/owner/integrations/sessions` - Session management
+*   `POST /api/owner/integrations/sessions/:id/activate` - Activate session
+*   `POST /api/owner/integrations/sessions/:id/deactivate` - Deactivate session
+*   `GET /api/owner/integrations/sessions/:id/logs` - Session activity logs
+
+**UI Pages:**
+*   `/owner/infrastructure` - Cloud infrastructure management dashboard
+*   `/owner/integrations` - External integration gateway management
+
 ## External Dependencies
 *   **Database**: PostgreSQL
 *   **ORM**: Drizzle ORM

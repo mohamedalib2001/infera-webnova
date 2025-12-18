@@ -10,7 +10,10 @@ import {
   insertSystemAnnouncementSchema, insertAdminRoleSchema, insertSovereignAssistantSchema, 
   insertSovereignCommandSchema, insertSovereignActionSchema, insertSovereignActionLogSchema, 
   insertSovereignPolicySchema, insertSovereignAuditLogSchema, isRootOwner, 
-  getOperationalMode, type User 
+  getOperationalMode, type User,
+  insertInfrastructureProviderSchema, insertInfrastructureServerSchema,
+  insertDeploymentRunSchema, insertInfrastructureBackupSchema,
+  insertExternalIntegrationSessionSchema
 } from "@shared/schema";
 import { z } from "zod";
 import crypto, { randomBytes } from "crypto";
@@ -8599,6 +8602,304 @@ export async function registerRoutes(
 
   // ==================== SOVEREIGN API KEYS ROUTES ====================
   app.use("/api/api-keys", apiKeysRoutes);
+
+  // ==================== SOVEREIGN INFRASTRUCTURE MANAGEMENT ====================
+  
+  // Infrastructure Providers (Cloud-Agnostic)
+  app.get("/api/owner/infrastructure/providers", requireOwner, async (req, res) => {
+    try {
+      const providers = await storage.getInfrastructureProviders();
+      res.json({ success: true, providers });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch providers" });
+    }
+  });
+
+  app.get("/api/owner/infrastructure/providers/:id", requireOwner, async (req, res) => {
+    try {
+      const provider = await storage.getInfrastructureProvider(req.params.id);
+      if (!provider) return res.status(404).json({ success: false, error: "Provider not found" });
+      res.json({ success: true, provider });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch provider" });
+    }
+  });
+
+  app.post("/api/owner/infrastructure/providers", requireOwner, async (req, res) => {
+    try {
+      const validatedData = insertInfrastructureProviderSchema.parse(req.body);
+      const provider = await storage.createInfrastructureProvider(validatedData);
+      res.json({ success: true, provider });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: "Invalid data", details: error.errors });
+      }
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to create provider" });
+    }
+  });
+
+  app.patch("/api/owner/infrastructure/providers/:id", requireOwner, async (req, res) => {
+    try {
+      const provider = await storage.updateInfrastructureProvider(req.params.id, req.body);
+      if (!provider) return res.status(404).json({ success: false, error: "Provider not found" });
+      res.json({ success: true, provider });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to update provider" });
+    }
+  });
+
+  app.delete("/api/owner/infrastructure/providers/:id", requireOwner, async (req, res) => {
+    try {
+      await storage.deleteInfrastructureProvider(req.params.id);
+      res.json({ success: true, message: "Provider deleted" });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to delete provider" });
+    }
+  });
+
+  // Infrastructure Servers
+  app.get("/api/owner/infrastructure/servers", requireOwner, async (req, res) => {
+    try {
+      const servers = await storage.getInfrastructureServers();
+      res.json({ success: true, servers });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch servers" });
+    }
+  });
+
+  app.get("/api/owner/infrastructure/servers/:id", requireOwner, async (req, res) => {
+    try {
+      const server = await storage.getInfrastructureServer(req.params.id);
+      if (!server) return res.status(404).json({ success: false, error: "Server not found" });
+      res.json({ success: true, server });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch server" });
+    }
+  });
+
+  app.post("/api/owner/infrastructure/servers", requireOwner, async (req, res) => {
+    try {
+      const validatedData = insertInfrastructureServerSchema.parse(req.body);
+      const server = await storage.createInfrastructureServer(validatedData);
+      res.json({ success: true, server });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: "Invalid data", details: error.errors });
+      }
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to create server" });
+    }
+  });
+
+  app.patch("/api/owner/infrastructure/servers/:id", requireOwner, async (req, res) => {
+    try {
+      const server = await storage.updateInfrastructureServer(req.params.id, req.body);
+      if (!server) return res.status(404).json({ success: false, error: "Server not found" });
+      res.json({ success: true, server });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to update server" });
+    }
+  });
+
+  app.delete("/api/owner/infrastructure/servers/:id", requireOwner, async (req, res) => {
+    try {
+      await storage.deleteInfrastructureServer(req.params.id);
+      res.json({ success: true, message: "Server deleted" });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to delete server" });
+    }
+  });
+
+  // Deployment Templates
+  app.get("/api/owner/infrastructure/templates", requireOwner, async (req, res) => {
+    try {
+      const templates = await storage.getDeploymentTemplates();
+      res.json({ success: true, templates });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch templates" });
+    }
+  });
+
+  app.post("/api/owner/infrastructure/templates", requireOwner, async (req, res) => {
+    try {
+      const template = await storage.createDeploymentTemplate(req.body);
+      res.json({ success: true, template });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to create template" });
+    }
+  });
+
+  // Deployment Runs
+  app.get("/api/owner/infrastructure/deployments", requireOwner, async (req, res) => {
+    try {
+      const deployments = await storage.getDeploymentRuns();
+      res.json({ success: true, deployments });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch deployments" });
+    }
+  });
+
+  app.get("/api/owner/infrastructure/deployments/:id", requireOwner, async (req, res) => {
+    try {
+      const deployment = await storage.getDeploymentRun(req.params.id);
+      if (!deployment) return res.status(404).json({ success: false, error: "Deployment not found" });
+      res.json({ success: true, deployment });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch deployment" });
+    }
+  });
+
+  app.post("/api/owner/infrastructure/deployments", requireOwner, async (req, res) => {
+    try {
+      const validatedData = insertDeploymentRunSchema.parse({
+        ...req.body,
+        initiatedBy: req.session!.userId!,
+        startedAt: new Date()
+      });
+      const deployment = await storage.createDeploymentRun(validatedData);
+      res.json({ success: true, deployment });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: "Invalid data", details: error.errors });
+      }
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to create deployment" });
+    }
+  });
+
+  app.patch("/api/owner/infrastructure/deployments/:id", requireOwner, async (req, res) => {
+    try {
+      const deployment = await storage.updateDeploymentRun(req.params.id, req.body);
+      if (!deployment) return res.status(404).json({ success: false, error: "Deployment not found" });
+      res.json({ success: true, deployment });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to update deployment" });
+    }
+  });
+
+  // Infrastructure Backups
+  app.get("/api/owner/infrastructure/backups", requireOwner, async (req, res) => {
+    try {
+      const backups = await storage.getInfrastructureBackups();
+      res.json({ success: true, backups });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch backups" });
+    }
+  });
+
+  app.post("/api/owner/infrastructure/backups", requireOwner, async (req, res) => {
+    try {
+      const validatedData = insertInfrastructureBackupSchema.parse(req.body);
+      const backup = await storage.createInfrastructureBackup(validatedData);
+      res.json({ success: true, backup });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: "Invalid data", details: error.errors });
+      }
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to create backup" });
+    }
+  });
+
+  app.delete("/api/owner/infrastructure/backups/:id", requireOwner, async (req, res) => {
+    try {
+      await storage.deleteInfrastructureBackup(req.params.id);
+      res.json({ success: true, message: "Backup deleted" });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to delete backup" });
+    }
+  });
+
+  // Cost Alerts & Budgets
+  app.get("/api/owner/infrastructure/cost-alerts", requireOwner, async (req, res) => {
+    try {
+      const alerts = await storage.getActiveInfrastructureCostAlerts();
+      res.json({ success: true, alerts });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch cost alerts" });
+    }
+  });
+
+  app.get("/api/owner/infrastructure/budgets", requireOwner, async (req, res) => {
+    try {
+      const budgets = await storage.getInfrastructureBudgets();
+      res.json({ success: true, budgets });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch budgets" });
+    }
+  });
+
+  // ==================== EXTERNAL INTEGRATION GATEWAY ====================
+  
+  // Get all integration sessions
+  app.get("/api/owner/integrations/sessions", requireOwner, async (req, res) => {
+    try {
+      const sessions = await storage.getExternalIntegrationSessions();
+      res.json({ success: true, sessions });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch sessions" });
+    }
+  });
+
+  app.get("/api/owner/integrations/sessions/:id", requireOwner, async (req, res) => {
+    try {
+      const session = await storage.getExternalIntegrationSession(req.params.id);
+      if (!session) return res.status(404).json({ success: false, error: "Session not found" });
+      res.json({ success: true, session });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch session" });
+    }
+  });
+
+  app.post("/api/owner/integrations/sessions", requireOwner, async (req, res) => {
+    try {
+      const validatedData = insertExternalIntegrationSessionSchema.parse(req.body);
+      const session = await storage.createExternalIntegrationSession(validatedData);
+      res.json({ success: true, session });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: "Invalid data", details: error.errors });
+      }
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to create session" });
+    }
+  });
+
+  app.post("/api/owner/integrations/sessions/:id/activate", requireOwner, async (req, res) => {
+    try {
+      const { reason } = req.body;
+      const session = await storage.activateExternalIntegrationSession(
+        req.params.id, 
+        req.session!.userId!, 
+        reason || "Owner activation"
+      );
+      if (!session) return res.status(404).json({ success: false, error: "Session not found" });
+      res.json({ success: true, session, message: "Integration session activated" });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to activate session" });
+    }
+  });
+
+  app.post("/api/owner/integrations/sessions/:id/deactivate", requireOwner, async (req, res) => {
+    try {
+      const { reason } = req.body;
+      const session = await storage.deactivateExternalIntegrationSession(
+        req.params.id, 
+        req.session!.userId!, 
+        reason || "Owner deactivation"
+      );
+      if (!session) return res.status(404).json({ success: false, error: "Session not found" });
+      res.json({ success: true, session, message: "Integration session deactivated" });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to deactivate session" });
+    }
+  });
+
+  // Integration Logs
+  app.get("/api/owner/integrations/sessions/:id/logs", requireOwner, async (req, res) => {
+    try {
+      const logs = await storage.getExternalIntegrationLogs(req.params.id);
+      res.json({ success: true, logs });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch logs" });
+    }
+  });
 
   // ==================== SOVEREIGN NOTIFICATION SYSTEM (SRINS) ====================
   
