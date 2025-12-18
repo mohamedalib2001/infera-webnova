@@ -282,12 +282,7 @@ export default function Integrations() {
 
   const createApiKeyMutation = useMutation({
     mutationFn: async ({ providerId, name, apiKey, environment }: { providerId: string; name: string; apiKey: string; environment: string }) => {
-      const res = await apiRequest("POST", `/api/service-providers/${providerId}/api-keys`, { name, apiKey, environment });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || `HTTP ${res.status}`);
-      }
-      return res.json();
+      return await apiRequest("POST", `/api/service-providers/${providerId}/api-keys`, { name, apiKey, environment });
     },
     onSuccess: () => {
       toast({ title: language === "ar" ? "تم الحفظ بنجاح" : "Saved successfully" });
