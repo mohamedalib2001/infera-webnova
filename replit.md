@@ -132,6 +132,30 @@ The platform features an AI Chat Interface for natural language interaction, a l
     - Pending approvals management
     - Safe rollback trigger with confirmation
   - Full bilingual support (Arabic/English)
+- Phase 12 Complete: UX/UI Enhancements
+  - Created LoadingPipeline component (`client/src/components/loading-pipeline.tsx`):
+    - 4-stage progress visualization: Analyzing → Creating → Setup → Ready
+    - Reusable hook (useLoadingPipeline) with auto/manual progression
+    - Bilingual labels and stage descriptions
+  - Created PlatformStatusBar component (`client/src/components/platform-status-bar.tsx`):
+    - Real-time platform/domain/SSL status indicators
+    - Color-coded badges for quick status recognition
+  - Created NewPlatformModal component (`client/src/components/new-platform-modal.tsx`):
+    - Educational modal explaining platform creation concept
+    - localStorage preference to hide modal (`infera_hide_new_platform_modal`)
+    - Checkbox to remember user choice
+  - Reorganized AppSidebar (`client/src/components/app-sidebar.tsx`):
+    - Logical sections: Build, Management, Growth (collapsible), System (role-gated)
+    - Growth section defaults to collapsed state
+    - System section visible only to Sovereign/Owner roles
+  - Created dedicated Domains page (`client/src/pages/domains.tsx`):
+    - Full domain CRUD with add/delete/verify functionality
+    - DNS verification wizard with TXT record instructions
+    - Copy-to-clipboard for verification tokens
+    - Quota tracking and tier-based limits display
+    - Clear error messaging with localized translations
+  - All components include data-testid attributes for E2E testing
+  - Full bilingual support (Arabic/English) with RTL handling
 
 ## Core Platform Architecture
 

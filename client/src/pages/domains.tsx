@@ -358,6 +358,7 @@ export default function DomainsPage() {
                             target="_blank" 
                             rel="noopener noreferrer"
                             className="text-muted-foreground"
+                            data-testid={`link-domain-${domain.id}`}
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
                           </a>
@@ -428,6 +429,7 @@ export default function DomainsPage() {
                       variant="ghost" 
                       size="icon" 
                       onClick={() => copyToClipboard('_infera-verify')}
+                      data-testid="button-copy-record-name"
                     >
                       <Copy className="w-3.5 h-3.5" />
                     </Button>
@@ -443,6 +445,7 @@ export default function DomainsPage() {
                       variant="ghost" 
                       size="icon" 
                       onClick={() => copyToClipboard(selectedDomain.verificationToken || `infera-verify-${selectedDomain.id}`)}
+                      data-testid="button-copy-record-value"
                     >
                       <Copy className="w-3.5 h-3.5" />
                     </Button>
@@ -451,7 +454,7 @@ export default function DomainsPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setSelectedDomain(null)}>
+              <Button variant="outline" onClick={() => setSelectedDomain(null)} data-testid="button-cancel-verify">
                 {t.cancel}
               </Button>
               <Button 
