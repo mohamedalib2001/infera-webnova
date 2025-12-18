@@ -1927,6 +1927,59 @@ export default function OwnerDashboard() {
     },
   });
 
+  // User Governance Actions (Suspend/Ban/Reactivate)
+  const suspendUserMutation = useMutation({
+    mutationFn: async ({ userId, reason }: { userId: string; reason: string }) => {
+      return apiRequest('POST', `/api/owner/users/${userId}/suspend`, { reason });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/users'] });
+      toast({
+        title: language === 'ar' ? "تم التعليق" : "Suspended",
+        description: language === 'ar' ? "تم تعليق المستخدم بنجاح" : "User suspended successfully",
+      });
+    },
+  });
+
+  const banUserMutation = useMutation({
+    mutationFn: async ({ userId, reason }: { userId: string; reason: string }) => {
+      return apiRequest('POST', `/api/owner/users/${userId}/ban`, { reason });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/users'] });
+      toast({
+        title: language === 'ar' ? "تم الحظر" : "Banned",
+        description: language === 'ar' ? "تم حظر المستخدم بنجاح" : "User banned successfully",
+      });
+    },
+  });
+
+  const reactivateUserMutation = useMutation({
+    mutationFn: async ({ userId, reason }: { userId: string; reason: string }) => {
+      return apiRequest('POST', `/api/owner/users/${userId}/reactivate`, { reason });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/users'] });
+      toast({
+        title: language === 'ar' ? "تمت إعادة التفعيل" : "Reactivated",
+        description: language === 'ar' ? "تمت إعادة تفعيل المستخدم بنجاح" : "User reactivated successfully",
+      });
+    },
+  });
+
+  // Handle user governance actions
+  const handleUserAction = (userId: string, action: 'suspend' | 'ban' | 'reactivate') => {
+    const reason = language === 'ar' ? "إجراء من المالك" : "Owner action";
+    
+    if (action === 'suspend') {
+      suspendUserMutation.mutate({ userId, reason });
+    } else if (action === 'ban') {
+      banUserMutation.mutate({ userId, reason });
+    } else if (action === 'reactivate') {
+      reactivateUserMutation.mutate({ userId, reason });
+    }
+  };
+
   const [platformSettings, setPlatformSettings] = useState({
     platformName: "INFERA WebNova",
     platformNameAr: "منصة انفيرا ويب نوفا",
