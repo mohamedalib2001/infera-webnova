@@ -261,9 +261,34 @@ import {
   monthlyUsageSummary,
   type MonthlyUsageSummary,
   type InsertMonthlyUsageSummary,
+  // Sovereign Owner Control Panel
+  sovereignOwnerProfile,
+  type SovereignOwnerProfile,
+  type InsertSovereignOwnerProfile,
+  ownershipTransfers,
+  type OwnershipTransfer,
+  type InsertOwnershipTransfer,
+  aiPolicies,
+  type AIPolicy,
+  type InsertAIPolicy,
+  costAttributions,
+  type CostAttribution,
+  type InsertCostAttribution,
+  marginGuardConfigs,
+  type MarginGuardConfig,
+  type InsertMarginGuardConfig,
+  immutableAuditTrail,
+  type ImmutableAuditTrail,
+  type InsertImmutableAuditTrail,
+  postMortemReports,
+  type PostMortemReport,
+  type InsertPostMortemReport,
+  securityIncidents,
+  type SecurityIncident,
+  type InsertSecurityIncident,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, asc, and, gt } from "drizzle-orm";
+import { eq, desc, asc, and, gt, gte, lte } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -715,6 +740,55 @@ export interface IStorage {
     losingUsers: { userId: string; realCost: number; billedCost: number; loss: number }[];
     profitByService: { service: string; margin: number }[];
   }>;
+  
+  // ============ SOVEREIGN OWNER CONTROL PANEL ============
+  
+  // Sovereign Owner Profile
+  getSovereignOwnerProfile(userId: string): Promise<SovereignOwnerProfile | undefined>;
+  createSovereignOwnerProfile(profile: InsertSovereignOwnerProfile): Promise<SovereignOwnerProfile>;
+  updateSovereignOwnerProfile(userId: string, data: Partial<InsertSovereignOwnerProfile>): Promise<SovereignOwnerProfile | undefined>;
+  
+  // Ownership Transfers
+  getOwnershipTransfers(): Promise<OwnershipTransfer[]>;
+  getOwnershipTransfer(id: string): Promise<OwnershipTransfer | undefined>;
+  createOwnershipTransfer(transfer: InsertOwnershipTransfer): Promise<OwnershipTransfer>;
+  updateOwnershipTransfer(id: string, data: Partial<InsertOwnershipTransfer>): Promise<OwnershipTransfer | undefined>;
+  
+  // AI Policies
+  getAIPolicies(): Promise<AIPolicy[]>;
+  getAIPoliciesByScope(scope: string): Promise<AIPolicy[]>;
+  createAIPolicy(policy: InsertAIPolicy): Promise<AIPolicy>;
+  updateAIPolicy(id: string, data: Partial<InsertAIPolicy>): Promise<AIPolicy | undefined>;
+  deleteAIPolicy(id: string): Promise<boolean>;
+  
+  // Cost Attributions
+  getCostAttributions(startDate: Date, endDate: Date): Promise<CostAttribution[]>;
+  getCostAttributionsBySource(sourceType: string, sourceId: string): Promise<CostAttribution[]>;
+  createCostAttribution(attribution: InsertCostAttribution): Promise<CostAttribution>;
+  
+  // Margin Guard
+  getMarginGuardConfig(): Promise<MarginGuardConfig | undefined>;
+  createMarginGuardConfig(config: InsertMarginGuardConfig): Promise<MarginGuardConfig>;
+  updateMarginGuardConfig(id: string, data: Partial<InsertMarginGuardConfig>): Promise<MarginGuardConfig | undefined>;
+  
+  // Immutable Audit Trail
+  getImmutableAuditTrail(limit?: number): Promise<ImmutableAuditTrail[]>;
+  createImmutableAuditEntry(entry: InsertImmutableAuditTrail): Promise<ImmutableAuditTrail>;
+  getAuditEntryByHash(hash: string): Promise<ImmutableAuditTrail | undefined>;
+  
+  // Post-Mortem Reports
+  getPostMortemReports(): Promise<PostMortemReport[]>;
+  getPostMortemReport(id: string): Promise<PostMortemReport | undefined>;
+  createPostMortemReport(report: InsertPostMortemReport): Promise<PostMortemReport>;
+  updatePostMortemReport(id: string, data: Partial<InsertPostMortemReport>): Promise<PostMortemReport | undefined>;
+  signPostMortemReport(id: string, signature: string): Promise<PostMortemReport | undefined>;
+  
+  // Security Incidents
+  getSecurityIncidents(): Promise<SecurityIncident[]>;
+  getSecurityIncidentsBySeverity(severity: string): Promise<SecurityIncident[]>;
+  createSecurityIncident(incident: InsertSecurityIncident): Promise<SecurityIncident>;
+  updateSecurityIncident(id: string, data: Partial<InsertSecurityIncident>): Promise<SecurityIncident | undefined>;
+  resolveSecurityIncident(id: string, resolution: string, resolvedBy: string): Promise<SecurityIncident | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -4260,6 +4334,219 @@ body { font-family: 'Tajawal', sans-serif; }
       losingUsers,
       profitByService
     };
+  }
+  
+  // ============ SOVEREIGN OWNER CONTROL PANEL ============
+  
+  // Sovereign Owner Profile
+  async getSovereignOwnerProfile(userId: string): Promise<SovereignOwnerProfile | undefined> {
+    const [profile] = await db.select().from(sovereignOwnerProfile)
+      .where(eq(sovereignOwnerProfile.userId, userId));
+    return profile || undefined;
+  }
+  
+  async createSovereignOwnerProfile(profile: InsertSovereignOwnerProfile): Promise<SovereignOwnerProfile> {
+    const [created] = await db.insert(sovereignOwnerProfile).values(profile).returning();
+    return created;
+  }
+  
+  async updateSovereignOwnerProfile(userId: string, data: Partial<InsertSovereignOwnerProfile>): Promise<SovereignOwnerProfile | undefined> {
+    const [updated] = await db.update(sovereignOwnerProfile)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(sovereignOwnerProfile.userId, userId))
+      .returning();
+    return updated || undefined;
+  }
+  
+  // Ownership Transfers
+  async getOwnershipTransfers(): Promise<OwnershipTransfer[]> {
+    return db.select().from(ownershipTransfers).orderBy(desc(ownershipTransfers.createdAt));
+  }
+  
+  async getOwnershipTransfer(id: string): Promise<OwnershipTransfer | undefined> {
+    const [transfer] = await db.select().from(ownershipTransfers)
+      .where(eq(ownershipTransfers.id, id));
+    return transfer || undefined;
+  }
+  
+  async createOwnershipTransfer(transfer: InsertOwnershipTransfer): Promise<OwnershipTransfer> {
+    const [created] = await db.insert(ownershipTransfers).values(transfer).returning();
+    return created;
+  }
+  
+  async updateOwnershipTransfer(id: string, data: Partial<InsertOwnershipTransfer>): Promise<OwnershipTransfer | undefined> {
+    const [updated] = await db.update(ownershipTransfers)
+      .set(data)
+      .where(eq(ownershipTransfers.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  // AI Policies
+  async getAIPolicies(): Promise<AIPolicy[]> {
+    return db.select().from(aiPolicies).orderBy(desc(aiPolicies.priority));
+  }
+  
+  async getAIPoliciesByScope(scope: string): Promise<AIPolicy[]> {
+    return db.select().from(aiPolicies)
+      .where(eq(aiPolicies.scope, scope))
+      .orderBy(desc(aiPolicies.priority));
+  }
+  
+  async createAIPolicy(policy: InsertAIPolicy): Promise<AIPolicy> {
+    const [created] = await db.insert(aiPolicies).values(policy).returning();
+    return created;
+  }
+  
+  async updateAIPolicy(id: string, data: Partial<InsertAIPolicy>): Promise<AIPolicy | undefined> {
+    const [updated] = await db.update(aiPolicies)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(aiPolicies.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteAIPolicy(id: string): Promise<boolean> {
+    const result = await db.delete(aiPolicies).where(eq(aiPolicies.id, id));
+    return true;
+  }
+  
+  // Cost Attributions
+  async getCostAttributions(startDate: Date, endDate: Date): Promise<CostAttribution[]> {
+    return db.select().from(costAttributions)
+      .where(and(
+        gte(costAttributions.periodStart, startDate),
+        lte(costAttributions.periodEnd, endDate)
+      ))
+      .orderBy(desc(costAttributions.createdAt));
+  }
+  
+  async getCostAttributionsBySource(sourceType: string, sourceId: string): Promise<CostAttribution[]> {
+    return db.select().from(costAttributions)
+      .where(and(
+        eq(costAttributions.sourceType, sourceType),
+        eq(costAttributions.sourceId, sourceId)
+      ))
+      .orderBy(desc(costAttributions.createdAt));
+  }
+  
+  async createCostAttribution(attribution: InsertCostAttribution): Promise<CostAttribution> {
+    const [created] = await db.insert(costAttributions).values(attribution).returning();
+    return created;
+  }
+  
+  // Margin Guard
+  async getMarginGuardConfig(): Promise<MarginGuardConfig | undefined> {
+    const [config] = await db.select().from(marginGuardConfigs)
+      .where(eq(marginGuardConfigs.isActive, true))
+      .limit(1);
+    return config || undefined;
+  }
+  
+  async createMarginGuardConfig(config: InsertMarginGuardConfig): Promise<MarginGuardConfig> {
+    const [created] = await db.insert(marginGuardConfigs).values(config).returning();
+    return created;
+  }
+  
+  async updateMarginGuardConfig(id: string, data: Partial<InsertMarginGuardConfig>): Promise<MarginGuardConfig | undefined> {
+    const [updated] = await db.update(marginGuardConfigs)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(marginGuardConfigs.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  // Immutable Audit Trail
+  async getImmutableAuditTrail(limit: number = 100): Promise<ImmutableAuditTrail[]> {
+    return db.select().from(immutableAuditTrail)
+      .orderBy(desc(immutableAuditTrail.createdAt))
+      .limit(limit);
+  }
+  
+  async createImmutableAuditEntry(entry: InsertImmutableAuditTrail): Promise<ImmutableAuditTrail> {
+    const [created] = await db.insert(immutableAuditTrail).values(entry).returning();
+    return created;
+  }
+  
+  async getAuditEntryByHash(hash: string): Promise<ImmutableAuditTrail | undefined> {
+    const [entry] = await db.select().from(immutableAuditTrail)
+      .where(eq(immutableAuditTrail.currentHash, hash));
+    return entry || undefined;
+  }
+  
+  // Post-Mortem Reports
+  async getPostMortemReports(): Promise<PostMortemReport[]> {
+    return db.select().from(postMortemReports).orderBy(desc(postMortemReports.createdAt));
+  }
+  
+  async getPostMortemReport(id: string): Promise<PostMortemReport | undefined> {
+    const [report] = await db.select().from(postMortemReports)
+      .where(eq(postMortemReports.id, id));
+    return report || undefined;
+  }
+  
+  async createPostMortemReport(report: InsertPostMortemReport): Promise<PostMortemReport> {
+    const [created] = await db.insert(postMortemReports).values(report).returning();
+    return created;
+  }
+  
+  async updatePostMortemReport(id: string, data: Partial<InsertPostMortemReport>): Promise<PostMortemReport | undefined> {
+    const [updated] = await db.update(postMortemReports)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(postMortemReports.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async signPostMortemReport(id: string, signature: string): Promise<PostMortemReport | undefined> {
+    const [updated] = await db.update(postMortemReports)
+      .set({ 
+        ownerSignature: signature, 
+        signedAt: new Date(), 
+        status: 'SIGNED',
+        updatedAt: new Date() 
+      })
+      .where(eq(postMortemReports.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  // Security Incidents
+  async getSecurityIncidents(): Promise<SecurityIncident[]> {
+    return db.select().from(securityIncidents).orderBy(desc(securityIncidents.createdAt));
+  }
+  
+  async getSecurityIncidentsBySeverity(severity: string): Promise<SecurityIncident[]> {
+    return db.select().from(securityIncidents)
+      .where(eq(securityIncidents.severity, severity))
+      .orderBy(desc(securityIncidents.createdAt));
+  }
+  
+  async createSecurityIncident(incident: InsertSecurityIncident): Promise<SecurityIncident> {
+    const [created] = await db.insert(securityIncidents).values(incident).returning();
+    return created;
+  }
+  
+  async updateSecurityIncident(id: string, data: Partial<InsertSecurityIncident>): Promise<SecurityIncident | undefined> {
+    const [updated] = await db.update(securityIncidents)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(securityIncidents.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async resolveSecurityIncident(id: string, resolution: string, resolvedBy: string): Promise<SecurityIncident | undefined> {
+    const [updated] = await db.update(securityIncidents)
+      .set({ 
+        resolution, 
+        resolvedBy, 
+        resolvedAt: new Date(), 
+        status: 'RESOLVED',
+        updatedAt: new Date() 
+      })
+      .where(eq(securityIncidents.id, id))
+      .returning();
+    return updated || undefined;
   }
 }
 

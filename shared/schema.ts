@@ -3610,3 +3610,400 @@ export const insertMonthlyUsageSummarySchema = createInsertSchema(monthlyUsageSu
 
 export type InsertMonthlyUsageSummary = z.infer<typeof insertMonthlyUsageSummarySchema>;
 export type MonthlyUsageSummary = typeof monthlyUsageSummary.$inferSelect;
+
+// ============ SOVEREIGN OWNER CONTROL PANEL ============
+// لوحة التحكم السيادية للمالك - التوجيه التنفيذي النهائي
+
+// ==================== Ownership States Machine ====================
+// نظام حالات الملكية السيادية
+export const ownershipStates = ['ACTIVE_OWNER', 'PENDING_TRANSFER', 'FROZEN', 'LICENSED', 'ARCHIVED'] as const;
+export type OwnershipState = typeof ownershipStates[number];
+
+export const sovereignOwnerProfile = pgTable("sovereign_owner_profile", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique().references(() => users.id, { onDelete: "restrict" }),
+  
+  // الهوية القانونية
+  legalName: text("legal_name").notNull(),
+  legalNameAr: text("legal_name_ar"),
+  nationalId: text("national_id"), // مشفر
+  passportNumber: text("passport_number"), // مشفر
+  country: text("country").notNull(),
+  
+  // حالة الملكية
+  ownershipState: text("ownership_state").notNull().default("ACTIVE_OWNER"),
+  ownershipSince: timestamp("ownership_since").defaultNow(),
+  
+  // DID - Decentralized Identifier
+  ownerDID: text("owner_did"), // للتحقق المستقبلي
+  
+  // الأمان المتقدم
+  mfaEnabled: boolean("mfa_enabled").notNull().default(true),
+  hardwareKeyRequired: boolean("hardware_key_required").notNull().default(true),
+  biometricEnabled: boolean("biometric_enabled").notNull().default(false),
+  allowedIPs: jsonb("allowed_ips").$type<string[]>().default([]),
+  deviceFingerprints: jsonb("device_fingerprints").$type<string[]>().default([]),
+  
+  // جلسة واحدة فقط
+  singleSessionOnly: boolean("single_session_only").notNull().default(true),
+  currentSessionId: varchar("current_session_id"),
+  lastSessionAt: timestamp("last_session_at"),
+  
+  // البصمة السلوكية
+  behavioralProfile: jsonb("behavioral_profile").$type<Record<string, unknown>>(),
+  
+  // حد التكلفة اليومي
+  dailyCostLimit: real("daily_cost_limit"),
+  monthlyCostLimit: real("monthly_cost_limit"),
+  
+  // سجل غير قابل للتعديل
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSovereignOwnerProfileSchema = createInsertSchema(sovereignOwnerProfile).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSovereignOwnerProfile = z.infer<typeof insertSovereignOwnerProfileSchema>;
+export type SovereignOwnerProfile = typeof sovereignOwnerProfile.$inferSelect;
+
+// ==================== Ownership Transfer Records ====================
+// سجل نقل الملكية
+export const ownershipTransfers = pgTable("ownership_transfers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  fromOwnerId: varchar("from_owner_id").notNull(),
+  toOwnerId: varchar("to_owner_id"),
+  
+  transferType: text("transfer_type").notNull(), // SALE, LICENSE, INHERITANCE, LEGAL_TRANSFER
+  status: text("status").notNull().default("PENDING"), // PENDING, APPROVED, COMPLETED, REJECTED, CANCELLED
+  
+  // التفاصيل القانونية
+  legalDocumentRef: text("legal_document_ref"),
+  notaryRef: text("notary_ref"),
+  valuationUSD: real("valuation_usd"),
+  
+  // التوقيعات
+  fromOwnerSignature: text("from_owner_signature"), // Hash
+  toOwnerSignature: text("to_owner_signature"), // Hash
+  witnessSignatures: jsonb("witness_signatures").$type<string[]>().default([]),
+  
+  // الجدول الزمني
+  initiatedAt: timestamp("initiated_at").defaultNow(),
+  approvedAt: timestamp("approved_at"),
+  completedAt: timestamp("completed_at"),
+  expiresAt: timestamp("expires_at"),
+  
+  // السبب
+  reason: text("reason"),
+  reasonAr: text("reason_ar"),
+  
+  // Checksum للسجل
+  checksum: text("checksum"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertOwnershipTransferSchema = createInsertSchema(ownershipTransfers).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertOwnershipTransfer = z.infer<typeof insertOwnershipTransferSchema>;
+export type OwnershipTransfer = typeof ownershipTransfers.$inferSelect;
+
+// ==================== AI Sovereignty Policy Engine ====================
+// محرك سياسات سيادة الذكاء الاصطناعي
+export const aiPolicies = pgTable("ai_policies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  
+  // نوع السياسة
+  policyType: text("policy_type").notNull(), // ALLOW, DENY, REVIEW_REQUIRED, CONDITIONAL
+  
+  // النطاق
+  scope: text("scope").notNull(), // GLOBAL, USER_ROLE, COUNTRY, DATA_TYPE, MODEL
+  scopeValue: text("scope_value"), // القيمة المحددة (مثل: 'SA' للسعودية)
+  
+  // القواعد (Policy-as-Code)
+  rules: jsonb("rules").$type<{
+    condition: string;
+    action: string;
+    parameters?: Record<string, unknown>;
+  }[]>().default([]),
+  
+  // الأولوية
+  priority: integer("priority").notNull().default(50), // 1-100, أعلى = أولوية أكبر
+  
+  // الحالة
+  isActive: boolean("is_active").notNull().default(true),
+  
+  // المراجعة
+  requiresHumanReview: boolean("requires_human_review").notNull().default(false),
+  reviewerRoles: jsonb("reviewer_roles").$type<string[]>().default([]),
+  
+  // السجل
+  createdBy: varchar("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAIPolicySchema = createInsertSchema(aiPolicies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAIPolicy = z.infer<typeof insertAIPolicySchema>;
+export type AIPolicy = typeof aiPolicies.$inferSelect;
+
+// ==================== Cost Attribution Engine ====================
+// محرك إسناد التكلفة
+export const costAttributions = pgTable("cost_attributions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // المصدر
+  sourceType: text("source_type").notNull(), // USER, ASSISTANT, SERVICE, MODEL, SYSTEM
+  sourceId: varchar("source_id").notNull(),
+  sourceName: text("source_name"),
+  
+  // نوع التكلفة
+  costType: text("cost_type").notNull(), // AI_INFERENCE, API_CALL, STORAGE, COMPUTE, BANDWIDTH, RISK, SCALING
+  
+  // التكاليف
+  realCostUSD: real("real_cost_usd").notNull().default(0),
+  hiddenCostUSD: real("hidden_cost_usd").notNull().default(0), // Infra + Risk + Scaling
+  totalCostUSD: real("total_cost_usd").notNull().default(0),
+  billedCostUSD: real("billed_cost_usd").notNull().default(0),
+  marginUSD: real("margin_usd").notNull().default(0),
+  marginPercent: real("margin_percent").notNull().default(0),
+  
+  // التفاصيل
+  units: integer("units").notNull().default(1), // عدد الوحدات (tokens, requests, MB)
+  unitType: text("unit_type"), // tokens, requests, mb, hours
+  unitCost: real("unit_cost").notNull().default(0),
+  
+  // الفترة
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  
+  // البيانات الوصفية
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_cost_source").on(table.sourceType, table.sourceId),
+  index("IDX_cost_period").on(table.periodStart, table.periodEnd),
+]);
+
+export const insertCostAttributionSchema = createInsertSchema(costAttributions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCostAttribution = z.infer<typeof insertCostAttributionSchema>;
+export type CostAttribution = typeof costAttributions.$inferSelect;
+
+// ==================== Owner Margin Guard ====================
+// حارس هامش المالك
+export const marginGuardConfigs = pgTable("margin_guard_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // الحد الأدنى للهامش
+  minimumMarginPercent: real("minimum_margin_percent").notNull().default(20),
+  
+  // تنبيهات
+  warningThresholdPercent: real("warning_threshold_percent").notNull().default(25),
+  criticalThresholdPercent: real("critical_threshold_percent").notNull().default(15),
+  
+  // الإجراءات التلقائية
+  autoSuspendOnNegativeMargin: boolean("auto_suspend_on_negative_margin").notNull().default(false),
+  autoNotifyOnWarning: boolean("auto_notify_on_warning").notNull().default(true),
+  
+  // القنوات
+  notificationChannels: jsonb("notification_channels").$type<string[]>().default(['email', 'dashboard']),
+  
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertMarginGuardConfigSchema = createInsertSchema(marginGuardConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertMarginGuardConfig = z.infer<typeof insertMarginGuardConfigSchema>;
+export type MarginGuardConfig = typeof marginGuardConfigs.$inferSelect;
+
+// ==================== Immutable Audit Trail ====================
+// سجل التدقيق غير القابل للتعديل
+export const immutableAuditTrail = pgTable("immutable_audit_trail", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // سلسلة Hash
+  previousHash: text("previous_hash"), // Hash السجل السابق
+  currentHash: text("current_hash").notNull(), // Hash هذا السجل
+  
+  // البيانات
+  eventType: text("event_type").notNull(),
+  eventData: jsonb("event_data").$type<Record<string, unknown>>().notNull(),
+  
+  // الطابع الزمني المعتمد (RFC 3161)
+  timestamp: timestamp("timestamp").defaultNow(),
+  timestampAuthority: text("timestamp_authority"), // مرجع الطابع الزمني
+  timestampSignature: text("timestamp_signature"), // توقيع الطابع
+  
+  // Merkle Tree
+  merkleRoot: text("merkle_root"),
+  merkleProof: jsonb("merkle_proof").$type<string[]>(),
+  blockNumber: integer("block_number"), // رقم الكتلة في Merkle Tree
+  
+  // المصدر
+  actorId: varchar("actor_id"),
+  actorType: text("actor_type"), // OWNER, SYSTEM, AI_ASSISTANT
+  actorIP: text("actor_ip"),
+  actorDevice: text("actor_device"),
+  
+  // التحقق
+  verified: boolean("verified").notNull().default(false),
+  verifiedAt: timestamp("verified_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_audit_hash").on(table.currentHash),
+  index("IDX_audit_merkle").on(table.merkleRoot),
+  index("IDX_audit_block").on(table.blockNumber),
+]);
+
+export const insertImmutableAuditTrailSchema = createInsertSchema(immutableAuditTrail).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertImmutableAuditTrail = z.infer<typeof insertImmutableAuditTrailSchema>;
+export type ImmutableAuditTrail = typeof immutableAuditTrail.$inferSelect;
+
+// ==================== Post-Mortem Reports ====================
+// تقارير ما بعد الحوادث
+export const postMortemReports = pgTable("post_mortem_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // ربط بالطوارئ
+  emergencyControlId: varchar("emergency_control_id"),
+  
+  // معلومات الحادث
+  incidentTitle: text("incident_title").notNull(),
+  incidentTitleAr: text("incident_title_ar"),
+  incidentSeverity: text("incident_severity").notNull(), // LOW, MEDIUM, HIGH, CRITICAL
+  
+  // الجدول الزمني
+  incidentStartedAt: timestamp("incident_started_at").notNull(),
+  incidentResolvedAt: timestamp("incident_resolved_at"),
+  totalDowntimeMinutes: integer("total_downtime_minutes"),
+  
+  // التحليل
+  rootCause: text("root_cause").notNull(),
+  rootCauseAr: text("root_cause_ar"),
+  impactSummary: text("impact_summary").notNull(),
+  impactSummaryAr: text("impact_summary_ar"),
+  
+  // الإجراءات المتخذة
+  actionsTaken: jsonb("actions_taken").$type<{
+    action: string;
+    actionAr?: string;
+    timestamp: string;
+    performer: string;
+  }[]>().default([]),
+  
+  // الدروس المستفادة
+  lessonsLearned: jsonb("lessons_learned").$type<string[]>().default([]),
+  lessonsLearnedAr: jsonb("lessons_learned_ar").$type<string[]>().default([]),
+  
+  // إجراءات المتابعة
+  followUpActions: jsonb("follow_up_actions").$type<{
+    action: string;
+    deadline: string;
+    assignee: string;
+    status: string;
+  }[]>().default([]),
+  
+  // التوقيع
+  status: text("status").notNull().default("DRAFT"), // DRAFT, PENDING_REVIEW, SIGNED, CLOSED
+  ownerSignature: text("owner_signature"), // Hash توقيع المالك
+  signedAt: timestamp("signed_at"),
+  
+  // الكاتب
+  authorId: varchar("author_id").notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPostMortemReportSchema = createInsertSchema(postMortemReports).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertPostMortemReport = z.infer<typeof insertPostMortemReportSchema>;
+export type PostMortemReport = typeof postMortemReports.$inferSelect;
+
+// ==================== Security Incidents ====================
+// سجل الحوادث الأمنية
+export const securityIncidents = pgTable("security_incidents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // نوع الحادث
+  incidentType: text("incident_type").notNull(), // UNAUTHORIZED_ACCESS, BRUTE_FORCE, DATA_BREACH, POLICY_VIOLATION
+  severity: text("severity").notNull(), // LOW, MEDIUM, HIGH, CRITICAL
+  
+  // المصدر
+  sourceIP: text("source_ip"),
+  sourceDevice: text("source_device"),
+  sourceUserId: varchar("source_user_id"),
+  
+  // الهدف
+  targetResource: text("target_resource").notNull(),
+  targetResourceId: varchar("target_resource_id"),
+  
+  // التفاصيل
+  description: text("description").notNull(),
+  descriptionAr: text("description_ar"),
+  evidence: jsonb("evidence").$type<Record<string, unknown>>(),
+  
+  // الاستجابة
+  autoResponseTaken: jsonb("auto_response_taken").$type<string[]>().default([]),
+  manualResponseRequired: boolean("manual_response_required").notNull().default(false),
+  
+  // الحالة
+  status: text("status").notNull().default("OPEN"), // OPEN, INVESTIGATING, RESOLVED, FALSE_POSITIVE
+  resolvedAt: timestamp("resolved_at"),
+  resolvedBy: varchar("resolved_by"),
+  resolution: text("resolution"),
+  
+  // ربط بتقرير Post-Mortem
+  postMortemId: varchar("post_mortem_id"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_security_severity").on(table.severity),
+  index("IDX_security_status").on(table.status),
+]);
+
+export const insertSecurityIncidentSchema = createInsertSchema(securityIncidents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSecurityIncident = z.infer<typeof insertSecurityIncidentSchema>;
+export type SecurityIncident = typeof securityIncidents.$inferSelect;
+
