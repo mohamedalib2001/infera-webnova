@@ -15,10 +15,14 @@ import {
   Zap,
   Globe,
   Building,
-  Wallet
+  Wallet,
+  ShieldAlert,
+  LogIn
 } from 'lucide-react';
 import { useLanguage } from '@/hooks/use-language';
+import { useAuth } from '@/hooks/use-auth';
 import { apiRequest, queryClient } from '@/lib/queryClient';
+import { Link } from 'wouter';
 
 const translations = {
   en: {
@@ -55,6 +59,10 @@ const translations = {
     loading: 'Loading...',
     error: 'Failed to load data',
     default: 'Default',
+    accessDenied: 'Access Denied',
+    ownerOnly: 'This page is only accessible to the platform owner.',
+    loginRequired: 'Please log in to access this page.',
+    loginButton: 'Log In',
   },
   ar: {
     title: 'لوحة تحكم الدفع',
@@ -90,24 +98,69 @@ const translations = {
     loading: 'جاري التحميل...',
     error: 'فشل في تحميل البيانات',
     default: 'افتراضي',
+    accessDenied: 'الوصول مرفوض',
+    ownerOnly: 'هذه الصفحة متاحة فقط لمالك المنصة.',
+    loginRequired: 'الرجاء تسجيل الدخول للوصول إلى هذه الصفحة.',
+    loginButton: 'تسجيل الدخول',
   },
 };
 
 export default function PaymentsDashboard() {
   const { language } = useLanguage();
+  const { user, isAuthenticated } = useAuth();
   const t = translations[language];
   const [activeTab, setActiveTab] = useState('overview');
 
+  const isOwner = user?.role === 'owner';
+
   const { data: statsData, isLoading: statsLoading } = useQuery<any>({
     queryKey: ['/api/payments/stats'],
+    enabled: isOwner,
   });
 
   const { data: providersData, isLoading: providersLoading } = useQuery<any>({
     queryKey: ['/api/payments/providers'],
+    enabled: isOwner,
   });
 
   const stats = statsData?.stats;
   const providers = providersData?.providers || [];
+
+  if (!isAuthenticated) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+        <Card className="max-w-md w-full">
+          <CardHeader className="text-center">
+            <LogIn className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <CardTitle>{t.accessDenied}</CardTitle>
+            <CardDescription>{t.loginRequired}</CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center">
+            <Link href="/auth">
+              <Button data-testid="button-login-redirect">
+                <LogIn className="h-4 w-4 mr-2" />
+                {t.loginButton}
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!isOwner) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+        <Card className="max-w-md w-full">
+          <CardHeader className="text-center">
+            <ShieldAlert className="h-12 w-12 mx-auto text-destructive mb-4" />
+            <CardTitle>{t.accessDenied}</CardTitle>
+            <CardDescription>{t.ownerOnly}</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
 
   const getStatusBadge = (status: string) => {
     const colors: Record<string, string> = {

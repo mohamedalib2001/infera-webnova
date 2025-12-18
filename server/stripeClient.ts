@@ -97,10 +97,20 @@ export async function initStripeSystem() {
     const domains = process.env.REPLIT_DOMAINS?.split(',') || [];
     if (domains.length > 0) {
       const webhookBaseUrl = `https://${domains[0]}`;
-      const { webhook } = await stripeSync.findOrCreateManagedWebhook(
-        `${webhookBaseUrl}/api/stripe/webhook`
-      );
-      console.log(`[Stripe] Webhook configured: ${webhook.url}`);
+      try {
+        const result = await stripeSync.findOrCreateManagedWebhook(
+          `${webhookBaseUrl}/api/stripe/webhook`
+        );
+        if (result?.webhook?.url) {
+          console.log(`[Stripe] Webhook configured: ${result.webhook.url}`);
+        } else {
+          console.log('[Stripe] Webhook setup skipped (no URL returned)');
+        }
+      } catch (webhookError: any) {
+        console.log('[Stripe] Webhook setup skipped:', webhookError.message);
+      }
+    } else {
+      console.log('[Stripe] No domains configured - skipping webhook setup');
     }
 
     console.log('[Stripe] Syncing data...');
