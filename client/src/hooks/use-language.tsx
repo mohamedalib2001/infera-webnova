@@ -42,6 +42,8 @@ const translations: Record<string, Record<Language, string>> = {
   "builder.describePlaceholder": { ar: "صِف ما تريد تغييره...", en: "Describe what you want to change..." },
   "builder.startConversation": { ar: "ابدأ محادثة", en: "Start a conversation" },
   "builder.startDescription": { ar: "صِف الموقع الذي تريد بناءه وسيساعدك الذكاء الاصطناعي في إنشائه", en: "Describe the website you want to build and AI will help you create it" },
+  "builder.cancelled": { ar: "تم الإلغاء", en: "Cancelled" },
+  "builder.generationCancelled": { ar: "تم إيقاف عملية التوليد", en: "Generation has been stopped" },
   
   // Empty states
   "empty.noProjects": { ar: "لا توجد مشاريع بعد", en: "No projects yet" },

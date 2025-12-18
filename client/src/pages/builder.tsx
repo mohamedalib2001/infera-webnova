@@ -45,6 +45,7 @@ export default function Builder() {
   const [projectId, setProjectId] = useState<string | null>(params.id || null);
   const [hasProcessedInitialPrompt, setHasProcessedInitialPrompt] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   useEffect(() => {
     if (html || css || js) {
@@ -136,6 +137,18 @@ export default function Builder() {
     },
   });
 
+  const handleCancelGeneration = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsGenerating(false);
+    toast({
+      title: t("builder.cancelled"),
+      description: t("builder.generationCancelled"),
+    });
+  };
+
   const handleSendMessage = async (content: string) => {
     const userMessage: ChatMessageType = {
       id: crypto.randomUUID(),
@@ -146,6 +159,8 @@ export default function Builder() {
     
     setMessages((prev) => [...prev, userMessage]);
     setIsGenerating(true);
+    
+    abortControllerRef.current = new AbortController();
     
     const newProjectKeywords = [
       'أنشئ', 'اصنع', 'ابني', 'صمم', 'جديد', 'موقع', 'صفحة', 'منصة', 'متجر', 'بورتفوليو',
@@ -243,9 +258,9 @@ export default function Builder() {
 
         <ComponentLibrary
           onInsertComponent={(newHtml, newCss, newJs) => {
-            setHtml((prev) => prev + "\n" + newHtml);
-            setCss((prev) => prev + "\n" + newCss);
-            if (newJs) setJs((prev) => prev + "\n" + newJs);
+            setHtml((prev: string) => prev + "\n" + newHtml);
+            setCss((prev: string) => prev + "\n" + newCss);
+            if (newJs) setJs((prev: string) => prev + "\n" + newJs);
           }}
         />
         
@@ -309,6 +324,7 @@ export default function Builder() {
           <div className="p-4 border-t">
             <ChatInput
               onSend={handleSendMessage}
+              onCancel={handleCancelGeneration}
               isLoading={isGenerating}
               placeholder={t("builder.describePlaceholder")}
             />

@@ -15,7 +15,8 @@ import {
   File,
   Wand2,
   Code,
-  Layout
+  Layout,
+  Square
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -47,6 +48,7 @@ interface AttachedFile {
 
 interface ChatInputProps {
   onSend: (message: string, attachments?: AttachedFile[]) => void;
+  onCancel?: () => void;
   isLoading?: boolean;
   placeholder?: string;
   language?: "ar" | "en";
@@ -54,6 +56,7 @@ interface ChatInputProps {
 
 export function ChatInput({ 
   onSend, 
+  onCancel,
   isLoading = false, 
   placeholder = "Ask AI to create your website...",
   language = "en"
@@ -89,6 +92,8 @@ export function ChatInput({
       noStats: "لا توجد إحصائيات بعد",
       fileAdded: "تم إضافة الملف",
       fileRemoved: "تم إزالة الملف",
+      stop: "إيقاف",
+      generating: "جاري التوليد...",
     },
     en: {
       newProject: "New Project",
@@ -111,6 +116,8 @@ export function ChatInput({
       noStats: "No statistics yet",
       fileAdded: "File added",
       fileRemoved: "File removed",
+      stop: "Stop",
+      generating: "Generating...",
     },
   };
 
@@ -373,19 +380,30 @@ export function ChatInput({
             </Button>
           </div>
           
-          <Button
-            onClick={handleSend}
-            disabled={!message.trim() || isLoading}
-            size="icon"
-            className="rounded-full bg-foreground text-background hover:bg-foreground/90"
-            data-testid="button-send-message"
-          >
-            {isLoading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <ArrowUp className="h-5 w-5" />
-            )}
-          </Button>
+          {isLoading && onCancel ? (
+            <Button
+              onClick={onCancel}
+              size="icon"
+              className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-stop-generation"
+            >
+              <Square className="h-4 w-4 fill-current" />
+            </Button>
+          ) : (
+            <Button
+              onClick={handleSend}
+              disabled={!message.trim() || isLoading}
+              size="icon"
+              className="rounded-full bg-foreground text-background hover:bg-foreground/90"
+              data-testid="button-send-message"
+            >
+              {isLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <ArrowUp className="h-5 w-5" />
+              )}
+            </Button>
+          )}
         </div>
       </div>
 
