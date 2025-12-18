@@ -2949,3 +2949,246 @@ export function calculateAuditChecksum(data: Record<string, unknown>): string {
   const content = JSON.stringify(data);
   return crypto.createHash('sha256').update(content).digest('hex');
 }
+
+// ==================== SERVICE PROVIDER INTEGRATIONS ====================
+
+// Provider categories
+export const providerCategories = ['ai', 'cloud', 'communication', 'payment', 'analytics', 'search', 'media', 'maps', 'custom'] as const;
+export type ProviderCategory = typeof providerCategories[number];
+
+// Provider status
+export const providerStatuses = ['active', 'inactive', 'error', 'maintenance', 'pending'] as const;
+export type ProviderStatus = typeof providerStatuses[number];
+
+// Service Providers Registry
+export const serviceProviders = pgTable("service_providers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  slug: text("slug").notNull().unique(), // openai, anthropic, stripe, etc.
+  category: text("category").notNull(), // ai, cloud, communication, payment, analytics, search, media, maps, custom
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  logo: text("logo"), // URL or icon name
+  website: text("website"),
+  docsUrl: text("docs_url"),
+  status: text("status").notNull().default("inactive"), // active, inactive, error, maintenance
+  isBuiltIn: boolean("is_built_in").notNull().default(false), // Pre-configured providers
+  isPrimary: boolean("is_primary").notNull().default(false), // Primary provider in category
+  priority: integer("priority").notNull().default(0), // For failover ordering
+  healthScore: real("health_score").default(100), // 0-100 health percentage
+  lastHealthCheck: timestamp("last_health_check"),
+  avgResponseTime: integer("avg_response_time"), // in ms
+  successRate: real("success_rate").default(100), // percentage
+  totalRequests: integer("total_requests").notNull().default(0),
+  totalErrors: integer("total_errors").notNull().default(0),
+  totalCost: integer("total_cost").notNull().default(0), // in cents
+  monthlyBudget: integer("monthly_budget"), // in cents
+  monthlySpent: integer("monthly_spent").notNull().default(0),
+  rateLimitPerMinute: integer("rate_limit_per_minute"),
+  rateLimitPerDay: integer("rate_limit_per_day"),
+  settings: jsonb("settings").$type<Record<string, unknown>>().default({}),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_providers_category").on(table.category),
+  index("IDX_providers_status").on(table.status),
+  index("IDX_providers_slug").on(table.slug),
+]);
+
+export const insertServiceProviderSchema = createInsertSchema(serviceProviders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertServiceProvider = z.infer<typeof insertServiceProviderSchema>;
+export type ServiceProvider = typeof serviceProviders.$inferSelect;
+
+// Provider API Keys (Encrypted)
+export const providerApiKeys = pgTable("provider_api_keys", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  providerId: varchar("provider_id").notNull().references(() => serviceProviders.id, { onDelete: "cascade" }),
+  name: text("name").notNull(), // Key identifier
+  keyHash: text("key_hash").notNull(), // SHA-256 hash for verification
+  encryptedKey: text("encrypted_key").notNull(), // AES-256-GCM encrypted
+  keyPrefix: text("key_prefix"), // First 8 chars for display (sk-xxx...)
+  environment: text("environment").notNull().default("production"), // production, development, test
+  isActive: boolean("is_active").notNull().default(true),
+  isDefault: boolean("is_default").notNull().default(false),
+  expiresAt: timestamp("expires_at"),
+  lastUsedAt: timestamp("last_used_at"),
+  lastRotatedAt: timestamp("last_rotated_at"),
+  rotationDays: integer("rotation_days").default(90), // Auto-rotate after N days
+  usageCount: integer("usage_count").notNull().default(0),
+  permissions: jsonb("permissions").$type<string[]>().default([]),
+  ipWhitelist: jsonb("ip_whitelist").$type<string[]>().default([]),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_api_keys_provider").on(table.providerId),
+  index("IDX_api_keys_environment").on(table.environment),
+]);
+
+export const insertProviderApiKeySchema = createInsertSchema(providerApiKeys).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertProviderApiKey = z.infer<typeof insertProviderApiKeySchema>;
+export type ProviderApiKey = typeof providerApiKeys.$inferSelect;
+
+// Provider Services (Sub-services of each provider)
+export const providerServices = pgTable("provider_services", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  providerId: varchar("provider_id").notNull().references(() => serviceProviders.id, { onDelete: "cascade" }),
+  name: text("name").notNull(), // GPT-4, Whisper, DALL-E
+  nameAr: text("name_ar"),
+  slug: text("slug").notNull(),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  type: text("type").notNull(), // model, api, webhook, etc.
+  isActive: boolean("is_active").notNull().default(true),
+  costPerUnit: integer("cost_per_unit").default(0), // Cost in micro-cents
+  unitType: text("unit_type"), // token, request, message, minute, etc.
+  settings: jsonb("settings").$type<Record<string, unknown>>().default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_services_provider").on(table.providerId),
+]);
+
+export const insertProviderServiceSchema = createInsertSchema(providerServices).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertProviderService = z.infer<typeof insertProviderServiceSchema>;
+export type ProviderService = typeof providerServices.$inferSelect;
+
+// Provider Usage Analytics
+export const providerUsage = pgTable("provider_usage", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  providerId: varchar("provider_id").notNull().references(() => serviceProviders.id, { onDelete: "cascade" }),
+  serviceId: varchar("service_id").references(() => providerServices.id),
+  apiKeyId: varchar("api_key_id").references(() => providerApiKeys.id),
+  userId: varchar("user_id"),
+  requestCount: integer("request_count").notNull().default(0),
+  successCount: integer("success_count").notNull().default(0),
+  errorCount: integer("error_count").notNull().default(0),
+  totalTokens: integer("total_tokens").notNull().default(0),
+  totalCost: integer("total_cost").notNull().default(0), // in micro-cents
+  avgResponseTime: integer("avg_response_time"), // in ms
+  date: timestamp("date").notNull(), // For daily aggregation
+  hour: integer("hour"), // 0-23 for hourly granularity
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_usage_provider").on(table.providerId),
+  index("IDX_usage_date").on(table.date),
+  index("IDX_usage_service").on(table.serviceId),
+]);
+
+export const insertProviderUsageSchema = createInsertSchema(providerUsage).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertProviderUsage = z.infer<typeof insertProviderUsageSchema>;
+export type ProviderUsage = typeof providerUsage.$inferSelect;
+
+// Provider Alerts
+export const providerAlerts = pgTable("provider_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  providerId: varchar("provider_id").references(() => serviceProviders.id, { onDelete: "cascade" }),
+  type: text("type").notNull(), // error_rate, response_time, cost, quota, health
+  severity: text("severity").notNull().default("warning"), // info, warning, error, critical
+  title: text("title").notNull(),
+  titleAr: text("title_ar"),
+  message: text("message").notNull(),
+  messageAr: text("message_ar"),
+  threshold: real("threshold"), // The threshold that was exceeded
+  currentValue: real("current_value"), // Current value that triggered alert
+  isAcknowledged: boolean("is_acknowledged").notNull().default(false),
+  acknowledgedBy: varchar("acknowledged_by"),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  resolvedAt: timestamp("resolved_at"),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_alerts_provider").on(table.providerId),
+  index("IDX_alerts_severity").on(table.severity),
+  index("IDX_alerts_acknowledged").on(table.isAcknowledged),
+]);
+
+export const insertProviderAlertSchema = createInsertSchema(providerAlerts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertProviderAlert = z.infer<typeof insertProviderAlertSchema>;
+export type ProviderAlert = typeof providerAlerts.$inferSelect;
+
+// Failover Groups (For automatic provider switching)
+export const failoverGroups = pgTable("failover_groups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  category: text("category").notNull(), // ai, payment, etc.
+  isActive: boolean("is_active").notNull().default(true),
+  primaryProviderId: varchar("primary_provider_id").references(() => serviceProviders.id),
+  fallbackProviderIds: jsonb("fallback_provider_ids").$type<string[]>().default([]),
+  triggerConditions: jsonb("trigger_conditions").$type<{
+    errorRate?: number;
+    responseTime?: number;
+    healthScore?: number;
+  }>().default({}),
+  autoFailover: boolean("auto_failover").notNull().default(true),
+  lastFailoverAt: timestamp("last_failover_at"),
+  failoverCount: integer("failover_count").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_failover_category").on(table.category),
+]);
+
+export const insertFailoverGroupSchema = createInsertSchema(failoverGroups).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertFailoverGroup = z.infer<typeof insertFailoverGroupSchema>;
+export type FailoverGroup = typeof failoverGroups.$inferSelect;
+
+// Integration Audit Logs
+export const integrationAuditLogs = pgTable("integration_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  providerId: varchar("provider_id").references(() => serviceProviders.id),
+  apiKeyId: varchar("api_key_id").references(() => providerApiKeys.id),
+  userId: varchar("user_id"),
+  action: text("action").notNull(), // create, update, delete, rotate, activate, deactivate, failover
+  resource: text("resource").notNull(), // provider, api_key, service, etc.
+  resourceId: text("resource_id"),
+  previousValue: jsonb("previous_value").$type<Record<string, unknown>>(),
+  newValue: jsonb("new_value").$type<Record<string, unknown>>(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  isSuccess: boolean("is_success").notNull().default(true),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_int_audit_provider").on(table.providerId),
+  index("IDX_int_audit_action").on(table.action),
+  index("IDX_int_audit_date").on(table.createdAt),
+]);
+
+export const insertIntegrationAuditLogSchema = createInsertSchema(integrationAuditLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertIntegrationAuditLog = z.infer<typeof insertIntegrationAuditLogSchema>;
+export type IntegrationAuditLog = typeof integrationAuditLogs.$inferSelect;
