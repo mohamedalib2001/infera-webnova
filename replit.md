@@ -1,7 +1,21 @@
-# INFERA WebNova - AI Website Builder Platform
+# INFERA WebNova - Intelligent OS for Sovereign Digital Platforms
 
 ## Overview
-INFERA WebNova is an AI-powered website builder platform within the INFERA Engine ecosystem. It offers comprehensive bilingual support (Arabic/English), natural language website generation, and a multi-tier subscription system. A key feature is the Owner Control Panel for platform-wide administration, leveraging AI Development Assistants for autonomous task execution. The platform aims to provide a complete ecosystem for AI-driven web development, including an AI App Builder for full-stack application generation and a Cloud IDE.
+INFERA WebNova is a **Core Operating System** for building and operating sovereign digital platforms. It is NOT a website builder—it is a self-sufficient, architecturally complete "digital platform factory" capable of generating and managing multiple platforms autonomously without requiring rebuilds or refactoring.
+
+### Core Concept
+- **AI Orchestrator**: Central governing authority orchestrating all platform operations through monitoring, decision-making, planning, and optimization
+- **Blueprint-First**: Single Source of Truth for all platform specifications
+- **Event-Driven Architecture**: Zero direct coupling between modules—all communication via Event Bus
+- **Autonomous Governance**: Self-healing, self-optimizing, and self-evolving capabilities
+- **Multi-Tenant Isolation**: Complete tenant segregation at every layer
+
+### Sovereign Platform Domains
+- **Financial**: Digital banking, payment processing (PCI-DSS, AML, KYC compliant)
+- **Healthcare**: Medical records, patient portals (HIPAA, GDPR compliant)
+- **Government**: E-Government portals (WCAG 2.1, Data Sovereignty compliant)
+- **Education**: Learning management systems (FERPA, COPPA compliant)
+- **Enterprise**: Custom business platforms (ISO 27001, SOC 2 compliant)
 
 ## User Preferences
 I want iterative development.
@@ -16,18 +30,22 @@ INFERA WebNova is built with a modern web stack: React + TypeScript + Vite for t
 **UI/UX Decisions:**
 The platform features an AI Chat Interface for natural language interaction, a live preview with responsive viewport controls, and a dark/light mode toggle. It includes pre-built UI components and templates for rapid development, with full bilingual support across the interface.
 
-**Technical Implementations & Feature Specifications:**
-*   **AI-Powered Generation**: Utilizes Anthropic Claude for generating website code and full-stack applications from natural language prompts.
-*   **Project Management**: Includes functionalities for saving, editing, deleting, exporting, and managing version history of projects.
-*   **Sharing & Collaboration**: Allows creation of shareable preview links.
-*   **Component Library**: Provides pre-built UI components with support for vanilla CSS, Tailwind, and Bootstrap.
-*   **Multi-tier Subscriptions & Role Hierarchy**: Supports Free, Basic, Pro, Enterprise, Sovereign, and Owner tiers with distinct access levels.
-*   **Owner Control Panel**: A central dashboard for platform administration, managing AI workforce, payment gateways, and authentication methods.
-*   **AI Development Assistants (Nova Workforce)**: Specialized AI agents (Developer, Designer, Content, Analyst, Security) can be commanded by the Owner for autonomous task execution.
-*   **Sovereign AI Assistants**: Platform-level autonomous AI agents (Governor, Architect, Operations Commander, Security Sentinel, Revenue Strategist) with constrained autonomy, command approval workflows, reversible operations, and audit trails.
-*   **Cloud IDE**: A full-featured cloud development environment with Monaco editor, multi-file project support, runtime execution for Node.js, Python, HTML, React, and live preview. It incorporates a robust security model for REST API protection, WebSocket token authentication, and command execution safety.
-*   **Sovereign Control Center**: A hidden administrative panel for absolute platform governance.
-*   **Bilingual Support**: Comprehensive Arabic/English support integrated throughout the platform.
+**Core System Architecture:**
+*   **AI Orchestrator**: Central decision-making authority using Anthropic Claude for intent analysis, code generation, and platform optimization
+*   **Blueprint System**: Captures platform specifications, intents, compliance requirements, and deployment targets
+*   **Platform Orchestrator**: Coordinates Blueprint → Code Generation → Runtime → Governance flows
+*   **PostgreSQL Event Store**: Durable event sourcing with tenant isolation, snapshots, and dead letter queue
+*   **Extension Registry**: Scoped contexts for multi-tenant extension isolation
+*   **Multi-tier Subscriptions & Role Hierarchy**: Supports Free, Basic, Pro, Enterprise, Sovereign, and Owner tiers with distinct access levels
+
+**Orchestration Flow:**
+1. User → Describe Sovereign Platform Specifications
+2. AI Orchestrator → Analyze Requirements & Create Blueprint
+3. Code Generation Engine → Generate Sovereign Codebase
+4. Runtime Layer → Deploy & Configure Platform
+5. Autonomous Governance → Monitor, Heal, Optimize, Evolve
+
+**Bilingual Support**: Comprehensive Arabic/English support integrated throughout the platform.
 
 ## External Dependencies
 *   **Database**: PostgreSQL
@@ -65,6 +83,12 @@ The platform features an AI Chat Interface for natural language interaction, a l
 - Phase 5 Complete: Deployment pipeline with version tracking
 - Phase 6 Complete: Multi-tab editor support
 - Phase 7 Complete: Platform Architecture Redesign (Modular + Event-Driven)
+- Phase 8 Complete: Strategic Architectural Correction (Website Builder → Sovereign Platform OS)
+  - Transformed UI from "Website Builder" to "Intelligent OS for Sovereign Platforms"
+  - Added sovereign domain categories (Financial, Healthcare, Government, Education)
+  - Implemented compliance standards selection (PCI-DSS, HIPAA, WCAG 2.1, etc.)
+  - Created orchestration flow visualization component
+  - Updated all translations to reflect sovereign platform terminology
 
 ## Core Platform Architecture
 

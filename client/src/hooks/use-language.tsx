@@ -12,47 +12,80 @@ interface LanguageContextType {
 const translations: Record<string, Record<Language, string>> = {
   // Navigation
   "nav.home": { ar: "الرئيسية", en: "Home" },
-  "nav.projects": { ar: "مشاريعي", en: "My Projects" },
-  "nav.templates": { ar: "القوالب", en: "Templates" },
-  "nav.newProject": { ar: "مشروع جديد", en: "New Project" },
+  "nav.projects": { ar: "منصاتي", en: "My Platforms" },
+  "nav.templates": { ar: "النماذج السيادية", en: "Sovereign Templates" },
+  "nav.newProject": { ar: "منصة جديدة", en: "New Platform" },
+  "nav.blueprints": { ar: "المخططات الذكية", en: "Smart Blueprints" },
+  "nav.governance": { ar: "التحكم الذاتي", en: "Autonomous Governance" },
   
-  // Home page
-  "home.title": { ar: "ابنِ موقعك الآن بالذكاء الاصطناعي", en: "Build Your Website with AI" },
-  "home.subtitle": { ar: "صِف موقعك وشاهد الذكاء الاصطناعي يحوله إلى حقيقة", en: "Describe your website and watch AI bring it to life" },
-  "home.placeholder": { ar: "اطلب من الذكاء الاصطناعي بناء موقعك...", en: "Ask AI to build your website..." },
-  "home.badge": { ar: "المنصة الأولى في منظومة INFERA", en: "The First Platform in INFERA Ecosystem" },
-  "home.recent": { ar: "الأخيرة", en: "Recent" },
-  "home.myProjects": { ar: "مشاريعي", en: "My Projects" },
-  "home.templates": { ar: "القوالب", en: "Templates" },
-  "home.noTemplates": { ar: "لا توجد قوالب متاحة حالياً", en: "No templates available yet" },
+  // Home page - Sovereign Platform OS
+  "home.title": { ar: "نظام التشغيل الذكي للمنصات السيادية", en: "Intelligent OS for Sovereign Platforms" },
+  "home.subtitle": { ar: "صِف متطلبات منصتك المستقلة وشاهد النظام الذكي يبنيها ويديرها ذاتياً", en: "Describe your sovereign platform requirements and watch the AI system build and operate it autonomously" },
+  "home.placeholder": { ar: "صِف مواصفات المنصة السيادية المطلوبة...", en: "Describe your sovereign platform specifications..." },
+  "home.badge": { ar: "نظام التشغيل الأساسي - INFERA Core OS", en: "Core Operating System - INFERA Core OS" },
+  "home.recent": { ar: "المنصات النشطة", en: "Active Platforms" },
+  "home.myProjects": { ar: "منصاتي", en: "My Platforms" },
+  "home.templates": { ar: "النماذج السيادية", en: "Sovereign Templates" },
+  "home.noTemplates": { ar: "لا توجد نماذج سيادية متاحة حالياً", en: "No sovereign templates available yet" },
+  "home.activePlatforms": { ar: "المنصات النشطة", en: "Active Platforms" },
+  "home.blueprints": { ar: "المخططات الذكية", en: "Smart Blueprints" },
+  "home.autonomousOps": { ar: "التشغيل الذاتي", en: "Autonomous Operations" },
   
-  // Suggestions
-  "suggestion.landing": { ar: "أنشئ صفحة هبوط لمنتج تقني", en: "Create a landing page for a tech product" },
-  "suggestion.portfolio": { ar: "صمم موقع شخصي احترافي", en: "Build a professional portfolio" },
-  "suggestion.restaurant": { ar: "أنشئ صفحة مطعم مع القائمة", en: "Design a restaurant menu page" },
-  "suggestion.ecommerce": { ar: "صمم متجر إلكتروني", en: "Create an e-commerce store" },
+  // Sovereign Platform Suggestions
+  "suggestion.landing": { ar: "منصة خدمات مالية رقمية متوافقة مع PCI-DSS", en: "Digital financial services platform (PCI-DSS compliant)" },
+  "suggestion.portfolio": { ar: "نظام رعاية صحية ذكي متوافق مع HIPAA", en: "Smart healthcare system (HIPAA compliant)" },
+  "suggestion.restaurant": { ar: "بوابة حكومية إلكترونية متوافقة مع WCAG 2.1", en: "E-Government portal (WCAG 2.1 compliant)" },
+  "suggestion.ecommerce": { ar: "منصة تعليمية ذكية متعددة المستأجرين", en: "Multi-tenant smart education platform" },
   
-  // Builder
-  "builder.newProject": { ar: "مشروع جديد", en: "New Project" },
+  // Sovereign Domains
+  "domain.financial": { ar: "مالي", en: "Financial" },
+  "domain.healthcare": { ar: "صحي", en: "Healthcare" },
+  "domain.government": { ar: "حكومي", en: "Government" },
+  "domain.education": { ar: "تعليمي", en: "Education" },
+  "domain.enterprise": { ar: "مؤسسي", en: "Enterprise" },
+  
+  // Compliance Standards
+  "compliance.pcidss": { ar: "PCI-DSS", en: "PCI-DSS" },
+  "compliance.hipaa": { ar: "HIPAA", en: "HIPAA" },
+  "compliance.gdpr": { ar: "GDPR", en: "GDPR" },
+  "compliance.wcag": { ar: "WCAG 2.1", en: "WCAG 2.1" },
+  "compliance.iso27001": { ar: "ISO 27001", en: "ISO 27001" },
+  
+  // Platform Status
+  "status.active": { ar: "نشطة", en: "Active" },
+  "status.deploying": { ar: "جاري النشر", en: "Deploying" },
+  "status.monitoring": { ar: "تحت المراقبة", en: "Monitoring" },
+  "status.selfHealing": { ar: "شفاء ذاتي", en: "Self-Healing" },
+  "status.evolving": { ar: "تطور ذاتي", en: "Self-Evolving" },
+  
+  // Platform Builder (Previously Website Builder)
+  "builder.newProject": { ar: "منصة جديدة", en: "New Platform" },
   "builder.save": { ar: "حفظ", en: "Save" },
-  "builder.saved": { ar: "تم حفظ المشروع!", en: "Project saved!" },
-  "builder.saveFailed": { ar: "فشل في حفظ المشروع", en: "Failed to save project" },
+  "builder.saved": { ar: "تم حفظ المنصة!", en: "Platform saved!" },
+  "builder.saveFailed": { ar: "فشل في حفظ المنصة", en: "Failed to save platform" },
   "builder.generateFailed": { ar: "فشل في التوليد", en: "Generation failed" },
   "builder.tryAgain": { ar: "حاول مرة أخرى", en: "Please try again" },
-  "builder.describePlaceholder": { ar: "صِف ما تريد تغييره...", en: "Describe what you want to change..." },
-  "builder.startConversation": { ar: "ابدأ محادثة", en: "Start a conversation" },
-  "builder.startDescription": { ar: "صِف الموقع الذي تريد بناءه وسيساعدك الذكاء الاصطناعي في إنشائه", en: "Describe the website you want to build and AI will help you create it" },
+  "builder.describePlaceholder": { ar: "صِف متطلبات المنصة أو التعديلات المطلوبة...", en: "Describe platform requirements or modifications..." },
+  "builder.startConversation": { ar: "ابدأ تصميم المنصة", en: "Start Platform Design" },
+  "builder.startDescription": { ar: "صِف المنصة السيادية المطلوبة وسيقوم النظام الذكي ببنائها وتشغيلها ذاتياً", en: "Describe the sovereign platform you need and the AI system will build and operate it autonomously" },
   "builder.cancelled": { ar: "تم الإلغاء", en: "Cancelled" },
   "builder.generationCancelled": { ar: "تم إيقاف عملية التوليد", en: "Generation has been stopped" },
   
+  // Orchestration Flow
+  "orchestration.analyzing": { ar: "تحليل المتطلبات...", en: "Analyzing requirements..." },
+  "orchestration.planning": { ar: "تخطيط البنية المعمارية...", en: "Planning architecture..." },
+  "orchestration.generating": { ar: "توليد الكود السيادي...", en: "Generating sovereign code..." },
+  "orchestration.deploying": { ar: "نشر وتشغيل المنصة...", en: "Deploying platform..." },
+  "orchestration.monitoring": { ar: "بدء المراقبة الذاتية...", en: "Starting autonomous monitoring..." },
+  
   // Empty states
-  "empty.noProjects": { ar: "لا توجد مشاريع بعد", en: "No projects yet" },
-  "empty.noProjectsDesc": { ar: "ابدأ بناء موقعك الأول بمساعدة الذكاء الاصطناعي. فقط صِف ما تريد!", en: "Start building your first website with AI assistance. Just describe what you want!" },
-  "empty.createProject": { ar: "إنشاء مشروع جديد", en: "Create New Project" },
+  "empty.noProjects": { ar: "لا توجد منصات بعد", en: "No platforms yet" },
+  "empty.noProjectsDesc": { ar: "ابدأ بتصميم منصتك السيادية الأولى. صِف متطلباتك وسيقوم النظام ببنائها وإدارتها ذاتياً!", en: "Start designing your first sovereign platform. Describe your requirements and the system will build and manage it autonomously!" },
+  "empty.createProject": { ar: "تصميم منصة جديدة", en: "Design New Platform" },
   
   // Auth
   "auth.welcome": { ar: "مرحباً بك في INFERA WebNova", en: "Welcome to INFERA WebNova" },
-  "auth.subtitle": { ar: "منصة بناء المواقع الذكية بالذكاء الاصطناعي", en: "The intelligent AI-powered website builder" },
+  "auth.subtitle": { ar: "نظام التشغيل الذكي للمنصات الرقمية السيادية", en: "Intelligent Operating System for Sovereign Digital Platforms" },
   "auth.login": { ar: "تسجيل الدخول", en: "Login" },
   "auth.register": { ar: "إنشاء حساب", en: "Register" },
   "auth.email": { ar: "البريد الإلكتروني", en: "Email" },
