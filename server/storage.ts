@@ -1,6 +1,7 @@
 import {
   type User,
   type InsertUser,
+  type UpsertUser,
   type Project,
   type InsertProject,
   type Message,
@@ -1072,6 +1073,34 @@ body { font-family: 'Tajawal', sans-serif; }
       .where(eq(users.id, id))
       .returning();
     return user || undefined;
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values({
+        id: userData.id,
+        email: userData.email || null,
+        firstName: userData.firstName || null,
+        lastName: userData.lastName || null,
+        profileImageUrl: userData.profileImageUrl || null,
+        authProvider: userData.authProvider || "replit",
+        role: "free",
+        isActive: true,
+        emailVerified: true,
+      })
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          email: userData.email || null,
+          firstName: userData.firstName || null,
+          lastName: userData.lastName || null,
+          profileImageUrl: userData.profileImageUrl || null,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
   }
 
   // Subscription Plans methods

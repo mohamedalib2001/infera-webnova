@@ -102,11 +102,8 @@ export default function Auth() {
     },
   });
 
-  const handleSocialLogin = (provider: string) => {
-    toast({
-      title: t("auth.comingSoon"),
-      description: `${t("auth.continueWith")} ${provider}`,
-    });
+  const handleSocialLogin = () => {
+    window.location.href = "/api/login";
   };
 
   const SocialButton = ({ provider, icon: Icon, label }: { provider: string; icon: typeof SiGoogle; label: string }) => (
@@ -114,16 +111,13 @@ export default function Auth() {
       <Button
         variant="outline"
         className="w-full gap-2"
-        onClick={() => handleSocialLogin(provider)}
+        onClick={handleSocialLogin}
         type="button"
         data-testid={`button-${provider.toLowerCase()}-login`}
       >
         <Icon className="h-4 w-4" />
         <span className="hidden sm:inline">{label}</span>
       </Button>
-      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-        {t("auth.comingSoon")}
-      </Badge>
     </div>
   );
 
