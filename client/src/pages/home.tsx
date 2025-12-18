@@ -76,6 +76,7 @@ export default function Home() {
         <ChatInput
           onSend={handleChatSubmit}
           placeholder={t("home.placeholder")}
+          language={language as "ar" | "en"}
         />
         
         <div className="flex flex-wrap justify-center gap-2 mt-6 max-w-2xl">
