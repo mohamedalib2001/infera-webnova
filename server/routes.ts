@@ -519,6 +519,93 @@ export async function registerRoutes(
     }
   });
 
+  // ============ Integrations Routes - إدارة التكاملات ============
+  
+  // Get integrations status
+  app.get("/api/integrations/status", requireAuth, async (req, res) => {
+    try {
+      // Check which API keys are configured
+      const status: Record<string, boolean> = {
+        OPENAI_API_KEY: !!process.env.OPENAI_API_KEY,
+        ANTHROPIC_API_KEY: !!process.env.ANTHROPIC_API_KEY,
+        GOOGLE_AI_API_KEY: !!process.env.GOOGLE_AI_API_KEY,
+        STRIPE_SECRET_KEY: !!process.env.STRIPE_SECRET_KEY,
+        PAYPAL_CLIENT_SECRET: !!process.env.PAYPAL_CLIENT_SECRET,
+        TWILIO_AUTH_TOKEN: !!process.env.TWILIO_AUTH_TOKEN,
+        SENDGRID_API_KEY: !!process.env.SENDGRID_API_KEY,
+        AWS_SECRET_ACCESS_KEY: !!process.env.AWS_SECRET_ACCESS_KEY,
+      };
+      res.json(status);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get integrations status" });
+    }
+  });
+
+  // Configure integration (Owner only)
+  app.post("/api/integrations/configure", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || !isRootOwner(user.role)) {
+        return res.status(403).json({ error: "Owner access required" });
+      }
+      
+      const { providerId, apiKey } = req.body;
+      
+      if (!providerId || !apiKey) {
+        return res.status(400).json({ error: "Provider ID and API key are required" });
+      }
+      
+      // Note: In production, this would update secrets via Replit Secrets API
+      // For now, we log and return success
+      console.log(`[Integrations] Configuring provider: ${providerId}`);
+      
+      res.json({ 
+        success: true, 
+        message: "Integration configured. Please add the API key to Replit Secrets manually.",
+        providerId,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to configure integration" });
+    }
+  });
+
+  // Toggle integration (Owner only)
+  app.post("/api/integrations/toggle", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || !isRootOwner(user.role)) {
+        return res.status(403).json({ error: "Owner access required" });
+      }
+      
+      const { providerId, enabled } = req.body;
+      console.log(`[Integrations] Toggling ${providerId}: ${enabled}`);
+      
+      res.json({ success: true, providerId, enabled });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to toggle integration" });
+    }
+  });
+
+  // Delete integration (Owner only)
+  app.delete("/api/integrations/:providerId", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || !isRootOwner(user.role)) {
+        return res.status(403).json({ error: "Owner access required" });
+      }
+      
+      const { providerId } = req.params;
+      console.log(`[Integrations] Deleting provider: ${providerId}`);
+      
+      res.json({ 
+        success: true, 
+        message: "Integration removed. Please remove the API key from Replit Secrets manually.",
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete integration" });
+    }
+  });
+
   // ============ Collaborators Routes - نظام التعاون ============
   
   // Get project collaborators

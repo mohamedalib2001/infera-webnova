@@ -25,6 +25,7 @@ import {
   ChevronRight,
   Key,
   Receipt,
+  Plug,
 } from "lucide-react";
 import {
   Sidebar,
@@ -302,6 +303,14 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                           <Link href="/payments" data-testid="nav-payments">
                             <CreditCard className="h-4 w-4 text-green-500" />
                             <span>{language === "ar" ? "لوحة الدفع" : "Payments"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/integrations"}>
+                          <Link href="/integrations" data-testid="nav-integrations">
+                            <Plug className="h-4 w-4 text-cyan-500" />
+                            <span>{language === "ar" ? "التكاملات" : "Integrations"}</span>
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
