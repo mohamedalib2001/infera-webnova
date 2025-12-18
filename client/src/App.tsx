@@ -48,6 +48,12 @@ import Invoices from "@/pages/invoices";
 import Integrations from "@/pages/integrations";
 import SmartSuggestions from "@/pages/smart-suggestions";
 import OneClickDeploy from "@/pages/one-click-deploy";
+import BackendGenerator from "@/pages/backend-generator";
+import GitControl from "@/pages/git-control";
+import AICopilot from "@/pages/ai-copilot";
+import TestingGenerator from "@/pages/testing-generator";
+import Marketplace from "@/pages/marketplace";
+import Collaboration from "@/pages/collaboration";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -88,6 +94,12 @@ function Router() {
       <Route path="/integrations" component={Integrations} />
       <Route path="/smart-suggestions" component={SmartSuggestions} />
       <Route path="/deploy" component={OneClickDeploy} />
+      <Route path="/backend-generator" component={BackendGenerator} />
+      <Route path="/git" component={GitControl} />
+      <Route path="/ai-copilot" component={AICopilot} />
+      <Route path="/testing" component={TestingGenerator} />
+      <Route path="/marketplace" component={Marketplace} />
+      <Route path="/collaboration" component={Collaboration} />
       <Route path="/preview/:shareCode" component={Preview} />
       <Route component={NotFound} />
     </Switch>
