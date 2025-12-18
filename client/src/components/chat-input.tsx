@@ -126,7 +126,7 @@ export function ChatInput({
   const txt = t[language];
 
   const handleSend = () => {
-    if (message.trim() && !isLoading) {
+    if (message.trim() && (!isLoading || allowWhileLoading)) {
       onSend(message.trim(), attachments.length > 0 ? attachments : undefined);
       setMessage("");
       setAttachments([]);
