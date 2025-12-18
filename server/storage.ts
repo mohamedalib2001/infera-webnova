@@ -183,6 +183,27 @@ import {
   tenantDomainQuotas,
   type TenantDomainQuotaRecord,
   type InsertTenantDomainQuota,
+  apiKeys,
+  type ApiKey,
+  type InsertApiKey,
+  apiKeyUsageLogs,
+  type ApiKeyUsageLog,
+  type InsertApiKeyUsageLog,
+  rateLimitPolicies,
+  type RateLimitPolicy,
+  type InsertRateLimitPolicy,
+  webhookEndpoints,
+  type WebhookEndpoint,
+  type InsertWebhookEndpoint,
+  webhookDeliveries,
+  type WebhookDelivery,
+  type InsertWebhookDelivery,
+  apiAuditLogs,
+  type ApiAuditLog,
+  type InsertApiAuditLog,
+  apiConfiguration,
+  type ApiConfiguration,
+  type InsertApiConfiguration,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt } from "drizzle-orm";
@@ -2993,6 +3014,201 @@ body { font-family: 'Tajawal', sans-serif; }
       return this.updateTenantDomainQuota(tenantId, { usedDomains: quota.usedDomains - 1 });
     }
     return undefined;
+  }
+
+  // ==================== SOVEREIGN API KEYS SYSTEM ====================
+
+  // API Keys
+  async getApiKey(id: string): Promise<ApiKey | undefined> {
+    const [key] = await db.select().from(apiKeys).where(eq(apiKeys.id, id));
+    return key || undefined;
+  }
+
+  async getApiKeysByTenant(tenantId: string): Promise<ApiKey[]> {
+    return db.select().from(apiKeys)
+      .where(eq(apiKeys.tenantId, tenantId))
+      .orderBy(desc(apiKeys.createdAt));
+  }
+
+  async getApiKeysByUser(userId: string): Promise<ApiKey[]> {
+    return db.select().from(apiKeys)
+      .where(eq(apiKeys.userId, userId))
+      .orderBy(desc(apiKeys.createdAt));
+  }
+
+  async getApiKeysByPrefix(prefix: string): Promise<ApiKey[]> {
+    return db.select().from(apiKeys)
+      .where(eq(apiKeys.prefix, prefix));
+  }
+
+  async createApiKey(key: InsertApiKey): Promise<ApiKey> {
+    const [created] = await db.insert(apiKeys).values(key).returning();
+    return created;
+  }
+
+  async updateApiKey(id: string, data: Partial<InsertApiKey>): Promise<ApiKey | undefined> {
+    const [updated] = await db.update(apiKeys)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(apiKeys.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteApiKey(id: string): Promise<boolean> {
+    const result = await db.delete(apiKeys).where(eq(apiKeys.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async countApiKeysByTenant(tenantId: string): Promise<number> {
+    const keys = await db.select().from(apiKeys)
+      .where(and(eq(apiKeys.tenantId, tenantId), eq(apiKeys.status, 'active')));
+    return keys.length;
+  }
+
+  // API Key Usage Logs
+  async getApiKeyUsageLogs(apiKeyId: string, limit: number = 100): Promise<ApiKeyUsageLog[]> {
+    return db.select().from(apiKeyUsageLogs)
+      .where(eq(apiKeyUsageLogs.apiKeyId, apiKeyId))
+      .orderBy(desc(apiKeyUsageLogs.timestamp))
+      .limit(limit);
+  }
+
+  async getTenantApiUsageLogs(tenantId: string, limit: number = 100): Promise<ApiKeyUsageLog[]> {
+    return db.select().from(apiKeyUsageLogs)
+      .where(eq(apiKeyUsageLogs.tenantId, tenantId))
+      .orderBy(desc(apiKeyUsageLogs.timestamp))
+      .limit(limit);
+  }
+
+  async createApiKeyUsageLog(log: InsertApiKeyUsageLog): Promise<ApiKeyUsageLog> {
+    const [created] = await db.insert(apiKeyUsageLogs).values(log).returning();
+    return created;
+  }
+
+  // Rate Limit Policies
+  async getRateLimitPolicies(): Promise<RateLimitPolicy[]> {
+    return db.select().from(rateLimitPolicies).where(eq(rateLimitPolicies.isActive, true));
+  }
+
+  async getRateLimitPolicy(tier: string): Promise<RateLimitPolicy | undefined> {
+    const [policy] = await db.select().from(rateLimitPolicies).where(eq(rateLimitPolicies.tier, tier));
+    return policy || undefined;
+  }
+
+  async createRateLimitPolicy(policy: InsertRateLimitPolicy): Promise<RateLimitPolicy> {
+    const [created] = await db.insert(rateLimitPolicies).values(policy).returning();
+    return created;
+  }
+
+  async updateRateLimitPolicy(tier: string, data: Partial<InsertRateLimitPolicy>): Promise<RateLimitPolicy | undefined> {
+    const [updated] = await db.update(rateLimitPolicies)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(rateLimitPolicies.tier, tier))
+      .returning();
+    return updated || undefined;
+  }
+
+  // Webhook Endpoints
+  async getWebhookEndpoint(id: string): Promise<WebhookEndpoint | undefined> {
+    const [endpoint] = await db.select().from(webhookEndpoints).where(eq(webhookEndpoints.id, id));
+    return endpoint || undefined;
+  }
+
+  async getWebhookEndpointsByTenant(tenantId: string): Promise<WebhookEndpoint[]> {
+    return db.select().from(webhookEndpoints)
+      .where(eq(webhookEndpoints.tenantId, tenantId))
+      .orderBy(desc(webhookEndpoints.createdAt));
+  }
+
+  async createWebhookEndpoint(endpoint: InsertWebhookEndpoint): Promise<WebhookEndpoint> {
+    const [created] = await db.insert(webhookEndpoints).values(endpoint).returning();
+    return created;
+  }
+
+  async updateWebhookEndpoint(id: string, data: Partial<InsertWebhookEndpoint>): Promise<WebhookEndpoint | undefined> {
+    const [updated] = await db.update(webhookEndpoints)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(webhookEndpoints.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteWebhookEndpoint(id: string): Promise<boolean> {
+    const result = await db.delete(webhookEndpoints).where(eq(webhookEndpoints.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // Webhook Deliveries
+  async getWebhookDelivery(id: string): Promise<WebhookDelivery | undefined> {
+    const [delivery] = await db.select().from(webhookDeliveries).where(eq(webhookDeliveries.id, id));
+    return delivery || undefined;
+  }
+
+  async getWebhookDeliveriesByEndpoint(endpointId: string, limit: number = 50): Promise<WebhookDelivery[]> {
+    return db.select().from(webhookDeliveries)
+      .where(eq(webhookDeliveries.endpointId, endpointId))
+      .orderBy(desc(webhookDeliveries.createdAt))
+      .limit(limit);
+  }
+
+  async createWebhookDelivery(delivery: InsertWebhookDelivery): Promise<WebhookDelivery> {
+    const [created] = await db.insert(webhookDeliveries).values(delivery).returning();
+    return created;
+  }
+
+  async updateWebhookDelivery(id: string, data: Partial<InsertWebhookDelivery>): Promise<WebhookDelivery | undefined> {
+    const [updated] = await db.update(webhookDeliveries)
+      .set(data)
+      .where(eq(webhookDeliveries.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // API Audit Logs (Immutable - no update/delete)
+  async getApiAuditLogs(tenantId: string, limit: number = 100): Promise<ApiAuditLog[]> {
+    return db.select().from(apiAuditLogs)
+      .where(eq(apiAuditLogs.tenantId, tenantId))
+      .orderBy(desc(apiAuditLogs.timestamp))
+      .limit(limit);
+  }
+
+  async getApiAuditLogsByApiKey(apiKeyId: string, limit: number = 100): Promise<ApiAuditLog[]> {
+    return db.select().from(apiAuditLogs)
+      .where(eq(apiAuditLogs.apiKeyId, apiKeyId))
+      .orderBy(desc(apiAuditLogs.timestamp))
+      .limit(limit);
+  }
+
+  async createApiAuditLog(log: InsertApiAuditLog): Promise<ApiAuditLog> {
+    const [created] = await db.insert(apiAuditLogs).values(log).returning();
+    return created;
+  }
+
+  // API Configuration
+  async getApiConfiguration(tenantId: string): Promise<ApiConfiguration | undefined> {
+    const [config] = await db.select().from(apiConfiguration).where(eq(apiConfiguration.tenantId, tenantId));
+    return config || undefined;
+  }
+
+  async createApiConfiguration(config: InsertApiConfiguration): Promise<ApiConfiguration> {
+    const [created] = await db.insert(apiConfiguration).values(config).returning();
+    return created;
+  }
+
+  async updateApiConfiguration(tenantId: string, data: Partial<InsertApiConfiguration>): Promise<ApiConfiguration | undefined> {
+    const [updated] = await db.update(apiConfiguration)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(apiConfiguration.tenantId, tenantId))
+      .returning();
+    return updated || undefined;
+  }
+
+  async getOrCreateApiConfiguration(tenantId: string): Promise<ApiConfiguration> {
+    let config = await this.getApiConfiguration(tenantId);
+    if (!config) {
+      config = await this.createApiConfiguration({ tenantId });
+    }
+    return config;
   }
 }
 

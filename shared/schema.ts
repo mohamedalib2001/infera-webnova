@@ -2489,3 +2489,290 @@ export function getOriginType(role: string, createdByOwner: boolean): OriginType
   if (createdByOwner) return 'OWNER_CREATED';
   return 'SELF_REGISTERED';
 }
+
+// ==================== SOVEREIGN API KEYS SYSTEM ====================
+
+// API Key statuses
+export const apiKeyStatuses = ['active', 'revoked', 'expired', 'suspended'] as const;
+export type ApiKeyStatus = typeof apiKeyStatuses[number];
+
+// Available API scopes - granular permissions
+export const apiScopes = [
+  'platform.read', 'platform.write', 'platform.delete',
+  'domains.read', 'domains.manage',
+  'ai.invoke', 'ai.manage',
+  'billing.read', 'billing.manage',
+  'api_keys.read', 'api_keys.manage',
+  'webhooks.read', 'webhooks.manage', 'webhooks.send',
+  'users.read', 'users.manage',
+  'projects.read', 'projects.write', 'projects.delete',
+  'analytics.read', 'analytics.export',
+  'settings.read', 'settings.write',
+] as const;
+export type ApiScope = typeof apiScopes[number];
+
+// API Keys table - مفاتيح API السيادية
+export const apiKeys = pgTable("api_keys", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull(), // المنصة المرتبطة
+  userId: varchar("user_id").notNull(), // المستخدم الذي أنشأ المفتاح
+  name: text("name").notNull(), // اسم المفتاح
+  description: text("description"),
+  prefix: text("prefix").notNull(), // البادئة التعريفية (مثل: infk_live_)
+  keyHash: text("key_hash").notNull(), // Hash للمفتاح (لا يُخزن النص الصريح أبداً)
+  lastFourChars: text("last_four_chars").notNull(), // آخر 4 أحرف للعرض
+  scopes: jsonb("scopes").$type<string[]>().notNull().default([]), // الصلاحيات
+  status: text("status").notNull().default("active"), // active, revoked, expired, suspended
+  rateLimitTier: text("rate_limit_tier").notNull().default("standard"), // standard, premium, unlimited
+  rateLimitPerMinute: integer("rate_limit_per_minute").notNull().default(60),
+  rateLimitPerHour: integer("rate_limit_per_hour").notNull().default(1000),
+  rateLimitPerDay: integer("rate_limit_per_day").notNull().default(10000),
+  lastUsedAt: timestamp("last_used_at"),
+  lastUsedIp: text("last_used_ip"),
+  usageCount: integer("usage_count").notNull().default(0),
+  expiresAt: timestamp("expires_at"), // null = لا ينتهي
+  revokedAt: timestamp("revoked_at"),
+  revokedBy: varchar("revoked_by"),
+  revokedReason: text("revoked_reason"),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_api_keys_tenant").on(table.tenantId),
+  index("IDX_api_keys_user").on(table.userId),
+  index("IDX_api_keys_status").on(table.status),
+  index("IDX_api_keys_prefix").on(table.prefix),
+]);
+
+export const insertApiKeySchema = createInsertSchema(apiKeys).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertApiKey = z.infer<typeof insertApiKeySchema>;
+export type ApiKey = typeof apiKeys.$inferSelect;
+
+// API Key Usage Logs - سجل استخدام المفاتيح
+export const apiKeyUsageLogs = pgTable("api_key_usage_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  apiKeyId: varchar("api_key_id").notNull(),
+  tenantId: varchar("tenant_id").notNull(),
+  endpoint: text("endpoint").notNull(),
+  method: text("method").notNull(), // GET, POST, PUT, DELETE
+  statusCode: integer("status_code").notNull(),
+  requestSize: integer("request_size"),
+  responseSize: integer("response_size"),
+  responseTimeMs: integer("response_time_ms"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  scopeUsed: text("scope_used"),
+  isRateLimited: boolean("is_rate_limited").notNull().default(false),
+  errorMessage: text("error_message"),
+  timestamp: timestamp("timestamp").defaultNow(),
+}, (table) => [
+  index("IDX_api_usage_key").on(table.apiKeyId),
+  index("IDX_api_usage_tenant").on(table.tenantId),
+  index("IDX_api_usage_timestamp").on(table.timestamp),
+]);
+
+export const insertApiKeyUsageLogSchema = createInsertSchema(apiKeyUsageLogs).omit({
+  id: true,
+  timestamp: true,
+});
+
+export type InsertApiKeyUsageLog = z.infer<typeof insertApiKeyUsageLogSchema>;
+export type ApiKeyUsageLog = typeof apiKeyUsageLogs.$inferSelect;
+
+// Rate Limit Policies - سياسات الحد من الاستخدام
+export const rateLimitPolicies = pgTable("rate_limit_policies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  tier: text("tier").notNull().unique(), // standard, premium, unlimited, custom
+  requestsPerMinute: integer("requests_per_minute").notNull().default(60),
+  requestsPerHour: integer("requests_per_hour").notNull().default(1000),
+  requestsPerDay: integer("requests_per_day").notNull().default(10000),
+  burstLimit: integer("burst_limit").notNull().default(10), // الحد الأقصى للطلبات المتتالية
+  burstWindowSeconds: integer("burst_window_seconds").notNull().default(1),
+  warningThreshold: real("warning_threshold").notNull().default(0.8), // 80%
+  blockDurationMinutes: integer("block_duration_minutes").notNull().default(15),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertRateLimitPolicySchema = createInsertSchema(rateLimitPolicies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertRateLimitPolicy = z.infer<typeof insertRateLimitPolicySchema>;
+export type RateLimitPolicy = typeof rateLimitPolicies.$inferSelect;
+
+// Webhook Endpoints - نقاط الـ Webhook
+export const webhookEndpoints = pgTable("webhook_endpoints", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  name: text("name").notNull(),
+  url: text("url").notNull(),
+  secretHash: text("secret_hash").notNull(), // Hash for HMAC signing
+  events: jsonb("events").$type<string[]>().notNull().default([]), // الأحداث المشتركة
+  isActive: boolean("is_active").notNull().default(true),
+  failureCount: integer("failure_count").notNull().default(0),
+  lastDeliveryAt: timestamp("last_delivery_at"),
+  lastDeliveryStatus: text("last_delivery_status"), // success, failed
+  lastDeliveryError: text("last_delivery_error"),
+  retryPolicy: jsonb("retry_policy").$type<{
+    maxRetries: number;
+    retryIntervalSeconds: number;
+  }>().default({ maxRetries: 3, retryIntervalSeconds: 60 }),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_webhook_endpoints_tenant").on(table.tenantId),
+  index("IDX_webhook_endpoints_active").on(table.isActive),
+]);
+
+export const insertWebhookEndpointSchema = createInsertSchema(webhookEndpoints).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertWebhookEndpoint = z.infer<typeof insertWebhookEndpointSchema>;
+export type WebhookEndpoint = typeof webhookEndpoints.$inferSelect;
+
+// Webhook event types
+export const webhookEventTypes = [
+  'DOMAIN_VERIFIED', 'DOMAIN_FAILED', 'DOMAIN_REMOVED',
+  'SSL_ISSUED', 'SSL_RENEWED', 'SSL_EXPIRED',
+  'PLATFORM_STATUS_CHANGED', 'PLATFORM_DEPLOYED',
+  'API_KEY_CREATED', 'API_KEY_REVOKED', 'API_KEY_ROTATED',
+  'USER_CREATED', 'USER_UPDATED', 'USER_DELETED',
+  'SUBSCRIPTION_CREATED', 'SUBSCRIPTION_UPDATED', 'SUBSCRIPTION_CANCELLED',
+  'PAYMENT_RECEIVED', 'PAYMENT_FAILED',
+  'RATE_LIMIT_WARNING', 'RATE_LIMIT_EXCEEDED',
+] as const;
+export type WebhookEventType = typeof webhookEventTypes[number];
+
+// Webhook Deliveries - تسليمات الـ Webhook
+export const webhookDeliveries = pgTable("webhook_deliveries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  endpointId: varchar("endpoint_id").notNull(),
+  tenantId: varchar("tenant_id").notNull(),
+  eventType: text("event_type").notNull(),
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+  signature: text("signature").notNull(), // HMAC signature
+  status: text("status").notNull().default("pending"), // pending, delivered, failed
+  statusCode: integer("status_code"),
+  responseBody: text("response_body"),
+  attempts: integer("attempts").notNull().default(0),
+  nextRetryAt: timestamp("next_retry_at"),
+  deliveredAt: timestamp("delivered_at"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_webhook_deliveries_endpoint").on(table.endpointId),
+  index("IDX_webhook_deliveries_status").on(table.status),
+  index("IDX_webhook_deliveries_created").on(table.createdAt),
+]);
+
+export const insertWebhookDeliverySchema = createInsertSchema(webhookDeliveries).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertWebhookDelivery = z.infer<typeof insertWebhookDeliverySchema>;
+export type WebhookDelivery = typeof webhookDeliveries.$inferSelect;
+
+// API Audit Logs - سجلات التدقيق (غير قابلة للتعديل)
+export const apiAuditLogs = pgTable("api_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull(),
+  apiKeyId: varchar("api_key_id"),
+  userId: varchar("user_id"),
+  action: text("action").notNull(), // API_KEY_CREATED, API_KEY_REVOKED, API_KEY_ROTATED, AUTH_FAILED, RATE_LIMIT_EXCEEDED, etc.
+  actionAr: text("action_ar"),
+  resourceType: text("resource_type"), // api_key, webhook, domain, etc.
+  resourceId: varchar("resource_id"),
+  previousState: jsonb("previous_state").$type<Record<string, unknown>>(),
+  newState: jsonb("new_state").$type<Record<string, unknown>>(),
+  details: jsonb("details").$type<Record<string, unknown>>(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  geoLocation: jsonb("geo_location").$type<{
+    country?: string;
+    city?: string;
+    region?: string;
+  }>(),
+  severity: text("severity").notNull().default("info"), // info, warning, critical
+  checksum: text("checksum").notNull(), // SHA-256 للتحقق من عدم التعديل
+  timestamp: timestamp("timestamp").defaultNow(),
+}, (table) => [
+  index("IDX_api_audit_tenant").on(table.tenantId),
+  index("IDX_api_audit_api_key").on(table.apiKeyId),
+  index("IDX_api_audit_action").on(table.action),
+  index("IDX_api_audit_timestamp").on(table.timestamp),
+  index("IDX_api_audit_severity").on(table.severity),
+]);
+
+export const insertApiAuditLogSchema = createInsertSchema(apiAuditLogs).omit({
+  id: true,
+  timestamp: true,
+});
+
+export type InsertApiAuditLog = z.infer<typeof insertApiAuditLogSchema>;
+export type ApiAuditLog = typeof apiAuditLogs.$inferSelect;
+
+// API Configuration - إعدادات API قابلة للتعديل من UI
+export const apiConfiguration = pgTable("api_configuration", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().unique(),
+  isApiEnabled: boolean("is_api_enabled").notNull().default(true),
+  defaultRateLimitTier: text("default_rate_limit_tier").notNull().default("standard"),
+  maxKeysPerTenant: integer("max_keys_per_tenant").notNull().default(10),
+  keyExpirationDays: integer("key_expiration_days"), // null = لا ينتهي
+  requireScopeSelection: boolean("require_scope_selection").notNull().default(true),
+  allowedIpRanges: jsonb("allowed_ip_ranges").$type<string[]>(),
+  blockedIpRanges: jsonb("blocked_ip_ranges").$type<string[]>(),
+  corsOrigins: jsonb("cors_origins").$type<string[]>(),
+  webhooksEnabled: boolean("webhooks_enabled").notNull().default(true),
+  maxWebhooksPerTenant: integer("max_webhooks_per_tenant").notNull().default(5),
+  auditRetentionDays: integer("audit_retention_days").notNull().default(365),
+  customSettings: jsonb("custom_settings").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertApiConfigurationSchema = createInsertSchema(apiConfiguration).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertApiConfiguration = z.infer<typeof insertApiConfigurationSchema>;
+export type ApiConfiguration = typeof apiConfiguration.$inferSelect;
+
+// Helper: Generate API Key with prefix
+export function generateApiKeyPrefix(environment: 'live' | 'test' = 'live'): string {
+  return environment === 'live' ? 'infk_live_' : 'infk_test_';
+}
+
+// Helper: Generate secure API key
+export function generateSecureApiKey(prefix: string): string {
+  const randomPart = Array.from({ length: 32 }, () => 
+    'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[Math.floor(Math.random() * 62)]
+  ).join('');
+  return `${prefix}${randomPart}`;
+}
+
+// Helper: Calculate audit checksum
+export function calculateAuditChecksum(data: Record<string, unknown>): string {
+  const crypto = require('crypto');
+  const content = JSON.stringify(data);
+  return crypto.createHash('sha256').update(content).digest('hex');
+}
