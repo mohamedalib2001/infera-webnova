@@ -2100,6 +2100,171 @@ export async function registerRoutes(
     }
   });
 
+  // ==================== USER GOVERNANCE ROUTES (Owner only) ====================
+
+  // Suspend user (owner only)
+  app.post("/api/owner/users/:userId/suspend", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { reason } = req.body;
+      const ownerId = req.session!.userId!;
+      
+      if (!reason || reason.trim().length === 0) {
+        return res.status(400).json({ error: "Reason is required / السبب مطلوب" });
+      }
+      
+      const targetUser = await storage.getUser(userId);
+      if (!targetUser) {
+        return res.status(404).json({ error: "User not found / المستخدم غير موجود" });
+      }
+      
+      if (isRootOwner(targetUser.role)) {
+        return res.status(403).json({ error: "Cannot suspend ROOT_OWNER / لا يمكن تعليق مالك الجذر" });
+      }
+      
+      const user = await storage.suspendUser(userId, ownerId, reason);
+      
+      await storage.createSovereignAuditLog({
+        action: 'USER_SUSPENDED',
+        performedBy: ownerId,
+        performerRole: 'owner',
+        targetType: 'user',
+        targetId: userId,
+        details: { reason, previousStatus: targetUser.status },
+        visibleToSubscribers: false,
+      });
+      
+      res.json({ message: "User suspended / تم تعليق المستخدم", user });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to suspend user / فشل في تعليق المستخدم" });
+    }
+  });
+
+  // Ban user (owner only)
+  app.post("/api/owner/users/:userId/ban", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { reason } = req.body;
+      const ownerId = req.session!.userId!;
+      
+      if (!reason || reason.trim().length === 0) {
+        return res.status(400).json({ error: "Reason is required / السبب مطلوب" });
+      }
+      
+      const targetUser = await storage.getUser(userId);
+      if (!targetUser) {
+        return res.status(404).json({ error: "User not found / المستخدم غير موجود" });
+      }
+      
+      if (isRootOwner(targetUser.role)) {
+        return res.status(403).json({ error: "Cannot ban ROOT_OWNER / لا يمكن حظر مالك الجذر" });
+      }
+      
+      const user = await storage.banUser(userId, ownerId, reason);
+      
+      await storage.createSovereignAuditLog({
+        action: 'USER_BANNED',
+        performedBy: ownerId,
+        performerRole: 'owner',
+        targetType: 'user',
+        targetId: userId,
+        details: { reason, previousStatus: targetUser.status },
+        visibleToSubscribers: false,
+      });
+      
+      res.json({ message: "User banned / تم حظر المستخدم", user });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to ban user / فشل في حظر المستخدم" });
+    }
+  });
+
+  // Reactivate user (owner only)
+  app.post("/api/owner/users/:userId/reactivate", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { reason } = req.body;
+      const ownerId = req.session!.userId!;
+      
+      const targetUser = await storage.getUser(userId);
+      if (!targetUser) {
+        return res.status(404).json({ error: "User not found / المستخدم غير موجود" });
+      }
+      
+      const user = await storage.reactivateUser(userId, ownerId, reason);
+      
+      await storage.createSovereignAuditLog({
+        action: 'USER_REACTIVATED',
+        performedBy: ownerId,
+        performerRole: 'owner',
+        targetType: 'user',
+        targetId: userId,
+        details: { reason, previousStatus: targetUser.status },
+        visibleToSubscribers: false,
+      });
+      
+      res.json({ message: "User reactivated / تمت إعادة تفعيل المستخدم", user });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to reactivate user / فشل في إعادة تفعيل المستخدم" });
+    }
+  });
+
+  // Update user permissions (owner only)
+  app.patch("/api/owner/users/:userId/permissions", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { permissions } = req.body;
+      const ownerId = req.session!.userId!;
+      
+      if (!Array.isArray(permissions)) {
+        return res.status(400).json({ error: "Permissions must be an array / الصلاحيات يجب أن تكون مصفوفة" });
+      }
+      
+      const targetUser = await storage.getUser(userId);
+      if (!targetUser) {
+        return res.status(404).json({ error: "User not found / المستخدم غير موجود" });
+      }
+      
+      if (isRootOwner(targetUser.role)) {
+        return res.status(403).json({ error: "Cannot modify ROOT_OWNER permissions / لا يمكن تعديل صلاحيات مالك الجذر" });
+      }
+      
+      const user = await storage.updateUserPermissions(userId, permissions);
+      
+      await storage.createSovereignAuditLog({
+        action: 'USER_PERMISSIONS_UPDATED',
+        performedBy: ownerId,
+        performerRole: 'owner',
+        targetType: 'user',
+        targetId: userId,
+        details: { oldPermissions: targetUser.permissions, newPermissions: permissions },
+        visibleToSubscribers: false,
+      });
+      
+      res.json({ message: "Permissions updated / تم تحديث الصلاحيات", user });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update permissions / فشل في تحديث الصلاحيات" });
+    }
+  });
+
+  // Get users by status (owner only)
+  app.get("/api/owner/users/status/:status", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { status } = req.params;
+      const validStatuses = ['ACTIVE', 'SUSPENDED', 'BANNED', 'PENDING', 'DEACTIVATED'];
+      
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ error: "Invalid status / حالة غير صالحة" });
+      }
+      
+      const users = await storage.getUsersByStatus(status);
+      const usersWithoutPassword = users.map(({ password, ...u }) => u);
+      
+      res.json({ users: usersWithoutPassword, count: users.length });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get users by status / فشل في جلب المستخدمين حسب الحالة" });
+    }
+  });
+
   // Initialize default AI assistants
   app.post("/api/owner/initialize-assistants", requireAuth, requireOwner, async (req, res) => {
     try {
