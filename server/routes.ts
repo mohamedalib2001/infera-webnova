@@ -13,7 +13,7 @@ import {
   getOperationalMode, type User 
 } from "@shared/schema";
 import { z } from "zod";
-import { randomBytes } from "crypto";
+import crypto, { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import { 
   injectSovereignContext, 
@@ -700,7 +700,6 @@ export async function registerRoutes(
       }
       
       // Hash and encrypt the API key
-      const crypto = require('crypto');
       const keyHash = crypto.createHash('sha256').update(apiKey).digest('hex');
       const keyPrefix = apiKey.substring(0, 8) + "...";
       
