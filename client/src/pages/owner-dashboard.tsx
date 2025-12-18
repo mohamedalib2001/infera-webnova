@@ -91,7 +91,33 @@ const translations = {
       auth: "طرق الدخول",
       platform: "إعدادات المنصة",
       users: "المستخدمين",
+      analytics: "التحليلات",
       logs: "سجل العمليات",
+    },
+    usageAnalytics: {
+      title: "تحليلات الاستهلاك والتكلفة",
+      subtitle: "مراقبة استهلاك الموارد والتكاليف والأرباح",
+      todayCost: "تكلفة اليوم الفعلية",
+      todayBilled: "المفوتر اليوم",
+      todayMargin: "هامش الربح اليوم",
+      top5Users: "أكثر 5 مستخدمين استهلاكاً",
+      losingUsers: "مستخدمون خاسرون",
+      losingUsersDesc: "مستخدمون تتجاوز تكلفتهم ما يدفعونه",
+      profitByService: "الربح حسب الخدمة",
+      noData: "لا توجد بيانات بعد",
+      realCost: "التكلفة الفعلية",
+      billedCost: "المفوتر",
+      loss: "الخسارة",
+      margin: "الهامش",
+      service: "الخدمة",
+      user: "المستخدم",
+      usersWithLocations: "المستخدمون حسب الموقع",
+      country: "الدولة",
+      city: "المدينة",
+      lastSeen: "آخر ظهور",
+      setLimits: "تحديد الحدود",
+      monthlyLimit: "الحد الشهري",
+      autoSuspend: "إيقاف تلقائي عند تجاوز الحد",
     },
     domains: {
       title: "إدارة النطاقات المخصصة",
@@ -422,7 +448,33 @@ const translations = {
       auth: "Login Methods",
       platform: "Platform Settings",
       users: "Users",
+      analytics: "Analytics",
       logs: "Audit Logs",
+    },
+    usageAnalytics: {
+      title: "Usage & Cost Analytics",
+      subtitle: "Monitor resource consumption, costs, and profits",
+      todayCost: "Today's Actual Cost",
+      todayBilled: "Today's Billed",
+      todayMargin: "Today's Margin",
+      top5Users: "Top 5 Users by Consumption",
+      losingUsers: "Losing Users",
+      losingUsersDesc: "Users where cost exceeds billed amount",
+      profitByService: "Profit by Service",
+      noData: "No data yet",
+      realCost: "Actual Cost",
+      billedCost: "Billed",
+      loss: "Loss",
+      margin: "Margin",
+      service: "Service",
+      user: "User",
+      usersWithLocations: "Users by Location",
+      country: "Country",
+      city: "City",
+      lastSeen: "Last Seen",
+      setLimits: "Set Limits",
+      monthlyLimit: "Monthly Limit",
+      autoSuspend: "Auto-suspend when limit exceeded",
     },
     domains: {
       title: "Custom Domains Management",
@@ -1071,6 +1123,318 @@ function GovernanceSection({ t, language }: { t: typeof translations.ar; languag
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+// Usage Analytics Section Component
+function UsageAnalyticsSection({ t, language }: { t: typeof translations.ar; language: 'ar' | 'en' }) {
+  const { toast } = useToast();
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [showLimitsDialog, setShowLimitsDialog] = useState(false);
+  const [limitsForm, setLimitsForm] = useState({
+    monthlyLimitUSD: 100,
+    autoSuspendOnLimit: false,
+  });
+
+  const { data: analytics, isLoading: analyticsLoading } = useQuery<{
+    totalRealCostUSD: number;
+    totalBilledCostUSD: number;
+    margin: number;
+    top5Users: Array<{ userId: string; email: string; totalRealCost: number; totalBilledCost: number }>;
+    losingUsers: Array<{ userId: string; email: string; loss: number }>;
+    profitByService: Array<{ service: string; profit: number; totalBilled: number; totalCost: number }>;
+  }>({
+    queryKey: ['/api/owner/usage-analytics'],
+  });
+
+  const { data: usersWithLocations = [], isLoading: locationsLoading } = useQuery<Array<{
+    userId: string;
+    email: string;
+    username: string;
+    countryCode: string;
+    countryName: string;
+    city: string;
+    lastUpdatedAt: string;
+  }>>({
+    queryKey: ['/api/owner/users-with-locations'],
+  });
+
+  const setLimitsMutation = useMutation({
+    mutationFn: async (data: { userId: string; monthlyLimitUSD: number; autoSuspendOnLimit: boolean }) => {
+      return apiRequest('POST', `/api/owner/users/${data.userId}/usage-limits`, {
+        monthlyLimitUSD: data.monthlyLimitUSD,
+        autoSuspendOnLimit: data.autoSuspendOnLimit,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: language === 'ar' ? 'تم تحديد الحدود' : 'Limits set successfully' });
+      setShowLimitsDialog(false);
+    },
+    onError: (error: any) => {
+      toast({ title: error.message || 'Error', variant: 'destructive' });
+    },
+  });
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value || 0);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card data-testid="card-today-cost">
+          <CardHeader className="pb-2">
+            <CardDescription>{t.usageAnalytics.todayCost}</CardDescription>
+            <CardTitle className="text-2xl text-red-600 dark:text-red-400" data-testid="text-today-cost-value">
+              {analyticsLoading ? '...' : formatCurrency(analytics?.totalRealCostUSD || 0)}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card data-testid="card-today-billed">
+          <CardHeader className="pb-2">
+            <CardDescription>{t.usageAnalytics.todayBilled}</CardDescription>
+            <CardTitle className="text-2xl text-green-600 dark:text-green-400" data-testid="text-today-billed-value">
+              {analyticsLoading ? '...' : formatCurrency(analytics?.totalBilledCostUSD || 0)}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card data-testid="card-today-margin">
+          <CardHeader className="pb-2">
+            <CardDescription>{t.usageAnalytics.todayMargin}</CardDescription>
+            <CardTitle className="text-2xl" data-testid="text-today-margin-value">
+              {analyticsLoading ? '...' : `${((analytics?.margin || 0) * 100).toFixed(1)}%`}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
+
+      {/* Top 5 Users and Losing Users */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top 5 Users */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5" />
+              {t.usageAnalytics.top5Users}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {analyticsLoading ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <RefreshCw className="w-8 h-8 mx-auto animate-spin mb-2" />
+              </div>
+            ) : (analytics?.top5Users?.length || 0) > 0 ? (
+              <div className="space-y-3">
+                {analytics?.top5Users?.map((user, index) => (
+                  <div key={user.userId} className="flex items-center justify-between p-3 rounded-lg border" data-testid={`row-top-user-${index}`}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold">
+                        {index + 1}
+                      </div>
+                      <span className="text-sm">{user.email}</span>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-medium">{formatCurrency(user.totalBilledCost)}</p>
+                      <p className="text-xs text-muted-foreground">{t.usageAnalytics.realCost}: {formatCurrency(user.totalRealCost)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <TrendingUp className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>{t.usageAnalytics.noData}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Losing Users */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-destructive" />
+              {t.usageAnalytics.losingUsers}
+            </CardTitle>
+            <CardDescription>{t.usageAnalytics.losingUsersDesc}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {analyticsLoading ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <RefreshCw className="w-8 h-8 mx-auto animate-spin mb-2" />
+              </div>
+            ) : (analytics?.losingUsers?.length || 0) > 0 ? (
+              <div className="space-y-3">
+                {analytics?.losingUsers?.map((user) => (
+                  <div key={user.userId} className="flex items-center justify-between p-3 rounded-lg border border-destructive/30 bg-destructive/5" data-testid={`row-losing-user-${user.userId}`}>
+                    <span className="text-sm">{user.email}</span>
+                    <Badge variant="destructive">
+                      {t.usageAnalytics.loss}: {formatCurrency(user.loss)}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-green-600 dark:text-green-400">
+                <CheckCircle2 className="w-12 h-12 mx-auto mb-2" />
+                <p>{language === 'ar' ? 'لا يوجد مستخدمون خاسرون' : 'No losing users'}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Profit by Service */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <DollarSign className="w-5 h-5" />
+            {t.usageAnalytics.profitByService}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {analyticsLoading ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <RefreshCw className="w-8 h-8 mx-auto animate-spin mb-2" />
+            </div>
+          ) : (analytics?.profitByService?.length || 0) > 0 ? (
+            <div className="space-y-3">
+              {analytics?.profitByService?.map((service) => (
+                <div key={service.service} className="flex items-center justify-between p-3 rounded-lg border" data-testid={`row-service-${service.service}`}>
+                  <div className="flex items-center gap-3">
+                    <Badge variant="outline">{service.service}</Badge>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">{t.usageAnalytics.billedCost}</p>
+                      <p className="text-sm">{formatCurrency(service.totalBilled)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">{t.usageAnalytics.realCost}</p>
+                      <p className="text-sm">{formatCurrency(service.totalCost)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">{t.usageAnalytics.margin}</p>
+                      <p className={`text-sm font-medium ${service.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {formatCurrency(service.profit)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <DollarSign className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>{t.usageAnalytics.noData}</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Users with Locations */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Globe2 className="w-5 h-5" />
+            {t.usageAnalytics.usersWithLocations}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {locationsLoading ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <RefreshCw className="w-8 h-8 mx-auto animate-spin mb-2" />
+            </div>
+          ) : usersWithLocations.length > 0 ? (
+            <ScrollArea className="h-[300px]">
+              <div className="space-y-2">
+                {usersWithLocations.map((user) => (
+                  <div key={user.userId} className="flex items-center justify-between p-3 rounded-lg border hover-elevate" data-testid={`row-location-${user.userId}`}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold text-sm">
+                        {user.countryCode || '??'}
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">{user.email || user.username}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {user.city ? `${user.city}, ` : ''}{user.countryName || user.countryCode}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {user.lastUpdatedAt ? new Date(user.lastUpdatedAt).toLocaleDateString() : '-'}
+                      </span>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedUserId(user.userId);
+                          setShowLimitsDialog(true);
+                        }}
+                        data-testid={`button-set-limits-${user.userId}`}
+                      >
+                        {t.usageAnalytics.setLimits}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <Globe2 className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>{t.usageAnalytics.noData}</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Set Limits Dialog */}
+      <Dialog open={showLimitsDialog} onOpenChange={setShowLimitsDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t.usageAnalytics.setLimits}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{t.usageAnalytics.monthlyLimit} (USD)</Label>
+              <Input
+                type="number"
+                value={limitsForm.monthlyLimitUSD}
+                onChange={(e) => setLimitsForm({ ...limitsForm, monthlyLimitUSD: parseFloat(e.target.value) || 0 })}
+                data-testid="input-monthly-limit"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={limitsForm.autoSuspendOnLimit}
+                onCheckedChange={(checked) => setLimitsForm({ ...limitsForm, autoSuspendOnLimit: checked })}
+                data-testid="switch-auto-suspend"
+              />
+              <Label>{t.usageAnalytics.autoSuspend}</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowLimitsDialog(false)} data-testid="button-cancel-limits">
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button
+              onClick={() => selectedUserId && setLimitsMutation.mutate({
+                userId: selectedUserId,
+                monthlyLimitUSD: limitsForm.monthlyLimitUSD,
+                autoSuspendOnLimit: limitsForm.autoSuspendOnLimit,
+              })}
+              disabled={setLimitsMutation.isPending}
+              data-testid="button-confirm-limits"
+            >
+              {setLimitsMutation.isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : (language === 'ar' ? 'حفظ' : 'Save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -2108,6 +2472,10 @@ export default function OwnerDashboard() {
             <TabsTrigger value="users" className="gap-2" data-testid="tab-users">
               <Users className="w-4 h-4" />
               <span className="hidden sm:inline">{t.tabs.users}</span>
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="gap-2" data-testid="tab-analytics">
+              <TrendingUp className="w-4 h-4" />
+              <span className="hidden sm:inline">{t.tabs.analytics}</span>
             </TabsTrigger>
             <TabsTrigger value="logs" className="gap-2" data-testid="tab-logs">
               <History className="w-4 h-4" />
@@ -3983,6 +4351,11 @@ export default function OwnerDashboard() {
           {/* Domains Tab - النطاقات المخصصة */}
           <TabsContent value="domains" className="space-y-6">
             <DomainsSection t={t} language={language} />
+          </TabsContent>
+
+          {/* Analytics Tab - تحليلات الاستهلاك */}
+          <TabsContent value="analytics" className="space-y-6">
+            <UsageAnalyticsSection t={t} language={language} />
           </TabsContent>
 
           <TabsContent value="logs" className="space-y-6">
