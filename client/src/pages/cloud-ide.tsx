@@ -42,9 +42,12 @@ import {
   Sparkles,
   Globe,
   Download,
+  Upload,
   Package,
   Rocket,
   GitBranch,
+  GitCommit,
+  ExternalLink,
   Search,
   X,
 } from "lucide-react";
@@ -74,8 +77,8 @@ export default function CloudIDE() {
   const [showPackageManager, setShowPackageManager] = useState(false);
   const [showDeployDialog, setShowDeployDialog] = useState(false);
   const [packageSearch, setPackageSearch] = useState("");
-  const [installedPackages, setInstalledPackages] = useState<string[]>(["express", "react", "lodash"]);
   const [showGitDialog, setShowGitDialog] = useState(false);
+  const [isInstallingPackage, setIsInstallingPackage] = useState(false);
   const [gitCommitMessage, setGitCommitMessage] = useState("");
   const [terminalInput, setTerminalInput] = useState("");
   const [terminalHistory, setTerminalHistory] = useState<Array<{type: "input" | "output" | "error" | "system", content: string}>>([]);
@@ -250,6 +253,50 @@ export default function CloudIDE() {
     // Execute real command
     executeCommandMutation.mutate(command);
   };
+
+  // Fetch installed packages
+  const { data: packagesData, isLoading: packagesLoading, refetch: refetchPackages } = useQuery<{
+    dependencies: Array<{ name: string; version: string; isDev: boolean }>;
+    devDependencies: Array<{ name: string; version: string; isDev: boolean }>;
+  }>({
+    queryKey: ["/api/dev-projects", projectId, "packages"],
+    enabled: !!projectId,
+  });
+
+  const installedPackages = [
+    ...(packagesData?.dependencies?.map(p => p.name) || []),
+    ...(packagesData?.devDependencies?.map(p => p.name) || []),
+  ];
+
+  // Install package mutation
+  const installPackageMutation = useMutation({
+    mutationFn: async (packageName: string) => {
+      return apiRequest("POST", `/api/dev-projects/${projectId}/packages/install`, { packageName });
+    },
+    onSuccess: (_, packageName) => {
+      toast({ title: `${packageName} ${language === "ar" ? "تم تثبيته بنجاح" : "installed successfully"}` });
+      refetchPackages();
+      queryClient.invalidateQueries({ queryKey: ["/api/dev-projects", projectId, "packages"] });
+    },
+    onError: () => {
+      toast({ title: language === "ar" ? "فشل التثبيت" : "Install failed", variant: "destructive" });
+    },
+  });
+
+  // Uninstall package mutation
+  const uninstallPackageMutation = useMutation({
+    mutationFn: async (packageName: string) => {
+      return apiRequest("POST", `/api/dev-projects/${projectId}/packages/uninstall`, { packageName });
+    },
+    onSuccess: (_, packageName) => {
+      toast({ title: `${packageName} ${language === "ar" ? "تمت إزالته" : "removed"}` });
+      refetchPackages();
+      queryClient.invalidateQueries({ queryKey: ["/api/dev-projects", projectId, "packages"] });
+    },
+    onError: () => {
+      toast({ title: language === "ar" ? "فشلت الإزالة" : "Uninstall failed", variant: "destructive" });
+    },
+  });
 
   // Fetch project
   const { data: project, isLoading: projectLoading } = useQuery<DevProject>({
@@ -656,13 +703,16 @@ export default function CloudIDE() {
           {/* Package Manager */}
           <Dialog open={showPackageManager} onOpenChange={setShowPackageManager}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="icon" data-testid="button-packages">
+              <Button variant="outline" size="icon" className="rounded-lg" data-testid="button-packages">
                 <Package className="w-4 h-4" />
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md" dir={language === "ar" ? "rtl" : "ltr"}>
+            <DialogContent className="max-w-lg glass" dir={language === "ar" ? "rtl" : "ltr"}>
               <DialogHeader>
-                <DialogTitle>{txt.packageManager}</DialogTitle>
+                <DialogTitle className="flex items-center gap-2">
+                  <Package className="w-5 h-5 text-primary" />
+                  {txt.packageManager}
+                </DialogTitle>
                 <DialogDescription>{txt.installedPackages}</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
@@ -672,47 +722,73 @@ export default function CloudIDE() {
                     placeholder={txt.searchPackages}
                     value={packageSearch}
                     onChange={(e) => setPackageSearch(e.target.value)}
-                    className="pr-10"
+                    className="pr-10 rounded-lg"
                     data-testid="input-package-search"
                   />
                 </div>
-                <ScrollArea className="h-64">
+                <ScrollArea className="h-72 premium-scrollbar">
                   <div className="space-y-2">
-                    {installedPackages
+                    {packagesLoading ? (
+                      <div className="flex justify-center py-8">
+                        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                      </div>
+                    ) : installedPackages
                       .filter(pkg => pkg.toLowerCase().includes(packageSearch.toLowerCase()))
                       .map((pkg) => (
-                        <div key={pkg} className="flex items-center justify-between p-2 rounded-md bg-muted/50">
-                          <div className="flex items-center gap-2">
-                            <Package className="w-4 h-4 text-muted-foreground" />
-                            <span className="font-mono text-sm">{pkg}</span>
+                        <div key={pkg} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover-elevate transition-all">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                              <Package className="w-4 h-4 text-primary" />
+                            </div>
+                            <div>
+                              <span className="font-mono text-sm font-medium">{pkg}</span>
+                              <p className="text-xs text-muted-foreground">
+                                {language === "ar" ? "مثبت" : "Installed"}
+                              </p>
+                            </div>
                           </div>
                           <Button
                             variant="ghost"
-                            size="sm"
-                            className="h-7 text-destructive"
-                            onClick={() => {
-                              setInstalledPackages(prev => prev.filter(p => p !== pkg));
-                              toast({ title: `${pkg} ${language === "ar" ? "تمت إزالته" : "removed"}` });
-                            }}
+                            size="icon"
+                            className="text-destructive rounded-lg"
+                            disabled={uninstallPackageMutation.isPending}
+                            onClick={() => uninstallPackageMutation.mutate(pkg)}
                             data-testid={`button-uninstall-${pkg}`}
                           >
-                            <X className="w-4 h-4" />
+                            {uninstallPackageMutation.isPending ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <X className="w-4 h-4" />
+                            )}
                           </Button>
                         </div>
                       ))}
                     {packageSearch && !installedPackages.includes(packageSearch) && (
                       <Button
-                        className="w-full"
+                        className="w-full rounded-lg gap-2"
+                        disabled={installPackageMutation.isPending}
                         onClick={() => {
-                          setInstalledPackages(prev => [...prev, packageSearch]);
-                          toast({ title: `${packageSearch} ${language === "ar" ? "تم تثبيته" : "installed"}` });
+                          toast({ title: language === "ar" ? `جاري تثبيت ${packageSearch}...` : `Installing ${packageSearch}...` });
+                          installPackageMutation.mutate(packageSearch);
                           setPackageSearch("");
                         }}
                         data-testid="button-install-package"
                       >
-                        <Plus className="w-4 h-4 ml-1" />
+                        {installPackageMutation.isPending ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Plus className="w-4 h-4" />
+                        )}
                         {txt.install} {packageSearch}
                       </Button>
+                    )}
+                    {installedPackages.length === 0 && !packageSearch && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Package className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                        <p className="text-sm">
+                          {language === "ar" ? "لا توجد حزم مثبتة" : "No packages installed"}
+                        </p>
+                      </div>
                     )}
                   </div>
                 </ScrollArea>
@@ -720,29 +796,34 @@ export default function CloudIDE() {
             </DialogContent>
           </Dialog>
 
-          {/* Deploy */}
+          {/* Premium Deploy Dialog */}
           <Dialog open={showDeployDialog} onOpenChange={setShowDeployDialog}>
             <DialogTrigger asChild>
-              <Button variant="default" size="sm" data-testid="button-deploy">
-                <Rocket className="w-4 h-4 ml-1" />
+              <Button size="sm" className="rounded-lg bg-gradient-to-r from-primary to-purple-600 gap-2" data-testid="button-deploy">
+                <Rocket className="w-4 h-4" />
                 {txt.deploy}
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md" dir={language === "ar" ? "rtl" : "ltr"}>
+            <DialogContent className="max-w-md glass" dir={language === "ar" ? "rtl" : "ltr"}>
               <DialogHeader>
-                <DialogTitle>{txt.deployProject}</DialogTitle>
+                <DialogTitle className="flex items-center gap-2">
+                  <Rocket className="w-5 h-5 text-primary" />
+                  {txt.deployProject}
+                </DialogTitle>
                 <DialogDescription>{txt.deployDescription}</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
-                <div className="p-4 rounded-lg bg-muted/50 text-center">
-                  <Rocket className="w-12 h-12 mx-auto mb-3 text-primary" />
-                  <p className="text-sm text-muted-foreground mb-4">
+                <div className="p-6 rounded-xl bg-gradient-to-br from-primary/10 to-purple-600/10 border border-primary/20 text-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center animate-pulse">
+                    <Rocket className="w-8 h-8 text-white" />
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-6">
                     {language === "ar" 
-                      ? "سيتم نشر مشروعك على رابط فريد"
-                      : "Your project will be deployed to a unique URL"}
+                      ? "سيتم نشر مشروعك على رابط فريد خلال ثوانٍ"
+                      : "Your project will be deployed to a unique URL in seconds"}
                   </p>
                   <Button
-                    className="w-full"
+                    className="w-full rounded-lg bg-gradient-to-r from-primary to-purple-600 gap-2"
                     onClick={() => {
                       toast({ 
                         title: txt.deploySuccess,
@@ -752,39 +833,55 @@ export default function CloudIDE() {
                     }}
                     data-testid="button-deploy-now"
                   >
-                    <Rocket className="w-4 h-4 ml-1" />
+                    <Rocket className="w-4 h-4" />
                     {txt.deployNow}
                   </Button>
                 </div>
-                <div className="text-xs text-muted-foreground text-center">
-                  {txt.projectUrl}: https://{project?.name?.toLowerCase().replace(/\s/g, "-")}.infera.app
+                <div className="flex items-center justify-center gap-2 p-3 rounded-lg bg-muted/50">
+                  <ExternalLink className="w-4 h-4 text-muted-foreground" />
+                  <code className="text-xs text-muted-foreground">
+                    https://{project?.name?.toLowerCase().replace(/\s/g, "-")}.infera.app
+                  </code>
                 </div>
               </div>
             </DialogContent>
           </Dialog>
 
-          {/* Git Integration */}
+          {/* Premium Git Integration */}
           <Dialog open={showGitDialog} onOpenChange={setShowGitDialog}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="icon" data-testid="button-git">
+              <Button variant="outline" size="icon" className="rounded-lg" data-testid="button-git">
                 <GitBranch className="w-4 h-4" />
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md" dir={language === "ar" ? "rtl" : "ltr"}>
+            <DialogContent className="max-w-lg glass" dir={language === "ar" ? "rtl" : "ltr"}>
               <DialogHeader>
-                <DialogTitle>{txt.gitIntegration}</DialogTitle>
-                <DialogDescription>main branch</DialogDescription>
+                <DialogTitle className="flex items-center gap-2">
+                  <GitBranch className="w-5 h-5 text-primary" />
+                  {txt.gitIntegration}
+                </DialogTitle>
+                <DialogDescription className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                    main
+                  </span>
+                  <span className="text-muted-foreground">{language === "ar" ? "الفرع الرئيسي" : "main branch"}</span>
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
-                <Input
-                  placeholder={txt.commitMessage}
-                  value={gitCommitMessage}
-                  onChange={(e) => setGitCommitMessage(e.target.value)}
-                  data-testid="input-commit-message"
-                />
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">{txt.commitMessage}</label>
+                  <Input
+                    placeholder={language === "ar" ? "وصف التغييرات..." : "Describe your changes..."}
+                    value={gitCommitMessage}
+                    onChange={(e) => setGitCommitMessage(e.target.value)}
+                    className="rounded-lg"
+                    data-testid="input-commit-message"
+                  />
+                </div>
                 <div className="flex gap-2">
                   <Button
-                    className="flex-1"
+                    className="flex-1 rounded-lg gap-2"
                     onClick={() => {
                       if (gitCommitMessage) {
                         toast({ title: txt.commitSuccess, description: gitCommitMessage });
@@ -794,26 +891,37 @@ export default function CloudIDE() {
                     disabled={!gitCommitMessage}
                     data-testid="button-commit"
                   >
+                    <GitCommit className="w-4 h-4" />
                     {txt.commit}
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => toast({ title: "Pushed to origin/main" })}
+                    className="rounded-lg gap-2"
+                    onClick={() => toast({ title: language === "ar" ? "تم الرفع إلى origin/main" : "Pushed to origin/main" })}
                     data-testid="button-push"
                   >
+                    <Upload className="w-4 h-4" />
                     {txt.push}
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => toast({ title: "Already up to date" })}
+                    className="rounded-lg gap-2"
+                    onClick={() => toast({ title: language === "ar" ? "محدث بالفعل" : "Already up to date" })}
                     data-testid="button-pull"
                   >
+                    <Download className="w-4 h-4" />
                     {txt.pull}
                   </Button>
                 </div>
-                <div className="p-3 rounded-md bg-muted/50 font-mono text-xs">
-                  <div className="text-green-500">+ 2 files changed</div>
-                  <div className="text-muted-foreground">Last commit: Initial commit</div>
+                <div className="p-4 rounded-lg bg-[#0d1117] border border-[#30363d] font-mono text-xs space-y-2">
+                  <div className="flex items-center gap-2 text-green-400">
+                    <Plus className="w-3 h-3" />
+                    <span>2 files changed, 45 insertions(+)</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <GitCommit className="w-3 h-3" />
+                    <span>Last commit: Initial commit</span>
+                  </div>
                 </div>
               </div>
             </DialogContent>
