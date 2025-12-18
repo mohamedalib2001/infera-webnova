@@ -4,6 +4,13 @@
 
 INFERA WebNova is designed as a **Core Operating System** for building sovereign digital platforms. The architecture follows a **Modular + Event-Driven** design pattern with **Contract-First** principles, ensuring unlimited extensibility without requiring system rebuilds.
 
+**Key Principles:**
+1. **AI Orchestrator as Central Authority** - Not a helper feature, but the "intelligent heart" that monitors, decides, plans, and optimizes
+2. **Zero Coupling** - All modules communicate via Events only, no direct dependencies
+3. **Contract-First** - JSON Schemas + Event Contracts define all interfaces
+4. **Future-Proof** - Extension points allow adding capabilities without rebuilding
+5. **Sovereign-Ready** - Multi-tenant isolation with tier-based governance
+
 ## Architecture Diagram
 
 ```
