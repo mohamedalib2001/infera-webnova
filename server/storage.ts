@@ -157,6 +157,7 @@ export interface IStorage {
   
   // User Subscriptions
   getUserSubscription(userId: string): Promise<UserSubscription | undefined>;
+  getAllUserSubscriptions(): Promise<UserSubscription[]>;
   createUserSubscription(subscription: InsertUserSubscription): Promise<UserSubscription>;
   updateUserSubscription(id: string, subscription: Partial<InsertUserSubscription>): Promise<UserSubscription | undefined>;
   
@@ -1155,6 +1156,10 @@ body { font-family: 'Tajawal', sans-serif; }
       .where(eq(userSubscriptions.userId, userId))
       .orderBy(desc(userSubscriptions.createdAt));
     return subscription || undefined;
+  }
+
+  async getAllUserSubscriptions(): Promise<UserSubscription[]> {
+    return db.select().from(userSubscriptions);
   }
 
   async createUserSubscription(subscription: InsertUserSubscription): Promise<UserSubscription> {

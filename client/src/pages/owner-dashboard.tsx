@@ -577,12 +577,18 @@ export default function OwnerDashboard() {
     queryKey: ['/api/owner/instructions'],
   });
 
-  const { data: users = [] } = useQuery<User[]>({
-    queryKey: ['/api/sovereign/users'],
+  const { data: users = [], isLoading: usersLoading } = useQuery<Omit<User, 'password'>[]>({
+    queryKey: ['/api/owner/users'],
   });
 
-  const { data: stats } = useQuery<any>({
-    queryKey: ['/api/sovereign/stats'],
+  const { data: userStats } = useQuery<{
+    totalUsers: number;
+    activeUsers: number;
+    paidUsers: number;
+    freeUsers: number;
+    byRole: Record<string, number>;
+  }>({
+    queryKey: ['/api/owner/users/stats'],
   });
 
   const { data: paymentMethods = [], isLoading: paymentMethodsLoading } = useQuery<PaymentMethod[]>({
@@ -2143,46 +2149,82 @@ export default function OwnerDashboard() {
                 <div className="grid grid-cols-3 gap-4 mb-6">
                   <Card>
                     <CardContent className="pt-4 text-center">
-                      <p className="text-3xl font-bold">{users.length}</p>
+                      <p className="text-3xl font-bold" data-testid="text-total-users">{userStats?.totalUsers ?? users.length}</p>
                       <p className="text-sm text-muted-foreground">{t.users.totalUsers}</p>
                     </CardContent>
                   </Card>
                   <Card>
                     <CardContent className="pt-4 text-center">
-                      <p className="text-3xl font-bold">{users.filter(u => u.isActive).length}</p>
+                      <p className="text-3xl font-bold" data-testid="text-active-users">{userStats?.activeUsers ?? users.filter(u => u.isActive).length}</p>
                       <p className="text-sm text-muted-foreground">{t.users.activeUsers}</p>
                     </CardContent>
                   </Card>
                   <Card>
                     <CardContent className="pt-4 text-center">
-                      <p className="text-3xl font-bold">{users.filter(u => u.role !== 'free').length}</p>
+                      <p className="text-3xl font-bold" data-testid="text-paid-users">{userStats?.paidUsers ?? users.filter(u => u.role !== 'free').length}</p>
                       <p className="text-sm text-muted-foreground">{t.users.paidUsers}</p>
                     </CardContent>
                   </Card>
                 </div>
-                <ScrollArea className="h-[400px]">
-                  <div className="space-y-2">
-                    {users.map((user) => (
-                      <div key={user.id} className="flex items-center justify-between p-3 rounded-lg border hover-elevate">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold">
-                            {user.username.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-medium">{user.username}</p>
-                            <p className="text-sm text-muted-foreground">{user.email}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge>{user.role}</Badge>
-                          <Badge variant={user.isActive ? "default" : "secondary"}>
-                            {user.isActive ? (language === 'ar' ? 'نشط' : 'Active') : (language === 'ar' ? 'معطل' : 'Inactive')}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
+                {usersLoading ? (
+                  <div className="text-center py-12">
+                    <RefreshCw className="w-8 h-8 mx-auto mb-4 animate-spin text-muted-foreground" />
+                    <p className="text-muted-foreground">{language === 'ar' ? 'جاري التحميل...' : 'Loading...'}</p>
                   </div>
-                </ScrollArea>
+                ) : users.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Users className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                    <p>{language === 'ar' ? 'لا يوجد مستخدمين' : 'No users found'}</p>
+                  </div>
+                ) : (
+                  <ScrollArea className="h-[400px]">
+                    <div className="space-y-2">
+                      {users.map((user) => {
+                        const displayName = user.firstName && user.lastName 
+                          ? `${user.firstName} ${user.lastName}`
+                          : user.username || user.email?.split('@')[0] || 'Unknown';
+                        const initial = displayName.charAt(0).toUpperCase();
+                        
+                        return (
+                          <div key={user.id} className="flex items-center justify-between p-3 rounded-lg border hover-elevate" data-testid={`row-user-${user.id}`}>
+                            <div className="flex items-center gap-3">
+                              {user.profileImageUrl ? (
+                                <img src={user.profileImageUrl} alt={displayName} className="w-10 h-10 rounded-full object-cover" />
+                              ) : (
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold">
+                                  {initial}
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-medium">{displayName}</p>
+                                <p className="text-sm text-muted-foreground">{user.email}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant={user.role === 'owner' ? 'default' : user.role === 'sovereign' ? 'default' : 'secondary'}>
+                                {user.role === 'owner' ? (language === 'ar' ? 'المالك' : 'Owner') :
+                                 user.role === 'sovereign' ? (language === 'ar' ? 'سيادي' : 'Sovereign') :
+                                 user.role === 'enterprise' ? (language === 'ar' ? 'مؤسسي' : 'Enterprise') :
+                                 user.role === 'pro' ? (language === 'ar' ? 'احترافي' : 'Pro') :
+                                 user.role === 'basic' ? (language === 'ar' ? 'أساسي' : 'Basic') :
+                                 (language === 'ar' ? 'مجاني' : 'Free')}
+                              </Badge>
+                              <Badge variant={user.isActive ? "outline" : "destructive"}>
+                                {user.isActive ? (language === 'ar' ? 'نشط' : 'Active') : (language === 'ar' ? 'معطل' : 'Inactive')}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs">
+                                {user.authProvider === 'replit' ? 'Replit' : 
+                                 user.authProvider === 'google' ? 'Google' :
+                                 user.authProvider === 'email' ? (language === 'ar' ? 'بريد' : 'Email') :
+                                 user.authProvider || 'N/A'}
+                              </Badge>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

@@ -1280,6 +1280,108 @@ export async function registerRoutes(
     }
   });
 
+  // ============ Owner User Management APIs ============
+
+  // Get all users (owner only)
+  app.get("/api/owner/users", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users.map((u: User) => {
+        const { password: _, ...rest } = u;
+        return rest;
+      }));
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب المستخدمين" });
+    }
+  });
+
+  // Get user statistics (owner only)
+  app.get("/api/owner/users/stats", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      const subscriptions = await storage.getAllUserSubscriptions();
+      
+      const totalUsers = users.length;
+      const activeUsers = users.filter(u => u.isActive).length;
+      const paidUsers = subscriptions.filter(s => s.status === 'active').length;
+      const freeUsers = users.filter(u => u.role === 'free').length;
+      
+      // Count by role
+      const byRole = {
+        owner: users.filter(u => u.role === 'owner').length,
+        sovereign: users.filter(u => u.role === 'sovereign').length,
+        enterprise: users.filter(u => u.role === 'enterprise').length,
+        pro: users.filter(u => u.role === 'pro').length,
+        basic: users.filter(u => u.role === 'basic').length,
+        free: freeUsers,
+      };
+
+      res.json({
+        totalUsers,
+        activeUsers,
+        paidUsers,
+        freeUsers,
+        byRole,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب إحصائيات المستخدمين" });
+    }
+  });
+
+  // Update user role/subscription (owner only)
+  app.patch("/api/owner/users/:userId/role", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { role } = req.body;
+      
+      if (!['free', 'basic', 'pro', 'enterprise', 'sovereign', 'owner'].includes(role)) {
+        return res.status(400).json({ error: "نوع الاشتراك غير صالح" });
+      }
+      
+      await storage.updateUser(userId, { role });
+      res.json({ message: "تم تحديث نوع الاشتراك", role });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في تحديث نوع الاشتراك" });
+    }
+  });
+
+  // Toggle user active status (owner only)
+  app.patch("/api/owner/users/:userId/toggle", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { isActive } = req.body;
+      
+      await storage.updateUser(userId, { isActive });
+      res.json({ message: "تم تحديث حالة المستخدم", isActive });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في تحديث حالة المستخدم" });
+    }
+  });
+
+  // Get single user details (owner only)
+  app.get("/api/owner/users/:userId", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "المستخدم غير موجود" });
+      }
+      
+      const { password: _, ...userWithoutPassword } = user;
+      const subscription = await storage.getUserSubscription(userId);
+      const projects = await storage.getProjectsByUser(userId);
+      
+      res.json({
+        user: userWithoutPassword,
+        subscription,
+        projectsCount: projects.length,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب بيانات المستخدم" });
+    }
+  });
+
   // Initialize default AI assistants
   app.post("/api/owner/initialize-assistants", requireAuth, requireOwner, async (req, res) => {
     try {
