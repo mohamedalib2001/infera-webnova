@@ -255,6 +255,12 @@ router.get('/payments', async (req: Request, res: Response) => {
 
 router.post('/refund', async (req: Request, res: Response) => {
   try {
+    if (!isAuthenticated(req)) {
+      return res.status(401).json({ 
+        error: 'Authentication required',
+        errorAr: 'يجب تسجيل الدخول'
+      });
+    }
     if (!isOwner(req)) {
       return res.status(403).json({ 
         error: 'Owner access required',
@@ -288,6 +294,12 @@ router.post('/refund', async (req: Request, res: Response) => {
 
 router.get('/stats', async (req: Request, res: Response) => {
   try {
+    if (!isAuthenticated(req)) {
+      return res.status(401).json({ 
+        error: 'Authentication required',
+        errorAr: 'يجب تسجيل الدخول'
+      });
+    }
     if (!isOwner(req)) {
       return res.status(403).json({ 
         error: 'Owner access required',
@@ -334,6 +346,12 @@ router.get('/stats', async (req: Request, res: Response) => {
 
 router.get('/providers', async (req: Request, res: Response) => {
   try {
+    if (!isAuthenticated(req)) {
+      return res.status(401).json({ 
+        error: 'Authentication required',
+        errorAr: 'يجب تسجيل الدخول'
+      });
+    }
     if (!isOwner(req)) {
       return res.status(403).json({ 
         error: 'Owner access required',
