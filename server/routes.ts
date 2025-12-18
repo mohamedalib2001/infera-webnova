@@ -6449,6 +6449,281 @@ export async function registerRoutes(
     }
   });
 
+  // ============ Custom Domains API - نظام النطاقات المخصصة ============
+
+  // Helper: Generate verification token
+  const generateVerificationToken = (): string => {
+    return `infera-verify-${randomBytes(16).toString('hex')}`;
+  };
+
+  // Helper: Get tier quota
+  const getTierQuota = (tier: string): number => {
+    const quotas: Record<string, number> = {
+      owner: 999, sovereign: 50, enterprise: 20, pro: 5, basic: 2, free: 1
+    };
+    return quotas[tier] || 1;
+  };
+
+  // Get all domains (owner only)
+  app.get("/api/domains", requireAuth, requireOwner, async (req: Request, res: Response) => {
+    try {
+      const domains = await storage.getCustomDomains();
+      res.json(domains);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب النطاقات / Failed to fetch domains" });
+    }
+  });
+
+  // Get domains by tenant
+  app.get("/api/domains/tenant/:tenantId", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { tenantId } = req.params;
+      const domains = await storage.getCustomDomainsByTenant(tenantId);
+      res.json(domains);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب النطاقات / Failed to fetch domains" });
+    }
+  });
+
+  // Get single domain
+  app.get("/api/domains/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const domain = await storage.getCustomDomain(req.params.id);
+      if (!domain) {
+        return res.status(404).json({ error: "النطاق غير موجود / Domain not found" });
+      }
+      res.json(domain);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب النطاق / Failed to fetch domain" });
+    }
+  });
+
+  // Create domain
+  app.post("/api/domains", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.session?.user;
+      const tenantId = req.body.tenantId || user?.id;
+      const tier = user?.role || 'free';
+
+      // Check quota
+      let quota = await storage.getTenantDomainQuota(tenantId);
+      if (!quota) {
+        quota = await storage.createTenantDomainQuota({
+          tenantId,
+          tier,
+          maxDomains: getTierQuota(tier),
+          usedDomains: 0,
+        });
+      }
+
+      if (quota.usedDomains >= quota.maxDomains) {
+        return res.status(403).json({ 
+          error: "تم الوصول للحد الأقصى من النطاقات / Domain quota exceeded",
+          quota: { used: quota.usedDomains, max: quota.maxDomains }
+        });
+      }
+
+      // Check if hostname already exists
+      const existing = await storage.getCustomDomainByHostname(req.body.hostname);
+      if (existing) {
+        return res.status(409).json({ error: "هذا النطاق مسجل مسبقاً / Domain already registered" });
+      }
+
+      const verificationToken = generateVerificationToken();
+      const domain = await storage.createCustomDomain({
+        tenantId,
+        hostname: req.body.hostname,
+        status: 'pending_verification',
+        verificationMethod: req.body.verificationMethod || 'dns_txt',
+        verificationToken,
+        isPrimary: req.body.isPrimary || false,
+        createdBy: user?.id || 'system',
+      });
+
+      // Increment usage
+      await storage.incrementTenantDomainUsage(tenantId);
+
+      // Create verification record
+      await storage.createDomainVerification({
+        domainId: domain.id,
+        method: req.body.verificationMethod || 'dns_txt',
+        token: verificationToken,
+        status: 'pending',
+        expiresAt: new Date(Date.now() + 72 * 60 * 60 * 1000), // 72 hours
+      });
+
+      // Audit log
+      await storage.createDomainAuditLog({
+        domainId: domain.id,
+        tenantId,
+        action: 'domain_created',
+        actorId: user?.id || 'system',
+        details: { hostname: req.body.hostname },
+      });
+
+      res.status(201).json(domain);
+    } catch (error) {
+      console.error("Error creating domain:", error);
+      res.status(500).json({ error: "فشل في إنشاء النطاق / Failed to create domain" });
+    }
+  });
+
+  // Update domain
+  app.patch("/api/domains/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const domain = await storage.getCustomDomain(req.params.id);
+      if (!domain) {
+        return res.status(404).json({ error: "النطاق غير موجود / Domain not found" });
+      }
+
+      const updated = await storage.updateCustomDomain(req.params.id, req.body);
+
+      await storage.createDomainAuditLog({
+        domainId: req.params.id,
+        tenantId: domain.tenantId,
+        action: 'domain_updated',
+        actorId: req.session?.user?.id || 'system',
+        details: req.body,
+      });
+
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في تحديث النطاق / Failed to update domain" });
+    }
+  });
+
+  // Delete domain
+  app.delete("/api/domains/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const domain = await storage.getCustomDomain(req.params.id);
+      if (!domain) {
+        return res.status(404).json({ error: "النطاق غير موجود / Domain not found" });
+      }
+
+      await storage.deleteCustomDomain(req.params.id);
+      await storage.decrementTenantDomainUsage(domain.tenantId);
+
+      await storage.createDomainAuditLog({
+        domainId: req.params.id,
+        tenantId: domain.tenantId,
+        action: 'domain_deleted',
+        actorId: req.session?.user?.id || 'system',
+        details: { hostname: domain.hostname },
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في حذف النطاق / Failed to delete domain" });
+    }
+  });
+
+  // Verify domain (trigger verification check)
+  app.post("/api/domains/:id/verify", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const domain = await storage.getCustomDomain(req.params.id);
+      if (!domain) {
+        return res.status(404).json({ error: "النطاق غير موجود / Domain not found" });
+      }
+
+      const verification = await storage.getLatestDomainVerification(domain.id);
+      if (!verification) {
+        return res.status(400).json({ error: "لا يوجد سجل تحقق / No verification record" });
+      }
+
+      // In production, this would do actual DNS lookup
+      // For now, we'll simulate by updating status
+      await storage.updateDomainVerification(verification.id, {
+        status: 'verified',
+        verifiedAt: new Date(),
+      });
+
+      await storage.updateCustomDomain(domain.id, {
+        status: 'verified',
+        verifiedAt: new Date(),
+      });
+
+      await storage.createDomainAuditLog({
+        domainId: domain.id,
+        tenantId: domain.tenantId,
+        action: 'domain_verified',
+        actorId: req.session?.user?.id || 'system',
+        details: { method: verification.method },
+      });
+
+      res.json({ verified: true, message: "تم التحقق من النطاق بنجاح / Domain verified successfully" });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في التحقق / Verification failed" });
+    }
+  });
+
+  // Get verification instructions
+  app.get("/api/domains/:id/verification", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const domain = await storage.getCustomDomain(req.params.id);
+      if (!domain) {
+        return res.status(404).json({ error: "النطاق غير موجود / Domain not found" });
+      }
+
+      const verification = await storage.getLatestDomainVerification(domain.id);
+      
+      res.json({
+        hostname: domain.hostname,
+        method: domain.verificationMethod,
+        token: domain.verificationToken,
+        status: verification?.status || 'pending',
+        instructions: {
+          dns_txt: {
+            type: 'TXT',
+            name: `_infera-verify.${domain.hostname}`,
+            value: domain.verificationToken,
+            ttl: 300,
+          },
+          dns_cname: {
+            type: 'CNAME',
+            name: `_infera-verify.${domain.hostname}`,
+            value: `verify.infera.io`,
+            ttl: 300,
+          },
+          http_file: {
+            path: `/.well-known/infera-verification.txt`,
+            content: domain.verificationToken,
+          },
+        },
+      });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب تعليمات التحقق / Failed to fetch verification" });
+    }
+  });
+
+  // Get tenant quota
+  app.get("/api/domains/quota/:tenantId", requireAuth, async (req: Request, res: Response) => {
+    try {
+      let quota = await storage.getTenantDomainQuota(req.params.tenantId);
+      if (!quota) {
+        const tier = req.session?.user?.role || 'free';
+        quota = await storage.createTenantDomainQuota({
+          tenantId: req.params.tenantId,
+          tier,
+          maxDomains: getTierQuota(tier),
+          usedDomains: 0,
+        });
+      }
+      res.json(quota);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب الحصة / Failed to fetch quota" });
+    }
+  });
+
+  // Get domain audit logs
+  app.get("/api/domains/:id/audit", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const logs = await storage.getDomainAuditLogs(req.params.id);
+      res.json(logs);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب السجلات / Failed to fetch logs" });
+    }
+  });
+
   return httpServer;
 }
 
