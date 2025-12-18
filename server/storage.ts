@@ -144,6 +144,30 @@ import {
   systemSettings,
   type InsertSystemSetting,
   type SystemSettingRecord,
+  aiLayers,
+  type AILayerRecord,
+  type InsertAILayer,
+  aiPowerConfigs,
+  type AIPowerConfigRecord,
+  type InsertAIPowerConfig,
+  externalAIProviders,
+  type ExternalAIProviderRecord,
+  type InsertExternalAIProvider,
+  subscriberAILimits,
+  type SubscriberAILimitRecord,
+  type InsertSubscriberAILimit,
+  sovereignAIAgents,
+  type SovereignAIAgentRecord,
+  type InsertSovereignAIAgent,
+  aiKillSwitchState,
+  type AIKillSwitchStateRecord,
+  type InsertAIKillSwitchState,
+  aiSovereigntyAuditLogs,
+  type AISovereigntyAuditLogRecord,
+  type InsertAISovereigntyAuditLog,
+  aiConstitution,
+  type AIConstitutionRecord,
+  type InsertAIConstitution,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt } from "drizzle-orm";
@@ -2552,6 +2576,255 @@ body { font-family: 'Tajawal', sans-serif; }
     const [updated] = await db.update(systemSettings)
       .set({ value, lastModifiedBy: modifiedBy, lastModifiedAt: new Date() })
       .where(eq(systemSettings.key, key))
+      .returning();
+    return updated || undefined;
+  }
+
+  // ============ AI SOVEREIGNTY LAYER - طبقة سيادة الذكاء ============
+  
+  // AI Layers - طبقات الذكاء
+  async getAILayers(): Promise<AILayerRecord[]> {
+    return db.select().from(aiLayers).orderBy(desc(aiLayers.priority), desc(aiLayers.createdAt));
+  }
+
+  async getAILayer(id: string): Promise<AILayerRecord | undefined> {
+    const [layer] = await db.select().from(aiLayers).where(eq(aiLayers.id, id));
+    return layer || undefined;
+  }
+
+  async getAILayersByType(type: string): Promise<AILayerRecord[]> {
+    return db.select().from(aiLayers).where(eq(aiLayers.type, type)).orderBy(desc(aiLayers.priority));
+  }
+
+  async getActiveAILayers(): Promise<AILayerRecord[]> {
+    return db.select().from(aiLayers).where(eq(aiLayers.status, 'active')).orderBy(desc(aiLayers.priority));
+  }
+
+  async createAILayer(layer: InsertAILayer): Promise<AILayerRecord> {
+    const [created] = await db.insert(aiLayers).values(layer).returning();
+    return created;
+  }
+
+  async updateAILayer(id: string, data: Partial<InsertAILayer>): Promise<AILayerRecord | undefined> {
+    const [updated] = await db.update(aiLayers)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(aiLayers.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteAILayer(id: string): Promise<boolean> {
+    const result = await db.delete(aiLayers).where(eq(aiLayers.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // AI Power Configs - تكوين قوة الذكاء
+  async getAIPowerConfig(layerId: string): Promise<AIPowerConfigRecord | undefined> {
+    const [config] = await db.select().from(aiPowerConfigs).where(eq(aiPowerConfigs.layerId, layerId));
+    return config || undefined;
+  }
+
+  async getAllAIPowerConfigs(): Promise<AIPowerConfigRecord[]> {
+    return db.select().from(aiPowerConfigs);
+  }
+
+  async createAIPowerConfig(config: InsertAIPowerConfig): Promise<AIPowerConfigRecord> {
+    const [created] = await db.insert(aiPowerConfigs).values(config).returning();
+    return created;
+  }
+
+  async updateAIPowerConfig(layerId: string, data: Partial<InsertAIPowerConfig>): Promise<AIPowerConfigRecord | undefined> {
+    const [updated] = await db.update(aiPowerConfigs)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(aiPowerConfigs.layerId, layerId))
+      .returning();
+    return updated || undefined;
+  }
+
+  // External AI Providers - مزودي الذكاء الخارجيين
+  async getExternalAIProviders(): Promise<ExternalAIProviderRecord[]> {
+    return db.select().from(externalAIProviders).orderBy(desc(externalAIProviders.createdAt));
+  }
+
+  async getExternalAIProvider(id: string): Promise<ExternalAIProviderRecord | undefined> {
+    const [provider] = await db.select().from(externalAIProviders).where(eq(externalAIProviders.id, id));
+    return provider || undefined;
+  }
+
+  async getActiveExternalAIProviders(): Promise<ExternalAIProviderRecord[]> {
+    return db.select().from(externalAIProviders).where(eq(externalAIProviders.isActive, true));
+  }
+
+  async createExternalAIProvider(provider: InsertExternalAIProvider): Promise<ExternalAIProviderRecord> {
+    const [created] = await db.insert(externalAIProviders).values(provider).returning();
+    return created;
+  }
+
+  async updateExternalAIProvider(id: string, data: Partial<InsertExternalAIProvider>): Promise<ExternalAIProviderRecord | undefined> {
+    const [updated] = await db.update(externalAIProviders)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(externalAIProviders.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteExternalAIProvider(id: string): Promise<boolean> {
+    const result = await db.delete(externalAIProviders).where(eq(externalAIProviders.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // Subscriber AI Limits - حدود المشتركين للذكاء
+  async getSubscriberAILimits(): Promise<SubscriberAILimitRecord[]> {
+    return db.select().from(subscriberAILimits).orderBy(asc(subscriberAILimits.role));
+  }
+
+  async getSubscriberAILimitByRole(role: string): Promise<SubscriberAILimitRecord | undefined> {
+    const [limit] = await db.select().from(subscriberAILimits).where(eq(subscriberAILimits.role, role));
+    return limit || undefined;
+  }
+
+  async createSubscriberAILimit(limit: InsertSubscriberAILimit): Promise<SubscriberAILimitRecord> {
+    const [created] = await db.insert(subscriberAILimits).values(limit).returning();
+    return created;
+  }
+
+  async updateSubscriberAILimit(role: string, data: Partial<InsertSubscriberAILimit>): Promise<SubscriberAILimitRecord | undefined> {
+    const [updated] = await db.update(subscriberAILimits)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(subscriberAILimits.role, role))
+      .returning();
+    return updated || undefined;
+  }
+
+  // Sovereign AI Agents - وكلاء الذكاء السيادي
+  async getSovereignAIAgents(): Promise<SovereignAIAgentRecord[]> {
+    return db.select().from(sovereignAIAgents).orderBy(desc(sovereignAIAgents.createdAt));
+  }
+
+  async getSovereignAIAgent(id: string): Promise<SovereignAIAgentRecord | undefined> {
+    const [agent] = await db.select().from(sovereignAIAgents).where(eq(sovereignAIAgents.id, id));
+    return agent || undefined;
+  }
+
+  async getSovereignAIAgentsByLayer(layerId: string): Promise<SovereignAIAgentRecord[]> {
+    return db.select().from(sovereignAIAgents).where(eq(sovereignAIAgents.layerId, layerId));
+  }
+
+  async createSovereignAIAgent(agent: InsertSovereignAIAgent): Promise<SovereignAIAgentRecord> {
+    const [created] = await db.insert(sovereignAIAgents).values(agent).returning();
+    return created;
+  }
+
+  async updateSovereignAIAgent(id: string, data: Partial<InsertSovereignAIAgent>): Promise<SovereignAIAgentRecord | undefined> {
+    const [updated] = await db.update(sovereignAIAgents)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(sovereignAIAgents.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteSovereignAIAgent(id: string): Promise<boolean> {
+    const result = await db.delete(sovereignAIAgents).where(eq(sovereignAIAgents.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // AI Kill Switch - زر الطوارئ
+  async getAIKillSwitchStates(): Promise<AIKillSwitchStateRecord[]> {
+    return db.select().from(aiKillSwitchState).orderBy(desc(aiKillSwitchState.updatedAt));
+  }
+
+  async getActiveAIKillSwitches(): Promise<AIKillSwitchStateRecord[]> {
+    return db.select().from(aiKillSwitchState).where(eq(aiKillSwitchState.isActivated, true));
+  }
+
+  async getAIKillSwitchByScope(scope: string): Promise<AIKillSwitchStateRecord | undefined> {
+    const [state] = await db.select().from(aiKillSwitchState).where(eq(aiKillSwitchState.scope, scope));
+    return state || undefined;
+  }
+
+  async createAIKillSwitchState(state: InsertAIKillSwitchState): Promise<AIKillSwitchStateRecord> {
+    const [created] = await db.insert(aiKillSwitchState).values(state).returning();
+    return created;
+  }
+
+  async updateAIKillSwitchState(id: string, data: Partial<InsertAIKillSwitchState>): Promise<AIKillSwitchStateRecord | undefined> {
+    const [updated] = await db.update(aiKillSwitchState)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(aiKillSwitchState.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async activateKillSwitch(scope: string, activatedBy: string, reason: string, reasonAr: string, targetLayerId?: string): Promise<AIKillSwitchStateRecord> {
+    const existing = await this.getAIKillSwitchByScope(scope);
+    if (existing) {
+      const [updated] = await db.update(aiKillSwitchState)
+        .set({
+          isActivated: true,
+          activatedBy,
+          activatedAt: new Date(),
+          reason,
+          reasonAr,
+          targetLayerId: targetLayerId || null,
+          updatedAt: new Date(),
+        })
+        .where(eq(aiKillSwitchState.scope, scope))
+        .returning();
+      return updated;
+    }
+    return this.createAIKillSwitchState({
+      scope,
+      isActivated: true,
+      activatedBy,
+      activatedAt: new Date(),
+      reason,
+      reasonAr,
+      targetLayerId: targetLayerId || null,
+      canSubscriberDeactivate: false,
+    });
+  }
+
+  async deactivateKillSwitch(scope: string): Promise<AIKillSwitchStateRecord | undefined> {
+    const [updated] = await db.update(aiKillSwitchState)
+      .set({ isActivated: false, updatedAt: new Date() })
+      .where(eq(aiKillSwitchState.scope, scope))
+      .returning();
+    return updated || undefined;
+  }
+
+  // AI Sovereignty Audit Logs - سجل سيادة الذكاء
+  async getAISovereigntyAuditLogs(limit: number = 100): Promise<AISovereigntyAuditLogRecord[]> {
+    return db.select().from(aiSovereigntyAuditLogs)
+      .orderBy(desc(aiSovereigntyAuditLogs.timestamp))
+      .limit(limit);
+  }
+
+  async getAISovereigntyAuditLogsByAction(action: string): Promise<AISovereigntyAuditLogRecord[]> {
+    return db.select().from(aiSovereigntyAuditLogs)
+      .where(eq(aiSovereigntyAuditLogs.action, action))
+      .orderBy(desc(aiSovereigntyAuditLogs.timestamp));
+  }
+
+  async createAISovereigntyAuditLog(log: InsertAISovereigntyAuditLog): Promise<AISovereigntyAuditLogRecord> {
+    const [created] = await db.insert(aiSovereigntyAuditLogs).values(log).returning();
+    return created;
+  }
+
+  // AI Constitution - دستور الذكاء
+  async getAIConstitution(): Promise<AIConstitutionRecord | undefined> {
+    const [constitution] = await db.select().from(aiConstitution).where(eq(aiConstitution.isActive, true));
+    return constitution || undefined;
+  }
+
+  async createAIConstitution(constitution: InsertAIConstitution): Promise<AIConstitutionRecord> {
+    const [created] = await db.insert(aiConstitution).values(constitution).returning();
+    return created;
+  }
+
+  async updateAIConstitution(id: string, data: Partial<InsertAIConstitution>): Promise<AIConstitutionRecord | undefined> {
+    const [updated] = await db.update(aiConstitution)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(aiConstitution.id, id))
       .returning();
     return updated || undefined;
   }
