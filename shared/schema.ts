@@ -4200,6 +4200,7 @@ export const deploymentRuns = pgTable("deployment_runs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   // المصدر
+  projectId: varchar("project_id"),
   templateId: varchar("template_id"),
   serverId: varchar("server_id").notNull(),
   
