@@ -8600,6 +8600,269 @@ export async function registerRoutes(
   // ==================== SOVEREIGN API KEYS ROUTES ====================
   app.use("/api/api-keys", apiKeysRoutes);
 
+  // ==================== SOVEREIGN NOTIFICATION SYSTEM (SRINS) ====================
+  
+  // Get all notifications (owner only)
+  app.get("/api/owner/notifications", requireOwner, async (req, res) => {
+    try {
+      const { notificationEngine } = await import("./notification-engine");
+      const limit = parseInt(req.query.limit as string) || 100;
+      const notifications = await storage.getSovereignNotifications(limit);
+      const stats = await notificationEngine.getStats();
+      
+      res.json({ 
+        success: true, 
+        notifications,
+        stats 
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to fetch notifications" 
+      });
+    }
+  });
+  
+  // Get owner-only notifications
+  app.get("/api/owner/notifications/sovereign", requireOwner, async (req, res) => {
+    try {
+      const notifications = await storage.getOwnerNotifications();
+      res.json({ success: true, notifications });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to fetch owner notifications" 
+      });
+    }
+  });
+  
+  // Get pending escalation notifications
+  app.get("/api/owner/notifications/escalations", requireOwner, async (req, res) => {
+    try {
+      const notifications = await storage.getPendingEscalationNotifications();
+      res.json({ success: true, notifications });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to fetch escalation notifications" 
+      });
+    }
+  });
+  
+  // Create notification (owner only)
+  app.post("/api/owner/notifications", requireOwner, async (req, res) => {
+    try {
+      const { notificationEngine } = await import("./notification-engine");
+      const notification = await notificationEngine.send(req.body);
+      res.json({ success: true, notification });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to create notification" 
+      });
+    }
+  });
+  
+  // Send owner alert
+  app.post("/api/owner/notifications/alert", requireOwner, async (req, res) => {
+    try {
+      const { notificationEngine } = await import("./notification-engine");
+      const { title, titleAr, message, messageAr, type, metadata } = req.body;
+      const notification = await notificationEngine.sendOwnerAlert(
+        title, titleAr, message, messageAr, type, metadata
+      );
+      res.json({ success: true, notification });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to send owner alert" 
+      });
+    }
+  });
+  
+  // Mark notification as read
+  app.patch("/api/owner/notifications/:id/read", requireOwner, async (req, res) => {
+    try {
+      const { notificationEngine } = await import("./notification-engine");
+      const notification = await notificationEngine.markAsRead(req.params.id);
+      if (!notification) {
+        return res.status(404).json({ success: false, error: "Notification not found" });
+      }
+      res.json({ success: true, notification });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to mark notification as read" 
+      });
+    }
+  });
+  
+  // Acknowledge notification
+  app.patch("/api/owner/notifications/:id/acknowledge", requireOwner, async (req, res) => {
+    try {
+      const { notificationEngine } = await import("./notification-engine");
+      const user = req.user as any;
+      const notification = await notificationEngine.acknowledge(req.params.id, user?.id || 'owner');
+      if (!notification) {
+        return res.status(404).json({ success: false, error: "Notification not found" });
+      }
+      res.json({ success: true, notification });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to acknowledge notification" 
+      });
+    }
+  });
+  
+  // Get notification templates
+  app.get("/api/owner/notification-templates", requireOwner, async (req, res) => {
+    try {
+      const templates = await storage.getNotificationTemplates();
+      res.json({ success: true, templates });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to fetch notification templates" 
+      });
+    }
+  });
+  
+  // Create notification template
+  app.post("/api/owner/notification-templates", requireOwner, async (req, res) => {
+    try {
+      const template = await storage.createNotificationTemplate(req.body);
+      res.json({ success: true, template });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to create notification template" 
+      });
+    }
+  });
+  
+  // Update notification template
+  app.patch("/api/owner/notification-templates/:id", requireOwner, async (req, res) => {
+    try {
+      const template = await storage.updateNotificationTemplate(req.params.id, req.body);
+      if (!template) {
+        return res.status(404).json({ success: false, error: "Template not found" });
+      }
+      res.json({ success: true, template });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to update notification template" 
+      });
+    }
+  });
+  
+  // Delete notification template
+  app.delete("/api/owner/notification-templates/:id", requireOwner, async (req, res) => {
+    try {
+      await storage.deleteNotificationTemplate(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to delete notification template" 
+      });
+    }
+  });
+  
+  // Get notification analytics
+  app.get("/api/owner/notification-analytics", requireOwner, async (req, res) => {
+    try {
+      const periodType = (req.query.period as string) || 'daily';
+      const limit = parseInt(req.query.limit as string) || 30;
+      const analytics = await storage.getNotificationAnalytics(periodType, limit);
+      res.json({ success: true, analytics });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to fetch notification analytics" 
+      });
+    }
+  });
+  
+  // Get user notification preferences
+  app.get("/api/notifications/preferences", async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (!user) {
+        return res.status(401).json({ success: false, error: "Unauthorized" });
+      }
+      const prefs = await storage.getUserNotificationPreferences(user.id);
+      res.json({ success: true, preferences: prefs });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to fetch notification preferences" 
+      });
+    }
+  });
+  
+  // Update user notification preferences
+  app.patch("/api/notifications/preferences", async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (!user) {
+        return res.status(401).json({ success: false, error: "Unauthorized" });
+      }
+      
+      let prefs = await storage.getUserNotificationPreferences(user.id);
+      if (prefs) {
+        prefs = await storage.updateUserNotificationPreferences(user.id, req.body);
+      } else {
+        prefs = await storage.createUserNotificationPreferences({
+          userId: user.id,
+          ...req.body
+        });
+      }
+      
+      res.json({ success: true, preferences: prefs });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to update notification preferences" 
+      });
+    }
+  });
+  
+  // Get user notifications
+  app.get("/api/notifications", async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (!user) {
+        return res.status(401).json({ success: false, error: "Unauthorized" });
+      }
+      const notifications = await storage.getSovereignNotificationsByUser(user.id);
+      res.json({ success: true, notifications });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to fetch notifications" 
+      });
+    }
+  });
+  
+  // Get unread notifications count
+  app.get("/api/notifications/unread/count", async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (!user) {
+        return res.status(401).json({ success: false, error: "Unauthorized" });
+      }
+      const notifications = await storage.getUnreadNotifications(user.id);
+      res.json({ success: true, count: notifications.length });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to fetch unread count" 
+      });
+    }
+  });
+
   return httpServer;
 }
 

@@ -4007,3 +4007,812 @@ export const insertSecurityIncidentSchema = createInsertSchema(securityIncidents
 export type InsertSecurityIncident = z.infer<typeof insertSecurityIncidentSchema>;
 export type SecurityIncident = typeof securityIncidents.$inferSelect;
 
+// ==================== SOVEREIGN INFRASTRUCTURE ====================
+// البنية التحتية السيادية
+
+// مزودي البنية التحتية (Hetzner, AWS, GCP, etc.)
+export const infrastructureProviders = pgTable("infrastructure_providers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // معلومات المزود
+  name: text("name").notNull(), // hetzner, aws, gcp, azure, digitalocean
+  displayName: text("display_name").notNull(),
+  displayNameAr: text("display_name_ar"),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  
+  // التكوين
+  type: text("type").notNull().default("primary"), // primary, secondary, backup, staging
+  isEnabled: boolean("is_enabled").notNull().default(false),
+  isPrimary: boolean("is_primary").notNull().default(false),
+  
+  // المناطق المدعومة
+  regions: jsonb("regions").$type<{
+    id: string;
+    name: string;
+    location: string;
+    isActive: boolean;
+  }[]>().default([]),
+  
+  // أنواع السيرفرات المدعومة
+  serverTypes: jsonb("server_types").$type<{
+    id: string;
+    name: string;
+    cpu: number;
+    ram: number; // GB
+    storage: number; // GB
+    priceHourly: number;
+    priceMonthly: number;
+    currency: string;
+  }[]>().default([]),
+  
+  // بيانات الاعتماد (مشفرة)
+  credentialsRef: text("credentials_ref"), // مرجع للمفتاح المشفر
+  apiEndpoint: text("api_endpoint"),
+  
+  // الحالة
+  connectionStatus: text("connection_status").notNull().default("disconnected"), // connected, disconnected, error
+  lastHealthCheck: timestamp("last_health_check"),
+  healthScore: integer("health_score").default(100),
+  
+  // الإحصائيات
+  activeServers: integer("active_servers").default(0),
+  totalCostThisMonth: real("total_cost_this_month").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertInfrastructureProviderSchema = createInsertSchema(infrastructureProviders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertInfrastructureProvider = z.infer<typeof insertInfrastructureProviderSchema>;
+export type InfrastructureProvider = typeof infrastructureProviders.$inferSelect;
+
+// السيرفرات
+export const infrastructureServers = pgTable("infrastructure_servers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // ربط بالمزود
+  providerId: varchar("provider_id").notNull(),
+  externalId: text("external_id"), // ID من المزود
+  
+  // معلومات السيرفر
+  name: text("name").notNull(),
+  description: text("description"),
+  
+  // التكوين
+  serverType: text("server_type").notNull(),
+  region: text("region").notNull(),
+  ipv4: text("ipv4"),
+  ipv6: text("ipv6"),
+  
+  // الموارد
+  cpu: integer("cpu").notNull(),
+  ram: integer("ram").notNull(), // GB
+  storage: integer("storage").notNull(), // GB
+  
+  // الحالة
+  status: text("status").notNull().default("provisioning"), // provisioning, running, stopped, error, terminated
+  powerStatus: text("power_status").default("off"), // on, off
+  
+  // النظام
+  os: text("os").default("ubuntu-22.04"),
+  osVersion: text("os_version"),
+  
+  // الغرض
+  purpose: text("purpose").notNull().default("production"), // production, staging, development, backup
+  workloads: jsonb("workloads").$type<string[]>().default([]), // api, web, database, cache
+  
+  // التكلفة
+  costPerHour: real("cost_per_hour").default(0),
+  costPerMonth: real("cost_per_month").default(0),
+  totalCostToDate: real("total_cost_to_date").default(0),
+  
+  // المراقبة
+  cpuUsage: real("cpu_usage").default(0),
+  ramUsage: real("ram_usage").default(0),
+  storageUsage: real("storage_usage").default(0),
+  networkIn: real("network_in").default(0),
+  networkOut: real("network_out").default(0),
+  lastMetricsAt: timestamp("last_metrics_at"),
+  
+  // الصيانة
+  maintenanceMode: boolean("maintenance_mode").notNull().default(false),
+  lastBackupAt: timestamp("last_backup_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_server_provider").on(table.providerId),
+  index("IDX_server_status").on(table.status),
+]);
+
+export const insertInfrastructureServerSchema = createInsertSchema(infrastructureServers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertInfrastructureServer = z.infer<typeof insertInfrastructureServerSchema>;
+export type InfrastructureServer = typeof infrastructureServers.$inferSelect;
+
+// قوالب النشر
+export const deploymentTemplates = pgTable("deployment_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // معلومات القالب
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  icon: text("icon").default("box"),
+  
+  // النوع
+  type: text("type").notNull(), // nodejs, python, wordpress, api, static, custom
+  category: text("category").notNull().default("web"), // web, api, database, cache, custom
+  
+  // المتطلبات
+  minCpu: integer("min_cpu").default(1),
+  minRam: integer("min_ram").default(1), // GB
+  minStorage: integer("min_storage").default(10), // GB
+  recommendedServerType: text("recommended_server_type"),
+  
+  // التكوين
+  dockerImage: text("docker_image"),
+  dockerCompose: text("docker_compose"),
+  environmentVariables: jsonb("environment_variables").$type<{
+    key: string;
+    defaultValue: string;
+    required: boolean;
+    secret: boolean;
+  }[]>().default([]),
+  
+  // البناء
+  buildCommand: text("build_command"),
+  startCommand: text("start_command"),
+  healthCheckPath: text("health_check_path").default("/health"),
+  
+  // الإعدادات
+  isActive: boolean("is_active").notNull().default(true),
+  isPublic: boolean("is_public").notNull().default(false),
+  usageCount: integer("usage_count").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertDeploymentTemplateSchema = createInsertSchema(deploymentTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertDeploymentTemplate = z.infer<typeof insertDeploymentTemplateSchema>;
+export type DeploymentTemplate = typeof deploymentTemplates.$inferSelect;
+
+// عمليات النشر
+export const deploymentRuns = pgTable("deployment_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // المصدر
+  templateId: varchar("template_id"),
+  serverId: varchar("server_id").notNull(),
+  
+  // معلومات النشر
+  name: text("name").notNull(),
+  version: text("version").notNull().default("1.0.0"),
+  environment: text("environment").notNull().default("production"), // production, staging, development
+  
+  // المستودع
+  gitRepo: text("git_repo"),
+  gitBranch: text("git_branch").default("main"),
+  gitCommit: text("git_commit"),
+  
+  // الحالة
+  status: text("status").notNull().default("pending"), // pending, building, deploying, running, failed, rolled_back
+  progress: integer("progress").default(0), // 0-100
+  
+  // الخطوات
+  steps: jsonb("steps").$type<{
+    name: string;
+    status: string; // pending, running, success, failed
+    startedAt?: string;
+    completedAt?: string;
+    error?: string;
+  }[]>().default([]),
+  
+  // النتيجة
+  deployedUrl: text("deployed_url"),
+  healthStatus: text("health_status").default("unknown"), // healthy, unhealthy, unknown
+  
+  // الأخطاء
+  errorMessage: text("error_message"),
+  errorDetails: jsonb("error_details").$type<Record<string, unknown>>(),
+  
+  // الوضع
+  deploymentMode: text("deployment_mode").notNull().default("auto"), // auto, manual_approve, emergency
+  approvedBy: varchar("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  
+  // التراجع
+  canRollback: boolean("can_rollback").notNull().default(false),
+  previousVersion: text("previous_version"),
+  rolledBackAt: timestamp("rolled_back_at"),
+  rolledBackBy: varchar("rolled_back_by"),
+  
+  // المنفذ
+  initiatedBy: varchar("initiated_by").notNull(),
+  
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_deployment_server").on(table.serverId),
+  index("IDX_deployment_status").on(table.status),
+]);
+
+export const insertDeploymentRunSchema = createInsertSchema(deploymentRuns).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertDeploymentRun = z.infer<typeof insertDeploymentRunSchema>;
+export type DeploymentRun = typeof deploymentRuns.$inferSelect;
+
+// النسخ الاحتياطية
+export const infrastructureBackups = pgTable("infrastructure_backups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // المصدر
+  serverId: varchar("server_id").notNull(),
+  providerId: varchar("provider_id").notNull(),
+  externalId: text("external_id"), // ID من المزود
+  
+  // معلومات النسخة
+  name: text("name").notNull(),
+  type: text("type").notNull().default("snapshot"), // snapshot, backup, export
+  
+  // الحجم
+  sizeGb: real("size_gb").default(0),
+  
+  // الحالة
+  status: text("status").notNull().default("creating"), // creating, available, restoring, deleting, error
+  
+  // الجدولة
+  isAutomatic: boolean("is_automatic").notNull().default(false),
+  scheduleType: text("schedule_type"), // hourly, daily, weekly
+  retentionDays: integer("retention_days").default(30),
+  
+  // التكلفة
+  costPerMonth: real("cost_per_month").default(0),
+  
+  // الاستعادة
+  restoredAt: timestamp("restored_at"),
+  restoredBy: varchar("restored_by"),
+  
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_backup_server").on(table.serverId),
+  index("IDX_backup_status").on(table.status),
+]);
+
+export const insertInfrastructureBackupSchema = createInsertSchema(infrastructureBackups).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertInfrastructureBackup = z.infer<typeof insertInfrastructureBackupSchema>;
+export type InfrastructureBackup = typeof infrastructureBackups.$inferSelect;
+
+// ==================== EXTERNAL INTEGRATION GATEWAY ====================
+// بوابة التكامل الخارجي (Replit وغيرها)
+
+export const externalIntegrationSessions = pgTable("external_integration_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // معلومات الجلسة
+  partnerName: text("partner_name").notNull(), // replit, github_copilot, etc.
+  partnerDisplayName: text("partner_display_name").notNull(),
+  
+  // الغرض
+  purpose: text("purpose").notNull(), // development_support, diagnostic, emergency, testing
+  purposeDescription: text("purpose_description").notNull(),
+  purposeDescriptionAr: text("purpose_description_ar"),
+  
+  // الصلاحيات
+  permissions: jsonb("permissions").$type<{
+    type: string; // read, write, execute
+    scope: string; // code, logs, config, database
+    resources: string[];
+  }[]>().notNull(),
+  
+  // القيود
+  restrictions: jsonb("restrictions").$type<{
+    noAccessTo: string[];
+    maxDuration: number; // minutes
+    requireApproval: boolean;
+    sandboxOnly: boolean;
+  }>().notNull(),
+  
+  // الحالة
+  status: text("status").notNull().default("inactive"), // inactive, pending_activation, active, expired, revoked
+  
+  // التفعيل
+  activatedAt: timestamp("activated_at"),
+  activatedBy: varchar("activated_by"),
+  activationReason: text("activation_reason"),
+  
+  // المصادقة
+  mfaRequired: boolean("mfa_required").notNull().default(true),
+  mfaVerifiedAt: timestamp("mfa_verified_at"),
+  ownerSignature: text("owner_signature"), // توقيع المالك الرقمي
+  
+  // الانتهاء
+  expiresAt: timestamp("expires_at"),
+  autoCloseAfterTask: boolean("auto_close_after_task").notNull().default(true),
+  
+  // الإغلاق
+  deactivatedAt: timestamp("deactivated_at"),
+  deactivatedBy: varchar("deactivated_by"),
+  deactivationReason: text("deactivation_reason"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_integration_partner").on(table.partnerName),
+  index("IDX_integration_status").on(table.status),
+]);
+
+export const insertExternalIntegrationSessionSchema = createInsertSchema(externalIntegrationSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertExternalIntegrationSession = z.infer<typeof insertExternalIntegrationSessionSchema>;
+export type ExternalIntegrationSession = typeof externalIntegrationSessions.$inferSelect;
+
+// سجل عمليات التكامل الخارجي
+export const externalIntegrationLogs = pgTable("external_integration_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // ربط بالجلسة
+  sessionId: varchar("session_id").notNull(),
+  
+  // معلومات العملية
+  operationType: text("operation_type").notNull(), // request, response, action, error
+  operationName: text("operation_name").notNull(),
+  operationDescription: text("operation_description"),
+  
+  // التفاصيل
+  requestData: jsonb("request_data").$type<Record<string, unknown>>(),
+  responseData: jsonb("response_data").$type<Record<string, unknown>>(),
+  
+  // الموارد المتأثرة
+  affectedResources: jsonb("affected_resources").$type<{
+    type: string;
+    id: string;
+    action: string;
+  }[]>().default([]),
+  
+  // النتيجة
+  status: text("status").notNull(), // success, failed, blocked, pending
+  errorMessage: text("error_message"),
+  
+  // التتبع
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  
+  // التوقيع
+  checksum: text("checksum"), // hash للتحقق من السلامة
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_integration_log_session").on(table.sessionId),
+  index("IDX_integration_log_type").on(table.operationType),
+]);
+
+export const insertExternalIntegrationLogSchema = createInsertSchema(externalIntegrationLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertExternalIntegrationLog = z.infer<typeof insertExternalIntegrationLogSchema>;
+export type ExternalIntegrationLog = typeof externalIntegrationLogs.$inferSelect;
+
+// ==================== COST INTELLIGENCE ====================
+// ذكاء التكلفة
+
+export const infrastructureCostAlerts = pgTable("infrastructure_cost_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // النوع
+  alertType: text("alert_type").notNull(), // budget_warning, budget_exceeded, anomaly, optimization
+  severity: text("severity").notNull().default("medium"), // low, medium, high, critical
+  
+  // المصدر
+  providerId: varchar("provider_id"),
+  serverId: varchar("server_id"),
+  
+  // التفاصيل
+  title: text("title").notNull(),
+  titleAr: text("title_ar"),
+  message: text("message").notNull(),
+  messageAr: text("message_ar"),
+  
+  // القيم
+  currentValue: real("current_value"),
+  thresholdValue: real("threshold_value"),
+  currency: text("currency").default("USD"),
+  
+  // الاقتراح
+  recommendation: text("recommendation"),
+  recommendationAr: text("recommendation_ar"),
+  potentialSavings: real("potential_savings"),
+  
+  // الحالة
+  status: text("status").notNull().default("active"), // active, acknowledged, resolved, dismissed
+  acknowledgedAt: timestamp("acknowledged_at"),
+  acknowledgedBy: varchar("acknowledged_by"),
+  resolvedAt: timestamp("resolved_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_cost_alert_type").on(table.alertType),
+  index("IDX_cost_alert_status").on(table.status),
+]);
+
+export const insertInfrastructureCostAlertSchema = createInsertSchema(infrastructureCostAlerts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertInfrastructureCostAlert = z.infer<typeof insertInfrastructureCostAlertSchema>;
+export type InfrastructureCostAlert = typeof infrastructureCostAlerts.$inferSelect;
+
+// إعدادات ميزانية البنية التحتية
+export const infrastructureBudgets = pgTable("infrastructure_budgets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // النطاق
+  scope: text("scope").notNull().default("global"), // global, provider, server
+  scopeId: varchar("scope_id"), // provider_id or server_id
+  
+  // الميزانية
+  monthlyBudget: real("monthly_budget").notNull(),
+  currency: text("currency").notNull().default("USD"),
+  
+  // التنبيهات
+  alertAt70: boolean("alert_at_70").notNull().default(true),
+  alertAt85: boolean("alert_at_85").notNull().default(true),
+  alertAt95: boolean("alert_at_95").notNull().default(true),
+  alertAt100: boolean("alert_at_100").notNull().default(true),
+  
+  // الإجراءات التلقائية
+  autoStopAt100: boolean("auto_stop_at_100").notNull().default(false),
+  autoScaleDown: boolean("auto_scale_down").notNull().default(false),
+  
+  // الحالة الحالية
+  currentSpend: real("current_spend").default(0),
+  forecastedSpend: real("forecasted_spend").default(0),
+  lastUpdated: timestamp("last_updated"),
+  
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertInfrastructureBudgetSchema = createInsertSchema(infrastructureBudgets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertInfrastructureBudget = z.infer<typeof insertInfrastructureBudgetSchema>;
+export type InfrastructureBudget = typeof infrastructureBudgets.$inferSelect;
+
+// ==================== SOVEREIGN REAL-TIME NOTIFICATION SYSTEM (SRINS) ====================
+// نظام الإشعارات اللحظية الذكية السيادي
+
+// أنواع الإشعارات
+export const notificationTypes = [
+  'SECURITY', 'PAYMENT', 'AI', 'INFRASTRUCTURE', 'USER', 'SOVEREIGNTY', 
+  'EMERGENCY', 'SYSTEM', 'PERFORMANCE', 'COMPLIANCE', 'INTEGRATION'
+] as const;
+export type NotificationType = typeof notificationTypes[number];
+
+// مستويات الأهمية
+export const notificationPriorities = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL', 'EMERGENCY'] as const;
+export type NotificationPriority = typeof notificationPriorities[number];
+
+// قنوات التوصيل
+export const notificationChannels = ['DASHBOARD', 'EMAIL', 'SMS', 'PUSH', 'WEBHOOK', 'ENCRYPTED'] as const;
+export type NotificationChannel = typeof notificationChannels[number];
+
+// الإشعارات الذكية السيادية
+export const sovereignNotifications = pgTable("sovereign_notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // معلومات أساسية
+  title: text("title").notNull(),
+  titleAr: text("title_ar"),
+  message: text("message").notNull(),
+  messageAr: text("message_ar"),
+  
+  // التصنيف
+  type: text("type").notNull(), // SECURITY, PAYMENT, AI, INFRASTRUCTURE, etc.
+  category: text("category"), // subcategory
+  
+  // الأهمية والذكاء
+  priority: text("priority").notNull().default("MEDIUM"), // LOW, MEDIUM, HIGH, CRITICAL, EMERGENCY
+  priorityScore: integer("priority_score").default(50), // 0-100 AI-calculated
+  
+  // تحليل السياق (AI-powered)
+  contextAnalysis: jsonb("context_analysis").$type<{
+    eventSeverity: number;
+    userImpact: string;
+    financialImpact?: number;
+    repeatFrequency: number;
+    riskLevel: string;
+    suggestedActions: string[];
+  }>(),
+  
+  // المستهدف
+  targetType: text("target_type").notNull().default("user"), // user, owner, system, all
+  targetUserId: varchar("target_user_id"),
+  isOwnerOnly: boolean("is_owner_only").notNull().default(false),
+  
+  // القنوات
+  channels: jsonb("channels").$type<string[]>().default(['DASHBOARD']),
+  channelDeliveryStatus: jsonb("channel_delivery_status").$type<{
+    channel: string;
+    status: string; // pending, sent, delivered, failed
+    sentAt?: string;
+    deliveredAt?: string;
+    error?: string;
+  }[]>().default([]),
+  
+  // التوقيت الذكي
+  scheduledFor: timestamp("scheduled_for"),
+  expiresAt: timestamp("expires_at"),
+  smartTiming: jsonb("smart_timing").$type<{
+    timezone: string;
+    preferredTime?: string;
+    delayMinutes?: number;
+    batchGroup?: string;
+  }>(),
+  
+  // الحالة
+  status: text("status").notNull().default("pending"), // pending, sent, delivered, read, acknowledged, expired, failed
+  readAt: timestamp("read_at"),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  acknowledgedBy: varchar("acknowledged_by"),
+  
+  // التصعيد
+  requiresAcknowledgment: boolean("requires_acknowledgment").notNull().default(false),
+  escalationLevel: integer("escalation_level").default(0),
+  escalationHistory: jsonb("escalation_history").$type<{
+    level: number;
+    channel: string;
+    timestamp: string;
+    reason: string;
+  }[]>().default([]),
+  autoActionOnNoResponse: text("auto_action_on_no_response"),
+  
+  // البيانات المرفقة
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  sourceSystem: text("source_system"), // security, payment, ai, infrastructure
+  sourceEventId: varchar("source_event_id"),
+  
+  // الروابط
+  actionUrl: text("action_url"),
+  actionLabel: text("action_label"),
+  actionLabelAr: text("action_label_ar"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_notification_target").on(table.targetUserId),
+  index("IDX_notification_priority").on(table.priority),
+  index("IDX_notification_status").on(table.status),
+  index("IDX_notification_type").on(table.type),
+  index("IDX_notification_owner").on(table.isOwnerOnly),
+]);
+
+export const insertSovereignNotificationSchema = createInsertSchema(sovereignNotifications).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSovereignNotification = z.infer<typeof insertSovereignNotificationSchema>;
+export type SovereignNotification = typeof sovereignNotifications.$inferSelect;
+
+// قوالب الإشعارات
+export const notificationTemplates = pgTable("notification_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // معلومات القالب
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  description: text("description"),
+  
+  // النوع
+  type: text("type").notNull(),
+  eventTrigger: text("event_trigger").notNull(), // الحدث الذي يطلق الإشعار
+  
+  // المحتوى
+  titleTemplate: text("title_template").notNull(),
+  titleTemplateAr: text("title_template_ar"),
+  messageTemplate: text("message_template").notNull(),
+  messageTemplateAr: text("message_template_ar"),
+  
+  // الإعدادات الافتراضية
+  defaultPriority: text("default_priority").notNull().default("MEDIUM"),
+  defaultChannels: jsonb("default_channels").$type<string[]>().default(['DASHBOARD']),
+  requiresAcknowledgment: boolean("requires_acknowledgment").notNull().default(false),
+  
+  // التصعيد
+  escalationRules: jsonb("escalation_rules").$type<{
+    afterMinutes: number;
+    escalateToChannel: string;
+    maxEscalations: number;
+  }[]>().default([]),
+  
+  // الإجراء التلقائي
+  autoActionConfig: jsonb("auto_action_config").$type<{
+    action: string;
+    afterMinutes: number;
+    condition: string;
+  }>(),
+  
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertNotificationTemplateSchema = createInsertSchema(notificationTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertNotificationTemplate = z.infer<typeof insertNotificationTemplateSchema>;
+export type NotificationTemplate = typeof notificationTemplates.$inferSelect;
+
+// تفضيلات إشعارات المستخدم
+export const userNotificationPreferences = pgTable("user_notification_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  userId: varchar("user_id").notNull(),
+  
+  // القنوات المفضلة
+  enabledChannels: jsonb("enabled_channels").$type<string[]>().default(['DASHBOARD', 'EMAIL']),
+  
+  // تفضيلات التوقيت
+  timezone: text("timezone").default("UTC"),
+  quietHoursStart: text("quiet_hours_start"), // "22:00"
+  quietHoursEnd: text("quiet_hours_end"), // "08:00"
+  respectQuietHours: boolean("respect_quiet_hours").notNull().default(true),
+  
+  // تفضيلات الأنواع
+  typePreferences: jsonb("type_preferences").$type<{
+    type: string;
+    enabled: boolean;
+    channels: string[];
+    minPriority: string;
+  }[]>().default([]),
+  
+  // تجميع الإشعارات
+  enableBatching: boolean("enable_batching").notNull().default(true),
+  batchIntervalMinutes: integer("batch_interval_minutes").default(30),
+  
+  // البريد الإلكتروني
+  emailDigest: text("email_digest").default("instant"), // instant, daily, weekly, none
+  
+  // الهاتف (SMS/Push)
+  phoneNumber: text("phone_number"),
+  enableSms: boolean("enable_sms").notNull().default(false),
+  enablePush: boolean("enable_push").notNull().default(true),
+  pushSubscription: jsonb("push_subscription").$type<Record<string, unknown>>(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_notification_pref_user").on(table.userId),
+]);
+
+export const insertUserNotificationPreferencesSchema = createInsertSchema(userNotificationPreferences).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertUserNotificationPreferences = z.infer<typeof insertUserNotificationPreferencesSchema>;
+export type UserNotificationPreferences = typeof userNotificationPreferences.$inferSelect;
+
+// سجل تصعيد الإشعارات
+export const notificationEscalations = pgTable("notification_escalations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  notificationId: varchar("notification_id").notNull(),
+  
+  // مستوى التصعيد
+  escalationLevel: integer("escalation_level").notNull(),
+  previousChannel: text("previous_channel"),
+  newChannel: text("new_channel").notNull(),
+  
+  // السبب
+  reason: text("reason").notNull(), // no_response, failed_delivery, manual
+  
+  // النتيجة
+  status: text("status").notNull().default("pending"), // pending, sent, acknowledged, failed
+  responseReceivedAt: timestamp("response_received_at"),
+  
+  // الإجراء التلقائي
+  autoActionTriggered: boolean("auto_action_triggered").notNull().default(false),
+  autoActionDetails: jsonb("auto_action_details").$type<Record<string, unknown>>(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_escalation_notification").on(table.notificationId),
+]);
+
+export const insertNotificationEscalationSchema = createInsertSchema(notificationEscalations).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertNotificationEscalation = z.infer<typeof insertNotificationEscalationSchema>;
+export type NotificationEscalation = typeof notificationEscalations.$inferSelect;
+
+// إحصائيات الإشعارات
+export const notificationAnalytics = pgTable("notification_analytics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // الفترة
+  periodType: text("period_type").notNull(), // hourly, daily, weekly, monthly
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  
+  // الإحصائيات العامة
+  totalSent: integer("total_sent").default(0),
+  totalDelivered: integer("total_delivered").default(0),
+  totalRead: integer("total_read").default(0),
+  totalAcknowledged: integer("total_acknowledged").default(0),
+  totalFailed: integer("total_failed").default(0),
+  totalEscalated: integer("total_escalated").default(0),
+  
+  // متوسط الأوقات
+  avgDeliveryTimeMs: integer("avg_delivery_time_ms").default(0),
+  avgReadTimeMinutes: integer("avg_read_time_minutes").default(0),
+  avgAcknowledgeTimeMinutes: integer("avg_acknowledge_time_minutes").default(0),
+  
+  // حسب النوع
+  byType: jsonb("by_type").$type<Record<string, number>>().default({}),
+  byPriority: jsonb("by_priority").$type<Record<string, number>>().default({}),
+  byChannel: jsonb("by_channel").$type<Record<string, number>>().default({}),
+  
+  // معدلات النجاح
+  deliveryRate: real("delivery_rate").default(0),
+  readRate: real("read_rate").default(0),
+  acknowledgmentRate: real("acknowledgment_rate").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_analytics_period").on(table.periodType, table.periodStart),
+]);
+
+export const insertNotificationAnalyticsSchema = createInsertSchema(notificationAnalytics).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertNotificationAnalytics = z.infer<typeof insertNotificationAnalyticsSchema>;
+export type NotificationAnalytics = typeof notificationAnalytics.$inferSelect;
+

@@ -286,6 +286,52 @@ import {
   securityIncidents,
   type SecurityIncident,
   type InsertSecurityIncident,
+  // Sovereign Infrastructure
+  infrastructureProviders,
+  type InfrastructureProvider,
+  type InsertInfrastructureProvider,
+  infrastructureServers,
+  type InfrastructureServer,
+  type InsertInfrastructureServer,
+  deploymentTemplates,
+  type DeploymentTemplate,
+  type InsertDeploymentTemplate,
+  deploymentRuns,
+  type DeploymentRun,
+  type InsertDeploymentRun,
+  infrastructureBackups,
+  type InfrastructureBackup,
+  type InsertInfrastructureBackup,
+  // External Integration Gateway
+  externalIntegrationSessions,
+  type ExternalIntegrationSession,
+  type InsertExternalIntegrationSession,
+  externalIntegrationLogs,
+  type ExternalIntegrationLog,
+  type InsertExternalIntegrationLog,
+  // Cost Intelligence
+  infrastructureCostAlerts,
+  type InfrastructureCostAlert,
+  type InsertInfrastructureCostAlert,
+  infrastructureBudgets,
+  type InfrastructureBudget,
+  type InsertInfrastructureBudget,
+  // Sovereign Notification System (SRINS)
+  sovereignNotifications,
+  type SovereignNotification,
+  type InsertSovereignNotification,
+  notificationTemplates,
+  type NotificationTemplate,
+  type InsertNotificationTemplate,
+  userNotificationPreferences,
+  type UserNotificationPreferences,
+  type InsertUserNotificationPreferences,
+  notificationEscalations,
+  type NotificationEscalation,
+  type InsertNotificationEscalation,
+  notificationAnalytics,
+  type NotificationAnalytics,
+  type InsertNotificationAnalytics,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt, gte, lte } from "drizzle-orm";
@@ -789,6 +835,71 @@ export interface IStorage {
   createSecurityIncident(incident: InsertSecurityIncident): Promise<SecurityIncident>;
   updateSecurityIncident(id: string, data: Partial<InsertSecurityIncident>): Promise<SecurityIncident | undefined>;
   resolveSecurityIncident(id: string, resolution: string, resolvedBy: string): Promise<SecurityIncident | undefined>;
+  
+  // ==================== SOVEREIGN INFRASTRUCTURE ====================
+  // Infrastructure Providers
+  getInfrastructureProviders(): Promise<InfrastructureProvider[]>;
+  getInfrastructureProvider(id: string): Promise<InfrastructureProvider | undefined>;
+  getInfrastructureProviderByName(name: string): Promise<InfrastructureProvider | undefined>;
+  createInfrastructureProvider(provider: InsertInfrastructureProvider): Promise<InfrastructureProvider>;
+  updateInfrastructureProvider(id: string, data: Partial<InsertInfrastructureProvider>): Promise<InfrastructureProvider | undefined>;
+  deleteInfrastructureProvider(id: string): Promise<boolean>;
+  
+  // Infrastructure Servers
+  getInfrastructureServers(): Promise<InfrastructureServer[]>;
+  getInfrastructureServersByProvider(providerId: string): Promise<InfrastructureServer[]>;
+  getInfrastructureServer(id: string): Promise<InfrastructureServer | undefined>;
+  createInfrastructureServer(server: InsertInfrastructureServer): Promise<InfrastructureServer>;
+  updateInfrastructureServer(id: string, data: Partial<InsertInfrastructureServer>): Promise<InfrastructureServer | undefined>;
+  deleteInfrastructureServer(id: string): Promise<boolean>;
+  
+  // Deployment Templates
+  getDeploymentTemplates(): Promise<DeploymentTemplate[]>;
+  getDeploymentTemplate(id: string): Promise<DeploymentTemplate | undefined>;
+  createDeploymentTemplate(template: InsertDeploymentTemplate): Promise<DeploymentTemplate>;
+  updateDeploymentTemplate(id: string, data: Partial<InsertDeploymentTemplate>): Promise<DeploymentTemplate | undefined>;
+  deleteDeploymentTemplate(id: string): Promise<boolean>;
+  
+  // Deployment Runs
+  getDeploymentRuns(): Promise<DeploymentRun[]>;
+  getDeploymentRunsByServer(serverId: string): Promise<DeploymentRun[]>;
+  getDeploymentRun(id: string): Promise<DeploymentRun | undefined>;
+  createDeploymentRun(run: InsertDeploymentRun): Promise<DeploymentRun>;
+  updateDeploymentRun(id: string, data: Partial<InsertDeploymentRun>): Promise<DeploymentRun | undefined>;
+  
+  // Infrastructure Backups
+  getInfrastructureBackups(): Promise<InfrastructureBackup[]>;
+  getInfrastructureBackupsByServer(serverId: string): Promise<InfrastructureBackup[]>;
+  getInfrastructureBackup(id: string): Promise<InfrastructureBackup | undefined>;
+  createInfrastructureBackup(backup: InsertInfrastructureBackup): Promise<InfrastructureBackup>;
+  updateInfrastructureBackup(id: string, data: Partial<InsertInfrastructureBackup>): Promise<InfrastructureBackup | undefined>;
+  deleteInfrastructureBackup(id: string): Promise<boolean>;
+  
+  // ==================== EXTERNAL INTEGRATION GATEWAY ====================
+  // External Integration Sessions
+  getExternalIntegrationSessions(): Promise<ExternalIntegrationSession[]>;
+  getActiveExternalIntegrationSession(partnerName: string): Promise<ExternalIntegrationSession | undefined>;
+  getExternalIntegrationSession(id: string): Promise<ExternalIntegrationSession | undefined>;
+  createExternalIntegrationSession(session: InsertExternalIntegrationSession): Promise<ExternalIntegrationSession>;
+  updateExternalIntegrationSession(id: string, data: Partial<InsertExternalIntegrationSession>): Promise<ExternalIntegrationSession | undefined>;
+  activateExternalIntegrationSession(id: string, activatedBy: string, reason: string): Promise<ExternalIntegrationSession | undefined>;
+  deactivateExternalIntegrationSession(id: string, deactivatedBy: string, reason: string): Promise<ExternalIntegrationSession | undefined>;
+  
+  // External Integration Logs
+  getExternalIntegrationLogs(sessionId: string): Promise<ExternalIntegrationLog[]>;
+  createExternalIntegrationLog(log: InsertExternalIntegrationLog): Promise<ExternalIntegrationLog>;
+  
+  // Cost Alerts
+  getInfrastructureCostAlerts(): Promise<InfrastructureCostAlert[]>;
+  getActiveInfrastructureCostAlerts(): Promise<InfrastructureCostAlert[]>;
+  createInfrastructureCostAlert(alert: InsertInfrastructureCostAlert): Promise<InfrastructureCostAlert>;
+  updateInfrastructureCostAlert(id: string, data: Partial<InsertInfrastructureCostAlert>): Promise<InfrastructureCostAlert | undefined>;
+  
+  // Infrastructure Budgets
+  getInfrastructureBudgets(): Promise<InfrastructureBudget[]>;
+  getInfrastructureBudget(id: string): Promise<InfrastructureBudget | undefined>;
+  createInfrastructureBudget(budget: InsertInfrastructureBudget): Promise<InfrastructureBudget>;
+  updateInfrastructureBudget(id: string, data: Partial<InsertInfrastructureBudget>): Promise<InfrastructureBudget | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -4545,6 +4656,503 @@ body { font-family: 'Tajawal', sans-serif; }
         updatedAt: new Date() 
       })
       .where(eq(securityIncidents.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  // ==================== SOVEREIGN INFRASTRUCTURE ====================
+  
+  // Infrastructure Providers
+  async getInfrastructureProviders(): Promise<InfrastructureProvider[]> {
+    return db.select().from(infrastructureProviders).orderBy(desc(infrastructureProviders.createdAt));
+  }
+  
+  async getInfrastructureProvider(id: string): Promise<InfrastructureProvider | undefined> {
+    const [provider] = await db.select().from(infrastructureProviders)
+      .where(eq(infrastructureProviders.id, id));
+    return provider || undefined;
+  }
+  
+  async getInfrastructureProviderByName(name: string): Promise<InfrastructureProvider | undefined> {
+    const [provider] = await db.select().from(infrastructureProviders)
+      .where(eq(infrastructureProviders.name, name));
+    return provider || undefined;
+  }
+  
+  async createInfrastructureProvider(provider: InsertInfrastructureProvider): Promise<InfrastructureProvider> {
+    const [created] = await db.insert(infrastructureProviders).values(provider).returning();
+    return created;
+  }
+  
+  async updateInfrastructureProvider(id: string, data: Partial<InsertInfrastructureProvider>): Promise<InfrastructureProvider | undefined> {
+    const [updated] = await db.update(infrastructureProviders)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(infrastructureProviders.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteInfrastructureProvider(id: string): Promise<boolean> {
+    const result = await db.delete(infrastructureProviders).where(eq(infrastructureProviders.id, id));
+    return true;
+  }
+  
+  // Infrastructure Servers
+  async getInfrastructureServers(): Promise<InfrastructureServer[]> {
+    return db.select().from(infrastructureServers).orderBy(desc(infrastructureServers.createdAt));
+  }
+  
+  async getInfrastructureServersByProvider(providerId: string): Promise<InfrastructureServer[]> {
+    return db.select().from(infrastructureServers)
+      .where(eq(infrastructureServers.providerId, providerId))
+      .orderBy(desc(infrastructureServers.createdAt));
+  }
+  
+  async getInfrastructureServer(id: string): Promise<InfrastructureServer | undefined> {
+    const [server] = await db.select().from(infrastructureServers)
+      .where(eq(infrastructureServers.id, id));
+    return server || undefined;
+  }
+  
+  async createInfrastructureServer(server: InsertInfrastructureServer): Promise<InfrastructureServer> {
+    const [created] = await db.insert(infrastructureServers).values(server).returning();
+    return created;
+  }
+  
+  async updateInfrastructureServer(id: string, data: Partial<InsertInfrastructureServer>): Promise<InfrastructureServer | undefined> {
+    const [updated] = await db.update(infrastructureServers)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(infrastructureServers.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteInfrastructureServer(id: string): Promise<boolean> {
+    await db.delete(infrastructureServers).where(eq(infrastructureServers.id, id));
+    return true;
+  }
+  
+  // Deployment Templates
+  async getDeploymentTemplates(): Promise<DeploymentTemplate[]> {
+    return db.select().from(deploymentTemplates).orderBy(desc(deploymentTemplates.createdAt));
+  }
+  
+  async getDeploymentTemplate(id: string): Promise<DeploymentTemplate | undefined> {
+    const [template] = await db.select().from(deploymentTemplates)
+      .where(eq(deploymentTemplates.id, id));
+    return template || undefined;
+  }
+  
+  async createDeploymentTemplate(template: InsertDeploymentTemplate): Promise<DeploymentTemplate> {
+    const [created] = await db.insert(deploymentTemplates).values(template).returning();
+    return created;
+  }
+  
+  async updateDeploymentTemplate(id: string, data: Partial<InsertDeploymentTemplate>): Promise<DeploymentTemplate | undefined> {
+    const [updated] = await db.update(deploymentTemplates)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(deploymentTemplates.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteDeploymentTemplate(id: string): Promise<boolean> {
+    await db.delete(deploymentTemplates).where(eq(deploymentTemplates.id, id));
+    return true;
+  }
+  
+  // Deployment Runs
+  async getDeploymentRuns(): Promise<DeploymentRun[]> {
+    return db.select().from(deploymentRuns).orderBy(desc(deploymentRuns.createdAt));
+  }
+  
+  async getDeploymentRunsByServer(serverId: string): Promise<DeploymentRun[]> {
+    return db.select().from(deploymentRuns)
+      .where(eq(deploymentRuns.serverId, serverId))
+      .orderBy(desc(deploymentRuns.createdAt));
+  }
+  
+  async getDeploymentRun(id: string): Promise<DeploymentRun | undefined> {
+    const [run] = await db.select().from(deploymentRuns)
+      .where(eq(deploymentRuns.id, id));
+    return run || undefined;
+  }
+  
+  async createDeploymentRun(run: InsertDeploymentRun): Promise<DeploymentRun> {
+    const [created] = await db.insert(deploymentRuns).values(run).returning();
+    return created;
+  }
+  
+  async updateDeploymentRun(id: string, data: Partial<InsertDeploymentRun>): Promise<DeploymentRun | undefined> {
+    const [updated] = await db.update(deploymentRuns)
+      .set(data)
+      .where(eq(deploymentRuns.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  // Infrastructure Backups
+  async getInfrastructureBackups(): Promise<InfrastructureBackup[]> {
+    return db.select().from(infrastructureBackups).orderBy(desc(infrastructureBackups.createdAt));
+  }
+  
+  async getInfrastructureBackupsByServer(serverId: string): Promise<InfrastructureBackup[]> {
+    return db.select().from(infrastructureBackups)
+      .where(eq(infrastructureBackups.serverId, serverId))
+      .orderBy(desc(infrastructureBackups.createdAt));
+  }
+  
+  async getInfrastructureBackup(id: string): Promise<InfrastructureBackup | undefined> {
+    const [backup] = await db.select().from(infrastructureBackups)
+      .where(eq(infrastructureBackups.id, id));
+    return backup || undefined;
+  }
+  
+  async createInfrastructureBackup(backup: InsertInfrastructureBackup): Promise<InfrastructureBackup> {
+    const [created] = await db.insert(infrastructureBackups).values(backup).returning();
+    return created;
+  }
+  
+  async updateInfrastructureBackup(id: string, data: Partial<InsertInfrastructureBackup>): Promise<InfrastructureBackup | undefined> {
+    const [updated] = await db.update(infrastructureBackups)
+      .set(data)
+      .where(eq(infrastructureBackups.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteInfrastructureBackup(id: string): Promise<boolean> {
+    await db.delete(infrastructureBackups).where(eq(infrastructureBackups.id, id));
+    return true;
+  }
+  
+  // ==================== EXTERNAL INTEGRATION GATEWAY ====================
+  
+  // External Integration Sessions
+  async getExternalIntegrationSessions(): Promise<ExternalIntegrationSession[]> {
+    return db.select().from(externalIntegrationSessions).orderBy(desc(externalIntegrationSessions.createdAt));
+  }
+  
+  async getActiveExternalIntegrationSession(partnerName: string): Promise<ExternalIntegrationSession | undefined> {
+    const [session] = await db.select().from(externalIntegrationSessions)
+      .where(and(
+        eq(externalIntegrationSessions.partnerName, partnerName),
+        eq(externalIntegrationSessions.status, 'active')
+      ));
+    return session || undefined;
+  }
+  
+  async getExternalIntegrationSession(id: string): Promise<ExternalIntegrationSession | undefined> {
+    const [session] = await db.select().from(externalIntegrationSessions)
+      .where(eq(externalIntegrationSessions.id, id));
+    return session || undefined;
+  }
+  
+  async createExternalIntegrationSession(session: InsertExternalIntegrationSession): Promise<ExternalIntegrationSession> {
+    const [created] = await db.insert(externalIntegrationSessions).values(session).returning();
+    return created;
+  }
+  
+  async updateExternalIntegrationSession(id: string, data: Partial<InsertExternalIntegrationSession>): Promise<ExternalIntegrationSession | undefined> {
+    const [updated] = await db.update(externalIntegrationSessions)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(externalIntegrationSessions.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async activateExternalIntegrationSession(id: string, activatedBy: string, reason: string): Promise<ExternalIntegrationSession | undefined> {
+    const [updated] = await db.update(externalIntegrationSessions)
+      .set({ 
+        status: 'active',
+        activatedAt: new Date(),
+        activatedBy,
+        activationReason: reason,
+        updatedAt: new Date()
+      })
+      .where(eq(externalIntegrationSessions.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deactivateExternalIntegrationSession(id: string, deactivatedBy: string, reason: string): Promise<ExternalIntegrationSession | undefined> {
+    const [updated] = await db.update(externalIntegrationSessions)
+      .set({ 
+        status: 'expired',
+        deactivatedAt: new Date(),
+        deactivatedBy,
+        deactivationReason: reason,
+        updatedAt: new Date()
+      })
+      .where(eq(externalIntegrationSessions.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  // External Integration Logs
+  async getExternalIntegrationLogs(sessionId: string): Promise<ExternalIntegrationLog[]> {
+    return db.select().from(externalIntegrationLogs)
+      .where(eq(externalIntegrationLogs.sessionId, sessionId))
+      .orderBy(desc(externalIntegrationLogs.createdAt));
+  }
+  
+  async createExternalIntegrationLog(log: InsertExternalIntegrationLog): Promise<ExternalIntegrationLog> {
+    const [created] = await db.insert(externalIntegrationLogs).values(log).returning();
+    return created;
+  }
+  
+  // Cost Alerts
+  async getInfrastructureCostAlerts(): Promise<InfrastructureCostAlert[]> {
+    return db.select().from(infrastructureCostAlerts).orderBy(desc(infrastructureCostAlerts.createdAt));
+  }
+  
+  async getActiveInfrastructureCostAlerts(): Promise<InfrastructureCostAlert[]> {
+    return db.select().from(infrastructureCostAlerts)
+      .where(eq(infrastructureCostAlerts.status, 'active'))
+      .orderBy(desc(infrastructureCostAlerts.createdAt));
+  }
+  
+  async createInfrastructureCostAlert(alert: InsertInfrastructureCostAlert): Promise<InfrastructureCostAlert> {
+    const [created] = await db.insert(infrastructureCostAlerts).values(alert).returning();
+    return created;
+  }
+  
+  async updateInfrastructureCostAlert(id: string, data: Partial<InsertInfrastructureCostAlert>): Promise<InfrastructureCostAlert | undefined> {
+    const [updated] = await db.update(infrastructureCostAlerts)
+      .set(data)
+      .where(eq(infrastructureCostAlerts.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  // Infrastructure Budgets
+  async getInfrastructureBudgets(): Promise<InfrastructureBudget[]> {
+    return db.select().from(infrastructureBudgets).orderBy(desc(infrastructureBudgets.createdAt));
+  }
+  
+  async getInfrastructureBudget(id: string): Promise<InfrastructureBudget | undefined> {
+    const [budget] = await db.select().from(infrastructureBudgets)
+      .where(eq(infrastructureBudgets.id, id));
+    return budget || undefined;
+  }
+  
+  async createInfrastructureBudget(budget: InsertInfrastructureBudget): Promise<InfrastructureBudget> {
+    const [created] = await db.insert(infrastructureBudgets).values(budget).returning();
+    return created;
+  }
+  
+  async updateInfrastructureBudget(id: string, data: Partial<InsertInfrastructureBudget>): Promise<InfrastructureBudget | undefined> {
+    const [updated] = await db.update(infrastructureBudgets)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(infrastructureBudgets.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  // ==================== SOVEREIGN NOTIFICATION SYSTEM (SRINS) ====================
+  
+  // Sovereign Notifications
+  async getSovereignNotifications(limit: number = 100): Promise<SovereignNotification[]> {
+    return db.select().from(sovereignNotifications)
+      .orderBy(desc(sovereignNotifications.createdAt))
+      .limit(limit);
+  }
+  
+  async getSovereignNotificationsByUser(userId: string): Promise<SovereignNotification[]> {
+    return db.select().from(sovereignNotifications)
+      .where(eq(sovereignNotifications.targetUserId, userId))
+      .orderBy(desc(sovereignNotifications.createdAt));
+  }
+  
+  async getOwnerNotifications(): Promise<SovereignNotification[]> {
+    return db.select().from(sovereignNotifications)
+      .where(eq(sovereignNotifications.isOwnerOnly, true))
+      .orderBy(desc(sovereignNotifications.createdAt));
+  }
+  
+  async getUnreadNotifications(userId: string): Promise<SovereignNotification[]> {
+    return db.select().from(sovereignNotifications)
+      .where(and(
+        eq(sovereignNotifications.targetUserId, userId),
+        eq(sovereignNotifications.status, 'sent')
+      ))
+      .orderBy(desc(sovereignNotifications.createdAt));
+  }
+  
+  async getPendingEscalationNotifications(): Promise<SovereignNotification[]> {
+    return db.select().from(sovereignNotifications)
+      .where(and(
+        eq(sovereignNotifications.requiresAcknowledgment, true),
+        eq(sovereignNotifications.status, 'sent')
+      ))
+      .orderBy(desc(sovereignNotifications.createdAt));
+  }
+  
+  async getSovereignNotification(id: string): Promise<SovereignNotification | undefined> {
+    const [notification] = await db.select().from(sovereignNotifications)
+      .where(eq(sovereignNotifications.id, id));
+    return notification || undefined;
+  }
+  
+  async createSovereignNotification(notification: InsertSovereignNotification): Promise<SovereignNotification> {
+    const [created] = await db.insert(sovereignNotifications).values(notification).returning();
+    return created;
+  }
+  
+  async updateSovereignNotification(id: string, data: Partial<InsertSovereignNotification>): Promise<SovereignNotification | undefined> {
+    const [updated] = await db.update(sovereignNotifications)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(sovereignNotifications.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async markNotificationAsRead(id: string): Promise<SovereignNotification | undefined> {
+    const [updated] = await db.update(sovereignNotifications)
+      .set({ 
+        status: 'read',
+        readAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(sovereignNotifications.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async acknowledgeNotification(id: string, acknowledgedBy: string): Promise<SovereignNotification | undefined> {
+    const [updated] = await db.update(sovereignNotifications)
+      .set({ 
+        status: 'acknowledged',
+        acknowledgedAt: new Date(),
+        acknowledgedBy,
+        updatedAt: new Date()
+      })
+      .where(eq(sovereignNotifications.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async escalateNotification(id: string, newLevel: number, newChannel: string): Promise<SovereignNotification | undefined> {
+    const notification = await this.getSovereignNotification(id);
+    if (!notification) return undefined;
+    
+    const history = notification.escalationHistory || [];
+    history.push({
+      level: newLevel,
+      channel: newChannel,
+      timestamp: new Date().toISOString(),
+      reason: 'no_response'
+    });
+    
+    const [updated] = await db.update(sovereignNotifications)
+      .set({ 
+        escalationLevel: newLevel,
+        escalationHistory: history,
+        updatedAt: new Date()
+      })
+      .where(eq(sovereignNotifications.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  // Notification Templates
+  async getNotificationTemplates(): Promise<NotificationTemplate[]> {
+    return db.select().from(notificationTemplates).orderBy(desc(notificationTemplates.createdAt));
+  }
+  
+  async getActiveNotificationTemplates(): Promise<NotificationTemplate[]> {
+    return db.select().from(notificationTemplates)
+      .where(eq(notificationTemplates.isActive, true))
+      .orderBy(desc(notificationTemplates.createdAt));
+  }
+  
+  async getNotificationTemplateByTrigger(eventTrigger: string): Promise<NotificationTemplate | undefined> {
+    const [template] = await db.select().from(notificationTemplates)
+      .where(eq(notificationTemplates.eventTrigger, eventTrigger));
+    return template || undefined;
+  }
+  
+  async getNotificationTemplate(id: string): Promise<NotificationTemplate | undefined> {
+    const [template] = await db.select().from(notificationTemplates)
+      .where(eq(notificationTemplates.id, id));
+    return template || undefined;
+  }
+  
+  async createNotificationTemplate(template: InsertNotificationTemplate): Promise<NotificationTemplate> {
+    const [created] = await db.insert(notificationTemplates).values(template).returning();
+    return created;
+  }
+  
+  async updateNotificationTemplate(id: string, data: Partial<InsertNotificationTemplate>): Promise<NotificationTemplate | undefined> {
+    const [updated] = await db.update(notificationTemplates)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(notificationTemplates.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteNotificationTemplate(id: string): Promise<boolean> {
+    await db.delete(notificationTemplates).where(eq(notificationTemplates.id, id));
+    return true;
+  }
+  
+  // User Notification Preferences
+  async getUserNotificationPreferences(userId: string): Promise<UserNotificationPreferences | undefined> {
+    const [prefs] = await db.select().from(userNotificationPreferences)
+      .where(eq(userNotificationPreferences.userId, userId));
+    return prefs || undefined;
+  }
+  
+  async createUserNotificationPreferences(prefs: InsertUserNotificationPreferences): Promise<UserNotificationPreferences> {
+    const [created] = await db.insert(userNotificationPreferences).values(prefs).returning();
+    return created;
+  }
+  
+  async updateUserNotificationPreferences(userId: string, data: Partial<InsertUserNotificationPreferences>): Promise<UserNotificationPreferences | undefined> {
+    const [updated] = await db.update(userNotificationPreferences)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(userNotificationPreferences.userId, userId))
+      .returning();
+    return updated || undefined;
+  }
+  
+  // Notification Escalations
+  async getNotificationEscalations(notificationId: string): Promise<NotificationEscalation[]> {
+    return db.select().from(notificationEscalations)
+      .where(eq(notificationEscalations.notificationId, notificationId))
+      .orderBy(desc(notificationEscalations.createdAt));
+  }
+  
+  async createNotificationEscalation(escalation: InsertNotificationEscalation): Promise<NotificationEscalation> {
+    const [created] = await db.insert(notificationEscalations).values(escalation).returning();
+    return created;
+  }
+  
+  async updateNotificationEscalation(id: string, data: Partial<InsertNotificationEscalation>): Promise<NotificationEscalation | undefined> {
+    const [updated] = await db.update(notificationEscalations)
+      .set(data)
+      .where(eq(notificationEscalations.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  // Notification Analytics
+  async getNotificationAnalytics(periodType: string, limit: number = 30): Promise<NotificationAnalytics[]> {
+    return db.select().from(notificationAnalytics)
+      .where(eq(notificationAnalytics.periodType, periodType))
+      .orderBy(desc(notificationAnalytics.periodStart))
+      .limit(limit);
+  }
+  
+  async createNotificationAnalytics(analytics: InsertNotificationAnalytics): Promise<NotificationAnalytics> {
+    const [created] = await db.insert(notificationAnalytics).values(analytics).returning();
+    return created;
+  }
+  
+  async updateNotificationAnalytics(id: string, data: Partial<InsertNotificationAnalytics>): Promise<NotificationAnalytics | undefined> {
+    const [updated] = await db.update(notificationAnalytics)
+      .set(data)
+      .where(eq(notificationAnalytics.id, id))
       .returning();
     return updated || undefined;
   }
