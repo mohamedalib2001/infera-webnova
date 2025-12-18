@@ -33,6 +33,20 @@ export interface Extension {
   hooks: Map<string, ExtensionHook[]>;
   config?: Record<string, unknown>;
   enabled: boolean;
+  scope?: ExtensionScope;
+}
+
+export interface ExtensionScope {
+  type: 'global' | 'tenant' | 'project';
+  tenantId?: string;
+  projectId?: string;
+}
+
+export interface ScopedExtensionContext {
+  tenantId?: string;
+  projectId?: string;
+  userId?: string;
+  permissions: string[];
 }
 
 export interface IExtensionRegistry {
@@ -46,13 +60,17 @@ export interface IExtensionRegistry {
   enableExtension(extensionId: string): Promise<void>;
   disableExtension(extensionId: string): Promise<void>;
   getExtension(extensionId: string): Extension | undefined;
-  listExtensions(filter?: { enabled?: boolean; extensionPoint?: string }): Extension[];
+  listExtensions(filter?: { enabled?: boolean; extensionPoint?: string; tenantId?: string }): Extension[];
   
   executeHooks<TInput, TOutput>(
     pointId: string,
     input: TInput,
-    defaultHandler: (input: TInput) => Promise<TOutput>
+    defaultHandler: (input: TInput) => Promise<TOutput>,
+    context?: ScopedExtensionContext
   ): Promise<TOutput>;
+  
+  createScopedContext(tenantId: string, options?: { projectId?: string; userId?: string }): ScopedExtensionContext;
+  getExtensionsForScope(scope: ExtensionScope): Extension[];
 }
 
 export const CORE_EXTENSION_POINTS = {
@@ -73,9 +91,33 @@ export const CORE_EXTENSION_POINTS = {
 class ExtensionRegistryImpl implements IExtensionRegistry {
   private extensionPoints: Map<string, ExtensionPoint> = new Map();
   private extensions: Map<string, Extension> = new Map();
+  private scopedHooks: Map<string, Map<string, ExtensionHook[]>> = new Map();
 
   constructor() {
     this.registerCoreExtensionPoints();
+  }
+
+  createScopedContext(tenantId: string, options?: { projectId?: string; userId?: string }): ScopedExtensionContext {
+    return {
+      tenantId,
+      projectId: options?.projectId,
+      userId: options?.userId,
+      permissions: ['read', 'write', 'execute'],
+    };
+  }
+
+  getExtensionsForScope(scope: ExtensionScope): Extension[] {
+    return Array.from(this.extensions.values()).filter(ext => {
+      if (!ext.scope) return scope.type === 'global';
+      if (ext.scope.type === 'global') return true;
+      if (ext.scope.type === 'tenant' && scope.tenantId) {
+        return ext.scope.tenantId === scope.tenantId;
+      }
+      if (ext.scope.type === 'project' && scope.projectId) {
+        return ext.scope.projectId === scope.projectId;
+      }
+      return false;
+    });
   }
 
   registerExtensionPoint<TInput, TOutput>(point: ExtensionPoint<TInput, TOutput>): void {
@@ -189,7 +231,7 @@ class ExtensionRegistryImpl implements IExtensionRegistry {
     return this.extensions.get(extensionId);
   }
 
-  listExtensions(filter?: { enabled?: boolean; extensionPoint?: string }): Extension[] {
+  listExtensions(filter?: { enabled?: boolean; extensionPoint?: string; tenantId?: string }): Extension[] {
     let extensions = Array.from(this.extensions.values());
 
     if (filter?.enabled !== undefined) {
@@ -198,6 +240,13 @@ class ExtensionRegistryImpl implements IExtensionRegistry {
     if (filter?.extensionPoint) {
       extensions = extensions.filter(e => e.extensionPoints.includes(filter.extensionPoint!));
     }
+    if (filter?.tenantId) {
+      extensions = extensions.filter(e => 
+        !e.scope || 
+        e.scope.type === 'global' || 
+        (e.scope.type === 'tenant' && e.scope.tenantId === filter.tenantId)
+      );
+    }
 
     return extensions;
   }
@@ -205,14 +254,27 @@ class ExtensionRegistryImpl implements IExtensionRegistry {
   async executeHooks<TInput, TOutput>(
     pointId: string,
     input: TInput,
-    defaultHandler: (input: TInput) => Promise<TOutput>
+    defaultHandler: (input: TInput) => Promise<TOutput>,
+    context?: ScopedExtensionContext
   ): Promise<TOutput> {
     const point = this.extensionPoints.get(pointId);
-    if (!point || point.hooks.length === 0) {
+    let allHooks = point ? [...point.hooks] : [];
+
+    if (context?.tenantId) {
+      const scopeKey = `${pointId}:${context.tenantId}`;
+      const scopedHooks = this.scopedHooks.get(scopeKey);
+      if (scopedHooks) {
+        for (const hooks of Array.from(scopedHooks.values())) {
+          allHooks.push(...hooks);
+        }
+      }
+    }
+
+    if (allHooks.length === 0) {
       return defaultHandler(input);
     }
 
-    const sortedHooks = [...point.hooks].sort((a, b) => a.priority - b.priority);
+    const sortedHooks = allHooks.sort((a, b) => a.priority - b.priority);
     
     const beforeHooks = sortedHooks.filter(h => h.type === 'before');
     const afterHooks = sortedHooks.filter(h => h.type === 'after');

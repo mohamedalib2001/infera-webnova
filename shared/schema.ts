@@ -1617,6 +1617,246 @@ export const insertDevDatabaseRelationshipSchema = createInsertSchema(devDatabas
 export type InsertDevDatabaseRelationship = z.infer<typeof insertDevDatabaseRelationshipSchema>;
 export type DevDatabaseRelationship = typeof devDatabaseRelationships.$inferSelect;
 
+// ==================== CORE EVENT STORE ====================
+
+// Event Store - Durable event storage for Event Sourcing
+export const eventStore = pgTable("event_store", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().unique(),
+  eventType: text("event_type").notNull(),
+  aggregateId: varchar("aggregate_id"),
+  aggregateType: text("aggregate_type"),
+  tenantId: varchar("tenant_id"),
+  correlationId: varchar("correlation_id"),
+  causationId: varchar("causation_id"),
+  sequence: integer("sequence").notNull(),
+  version: text("version").notNull().default("1.0"),
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  source: text("source").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertEventStoreSchema = createInsertSchema(eventStore).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertEventStore = z.infer<typeof insertEventStoreSchema>;
+export type EventStoreRecord = typeof eventStore.$inferSelect;
+
+// Query Store - Projections for CQRS pattern
+export const queryStore = pgTable("query_store", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectionName: text("projection_name").notNull(),
+  projectionId: varchar("projection_id").notNull(),
+  tenantId: varchar("tenant_id"),
+  data: jsonb("data").$type<Record<string, unknown>>().notNull(),
+  version: integer("version").notNull().default(1),
+  lastEventSequence: integer("last_event_sequence"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertQueryStoreSchema = createInsertSchema(queryStore).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertQueryStore = z.infer<typeof insertQueryStoreSchema>;
+export type QueryStoreRecord = typeof queryStore.$inferSelect;
+
+// Dead Letter Queue - Failed events for retry/investigation
+export const deadLetterQueue = pgTable("dead_letter_queue", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull(),
+  eventType: text("event_type").notNull(),
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+  errorMessage: text("error_message").notNull(),
+  errorStack: text("error_stack"),
+  retryCount: integer("retry_count").notNull().default(0),
+  maxRetries: integer("max_retries").notNull().default(3),
+  status: text("status").notNull().default("pending"), // pending, retrying, failed, resolved
+  lastRetryAt: timestamp("last_retry_at"),
+  resolvedAt: timestamp("resolved_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertDeadLetterQueueSchema = createInsertSchema(deadLetterQueue).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertDeadLetterQueue = z.infer<typeof insertDeadLetterQueueSchema>;
+export type DeadLetterQueueRecord = typeof deadLetterQueue.$inferSelect;
+
+// Aggregate Snapshots - Performance optimization for event replay
+export const aggregateSnapshots = pgTable("aggregate_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  aggregateId: varchar("aggregate_id").notNull(),
+  aggregateType: text("aggregate_type").notNull(),
+  tenantId: varchar("tenant_id"),
+  version: integer("version").notNull(),
+  state: jsonb("state").$type<Record<string, unknown>>().notNull(),
+  lastEventSequence: integer("last_event_sequence").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAggregateSnapshotSchema = createInsertSchema(aggregateSnapshots).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAggregateSnapshot = z.infer<typeof insertAggregateSnapshotSchema>;
+export type AggregateSnapshotRecord = typeof aggregateSnapshots.$inferSelect;
+
+// AI Task Queue - Durable AI task storage
+export const aiTaskQueue = pgTable("ai_task_queue", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id"),
+  type: text("type").notNull(), // generation, analysis, review, optimization, transformation
+  priority: text("priority").notNull().default("normal"), // critical, high, normal, low
+  status: text("status").notNull().default("queued"), // queued, running, completed, failed, cancelled
+  input: jsonb("input").$type<Record<string, unknown>>().notNull(),
+  output: jsonb("output").$type<Record<string, unknown>>(),
+  assignedModel: text("assigned_model"),
+  retryCount: integer("retry_count").notNull().default(0),
+  maxRetries: integer("max_retries").notNull().default(3),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  error: text("error"),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAiTaskQueueSchema = createInsertSchema(aiTaskQueue).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAiTaskQueue = z.infer<typeof insertAiTaskQueueSchema>;
+export type AiTaskQueueRecord = typeof aiTaskQueue.$inferSelect;
+
+// Extension Registrations - Durable extension storage
+export const extensionRegistrations = pgTable("extension_registrations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  extensionId: varchar("extension_id").notNull().unique(),
+  name: text("name").notNull(),
+  version: text("version").notNull(),
+  description: text("description"),
+  author: text("author"),
+  extensionPoints: jsonb("extension_points").$type<string[]>().notNull().default([]),
+  hooks: jsonb("hooks").$type<Record<string, unknown>>(),
+  config: jsonb("config").$type<Record<string, unknown>>(),
+  tenantId: varchar("tenant_id"), // null for global extensions
+  enabled: boolean("enabled").notNull().default(false),
+  installedAt: timestamp("installed_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertExtensionRegistrationSchema = createInsertSchema(extensionRegistrations).omit({
+  id: true,
+  installedAt: true,
+  updatedAt: true,
+});
+
+export type InsertExtensionRegistration = z.infer<typeof insertExtensionRegistrationSchema>;
+export type ExtensionRegistrationRecord = typeof extensionRegistrations.$inferSelect;
+
+// Blueprints - Product intent storage
+export const blueprints = pgTable("blueprints", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  status: text("status").notNull().default("draft"), // draft, approved, rejected, generating, completed, archived
+  contextDomain: text("context_domain"),
+  contextPlatform: text("context_platform").default("web"),
+  contextRequirements: jsonb("context_requirements").$type<string[]>(),
+  intents: jsonb("intents").$type<Array<{
+    id: string;
+    type: string;
+    description: string;
+    priority: string;
+    dependencies?: string[];
+    acceptanceCriteria?: string[];
+  }>>().notNull().default([]),
+  constraints: jsonb("constraints").$type<Array<{
+    type: string;
+    description: string;
+    enforcementLevel: string;
+  }>>(),
+  outputs: jsonb("outputs").$type<Array<{
+    type: string;
+    format: string;
+    destination: string;
+  }>>(),
+  metadata: jsonb("metadata").$type<{
+    createdBy?: string;
+    approvedBy?: string;
+    version?: number;
+  }>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertBlueprintSchema = createInsertSchema(blueprints).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertBlueprint = z.infer<typeof insertBlueprintSchema>;
+export type BlueprintRecord = typeof blueprints.$inferSelect;
+
+// Execution Plans - AI planning storage
+export const executionPlans = pgTable("execution_plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  blueprintId: varchar("blueprint_id"),
+  tenantId: varchar("tenant_id"),
+  objective: text("objective").notNull(),
+  goalType: text("goal_type").notNull(), // generation, optimization, migration, scaling, recovery
+  priority: text("priority").notNull().default("normal"),
+  status: text("status").notNull().default("pending"), // pending, executing, completed, failed, cancelled
+  steps: jsonb("steps").$type<Array<{
+    id: string;
+    name: string;
+    type: string;
+    actions: Array<{ module: string; command: string; params: Record<string, unknown> }>;
+    dependencies: string[];
+    status?: string;
+  }>>().notNull().default([]),
+  estimatedDuration: integer("estimated_duration"),
+  resourceRequirements: jsonb("resource_requirements").$type<{
+    cpu: number;
+    memory: number;
+    aiTokens: number;
+  }>(),
+  completedSteps: jsonb("completed_steps").$type<string[]>().default([]),
+  failedStep: text("failed_step"),
+  outputs: jsonb("outputs").$type<Record<string, unknown>>(),
+  metrics: jsonb("metrics").$type<{
+    duration?: number;
+    resourcesUsed?: { cpu: number; memory: number; aiTokens: number };
+    successRate?: number;
+  }>(),
+  logs: jsonb("logs").$type<Array<{
+    timestamp: string;
+    level: string;
+    message: string;
+  }>>().default([]),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertExecutionPlanSchema = createInsertSchema(executionPlans).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertExecutionPlan = z.infer<typeof insertExecutionPlanSchema>;
+export type ExecutionPlanRecord = typeof executionPlans.$inferSelect;
+
 // ==================== PLATFORM STATE OVERVIEW ====================
 
 // Platform State - Real-time health and risk monitoring

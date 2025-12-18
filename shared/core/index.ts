@@ -8,3 +8,6 @@ export * from './contracts';
 export * from './plugin-system';
 export * from './extension-registry';
 export * from './modules/index';
+export * from './providers/index';
+export * from './persistence/index';
+export * from './orchestration/index';
