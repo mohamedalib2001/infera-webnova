@@ -30,7 +30,14 @@ import {
   Package,
   Settings,
   FileText,
-  FolderTree
+  FolderTree,
+  Lightbulb,
+  Search,
+  CreditCard,
+  Bell,
+  BarChart3,
+  Globe,
+  Plus
 } from "lucide-react";
 
 const translations = {
@@ -65,7 +72,11 @@ const translations = {
       caching: "التخزين المؤقت",
       fileUpload: "رفع الملفات",
       email: "إرسال البريد"
-    }
+    },
+    smartSuggestions: "اقتراحات ذكية",
+    addFeature: "إضافة",
+    added: "تمت الإضافة",
+    suggestionsDesc: "ميزات إضافية يمكنك إضافتها لتحسين مشروعك"
   },
   en: {
     title: "Backend Generator",
@@ -98,9 +109,66 @@ const translations = {
       caching: "Caching",
       fileUpload: "File Upload",
       email: "Email Sending"
-    }
+    },
+    smartSuggestions: "Smart Suggestions",
+    addFeature: "Add",
+    added: "Added",
+    suggestionsDesc: "Additional features you can add to enhance your project"
   }
 };
+
+interface SmartSuggestion {
+  id: string;
+  title: { ar: string; en: string };
+  description: { ar: string; en: string };
+  features: string[];
+  icon: string;
+}
+
+const suggestionCatalog: SmartSuggestion[] = [
+  {
+    id: "realtime",
+    title: { ar: "الاتصال في الوقت الفعلي", en: "Real-time Communication" },
+    description: { ar: "أضف WebSocket للتحديثات الفورية والإشعارات", en: "Add WebSocket for instant updates and notifications" },
+    features: ["websocket", "realtime"],
+    icon: "zap"
+  },
+  {
+    id: "search",
+    title: { ar: "البحث المتقدم", en: "Advanced Search" },
+    description: { ar: "محرك بحث نصي كامل مع فلترة وترتيب", en: "Full-text search engine with filtering and sorting" },
+    features: ["search", "elasticsearch"],
+    icon: "search"
+  },
+  {
+    id: "payments",
+    title: { ar: "بوابة الدفع", en: "Payment Gateway" },
+    description: { ar: "تكامل مع Stripe للمدفوعات الآمنة", en: "Stripe integration for secure payments" },
+    features: ["payments", "stripe"],
+    icon: "creditCard"
+  },
+  {
+    id: "notifications",
+    title: { ar: "نظام الإشعارات", en: "Notification System" },
+    description: { ar: "إشعارات Push وSMS والبريد الإلكتروني", en: "Push, SMS, and Email notifications" },
+    features: ["notifications", "push"],
+    icon: "bell"
+  },
+  {
+    id: "analytics",
+    title: { ar: "التحليلات والإحصائيات", en: "Analytics & Statistics" },
+    description: { ar: "لوحة تحكم لتتبع المستخدمين والأحداث", en: "Dashboard for tracking users and events" },
+    features: ["analytics", "tracking"],
+    icon: "chart"
+  },
+  {
+    id: "i18n",
+    title: { ar: "تعدد اللغات", en: "Internationalization" },
+    description: { ar: "دعم لغات متعددة مع ترجمة تلقائية", en: "Multi-language support with auto-translation" },
+    features: ["i18n", "localization"],
+    icon: "globe"
+  }
+];
 
 interface GeneratedFile {
   path: string;
@@ -133,8 +201,27 @@ export default function BackendGenerator() {
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>(["crud", "validation", "errorHandling"]);
   const [result, setResult] = useState<GenerationResult | null>(null);
   const [selectedFile, setSelectedFile] = useState<GeneratedFile | null>(null);
+  const [appliedSuggestions, setAppliedSuggestions] = useState<string[]>([]);
+  const [applyingSuggestion, setApplyingSuggestion] = useState<string | null>(null);
 
   const features = ["crud", "validation", "errorHandling", "logging", "rateLimit", "caching", "fileUpload", "email"];
+
+  const getEligibleSuggestions = () => {
+    return suggestionCatalog.filter(s => !appliedSuggestions.includes(s.id));
+  };
+
+  const applySuggestion = async (suggestion: SmartSuggestion) => {
+    setApplyingSuggestion(suggestion.id);
+    setSelectedFeatures(prev => [...prev, ...suggestion.features]);
+    setAppliedSuggestions(prev => [...prev, suggestion.id]);
+    toast({ 
+      title: language === "ar" ? `تمت إضافة ${suggestion.title.ar}` : `Added ${suggestion.title.en}` 
+    });
+    setTimeout(() => {
+      setApplyingSuggestion(null);
+      generateMutation.mutate();
+    }, 500);
+  };
 
   const generateMutation = useMutation({
     mutationFn: async () => {
@@ -387,6 +474,67 @@ export default function BackendGenerator() {
                   </div>
                 </CardContent>
               </Card>
+
+              {getEligibleSuggestions().length > 0 && (
+                <Card className="border-dashed border-2 border-primary/30 bg-primary/5">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-primary">
+                      <Lightbulb className="h-5 w-5" />
+                      {t.smartSuggestions}
+                    </CardTitle>
+                    <CardDescription>{t.suggestionsDesc}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid gap-3">
+                      {getEligibleSuggestions().map((suggestion) => {
+                        const IconComponent = suggestion.icon === "zap" ? Zap 
+                          : suggestion.icon === "search" ? Search
+                          : suggestion.icon === "creditCard" ? CreditCard
+                          : suggestion.icon === "bell" ? Bell
+                          : suggestion.icon === "chart" ? BarChart3
+                          : Globe;
+                        const isApplying = applyingSuggestion === suggestion.id;
+                        return (
+                          <div 
+                            key={suggestion.id}
+                            className="flex items-center justify-between p-3 border rounded-lg hover-elevate"
+                            data-testid={`suggestion-${suggestion.id}`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                <IconComponent className="h-5 w-5 text-primary" />
+                              </div>
+                              <div>
+                                <p className="font-medium">
+                                  {suggestion.title[language as keyof typeof suggestion.title] || suggestion.title.en}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  {suggestion.description[language as keyof typeof suggestion.description] || suggestion.description.en}
+                                </p>
+                              </div>
+                            </div>
+                            <Button
+                              size="sm"
+                              onClick={() => applySuggestion(suggestion)}
+                              disabled={isApplying || generateMutation.isPending}
+                              data-testid={`button-add-${suggestion.id}`}
+                            >
+                              {isApplying ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <Plus className="h-4 w-4 mr-1" />
+                                  {t.addFeature}
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               <Tabs defaultValue="deps">
                 <TabsList className="grid w-full grid-cols-4">
