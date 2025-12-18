@@ -29,6 +29,7 @@ import {
   Server,
   Link2,
   Bell,
+  Brain,
 } from "lucide-react";
 import {
   Sidebar,
@@ -338,6 +339,14 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                           <Link href="/owner/notifications" data-testid="nav-owner-notifications">
                             <Bell className="h-4 w-4 text-yellow-500" />
                             <span>{language === "ar" ? "الإشعارات" : "Notifications"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/owner/ai-sovereignty"}>
+                          <Link href="/owner/ai-sovereignty" data-testid="nav-owner-ai-sovereignty">
+                            <Brain className="h-4 w-4 text-purple-500" />
+                            <span>{language === "ar" ? "سيادة الذكاء" : "AI Sovereignty"}</span>
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
