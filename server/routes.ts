@@ -1233,10 +1233,31 @@ export async function registerRoutes(
 
   // ============ Project Infrastructure Routes ============
 
+  // Helper to check project ownership
+  const checkProjectAccess = async (projectId: string, userId: string): Promise<{ allowed: boolean; project?: any }> => {
+    const project = await storage.getProject(projectId);
+    if (!project) return { allowed: false };
+    
+    // Allow if user is owner of the project
+    if (project.userId === userId) return { allowed: true, project };
+    
+    // Allow if user has owner role (admin)
+    const user = await storage.getUser(userId);
+    if (user?.role === "owner") return { allowed: true, project };
+    
+    return { allowed: false, project };
+  };
+
   // Get project infrastructure status
-  app.get("/api/projects/:projectId/infrastructure", async (req, res) => {
+  app.get("/api/projects/:projectId/infrastructure", requireAuth, async (req, res) => {
     try {
       const { projectId } = req.params;
+      const userId = (req as any).userId;
+      
+      const { allowed } = await checkProjectAccess(projectId, userId);
+      if (!allowed) {
+        return res.status(403).json({ success: false, error: "Not authorized to access this project" });
+      }
       
       const [backend, database, authConfig, jobs] = await Promise.all([
         storage.getProjectBackend(projectId),
@@ -1265,9 +1286,16 @@ export async function registerRoutes(
   });
 
   // Get project backend code
-  app.get("/api/projects/:projectId/backend/code", async (req, res) => {
+  app.get("/api/projects/:projectId/backend/code", requireAuth, async (req, res) => {
     try {
       const { projectId } = req.params;
+      const userId = (req as any).userId;
+      
+      const { allowed } = await checkProjectAccess(projectId, userId);
+      if (!allowed) {
+        return res.status(403).json({ success: false, error: "Not authorized to access this project" });
+      }
+      
       const backend = await storage.getProjectBackend(projectId);
       
       if (!backend) {
@@ -1287,9 +1315,16 @@ export async function registerRoutes(
   });
 
   // Get project database schema
-  app.get("/api/projects/:projectId/database/schema", async (req, res) => {
+  app.get("/api/projects/:projectId/database/schema", requireAuth, async (req, res) => {
     try {
       const { projectId } = req.params;
+      const userId = (req as any).userId;
+      
+      const { allowed } = await checkProjectAccess(projectId, userId);
+      if (!allowed) {
+        return res.status(403).json({ success: false, error: "Not authorized to access this project" });
+      }
+      
       const database = await storage.getProjectDatabase(projectId);
       
       if (!database) {
@@ -1313,10 +1348,11 @@ export async function registerRoutes(
   app.post("/api/projects/:projectId/provision", requireAuth, async (req, res) => {
     try {
       const { projectId } = req.params;
-      const project = await storage.getProject(projectId);
+      const userId = (req as any).userId;
       
-      if (!project) {
-        return res.status(404).json({ success: false, error: "Project not found" });
+      const { allowed, project } = await checkProjectAccess(projectId, userId);
+      if (!allowed || !project) {
+        return res.status(403).json({ success: false, error: "Not authorized to provision this project" });
       }
       
       const { createAutoProvisionService } = await import("./auto-provision-service");
