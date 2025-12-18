@@ -29,6 +29,7 @@ import SovereignControlCenter from "@/pages/sovereign-control-center";
 import Domains from "@/pages/domains";
 import Settings from "@/pages/settings";
 import PlatformGenerator from "@/pages/platform-generator";
+import ApiKeys from "@/pages/api-keys";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -54,6 +55,7 @@ function Router() {
       <Route path="/domains" component={Domains} />
       <Route path="/settings" component={Settings} />
       <Route path="/platform-generator" component={PlatformGenerator} />
+      <Route path="/api-keys" component={ApiKeys} />
       <Route path="/preview/:shareCode" component={Preview} />
       <Route component={NotFound} />
     </Switch>

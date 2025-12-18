@@ -24,6 +24,7 @@ import {
   Wrench,
   ChevronDown,
   ChevronRight,
+  Key,
 } from "lucide-react";
 import {
   Sidebar,
@@ -263,14 +264,24 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                     </SidebarMenuItem>
                   )}
                   {isOwner && (
-                    <SidebarMenuItem>
-                      <SidebarMenuButton asChild isActive={location === "/owner"}>
-                        <Link href="/owner" data-testid="nav-owner">
-                          <Crown className="h-4 w-4 text-amber-500" />
-                          <span>{language === "ar" ? "لوحة تحكم المالك" : "Owner Dashboard"}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
+                    <>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/owner"}>
+                          <Link href="/owner" data-testid="nav-owner">
+                            <Crown className="h-4 w-4 text-amber-500" />
+                            <span>{language === "ar" ? "لوحة تحكم المالك" : "Owner Dashboard"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/api-keys"}>
+                          <Link href="/api-keys" data-testid="nav-api-keys">
+                            <Key className="h-4 w-4 text-violet-500" />
+                            <span>{language === "ar" ? "مفاتيح API" : "API Keys"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    </>
                   )}
                 </SidebarMenu>
               </SidebarGroupContent>

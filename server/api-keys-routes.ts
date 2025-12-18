@@ -110,8 +110,21 @@ router.post("/", async (req: Request, res: Response) => {
     });
     
     // Return with plain text key (shown only once!)
+    // SECURITY: Never expose keyHash
+    const safeKey = {
+      id: result.apiKey.id,
+      name: result.apiKey.name,
+      description: result.apiKey.description,
+      prefix: result.apiKey.prefix,
+      lastFourChars: result.apiKey.lastFourChars,
+      scopes: result.apiKey.scopes,
+      status: result.apiKey.status,
+      rateLimitTier: result.apiKey.rateLimitTier,
+      createdAt: result.apiKey.createdAt,
+      expiresAt: result.apiKey.expiresAt,
+    };
     res.status(201).json({
-      key: result.apiKey,
+      key: safeKey,
       plainTextKey: result.plainTextKey,
       warning: "This API key will only be displayed once. Store it securely!",
       warningAr: "سيتم عرض هذا المفتاح مرة واحدة فقط. احفظه بأمان!"
@@ -167,8 +180,20 @@ router.post("/:id/rotate", async (req: Request, res: Response) => {
     
     const result = await apiKeyService.rotateApiKey(id, userId);
     
+    // SECURITY: Never expose keyHash
+    const safeKey = {
+      id: result.apiKey.id,
+      name: result.apiKey.name,
+      prefix: result.apiKey.prefix,
+      lastFourChars: result.apiKey.lastFourChars,
+      scopes: result.apiKey.scopes,
+      status: result.apiKey.status,
+      createdAt: result.apiKey.createdAt,
+      expiresAt: result.apiKey.expiresAt,
+    };
+    
     res.json({
-      newKey: result.apiKey,
+      newKey: safeKey,
       plainTextKey: result.plainTextKey,
       warning: "The old key has been revoked. This new key will only be displayed once!",
       warningAr: "تم إلغاء المفتاح القديم. سيتم عرض المفتاح الجديد مرة واحدة فقط!"
