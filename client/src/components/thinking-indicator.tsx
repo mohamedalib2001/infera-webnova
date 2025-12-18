@@ -19,13 +19,13 @@ interface ThinkingIndicatorProps {
 }
 
 const GENERATION_STEPS = [
-  { id: 'analyze', message: 'تحليل الطلب وفهم المتطلبات', messageEn: 'Analyzing request and understanding requirements', icon: 'analyze' as const, duration: 2000 },
-  { id: 'plan', message: 'وضع خطة البناء والهيكل', messageEn: 'Creating build plan and structure', icon: 'structure' as const, duration: 3000 },
-  { id: 'html', message: 'إنشاء هيكل HTML الأساسي', messageEn: 'Building HTML structure', icon: 'code' as const, duration: 8000 },
-  { id: 'css', message: 'تطبيق التنسيقات والألوان CSS', messageEn: 'Applying CSS styles and colors', icon: 'design' as const, duration: 6000 },
-  { id: 'js', message: 'إضافة التفاعلات JavaScript', messageEn: 'Adding JavaScript interactions', icon: 'code' as const, duration: 5000 },
-  { id: 'responsive', message: 'تحسين التوافق مع الأجهزة', messageEn: 'Optimizing for responsive design', icon: 'optimize' as const, duration: 3000 },
-  { id: 'review', message: 'المراجعة النهائية والتحسين', messageEn: 'Final review and optimization', icon: 'review' as const, duration: 2000 },
+  { id: 'analyze', message: 'تحليل مواصفات المنصة السيادية', messageEn: 'Analyzing sovereign platform specifications', icon: 'analyze' as const, duration: 2000 },
+  { id: 'blueprint', message: 'إنشاء المخطط الذكي (Blueprint)', messageEn: 'Creating Smart Blueprint', icon: 'structure' as const, duration: 3000 },
+  { id: 'compliance', message: 'إعداد متطلبات الامتثال والحوكمة', messageEn: 'Configuring compliance & governance requirements', icon: 'design' as const, duration: 4000 },
+  { id: 'codegen', message: 'توليد الكود السيادي', messageEn: 'Generating sovereign codebase', icon: 'code' as const, duration: 8000 },
+  { id: 'runtime', message: 'تهيئة طبقة التشغيل (Runtime)', messageEn: 'Initializing Runtime Layer', icon: 'code' as const, duration: 5000 },
+  { id: 'deploy', message: 'نشر المنصة وتفعيل المراقبة', messageEn: 'Deploying platform & enabling monitoring', icon: 'optimize' as const, duration: 4000 },
+  { id: 'autonomous', message: 'تفعيل التشغيل الذاتي والشفاء الذاتي', messageEn: 'Activating autonomous operation & self-healing', icon: 'review' as const, duration: 3000 },
 ];
 
 export function ThinkingIndicator({ isActive, currentStep, logs }: ThinkingIndicatorProps) {
@@ -149,7 +149,7 @@ export function ThinkingIndicator({ isActive, currentStep, logs }: ThinkingIndic
               {isRtl ? currentPhase?.message : currentPhase?.messageEn}
             </span>
             <span className="text-xs text-muted-foreground">
-              {isRtl ? "الذكاء الاصطناعي يبني موقعك" : "AI is building your website"}
+              {isRtl ? "الذكاء الاصطناعي يبني منصتك السيادية" : "AI is building your sovereign platform"}
             </span>
           </div>
         </div>

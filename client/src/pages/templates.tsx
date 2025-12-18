@@ -8,7 +8,7 @@ import { Search } from "lucide-react";
 import { useState, useMemo } from "react";
 import type { Template } from "@shared/schema";
 
-const categories = ["All", "Landing", "Portfolio", "E-commerce", "Blog", "Dashboard"];
+const categories = ["All", "Financial", "Healthcare", "Government", "Education", "Enterprise"];
 
 export default function Templates() {
   const [, setLocation] = useLocation();
@@ -38,9 +38,9 @@ export default function Templates() {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold" data-testid="text-templates-title">Templates</h1>
+        <h1 className="text-3xl font-bold" data-testid="text-templates-title">Sovereign Templates</h1>
         <p className="text-muted-foreground mt-1">
-          Start with a pre-built template and customize it
+          Start with a pre-built sovereign platform template and customize it
         </p>
       </div>
 

@@ -1,0 +1,194 @@
+INFRA WebNova — FINAL SYSTEM DIRECTIVE (LOCKED)
+
+Status: FINAL / PRODUCTION-GRADE / NO FUTURE MODIFICATION ASSUMED
+Deployment Target: Isolated Server (Hetzner)
+Post-Deployment Development: NOT POSSIBLE
+
+────────────────────────────────────────────
+SYSTEM IDENTITY (NON-NEGOTIABLE)
+────────────────────────────────────────────
+
+INFRA WebNova is a Sovereign Intelligent Core Operating System for Digital Platforms.
+
+It is NOT:
+• A Website Builder
+• A Page Generator
+• A Landing Page Tool
+• A Static Content System
+
+Any UI, flow, example, or code that resembles a “website builder”
+is architecturally invalid and MUST be rejected.
+
+The system builds, governs, operates, monitors, and evolves
+FULLY RUNNING sovereign platforms.
+
+────────────────────────────────────────────
+MANDATORY TERMINOLOGY & COMPLIANCE
+────────────────────────────────────────────
+
+All terminology MUST be correct and consistent:
+
+• PCI-DSS — Payment Card Industry Data Security Standard
+• HIPAA — Health Insurance Portability and Accountability Act
+• GDPR — General Data Protection Regulation
+• WCAG 2.1 — Web Content Accessibility Guidelines
+• Data Sovereignty — (NOT Data Knowledge)
+• FERPA — Family Educational Rights and Privacy Act
+
+Any incorrect abbreviation or spelling is a critical defect.
+
+────────────────────────────────────────────
+ABSOLUTE ARCHITECTURAL RULES
+────────────────────────────────────────────
+
+RULE 1 — NO WEBSITE CONCEPT
+If request.intent includes:
+• website
+• page
+• landing
+• portfolio
+• menu
+→ HARD FAIL
+
+RULE 2 — BLUEPRINT IS THE SINGLE SOURCE OF TRUTH
+• Every platform MUST have a Blueprint
+• Blueprints are immutable
+• Evolution creates NEW Blueprint versions only
+• Code, Runtime, Deployment, Monitoring, Governance
+  are ALL derived from the Blueprint
+
+RULE 3 — AI ORCHESTRATOR IS THE DECISION AUTHORITY
+No action is allowed without AI Orchestrator authorization:
+• Platform creation
+• Code generation
+• Runtime deployment
+• Scaling
+• Modification
+• Evolution
+
+RULE 4 — EVENT-DRIVEN ONLY
+• No direct module calls
+• Everything emits events
+• Immutable Event Store
+• Full state reconstruction via replay is mandatory
+
+RULE 5 — EVERY PLATFORM MUST BE OPERABLE
+Each platform MUST support:
+• Run
+• Restart
+• Stop
+• Logs
+• Metrics
+• Health Checks
+
+Missing any capability = invalid platform.
+
+────────────────────────────────────────────
+USER INPUT CONSTRAINTS (HARD-LOCKED)
+────────────────────────────────────────────
+
+Free text is NOT a source of truth.
+
+Platform creation REQUIRES structured specifications.
+
+REQUIRED FIELDS (NO EXCEPTIONS):
+• Domain (Financial, Healthcare, Government, Education, etc.)
+• Compliance (PCI-DSS, HIPAA, GDPR, WCAG 2.1, FERPA…)
+• Expected Scale (Local / National / Sovereign)
+• Data Sovereignty Requirements
+• Availability Target (e.g. 99.99%)
+
+If any field is missing → execution is blocked.
+
+Input placeholder MUST be EXACTLY:
+"أدخل مواصفات منصتك السيادية (المجال، الامتثال، المقياس، السيادة)"
+
+────────────────────────────────────────────
+UI & UX ENFORCEMENT
+────────────────────────────────────────────
+
+FORBIDDEN UI WORDING:
+• Generate Website
+• Build Page
+• Create Landing Page
+• Simple / Quick / MVP
+
+ALLOWED CONCEPTS ONLY:
+• New Platform
+• Sovereign Templates
+• Smart Blueprints
+• Active Platforms
+
+Blueprints MUST be visible:
+• Blueprint ID
+• Version
+• Compliance Status
+• Evolution State
+
+Platforms are shown as ACTIVE RUNTIMES,
+not static outputs.
+
+────────────────────────────────────────────
+DOMAIN VISUALIZATION (MANDATORY)
+────────────────────────────────────────────
+
+Financial     🏦  PCI-DSS | AML | KYC
+Healthcare    🏥  HIPAA | GDPR | HITECH
+Government    🏛️  WCAG 2.1 | Data Sovereignty | Immutable Records
+Education     🎓  FERPA | GDPR | COPPA
+
+Icons are semantic indicators, not decoration.
+
+────────────────────────────────────────────
+VALID PLATFORM EXAMPLES ONLY
+────────────────────────────────────────────
+
+• 🏦 منصة خدمات مالية رقمية
+  (PCI-DSS – معاملات آمنة – حوكمة مالية)
+
+• 🏥 نظام رعاية صحية ذكي
+  (HIPAA – سجلات مشفرة – تشغيل ذاتي)
+
+• 🏛️ بوابة حكومية إلكترونية
+  (WCAG 2.1 – سيادة بيانات – سجلات غير قابلة للتغيير)
+
+• 🎓 منصة تعليمية ذكية متعددة المستأجرين
+  (FERPA – GDPR – عزل كامل)
+
+NO examples related to websites or pages are allowed.
+
+────────────────────────────────────────────
+FORBIDDEN IMPLEMENTATIONS
+────────────────────────────────────────────
+
+STRICTLY FORBIDDEN:
+• Static HTML as final output
+• Hardcoded templates outside Blueprint derivation
+• Logic outside Event System
+• “Simple”, “Temporary”, or “Later” implementations
+• TODOs related to core architecture
+
+There is:
+• NO MVP mode
+• NO fallback mode
+• NO future completion phase
+
+Architectural correctness is mandatory NOW.
+
+────────────────────────────────────────────
+FINAL ASSERTION
+────────────────────────────────────────────
+
+INFRA WebNova will be deployed to an isolated server
+with NO post-deployment development access.
+
+Therefore:
+• All core systems MUST be complete at deployment
+• No placeholders
+• No deferred logic
+• No compromises
+
+Any implementation that violates this directive
+renders the system INVALID by definition.
+
+END OF DIRECTIVE

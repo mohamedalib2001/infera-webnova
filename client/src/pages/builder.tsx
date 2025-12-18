@@ -163,8 +163,8 @@ export default function Builder() {
     abortControllerRef.current = new AbortController();
     
     const newProjectKeywords = [
-      'أنشئ', 'اصنع', 'ابني', 'صمم', 'جديد', 'موقع', 'صفحة', 'منصة', 'متجر', 'بورتفوليو',
-      'create', 'build', 'make', 'design', 'new', 'website', 'page', 'landing', 'portfolio', 'store'
+      'أنشئ', 'اصنع', 'ابني', 'صمم', 'جديد', 'منصة', 'نظام', 'بوابة', 'سيادي', 'مالي', 'صحي', 'حكومي', 'تعليمي',
+      'create', 'build', 'make', 'design', 'new', 'platform', 'system', 'portal', 'sovereign', 'financial', 'healthcare', 'government', 'education'
     ];
     const isNewProjectRequest = newProjectKeywords.some(kw => content.toLowerCase().includes(kw)) && 
                                  !content.toLowerCase().includes('عدل') && 

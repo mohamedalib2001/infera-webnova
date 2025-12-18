@@ -22,11 +22,11 @@ const viewportSizes: Record<ViewportSize, { width: string; icon: React.ReactNode
 };
 
 const generationStages = [
-  { id: "planning", icon: Sparkles, labelEn: "Planning your website...", labelAr: "جاري التخطيط لموقعك..." },
-  { id: "designing", icon: Palette, labelEn: "Designing the layout...", labelAr: "جاري تصميم التخطيط..." },
-  { id: "coding", icon: Code2, labelEn: "Writing the code...", labelAr: "جاري كتابة الكود..." },
-  { id: "optimizing", icon: Zap, labelEn: "Optimizing for performance...", labelAr: "جاري تحسين الأداء..." },
-  { id: "finishing", icon: CheckCircle2, labelEn: "Finishing touches...", labelAr: "اللمسات النهائية..." },
+  { id: "planning", icon: Sparkles, labelEn: "Analyzing platform requirements...", labelAr: "جاري تحليل متطلبات المنصة..." },
+  { id: "designing", icon: Palette, labelEn: "Designing sovereign architecture...", labelAr: "جاري تصميم البنية السيادية..." },
+  { id: "coding", icon: Code2, labelEn: "Generating sovereign code...", labelAr: "جاري توليد الكود السيادي..." },
+  { id: "optimizing", icon: Zap, labelEn: "Configuring compliance & governance...", labelAr: "جاري إعداد الامتثال والحوكمة..." },
+  { id: "finishing", icon: CheckCircle2, labelEn: "Initializing autonomous operations...", labelAr: "جاري تهيئة التشغيل الذاتي..." },
 ];
 
 export function CodePreview({ html, css, js, onRefresh, isGenerating = false }: CodePreviewProps) {
@@ -80,7 +80,7 @@ export function CodePreview({ html, css, js, onRefresh, isGenerating = false }: 
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "website.html";
+    a.download = "platform.html";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -207,7 +207,7 @@ export function CodePreview({ html, css, js, onRefresh, isGenerating = false }: 
                       ))}
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {isRtl ? "يرجى الانتظار بينما نقوم بإنشاء موقعك الاحترافي" : "Please wait while we create your professional website"}
+                      {isRtl ? "يرجى الانتظار بينما نقوم ببناء منصتك السيادية" : "Please wait while we build your sovereign platform"}
                     </p>
                   </div>
                 </div>
@@ -221,7 +221,7 @@ export function CodePreview({ html, css, js, onRefresh, isGenerating = false }: 
                 />
               ) : (
                 <div className="h-full flex items-center justify-center text-muted-foreground">
-                  <p>{isRtl ? "ستظهر معاينة موقعك هنا" : "Your website preview will appear here"}</p>
+                  <p>{isRtl ? "ستظهر معاينة منصتك السيادية هنا" : "Your sovereign platform preview will appear here"}</p>
                 </div>
               )}
             </div>

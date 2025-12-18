@@ -50,10 +50,10 @@ const mockData: AnalyticsData = {
     visitorsChange: 8.3,
   },
   projects: [
-    { id: "1", name: "E-commerce Store", views: 4521, visitors: 1234, engagement: 78 },
-    { id: "2", name: "Portfolio Site", views: 3210, visitors: 987, engagement: 65 },
-    { id: "3", name: "Landing Page", views: 2156, visitors: 756, engagement: 82 },
-    { id: "4", name: "Blog Template", views: 1890, visitors: 543, engagement: 71 },
+    { id: "1", name: "Financial Services Platform", views: 4521, visitors: 1234, engagement: 78 },
+    { id: "2", name: "Healthcare System", views: 3210, visitors: 987, engagement: 65 },
+    { id: "3", name: "E-Government Portal", views: 2156, visitors: 756, engagement: 82 },
+    { id: "4", name: "Education Platform", views: 1890, visitors: 543, engagement: 71 },
   ],
   aiUsage: {
     totalGenerations: 156,

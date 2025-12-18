@@ -42,9 +42,9 @@ export default function Projects() {
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold" data-testid="text-projects-title">My Projects</h1>
+          <h1 className="text-3xl font-bold" data-testid="text-projects-title">My Platforms</h1>
           <p className="text-muted-foreground mt-1">
-            Manage and edit your website projects
+            Manage and operate your sovereign platforms
           </p>
         </div>
         <Button
@@ -53,7 +53,7 @@ export default function Projects() {
           data-testid="button-new-project-page"
         >
           <Plus className="h-4 w-4" />
-          New Project
+          New Platform
         </Button>
       </div>
 

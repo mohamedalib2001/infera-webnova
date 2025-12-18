@@ -81,10 +81,10 @@ export default function Home() {
   };
 
   const suggestions = [
-    { key: "suggestion.landing" },
-    { key: "suggestion.portfolio" },
-    { key: "suggestion.restaurant" },
-    { key: "suggestion.ecommerce" },
+    { key: "suggestion.financial" },
+    { key: "suggestion.healthcare" },
+    { key: "suggestion.government" },
+    { key: "suggestion.education" },
   ];
 
   return (

@@ -102,7 +102,7 @@ export default function SEOOptimizer() {
     score: 72,
     title: { 
       status: "good", 
-      message: tr("عنوان الصفحة موجود وبطول مناسب", "Page title exists with appropriate length"),
+      message: tr("عنوان المنصة موجود وبطول مناسب", "Platform title exists with appropriate length"),
       suggestion: undefined
     },
     description: { 
@@ -125,11 +125,11 @@ export default function SEOOptimizer() {
       message: tr("الروابط منظمة بشكل جيد", "Links are well organized"),
       internal: 12, external: 4
     },
-    keywords: ["website builder", "AI", "منشئ المواقع", "ذكاء اصطناعي"],
+    keywords: ["sovereign platform", "AI", "منصات سيادية", "ذكاء اصطناعي"],
     suggestions: [
-      tr("أضف وصفاً meta أطول للصفحة", "Add a longer meta description"),
+      tr("أضف وصفاً meta أطول للمنصة", "Add a longer meta description for the platform"),
       tr("أضف نصاً بديلاً للصور الناقصة", "Add alt text to missing images"),
-      tr("حسّن سرعة تحميل الصفحة", "Improve page loading speed"),
+      tr("حسّن سرعة تحميل المنصة", "Improve platform loading speed"),
       tr("أضف structured data للمحتوى", "Add structured data markup"),
     ],
   };
@@ -147,7 +147,7 @@ export default function SEOOptimizer() {
             {tr("محسّن SEO بالذكاء الاصطناعي", "AI SEO Optimizer")}
           </h1>
           <p className="text-muted-foreground">
-            {tr("حلل وحسّن موقعك لمحركات البحث", "Analyze and optimize your site for search engines")}
+            {tr("حلل وحسّن منصتك السيادية لمحركات البحث", "Analyze and optimize your sovereign platform for search engines")}
           </p>
         </div>
       </div>
@@ -206,7 +206,7 @@ export default function SEOOptimizer() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <FileText className="h-4 w-4" />
-                        <span className="font-medium">{tr("عنوان الصفحة", "Page Title")}</span>
+                        <span className="font-medium">{tr("عنوان المنصة", "Platform Title")}</span>
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">{displayAnalysis.title.message}</p>
                       {displayAnalysis.title.suggestion && (

@@ -21,7 +21,7 @@ const translations: Record<string, Record<Language, string>> = {
   // Home page - Sovereign Platform OS
   "home.title": { ar: "نظام التشغيل الذكي للمنصات السيادية", en: "Intelligent OS for Sovereign Platforms" },
   "home.subtitle": { ar: "صِف متطلبات منصتك المستقلة وشاهد النظام الذكي يبنيها ويديرها ذاتياً", en: "Describe your sovereign platform requirements and watch the AI system build and operate it autonomously" },
-  "home.placeholder": { ar: "صِف مواصفات المنصة السيادية المطلوبة...", en: "Describe your sovereign platform specifications..." },
+  "home.placeholder": { ar: "أدخل مواصفات منصتك السيادية (المجال، الامتثال، المقياس، السيادة)", en: "Enter sovereign platform specifications (Domain, Compliance, Scale, Sovereignty)" },
   "home.badge": { ar: "نظام التشغيل الأساسي - INFERA Core OS", en: "Core Operating System - INFERA Core OS" },
   "home.recent": { ar: "المنصات النشطة", en: "Active Platforms" },
   "home.myProjects": { ar: "منصاتي", en: "My Platforms" },
@@ -31,11 +31,11 @@ const translations: Record<string, Record<Language, string>> = {
   "home.blueprints": { ar: "المخططات الذكية", en: "Smart Blueprints" },
   "home.autonomousOps": { ar: "التشغيل الذاتي", en: "Autonomous Operations" },
   
-  // Sovereign Platform Suggestions
-  "suggestion.landing": { ar: "منصة خدمات مالية رقمية متوافقة مع PCI-DSS", en: "Digital financial services platform (PCI-DSS compliant)" },
-  "suggestion.portfolio": { ar: "نظام رعاية صحية ذكي متوافق مع HIPAA", en: "Smart healthcare system (HIPAA compliant)" },
-  "suggestion.restaurant": { ar: "بوابة حكومية إلكترونية متوافقة مع WCAG 2.1", en: "E-Government portal (WCAG 2.1 compliant)" },
-  "suggestion.ecommerce": { ar: "منصة تعليمية ذكية متعددة المستأجرين", en: "Multi-tenant smart education platform" },
+  // Sovereign Platform Examples (NO website/page references)
+  "suggestion.financial": { ar: "منصة خدمات مالية رقمية (PCI-DSS | معاملات آمنة | حوكمة مالية)", en: "Digital financial services platform (PCI-DSS | Secure transactions | Financial governance)" },
+  "suggestion.healthcare": { ar: "نظام رعاية صحية ذكي (HIPAA | سجلات مشفرة | تشغيل ذاتي)", en: "Smart healthcare system (HIPAA | Encrypted records | Autonomous operation)" },
+  "suggestion.government": { ar: "بوابة حكومية إلكترونية (WCAG 2.1 | سيادة بيانات | سجلات غير قابلة للتغيير)", en: "E-Government portal (WCAG 2.1 | Data Sovereignty | Immutable records)" },
+  "suggestion.education": { ar: "منصة تعليمية ذكية (FERPA | GDPR | عزل كامل للمستأجرين)", en: "Smart education platform (FERPA | GDPR | Complete tenant isolation)" },
   
   // Sovereign Domains
   "domain.financial": { ar: "مالي", en: "Financial" },

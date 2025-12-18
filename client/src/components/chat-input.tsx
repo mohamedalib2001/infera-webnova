@@ -58,7 +58,7 @@ export function ChatInput({
   onSend, 
   onCancel,
   isLoading = false, 
-  placeholder = "Ask AI to create your website...",
+  placeholder = "Enter sovereign platform specifications...",
   language = "en"
 }: ChatInputProps) {
   const [message, setMessage] = useState("");
@@ -72,11 +72,11 @@ export function ChatInput({
 
   const t = {
     ar: {
-      newProject: "مشروع جديد",
-      newWebsite: "موقع ويب جديد",
-      newLanding: "صفحة هبوط",
-      newPortfolio: "معرض أعمال",
-      newEcommerce: "متجر إلكتروني",
+      newProject: "منصة جديدة",
+      newFinancial: "منصة مالية",
+      newHealthcare: "منصة صحية",
+      newGovernment: "منصة حكومية",
+      newEducation: "منصة تعليمية",
       attach: "إرفاق ملف",
       attachImage: "إرفاق صورة",
       attachFile: "إرفاق ملف",
@@ -96,11 +96,11 @@ export function ChatInput({
       generating: "جاري التوليد...",
     },
     en: {
-      newProject: "New Project",
-      newWebsite: "New Website",
-      newLanding: "Landing Page",
-      newPortfolio: "Portfolio",
-      newEcommerce: "E-commerce Store",
+      newProject: "New Platform",
+      newFinancial: "Financial Platform",
+      newHealthcare: "Healthcare Platform",
+      newGovernment: "Government Platform",
+      newEducation: "Education Platform",
       attach: "Attach File",
       attachImage: "Attach Image",
       attachFile: "Attach File",
@@ -194,12 +194,12 @@ export function ChatInput({
 
   const handleNewProject = (type: string) => {
     const prompts: Record<string, { ar: string; en: string }> = {
-      website: { ar: "أنشئ موقع ويب احترافي", en: "Create a professional website" },
-      landing: { ar: "أنشئ صفحة هبوط جذابة", en: "Create an attractive landing page" },
-      portfolio: { ar: "أنشئ معرض أعمال شخصي", en: "Create a personal portfolio" },
-      ecommerce: { ar: "أنشئ متجر إلكتروني", en: "Create an e-commerce store" },
+      financial: { ar: "منصة خدمات مالية رقمية (PCI-DSS | معاملات آمنة | حوكمة مالية)", en: "Digital financial services platform (PCI-DSS | Secure transactions | Financial governance)" },
+      healthcare: { ar: "نظام رعاية صحية ذكي (HIPAA | سجلات مشفرة | تشغيل ذاتي)", en: "Smart healthcare system (HIPAA | Encrypted records | Autonomous operation)" },
+      government: { ar: "بوابة حكومية إلكترونية (WCAG 2.1 | سيادة بيانات | سجلات غير قابلة للتغيير)", en: "E-Government portal (WCAG 2.1 | Data Sovereignty | Immutable records)" },
+      education: { ar: "منصة تعليمية ذكية (FERPA | GDPR | عزل كامل للمستأجرين)", en: "Smart education platform (FERPA | GDPR | Complete tenant isolation)" },
     };
-    const prompt = prompts[type]?.[language] || prompts.website[language];
+    const prompt = prompts[type]?.[language] || prompts.financial[language];
     setLocation(`/builder?prompt=${encodeURIComponent(prompt)}`);
   };
 
@@ -306,21 +306,21 @@ export function ChatInput({
               <DropdownMenuContent align="start" className="w-48">
                 <DropdownMenuLabel>{txt.newProject}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => handleNewProject("website")}>
+                <DropdownMenuItem onClick={() => handleNewProject("financial")}>
                   <Layout className="h-4 w-4 mr-2" />
-                  {txt.newWebsite}
+                  {txt.newFinancial}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleNewProject("landing")}>
+                <DropdownMenuItem onClick={() => handleNewProject("healthcare")}>
                   <Wand2 className="h-4 w-4 mr-2" />
-                  {txt.newLanding}
+                  {txt.newHealthcare}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleNewProject("portfolio")}>
+                <DropdownMenuItem onClick={() => handleNewProject("government")}>
                   <Code className="h-4 w-4 mr-2" />
-                  {txt.newPortfolio}
+                  {txt.newGovernment}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleNewProject("ecommerce")}>
+                <DropdownMenuItem onClick={() => handleNewProject("education")}>
                   <Layout className="h-4 w-4 mr-2" />
-                  {txt.newEcommerce}
+                  {txt.newEducation}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

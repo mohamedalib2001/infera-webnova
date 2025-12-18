@@ -42,7 +42,7 @@ const defaultConfig: ChatbotConfig = {
   nameAr: "المساعد الذكي",
   welcomeMessage: "Hi! How can I help you today?",
   welcomeMessageAr: "مرحباً! كيف يمكنني مساعدتك اليوم؟",
-  systemPrompt: "You are a helpful assistant for this website. Answer questions clearly and concisely.",
+  systemPrompt: "You are a helpful assistant for this sovereign platform. Answer questions clearly and concisely.",
   primaryColor: "#8B5CF6",
   position: "bottom-right",
   model: "gpt-4o",
@@ -167,7 +167,7 @@ export default function ChatbotBuilder() {
             {tr("منشئ الروبوتات الذكية", "AI Chatbot Builder")}
           </h1>
           <p className="text-muted-foreground">
-            {tr("أنشئ روبوت محادثة ذكي لموقعك", "Create an AI chatbot for your website")}
+            {tr("أنشئ روبوت محادثة ذكي لمنصتك", "Create an AI chatbot for your platform")}
           </p>
         </div>
       </div>
@@ -437,7 +437,7 @@ export default function ChatbotBuilder() {
                 <CardHeader>
                   <CardTitle>{tr("كود التضمين", "Embed Code")}</CardTitle>
                   <CardDescription>
-                    {tr("انسخ هذا الكود وأضفه لموقعك", "Copy this code and add it to your website")}
+                    {tr("انسخ هذا الكود وأضفه لمنصتك", "Copy this code and add it to your platform")}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -465,7 +465,7 @@ export default function ChatbotBuilder() {
                     </h4>
                     <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
                       <li>{tr("انسخ الكود أعلاه", "Copy the code above")}</li>
-                      <li>{tr("أضفه قبل علامة </body> في موقعك", "Add it before the </body> tag in your website")}</li>
+                      <li>{tr("أضفه قبل علامة </body> في منصتك", "Add it before the </body> tag in your platform")}</li>
                       <li>{tr("استبدل YOUR_CHATBOT_ID بمعرف الروبوت", "Replace YOUR_CHATBOT_ID with your chatbot ID")}</li>
                     </ol>
                   </div>

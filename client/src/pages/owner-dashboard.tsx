@@ -1070,7 +1070,7 @@ export default function OwnerDashboard() {
                           <Input
                             value={instructionForm.title}
                             onChange={(e) => setInstructionForm({ ...instructionForm, title: e.target.value })}
-                            placeholder={language === 'ar' ? 'مثال: تحسين أداء الصفحة الرئيسية' : 'Example: Improve homepage performance'}
+                            placeholder={language === 'ar' ? 'مثال: تحسين أداء المنصة' : 'Example: Improve platform performance'}
                             data-testid="input-instruction-title"
                           />
                         </div>
