@@ -2,6 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateWebsiteCode, refineWebsiteCode } from "./anthropic";
+import apiKeysRoutes from "./api-keys-routes";
 import { 
   insertProjectSchema, insertMessageSchema, insertProjectVersionSchema, 
   insertShareLinkSchema, insertUserSchema, insertAiModelSchema, 
@@ -7024,6 +7025,9 @@ export async function registerRoutes(
       });
     }
   });
+
+  // ==================== SOVEREIGN API KEYS ROUTES ====================
+  app.use("/api/api-keys", apiKeysRoutes);
 
   return httpServer;
 }
