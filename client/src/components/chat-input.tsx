@@ -234,7 +234,7 @@ export function ChatInput({
         multiple
       />
 
-      <div className="bg-card/80 dark:bg-card/60 backdrop-blur-xl rounded-2xl border border-border/50 shadow-lg">
+      <div className="bg-card/80 dark:bg-card/60 backdrop-blur-xl rounded-2xl border border-border/50 shadow-lg overflow-hidden">
         {attachments.length > 0 && (
           <div className="px-4 pt-4">
             <ScrollArea className="max-h-24">
@@ -332,14 +332,14 @@ export function ChatInput({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="text-muted-foreground"
+                  className="text-muted-foreground relative"
                   data-testid="button-attach"
                 >
                   <Paperclip className="h-5 w-5" />
                   {attachments.length > 0 && (
                     <Badge 
                       variant="secondary" 
-                      className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]"
+                      className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-[10px] min-w-0"
                     >
                       {attachments.length}
                     </Badge>
