@@ -93,7 +93,8 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  await initStripeSystem().catch(err => {
+  // Run Stripe initialization in background (non-blocking)
+  initStripeSystem().catch(err => {
     console.warn('[Stripe] Initialization skipped:', err.message);
   });
   

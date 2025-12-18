@@ -234,7 +234,7 @@ export function ChatInput({
         multiple
       />
 
-      <div className="bg-card/80 dark:bg-card/60 backdrop-blur-xl rounded-2xl border border-border/50 shadow-lg overflow-hidden">
+      <div className="bg-card/80 dark:bg-card/60 backdrop-blur-xl rounded-2xl border border-border/50 shadow-lg">
         {attachments.length > 0 && (
           <div className="px-4 pt-4">
             <ScrollArea className="max-h-24">
