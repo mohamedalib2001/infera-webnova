@@ -65,7 +65,11 @@ import {
   Github,
   Apple,
   Monitor,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Globe2,
+  Copy,
+  ExternalLink,
+  CheckCircle2
 } from "lucide-react";
 import type { AiAssistant, AssistantInstruction, User, PaymentMethod, AuthMethod, SovereignAssistant, SovereignCommand, SovereignActionLog } from "@shared/schema";
 
@@ -78,11 +82,43 @@ const translations = {
       assistants: "المساعدين AI",
       sovereign: "المساعدين السياديين",
       aiSovereignty: "سيادة الذكاء",
+      domains: "النطاقات",
       payments: "بوابات الدفع",
       auth: "طرق الدخول",
       platform: "إعدادات المنصة",
       users: "المستخدمين",
       logs: "سجل العمليات",
+    },
+    domains: {
+      title: "إدارة النطاقات المخصصة",
+      subtitle: "ربط نطاقاتك الخاصة بمنصات المشتركين",
+      addDomain: "إضافة نطاق",
+      hostname: "اسم النطاق",
+      hostnamePlaceholder: "example.com",
+      status: "الحالة",
+      verified: "تم التحقق",
+      pending: "قيد الانتظار",
+      verifyNow: "تحقق الآن",
+      deleteConfirm: "هل تريد حذف هذا النطاق؟",
+      verificationMethod: "طريقة التحقق",
+      dnsTxt: "سجل DNS TXT",
+      dnsCname: "سجل DNS CNAME",
+      httpFile: "ملف HTTP",
+      instructions: "تعليمات التحقق",
+      addRecord: "أضف السجل التالي في إعدادات DNS الخاصة بك:",
+      recordType: "نوع السجل",
+      recordName: "اسم السجل",
+      recordValue: "القيمة",
+      copyValue: "نسخ القيمة",
+      quota: "الحصة",
+      used: "مستخدم",
+      of: "من",
+      primary: "أساسي",
+      makePrimary: "جعله أساسي",
+      ssl: "شهادة SSL",
+      sslActive: "SSL نشط",
+      sslPending: "SSL قيد الإصدار",
+      autoRenew: "تجديد تلقائي",
     },
     aiSovereignty: {
       title: "طبقة سيادة الذكاء",
@@ -336,11 +372,43 @@ const translations = {
       assistants: "AI Assistants",
       sovereign: "Sovereign AI",
       aiSovereignty: "AI Sovereignty",
+      domains: "Domains",
       payments: "Payment Gateways",
       auth: "Login Methods",
       platform: "Platform Settings",
       users: "Users",
       logs: "Audit Logs",
+    },
+    domains: {
+      title: "Custom Domains Management",
+      subtitle: "Connect custom domains to subscriber platforms",
+      addDomain: "Add Domain",
+      hostname: "Domain Name",
+      hostnamePlaceholder: "example.com",
+      status: "Status",
+      verified: "Verified",
+      pending: "Pending",
+      verifyNow: "Verify Now",
+      deleteConfirm: "Delete this domain?",
+      verificationMethod: "Verification Method",
+      dnsTxt: "DNS TXT Record",
+      dnsCname: "DNS CNAME Record",
+      httpFile: "HTTP File",
+      instructions: "Verification Instructions",
+      addRecord: "Add the following record to your DNS settings:",
+      recordType: "Record Type",
+      recordName: "Record Name",
+      recordValue: "Value",
+      copyValue: "Copy Value",
+      quota: "Quota",
+      used: "Used",
+      of: "of",
+      primary: "Primary",
+      makePrimary: "Make Primary",
+      ssl: "SSL Certificate",
+      sslActive: "SSL Active",
+      sslPending: "SSL Pending",
+      autoRenew: "Auto Renew",
     },
     aiSovereignty: {
       title: "AI Sovereignty Layer",
@@ -631,6 +699,344 @@ const sovereignAssistantColors: Record<string, string> = {
   security_guardian: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30",
   growth_strategist: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
 };
+
+// Domain types from schema
+interface DomainRecord {
+  id: string;
+  tenantId: string;
+  hostname: string;
+  status: string;
+  verificationMethod: string;
+  verificationToken: string | null;
+  verifiedAt: Date | null;
+  isPrimary: boolean;
+  createdAt: Date;
+  createdBy: string;
+}
+
+interface DomainQuota {
+  tenantId: string;
+  tier: string;
+  maxDomains: number;
+  usedDomains: number;
+}
+
+// Domains Section Component
+function DomainsSection({ t, language }: { t: typeof translations.ar; language: 'ar' | 'en' }) {
+  const { toast } = useToast();
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showVerifyDialog, setShowVerifyDialog] = useState(false);
+  const [selectedDomain, setSelectedDomain] = useState<DomainRecord | null>(null);
+  const [selectedTenantId, setSelectedTenantId] = useState<string>("");
+  const [newDomainForm, setNewDomainForm] = useState({
+    hostname: "",
+    verificationMethod: "dns_txt",
+    isPrimary: false,
+    tenantId: "",
+  });
+
+  const { data: domains = [], isLoading: domainsLoading } = useQuery<DomainRecord[]>({
+    queryKey: ['/api/domains'],
+  });
+
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ['/api/users'],
+  });
+
+  const { data: quota } = useQuery<DomainQuota>({
+    queryKey: ['/api/domains/quota', selectedTenantId],
+    enabled: !!selectedTenantId,
+  });
+
+  const createDomainMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest('/api/domains', { method: 'POST', body: JSON.stringify(data) });
+    },
+    onSuccess: () => {
+      toast({ title: language === 'ar' ? 'تم إضافة النطاق' : 'Domain added' });
+      setShowAddDialog(false);
+      setNewDomainForm({ hostname: "", verificationMethod: "dns_txt", isPrimary: false });
+      queryClient.invalidateQueries({ queryKey: ['/api/domains'] });
+    },
+    onError: (error: any) => {
+      toast({ title: error.message || 'Error', variant: 'destructive' });
+    },
+  });
+
+  const deleteDomainMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest(`/api/domains/${id}`, { method: 'DELETE' });
+    },
+    onSuccess: () => {
+      toast({ title: language === 'ar' ? 'تم حذف النطاق' : 'Domain deleted' });
+      queryClient.invalidateQueries({ queryKey: ['/api/domains'] });
+    },
+  });
+
+  const verifyDomainMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest(`/api/domains/${id}/verify`, { method: 'POST' });
+    },
+    onSuccess: () => {
+      toast({ title: language === 'ar' ? 'تم التحقق من النطاق' : 'Domain verified' });
+      setShowVerifyDialog(false);
+      queryClient.invalidateQueries({ queryKey: ['/api/domains'] });
+    },
+    onError: () => {
+      toast({ title: language === 'ar' ? 'فشل التحقق' : 'Verification failed', variant: 'destructive' });
+    },
+  });
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: language === 'ar' ? 'تم النسخ' : 'Copied' });
+  };
+
+  const getStatusBadge = (status: string) => {
+    const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
+      active: { label: language === 'ar' ? 'نشط' : 'Active', variant: 'default' },
+      verified: { label: t.domains.verified, variant: 'default' },
+      pending_verification: { label: t.domains.pending, variant: 'secondary' },
+      ssl_pending: { label: t.domains.sslPending, variant: 'secondary' },
+      ssl_issued: { label: t.domains.sslActive, variant: 'default' },
+    };
+    const config = statusConfig[status] || { label: status, variant: 'outline' as const };
+    return <Badge variant={config.variant}>{config.label}</Badge>;
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Globe2 className="w-5 h-5" />
+              {t.domains.title}
+            </CardTitle>
+            <CardDescription>{t.domains.subtitle}</CardDescription>
+          </div>
+          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-add-domain">
+                <Plus className="w-4 h-4 mr-2" />
+                {t.domains.addDomain}
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{t.domains.addDomain}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>{language === 'ar' ? 'المستأجر' : 'Tenant'}</Label>
+                  <Select
+                    value={newDomainForm.tenantId}
+                    onValueChange={(value) => {
+                      setNewDomainForm({ ...newDomainForm, tenantId: value });
+                      setSelectedTenantId(value);
+                    }}
+                  >
+                    <SelectTrigger data-testid="select-tenant">
+                      <SelectValue placeholder={language === 'ar' ? 'اختر المستأجر' : 'Select tenant'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {users.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.fullName || user.username || user.email} ({user.role})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {quota && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                      <span>{t.domains.quota}:</span>
+                      <Badge variant={quota.usedDomains >= quota.maxDomains ? 'destructive' : 'secondary'}>
+                        {quota.usedDomains} / {quota.maxDomains}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>{t.domains.hostname}</Label>
+                  <Input
+                    placeholder={t.domains.hostnamePlaceholder}
+                    value={newDomainForm.hostname}
+                    onChange={(e) => setNewDomainForm({ ...newDomainForm, hostname: e.target.value })}
+                    data-testid="input-domain-hostname"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t.domains.verificationMethod}</Label>
+                  <Select
+                    value={newDomainForm.verificationMethod}
+                    onValueChange={(value) => setNewDomainForm({ ...newDomainForm, verificationMethod: value })}
+                  >
+                    <SelectTrigger data-testid="select-verification-method">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="dns_txt">{t.domains.dnsTxt}</SelectItem>
+                      <SelectItem value="dns_cname">{t.domains.dnsCname}</SelectItem>
+                      <SelectItem value="http_file">{t.domains.httpFile}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={newDomainForm.isPrimary}
+                    onCheckedChange={(checked) => setNewDomainForm({ ...newDomainForm, isPrimary: checked })}
+                    data-testid="switch-primary-domain"
+                  />
+                  <Label>{t.domains.makePrimary}</Label>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                </Button>
+                <Button
+                  onClick={() => createDomainMutation.mutate(newDomainForm)}
+                  disabled={!newDomainForm.hostname || !newDomainForm.tenantId || createDomainMutation.isPending || (quota && quota.usedDomains >= quota.maxDomains)}
+                  data-testid="button-submit-domain"
+                >
+                  {createDomainMutation.isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : t.domains.addDomain}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </CardHeader>
+        <CardContent>
+          {domainsLoading ? (
+            <div className="flex justify-center py-8">
+              <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : domains.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Globe2 className="w-16 h-16 mx-auto mb-4 opacity-50" />
+              <p>{language === 'ar' ? 'لا توجد نطاقات مسجلة' : 'No domains registered'}</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {domains.map((domain: any) => (
+                <div
+                  key={domain.id}
+                  className="flex items-center justify-between p-4 border rounded-lg"
+                  data-testid={`domain-item-${domain.id}`}
+                >
+                  <div className="flex items-center gap-4">
+                    <Globe2 className="w-5 h-5 text-muted-foreground" />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{domain.hostname}</span>
+                        {domain.isPrimary && (
+                          <Badge variant="outline" className="text-xs">{t.domains.primary}</Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(domain.createdAt).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {getStatusBadge(domain.status)}
+                    {domain.status === 'pending_verification' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedDomain(domain);
+                          setShowVerifyDialog(true);
+                        }}
+                        data-testid={`button-verify-${domain.id}`}
+                      >
+                        {t.domains.verifyNow}
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        if (confirm(t.domains.deleteConfirm)) {
+                          deleteDomainMutation.mutate(domain.id);
+                        }
+                      }}
+                      data-testid={`button-delete-domain-${domain.id}`}
+                    >
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Verification Dialog */}
+      <Dialog open={showVerifyDialog} onOpenChange={setShowVerifyDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t.domains.instructions}</DialogTitle>
+            <DialogDescription>
+              {selectedDomain?.hostname}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedDomain && (
+            <div className="space-y-4 py-4">
+              <p className="text-sm">{t.domains.addRecord}</p>
+              <div className="space-y-3 p-4 bg-muted rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">{t.domains.recordType}:</span>
+                  <Badge variant="outline">TXT</Badge>
+                </div>
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-sm text-muted-foreground">{t.domains.recordName}:</span>
+                  <code className="text-xs bg-background px-2 py-1 rounded">
+                    _infera-verify.{selectedDomain.hostname}
+                  </code>
+                </div>
+                <div className="space-y-2">
+                  <span className="text-sm text-muted-foreground">{t.domains.recordValue}:</span>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 text-xs bg-background px-2 py-1 rounded break-all">
+                      {selectedDomain.verificationToken}
+                    </code>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => copyToClipboard(selectedDomain.verificationToken)}
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowVerifyDialog(false)}>
+              {language === 'ar' ? 'إغلاق' : 'Close'}
+            </Button>
+            <Button
+              onClick={() => selectedDomain && verifyDomainMutation.mutate(selectedDomain.id)}
+              disabled={verifyDomainMutation.isPending}
+              data-testid="button-confirm-verify"
+            >
+              {verifyDomainMutation.isPending ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  {t.domains.verifyNow}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
 
 export default function OwnerDashboard() {
   const { language } = useLanguage();
@@ -1259,7 +1665,7 @@ export default function OwnerDashboard() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-9 lg:w-auto lg:inline-grid gap-1">
+          <TabsList className="grid w-full grid-cols-5 lg:grid-cols-10 lg:w-auto lg:inline-grid gap-1">
             <TabsTrigger value="command" className="gap-2" data-testid="tab-command">
               <Terminal className="w-4 h-4" />
               <span className="hidden sm:inline">{t.tabs.command}</span>
@@ -1271,6 +1677,10 @@ export default function OwnerDashboard() {
             <TabsTrigger value="aiSovereignty" className="gap-2" data-testid="tab-ai-sovereignty">
               <Shield className="w-4 h-4" />
               <span className="hidden sm:inline">{t.tabs.aiSovereignty}</span>
+            </TabsTrigger>
+            <TabsTrigger value="domains" className="gap-2" data-testid="tab-domains">
+              <Globe2 className="w-4 h-4" />
+              <span className="hidden sm:inline">{t.tabs.domains}</span>
             </TabsTrigger>
             <TabsTrigger value="assistants" className="gap-2" data-testid="tab-assistants">
               <Bot className="w-4 h-4" />
@@ -3123,6 +3533,11 @@ export default function OwnerDashboard() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Domains Tab - النطاقات المخصصة */}
+          <TabsContent value="domains" className="space-y-6">
+            <DomainsSection t={t} language={language} />
           </TabsContent>
 
           <TabsContent value="logs" className="space-y-6">

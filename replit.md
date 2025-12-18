@@ -96,6 +96,15 @@ The platform features an AI Chat Interface for natural language interaction, a l
   - Kill switch with scopes: global, layer-specific, external_only
   - Dual operational modes: OWNER_SOVEREIGN_MODE and SUBSCRIBER_RESTRICTED_MODE
   - Immutable audit logs with cryptographic checksums
+- Phase 10 Complete: Custom Domains System for Multi-Tenant SaaS
+  - Added 5-table schema: customDomains, domainVerifications, sslCertificates, domainAuditLogs, tenantDomainQuotas
+  - DNS TXT verification as primary method with CNAME and HTTP file alternatives
+  - Tier-based domain quotas: Owner=999, Sovereign=50, Enterprise=20, Pro=5, Basic=2, Free=1
+  - SSL certificate management with auto-renewal tracking
+  - Domain status workflow: pending → verifying → verified → ssl_pending → ssl_issued → active
+  - Full CRUD API endpoints with tenant isolation and quota enforcement
+  - Bilingual UI (Arabic/English) in Owner Dashboard "Domains" tab
+  - Verification wizard with DNS record instructions and copy-to-clipboard
   - Full bilingual UI for AI Sovereignty tab in Owner Dashboard
 
 ## Core Platform Architecture
