@@ -597,6 +597,117 @@ export const insertAssistantInstructionSchema = createInsertSchema(assistantInst
 export type InsertAssistantInstruction = z.infer<typeof insertAssistantInstructionSchema>;
 export type AssistantInstruction = typeof assistantInstructions.$inferSelect;
 
+// AI Task Executions - Real execution log for AI tasks
+export const aiTaskExecutions = pgTable("ai_task_executions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  instructionId: varchar("instruction_id").notNull(),
+  assistantId: varchar("assistant_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  
+  // Execution details
+  model: text("model").notNull(), // gpt-4, claude-3-opus, gemini-pro, etc.
+  provider: text("provider").notNull(), // openai, anthropic, google, deepseek
+  executionMode: text("execution_mode").notNull().default("AUTO"), // AUTO, MANUAL
+  
+  // Input/Output
+  inputPrompt: text("input_prompt").notNull(),
+  systemPrompt: text("system_prompt"),
+  outputResponse: text("output_response"),
+  
+  // Tokens & Cost
+  inputTokens: integer("input_tokens").default(0),
+  outputTokens: integer("output_tokens").default(0),
+  totalTokens: integer("total_tokens").default(0),
+  realCostUSD: real("real_cost_usd").default(0), // Actual cost to owner
+  billedCostUSD: real("billed_cost_usd").default(0), // Charged to user
+  
+  // Status
+  status: text("status").notNull().default("pending"), // pending, running, completed, failed, cancelled, killed
+  errorMessage: text("error_message"),
+  
+  // Timing
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  executionTimeMs: integer("execution_time_ms"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAiTaskExecutionSchema = createInsertSchema(aiTaskExecutions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAiTaskExecution = z.infer<typeof insertAiTaskExecutionSchema>;
+export type AiTaskExecution = typeof aiTaskExecutions.$inferSelect;
+
+// AI Kill Switch - Global and per-agent kill switch
+export const aiKillSwitch = pgTable("ai_kill_switch", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  scope: text("scope").notNull(), // global, agent, provider
+  targetId: varchar("target_id"), // assistantId or provider name (null for global)
+  
+  isActive: boolean("is_active").notNull().default(false),
+  reason: text("reason"),
+  reasonAr: text("reason_ar"),
+  
+  activatedBy: varchar("activated_by").notNull(),
+  activatedAt: timestamp("activated_at").defaultNow(),
+  deactivatedAt: timestamp("deactivated_at"),
+  deactivatedBy: varchar("deactivated_by"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAiKillSwitchSchema = createInsertSchema(aiKillSwitch).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAiKillSwitch = z.infer<typeof insertAiKillSwitchSchema>;
+export type AiKillSwitch = typeof aiKillSwitch.$inferSelect;
+
+// AI Model Configuration - Supported models with pricing
+export const aiModelConfigs = pgTable("ai_model_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  modelId: text("model_id").notNull().unique(), // gpt-4, claude-3-opus, etc.
+  provider: text("provider").notNull(), // openai, anthropic, google, deepseek
+  displayName: text("display_name").notNull(),
+  displayNameAr: text("display_name_ar"),
+  
+  // Pricing per 1M tokens
+  inputPricePer1M: real("input_price_per_1m").notNull().default(0),
+  outputPricePer1M: real("output_price_per_1m").notNull().default(0),
+  
+  // Markup for billing users
+  markupPercentage: real("markup_percentage").notNull().default(50), // 50% markup
+  
+  // Capabilities
+  maxTokens: integer("max_tokens").notNull().default(4096),
+  supportsVision: boolean("supports_vision").notNull().default(false),
+  supportsTools: boolean("supports_tools").notNull().default(false),
+  
+  // Task type recommendations
+  recommendedFor: jsonb("recommended_for").$type<string[]>().default([]), // analysis, coding, long_context, cheap_bulk
+  
+  isActive: boolean("is_active").notNull().default(true),
+  priority: integer("priority").notNull().default(0), // Higher = preferred in auto-routing
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAiModelConfigSchema = createInsertSchema(aiModelConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAiModelConfig = z.infer<typeof insertAiModelConfigSchema>;
+export type AiModelConfig = typeof aiModelConfigs.$inferSelect;
+
 // Owner Platform Settings
 export const ownerSettings = pgTable("owner_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

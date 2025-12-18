@@ -1836,10 +1836,11 @@ export async function registerRoutes(
     }
   });
 
-  // Execute instruction with AI
+  // Execute instruction with AI (using AI Agent Executor with cost tracking & kill switch)
   app.post("/api/owner/instructions/:id/execute", requireAuth, requireOwner, async (req, res) => {
     try {
       const { id } = req.params;
+      const { executionMode, preferredModel, preferredProvider } = req.body;
       
       // Get the instruction
       const instructions = await storage.getAllInstructions();
@@ -1852,66 +1853,66 @@ export async function registerRoutes(
       // Update status to in_progress
       await storage.updateInstruction(id, { status: "in_progress" });
       
-      // Check if API key is available
-      if (!process.env.ANTHROPIC_API_KEY && !process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY) {
+      // Import AI Agent Executor
+      const { aiAgentExecutor } = await import("./ai-agent-executor");
+      
+      // Check kill switch
+      const killSwitchCheck = await aiAgentExecutor.isKillSwitchActive(instruction.assistantId);
+      if (killSwitchCheck.active) {
         await storage.updateInstruction(id, { 
           status: "failed", 
-          response: "AI service is currently unavailable. Please configure the API key." 
+          response: `AI execution blocked: ${killSwitchCheck.reason}` 
         });
-        return res.status(503).json({ 
-          error: "خدمة AI غير متاحة حالياً / AI service is currently unavailable" 
-        });
-      }
-      
-      // Get assistant
-      const assistant = await storage.getAiAssistant(instruction.assistantId);
-      
-      // Execute with Claude
-      const Anthropic = (await import("@anthropic-ai/sdk")).default;
-      const anthropic = new Anthropic();
-      
-      const startTime = Date.now();
-      
-      const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: assistant?.maxTokens || 4000,
-        system: assistant?.systemPrompt || "You are an AI assistant helping with platform development. Execute the given instruction and provide detailed output.",
-        messages: [
-          { role: "user", content: `Execute this instruction:\n\nTitle: ${instruction.title}\n\nDetails:\n${instruction.instruction}\n\nProvide a detailed response with any code, recommendations, or actions taken.` }
-        ],
-      });
-
-      const textContent = response.content.find(c => c.type === "text");
-      const executionTime = Math.round((Date.now() - startTime) / 1000);
-      
-      // Update instruction with response
-      await storage.updateInstruction(id, { 
-        status: "completed",
-        response: textContent?.text || "No response generated",
-        executionTime,
-        completedAt: new Date(),
-      });
-      
-      // Update assistant stats
-      if (assistant) {
-        await storage.updateAiAssistant(assistant.id, {
-          totalTasksCompleted: (assistant.totalTasksCompleted || 0) + 1,
+        return res.status(403).json({ 
+          error: `تم إيقاف AI: ${killSwitchCheck.reason}`,
+          killSwitch: true
         });
       }
       
-      // Log the action
+      // Execute with AI Agent Executor (includes cost tracking)
+      const result = await aiAgentExecutor.executeTask({
+        instructionId: id,
+        assistantId: instruction.assistantId,
+        userId: req.session.userId!,
+        prompt: `Execute this instruction:\n\nTitle: ${instruction.title}\n\nDetails:\n${instruction.instruction}\n\nProvide a detailed response with any code, recommendations, or actions taken.`,
+        executionMode: executionMode || 'AUTO',
+        preferredModel,
+        preferredProvider,
+      });
+      
+      // Log the action with cost details
       await storage.createAuditLog({
         userId: req.session.userId!,
         action: "instruction_executed",
         entityType: "instruction",
         entityId: id,
-        details: { executionTime },
+        details: { 
+          executionTimeMs: result.executionTimeMs,
+          model: result.model,
+          provider: result.provider,
+          tokens: result.tokens,
+          realCost: result.cost.real,
+          billedCost: result.cost.billed,
+          success: result.success,
+        },
       });
+      
+      if (!result.success) {
+        return res.status(500).json({ 
+          error: result.error || "فشل في تنفيذ الأمر",
+          executionId: result.executionId,
+        });
+      }
       
       res.json({ 
         success: true, 
-        response: textContent?.text,
-        executionTime,
+        response: result.response,
+        executionId: result.executionId,
+        executionTimeMs: result.executionTimeMs,
+        model: result.model,
+        provider: result.provider,
+        tokens: result.tokens,
+        cost: result.cost,
       });
     } catch (error: any) {
       console.error("Execute instruction error:", error);
@@ -1963,6 +1964,97 @@ export async function registerRoutes(
       res.json(logs);
     } catch (error) {
       res.status(500).json({ error: "فشل في جلب السجلات" });
+    }
+  });
+
+  // ============ AI Execution & Kill Switch APIs ============
+
+  // Get AI Kill Switch status
+  app.get("/api/owner/ai/kill-switch", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { aiAgentExecutor } = await import("./ai-agent-executor");
+      const globalCheck = await aiAgentExecutor.isKillSwitchActive();
+      res.json({ 
+        globalActive: globalCheck.active,
+        reason: globalCheck.reason 
+      });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب حالة Kill Switch" });
+    }
+  });
+
+  // Activate AI Kill Switch
+  app.post("/api/owner/ai/kill-switch/activate", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { scope, targetId, reason, reasonAr } = req.body;
+      const { aiAgentExecutor } = await import("./ai-agent-executor");
+      
+      await aiAgentExecutor.activateKillSwitch(
+        scope || 'global',
+        targetId || null,
+        req.session.userId!,
+        reason || 'Emergency stop activated',
+        reasonAr || 'تم تفعيل الإيقاف الطارئ'
+      );
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "ai_kill_switch_activated",
+        entityType: "ai_system",
+        details: { scope, targetId, reason },
+      });
+      
+      res.json({ success: true, message: "تم تفعيل Kill Switch" });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "فشل في تفعيل Kill Switch" });
+    }
+  });
+
+  // Deactivate AI Kill Switch
+  app.post("/api/owner/ai/kill-switch/deactivate", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { scope, targetId } = req.body;
+      const { aiAgentExecutor } = await import("./ai-agent-executor");
+      
+      await aiAgentExecutor.deactivateKillSwitch(
+        scope || 'global',
+        targetId || null,
+        req.session.userId!
+      );
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "ai_kill_switch_deactivated",
+        entityType: "ai_system",
+        details: { scope, targetId },
+      });
+      
+      res.json({ success: true, message: "تم إلغاء Kill Switch" });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "فشل في إلغاء Kill Switch" });
+    }
+  });
+
+  // Get AI Task History
+  app.get("/api/owner/ai/task-history", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { aiAgentExecutor } = await import("./ai-agent-executor");
+      const limit = parseInt(req.query.limit as string) || 50;
+      const tasks = await aiAgentExecutor.getTaskHistory({ limit });
+      res.json(tasks);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب سجل المهام" });
+    }
+  });
+
+  // Get AI Cost Analytics (Profit/Loss Dashboard)
+  app.get("/api/owner/ai/cost-analytics", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { aiAgentExecutor } = await import("./ai-agent-executor");
+      const analytics = await aiAgentExecutor.getAICostAnalytics();
+      res.json(analytics);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب تحليلات التكلفة" });
     }
   });
 
