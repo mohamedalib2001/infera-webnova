@@ -135,6 +135,15 @@ import {
   devDatabaseTables,
   devDatabaseColumns,
   devDatabaseRelationships,
+  sovereignAuditLogs,
+  type InsertSovereignAuditLog,
+  type SovereignAuditLog,
+  sovereignPlatforms,
+  type InsertSovereignPlatform,
+  type SovereignPlatformRecord,
+  systemSettings,
+  type InsertSystemSetting,
+  type SystemSettingRecord,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt } from "drizzle-orm";
@@ -442,6 +451,25 @@ export interface IStorage {
   createDevDatabaseRelationship(rel: InsertDevDatabaseRelationship): Promise<DevDatabaseRelationship>;
   updateDevDatabaseRelationship(id: string, data: Partial<InsertDevDatabaseRelationship>): Promise<DevDatabaseRelationship | undefined>;
   deleteDevDatabaseRelationship(id: string): Promise<boolean>;
+  
+  // Sovereign Audit Logs (ROOT_OWNER only)
+  getSovereignAuditLogs(limit?: number): Promise<SovereignAuditLog[]>;
+  createSovereignAuditLog(log: InsertSovereignAuditLog): Promise<SovereignAuditLog>;
+  
+  // Sovereign Platforms (ROOT_OWNER Platform Factory)
+  getSovereignPlatforms(): Promise<SovereignPlatformRecord[]>;
+  getSovereignPlatform(id: string): Promise<SovereignPlatformRecord | undefined>;
+  getSovereignPlatformsByType(type: string): Promise<SovereignPlatformRecord[]>;
+  createSovereignPlatform(platform: InsertSovereignPlatform): Promise<SovereignPlatformRecord>;
+  updateSovereignPlatform(id: string, data: Partial<InsertSovereignPlatform>): Promise<SovereignPlatformRecord | undefined>;
+  deleteSovereignPlatform(id: string): Promise<boolean>;
+  
+  // System Settings (ROOT_OWNER only)
+  getSystemSettings(): Promise<SystemSettingRecord[]>;
+  getSystemSetting(key: string): Promise<SystemSettingRecord | undefined>;
+  getSystemSettingsByCategory(category: string): Promise<SystemSettingRecord[]>;
+  createSystemSetting(setting: InsertSystemSetting): Promise<SystemSettingRecord>;
+  updateSystemSetting(key: string, value: unknown, modifiedBy: string): Promise<SystemSettingRecord | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2444,6 +2472,88 @@ body { font-family: 'Tajawal', sans-serif; }
   async deleteDevDatabaseRelationship(id: string): Promise<boolean> {
     const result = await db.delete(devDatabaseRelationships).where(eq(devDatabaseRelationships.id, id));
     return (result.rowCount ?? 0) > 0;
+  }
+
+  // ============ Sovereign Audit Logs Implementation ============
+  
+  async getSovereignAuditLogs(limit: number = 100): Promise<SovereignAuditLog[]> {
+    return db.select().from(sovereignAuditLogs)
+      .orderBy(desc(sovereignAuditLogs.timestamp))
+      .limit(limit);
+  }
+
+  async createSovereignAuditLog(log: InsertSovereignAuditLog): Promise<SovereignAuditLog> {
+    const [created] = await db.insert(sovereignAuditLogs).values(log).returning();
+    return created;
+  }
+
+  // ============ Sovereign Platforms Implementation ============
+  
+  async getSovereignPlatforms(): Promise<SovereignPlatformRecord[]> {
+    return db.select().from(sovereignPlatforms)
+      .orderBy(desc(sovereignPlatforms.createdAt));
+  }
+
+  async getSovereignPlatform(id: string): Promise<SovereignPlatformRecord | undefined> {
+    const [platform] = await db.select().from(sovereignPlatforms)
+      .where(eq(sovereignPlatforms.id, id));
+    return platform || undefined;
+  }
+
+  async getSovereignPlatformsByType(type: string): Promise<SovereignPlatformRecord[]> {
+    return db.select().from(sovereignPlatforms)
+      .where(eq(sovereignPlatforms.type, type))
+      .orderBy(desc(sovereignPlatforms.createdAt));
+  }
+
+  async createSovereignPlatform(platform: InsertSovereignPlatform): Promise<SovereignPlatformRecord> {
+    const [created] = await db.insert(sovereignPlatforms).values(platform).returning();
+    return created;
+  }
+
+  async updateSovereignPlatform(id: string, data: Partial<InsertSovereignPlatform>): Promise<SovereignPlatformRecord | undefined> {
+    const [updated] = await db.update(sovereignPlatforms)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(sovereignPlatforms.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteSovereignPlatform(id: string): Promise<boolean> {
+    const result = await db.delete(sovereignPlatforms).where(eq(sovereignPlatforms.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // ============ System Settings Implementation ============
+  
+  async getSystemSettings(): Promise<SystemSettingRecord[]> {
+    return db.select().from(systemSettings)
+      .orderBy(asc(systemSettings.category), asc(systemSettings.key));
+  }
+
+  async getSystemSetting(key: string): Promise<SystemSettingRecord | undefined> {
+    const [setting] = await db.select().from(systemSettings)
+      .where(eq(systemSettings.key, key));
+    return setting || undefined;
+  }
+
+  async getSystemSettingsByCategory(category: string): Promise<SystemSettingRecord[]> {
+    return db.select().from(systemSettings)
+      .where(eq(systemSettings.category, category))
+      .orderBy(asc(systemSettings.key));
+  }
+
+  async createSystemSetting(setting: InsertSystemSetting): Promise<SystemSettingRecord> {
+    const [created] = await db.insert(systemSettings).values(setting).returning();
+    return created;
+  }
+
+  async updateSystemSetting(key: string, value: unknown, modifiedBy: string): Promise<SystemSettingRecord | undefined> {
+    const [updated] = await db.update(systemSettings)
+      .set({ value, lastModifiedBy: modifiedBy, lastModifiedAt: new Date() })
+      .where(eq(systemSettings.key, key))
+      .returning();
+    return updated || undefined;
   }
 }
 

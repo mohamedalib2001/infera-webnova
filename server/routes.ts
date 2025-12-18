@@ -2,10 +2,28 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateWebsiteCode, refineWebsiteCode } from "./anthropic";
-import { insertProjectSchema, insertMessageSchema, insertProjectVersionSchema, insertShareLinkSchema, insertUserSchema, insertAiModelSchema, insertAiUsagePolicySchema, insertEmergencyControlSchema, insertFeatureFlagSchema, insertSystemAnnouncementSchema, insertAdminRoleSchema, insertSovereignAssistantSchema, insertSovereignCommandSchema, insertSovereignActionSchema, insertSovereignActionLogSchema, insertSovereignPolicySchema, type User } from "@shared/schema";
+import { 
+  insertProjectSchema, insertMessageSchema, insertProjectVersionSchema, 
+  insertShareLinkSchema, insertUserSchema, insertAiModelSchema, 
+  insertAiUsagePolicySchema, insertEmergencyControlSchema, insertFeatureFlagSchema, 
+  insertSystemAnnouncementSchema, insertAdminRoleSchema, insertSovereignAssistantSchema, 
+  insertSovereignCommandSchema, insertSovereignActionSchema, insertSovereignActionLogSchema, 
+  insertSovereignPolicySchema, insertSovereignAuditLogSchema, isRootOwner, 
+  getOperationalMode, type User 
+} from "@shared/schema";
 import { z } from "zod";
 import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
+import { 
+  injectSovereignContext, 
+  requireSovereignMode, 
+  requireCapability,
+  guardRootOwnerImmutability,
+  guardRootOwnerFinancialImmunity,
+  systemAwarenessCheck,
+  buildSovereignContext,
+  type SovereignContext 
+} from "./sovereign-context";
 
 // Session user type
 declare module 'express-session' {
@@ -60,10 +78,32 @@ const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
   return res.status(401).json({ error: "يجب تسجيل الدخول أولاً / Authentication required" });
 };
 
-// Admin/Sovereign middleware
+// Sovereign middleware - requires sovereign or owner role
 const requireSovereign = (req: Request, res: Response, next: NextFunction) => {
-  if (!req.session?.user || req.session.user.role !== 'sovereign') {
+  const user = req.session?.user;
+  if (!user || (user.role !== 'sovereign' && user.role !== 'owner')) {
     return res.status(403).json({ error: "صلاحيات سيادية مطلوبة / Sovereign access required" });
+  }
+  next();
+};
+
+// Owner middleware - requires ROOT_OWNER (owner role) only
+const requireOwner = (req: Request, res: Response, next: NextFunction) => {
+  const user = req.session?.user;
+  if (!user || !isRootOwner(user.role)) {
+    return res.status(403).json({ 
+      error: "صلاحيات المالك مطلوبة / Owner access required",
+      errorAr: "صلاحيات المالك مطلوبة"
+    });
+  }
+  next();
+};
+
+// Middleware to inject sovereign context into authenticated requests
+const withSovereignContext = async (req: Request, res: Response, next: NextFunction) => {
+  const user = req.session?.user as User | undefined;
+  if (user) {
+    req.sovereignContext = buildSovereignContext(user);
   }
   next();
 };
@@ -291,6 +331,20 @@ export async function registerRoutes(
   // Get current user subscription
   app.get("/api/subscription", requireAuth, async (req, res) => {
     try {
+      const user = req.session.user;
+      
+      // ROOT_OWNER is exempt from subscriptions - return special status
+      if (user && isRootOwner(user.role)) {
+        return res.json({
+          status: 'OWNER_SOVEREIGN_MODE',
+          message: 'ROOT_OWNER is not subject to subscriptions',
+          messageAr: 'المالك الجذري لا يخضع للاشتراكات',
+          subscription: null,
+          billingRequired: false,
+          limitsApply: false,
+        });
+      }
+      
       const subscription = await storage.getUserSubscription(req.session.userId!);
       res.json(subscription || null);
     } catch (error) {
@@ -317,6 +371,19 @@ export async function registerRoutes(
   app.post("/api/sovereign/activate-subscription", requireAuth, requireSovereign, async (req, res) => {
     try {
       const { userId, planId, billingCycle } = req.body;
+      
+      // Check if target user is ROOT_OWNER (immune to subscriptions)
+      const targetUser = await storage.getUser(userId);
+      if (targetUser && isRootOwner(targetUser.role)) {
+        const guard = guardRootOwnerFinancialImmunity(userId, targetUser.role, 'create_subscription');
+        if (!guard.allowed) {
+          return res.status(403).json({
+            error: guard.reason,
+            errorAr: guard.reasonAr,
+            sovereignNote: 'ROOT_OWNER operates in OWNER_SOVEREIGN_MODE - no subscriptions required'
+          });
+        }
+      }
       
       // Update user role based on plan
       const plan = await storage.getSubscriptionPlan(planId);
@@ -1334,11 +1401,46 @@ export async function registerRoutes(
       const { userId } = req.params;
       const { role } = req.body;
       
-      if (!['free', 'basic', 'pro', 'enterprise', 'sovereign', 'owner'].includes(role)) {
+      // Get target user to check if ROOT_OWNER
+      const targetUser = await storage.getUser(userId);
+      if (!targetUser) {
+        return res.status(404).json({ error: "المستخدم غير موجود / User not found" });
+      }
+      
+      // Guard: ROOT_OWNER role is IMMUTABLE
+      const guard = guardRootOwnerImmutability(targetUser, 'modify_role');
+      if (!guard.allowed) {
+        return res.status(403).json({ 
+          error: guard.reason,
+          errorAr: guard.reasonAr
+        });
+      }
+      
+      // Prevent creating another ROOT_OWNER
+      if (role === 'owner' && !isRootOwner(targetUser.role)) {
+        return res.status(403).json({ 
+          error: "Cannot promote user to ROOT_OWNER - only one ROOT_OWNER allowed",
+          errorAr: "لا يمكن ترقية المستخدم إلى مالك جذري - مالك جذري واحد فقط مسموح"
+        });
+      }
+      
+      if (!['free', 'basic', 'pro', 'enterprise', 'sovereign'].includes(role)) {
         return res.status(400).json({ error: "نوع الاشتراك غير صالح" });
       }
       
       await storage.updateUser(userId, { role });
+      
+      // Log sovereign action
+      await storage.createSovereignAuditLog({
+        action: 'USER_ROLE_CHANGED',
+        performedBy: req.session!.userId!,
+        performerRole: 'owner',
+        targetType: 'user',
+        targetId: userId,
+        details: { oldRole: targetUser.role, newRole: role },
+        visibleToSubscribers: false,
+      });
+      
       res.json({ message: "تم تحديث نوع الاشتراك", role });
     } catch (error) {
       res.status(500).json({ error: "فشل في تحديث نوع الاشتراك" });
@@ -1351,7 +1453,36 @@ export async function registerRoutes(
       const { userId } = req.params;
       const { isActive } = req.body;
       
+      // Get target user to check if ROOT_OWNER
+      const targetUser = await storage.getUser(userId);
+      if (!targetUser) {
+        return res.status(404).json({ error: "المستخدم غير موجود / User not found" });
+      }
+      
+      // Guard: ROOT_OWNER cannot be disabled
+      if (!isActive) {
+        const guard = guardRootOwnerImmutability(targetUser, 'disable');
+        if (!guard.allowed) {
+          return res.status(403).json({ 
+            error: guard.reason,
+            errorAr: guard.reasonAr
+          });
+        }
+      }
+      
       await storage.updateUser(userId, { isActive });
+      
+      // Log sovereign action
+      await storage.createSovereignAuditLog({
+        action: isActive ? 'USER_ENABLED' : 'USER_DISABLED',
+        performedBy: req.session!.userId!,
+        performerRole: 'owner',
+        targetType: 'user',
+        targetId: userId,
+        details: { isActive },
+        visibleToSubscribers: false,
+      });
+      
       res.json({ message: "تم تحديث حالة المستخدم", isActive });
     } catch (error) {
       res.status(500).json({ error: "فشل في تحديث حالة المستخدم" });
@@ -3434,6 +3565,241 @@ export async function registerRoutes(
     }
   });
 
+  // ============ Sovereign Platform Factory (ROOT_OWNER Only) ============
+  
+  // Get all sovereign platforms
+  app.get("/api/owner/sovereign-platforms", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const platforms = await storage.getSovereignPlatforms();
+      
+      await storage.createSovereignAuditLog({
+        action: 'PLATFORMS_VIEWED',
+        performedBy: req.session.userId!,
+        performerRole: 'owner',
+        targetType: 'platforms',
+        visibleToSubscribers: false,
+      });
+      
+      res.json(platforms);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب المنصات السيادية / Failed to get sovereign platforms" });
+    }
+  });
+
+  // Get platforms by type
+  app.get("/api/owner/sovereign-platforms/type/:type", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const platforms = await storage.getSovereignPlatformsByType(req.params.type);
+      res.json(platforms);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب المنصات / Failed to get platforms" });
+    }
+  });
+
+  // Get single platform
+  app.get("/api/owner/sovereign-platforms/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const platform = await storage.getSovereignPlatform(req.params.id);
+      if (!platform) {
+        return res.status(404).json({ error: "المنصة غير موجودة / Platform not found" });
+      }
+      res.json(platform);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب المنصة / Failed to get platform" });
+    }
+  });
+
+  // Create sovereign platform
+  const createPlatformSchema = z.object({
+    name: z.string().min(1),
+    nameAr: z.string().min(1),
+    description: z.string().optional(),
+    descriptionAr: z.string().optional(),
+    type: z.enum(['INTERNAL_INFRA', 'SUBSCRIBER_COMMERCIAL', 'GOVERNMENT_SOVEREIGN', 'CUSTOM_SOVEREIGN']),
+    sovereigntyLevel: z.enum(['FULL_SOVEREIGN', 'DELEGATED_SOVEREIGN', 'RESTRICTED', 'MANAGED']).optional(),
+    subjectToSubscription: z.boolean().optional(),
+    evolutionCapability: z.boolean().optional(),
+    crossPlatformLinking: z.boolean().optional(),
+    complianceRequirements: z.array(z.string()).optional(),
+    defaultRestrictions: z.record(z.unknown()).optional(),
+  });
+
+  app.post("/api/owner/sovereign-platforms", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const data = createPlatformSchema.parse(req.body);
+      
+      // ROOT_OWNER creates platforms without subscription constraints
+      const platform = await storage.createSovereignPlatform({
+        ...data,
+        createdBy: req.session.userId!,
+        status: 'active',
+      });
+
+      await storage.createSovereignAuditLog({
+        action: 'PLATFORM_CREATED',
+        performedBy: req.session.userId!,
+        performerRole: 'owner',
+        targetType: 'platform',
+        targetId: platform.id,
+        details: { name: data.name, type: data.type, sovereigntyLevel: data.sovereigntyLevel },
+        visibleToSubscribers: false,
+      });
+
+      res.status(201).json({
+        message: "تم إنشاء المنصة السيادية / Sovereign platform created",
+        platform
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "بيانات غير صالحة / Invalid data", details: error.errors });
+      }
+      res.status(500).json({ error: "فشل في إنشاء المنصة / Failed to create platform" });
+    }
+  });
+
+  // Update sovereign platform
+  app.patch("/api/owner/sovereign-platforms/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const platform = await storage.updateSovereignPlatform(id, req.body);
+      
+      if (!platform) {
+        return res.status(404).json({ error: "المنصة غير موجودة / Platform not found" });
+      }
+
+      await storage.createSovereignAuditLog({
+        action: 'PLATFORM_UPDATED',
+        performedBy: req.session.userId!,
+        performerRole: 'owner',
+        targetType: 'platform',
+        targetId: id,
+        details: { changes: Object.keys(req.body) },
+        visibleToSubscribers: false,
+      });
+
+      res.json(platform);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في تحديث المنصة / Failed to update platform" });
+    }
+  });
+
+  // Delete sovereign platform
+  app.delete("/api/owner/sovereign-platforms/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const platform = await storage.getSovereignPlatform(id);
+      
+      if (!platform) {
+        return res.status(404).json({ error: "المنصة غير موجودة / Platform not found" });
+      }
+
+      await storage.deleteSovereignPlatform(id);
+
+      await storage.createSovereignAuditLog({
+        action: 'PLATFORM_DELETED',
+        performedBy: req.session.userId!,
+        performerRole: 'owner',
+        targetType: 'platform',
+        targetId: id,
+        details: { name: platform.name, type: platform.type },
+        visibleToSubscribers: false,
+      });
+
+      res.json({ message: "تم حذف المنصة / Platform deleted" });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في حذف المنصة / Failed to delete platform" });
+    }
+  });
+
+  // ============ System Settings (ROOT_OWNER Only) ============
+  
+  app.get("/api/owner/system-settings", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const settings = await storage.getSystemSettings();
+      res.json(settings);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب إعدادات النظام / Failed to get system settings" });
+    }
+  });
+
+  app.get("/api/owner/system-settings/category/:category", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const settings = await storage.getSystemSettingsByCategory(req.params.category);
+      res.json(settings);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب الإعدادات / Failed to get settings" });
+    }
+  });
+
+  app.post("/api/owner/system-settings", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { key, value, category, description, descriptionAr, modifiableBySubscribers } = req.body;
+      
+      const setting = await storage.createSystemSetting({
+        key,
+        value,
+        category,
+        description,
+        descriptionAr,
+        modifiableBySubscribers: modifiableBySubscribers || false,
+        lastModifiedBy: req.session.userId!,
+      });
+
+      await storage.createSovereignAuditLog({
+        action: 'SYSTEM_SETTING_CREATED',
+        performedBy: req.session.userId!,
+        performerRole: 'owner',
+        targetType: 'system_setting',
+        targetId: key,
+        details: { category },
+        visibleToSubscribers: false,
+      });
+
+      res.status(201).json(setting);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في إنشاء الإعداد / Failed to create setting" });
+    }
+  });
+
+  app.patch("/api/owner/system-settings/:key", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { key } = req.params;
+      const { value } = req.body;
+      
+      const setting = await storage.updateSystemSetting(key, value, req.session.userId!);
+      
+      if (!setting) {
+        return res.status(404).json({ error: "الإعداد غير موجود / Setting not found" });
+      }
+
+      await storage.createSovereignAuditLog({
+        action: 'SYSTEM_SETTING_UPDATED',
+        performedBy: req.session.userId!,
+        performerRole: 'owner',
+        targetType: 'system_setting',
+        targetId: key,
+        details: { newValue: value },
+        visibleToSubscribers: false,
+      });
+
+      res.json(setting);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في تحديث الإعداد / Failed to update setting" });
+    }
+  });
+
+  // ============ Sovereign Audit Logs (ROOT_OWNER Only) ============
+  
+  app.get("/api/owner/sovereign-audit-logs", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const logs = await storage.getSovereignAuditLogs(limit);
+      res.json(logs);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب سجلات التدقيق / Failed to get audit logs" });
+    }
+  });
+
   // ============ Emergency Controls (Owner) ============
   
   app.get("/api/owner/emergency-controls", requireAuth, requireOwner, async (req, res) => {
@@ -3489,6 +3855,17 @@ export async function registerRoutes(
         eventDescriptionAr: `تم تفعيل ضابط طوارئ: ${data.type} - ${data.reasonAr || data.reason}`,
       });
 
+      // Log to sovereign audit logs (hidden from subscribers)
+      await storage.createSovereignAuditLog({
+        action: 'EMERGENCY_ACTIVATED',
+        performedBy: req.session.userId!,
+        performerRole: 'owner',
+        targetType: 'emergency',
+        targetId: control.id,
+        details: { type: data.type, scope: data.scope, reason: data.reason },
+        visibleToSubscribers: false,
+      });
+
       res.status(201).json({
         message: "تم تفعيل ضابط الطوارئ / Emergency control activated",
         control
@@ -3522,6 +3899,17 @@ export async function registerRoutes(
         eventType: "emergency_deactivated",
         eventDescription: `Emergency control deactivated: ${control.type}`,
         eventDescriptionAr: `تم إلغاء تفعيل ضابط الطوارئ: ${control.type}`,
+      });
+
+      // Log to sovereign audit logs
+      await storage.createSovereignAuditLog({
+        action: 'EMERGENCY_DEACTIVATED',
+        performedBy: req.session.userId!,
+        performerRole: 'owner',
+        targetType: 'emergency',
+        targetId: control.id,
+        details: { type: control.type },
+        visibleToSubscribers: false,
       });
 
       res.json({

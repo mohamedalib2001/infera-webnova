@@ -1919,3 +1919,159 @@ export interface PlatformStateOverview {
     timestamp: string;
   }>;
 }
+
+// ==================== SOVEREIGN SYSTEM TABLES ====================
+
+// Authority levels for sovereign system
+export const authorityLevels = [
+  'ABSOLUTE_SOVEREIGNTY',
+  'SOVEREIGN_DELEGATE', 
+  'ENTERPRISE_ACCESS',
+  'PROFESSIONAL_ACCESS',
+  'BASIC_ACCESS',
+  'FREE_ACCESS'
+] as const;
+export type AuthorityLevel = typeof authorityLevels[number];
+
+// Identity states for immutability classification
+export const identityStates = ['IMMUTABLE', 'PROTECTED', 'STANDARD'] as const;
+export type IdentityState = typeof identityStates[number];
+
+// Origin types for account creation source
+export const originTypes = ['SYSTEM_FOUNDATION', 'OWNER_CREATED', 'SELF_REGISTERED'] as const;
+export type OriginType = typeof originTypes[number];
+
+// Operational modes
+export const operationalModes = ['OWNER_SOVEREIGN_MODE', 'SUBSCRIBER_RESTRICTED_MODE'] as const;
+export type OperationalMode = typeof operationalModes[number];
+
+// Platform types for Sovereign Platform Factory
+export const platformTypes = [
+  'INTERNAL_INFRA',
+  'SUBSCRIBER_COMMERCIAL',
+  'GOVERNMENT_SOVEREIGN',
+  'CUSTOM_SOVEREIGN'
+] as const;
+export type PlatformType = typeof platformTypes[number];
+
+// Sovereignty levels for platforms
+export const sovereigntyLevels = ['FULL_SOVEREIGN', 'DELEGATED_SOVEREIGN', 'RESTRICTED', 'MANAGED'] as const;
+export type SovereigntyLevel = typeof sovereigntyLevels[number];
+
+// Emergency action types
+export const emergencyActions = [
+  'HALT_ALL_PLATFORMS',
+  'FREEZE_ALL_SUBSCRIPTIONS',
+  'STOP_ALL_OPERATIONS',
+  'LOCKDOWN_SYSTEM',
+  'RESTORE_NORMAL'
+] as const;
+export type EmergencyAction = typeof emergencyActions[number];
+
+// Sovereign Audit Log - Hidden from subscribers, visible only to ROOT_OWNER
+export const sovereignAuditLogs = pgTable("sovereign_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  action: text("action").notNull(),
+  performedBy: varchar("performed_by").notNull(),
+  performerRole: text("performer_role").notNull(),
+  targetType: text("target_type").notNull(), // user, platform, subscription, system, emergency
+  targetId: varchar("target_id"),
+  details: jsonb("details").$type<Record<string, unknown>>(),
+  timestamp: timestamp("timestamp").defaultNow(),
+  visibleToSubscribers: boolean("visible_to_subscribers").notNull().default(false),
+});
+
+export const insertSovereignAuditLogSchema = createInsertSchema(sovereignAuditLogs).omit({
+  id: true,
+  timestamp: true,
+});
+
+export type InsertSovereignAuditLog = z.infer<typeof insertSovereignAuditLogSchema>;
+export type SovereignAuditLog = typeof sovereignAuditLogs.$inferSelect;
+
+// Note: emergencyControls table is already defined above (line 812)
+// Using existing EmergencyControl type for sovereign operations
+
+// Sovereign Platforms - Platform factory for ROOT_OWNER
+export const sovereignPlatforms = pgTable("sovereign_platforms", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  type: text("type").notNull(), // INTERNAL_INFRA, SUBSCRIBER_COMMERCIAL, GOVERNMENT_SOVEREIGN, CUSTOM_SOVEREIGN
+  sovereigntyLevel: text("sovereignty_level").notNull().default("MANAGED"), // FULL_SOVEREIGN, DELEGATED_SOVEREIGN, RESTRICTED, MANAGED
+  subjectToSubscription: boolean("subject_to_subscription").notNull().default(true),
+  defaultRestrictions: jsonb("default_restrictions").$type<Record<string, unknown>>(),
+  evolutionCapability: boolean("evolution_capability").notNull().default(false),
+  crossPlatformLinking: boolean("cross_platform_linking").notNull().default(false),
+  complianceRequirements: jsonb("compliance_requirements").$type<string[]>().default([]),
+  status: text("status").notNull().default("pending"), // active, suspended, archived, pending
+  createdBy: varchar("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSovereignPlatformSchema = createInsertSchema(sovereignPlatforms).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSovereignPlatform = z.infer<typeof insertSovereignPlatformSchema>;
+export type SovereignPlatformRecord = typeof sovereignPlatforms.$inferSelect;
+
+// System Settings - Global system configuration controlled by ROOT_OWNER
+export const systemSettings = pgTable("system_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: text("key").notNull().unique(),
+  value: jsonb("value").$type<unknown>().notNull(),
+  category: text("category").notNull(), // auth, billing, platforms, emergency, ai
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  modifiableBySubscribers: boolean("modifiable_by_subscribers").notNull().default(false),
+  lastModifiedBy: varchar("last_modified_by"),
+  lastModifiedAt: timestamp("last_modified_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSystemSettingSchema = createInsertSchema(systemSettings).omit({
+  id: true,
+  createdAt: true,
+  lastModifiedAt: true,
+});
+
+export type InsertSystemSetting = z.infer<typeof insertSystemSettingSchema>;
+export type SystemSettingRecord = typeof systemSettings.$inferSelect;
+
+// Helper functions for sovereign system
+export function isRootOwner(role: string): boolean {
+  return role === 'owner';
+}
+
+export function getOperationalMode(role: string): OperationalMode {
+  return isRootOwner(role) ? 'OWNER_SOVEREIGN_MODE' : 'SUBSCRIBER_RESTRICTED_MODE';
+}
+
+export function getAuthorityLevel(role: string): AuthorityLevel {
+  switch (role) {
+    case 'owner': return 'ABSOLUTE_SOVEREIGNTY';
+    case 'sovereign': return 'SOVEREIGN_DELEGATE';
+    case 'enterprise': return 'ENTERPRISE_ACCESS';
+    case 'pro': return 'PROFESSIONAL_ACCESS';
+    case 'basic': return 'BASIC_ACCESS';
+    default: return 'FREE_ACCESS';
+  }
+}
+
+export function getIdentityState(role: string): IdentityState {
+  if (role === 'owner') return 'IMMUTABLE';
+  if (role === 'sovereign' || role === 'enterprise') return 'PROTECTED';
+  return 'STANDARD';
+}
+
+export function getOriginType(role: string, createdByOwner: boolean): OriginType {
+  if (role === 'owner') return 'SYSTEM_FOUNDATION';
+  if (createdByOwner) return 'OWNER_CREATED';
+  return 'SELF_REGISTERED';
+}
