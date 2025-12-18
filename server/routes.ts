@@ -6724,6 +6724,174 @@ export async function registerRoutes(
     }
   });
 
+  // ============ SOVEREIGN AI GOVERNANCE API ============
+  
+  // Get governance status
+  app.get("/api/governance/status", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.session?.user;
+      if (user?.role !== 'owner') {
+        return res.status(403).json({ 
+          error: "Owner sovereignty required",
+          errorAr: "مطلوب سيادة المالك"
+        });
+      }
+
+      const { AISovereignGuard } = await import('./ai-sovereign-guard');
+      const status = await AISovereignGuard.checkOperationalCompleteness();
+      
+      res.json({
+        directive: AISovereignGuard.DIRECTIVE.VERSION,
+        ...status,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get governance status" });
+    }
+  });
+
+  // Get pending human approvals
+  app.get("/api/governance/approvals", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.session?.user;
+      if (user?.role !== 'owner') {
+        return res.status(403).json({ 
+          error: "Owner sovereignty required",
+          errorAr: "مطلوب سيادة المالك"
+        });
+      }
+
+      const { AISovereignGuard } = await import('./ai-sovereign-guard');
+      const approvals = AISovereignGuard.getPendingApprovals(true);
+      
+      res.json(approvals);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get approvals" });
+    }
+  });
+
+  // Process human approval
+  app.post("/api/governance/approvals/:id/decide", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.session?.user;
+      if (user?.role !== 'owner') {
+        return res.status(403).json({ 
+          error: "Owner sovereignty required",
+          errorAr: "مطلوب سيادة المالك"
+        });
+      }
+
+      const { decision, reason } = req.body;
+      if (!decision || !['approve', 'reject'].includes(decision)) {
+        return res.status(400).json({ error: "Invalid decision" });
+      }
+
+      const { AISovereignGuard } = await import('./ai-sovereign-guard');
+      const result = await AISovereignGuard.processApproval(
+        req.params.id,
+        decision,
+        user.id,
+        reason
+      );
+      
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to process approval" });
+    }
+  });
+
+  // Activate kill switch
+  app.post("/api/governance/kill-switch/activate", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.session?.user;
+      if (user?.role !== 'owner') {
+        return res.status(403).json({ 
+          error: "Owner sovereignty required",
+          errorAr: "مطلوب سيادة المالك"
+        });
+      }
+
+      const { scope, reason, reasonAr, targetLayerId, autoReactivateMinutes } = req.body;
+      
+      const { AISovereignGuard } = await import('./ai-sovereign-guard');
+      const result = await AISovereignGuard.activateKillSwitch(
+        scope || 'global',
+        user.id,
+        reason || 'Emergency activation',
+        reasonAr || 'تفعيل طوارئ',
+        targetLayerId,
+        autoReactivateMinutes
+      );
+      
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to activate kill switch" });
+    }
+  });
+
+  // Deactivate kill switch
+  app.post("/api/governance/kill-switch/:id/deactivate", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.session?.user;
+      if (user?.role !== 'owner') {
+        return res.status(403).json({ 
+          error: "Owner sovereignty required",
+          errorAr: "مطلوب سيادة المالك"
+        });
+      }
+
+      const { AISovereignGuard } = await import('./ai-sovereign-guard');
+      const result = await AISovereignGuard.deactivateKillSwitch(req.params.id, user.id);
+      
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to deactivate kill switch" });
+    }
+  });
+
+  // Trigger safe rollback
+  app.post("/api/governance/safe-rollback", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.session?.user;
+      if (user?.role !== 'owner') {
+        return res.status(403).json({ 
+          error: "Owner sovereignty required",
+          errorAr: "مطلوب سيادة المالك"
+        });
+      }
+
+      const { reason, reasonAr } = req.body;
+      
+      const { AISovereignGuard } = await import('./ai-sovereign-guard');
+      const result = await AISovereignGuard.triggerSafeRollback(
+        user.id,
+        reason || 'Manual rollback triggered',
+        reasonAr || 'تم تفعيل التراجع يدوياً'
+      );
+      
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to trigger safe rollback" });
+    }
+  });
+
+  // Validate AI execution (for internal use)
+  app.post("/api/governance/validate-execution", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.session?.user;
+      if (!user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { AISovereignGuard } = await import('./ai-sovereign-guard');
+      const context = await AISovereignGuard.validateContext(user.id, user.role);
+      const result = await AISovereignGuard.validateExecution(context, req.body);
+      
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to validate execution" });
+    }
+  });
+
   return httpServer;
 }
 
