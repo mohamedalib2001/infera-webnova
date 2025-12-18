@@ -4878,6 +4878,7 @@ export async function registerRoutes(
       }
       
       // Execute command using AI Agent Executor
+      const { aiAgentExecutor } = await import("./ai-agent-executor");
       const startTime = Date.now();
       const selectedModel = mode === "MANUAL" && model ? model : assistant.model || "claude-sonnet-4-20250514";
       
