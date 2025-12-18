@@ -2810,6 +2810,149 @@ export async function registerRoutes(
     }
   });
 
+  // ============ SOVEREIGN CONTROL PANEL APIs ============
+  
+  // Get all security incidents (owner only)
+  app.get("/api/owner/security-incidents", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const incidents = await storage.getSecurityIncidents();
+      res.json(incidents);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get security incidents" });
+    }
+  });
+  
+  // Get security incidents by severity (owner only)
+  app.get("/api/owner/security-incidents/severity/:severity", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { severity } = req.params;
+      const incidents = await storage.getSecurityIncidentsBySeverity(severity);
+      res.json(incidents);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get security incidents by severity" });
+    }
+  });
+  
+  // Create security incident (owner only)
+  app.post("/api/owner/security-incidents", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const incident = await storage.createSecurityIncident({
+        ...req.body,
+        reportedBy: req.user!.id,
+        status: 'OPEN',
+      });
+      res.json(incident);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create security incident" });
+    }
+  });
+  
+  // Resolve security incident (owner only)
+  app.patch("/api/owner/security-incidents/:id/resolve", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { resolution } = req.body;
+      const incident = await storage.resolveSecurityIncident(id, resolution, req.user!.id);
+      res.json(incident);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to resolve security incident" });
+    }
+  });
+  
+  // Get immutable audit trail (owner only)
+  app.get("/api/owner/immutable-audit", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const auditTrail = await storage.getImmutableAuditTrail(limit);
+      res.json(auditTrail);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get immutable audit trail" });
+    }
+  });
+  
+  // Get audit entry by hash (owner only) - for verification
+  app.get("/api/owner/immutable-audit/verify/:hash", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { hash } = req.params;
+      const entry = await storage.getAuditEntryByHash(hash);
+      if (!entry) {
+        return res.status(404).json({ error: "Audit entry not found", verified: false });
+      }
+      res.json({ entry, verified: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to verify audit entry" });
+    }
+  });
+  
+  // Get AI policies (owner only)
+  app.get("/api/owner/ai-policies", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const policies = await storage.getAIPolicies();
+      res.json(policies);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get AI policies" });
+    }
+  });
+  
+  // Create AI policy (owner only)
+  app.post("/api/owner/ai-policies", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const policy = await storage.createAIPolicy({
+        ...req.body,
+        createdBy: req.user!.id,
+      });
+      res.json(policy);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create AI policy" });
+    }
+  });
+  
+  // Update AI policy (owner only)
+  app.patch("/api/owner/ai-policies/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const policy = await storage.updateAIPolicy(id, req.body);
+      res.json(policy);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update AI policy" });
+    }
+  });
+  
+  // Delete AI policy (owner only)
+  app.delete("/api/owner/ai-policies/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteAIPolicy(id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete AI policy" });
+    }
+  });
+  
+  // Get margin guard config (owner only)
+  app.get("/api/owner/margin-guard", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const config = await storage.getMarginGuardConfig();
+      res.json(config || { message: "No margin guard configured" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get margin guard config" });
+    }
+  });
+  
+  // Create or update margin guard config (owner only)
+  app.post("/api/owner/margin-guard", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const config = await storage.createMarginGuardConfig({
+        ...req.body,
+        createdBy: req.user!.id,
+        isActive: true,
+      });
+      res.json(config);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create margin guard config" });
+    }
+  });
+
   // Initialize default AI assistants
   app.post("/api/owner/initialize-assistants", requireAuth, requireOwner, async (req, res) => {
     try {

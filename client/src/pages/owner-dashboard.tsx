@@ -210,6 +210,36 @@ const translations = {
         noExternalWithoutApproval: "لا خارجي بدون موافقة المالك",
         noSubscriberAccessWithoutDecision: "لا وصول مشترك بدون قرار مالك",
       },
+      securityIncidents: {
+        title: "الحوادث الأمنية",
+        subtitle: "مراقبة وإدارة جميع الحوادث الأمنية",
+        noIncidents: "لا توجد حوادث أمنية",
+        severity: "الخطورة",
+        critical: "حرجة",
+        high: "عالية",
+        medium: "متوسطة",
+        low: "منخفضة",
+        status: "الحالة",
+        open: "مفتوح",
+        investigating: "قيد التحقيق",
+        resolved: "تم الحل",
+        closed: "مغلق",
+        description: "الوصف",
+        resolution: "الحل",
+        resolvedBy: "تم الحل بواسطة",
+        resolvedAt: "تاريخ الحل",
+        resolve: "حل الحادثة",
+      },
+      immutableAudit: {
+        title: "سجل التدقيق غير القابل للتغيير",
+        subtitle: "سجل آمن بتقنية Hash Chain",
+        noRecords: "لا توجد سجلات",
+        eventType: "نوع الحدث",
+        actor: "الفاعل",
+        timestamp: "التوقيت",
+        hash: "التوقيع الرقمي",
+        verified: "موثق",
+      },
     },
     command: {
       title: "مركز القيادة الاستراتيجي",
@@ -566,6 +596,36 @@ const translations = {
         noUndefinedPower: "No Undefined Power",
         noExternalWithoutApproval: "No External without Owner Approval",
         noSubscriberAccessWithoutDecision: "No Subscriber Access without Owner Decision",
+      },
+      securityIncidents: {
+        title: "Security Incidents",
+        subtitle: "Monitor and manage all security incidents",
+        noIncidents: "No security incidents",
+        severity: "Severity",
+        critical: "Critical",
+        high: "High",
+        medium: "Medium",
+        low: "Low",
+        status: "Status",
+        open: "Open",
+        investigating: "Investigating",
+        resolved: "Resolved",
+        closed: "Closed",
+        description: "Description",
+        resolution: "Resolution",
+        resolvedBy: "Resolved By",
+        resolvedAt: "Resolved At",
+        resolve: "Resolve Incident",
+      },
+      immutableAudit: {
+        title: "Immutable Audit Trail",
+        subtitle: "Secure log with Hash Chain technology",
+        noRecords: "No records yet",
+        eventType: "Event Type",
+        actor: "Actor",
+        timestamp: "Timestamp",
+        hash: "Digital Signature",
+        verified: "Verified",
       },
     },
     command: {
@@ -1887,6 +1947,16 @@ export default function OwnerDashboard() {
 
   const { data: aiAuditLogs = [], isLoading: aiAuditLogsLoading } = useQuery<any[]>({
     queryKey: ['/api/owner/ai-sovereignty/audit-logs'],
+  });
+
+  // Security Incidents Query
+  const { data: securityIncidents = [], isLoading: securityIncidentsLoading } = useQuery<any[]>({
+    queryKey: ['/api/owner/security-incidents'],
+  });
+
+  // Immutable Audit Trail Query
+  const { data: immutableAudit = [], isLoading: immutableAuditLoading } = useQuery<any[]>({
+    queryKey: ['/api/owner/immutable-audit'],
   });
 
   // AI Agent Executor Queries (cost tracking, task history)
@@ -3891,6 +3961,130 @@ export default function OwnerDashboard() {
                               {log.timestamp ? new Date(log.timestamp).toLocaleString(language === 'ar' ? 'ar-SA' : 'en-US') : '-'}
                             </p>
                           </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Security Incidents Section */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-red-600">
+                      <AlertTriangle className="w-5 h-5" />
+                      {t.aiSovereignty.securityIncidents.title}
+                    </CardTitle>
+                    <CardDescription>{t.aiSovereignty.securityIncidents.subtitle}</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {securityIncidentsLoading ? (
+                  <div className="text-center py-8">
+                    <RefreshCw className="w-8 h-8 animate-spin mx-auto" />
+                  </div>
+                ) : securityIncidents?.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Shield className="w-12 h-12 mx-auto mb-2 opacity-50 text-green-500" />
+                    <p>{t.aiSovereignty.securityIncidents.noIncidents}</p>
+                  </div>
+                ) : (
+                  <ScrollArea className="h-[250px]">
+                    <div className="space-y-3">
+                      {securityIncidents?.map((incident: any) => (
+                        <div key={incident.id} className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg" data-testid={`incident-${incident.id}`}>
+                          <div className={`p-2 rounded-lg ${
+                            incident.severity === 'CRITICAL' ? 'bg-red-500/10 text-red-600' :
+                            incident.severity === 'HIGH' ? 'bg-orange-500/10 text-orange-600' :
+                            incident.severity === 'MEDIUM' ? 'bg-yellow-500/10 text-yellow-600' :
+                            'bg-blue-500/10 text-blue-600'
+                          }`}>
+                            <AlertTriangle className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge className={
+                                incident.severity === 'CRITICAL' ? 'bg-red-500/10 text-red-600' :
+                                incident.severity === 'HIGH' ? 'bg-orange-500/10 text-orange-600' :
+                                incident.severity === 'MEDIUM' ? 'bg-yellow-500/10 text-yellow-600' :
+                                'bg-blue-500/10 text-blue-600'
+                              }>
+                                {incident.severity}
+                              </Badge>
+                              <Badge className={
+                                incident.status === 'RESOLVED' ? 'bg-green-500/10 text-green-600' :
+                                incident.status === 'INVESTIGATING' ? 'bg-purple-500/10 text-purple-600' :
+                                'bg-red-500/10 text-red-600'
+                              }>
+                                {incident.status}
+                              </Badge>
+                            </div>
+                            <p className="text-sm mt-1">{incident.description}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {incident.createdAt ? new Date(incident.createdAt).toLocaleString(language === 'ar' ? 'ar-SA' : 'en-US') : '-'}
+                            </p>
+                            {incident.resolution && (
+                              <p className="text-xs text-green-600 mt-1">{t.aiSovereignty.securityIncidents.resolution}: {incident.resolution}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Immutable Audit Trail Section */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-blue-600">
+                      <KeyRound className="w-5 h-5" />
+                      {t.aiSovereignty.immutableAudit.title}
+                    </CardTitle>
+                    <CardDescription>{t.aiSovereignty.immutableAudit.subtitle}</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {immutableAuditLoading ? (
+                  <div className="text-center py-8">
+                    <RefreshCw className="w-8 h-8 animate-spin mx-auto" />
+                  </div>
+                ) : immutableAudit?.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <KeyRound className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p>{t.aiSovereignty.immutableAudit.noRecords}</p>
+                  </div>
+                ) : (
+                  <ScrollArea className="h-[250px]">
+                    <div className="space-y-2">
+                      {immutableAudit?.map((entry: any) => (
+                        <div key={entry.id} className="flex items-center gap-3 p-2 rounded hover-elevate bg-muted/30" data-testid={`audit-entry-${entry.id}`}>
+                          <div className="p-2 bg-blue-500/10 text-blue-600 rounded-lg">
+                            <CheckCircle2 className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge className="bg-violet-500/10 text-violet-600">{entry.eventType}</Badge>
+                              <span className="text-xs text-muted-foreground truncate">
+                                {entry.actorId || 'System'}
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {entry.createdAt ? new Date(entry.createdAt).toLocaleString(language === 'ar' ? 'ar-SA' : 'en-US') : '-'}
+                            </p>
+                          </div>
+                          <div className="text-xs font-mono text-muted-foreground truncate max-w-[100px]" title={entry.currentHash}>
+                            {entry.currentHash?.substring(0, 8)}...
+                          </div>
+                          <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
                         </div>
                       ))}
                     </div>
