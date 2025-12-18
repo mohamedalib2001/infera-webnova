@@ -26,6 +26,9 @@ import {
   Key,
   Receipt,
   Plug,
+  Server,
+  Link2,
+  Bell,
 } from "lucide-react";
 import {
   Sidebar,
@@ -311,6 +314,30 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                           <Link href="/integrations" data-testid="nav-integrations">
                             <Plug className="h-4 w-4 text-cyan-500" />
                             <span>{language === "ar" ? "التكاملات" : "Integrations"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/owner/infrastructure"}>
+                          <Link href="/owner/infrastructure" data-testid="nav-owner-infrastructure">
+                            <Server className="h-4 w-4 text-blue-500" />
+                            <span>{language === "ar" ? "البنية التحتية" : "Infrastructure"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/owner/integrations"}>
+                          <Link href="/owner/integrations" data-testid="nav-owner-integrations">
+                            <Link2 className="h-4 w-4 text-orange-500" />
+                            <span>{language === "ar" ? "بوابة التكامل" : "Integration Gateway"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/owner/notifications"}>
+                          <Link href="/owner/notifications" data-testid="nav-owner-notifications">
+                            <Bell className="h-4 w-4 text-yellow-500" />
+                            <span>{language === "ar" ? "الإشعارات" : "Notifications"}</span>
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
