@@ -2115,7 +2115,7 @@ export default function OwnerDashboard() {
   // Assistant-specific Kill Switch
   const toggleAssistantKillSwitchMutation = useMutation({
     mutationFn: async ({ assistantId, activate, reason }: { assistantId: string; activate: boolean; reason?: string }) => {
-      return apiRequest('POST', `/api/assistants/${assistantId}/kill-switch`, { activate, reason });
+      return apiRequest('PATCH', `/api/owner/sovereign-assistants/${assistantId}/toggle`, { isActive: !activate });
     },
     onSuccess: (_, { activate }) => {
       queryClient.invalidateQueries({ queryKey: ['/api/owner/ai/kill-switch'] });
@@ -2140,12 +2140,11 @@ export default function OwnerDashboard() {
       mode?: string;
       preferredModel?: string;
     }) => {
-      const res = await apiRequest('POST', `/api/assistants/${assistantId}/execute`, { 
+      return await apiRequest('POST', `/api/owner/sovereign-assistants/${assistantId}/execute`, { 
         command, 
         mode: mode || 'AUTO',
-        preferredModel 
+        model: preferredModel 
       });
-      return res.json();
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/owner/ai/task-history'] });

@@ -4858,6 +4858,79 @@ export async function registerRoutes(
     }
   });
 
+  // Execute sovereign assistant command
+  app.post("/api/owner/sovereign-assistants/:id/execute", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { command, mode, model } = req.body;
+      
+      if (!command) {
+        return res.status(400).json({ error: "الأمر مطلوب / Command is required" });
+      }
+      
+      const assistant = await storage.getSovereignAssistant(id);
+      if (!assistant) {
+        return res.status(404).json({ error: "المساعد غير موجود / Assistant not found" });
+      }
+      
+      if (!assistant.isActive) {
+        return res.status(403).json({ error: "المساعد معطل حالياً / Assistant is currently disabled" });
+      }
+      
+      // Execute command using AI Agent Executor
+      const startTime = Date.now();
+      const selectedModel = mode === "MANUAL" && model ? model : assistant.model || "claude-sonnet-4-20250514";
+      
+      const result = await aiAgentExecutor.executeCommand({
+        assistantId: id,
+        assistantName: assistant.name,
+        command,
+        model: selectedModel,
+        systemPrompt: assistant.systemPrompt || "",
+        maxTokens: assistant.maxTokens || 4000,
+        temperature: (assistant.temperature || 70) / 100,
+      });
+      
+      const executionTime = Date.now() - startTime;
+      
+      // Log the command execution
+      await storage.createSovereignCommand({
+        assistantId: id,
+        command,
+        response: result.response,
+        status: result.success ? "completed" : "failed",
+        executionTimeMs: executionTime,
+        tokenCount: result.tokensUsed || 0,
+        cost: result.cost?.toString() || "0",
+        initiatedBy: req.session.userId!,
+      });
+      
+      // Create audit log
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "sovereign_command_executed",
+        entityType: "sovereign_assistant",
+        entityId: id,
+        details: { command: command.substring(0, 100), model: selectedModel },
+      });
+      
+      res.json({
+        success: result.success,
+        response: result.response,
+        model: selectedModel,
+        executionTime,
+        tokensUsed: result.tokensUsed,
+        cost: result.cost,
+      });
+    } catch (error: any) {
+      console.error("Sovereign assistant execution error:", error);
+      res.status(500).json({ 
+        error: "فشل في تنفيذ الأمر / Failed to execute command",
+        details: error.message 
+      });
+    }
+  });
+
   // Initialize default sovereign assistants
   app.post("/api/owner/initialize-sovereign-assistants", requireAuth, requireOwner, async (req, res) => {
     try {
