@@ -146,6 +146,7 @@ export interface IStorage {
   getAllUsers(): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined>;
+  upsertUser(userData: UpsertUser): Promise<User>; // For OAuth/Replit Auth
   
   // Subscription Plans
   getSubscriptionPlans(): Promise<SubscriptionPlan[]>;

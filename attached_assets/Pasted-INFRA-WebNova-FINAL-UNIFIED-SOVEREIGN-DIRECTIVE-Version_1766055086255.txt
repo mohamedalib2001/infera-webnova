@@ -1,0 +1,214 @@
+INFRA WebNova — FINAL UNIFIED SOVEREIGN DIRECTIVE
+Version: 4.0.0
+Status: FINAL / PRODUCTION-GRADE / NO POST-DEPLOYMENT MODIFICATION
+
+This document represents the FINAL and UNIFIED architectural directive
+for INFRA WebNova, merging internal strategic vision and external validation.
+No future reinterpretation, simplification, or architectural deviation is permitted.
+
+────────────────────────────────────────────
+SYSTEM IDENTITY
+────────────────────────────────────────────
+
+INFRA WebNova is NOT:
+- A Website Builder
+- A Page Generator
+- A SaaS with reduced architecture
+- A simplified platform for subscribers
+
+INFRA WebNova IS:
+A Sovereign Intelligent Operating System
+for creating, operating, governing, and evolving digital platforms.
+
+One Core OS.
+One Architecture.
+Two Operational Modes.
+Zero Architectural Fragmentation.
+
+────────────────────────────────────────────
+DUAL SOVEREIGN OPERATION MODEL
+────────────────────────────────────────────
+
+INFRA WebNova operates in TWO STRICTLY GOVERNED MODES:
+
+────────────────────────────────────────────
+MODE A — OWNER / INFRA ENGINE SOVEREIGN MODE
+(PRIMARY & FOUNDATIONAL)
+────────────────────────────────────────────
+
+This is the ORIGINAL PURPOSE of the system.
+
+The platform owner (INFRA Engine Group) operates under
+ABSOLUTE SOVEREIGN CONTROL.
+
+Capabilities include:
+
+• Creation, management, and evolution of 23 predefined internal platforms
+• Platforms are NOT demos — they are production sovereign systems
+• Platform count is extensible beyond 23 without architectural change
+
+Internal platforms include (non-exhaustive):
+INFRA-Design-OS
+INFRA-Dev-Cloud
+INFRA-AI-Orchestrator
+INFRA-Security-Core
+INFRA-Compliance-OS
+INFRA-Gov-OS
+INFRA-Fin-Tech
+INFRA-Health-Core
+INFRA-Edu-Platform
+INFRA-Smart-Cities
+INFRA-Telecom-OS
+INFRA-Innovation-Core
+(and others)
+
+OWNER MODE CHARACTERISTICS:
+• Unlimited resources
+• Full Blueprint authority
+• Full AI Orchestrator override
+• Cross-platform orchestration
+• Autonomous continuous evolution
+• Internal cost-center accounting
+• Zero subscription constraints
+
+This mode represents:
+INFRA ENGINE’S INTERNAL DIGITAL SOVEREIGN FACTORY.
+
+────────────────────────────────────────────
+MODE B — SUBSCRIBER SOVEREIGN MODE
+(COMMERCIAL / GOVERNED)
+────────────────────────────────────────────
+
+This mode provides EXTERNAL ACCESS
+to the SAME CORE OS under STRICT GOVERNANCE.
+
+Subscription models:
+• Monthly
+• Quarterly
+• Semi-Annual
+• Annual
+
+Subscribers receive:
+NOT a simplified system,
+but a GOVERNED INSTANCE of the SAME OS.
+
+Subscription tiers control ONLY:
+• Resource quotas
+• Platform count
+• User limits
+• Compliance scope
+• Evolution autonomy level
+• Governance permissions
+
+Subscriber sovereignty levels:
+STANDARD → ENHANCED → BUSINESS → ENTERPRISE → ABSOLUTE
+
+IMPORTANT RULES:
+• Blueprint remains Single Source of Truth
+• AI Orchestrator remains authoritative
+• Event-driven architecture is mandatory
+• No direct system override is allowed
+• No “quick build”, “lite”, or “simple mode”
+
+────────────────────────────────────────────
+CRITICAL NON-NEGOTIABLE RULES
+────────────────────────────────────────────
+
+RULE 1 — ONE CORE OS
+Internal and external modes share:
+• Architecture
+• Codebase
+• Event system
+• Runtime engine
+• AI Orchestrator
+• Blueprint mechanics
+
+Differences exist ONLY in permissions and governance.
+
+RULE 2 — BLUEPRINT IS KING
+Nothing exists, runs, or evolves
+unless derived from a Blueprint.
+
+RULE 3 — AI ORCHESTRATOR IS THE BRAIN
+No creation, scaling, or evolution
+without AI authorization.
+
+RULE 4 — EVERYTHING IS EVENT-DRIVEN
+No direct module-to-module calls.
+All actions emit and consume events.
+
+RULE 5 — NO WEBSITE TERMINOLOGY
+The following terms are FORBIDDEN:
+Website, Page, Builder, Template Page, Quick Build
+
+Allowed terms:
+Platform, Blueprint, Runtime, Governance, Evolution
+
+────────────────────────────────────────────
+DUAL INTERFACE PRINCIPLE
+────────────────────────────────────────────
+
+The system exposes DIFFERENT INTERFACES
+based on identity, NOT architecture.
+
+• OWNER Interface:
+  - Full sovereignty dashboard
+  - Internal platforms control
+  - Cross-platform evolution
+  - Revenue + governance oversight
+
+• SUBSCRIBER Interface:
+  - Tier-governed dashboard
+  - Platform lifecycle within plan limits
+  - Resource usage & compliance view
+  - Upgrade / renewal management
+
+UI language MUST remain sovereign in both cases.
+
+────────────────────────────────────────────
+BILLING & FINANCIAL SEPARATION
+────────────────────────────────────────────
+
+• Internal platforms → COST CENTER
+• External subscriptions → REVENUE CENTER
+
+• Financial data is fully isolated
+• Billing cycles supported:
+  MONTHLY / QUARTERLY / SEMI-ANNUAL / ANNUAL
+• Regional compliance supported (VAT, etc.)
+
+Billing is an OVERLAY SYSTEM.
+It NEVER alters core behavior.
+
+────────────────────────────────────────────
+DEPLOYMENT GUARANTEE
+────────────────────────────────────────────
+
+Target Deployment:
+• Isolated Hetzner Server
+• Production-grade
+• No external dependency for evolution
+• No post-deployment architectural changes required
+
+The system is designed to:
+• Operate autonomously
+• Heal itself
+• Evolve without rebuild
+• Scale without refactor
+
+────────────────────────────────────────────
+FINAL DECLARATION
+────────────────────────────────────────────
+
+INFRA WebNova is now:
+
+• Architecturally complete
+• Commercially viable
+• Sovereign by design
+• Dual-mode without fragmentation
+• Ready for isolated production deployment
+
+Any future implementation MUST comply with this directive.
+Deviation equals architectural violation.
+
+END OF FINAL DIRECTIVE

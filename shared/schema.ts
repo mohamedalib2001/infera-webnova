@@ -1,7 +1,20 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, jsonb, integer, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, jsonb, integer, boolean, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+// ==================== SESSION STORAGE (for Replit Auth) ====================
+
+// Session storage table - mandatory for Replit Auth
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)],
+);
 
 // ==================== USERS & AUTH ====================
 
@@ -9,14 +22,22 @@ import { z } from "zod";
 export const userRoles = ['free', 'basic', 'pro', 'enterprise', 'sovereign', 'owner'] as const;
 export type UserRole = typeof userRoles[number];
 
+// Auth provider types for social login
+export const authProviders = ['email', 'google', 'github', 'apple', 'replit'] as const;
+export type AuthProvider = typeof authProviders[number];
+
 // Users table - Extended with roles and subscription info
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: text("email").notNull().unique(),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+  email: text("email").unique(), // nullable for OAuth without email
+  username: text("username").unique(), // nullable for OAuth
+  password: text("password"), // nullable for OAuth users
   fullName: text("full_name"),
+  firstName: text("first_name"), // for OAuth profile
+  lastName: text("last_name"), // for OAuth profile
   avatar: text("avatar"),
+  profileImageUrl: text("profile_image_url"), // for OAuth profile image
+  authProvider: text("auth_provider").notNull().default("email"), // email, google, github, apple, replit
   role: text("role").notNull().default("free"), // free, basic, pro, enterprise, sovereign
   isActive: boolean("is_active").notNull().default(true),
   emailVerified: boolean("email_verified").notNull().default(false),
@@ -33,6 +54,16 @@ export const insertUserSchema = createInsertSchema(users).omit({
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+
+// Upsert user type for OAuth - Replit Auth compatible
+export type UpsertUser = {
+  id: string;
+  email?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  profileImageUrl?: string | null;
+  authProvider?: string;
+};
 
 // ==================== SUBSCRIPTION PLANS ====================
 
