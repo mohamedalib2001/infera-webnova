@@ -647,6 +647,26 @@ export default function OwnerDashboard() {
     approvalRequired: true,
   });
 
+  // AI Sovereignty Form States
+  const [showNewLayerDialog, setShowNewLayerDialog] = useState(false);
+  const [showKillSwitchDialog, setShowKillSwitchDialog] = useState(false);
+  const [newLayerForm, setNewLayerForm] = useState({
+    name: "",
+    nameAr: "",
+    purpose: "",
+    purposeAr: "",
+    type: "INTERNAL_SOVEREIGN",
+    priority: 5,
+    allowedForSubscribers: false,
+    subscriberVisibility: "hidden",
+  });
+  const [killSwitchForm, setKillSwitchForm] = useState({
+    scope: "global",
+    reason: "",
+    reasonAr: "",
+    targetLayerId: "",
+  });
+
   const { data: assistants = [], isLoading: assistantsLoading } = useQuery<AiAssistant[]>({
     queryKey: ['/api/owner/assistants'],
   });
@@ -725,22 +745,28 @@ export default function OwnerDashboard() {
 
   // AI Sovereignty Mutations
   const createAiLayerMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (data: typeof newLayerForm) => {
       return apiRequest('POST', '/api/owner/ai-sovereignty/layers', {
-        name: 'New AI Layer',
-        nameAr: 'طبقة ذكاء جديدة',
-        purpose: 'General purpose AI layer',
-        purposeAr: 'طبقة ذكاء متعددة الأغراض',
-        type: 'INTERNAL_SOVEREIGN',
+        name: data.name,
+        nameAr: data.nameAr,
+        purpose: data.purpose,
+        purposeAr: data.purposeAr || data.purpose,
+        type: data.type,
         status: 'active',
-        priority: 5,
-        allowedForSubscribers: false,
-        subscriberVisibility: 'hidden',
+        priority: data.priority,
+        allowedForSubscribers: data.allowedForSubscribers,
+        subscriberVisibility: data.subscriberVisibility,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/owner/ai-sovereignty/layers'] });
       queryClient.invalidateQueries({ queryKey: ['/api/owner/ai-sovereignty/audit-logs'] });
+      setShowNewLayerDialog(false);
+      setNewLayerForm({
+        name: "", nameAr: "", purpose: "", purposeAr: "",
+        type: "INTERNAL_SOVEREIGN", priority: 5,
+        allowedForSubscribers: false, subscriberVisibility: "hidden",
+      });
       toast({
         title: language === 'ar' ? "تمت الإضافة" : "Layer Created",
         description: language === 'ar' ? "تم إنشاء طبقة ذكاء جديدة" : "New AI layer has been created",
@@ -756,16 +782,19 @@ export default function OwnerDashboard() {
   });
 
   const activateKillSwitchMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (data: typeof killSwitchForm) => {
       return apiRequest('POST', '/api/owner/ai-sovereignty/kill-switch/activate', {
-        scope: 'global',
-        reason: 'Manual activation by owner',
-        reasonAr: 'تفعيل يدوي من المالك',
+        scope: data.scope,
+        reason: data.reason,
+        reasonAr: data.reasonAr || data.reason,
+        targetLayerId: data.scope === 'layer_specific' ? data.targetLayerId : undefined,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/owner/ai-sovereignty/kill-switch'] });
       queryClient.invalidateQueries({ queryKey: ['/api/owner/ai-sovereignty/audit-logs'] });
+      setShowKillSwitchDialog(false);
+      setKillSwitchForm({ scope: "global", reason: "", reasonAr: "", targetLayerId: "" });
       toast({
         title: language === 'ar' ? "تم التفعيل" : "Kill Switch Activated",
         description: language === 'ar' ? "تم تفعيل زر الطوارئ" : "Kill switch has been activated",
@@ -1863,10 +1892,117 @@ export default function OwnerDashboard() {
                     <Database className="w-5 h-5" />
                     {t.aiSovereignty.layers}
                   </CardTitle>
-                  <Button onClick={() => createAiLayerMutation.mutate()} disabled={createAiLayerMutation?.isPending} data-testid="button-create-ai-layer">
-                    <Plus className="w-4 h-4 mr-2" />
-                    {language === 'ar' ? 'إضافة طبقة' : 'Add Layer'}
-                  </Button>
+                  <Dialog open={showNewLayerDialog} onOpenChange={setShowNewLayerDialog}>
+                    <DialogTrigger asChild>
+                      <Button data-testid="button-create-ai-layer">
+                        <Plus className="w-4 h-4 mr-2" />
+                        {language === 'ar' ? 'إضافة طبقة' : 'Add Layer'}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-lg">
+                      <DialogHeader>
+                        <DialogTitle>{language === 'ar' ? 'إنشاء طبقة ذكاء جديدة' : 'Create New AI Layer'}</DialogTitle>
+                        <DialogDescription>
+                          {language === 'ar' ? 'تحديد إعدادات الطبقة الجديدة' : 'Configure the new AI layer settings'}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>{language === 'ar' ? 'الاسم (إنجليزي)' : 'Name (English)'}</Label>
+                            <Input
+                              value={newLayerForm.name}
+                              onChange={(e) => setNewLayerForm({...newLayerForm, name: e.target.value})}
+                              placeholder="Internal AI Layer"
+                              data-testid="input-layer-name"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>{language === 'ar' ? 'الاسم (عربي)' : 'Name (Arabic)'}</Label>
+                            <Input
+                              value={newLayerForm.nameAr}
+                              onChange={(e) => setNewLayerForm({...newLayerForm, nameAr: e.target.value})}
+                              placeholder="طبقة ذكاء داخلية"
+                              dir="rtl"
+                              data-testid="input-layer-name-ar"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>{language === 'ar' ? 'الغرض' : 'Purpose'}</Label>
+                          <Textarea
+                            value={newLayerForm.purpose}
+                            onChange={(e) => setNewLayerForm({...newLayerForm, purpose: e.target.value})}
+                            placeholder={language === 'ar' ? 'وصف الغرض من هذه الطبقة...' : 'Describe the purpose of this layer...'}
+                            data-testid="input-layer-purpose"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>{language === 'ar' ? 'النوع' : 'Type'}</Label>
+                            <Select value={newLayerForm.type} onValueChange={(v) => setNewLayerForm({...newLayerForm, type: v})}>
+                              <SelectTrigger data-testid="select-layer-type">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="INTERNAL_SOVEREIGN">{t.aiSovereignty.layerTypes.internal}</SelectItem>
+                                <SelectItem value="EXTERNAL_MANAGED">{t.aiSovereignty.layerTypes.external}</SelectItem>
+                                <SelectItem value="HYBRID">{t.aiSovereignty.layerTypes.hybrid}</SelectItem>
+                                <SelectItem value="SUBSCRIBER_RESTRICTED">{t.aiSovereignty.layerTypes.restricted}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>{language === 'ar' ? 'الأولوية (1-10)' : 'Priority (1-10)'}</Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={10}
+                              value={newLayerForm.priority}
+                              onChange={(e) => setNewLayerForm({...newLayerForm, priority: parseInt(e.target.value) || 5})}
+                              data-testid="input-layer-priority"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between gap-4">
+                          <Label>{language === 'ar' ? 'متاح للمشتركين' : 'Available to Subscribers'}</Label>
+                          <Switch
+                            checked={newLayerForm.allowedForSubscribers}
+                            onCheckedChange={(c) => setNewLayerForm({...newLayerForm, allowedForSubscribers: c})}
+                            data-testid="switch-layer-subscribers"
+                          />
+                        </div>
+                        {newLayerForm.allowedForSubscribers && (
+                          <div className="space-y-2">
+                            <Label>{language === 'ar' ? 'مستوى الرؤية' : 'Visibility Level'}</Label>
+                            <Select value={newLayerForm.subscriberVisibility} onValueChange={(v) => setNewLayerForm({...newLayerForm, subscriberVisibility: v})}>
+                              <SelectTrigger data-testid="select-layer-visibility">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="hidden">{language === 'ar' ? 'مخفي' : 'Hidden'}</SelectItem>
+                                <SelectItem value="limited">{language === 'ar' ? 'محدود' : 'Limited'}</SelectItem>
+                                <SelectItem value="full">{language === 'ar' ? 'كامل' : 'Full'}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowNewLayerDialog(false)}>
+                          {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                        </Button>
+                        <Button 
+                          onClick={() => createAiLayerMutation.mutate(newLayerForm)}
+                          disabled={createAiLayerMutation?.isPending || !newLayerForm.name || !newLayerForm.nameAr || !newLayerForm.purpose}
+                          data-testid="button-submit-layer"
+                        >
+                          {createAiLayerMutation?.isPending && <RefreshCw className="w-4 h-4 mr-2 animate-spin" />}
+                          {language === 'ar' ? 'إنشاء الطبقة' : 'Create Layer'}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </CardHeader>
               <CardContent>
@@ -1881,27 +2017,36 @@ export default function OwnerDashboard() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {aiLayers?.map((layer: any) => (
-                      <div key={layer.id} className="flex items-center justify-between gap-4 p-3 bg-muted/50 rounded-lg" data-testid={`ai-layer-${layer.id}`}>
-                        <div className="flex items-center gap-3">
-                          <Badge className={
-                            layer.layerType === 'INTERNAL_SOVEREIGN' ? 'bg-blue-500/10 text-blue-600' :
-                            layer.layerType === 'EXTERNAL_MANAGED' ? 'bg-purple-500/10 text-purple-600' :
-                            layer.layerType === 'HYBRID' ? 'bg-green-500/10 text-green-600' :
-                            'bg-orange-500/10 text-orange-600'
-                          }>
-                            {layer.layerType}
-                          </Badge>
-                          <div>
-                            <p className="font-medium">{language === 'ar' ? layer.nameAr : layer.name}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {language === 'ar' ? 'القوة:' : 'Power:'} {layer.powerLevel || 1}
-                            </p>
+                    {aiLayers?.map((layer: any) => {
+                      const layerType = layer.type || layer.layerType;
+                      return (
+                        <div key={layer.id} className="flex items-center justify-between gap-4 p-3 bg-muted/50 rounded-lg" data-testid={`ai-layer-${layer.id}`}>
+                          <div className="flex items-center gap-3">
+                            <Badge className={
+                              layerType === 'INTERNAL_SOVEREIGN' ? 'bg-blue-500/10 text-blue-600' :
+                              layerType === 'EXTERNAL_MANAGED' ? 'bg-purple-500/10 text-purple-600' :
+                              layerType === 'HYBRID' ? 'bg-green-500/10 text-green-600' :
+                              'bg-orange-500/10 text-orange-600'
+                            }>
+                              {layerType === 'INTERNAL_SOVEREIGN' ? t.aiSovereignty.layerTypes.internal :
+                               layerType === 'EXTERNAL_MANAGED' ? t.aiSovereignty.layerTypes.external :
+                               layerType === 'HYBRID' ? t.aiSovereignty.layerTypes.hybrid :
+                               t.aiSovereignty.layerTypes.restricted}
+                            </Badge>
+                            <div>
+                              <p className="font-medium">{language === 'ar' ? layer.nameAr : layer.name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {language === 'ar' ? 'الأولوية:' : 'Priority:'} {layer.priority || 1} | 
+                                {language === 'ar' ? ' الحالة:' : ' Status:'} {layer.status}
+                              </p>
+                            </div>
                           </div>
+                          <Badge variant={layer.status === 'active' ? 'default' : 'secondary'}>
+                            {layer.status === 'active' ? (language === 'ar' ? 'نشط' : 'Active') : layer.status}
+                          </Badge>
                         </div>
-                        <Switch checked={layer.isActive} data-testid={`switch-layer-${layer.id}`} />
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
@@ -1933,19 +2078,87 @@ export default function OwnerDashboard() {
                       {language === 'ar' ? 'إعادة التشغيل' : 'Reactivate'}
                     </Button>
                   ) : (
-                    <Button 
-                      variant="destructive"
-                      onClick={() => activateKillSwitchMutation.mutate()}
-                      disabled={activateKillSwitchMutation?.isPending}
-                      data-testid="button-activate-kill-switch"
-                    >
-                      {activateKillSwitchMutation?.isPending ? (
-                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <Pause className="w-4 h-4 mr-2" />
-                      )}
-                      {language === 'ar' ? 'إيقاف طارئ' : 'Emergency Stop'}
-                    </Button>
+                    <Dialog open={showKillSwitchDialog} onOpenChange={setShowKillSwitchDialog}>
+                      <DialogTrigger asChild>
+                        <Button variant="destructive" data-testid="button-open-kill-switch-dialog">
+                          <Pause className="w-4 h-4 mr-2" />
+                          {language === 'ar' ? 'إيقاف طارئ' : 'Emergency Stop'}
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle className="text-red-600">{language === 'ar' ? 'تفعيل الإيقاف الطارئ' : 'Activate Kill Switch'}</DialogTitle>
+                          <DialogDescription>
+                            {language === 'ar' ? 'سيتم إيقاف جميع عمليات الذكاء فوراً' : 'This will immediately stop all AI operations'}
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="space-y-2">
+                            <Label>{language === 'ar' ? 'نطاق الإيقاف' : 'Stop Scope'}</Label>
+                            <Select value={killSwitchForm.scope} onValueChange={(v) => setKillSwitchForm({...killSwitchForm, scope: v})}>
+                              <SelectTrigger data-testid="select-kill-scope">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="global">{t.aiSovereignty.globalStop}</SelectItem>
+                                <SelectItem value="external_only">{t.aiSovereignty.externalStop}</SelectItem>
+                                <SelectItem value="layer_specific">{t.aiSovereignty.layerStop}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          {killSwitchForm.scope === 'layer_specific' && aiLayers?.length > 0 && (
+                            <div className="space-y-2">
+                              <Label>{language === 'ar' ? 'الطبقة المستهدفة' : 'Target Layer'}</Label>
+                              <Select value={killSwitchForm.targetLayerId} onValueChange={(v) => setKillSwitchForm({...killSwitchForm, targetLayerId: v})}>
+                                <SelectTrigger data-testid="select-target-layer">
+                                  <SelectValue placeholder={language === 'ar' ? 'اختر طبقة' : 'Select layer'} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {aiLayers?.map((layer: any) => (
+                                    <SelectItem key={layer.id} value={layer.id}>
+                                      {language === 'ar' ? layer.nameAr : layer.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                          <div className="space-y-2">
+                            <Label>{language === 'ar' ? 'السبب (إنجليزي)' : 'Reason (English)'}</Label>
+                            <Textarea
+                              value={killSwitchForm.reason}
+                              onChange={(e) => setKillSwitchForm({...killSwitchForm, reason: e.target.value})}
+                              placeholder={language === 'ar' ? 'وصف سبب الإيقاف...' : 'Describe the reason for emergency stop...'}
+                              data-testid="input-kill-reason"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>{language === 'ar' ? 'السبب (عربي)' : 'Reason (Arabic)'}</Label>
+                            <Textarea
+                              value={killSwitchForm.reasonAr}
+                              onChange={(e) => setKillSwitchForm({...killSwitchForm, reasonAr: e.target.value})}
+                              placeholder="وصف سبب الإيقاف بالعربية..."
+                              dir="rtl"
+                              data-testid="input-kill-reason-ar"
+                            />
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setShowKillSwitchDialog(false)}>
+                            {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                          </Button>
+                          <Button 
+                            variant="destructive"
+                            onClick={() => activateKillSwitchMutation.mutate(killSwitchForm)}
+                            disabled={activateKillSwitchMutation?.isPending || !killSwitchForm.reason || (killSwitchForm.scope === 'layer_specific' && !killSwitchForm.targetLayerId)}
+                            data-testid="button-confirm-kill-switch"
+                          >
+                            {activateKillSwitchMutation?.isPending && <RefreshCw className="w-4 h-4 mr-2 animate-spin" />}
+                            {language === 'ar' ? 'تفعيل الإيقاف' : 'Activate Kill Switch'}
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
                   )}
                 </div>
               </CardHeader>
