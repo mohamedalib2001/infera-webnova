@@ -3206,3 +3206,296 @@ export const insertIntegrationAuditLogSchema = createInsertSchema(integrationAud
 
 export type InsertIntegrationAuditLog = z.infer<typeof insertIntegrationAuditLogSchema>;
 export type IntegrationAuditLog = typeof integrationAuditLogs.$inferSelect;
+
+// ==================== RESOURCE USAGE & COST TRACKING ====================
+
+// Resource types enum
+export const resourceTypes = [
+  'AI_TOKENS',
+  'API_REQUEST', 
+  'STORAGE_MB',
+  'COMPUTE_SECONDS',
+  'PAYMENT_TX',
+  'BANDWIDTH_MB'
+] as const;
+export type ResourceType = typeof resourceTypes[number];
+
+// Pricing models enum
+export const pricingModels = ['FREE', 'FIXED', 'MARKUP', 'SUBSIDIZED'] as const;
+export type PricingModel = typeof pricingModels[number];
+
+// User Location Tracking
+export const userLocations = pgTable("user_locations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  countryCode: text("country_code").notNull(), // ISO 3166-1 alpha-2 (SA, AE, US, etc.)
+  countryName: text("country_name").notNull(),
+  countryNameAr: text("country_name_ar"),
+  regionCode: text("region_code"), // State/Province
+  regionName: text("region_name"),
+  city: text("city"),
+  timezone: text("timezone"),
+  ipAddress: text("ip_address"),
+  isVpn: boolean("is_vpn").default(false),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_location_user").on(table.userId),
+  index("IDX_location_country").on(table.countryCode),
+]);
+
+export const insertUserLocationSchema = createInsertSchema(userLocations).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertUserLocation = z.infer<typeof insertUserLocationSchema>;
+export type UserLocation = typeof userLocations.$inferSelect;
+
+// Resource Usage Ledger - Main tracking table
+export const resourceUsage = pgTable("resource_usage", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  platformId: varchar("platform_id"), // For multi-tenant platforms
+  
+  resourceType: text("resource_type").notNull(), // AI_TOKENS, API_REQUEST, STORAGE_MB, etc.
+  provider: text("provider").notNull(), // openai, claude, stripe, etc.
+  service: text("service").notNull(), // gpt-4, embeddings, webhook, etc.
+  
+  quantity: real("quantity").notNull().default(0), // Number of units
+  unitCostUSD: real("unit_cost_usd").notNull().default(0), // Actual cost per unit
+  realCostUSD: real("real_cost_usd").notNull().default(0), // Real cost to owner
+  billedCostUSD: real("billed_cost_usd").notNull().default(0), // Billed cost to user
+  pricingModel: text("pricing_model").notNull().default("FREE"), // FREE, FIXED, MARKUP, SUBSIDIZED
+  markupFactor: real("markup_factor").default(1.0), // Markup multiplier
+  
+  requestId: varchar("request_id"), // For tracking specific requests
+  isSuccess: boolean("is_success").notNull().default(true),
+  errorMessage: text("error_message"),
+  
+  // Location info at time of request
+  countryCode: text("country_code"),
+  ipAddress: text("ip_address"),
+  
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
+  timestamp: timestamp("timestamp").defaultNow(),
+}, (table) => [
+  index("IDX_res_usage_user").on(table.userId),
+  index("IDX_res_usage_type").on(table.resourceType),
+  index("IDX_res_usage_provider").on(table.provider),
+  index("IDX_res_usage_timestamp").on(table.timestamp),
+  index("IDX_res_usage_country").on(table.countryCode),
+]);
+
+export const insertResourceUsageSchema = createInsertSchema(resourceUsage).omit({
+  id: true,
+});
+
+export type InsertResourceUsage = z.infer<typeof insertResourceUsageSchema>;
+export type ResourceUsage = typeof resourceUsage.$inferSelect;
+
+// User Usage Limits - Per-user spending/usage limits
+export const userUsageLimits = pgTable("user_usage_limits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  monthlyLimitUSD: real("monthly_limit_usd").default(50), // Monthly spending limit
+  dailyLimitUSD: real("daily_limit_usd"), // Daily spending limit
+  
+  autoSuspend: boolean("auto_suspend").notNull().default(true), // Auto-suspend when limit reached
+  notifyAtPercent: integer("notify_at_percent").default(80), // Notify at this % of limit
+  
+  // Resource-specific limits
+  aiTokensLimit: integer("ai_tokens_limit"), // Max AI tokens per month
+  apiRequestsLimit: integer("api_requests_limit"), // Max API requests per month
+  storageLimitMB: integer("storage_limit_mb"), // Max storage in MB
+  
+  // Current usage tracking (aggregated for performance)
+  currentMonthUsageUSD: real("current_month_usage_usd").default(0),
+  currentDayUsageUSD: real("current_day_usage_usd").default(0),
+  lastResetDate: timestamp("last_reset_date").defaultNow(),
+  
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_limits_user").on(table.userId),
+]);
+
+export const insertUserUsageLimitSchema = createInsertSchema(userUsageLimits).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertUserUsageLimit = z.infer<typeof insertUserUsageLimitSchema>;
+export type UserUsageLimit = typeof userUsageLimits.$inferSelect;
+
+// Pricing Configuration - Per-resource pricing rules
+export const pricingConfig = pgTable("pricing_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  resourceType: text("resource_type").notNull(),
+  provider: text("provider").notNull(),
+  service: text("service"),
+  
+  baseCostUSD: real("base_cost_usd").notNull(), // Owner's actual cost
+  markupFactor: real("markup_factor").notNull().default(1.5), // Default 50% markup
+  pricingModel: text("pricing_model").notNull().default("MARKUP"),
+  
+  // Regional pricing overrides
+  regionPricing: jsonb("region_pricing").$type<{
+    [countryCode: string]: {
+      markupFactor?: number;
+      pricingModel?: string;
+      currency?: string;
+      exchangeRate?: number;
+    };
+  }>().default({}),
+  
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_pricing_type").on(table.resourceType),
+  index("IDX_pricing_provider").on(table.provider),
+]);
+
+export const insertPricingConfigSchema = createInsertSchema(pricingConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertPricingConfig = z.infer<typeof insertPricingConfigSchema>;
+export type PricingConfig = typeof pricingConfig.$inferSelect;
+
+// Usage Alerts - For notifications when limits are approached
+export const usageAlerts = pgTable("usage_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  type: text("type").notNull(), // limit_warning, limit_reached, unusual_activity, budget_alert
+  severity: text("severity").notNull().default("warning"), // info, warning, error, critical
+  
+  title: text("title").notNull(),
+  titleAr: text("title_ar"),
+  message: text("message").notNull(),
+  messageAr: text("message_ar"),
+  
+  thresholdValue: real("threshold_value"), // The threshold that triggered alert
+  currentValue: real("current_value"), // Current usage value
+  percentOfLimit: real("percent_of_limit"), // Current % of limit
+  
+  isRead: boolean("is_read").notNull().default(false),
+  isAcknowledged: boolean("is_acknowledged").notNull().default(false),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  
+  actionTaken: text("action_taken"), // suspended, downgraded, notified
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_alerts_user").on(table.userId),
+  index("IDX_alerts_type").on(table.type),
+  index("IDX_alerts_read").on(table.isRead),
+]);
+
+export const insertUsageAlertSchema = createInsertSchema(usageAlerts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertUsageAlert = z.infer<typeof insertUsageAlertSchema>;
+export type UsageAlert = typeof usageAlerts.$inferSelect;
+
+// Daily Usage Aggregates - For fast dashboard queries
+export const dailyUsageAggregates = pgTable("daily_usage_aggregates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  date: timestamp("date").notNull(), // Truncated to day
+  
+  totalRequests: integer("total_requests").notNull().default(0),
+  successfulRequests: integer("successful_requests").notNull().default(0),
+  failedRequests: integer("failed_requests").notNull().default(0),
+  
+  totalAiTokens: integer("total_ai_tokens").notNull().default(0),
+  totalApiRequests: integer("total_api_requests").notNull().default(0),
+  totalStorageMB: real("total_storage_mb").notNull().default(0),
+  totalBandwidthMB: real("total_bandwidth_mb").notNull().default(0),
+  
+  realCostUSD: real("real_cost_usd").notNull().default(0),
+  billedCostUSD: real("billed_cost_usd").notNull().default(0),
+  marginUSD: real("margin_usd").notNull().default(0), // billedCost - realCost
+  
+  countryCode: text("country_code"),
+  
+  // Breakdown by provider
+  costByProvider: jsonb("cost_by_provider").$type<{
+    [provider: string]: {
+      realCost: number;
+      billedCost: number;
+      requests: number;
+    };
+  }>().default({}),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_daily_user").on(table.userId),
+  index("IDX_daily_date").on(table.date),
+  index("IDX_daily_country").on(table.countryCode),
+]);
+
+export const insertDailyUsageAggregateSchema = createInsertSchema(dailyUsageAggregates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertDailyUsageAggregate = z.infer<typeof insertDailyUsageAggregateSchema>;
+export type DailyUsageAggregate = typeof dailyUsageAggregates.$inferSelect;
+
+// Monthly Usage Summary - For billing and reports
+export const monthlyUsageSummary = pgTable("monthly_usage_summary", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  year: integer("year").notNull(),
+  month: integer("month").notNull(), // 1-12
+  
+  totalRequests: integer("total_requests").notNull().default(0),
+  totalAiTokens: integer("total_ai_tokens").notNull().default(0),
+  totalApiRequests: integer("total_api_requests").notNull().default(0),
+  totalStorageMB: real("total_storage_mb").notNull().default(0),
+  
+  realCostUSD: real("real_cost_usd").notNull().default(0),
+  billedCostUSD: real("billed_cost_usd").notNull().default(0),
+  marginUSD: real("margin_usd").notNull().default(0),
+  marginPercent: real("margin_percent").notNull().default(0),
+  
+  // Cost breakdown
+  aiCostUSD: real("ai_cost_usd").notNull().default(0),
+  apiCostUSD: real("api_cost_usd").notNull().default(0),
+  storageCostUSD: real("storage_cost_usd").notNull().default(0),
+  otherCostUSD: real("other_cost_usd").notNull().default(0),
+  
+  // User billing status
+  isPaid: boolean("is_paid").notNull().default(false),
+  invoiceId: varchar("invoice_id"),
+  
+  countryCode: text("country_code"),
+  currency: text("currency").default("USD"),
+  exchangeRate: real("exchange_rate").default(1),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_monthly_user").on(table.userId),
+  index("IDX_monthly_period").on(table.year, table.month),
+]);
+
+export const insertMonthlyUsageSummarySchema = createInsertSchema(monthlyUsageSummary).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertMonthlyUsageSummary = z.infer<typeof insertMonthlyUsageSummarySchema>;
+export type MonthlyUsageSummary = typeof monthlyUsageSummary.$inferSelect;

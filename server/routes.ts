@@ -2297,6 +2297,282 @@ export async function registerRoutes(
     }
   });
 
+  // ==================== RESOURCE USAGE & COST TRACKING (Owner) ====================
+
+  // Get user location (owner only)
+  app.get("/api/owner/users/:userId/location", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const location = await storage.getUserLocation(userId);
+      res.json(location || { message: "No location data available" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get user location" });
+    }
+  });
+
+  // Get all users with their locations (owner only)
+  app.get("/api/owner/users-with-locations", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      const usersWithLocations = await Promise.all(
+        users.map(async (user) => {
+          const location = await storage.getUserLocation(user.id);
+          const { password, ...userWithoutPassword } = user;
+          return { ...userWithoutPassword, location };
+        })
+      );
+      res.json(usersWithLocations);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get users with locations" });
+    }
+  });
+
+  // Get users by country (owner only)
+  app.get("/api/owner/users/country/:countryCode", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { countryCode } = req.params;
+      const locations = await storage.getUsersByCountry(countryCode.toUpperCase());
+      res.json({ countryCode, users: locations, count: locations.length });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get users by country" });
+    }
+  });
+
+  // Get user resource usage (owner only)
+  app.get("/api/owner/users/:userId/usage", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { startDate, endDate } = req.query;
+      
+      let start = startDate ? new Date(startDate as string) : undefined;
+      let end = endDate ? new Date(endDate as string) : undefined;
+      
+      const usage = await storage.getResourceUsage(userId, start, end);
+      const summary = await storage.getResourceUsageSummary(userId);
+      const limits = await storage.getUserUsageLimit(userId);
+      const location = await storage.getUserLocation(userId);
+      
+      res.json({ usage, summary, limits, location });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get user usage" });
+    }
+  });
+
+  // Get user usage summary (owner only)
+  app.get("/api/owner/users/:userId/usage-summary", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const summary = await storage.getResourceUsageSummary(userId);
+      const limits = await storage.getUserUsageLimit(userId);
+      
+      // Get current month usage
+      const now = new Date();
+      const monthlyData = await storage.getMonthlyUsageSummary(userId, now.getFullYear(), now.getMonth() + 1);
+      
+      res.json({ 
+        summary, 
+        limits, 
+        monthlyData,
+        percentOfLimit: limits?.monthlyLimitUSD 
+          ? ((limits.currentMonthUsageUSD || 0) / limits.monthlyLimitUSD * 100).toFixed(2)
+          : null
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get usage summary" });
+    }
+  });
+
+  // Set user usage limits (owner only)
+  app.post("/api/owner/users/:userId/usage-limits", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { monthlyLimitUSD, dailyLimitUSD, autoSuspend, notifyAtPercent, aiTokensLimit, apiRequestsLimit, storageLimitMB } = req.body;
+      
+      const existing = await storage.getUserUsageLimit(userId);
+      
+      const limitData = {
+        userId,
+        monthlyLimitUSD: monthlyLimitUSD ?? 50,
+        dailyLimitUSD,
+        autoSuspend: autoSuspend ?? true,
+        notifyAtPercent: notifyAtPercent ?? 80,
+        aiTokensLimit,
+        apiRequestsLimit,
+        storageLimitMB,
+      };
+      
+      let result;
+      if (existing) {
+        result = await storage.updateUserUsageLimit(userId, limitData);
+      } else {
+        result = await storage.createUserUsageLimit(limitData);
+      }
+      
+      await storage.createSovereignAuditLog({
+        action: 'USER_LIMITS_UPDATED',
+        performedBy: req.session!.userId!,
+        performerRole: 'owner',
+        targetType: 'user',
+        targetId: userId,
+        details: limitData,
+        visibleToSubscribers: false,
+      });
+      
+      res.json({ message: "Usage limits updated", limits: result });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to set usage limits" });
+    }
+  });
+
+  // Get pricing configurations (owner only)
+  app.get("/api/owner/pricing-configs", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const configs = await storage.getPricingConfigs();
+      res.json(configs);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get pricing configs" });
+    }
+  });
+
+  // Create/update pricing configuration (owner only)
+  app.post("/api/owner/pricing-configs", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { resourceType, provider, service, baseCostUSD, markupFactor, pricingModel, regionPricing } = req.body;
+      
+      if (!resourceType || !provider || baseCostUSD === undefined) {
+        return res.status(400).json({ error: "resourceType, provider, and baseCostUSD are required" });
+      }
+      
+      const config = await storage.createPricingConfig({
+        resourceType,
+        provider,
+        service,
+        baseCostUSD,
+        markupFactor: markupFactor ?? 1.5,
+        pricingModel: pricingModel ?? 'MARKUP',
+        regionPricing: regionPricing ?? {},
+      });
+      
+      res.json({ message: "Pricing config created", config });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create pricing config" });
+    }
+  });
+
+  // Update pricing configuration (owner only)
+  app.patch("/api/owner/pricing-configs/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const config = await storage.updatePricingConfig(id, req.body);
+      if (!config) {
+        return res.status(404).json({ error: "Pricing config not found" });
+      }
+      res.json({ message: "Pricing config updated", config });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update pricing config" });
+    }
+  });
+
+  // Get owner usage analytics dashboard (owner only)
+  app.get("/api/owner/usage-analytics", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const analytics = await storage.getOwnerUsageAnalytics();
+      
+      // Enrich with user info
+      const enrichedTop5 = await Promise.all(
+        analytics.top5Users.map(async (u) => {
+          const user = await storage.getUser(u.userId);
+          return { ...u, username: user?.username, email: user?.email };
+        })
+      );
+      
+      const enrichedLosing = await Promise.all(
+        analytics.losingUsers.map(async (u) => {
+          const user = await storage.getUser(u.userId);
+          return { ...u, username: user?.username, email: user?.email };
+        })
+      );
+      
+      res.json({
+        ...analytics,
+        top5Users: enrichedTop5,
+        losingUsers: enrichedLosing
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get usage analytics" });
+    }
+  });
+
+  // Get monthly usage summaries for all users (owner only)
+  app.get("/api/owner/monthly-summaries", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { year, month } = req.query;
+      const y = year ? parseInt(year as string) : new Date().getFullYear();
+      const m = month ? parseInt(month as string) : new Date().getMonth() + 1;
+      
+      const summaries = await storage.getAllMonthlyUsageSummaries(y, m);
+      
+      // Enrich with user info
+      const enriched = await Promise.all(
+        summaries.map(async (s) => {
+          const user = await storage.getUser(s.userId);
+          const location = await storage.getUserLocation(s.userId);
+          return { 
+            ...s, 
+            username: user?.username, 
+            email: user?.email,
+            country: location?.countryName,
+            countryCode: location?.countryCode
+          };
+        })
+      );
+      
+      // Calculate totals
+      const totalRealCost = summaries.reduce((sum, s) => sum + (s.realCostUSD || 0), 0);
+      const totalBilledCost = summaries.reduce((sum, s) => sum + (s.billedCostUSD || 0), 0);
+      const totalMargin = totalBilledCost - totalRealCost;
+      
+      res.json({ 
+        year: y, 
+        month: m, 
+        summaries: enriched, 
+        totals: { totalRealCost, totalBilledCost, totalMargin }
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get monthly summaries" });
+    }
+  });
+
+  // Get user alerts (owner only)
+  app.get("/api/owner/users/:userId/alerts", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const alerts = await storage.getUserUsageAlerts(userId);
+      res.json(alerts);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get user alerts" });
+    }
+  });
+
+  // Get all unread alerts (owner only)
+  app.get("/api/owner/usage-alerts", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      const allAlerts = [];
+      
+      for (const user of users) {
+        const alerts = await storage.getUnreadUsageAlerts(user.id);
+        allAlerts.push(...alerts.map(a => ({ ...a, username: user.username, email: user.email })));
+      }
+      
+      res.json(allAlerts.sort((a, b) => 
+        new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
+      ));
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get usage alerts" });
+    }
+  });
+
   // Initialize default AI assistants
   app.post("/api/owner/initialize-assistants", requireAuth, requireOwner, async (req, res) => {
     try {

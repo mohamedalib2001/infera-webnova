@@ -240,6 +240,27 @@ import {
   integrationAuditLogs,
   type IntegrationAuditLog,
   type InsertIntegrationAuditLog,
+  userLocations,
+  type UserLocation,
+  type InsertUserLocation,
+  resourceUsage,
+  type ResourceUsage,
+  type InsertResourceUsage,
+  userUsageLimits,
+  type UserUsageLimit,
+  type InsertUserUsageLimit,
+  pricingConfig,
+  type PricingConfig,
+  type InsertPricingConfig,
+  usageAlerts,
+  type UsageAlert,
+  type InsertUsageAlert,
+  dailyUsageAggregates,
+  type DailyUsageAggregate,
+  type InsertDailyUsageAggregate,
+  monthlyUsageSummary,
+  type MonthlyUsageSummary,
+  type InsertMonthlyUsageSummary,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt } from "drizzle-orm";
@@ -642,6 +663,58 @@ export interface IStorage {
   // Integration Audit Logs
   getIntegrationAuditLogs(providerId?: string, limit?: number): Promise<IntegrationAuditLog[]>;
   createIntegrationAuditLog(log: InsertIntegrationAuditLog): Promise<IntegrationAuditLog>;
+  
+  // User Location Tracking
+  getUserLocation(userId: string): Promise<UserLocation | undefined>;
+  updateUserLocation(userId: string, location: InsertUserLocation): Promise<UserLocation>;
+  getUsersByCountry(countryCode: string): Promise<UserLocation[]>;
+  
+  // Resource Usage Tracking
+  trackResourceUsage(usage: InsertResourceUsage): Promise<ResourceUsage>;
+  getResourceUsage(userId: string, startDate?: Date, endDate?: Date): Promise<ResourceUsage[]>;
+  getResourceUsageSummary(userId: string): Promise<{
+    totalRequests: number;
+    realCostUSD: number;
+    billedCostUSD: number;
+    marginUSD: number;
+  }>;
+  
+  // User Usage Limits
+  getUserUsageLimit(userId: string): Promise<UserUsageLimit | undefined>;
+  createUserUsageLimit(limit: InsertUserUsageLimit): Promise<UserUsageLimit>;
+  updateUserUsageLimit(userId: string, data: Partial<InsertUserUsageLimit>): Promise<UserUsageLimit | undefined>;
+  checkAndEnforceLimit(userId: string, newUsageUSD: number): Promise<{ allowed: boolean; action?: string }>;
+  
+  // Pricing Configuration
+  getPricingConfigs(): Promise<PricingConfig[]>;
+  getPricingConfig(resourceType: string, provider: string): Promise<PricingConfig | undefined>;
+  createPricingConfig(config: InsertPricingConfig): Promise<PricingConfig>;
+  updatePricingConfig(id: string, data: Partial<InsertPricingConfig>): Promise<PricingConfig | undefined>;
+  
+  // Usage Alerts
+  getUserUsageAlerts(userId: string): Promise<UsageAlert[]>;
+  getUnreadUsageAlerts(userId: string): Promise<UsageAlert[]>;
+  createUsageAlert(alert: InsertUsageAlert): Promise<UsageAlert>;
+  markUsageAlertRead(id: string): Promise<UsageAlert | undefined>;
+  
+  // Daily Aggregates
+  getDailyUsageAggregates(userId: string, startDate: Date, endDate: Date): Promise<DailyUsageAggregate[]>;
+  updateDailyAggregate(userId: string, date: Date, data: Partial<InsertDailyUsageAggregate>): Promise<DailyUsageAggregate>;
+  
+  // Monthly Summary
+  getMonthlyUsageSummary(userId: string, year: number, month: number): Promise<MonthlyUsageSummary | undefined>;
+  getAllMonthlyUsageSummaries(year: number, month: number): Promise<MonthlyUsageSummary[]>;
+  updateMonthlyUsageSummary(id: string, data: Partial<InsertMonthlyUsageSummary>): Promise<MonthlyUsageSummary | undefined>;
+  
+  // Owner Analytics
+  getOwnerUsageAnalytics(): Promise<{
+    todayTotalCost: number;
+    todayTotalBilled: number;
+    todayMargin: number;
+    top5Users: { userId: string; billedCost: number }[];
+    losingUsers: { userId: string; realCost: number; billedCost: number; loss: number }[];
+    profitByService: { service: string; margin: number }[];
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3882,6 +3955,311 @@ body { font-family: 'Tajawal', sans-serif; }
   async createIntegrationAuditLog(log: InsertIntegrationAuditLog): Promise<IntegrationAuditLog> {
     const [created] = await db.insert(integrationAuditLogs).values(log).returning();
     return created;
+  }
+
+  // ==================== RESOURCE USAGE & COST TRACKING ====================
+
+  // User Location Tracking
+  async getUserLocation(userId: string): Promise<UserLocation | undefined> {
+    const [location] = await db.select().from(userLocations)
+      .where(eq(userLocations.userId, userId));
+    return location || undefined;
+  }
+
+  async updateUserLocation(userId: string, location: InsertUserLocation): Promise<UserLocation> {
+    const existing = await this.getUserLocation(userId);
+    if (existing) {
+      const [updated] = await db.update(userLocations)
+        .set({ ...location, lastUpdated: new Date() })
+        .where(eq(userLocations.userId, userId))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(userLocations).values(location).returning();
+    return created;
+  }
+
+  async getUsersByCountry(countryCode: string): Promise<UserLocation[]> {
+    return db.select().from(userLocations)
+      .where(eq(userLocations.countryCode, countryCode));
+  }
+
+  // Resource Usage Tracking
+  async trackResourceUsage(usage: InsertResourceUsage): Promise<ResourceUsage> {
+    const [created] = await db.insert(resourceUsage).values(usage).returning();
+    return created;
+  }
+
+  async getResourceUsage(userId: string, startDate?: Date, endDate?: Date): Promise<ResourceUsage[]> {
+    if (startDate && endDate) {
+      return db.select().from(resourceUsage)
+        .where(and(
+          eq(resourceUsage.userId, userId),
+          gt(resourceUsage.timestamp, startDate)
+        ))
+        .orderBy(desc(resourceUsage.timestamp))
+        .limit(1000);
+    }
+    return db.select().from(resourceUsage)
+      .where(eq(resourceUsage.userId, userId))
+      .orderBy(desc(resourceUsage.timestamp))
+      .limit(100);
+  }
+
+  async getResourceUsageSummary(userId: string): Promise<{
+    totalRequests: number;
+    realCostUSD: number;
+    billedCostUSD: number;
+    marginUSD: number;
+  }> {
+    const usage = await db.select().from(resourceUsage)
+      .where(eq(resourceUsage.userId, userId));
+    
+    const totalRequests = usage.length;
+    const realCostUSD = usage.reduce((sum, u) => sum + (u.realCostUSD || 0), 0);
+    const billedCostUSD = usage.reduce((sum, u) => sum + (u.billedCostUSD || 0), 0);
+    const marginUSD = billedCostUSD - realCostUSD;
+    
+    return { totalRequests, realCostUSD, billedCostUSD, marginUSD };
+  }
+
+  // User Usage Limits
+  async getUserUsageLimit(userId: string): Promise<UserUsageLimit | undefined> {
+    const [limit] = await db.select().from(userUsageLimits)
+      .where(eq(userUsageLimits.userId, userId));
+    return limit || undefined;
+  }
+
+  async createUserUsageLimit(limit: InsertUserUsageLimit): Promise<UserUsageLimit> {
+    const [created] = await db.insert(userUsageLimits).values(limit).returning();
+    return created;
+  }
+
+  async updateUserUsageLimit(userId: string, data: Partial<InsertUserUsageLimit>): Promise<UserUsageLimit | undefined> {
+    const [updated] = await db.update(userUsageLimits)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(userUsageLimits.userId, userId))
+      .returning();
+    return updated || undefined;
+  }
+
+  async checkAndEnforceLimit(userId: string, newUsageUSD: number): Promise<{ allowed: boolean; action?: string }> {
+    const limit = await this.getUserUsageLimit(userId);
+    if (!limit || !limit.isActive) {
+      return { allowed: true };
+    }
+
+    const newTotal = (limit.currentMonthUsageUSD || 0) + newUsageUSD;
+    const monthlyLimit = limit.monthlyLimitUSD || 50;
+    const notifyAt = limit.notifyAtPercent || 80;
+    
+    // Check if exceeding limit
+    if (newTotal >= monthlyLimit && limit.autoSuspend) {
+      // Suspend the user
+      await this.suspendUser(userId, 'SYSTEM', 'Monthly usage limit exceeded');
+      return { allowed: false, action: 'suspended' };
+    }
+    
+    // Check if nearing limit
+    const percentUsed = (newTotal / monthlyLimit) * 100;
+    if (percentUsed >= notifyAt) {
+      return { allowed: true, action: 'notify_limit_approaching' };
+    }
+    
+    return { allowed: true };
+  }
+
+  // Pricing Configuration
+  async getPricingConfigs(): Promise<PricingConfig[]> {
+    return db.select().from(pricingConfig).orderBy(asc(pricingConfig.resourceType));
+  }
+
+  async getPricingConfig(resourceType: string, provider: string): Promise<PricingConfig | undefined> {
+    const [config] = await db.select().from(pricingConfig)
+      .where(and(
+        eq(pricingConfig.resourceType, resourceType),
+        eq(pricingConfig.provider, provider)
+      ));
+    return config || undefined;
+  }
+
+  async createPricingConfig(config: InsertPricingConfig): Promise<PricingConfig> {
+    const [created] = await db.insert(pricingConfig).values(config).returning();
+    return created;
+  }
+
+  async updatePricingConfig(id: string, data: Partial<InsertPricingConfig>): Promise<PricingConfig | undefined> {
+    const [updated] = await db.update(pricingConfig)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(pricingConfig.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // Usage Alerts
+  async getUserUsageAlerts(userId: string): Promise<UsageAlert[]> {
+    return db.select().from(usageAlerts)
+      .where(eq(usageAlerts.userId, userId))
+      .orderBy(desc(usageAlerts.createdAt));
+  }
+
+  async getUnreadUsageAlerts(userId: string): Promise<UsageAlert[]> {
+    return db.select().from(usageAlerts)
+      .where(and(
+        eq(usageAlerts.userId, userId),
+        eq(usageAlerts.isRead, false)
+      ))
+      .orderBy(desc(usageAlerts.createdAt));
+  }
+
+  async createUsageAlert(alert: InsertUsageAlert): Promise<UsageAlert> {
+    const [created] = await db.insert(usageAlerts).values(alert).returning();
+    return created;
+  }
+
+  async markUsageAlertRead(id: string): Promise<UsageAlert | undefined> {
+    const [updated] = await db.update(usageAlerts)
+      .set({ isRead: true })
+      .where(eq(usageAlerts.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // Daily Aggregates
+  async getDailyUsageAggregates(userId: string, startDate: Date, endDate: Date): Promise<DailyUsageAggregate[]> {
+    return db.select().from(dailyUsageAggregates)
+      .where(and(
+        eq(dailyUsageAggregates.userId, userId),
+        gt(dailyUsageAggregates.date, startDate)
+      ))
+      .orderBy(desc(dailyUsageAggregates.date));
+  }
+
+  async updateDailyAggregate(userId: string, date: Date, data: Partial<InsertDailyUsageAggregate>): Promise<DailyUsageAggregate> {
+    // Try to find existing record for this day
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    
+    const existing = await db.select().from(dailyUsageAggregates)
+      .where(and(
+        eq(dailyUsageAggregates.userId, userId),
+        eq(dailyUsageAggregates.date, startOfDay)
+      ));
+    
+    if (existing.length > 0) {
+      const [updated] = await db.update(dailyUsageAggregates)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(dailyUsageAggregates.id, existing[0].id))
+        .returning();
+      return updated;
+    }
+    
+    const [created] = await db.insert(dailyUsageAggregates)
+      .values({ userId, date: startOfDay, ...data } as InsertDailyUsageAggregate)
+      .returning();
+    return created;
+  }
+
+  // Monthly Summary
+  async getMonthlyUsageSummary(userId: string, year: number, month: number): Promise<MonthlyUsageSummary | undefined> {
+    const [summary] = await db.select().from(monthlyUsageSummary)
+      .where(and(
+        eq(monthlyUsageSummary.userId, userId),
+        eq(monthlyUsageSummary.year, year),
+        eq(monthlyUsageSummary.month, month)
+      ));
+    return summary || undefined;
+  }
+
+  async getAllMonthlyUsageSummaries(year: number, month: number): Promise<MonthlyUsageSummary[]> {
+    return db.select().from(monthlyUsageSummary)
+      .where(and(
+        eq(monthlyUsageSummary.year, year),
+        eq(monthlyUsageSummary.month, month)
+      ))
+      .orderBy(desc(monthlyUsageSummary.billedCostUSD));
+  }
+
+  async updateMonthlyUsageSummary(id: string, data: Partial<InsertMonthlyUsageSummary>): Promise<MonthlyUsageSummary | undefined> {
+    const [updated] = await db.update(monthlyUsageSummary)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(monthlyUsageSummary.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // Owner Analytics
+  async getOwnerUsageAnalytics(): Promise<{
+    todayTotalCost: number;
+    todayTotalBilled: number;
+    todayMargin: number;
+    top5Users: { userId: string; billedCost: number }[];
+    losingUsers: { userId: string; realCost: number; billedCost: number; loss: number }[];
+    profitByService: { service: string; margin: number }[];
+  }> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const todayUsage = await db.select().from(resourceUsage)
+      .where(gt(resourceUsage.timestamp, today));
+    
+    const todayTotalCost = todayUsage.reduce((sum, u) => sum + (u.realCostUSD || 0), 0);
+    const todayTotalBilled = todayUsage.reduce((sum, u) => sum + (u.billedCostUSD || 0), 0);
+    const todayMargin = todayTotalBilled - todayTotalCost;
+    
+    // Aggregate by user
+    const userTotals: Record<string, { realCost: number; billedCost: number }> = {};
+    for (const u of todayUsage) {
+      if (!userTotals[u.userId]) {
+        userTotals[u.userId] = { realCost: 0, billedCost: 0 };
+      }
+      userTotals[u.userId].realCost += u.realCostUSD || 0;
+      userTotals[u.userId].billedCost += u.billedCostUSD || 0;
+    }
+    
+    // Top 5 users by billed cost
+    const top5Users = Object.entries(userTotals)
+      .map(([userId, data]) => ({ userId, billedCost: data.billedCost }))
+      .sort((a, b) => b.billedCost - a.billedCost)
+      .slice(0, 5);
+    
+    // Users where cost > billed (losing money)
+    const losingUsers = Object.entries(userTotals)
+      .filter(([_, data]) => data.realCost > data.billedCost)
+      .map(([userId, data]) => ({
+        userId,
+        realCost: data.realCost,
+        billedCost: data.billedCost,
+        loss: data.realCost - data.billedCost
+      }))
+      .sort((a, b) => b.loss - a.loss);
+    
+    // Profit by service
+    const serviceTotals: Record<string, { realCost: number; billedCost: number }> = {};
+    for (const u of todayUsage) {
+      const service = u.service || 'unknown';
+      if (!serviceTotals[service]) {
+        serviceTotals[service] = { realCost: 0, billedCost: 0 };
+      }
+      serviceTotals[service].realCost += u.realCostUSD || 0;
+      serviceTotals[service].billedCost += u.billedCostUSD || 0;
+    }
+    
+    const profitByService = Object.entries(serviceTotals)
+      .map(([service, data]) => ({
+        service,
+        margin: data.billedCost - data.realCost
+      }))
+      .sort((a, b) => b.margin - a.margin);
+    
+    return {
+      todayTotalCost,
+      todayTotalBilled,
+      todayMargin,
+      top5Users,
+      losingUsers,
+      profitByService
+    };
   }
 }
 
