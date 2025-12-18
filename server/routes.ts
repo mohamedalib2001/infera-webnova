@@ -149,7 +149,21 @@ export async function registerRoutes(
   });
 
   // Get current user - الحصول على المستخدم الحالي
-  app.get("/api/auth/me", (req, res) => {
+  app.get("/api/auth/me", async (req, res) => {
+    // Check for Replit Auth (passport session)
+    if (req.isAuthenticated && req.isAuthenticated() && req.user) {
+      const replitUser = req.user as any;
+      const userId = replitUser.claims?.sub;
+      if (userId) {
+        const user = await storage.getUser(userId);
+        if (user) {
+          const { password, ...userWithoutPassword } = user;
+          return res.json({ user: userWithoutPassword });
+        }
+      }
+    }
+    
+    // Check for traditional session
     if (!req.session?.userId) {
       return res.status(401).json({ error: "غير مسجل الدخول / Not logged in" });
     }
