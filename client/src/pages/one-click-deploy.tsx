@@ -185,6 +185,11 @@ export default function OneClickDeploy() {
 
   const { data: deploymentsData, isLoading: deploymentsLoading } = useQuery<{ success: boolean; deployments: DeploymentRun[] }>({
     queryKey: ["/api/deployments", selectedProject],
+    queryFn: async () => {
+      const res = await fetch(`/api/deployments?projectId=${selectedProject}`);
+      if (!res.ok) throw new Error("Failed to fetch deployments");
+      return res.json();
+    },
     enabled: !!selectedProject,
     refetchInterval: 5000,
   });

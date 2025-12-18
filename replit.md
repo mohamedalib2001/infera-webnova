@@ -169,6 +169,28 @@ Intelligent code analysis and improvement recommendations using Claude AI:
 **UI Page:**
 *   `/smart-suggestions` - Smart suggestions dashboard with score cards, suggestion list, and history
 
+## One-Click Deployment System (New Feature - Dec 2024)
+Streamlined deployment with a single button click:
+
+**Features:**
+*   **Multi-Platform Support**: Deploy to Web, Mobile (React Native), Desktop (Electron), or all platforms
+*   **Environment Management**: Development, Staging, and Production environments
+*   **Custom Domains**: Support for custom domain configuration
+*   **Auto-Scaling**: Automatic scaling with configurable min/max instances
+*   **SSL/CDN**: Built-in SSL certificate and CDN support
+*   **Deployment History**: Complete history with rollback capability
+*   **Status Tracking**: Real-time status updates (pending, building, deploying, running, failed)
+*   **Bilingual Support**: Full Arabic/English interface
+
+**API Endpoints:**
+*   `GET /api/deployments` - Get deployments for a project
+*   `POST /api/deployments/deploy` - Deploy a project
+*   `POST /api/deployments/:id/stop` - Stop a running deployment
+*   `POST /api/deployments/:id/rollback` - Rollback to a previous deployment
+
+**UI Page:**
+*   `/deploy` - One-click deployment dashboard with settings, status, and history
+
 ## External Dependencies
 *   **Database**: PostgreSQL
 *   **ORM**: Drizzle ORM
