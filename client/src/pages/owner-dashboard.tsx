@@ -953,7 +953,7 @@ export default function OwnerDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">{t.stats.totalUsers}</p>
-                  <p className="text-3xl font-bold">{stats?.totalUsers || users.length || 0}</p>
+                  <p className="text-3xl font-bold">{userStats?.totalUsers || users.length || 0}</p>
                 </div>
                 <Users className="w-10 h-10 text-blue-500 opacity-50" />
               </div>
@@ -964,7 +964,7 @@ export default function OwnerDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">{t.stats.activeProjects}</p>
-                  <p className="text-3xl font-bold">{stats?.totalProjects || 0}</p>
+                  <p className="text-3xl font-bold">{0}</p>
                 </div>
                 <Activity className="w-10 h-10 text-green-500 opacity-50" />
               </div>
@@ -975,7 +975,7 @@ export default function OwnerDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">{t.stats.aiGenerations}</p>
-                  <p className="text-3xl font-bold">{stats?.aiGenerations || 0}</p>
+                  <p className="text-3xl font-bold">{0}</p>
                 </div>
                 <Sparkles className="w-10 h-10 text-purple-500 opacity-50" />
               </div>
