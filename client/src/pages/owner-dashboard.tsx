@@ -666,6 +666,18 @@ export default function OwnerDashboard() {
     reasonAr: "",
     targetLayerId: "",
   });
+  const [showPowerConfigDialog, setShowPowerConfigDialog] = useState(false);
+  const [selectedLayerForPower, setSelectedLayerForPower] = useState<any>(null);
+  const [powerConfigForm, setPowerConfigForm] = useState({
+    powerLevel: 5,
+    maxTokensPerRequest: 4096,
+    maxRequestsPerMinute: 60,
+    maxConcurrentRequests: 10,
+    cpuAllocation: "standard",
+    memoryAllocation: "standard",
+    costPerRequest: 0,
+    monthlyBudgetLimit: null as number | null,
+  });
 
   const { data: assistants = [], isLoading: assistantsLoading } = useQuery<AiAssistant[]>({
     queryKey: ['/api/owner/assistants'],
@@ -822,6 +834,44 @@ export default function OwnerDashboard() {
       toast({
         title: language === 'ar' ? "تم الإلغاء" : "Kill Switch Deactivated",
         description: language === 'ar' ? "تم إلغاء تفعيل زر الطوارئ" : "Kill switch has been deactivated",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: language === 'ar' ? "خطأ" : "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const createPowerConfigMutation = useMutation({
+    mutationFn: async (data: { layerId: string } & typeof powerConfigForm) => {
+      return apiRequest('POST', '/api/owner/ai-sovereignty/power-configs', {
+        layerId: data.layerId,
+        powerLevel: Math.max(1, Math.min(10, data.powerLevel || 5)),
+        maxTokensPerRequest: Math.max(1, data.maxTokensPerRequest || 4096),
+        maxRequestsPerMinute: Math.max(1, data.maxRequestsPerMinute || 60),
+        maxConcurrentRequests: Math.max(1, data.maxConcurrentRequests || 10),
+        cpuAllocation: data.cpuAllocation || 'standard',
+        memoryAllocation: data.memoryAllocation || 'standard',
+        costPerRequest: Math.max(0, data.costPerRequest || 0),
+        monthlyBudgetLimit: data.monthlyBudgetLimit && !isNaN(data.monthlyBudgetLimit) ? data.monthlyBudgetLimit : null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/ai-sovereignty/power-configs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/ai-sovereignty/audit-logs'] });
+      setShowPowerConfigDialog(false);
+      setSelectedLayerForPower(null);
+      setPowerConfigForm({
+        powerLevel: 5, maxTokensPerRequest: 4096, maxRequestsPerMinute: 60,
+        maxConcurrentRequests: 10, cpuAllocation: "standard", memoryAllocation: "standard",
+        costPerRequest: 0, monthlyBudgetLimit: null,
+      });
+      toast({
+        title: language === 'ar' ? "تم الحفظ" : "Power Config Saved",
+        description: language === 'ar' ? "تم حفظ تكوين القوة" : "Power configuration has been saved",
       });
     },
     onError: (error: any) => {
@@ -2019,6 +2069,7 @@ export default function OwnerDashboard() {
                   <div className="space-y-3">
                     {aiLayers?.map((layer: any) => {
                       const layerType = layer.type || layer.layerType;
+                      const existingPowerConfig = aiPowerConfigs?.find((pc: any) => pc.layerId === layer.id);
                       return (
                         <div key={layer.id} className="flex items-center justify-between gap-4 p-3 bg-muted/50 rounded-lg" data-testid={`ai-layer-${layer.id}`}>
                           <div className="flex items-center gap-3">
@@ -2037,13 +2088,45 @@ export default function OwnerDashboard() {
                               <p className="font-medium">{language === 'ar' ? layer.nameAr : layer.name}</p>
                               <p className="text-sm text-muted-foreground">
                                 {language === 'ar' ? 'الأولوية:' : 'Priority:'} {layer.priority || 1} | 
-                                {language === 'ar' ? ' الحالة:' : ' Status:'} {layer.status}
+                                {language === 'ar' ? ' القوة:' : ' Power:'} {existingPowerConfig?.powerLevel || '-'}
                               </p>
                             </div>
                           </div>
-                          <Badge variant={layer.status === 'active' ? 'default' : 'secondary'}>
-                            {layer.status === 'active' ? (language === 'ar' ? 'نشط' : 'Active') : layer.status}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedLayerForPower(layer);
+                                if (existingPowerConfig) {
+                                  setPowerConfigForm({
+                                    powerLevel: existingPowerConfig.powerLevel ?? 5,
+                                    maxTokensPerRequest: existingPowerConfig.maxTokensPerRequest ?? 4096,
+                                    maxRequestsPerMinute: existingPowerConfig.maxRequestsPerMinute ?? 60,
+                                    maxConcurrentRequests: existingPowerConfig.maxConcurrentRequests ?? 10,
+                                    cpuAllocation: existingPowerConfig.cpuAllocation ?? 'standard',
+                                    memoryAllocation: existingPowerConfig.memoryAllocation ?? 'standard',
+                                    costPerRequest: existingPowerConfig.costPerRequest ?? 0,
+                                    monthlyBudgetLimit: existingPowerConfig.monthlyBudgetLimit ?? null,
+                                  });
+                                } else {
+                                  setPowerConfigForm({
+                                    powerLevel: 5, maxTokensPerRequest: 4096, maxRequestsPerMinute: 60,
+                                    maxConcurrentRequests: 10, cpuAllocation: "standard", memoryAllocation: "standard",
+                                    costPerRequest: 0, monthlyBudgetLimit: null,
+                                  });
+                                }
+                                setShowPowerConfigDialog(true);
+                              }}
+                              data-testid={`button-power-config-${layer.id}`}
+                            >
+                              <Zap className="w-4 h-4 mr-1" />
+                              {existingPowerConfig ? (language === 'ar' ? 'تعديل القوة' : 'Edit Power') : (language === 'ar' ? 'تكوين القوة' : 'Configure Power')}
+                            </Button>
+                            <Badge variant={layer.status === 'active' ? 'default' : 'secondary'}>
+                              {layer.status === 'active' ? (language === 'ar' ? 'نشط' : 'Active') : layer.status}
+                            </Badge>
+                          </div>
                         </div>
                       );
                     })}
@@ -2051,6 +2134,139 @@ export default function OwnerDashboard() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Power Config Dialog */}
+            <Dialog open={showPowerConfigDialog} onOpenChange={setShowPowerConfigDialog}>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-orange-500" />
+                    {language === 'ar' ? 'تكوين القوة' : 'Power Configuration'}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {selectedLayerForPower && (language === 'ar' 
+                      ? `تكوين قوة الطبقة: ${selectedLayerForPower.nameAr}` 
+                      : `Configure power for layer: ${selectedLayerForPower?.name}`)}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>{language === 'ar' ? 'مستوى القوة (1-10)' : 'Power Level (1-10)'}</Label>
+                    <div className="flex items-center gap-4">
+                      <Input
+                        type="range"
+                        min={1}
+                        max={10}
+                        value={powerConfigForm.powerLevel}
+                        onChange={(e) => setPowerConfigForm({...powerConfigForm, powerLevel: parseInt(e.target.value)})}
+                        className="flex-1"
+                        data-testid="input-power-level"
+                      />
+                      <Badge className="min-w-[3rem] justify-center">
+                        {powerConfigForm.powerLevel}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {powerConfigForm.powerLevel <= 3 ? t.aiSovereignty.powerLevels.low :
+                       powerConfigForm.powerLevel <= 5 ? t.aiSovereignty.powerLevels.medium :
+                       powerConfigForm.powerLevel <= 7 ? t.aiSovereignty.powerLevels.high :
+                       t.aiSovereignty.powerLevels.maximum}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>{language === 'ar' ? 'أقصى توكنز/طلب' : 'Max Tokens/Request'}</Label>
+                      <Input
+                        type="number"
+                        value={powerConfigForm.maxTokensPerRequest}
+                        onChange={(e) => setPowerConfigForm({...powerConfigForm, maxTokensPerRequest: parseInt(e.target.value) || 4096})}
+                        data-testid="input-max-tokens"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{language === 'ar' ? 'أقصى طلبات/دقيقة' : 'Max Requests/Minute'}</Label>
+                      <Input
+                        type="number"
+                        value={powerConfigForm.maxRequestsPerMinute}
+                        onChange={(e) => setPowerConfigForm({...powerConfigForm, maxRequestsPerMinute: parseInt(e.target.value) || 60})}
+                        data-testid="input-max-requests"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>{language === 'ar' ? 'تخصيص CPU' : 'CPU Allocation'}</Label>
+                      <Select value={powerConfigForm.cpuAllocation} onValueChange={(v) => setPowerConfigForm({...powerConfigForm, cpuAllocation: v})}>
+                        <SelectTrigger data-testid="select-cpu">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="minimal">{t.aiSovereignty.powerLevels.minimal}</SelectItem>
+                          <SelectItem value="standard">{t.aiSovereignty.powerLevels.medium}</SelectItem>
+                          <SelectItem value="high">{t.aiSovereignty.powerLevels.high}</SelectItem>
+                          <SelectItem value="maximum">{t.aiSovereignty.powerLevels.maximum}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{language === 'ar' ? 'تخصيص الذاكرة' : 'Memory Allocation'}</Label>
+                      <Select value={powerConfigForm.memoryAllocation} onValueChange={(v) => setPowerConfigForm({...powerConfigForm, memoryAllocation: v})}>
+                        <SelectTrigger data-testid="select-memory">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="minimal">{t.aiSovereignty.powerLevels.minimal}</SelectItem>
+                          <SelectItem value="standard">{t.aiSovereignty.powerLevels.medium}</SelectItem>
+                          <SelectItem value="high">{t.aiSovereignty.powerLevels.high}</SelectItem>
+                          <SelectItem value="maximum">{t.aiSovereignty.powerLevels.maximum}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>{language === 'ar' ? 'التكلفة/طلب' : 'Cost/Request'}</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={powerConfigForm.costPerRequest}
+                        onChange={(e) => setPowerConfigForm({...powerConfigForm, costPerRequest: parseFloat(e.target.value) || 0})}
+                        data-testid="input-cost"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{language === 'ar' ? 'الميزانية الشهرية' : 'Monthly Budget'}</Label>
+                      <Input
+                        type="number"
+                        placeholder={language === 'ar' ? 'غير محدود' : 'Unlimited'}
+                        value={powerConfigForm.monthlyBudgetLimit ?? ''}
+                        onChange={(e) => setPowerConfigForm({...powerConfigForm, monthlyBudgetLimit: e.target.value ? parseFloat(e.target.value) : null})}
+                        data-testid="input-budget"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => {
+                    setShowPowerConfigDialog(false);
+                    setSelectedLayerForPower(null);
+                  }}>
+                    {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                  </Button>
+                  <Button 
+                    onClick={() => selectedLayerForPower && createPowerConfigMutation.mutate({
+                      layerId: selectedLayerForPower.id,
+                      ...powerConfigForm
+                    })}
+                    disabled={createPowerConfigMutation?.isPending || !selectedLayerForPower}
+                    data-testid="button-submit-power-config"
+                  >
+                    {createPowerConfigMutation?.isPending && <RefreshCw className="w-4 h-4 mr-2 animate-spin" />}
+                    {language === 'ar' ? 'حفظ التكوين' : 'Save Configuration'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
             {/* Kill Switch Section */}
             <Card className="border-red-500/30">
