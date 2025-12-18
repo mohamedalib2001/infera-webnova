@@ -64,4 +64,34 @@ The platform features an AI Chat Interface for natural language interaction, a l
 - Phase 4 Complete: Git Integration with init/commit/status/log
 - Phase 5 Complete: Deployment pipeline with version tracking
 - Phase 6 Complete: Multi-tab editor support
-- Current: Enhancing bilingual support and Git error handling
+- Phase 7 Complete: Platform Architecture Redesign (Modular + Event-Driven)
+
+## Core Platform Architecture
+
+The platform has been redesigned as a **Core Operating System** for building sovereign digital platforms.
+
+### Core Modules (Implemented)
+Located in `shared/core/`:
+- **Event Bus**: Central event-driven communication (`event-bus.ts`)
+- **Core Contracts**: Zod schemas for all entities (`contracts.ts`)
+- **Plugin System**: Extensible plugin architecture (`plugin-system.ts`)
+- **Blueprint System**: Product intent capture (`modules/blueprint-system.ts`)
+- **Code Generation Engine**: AI-powered generation (`modules/code-generation-engine.ts`)
+- **Runtime Layer**: Sandboxed execution (`modules/runtime-layer.ts`)
+- **AI Orchestrator**: Task routing & management (`modules/ai-orchestrator.ts`)
+- **Versioning System**: Version control (`modules/versioning-system.ts`)
+- **Multi-Tenancy Core**: Tenant isolation (`modules/multi-tenancy.ts`)
+
+### Extension Points (Interfaces Only)
+Located in `shared/core/modules/extensions/`:
+- Data Lake, API Gateway, Observability
+- Compliance, Security & Risk
+- Deployment Pipelines, Command Center
+
+### Design Principles
+- **Modular + Event-Driven**: No direct coupling between modules
+- **Contract-First**: JSON Schemas + Event Contracts
+- **Plugin Architecture**: Sandboxed third-party extensions
+- **Multi-Tenant**: Tier-based quotas and isolation
+
+See `docs/ARCHITECTURE.md` for full documentation.

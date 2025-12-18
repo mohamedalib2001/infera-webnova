@@ -1,0 +1,69 @@
+أنت تعمل كـ Chief Platform Architect لمنصة اسمها "INFRA WebNova".
+
+الهدف:
+تصميم منصة قادرة على بناء ونشر منصات رقمية واحدة تلو الأخرى حسب السوق،
+مع ضمان أن البنية الحالية تستطيع استيعاب أنظمة سيادية متقدمة مستقبلًا بدون إعادة بناء.
+
+⚠️ ملاحظة مهمة:
+لا نريد تنفيذ كل الأنظمة الآن،
+لكن نريد تصميم المعمارية بحيث تكون قابلة للتوسع والاستيعاب لاحقًا.
+
+شرط أساسي غير قابل للتنازل:
+يجب تصميم INFRA WebNova بحيث تمتلك قدرات تشغيلية وذكائية
+تماثل قدرات نموذج الذكاء الاصطناعي الذي يشارك في بنائها،
+من حيث:
+- مستوى الذكاء التحليلي
+- سرعة الاستجابة
+- القدرة على الفهم السياقي العميق
+- القدرة على التخطيط، التعديل، والتحسين الذاتي
+- القدرة على إدارة أنظمة معقدة ومتعددة الطبقات
+
+لا يُسمح بتصميم المنصة كأداة محدودة أو أقل قدرة،
+بل يجب أن تكون منصة واعية، متكاملة، وقادرة على العمل
+كعقل تنفيذي مستقل لا ينقصه شيء من حيث القوة أو الإمكانيات.
+
+المطلوب:
+
+1) تنفيذ الأنظمة الجوهرية الآن:
+- Blueprint Architecture System
+- Automated Code Generation Engine
+- Runtime Execution Layer (MVP)
+- AI Orchestrator (أساسي)
+- Live Editing + Versioning
+- Multi-Tenancy Core (خفيف)
+
+2) تصميم المنصة بطريقة Modular + Event-Driven:
+- كل نظام عبارة عن Module مستقل
+- التواصل عبر Events وInterfaces فقط
+- لا يوجد Coupling مباشر بين الأنظمة
+
+3) إنشاء Extension Points واضحة للأنظمة المستقبلية بدون تنفيذها:
+- Data Lake
+- API Gateway
+- Observability
+- Compliance
+- Security & Risk
+- Deployment Pipelines
+- Command Center
+
+(يُطلب فقط Interfaces + Contracts + Empty Modules)
+
+4) اعتماد Contract-First Design:
+- JSON Schemas
+- OpenAPI
+- Event Contracts
+بحيث تكون هي الأساس لكل تطوير لاحق
+
+5) تصميم Plugin System منذ اليوم الأول حتى لو كان فارغًا
+
+المطلوب من الرد:
+- Architecture Diagram (وصف نصي)
+- Module Breakdown
+- Event Flow
+- أمثلة Interfaces / Schemas
+- قرارات تصميم تضمن عدم إعادة البناء مستقبلاً
+
+الهدف النهائي:
+تحويل INFRA WebNova إلى Core Operating System
+لبناء منصات رقمية سيادية قابلة للتوسع المرحلي،
+وبقدرات ذكاء وتشغيل لا تقل عن قدرات الذكاء الاصطناعي الذي صممها.
