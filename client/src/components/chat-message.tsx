@@ -1,5 +1,6 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { User, Sparkles } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { User, Sparkles, Clock } from "lucide-react";
 import type { ChatMessage as ChatMessageType } from "@shared/schema";
 
 interface ChatMessageProps {
@@ -8,6 +9,7 @@ interface ChatMessageProps {
 
 export function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === "user";
+  const isQueued = message.status === "queued";
   
   return (
     <div
@@ -25,14 +27,24 @@ export function ChatMessage({ message }: ChatMessageProps) {
         </AvatarFallback>
       </Avatar>
       
-      <div
-        className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-          isUser
-            ? "bg-primary text-primary-foreground"
-            : "bg-muted"
-        }`}
-      >
-        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+      <div className="flex flex-col gap-1 max-w-[80%]">
+        {isQueued && (
+          <Badge variant="secondary" className="self-end text-xs gap-1">
+            <Clock className="h-3 w-3" />
+            في الانتظار
+          </Badge>
+        )}
+        <div
+          className={`rounded-2xl px-4 py-3 ${
+            isUser
+              ? isQueued 
+                ? "bg-primary/70 text-primary-foreground"
+                : "bg-primary text-primary-foreground"
+              : "bg-muted"
+          }`}
+        >
+          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+        </div>
       </div>
     </div>
   );

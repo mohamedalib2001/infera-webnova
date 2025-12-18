@@ -164,8 +164,9 @@ export default function Builder() {
       const queuedMessage: ChatMessageType = {
         id: crypto.randomUUID(),
         role: "user",
-        content: `[${t("builder.queued") || "Queued"}] ${content}`,
+        content,
         timestamp: new Date(),
+        status: "queued",
       };
       setMessages((prev) => [...prev, queuedMessage]);
       toast({ 
@@ -183,6 +184,7 @@ export default function Builder() {
       role: "user",
       content,
       timestamp: new Date(),
+      status: "sending",
     };
     
     setMessages((prev) => [...prev, userMessage]);
@@ -201,12 +203,20 @@ export default function Builder() {
                                  !content.toLowerCase().includes('change') &&
                                  !content.toLowerCase().includes('update');
     
+    const conversationContext = messages
+      .filter(m => m.status !== 'queued')
+      .slice(-10)
+      .map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`)
+      .join('\n');
+    
     try {
       console.log("Starting generation request...", isNewProjectRequest ? "(NEW)" : "(MODIFY)");
       const data: GenerateCodeResponse = await apiRequest("POST", "/api/generate", {
         prompt: content,
         projectId,
-        context: (!isNewProjectRequest && html) ? `Current HTML: ${html}\nCurrent CSS: ${css}\nCurrent JS: ${js}` : undefined,
+        context: (!isNewProjectRequest && html) 
+          ? `Previous conversation:\n${conversationContext}\n\nCurrent HTML: ${html}\nCurrent CSS: ${css}\nCurrent JS: ${js}` 
+          : conversationContext ? `Previous conversation:\n${conversationContext}` : undefined,
       });
       
       console.log("Generation response received:", data);

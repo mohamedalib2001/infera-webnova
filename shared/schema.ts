@@ -456,6 +456,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  status?: 'sending' | 'queued' | 'done';
 }
 
 // Auth types
