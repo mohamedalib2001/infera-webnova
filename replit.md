@@ -89,6 +89,14 @@ The platform features an AI Chat Interface for natural language interaction, a l
   - Implemented compliance standards selection (PCI-DSS, HIPAA, WCAG 2.1, etc.)
   - Created orchestration flow visualization component
   - Updated all translations to reflect sovereign platform terminology
+- Phase 9 Complete: AI Sovereignty Layer Implementation
+  - Added 8-table schema for AI governance: aiLayers, aiPowerConfig, aiExternalProviders, aiSubscriberLimits, sovereignAIAgents, aiKillSwitch, aiAuditLogs, aiConstitution
+  - Implemented constitutional rules enforced at code level (no AI without Layer, no undefined power, etc.)
+  - Power levels 1-10 with resource allocation (tokens, memory, compute)
+  - Kill switch with scopes: global, layer-specific, external_only
+  - Dual operational modes: OWNER_SOVEREIGN_MODE and SUBSCRIBER_RESTRICTED_MODE
+  - Immutable audit logs with cryptographic checksums
+  - Full bilingual UI for AI Sovereignty tab in Owner Dashboard
 
 ## Core Platform Architecture
 
@@ -105,6 +113,33 @@ Located in `shared/core/`:
 - **AI Orchestrator**: Task routing & management (`modules/ai-orchestrator.ts`)
 - **Versioning System**: Version control (`modules/versioning-system.ts`)
 - **Multi-Tenancy Core**: Tenant isolation (`modules/multi-tenancy.ts`)
+- **AI Sovereignty Layer**: Complete AI governance with owner-only control (`modules/ai-sovereignty-layer.ts`)
+
+### AI Sovereignty Layer (Phase 9)
+Database Schema (8 tables in `shared/schema.ts`):
+- **aiLayers**: AI layer definitions with types (INTERNAL_SOVEREIGN, EXTERNAL_MANAGED, HYBRID, SUBSCRIBER_RESTRICTED)
+- **aiPowerConfig**: Power levels 1-10 with resource allocation (tokens, memory, compute)
+- **aiExternalProviders**: External AI provider registry with owner approval workflow
+- **aiSubscriberLimits**: Per-tier subscriber limits for AI usage
+- **sovereignAIAgents**: AI agents with mandatory layer assignment (Constitutional Rule: No AI without Layer)
+- **aiKillSwitch**: Emergency stop mechanism with scopes (global, layer-specific, external_only)
+- **aiAuditLogs**: Immutable audit trail with cryptographic checksums
+- **aiConstitution**: Constitutional rules enforced at code level
+
+Constitutional Rules (Enforced in API):
+1. No AI without Layer - All AI agents must have layerId
+2. No undefined power - Power level must be configured before use
+3. No external AI without owner approval - External providers require explicit approval
+4. No subscriber access without owner decision - All subscriber AI access controlled by owner
+5. No AI without resource limits - Resource allocation mandatory
+
+Operational Modes:
+- **OWNER_SOVEREIGN_MODE**: Full control, no restrictions
+- **SUBSCRIBER_RESTRICTED_MODE**: Limited access based on tier and owner configuration
+
+Owner Dashboard Integration:
+- AI Sovereignty tab with 6 management cards (Layers, Power, Providers, Limits, Kill Switch, Constitution)
+- Full bilingual support (Arabic/English)
 
 ### Extension Points (Interfaces Only)
 Located in `shared/core/modules/extensions/`:
