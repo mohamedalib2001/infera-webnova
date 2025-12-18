@@ -50,6 +50,7 @@ interface ChatInputProps {
   onSend: (message: string, attachments?: AttachedFile[]) => void;
   onCancel?: () => void;
   isLoading?: boolean;
+  allowWhileLoading?: boolean;
   placeholder?: string;
   language?: "ar" | "en";
 }
@@ -57,7 +58,8 @@ interface ChatInputProps {
 export function ChatInput({ 
   onSend, 
   onCancel,
-  isLoading = false, 
+  isLoading = false,
+  allowWhileLoading = false,
   placeholder = "Enter sovereign platform specifications...",
   language = "en"
 }: ChatInputProps) {
@@ -285,7 +287,7 @@ export function ChatInput({
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             className="min-h-[44px] max-h-[150px] resize-none border-0 bg-transparent text-base focus-visible:ring-0 placeholder:text-muted-foreground/60"
-            disabled={isLoading}
+            disabled={isLoading && !allowWhileLoading}
             data-testid="input-chat-message"
           />
         </div>
@@ -380,30 +382,31 @@ export function ChatInput({
             </Button>
           </div>
           
-          {isLoading && onCancel ? (
-            <Button
-              onClick={onCancel}
-              size="icon"
-              className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              data-testid="button-stop-generation"
-            >
-              <Square className="h-4 w-4 fill-current" />
-            </Button>
-          ) : (
+          <div className="flex items-center gap-2">
+            {isLoading && onCancel && (
+              <Button
+                onClick={onCancel}
+                size="icon"
+                className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                data-testid="button-stop-generation"
+              >
+                <Square className="h-4 w-4 fill-current" />
+              </Button>
+            )}
             <Button
               onClick={handleSend}
-              disabled={!message.trim() || isLoading}
+              disabled={!message.trim() || (isLoading && !allowWhileLoading)}
               size="icon"
               className="rounded-full bg-foreground text-background hover:bg-foreground/90"
               data-testid="button-send-message"
             >
-              {isLoading ? (
+              {isLoading && !allowWhileLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
                 <ArrowUp className="h-5 w-5" />
               )}
             </Button>
-          )}
+          </div>
         </div>
       </div>
 

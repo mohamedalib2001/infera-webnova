@@ -44,8 +44,17 @@ export default function Builder() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [projectId, setProjectId] = useState<string | null>(params.id || null);
   const [hasProcessedInitialPrompt, setHasProcessedInitialPrompt] = useState(false);
+  const [pendingMessages, setPendingMessages] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (!isGenerating && pendingMessages.length > 0) {
+      const [nextMessage, ...rest] = pendingMessages;
+      setPendingMessages(rest);
+      processMessage(nextMessage);
+    }
+  }, [isGenerating, pendingMessages.length]);
   
   useEffect(() => {
     if (html || css || js) {
@@ -150,6 +159,25 @@ export default function Builder() {
   };
 
   const handleSendMessage = async (content: string) => {
+    if (isGenerating) {
+      setPendingMessages(prev => [...prev, content]);
+      const queuedMessage: ChatMessageType = {
+        id: crypto.randomUUID(),
+        role: "user",
+        content: `[${t("builder.queued") || "Queued"}] ${content}`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, queuedMessage]);
+      toast({ 
+        title: t("builder.messageQueued") || "Message queued",
+        description: t("builder.willProcessAfter") || "Will be processed after current generation"
+      });
+      return;
+    }
+    processMessage(content);
+  };
+
+  const processMessage = async (content: string) => {
     const userMessage: ChatMessageType = {
       id: crypto.randomUUID(),
       role: "user",
@@ -322,10 +350,17 @@ export default function Builder() {
           </ScrollArea>
           
           <div className="p-4 border-t">
+            {pendingMessages.length > 0 && (
+              <div className="mb-2 px-2 py-1 bg-muted rounded-md text-xs text-muted-foreground flex items-center gap-2">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                {t("builder.pendingMessages") || "Pending"}: {pendingMessages.length}
+              </div>
+            )}
             <ChatInput
               onSend={handleSendMessage}
               onCancel={handleCancelGeneration}
               isLoading={isGenerating}
+              allowWhileLoading={true}
               placeholder={t("builder.describePlaceholder")}
             />
           </div>
