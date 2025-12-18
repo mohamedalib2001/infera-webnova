@@ -255,6 +255,16 @@ export interface IStorage {
   updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined>;
   upsertUser(userData: UpsertUser): Promise<User>; // For OAuth/Replit Auth
   
+  // User Governance (Owner only)
+  suspendUser(userId: string, ownerId: string, reason: string): Promise<User | undefined>;
+  banUser(userId: string, ownerId: string, reason: string): Promise<User | undefined>;
+  reactivateUser(userId: string, ownerId: string, reason?: string): Promise<User | undefined>;
+  updateUserPermissions(userId: string, permissions: string[]): Promise<User | undefined>;
+  updateUserLoginInfo(userId: string, ip: string): Promise<User | undefined>;
+  incrementFailedLogin(userId: string): Promise<User | undefined>;
+  resetFailedLogin(userId: string): Promise<User | undefined>;
+  getUsersByStatus(status: string): Promise<User[]>;
+  
   // Subscription Plans
   getSubscriptionPlans(): Promise<SubscriptionPlan[]>;
   getSubscriptionPlan(id: string): Promise<SubscriptionPlan | undefined>;
@@ -1316,11 +1326,97 @@ body { font-family: 'Tajawal', sans-serif; }
         profileImageUrl: userData.profileImageUrl || null,
         authProvider: userData.authProvider || "replit",
         role: "free",
+        status: "ACTIVE",
         isActive: true,
         emailVerified: true,
       })
       .returning();
     return user;
+  }
+
+  // User Governance Methods (Owner only)
+  async suspendUser(userId: string, ownerId: string, reason: string): Promise<User | undefined> {
+    const [user] = await db.update(users)
+      .set({
+        status: "SUSPENDED",
+        isActive: false,
+        statusChangedAt: new Date(),
+        statusChangedBy: ownerId,
+        statusReason: reason,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return user || undefined;
+  }
+
+  async banUser(userId: string, ownerId: string, reason: string): Promise<User | undefined> {
+    const [user] = await db.update(users)
+      .set({
+        status: "BANNED",
+        isActive: false,
+        statusChangedAt: new Date(),
+        statusChangedBy: ownerId,
+        statusReason: reason,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return user || undefined;
+  }
+
+  async reactivateUser(userId: string, ownerId: string, reason?: string): Promise<User | undefined> {
+    const [user] = await db.update(users)
+      .set({
+        status: "ACTIVE",
+        isActive: true,
+        statusChangedAt: new Date(),
+        statusChangedBy: ownerId,
+        statusReason: reason || "Reactivated by owner",
+        failedLoginAttempts: 0,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return user || undefined;
+  }
+
+  async updateUserPermissions(userId: string, permissions: string[]): Promise<User | undefined> {
+    const [user] = await db.update(users)
+      .set({ permissions, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return user || undefined;
+  }
+
+  async updateUserLoginInfo(userId: string, ip: string): Promise<User | undefined> {
+    const [user] = await db.update(users)
+      .set({ lastLoginAt: new Date(), lastLoginIP: ip, failedLoginAttempts: 0, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return user || undefined;
+  }
+
+  async incrementFailedLogin(userId: string): Promise<User | undefined> {
+    const currentUser = await this.getUser(userId);
+    if (!currentUser) return undefined;
+    const [user] = await db.update(users)
+      .set({ failedLoginAttempts: (currentUser.failedLoginAttempts || 0) + 1, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return user || undefined;
+  }
+
+  async resetFailedLogin(userId: string): Promise<User | undefined> {
+    const [user] = await db.update(users)
+      .set({ failedLoginAttempts: 0, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return user || undefined;
+  }
+
+  async getUsersByStatus(status: string): Promise<User[]> {
+    return db.select().from(users).where(eq(users.status, status)).orderBy(desc(users.updatedAt));
   }
 
   // Subscription Plans methods

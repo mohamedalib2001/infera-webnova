@@ -22,6 +22,10 @@ export const sessions = pgTable(
 export const userRoles = ['free', 'basic', 'pro', 'enterprise', 'sovereign', 'owner'] as const;
 export type UserRole = typeof userRoles[number];
 
+// User status enum for governance
+export const userStatuses = ['ACTIVE', 'SUSPENDED', 'BANNED', 'PENDING', 'DEACTIVATED'] as const;
+export type UserStatus = typeof userStatuses[number];
+
 // Auth provider types for social login
 export const authProviders = ['email', 'google', 'github', 'apple', 'replit'] as const;
 export type AuthProvider = typeof authProviders[number];
@@ -39,11 +43,21 @@ export const users = pgTable("users", {
   profileImageUrl: text("profile_image_url"), // for OAuth profile image
   authProvider: text("auth_provider").notNull().default("email"), // email, google, github, apple, replit
   role: text("role").notNull().default("free"), // free, basic, pro, enterprise, sovereign
+  status: text("status").notNull().default("ACTIVE"), // ACTIVE, SUSPENDED, BANNED, PENDING, DEACTIVATED
   isActive: boolean("is_active").notNull().default(true),
   emailVerified: boolean("email_verified").notNull().default(false),
   language: text("language").notNull().default("ar"), // ar, en
+  permissions: jsonb("permissions").$type<string[]>().default([]), // User-specific permissions
   stripeCustomerId: text("stripe_customer_id"), // Stripe customer ID
   stripeSubscriptionId: text("stripe_subscription_id"), // Active Stripe subscription ID
+  // Governance audit fields
+  statusChangedAt: timestamp("status_changed_at"),
+  statusChangedBy: varchar("status_changed_by"), // User ID of who changed status
+  statusReason: text("status_reason"), // Reason for status change
+  // Activity tracking
+  lastLoginAt: timestamp("last_login_at"),
+  lastLoginIP: text("last_login_ip"),
+  failedLoginAttempts: integer("failed_login_attempts").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
