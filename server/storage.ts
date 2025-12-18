@@ -1076,6 +1076,23 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
+    const existingUser = await db.select().from(users).where(eq(users.id, userData.id)).limit(1);
+    
+    if (existingUser.length > 0) {
+      const [updated] = await db
+        .update(users)
+        .set({
+          email: userData.email || existingUser[0].email,
+          firstName: userData.firstName || existingUser[0].firstName,
+          lastName: userData.lastName || existingUser[0].lastName,
+          profileImageUrl: userData.profileImageUrl || existingUser[0].profileImageUrl,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userData.id))
+        .returning();
+      return updated;
+    }
+    
     const [user] = await db
       .insert(users)
       .values({
@@ -1088,16 +1105,6 @@ body { font-family: 'Tajawal', sans-serif; }
         role: "free",
         isActive: true,
         emailVerified: true,
-      })
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          email: userData.email || null,
-          firstName: userData.firstName || null,
-          lastName: userData.lastName || null,
-          profileImageUrl: userData.profileImageUrl || null,
-          updatedAt: new Date(),
-        },
       })
       .returning();
     return user;
