@@ -80,7 +80,6 @@ export default function CloudIDE() {
   const [tabContents, setTabContents] = useState<Record<string, string>>({});
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(["/"]));
   const [activeTab, setActiveTab] = useState<"preview" | "console" | "database" | "ai" | "env">("preview");
-  const [envVars, setEnvVars] = useState<Record<string, string>>({});
   const [newEnvKey, setNewEnvKey] = useState("");
   const [newEnvValue, setNewEnvValue] = useState("");
   const [showEnvValues, setShowEnvValues] = useState<Record<string, boolean>>({});
@@ -473,6 +472,19 @@ export default function CloudIDE() {
       queryClient.invalidateQueries({ queryKey: ["/api/dev-projects", projectId, "logs"] });
     },
   });
+
+  // Update env variables mutation
+  const updateEnvVarsMutation = useMutation({
+    mutationFn: async (envVariables: Record<string, string>) => {
+      return apiRequest("PATCH", `/api/dev-projects/${projectId}`, { envVariables });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/dev-projects", projectId] });
+    },
+  });
+
+  // Get envVars from project
+  const envVars = (project?.envVariables as Record<string, string>) || {};
 
   // Build file tree from flat list
   const buildFileTree = useCallback((files: ProjectFile[]): FileTreeNode[] => {
@@ -1482,13 +1494,17 @@ export default function CloudIDE() {
                           size="sm"
                           onClick={() => {
                             if (newEnvKey && newEnvValue) {
-                              setEnvVars({ ...envVars, [newEnvKey]: newEnvValue });
-                              setNewEnvKey("");
-                              setNewEnvValue("");
-                              toast({ title: language === "ar" ? "تمت إضافة المتغير" : "Variable added" });
+                              const updated = { ...envVars, [newEnvKey]: newEnvValue };
+                              updateEnvVarsMutation.mutate(updated, {
+                                onSuccess: () => {
+                                  setNewEnvKey("");
+                                  setNewEnvValue("");
+                                  toast({ title: language === "ar" ? "تمت إضافة المتغير" : "Variable added" });
+                                }
+                              });
                             }
                           }}
-                          disabled={!newEnvKey || !newEnvValue}
+                          disabled={!newEnvKey || !newEnvValue || updateEnvVarsMutation.isPending}
                           data-testid="button-add-env"
                         >
                           <Plus className="w-4 h-4" />
@@ -1536,9 +1552,13 @@ export default function CloudIDE() {
                               onClick={() => {
                                 const newVars = { ...envVars };
                                 delete newVars[key];
-                                setEnvVars(newVars);
-                                toast({ title: language === "ar" ? "تم حذف المتغير" : "Variable deleted" });
+                                updateEnvVarsMutation.mutate(newVars, {
+                                  onSuccess: () => {
+                                    toast({ title: language === "ar" ? "تم حذف المتغير" : "Variable deleted" });
+                                  }
+                                });
                               }}
+                              disabled={updateEnvVarsMutation.isPending}
                               data-testid={`button-delete-env-${key}`}
                             >
                               <Trash2 className="w-4 h-4 text-destructive" />
