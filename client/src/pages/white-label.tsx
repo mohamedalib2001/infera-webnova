@@ -52,7 +52,7 @@ export default function WhiteLabel() {
 
   const tr = (ar: string, en: string) => language === "ar" ? ar : en;
 
-  const hasAccess = user?.role === "enterprise" || user?.role === "sovereign";
+  const hasAccess = user?.role === "enterprise" || user?.role === "sovereign" || user?.role === "owner";
 
   const saveMutation = useMutation({
     mutationFn: async (data: WhiteLabelConfig) => {
