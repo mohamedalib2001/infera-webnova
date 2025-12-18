@@ -245,11 +245,29 @@ const translations = {
       save: "حفظ الإعدادات",
     },
     users: {
-      title: "إدارة المستخدمين",
-      subtitle: "عرض وإدارة جميع مستخدمي المنصة",
+      title: "إدارة المستخدمين السيادية",
+      subtitle: "عرض وإدارة جميع مستخدمي المنصة مع صلاحيات كاملة",
       totalUsers: "إجمالي المستخدمين",
       activeUsers: "المستخدمين النشطين",
       paidUsers: "المستخدمين المدفوعين",
+      suspendedUsers: "المستخدمين المعلقين",
+      bannedUsers: "المستخدمين المحظورين",
+      suspend: "تعليق",
+      ban: "حظر",
+      reactivate: "إعادة تفعيل",
+      permissions: "الصلاحيات",
+      statusActive: "نشط",
+      statusSuspended: "معلق",
+      statusBanned: "محظور",
+      statusPending: "قيد الانتظار",
+      statusDeactivated: "معطل",
+      reasonRequired: "السبب مطلوب",
+      enterReason: "أدخل سبب الإجراء",
+      confirmSuspend: "هل تريد تعليق هذا المستخدم؟",
+      confirmBan: "هل تريد حظر هذا المستخدم نهائياً؟",
+      confirmReactivate: "هل تريد إعادة تفعيل هذا المستخدم؟",
+      lastLogin: "آخر تسجيل دخول",
+      failedAttempts: "محاولات فاشلة",
     },
     logs: {
       title: "سجل العمليات",
@@ -558,11 +576,29 @@ const translations = {
       save: "Save Settings",
     },
     users: {
-      title: "User Management",
-      subtitle: "View and manage all platform users",
+      title: "Sovereign User Management",
+      subtitle: "View and manage all platform users with full governance",
       totalUsers: "Total Users",
       activeUsers: "Active Users",
       paidUsers: "Paid Users",
+      suspendedUsers: "Suspended Users",
+      bannedUsers: "Banned Users",
+      suspend: "Suspend",
+      ban: "Ban",
+      reactivate: "Reactivate",
+      permissions: "Permissions",
+      statusActive: "Active",
+      statusSuspended: "Suspended",
+      statusBanned: "Banned",
+      statusPending: "Pending",
+      statusDeactivated: "Deactivated",
+      reasonRequired: "Reason is required",
+      enterReason: "Enter reason for action",
+      confirmSuspend: "Are you sure you want to suspend this user?",
+      confirmBan: "Are you sure you want to permanently ban this user?",
+      confirmReactivate: "Are you sure you want to reactivate this user?",
+      lastLogin: "Last Login",
+      failedAttempts: "Failed Attempts",
     },
     logs: {
       title: "Audit Logs",
@@ -3767,13 +3803,13 @@ export default function OwnerDashboard() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5" />
+                  <Shield className="w-5 h-5" />
                   {t.users.title}
                 </CardTitle>
                 <CardDescription>{t.users.subtitle}</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="grid grid-cols-5 gap-4 mb-6">
                   <Card>
                     <CardContent className="pt-4 text-center">
                       <p className="text-3xl font-bold" data-testid="text-total-users">{userStats?.totalUsers ?? users.length}</p>
@@ -3782,7 +3818,7 @@ export default function OwnerDashboard() {
                   </Card>
                   <Card>
                     <CardContent className="pt-4 text-center">
-                      <p className="text-3xl font-bold" data-testid="text-active-users">{userStats?.activeUsers ?? users.filter(u => u.isActive).length}</p>
+                      <p className="text-3xl font-bold text-green-600" data-testid="text-active-users">{userStats?.activeUsers ?? users.filter(u => u.status === 'ACTIVE').length}</p>
                       <p className="text-sm text-muted-foreground">{t.users.activeUsers}</p>
                     </CardContent>
                   </Card>
@@ -3790,6 +3826,18 @@ export default function OwnerDashboard() {
                     <CardContent className="pt-4 text-center">
                       <p className="text-3xl font-bold" data-testid="text-paid-users">{userStats?.paidUsers ?? users.filter(u => u.role !== 'free').length}</p>
                       <p className="text-sm text-muted-foreground">{t.users.paidUsers}</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-4 text-center">
+                      <p className="text-3xl font-bold text-yellow-600" data-testid="text-suspended-users">{users.filter(u => u.status === 'SUSPENDED').length}</p>
+                      <p className="text-sm text-muted-foreground">{t.users.suspendedUsers}</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-4 text-center">
+                      <p className="text-3xl font-bold text-red-600" data-testid="text-banned-users">{users.filter(u => u.status === 'BANNED').length}</p>
+                      <p className="text-sm text-muted-foreground">{t.users.bannedUsers}</p>
                     </CardContent>
                   </Card>
                 </div>
@@ -3804,16 +3852,28 @@ export default function OwnerDashboard() {
                     <p>{language === 'ar' ? 'لا يوجد مستخدمين' : 'No users found'}</p>
                   </div>
                 ) : (
-                  <ScrollArea className="h-[400px]">
+                  <ScrollArea className="h-[500px]">
                     <div className="space-y-2">
                       {users.map((user) => {
                         const displayName = user.firstName && user.lastName 
                           ? `${user.firstName} ${user.lastName}`
                           : user.username || user.email?.split('@')[0] || 'Unknown';
                         const initial = displayName.charAt(0).toUpperCase();
+                        const userStatus = (user as any).status || 'ACTIVE';
+                        const isOwner = user.role === 'owner';
+                        
+                        const getStatusBadge = () => {
+                          switch(userStatus) {
+                            case 'SUSPENDED': return <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/30">{t.users.statusSuspended}</Badge>;
+                            case 'BANNED': return <Badge variant="destructive">{t.users.statusBanned}</Badge>;
+                            case 'PENDING': return <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30">{t.users.statusPending}</Badge>;
+                            case 'DEACTIVATED': return <Badge variant="secondary">{t.users.statusDeactivated}</Badge>;
+                            default: return <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">{t.users.statusActive}</Badge>;
+                          }
+                        };
                         
                         return (
-                          <div key={user.id} className="flex items-center justify-between p-3 rounded-lg border hover-elevate" data-testid={`row-user-${user.id}`}>
+                          <div key={user.id} className="flex items-center justify-between p-4 rounded-lg border hover-elevate" data-testid={`row-user-${user.id}`}>
                             <div className="flex items-center gap-3">
                               {user.profileImageUrl ? (
                                 <img src={user.profileImageUrl} alt={displayName} className="w-10 h-10 rounded-full object-cover" />
@@ -3825,6 +3885,9 @@ export default function OwnerDashboard() {
                               <div>
                                 <p className="font-medium">{displayName}</p>
                                 <p className="text-sm text-muted-foreground">{user.email}</p>
+                                {(user as any).lastLoginAt && (
+                                  <p className="text-xs text-muted-foreground">{t.users.lastLogin}: {new Date((user as any).lastLoginAt).toLocaleDateString()}</p>
+                                )}
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
@@ -3836,15 +3899,26 @@ export default function OwnerDashboard() {
                                  user.role === 'basic' ? (language === 'ar' ? 'أساسي' : 'Basic') :
                                  (language === 'ar' ? 'مجاني' : 'Free')}
                               </Badge>
-                              <Badge variant={user.isActive ? "outline" : "destructive"}>
-                                {user.isActive ? (language === 'ar' ? 'نشط' : 'Active') : (language === 'ar' ? 'معطل' : 'Inactive')}
-                              </Badge>
-                              <Badge variant="outline" className="text-xs">
-                                {user.authProvider === 'replit' ? 'Replit' : 
-                                 user.authProvider === 'google' ? 'Google' :
-                                 user.authProvider === 'email' ? (language === 'ar' ? 'بريد' : 'Email') :
-                                 user.authProvider || 'N/A'}
-                              </Badge>
+                              {getStatusBadge()}
+                              {!isOwner && (
+                                <div className="flex items-center gap-1">
+                                  {userStatus === 'ACTIVE' && (
+                                    <>
+                                      <Button size="sm" variant="outline" onClick={() => handleUserAction(user.id, 'suspend')} data-testid={`button-suspend-${user.id}`}>
+                                        <Pause className="w-3 h-3" />
+                                      </Button>
+                                      <Button size="sm" variant="destructive" onClick={() => handleUserAction(user.id, 'ban')} data-testid={`button-ban-${user.id}`}>
+                                        <AlertCircle className="w-3 h-3" />
+                                      </Button>
+                                    </>
+                                  )}
+                                  {(userStatus === 'SUSPENDED' || userStatus === 'BANNED') && (
+                                    <Button size="sm" variant="outline" className="text-green-600" onClick={() => handleUserAction(user.id, 'reactivate')} data-testid={`button-reactivate-${user.id}`}>
+                                      <Play className="w-3 h-3" />
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         );
