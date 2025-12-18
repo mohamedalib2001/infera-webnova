@@ -3067,21 +3067,79 @@ export async function registerRoutes(
   // ============ Analytics Routes ============
 
   // Get analytics for user
+  // ============ Invoices Routes ============
+  app.get("/api/invoices", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const invoices = await storage.getInvoices(userId);
+      const stats = await storage.getInvoiceStats(userId);
+      res.json({ invoices, stats });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch invoices" });
+    }
+  });
+
+  app.get("/api/invoices/:id", requireAuth, async (req, res) => {
+    try {
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) return res.status(404).json({ error: "Invoice not found" });
+      res.json(invoice);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch invoice" });
+    }
+  });
+
+  // ============ Marketing Campaigns Routes ============
+  app.get("/api/campaigns", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const campaigns = await storage.getCampaigns(userId);
+      const stats = await storage.getCampaignStats(userId);
+      res.json({ campaigns, stats });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch campaigns" });
+    }
+  });
+
+  app.post("/api/campaigns", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const campaign = await storage.createCampaign({ ...req.body, userId });
+      res.json(campaign);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create campaign" });
+    }
+  });
+
+  app.patch("/api/campaigns/:id", requireAuth, async (req, res) => {
+    try {
+      const campaign = await storage.updateCampaign(req.params.id, req.body);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+      res.json(campaign);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update campaign" });
+    }
+  });
+
+  app.delete("/api/campaigns/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteCampaign(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete campaign" });
+    }
+  });
+
+  // ============ Analytics Routes ============
   app.get("/api/analytics", requireAuth, async (req, res) => {
     try {
       const userId = req.session.userId!;
       const projects = await storage.getProjectsByUser(userId);
+      const overview = await storage.getAnalyticsOverview(userId);
+      const topCountries = await storage.getTopCountries(userId);
       
-      // Return analytics data (mock for now, will be enhanced)
       res.json({
-        overview: {
-          totalViews: Math.floor(Math.random() * 10000) + 1000,
-          uniqueVisitors: Math.floor(Math.random() * 3000) + 500,
-          avgSessionDuration: `${Math.floor(Math.random() * 5) + 1}:${Math.floor(Math.random() * 60).toString().padStart(2, '0')}`,
-          bounceRate: Math.floor(Math.random() * 40) + 20,
-          viewsChange: Math.floor(Math.random() * 20) - 5,
-          visitorsChange: Math.floor(Math.random() * 15) - 3,
-        },
+        overview,
         projects: projects.map(p => ({
           id: p.id,
           name: p.name,
@@ -3095,7 +3153,7 @@ export async function registerRoutes(
           avgResponseTime: `${(Math.random() * 3 + 1).toFixed(1)}s`,
           successRate: 95 + Math.floor(Math.random() * 5),
         },
-        topCountries: [
+        topCountries: topCountries.length > 0 ? topCountries : [
           { country: "Saudi Arabia", visitors: 1245, percentage: 36.4 },
           { country: "UAE", visitors: 876, percentage: 25.6 },
           { country: "Egypt", visitors: 543, percentage: 15.9 },

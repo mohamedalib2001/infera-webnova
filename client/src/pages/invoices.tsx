@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/hooks/use-language";
 import {
   Receipt,
@@ -102,51 +104,27 @@ export default function Invoices() {
 
   const txt = language === "ar" ? t.ar : t.en;
 
-  const mockInvoices: Invoice[] = [
-    {
-      id: "INV-001",
-      number: "INV-2024-001",
-      date: "2024-01-15",
-      dueDate: "2024-02-15",
-      amount: 99.00,
-      status: "paid",
-      paymentMethod: "Stripe",
-      paidAt: "2024-01-16",
-      items: [
-        { description: language === "ar" ? "اشتراك Pro شهري" : "Pro Monthly Subscription", quantity: 1, unitPrice: 99.00, total: 99.00 },
-      ],
-    },
-    {
-      id: "INV-002",
-      number: "INV-2024-002",
-      date: "2024-02-15",
-      dueDate: "2024-03-15",
-      amount: 99.00,
-      status: "paid",
-      paymentMethod: "Stripe",
-      paidAt: "2024-02-15",
-      items: [
-        { description: language === "ar" ? "اشتراك Pro شهري" : "Pro Monthly Subscription", quantity: 1, unitPrice: 99.00, total: 99.00 },
-      ],
-    },
-    {
-      id: "INV-003",
-      number: "INV-2024-003",
-      date: "2024-03-15",
-      dueDate: "2024-04-15",
-      amount: 299.00,
-      status: "pending",
-      items: [
-        { description: language === "ar" ? "اشتراك Enterprise شهري" : "Enterprise Monthly Subscription", quantity: 1, unitPrice: 299.00, total: 299.00 },
-      ],
-    },
-  ];
+  const { data, isLoading } = useQuery<{ invoices: any[]; stats: { totalPaid: number; totalPending: number; thisMonth: number } }>({
+    queryKey: ["/api/invoices"],
+  });
+
+  const invoicesList: Invoice[] = (data?.invoices || []).map((inv: any) => ({
+    id: inv.id,
+    number: inv.number,
+    date: typeof inv.date === 'string' ? inv.date : new Date(inv.date).toISOString().split('T')[0],
+    dueDate: typeof inv.dueDate === 'string' ? inv.dueDate : new Date(inv.dueDate).toISOString().split('T')[0],
+    amount: (inv.amount || 0) / 100, // Convert from cents
+    status: inv.status,
+    paymentMethod: inv.paymentMethod,
+    paidAt: inv.paidAt ? (typeof inv.paidAt === 'string' ? inv.paidAt : new Date(inv.paidAt).toISOString().split('T')[0]) : undefined,
+    items: inv.items || [],
+  }));
 
   const stats = {
-    totalPaid: mockInvoices.filter(i => i.status === "paid").reduce((acc, i) => acc + i.amount, 0),
-    totalPending: mockInvoices.filter(i => i.status === "pending").reduce((acc, i) => acc + i.amount, 0),
-    thisMonth: mockInvoices.filter(i => i.date.startsWith("2024-03")).reduce((acc, i) => acc + i.amount, 0),
-    lastPayment: mockInvoices.find(i => i.status === "paid")?.paidAt || "-",
+    totalPaid: (data?.stats?.totalPaid || 0) / 100,
+    totalPending: (data?.stats?.totalPending || 0) / 100,
+    thisMonth: (data?.stats?.thisMonth || 0) / 100,
+    lastPayment: invoicesList.find(i => i.status === "paid")?.paidAt || "-",
   };
 
   const getStatusBadge = (status: Invoice["status"]) => {
@@ -165,11 +143,23 @@ export default function Invoices() {
     );
   };
 
-  const filteredInvoices = mockInvoices.filter(invoice => {
+  const filteredInvoices = invoicesList.filter(invoice => {
     const matchesSearch = invoice.number.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = activeTab === "all" || invoice.status === activeTab;
     return matchesSearch && matchesStatus;
   });
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6 space-y-6">
+        <Skeleton className="h-10 w-64" />
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[1,2,3,4].map(i => <Skeleton key={i} className="h-24" />)}
+        </div>
+        <Skeleton className="h-64" />
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-6 space-y-6">

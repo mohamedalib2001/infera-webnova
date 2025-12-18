@@ -67,6 +67,31 @@ export type UpsertUser = {
   authProvider?: string;
 };
 
+// ==================== OTP TOKENS ====================
+
+export const otpTokens = pgTable("otp_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
+  code: text("code").notNull(),
+  type: text("type").notNull().default("email"), // email, authenticator
+  expiresAt: timestamp("expires_at").notNull(),
+  verified: boolean("verified").notNull().default(false),
+  attempts: integer("attempts").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_otp_email").on(table.email),
+  index("idx_otp_code").on(table.code),
+]);
+
+export const insertOtpTokenSchema = createInsertSchema(otpTokens).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertOtpToken = z.infer<typeof insertOtpTokenSchema>;
+export type OtpToken = typeof otpTokens.$inferSelect;
+
 // ==================== SUBSCRIPTION PLANS ====================
 
 // Subscription plans table
@@ -2806,6 +2831,104 @@ export const insertApiConfigurationSchema = createInsertSchema(apiConfiguration)
 
 export type InsertApiConfiguration = z.infer<typeof insertApiConfigurationSchema>;
 export type ApiConfiguration = typeof apiConfiguration.$inferSelect;
+
+// ==================== INVOICES ====================
+
+export const invoices = pgTable("invoices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  number: text("number").notNull().unique(),
+  date: timestamp("date").notNull().defaultNow(),
+  dueDate: timestamp("due_date").notNull(),
+  amount: integer("amount").notNull(), // in cents
+  currency: text("currency").notNull().default("USD"),
+  status: text("status").notNull().default("pending"), // pending, paid, overdue, cancelled
+  items: jsonb("items").$type<{ description: string; quantity: number; unitPrice: number; total: number }[]>().notNull().default([]),
+  paymentMethod: text("payment_method"),
+  paidAt: timestamp("paid_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_invoices_user").on(table.userId),
+  index("IDX_invoices_status").on(table.status),
+]);
+
+export const insertInvoiceSchema = createInsertSchema(invoices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
+export type Invoice = typeof invoices.$inferSelect;
+
+// ==================== MARKETING CAMPAIGNS ====================
+
+export const marketingCampaigns = pgTable("marketing_campaigns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  type: text("type").notNull().default("email"), // email, social, ads, sms
+  status: text("status").notNull().default("draft"), // draft, scheduled, active, paused, completed
+  audience: integer("audience").notNull().default(0),
+  reached: integer("reached").notNull().default(0),
+  clicked: integer("clicked").notNull().default(0),
+  converted: integer("converted").notNull().default(0),
+  budget: integer("budget").notNull().default(0), // in cents
+  spent: integer("spent").notNull().default(0),
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  tags: jsonb("tags").$type<string[]>().default([]),
+  settings: jsonb("settings").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_campaigns_user").on(table.userId),
+  index("IDX_campaigns_status").on(table.status),
+]);
+
+export const insertMarketingCampaignSchema = createInsertSchema(marketingCampaigns).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertMarketingCampaign = z.infer<typeof insertMarketingCampaignSchema>;
+export type MarketingCampaign = typeof marketingCampaigns.$inferSelect;
+
+// ==================== ANALYTICS ====================
+
+export const analyticsEvents = pgTable("analytics_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id"),
+  projectId: varchar("project_id"),
+  eventType: text("event_type").notNull(), // page_view, click, signup, conversion
+  eventData: jsonb("event_data").$type<Record<string, unknown>>(),
+  sessionId: text("session_id"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  country: text("country"),
+  city: text("city"),
+  referrer: text("referrer"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_analytics_user").on(table.userId),
+  index("IDX_analytics_project").on(table.projectId),
+  index("IDX_analytics_type").on(table.eventType),
+  index("IDX_analytics_date").on(table.createdAt),
+]);
+
+export const insertAnalyticsEventSchema = createInsertSchema(analyticsEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAnalyticsEvent = z.infer<typeof insertAnalyticsEventSchema>;
+export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
 
 // Helper: Generate API Key with prefix
 export function generateApiKeyPrefix(environment: 'live' | 'test' = 'live'): string {

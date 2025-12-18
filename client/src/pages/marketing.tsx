@@ -121,58 +121,30 @@ export default function Marketing() {
 
   const txt = language === "ar" ? t.ar : t.en;
 
-  const mockCampaigns: Campaign[] = [
-    {
-      id: "1",
-      name: language === "ar" ? "حملة إطلاق المنتج" : "Product Launch Campaign",
-      type: "email",
-      status: "active",
-      audience: 15000,
-      sent: 12500,
-      opened: 4200,
-      clicked: 890,
-      converted: 125,
-      budget: 5000,
-      spent: 3200,
-      startDate: "2024-01-15",
-      endDate: "2024-02-15",
-    },
-    {
-      id: "2",
-      name: language === "ar" ? "ترويج وسائل التواصل" : "Social Media Promo",
-      type: "social",
-      status: "active",
-      audience: 50000,
-      sent: 45000,
-      opened: 22000,
-      clicked: 5600,
-      converted: 340,
-      budget: 10000,
-      spent: 7500,
-      startDate: "2024-01-10",
-      endDate: "2024-03-10",
-    },
-    {
-      id: "3",
-      name: language === "ar" ? "تذكير العملاء" : "Customer Reminder",
-      type: "sms",
-      status: "completed",
-      audience: 8000,
-      sent: 8000,
-      opened: 7200,
-      clicked: 1800,
-      converted: 450,
-      budget: 2000,
-      spent: 2000,
-      startDate: "2024-01-01",
-      endDate: "2024-01-31",
-    },
-  ];
+  const { data, isLoading } = useQuery<{ campaigns: any[]; stats: { totalReach: number; activeCampaigns: number; conversions: number } }>({
+    queryKey: ["/api/campaigns"],
+  });
+
+  const campaigns: Campaign[] = (data?.campaigns || []).map((c: any) => ({
+    id: c.id,
+    name: language === "ar" ? (c.nameAr || c.name) : c.name,
+    type: c.type || "email",
+    status: c.status || "draft",
+    audience: c.audience || 0,
+    sent: c.reached || 0,
+    opened: Math.floor((c.reached || 0) * 0.35),
+    clicked: c.clicked || 0,
+    converted: c.converted || 0,
+    budget: (c.budget || 0) / 100,
+    spent: (c.spent || 0) / 100,
+    startDate: c.startDate ? new Date(c.startDate).toISOString().split('T')[0] : "",
+    endDate: c.endDate ? new Date(c.endDate).toISOString().split('T')[0] : "",
+  }));
 
   const stats = {
-    totalReach: mockCampaigns.reduce((acc, c) => acc + c.audience, 0),
+    totalReach: data?.stats?.totalReach || campaigns.reduce((acc, c) => acc + c.audience, 0),
     engagement: 34.5,
-    conversions: mockCampaigns.reduce((acc, c) => acc + c.converted, 0),
+    conversions: data?.stats?.conversions || campaigns.reduce((acc, c) => acc + c.converted, 0),
     revenue: 45600,
   };
 
@@ -301,7 +273,7 @@ export default function Marketing() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {mockCampaigns.filter(c => c.status === "active").map((campaign) => (
+                {campaigns.filter(c => c.status === "active").map((campaign) => (
                   <div key={campaign.id} className="flex items-center justify-between gap-4 p-4 rounded-lg border">
                     <div className="flex items-center gap-3">
                       <div className="p-2 rounded-full bg-primary/10">
@@ -330,7 +302,7 @@ export default function Marketing() {
 
         <TabsContent value="campaigns" className="space-y-4">
           <div className="grid gap-4">
-            {mockCampaigns.map((campaign) => (
+            {campaigns.map((campaign) => (
               <Card key={campaign.id} data-testid={`card-campaign-${campaign.id}`}>
                 <CardHeader className="flex flex-row items-center justify-between gap-2">
                   <div className="flex items-center gap-3">

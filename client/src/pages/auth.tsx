@@ -87,6 +87,34 @@ export default function Auth() {
     },
   });
 
+  const requestOtpMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/auth/request-otp", {});
+    },
+    onSuccess: () => {
+      toast({ title: language === "ar" ? "تم إرسال رمز التحقق" : "OTP sent" });
+    },
+    onError: (error: unknown) => {
+      toast({ title: t("auth.error"), description: handleApiError(error), variant: "destructive" });
+    },
+  });
+
+  const verifyOtpMutation = useMutation({
+    mutationFn: async (code: string) => {
+      return await apiRequest("POST", "/api/auth/verify-otp", { code });
+    },
+    onSuccess: () => {
+      toast({ title: language === "ar" ? "تم التحقق بنجاح" : "Verified successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      setShowOtp(false);
+      setOtpValue("");
+      setLocation("/projects");
+    },
+    onError: (error: unknown) => {
+      toast({ title: t("auth.error"), description: handleApiError(error), variant: "destructive" });
+    },
+  });
+
   const registerMutation = useMutation({
     mutationFn: async (data: RegisterFormData) => {
       const payload = { ...data, language };
@@ -194,13 +222,11 @@ export default function Auth() {
 
                 <Button 
                   className="w-full" 
-                  disabled={otpValue.length !== 6}
-                  onClick={() => {
-                    toast({ title: t("auth.comingSoon") });
-                  }}
+                  disabled={otpValue.length !== 6 || verifyOtpMutation.isPending}
+                  onClick={() => verifyOtpMutation.mutate(otpValue)}
                   data-testid="button-verify-otp"
                 >
-                  {t("auth.verifyOtp")}
+                  {verifyOtpMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : t("auth.verifyOtp")}
                 </Button>
 
                 <Button 
