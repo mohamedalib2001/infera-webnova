@@ -282,17 +282,27 @@ export default function Integrations() {
 
   const createApiKeyMutation = useMutation({
     mutationFn: async ({ providerId, name, apiKey, environment }: { providerId: string; name: string; apiKey: string; environment: string }) => {
-      return await apiRequest("POST", `/api/service-providers/${providerId}/api-keys`, { name, apiKey, environment });
+      const res = await apiRequest("POST", `/api/service-providers/${providerId}/api-keys`, { name, apiKey, environment });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      return res.json();
     },
     onSuccess: () => {
-      toast({ title: txt.save + " - Success" });
+      toast({ title: language === "ar" ? "تم الحفظ بنجاح" : "Saved successfully" });
       queryClient.invalidateQueries({ queryKey: ["/api/service-providers"] });
       setShowAddKeyDialog(false);
       setApiKeyValue("");
       setApiKeyName("");
     },
-    onError: () => {
-      toast({ title: "Failed to save", variant: "destructive" });
+    onError: (error: any) => {
+      console.error("API Key save error:", error);
+      toast({ 
+        title: language === "ar" ? "فشل في الحفظ" : "Failed to save", 
+        description: error.message || "Unknown error",
+        variant: "destructive" 
+      });
     },
   });
 
