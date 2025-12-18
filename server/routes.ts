@@ -1142,6 +1142,30 @@ export async function registerRoutes(
       // Attach userId to project
       const projectData = { ...data, userId };
       const project = await storage.createProject(projectData);
+      
+      // Auto-provision if requested
+      const autoProvision = req.body.autoProvision !== false; // Default to true
+      if (autoProvision) {
+        try {
+          const { createAutoProvisionService } = await import("./auto-provision-service");
+          const provisionService = createAutoProvisionService(storage);
+          
+          // Start provisioning in background (non-blocking)
+          provisionService.provisionProject(project, {
+            generateBackend: true,
+            generateDatabase: true,
+            generateAuth: true,
+            industry: project.industry || undefined,
+            language: project.language || "ar",
+          }).catch((err: any) => {
+            console.error("Auto-provision error:", err);
+          });
+        } catch (provisionError) {
+          console.error("Failed to start auto-provisioning:", provisionError);
+          // Don't fail project creation if provisioning fails to start
+        }
+      }
+      
       res.status(201).json(project);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -1204,6 +1228,111 @@ export async function registerRoutes(
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete project" });
+    }
+  });
+
+  // ============ Project Infrastructure Routes ============
+
+  // Get project infrastructure status
+  app.get("/api/projects/:projectId/infrastructure", async (req, res) => {
+    try {
+      const { projectId } = req.params;
+      
+      const [backend, database, authConfig, jobs] = await Promise.all([
+        storage.getProjectBackend(projectId),
+        storage.getProjectDatabase(projectId),
+        storage.getProjectAuthConfig(projectId),
+        storage.getProjectProvisioningJobs(projectId),
+      ]);
+      
+      const latestJob = jobs[0];
+      
+      res.json({
+        success: true,
+        infrastructure: {
+          backend,
+          database,
+          authConfig,
+          provisioningStatus: latestJob?.status || "not_started",
+          provisioningProgress: latestJob?.progress || 0,
+          provisioningSteps: latestJob?.steps || [],
+          isReady: backend?.status === "ready" && database?.status === "ready" && authConfig?.status === "ready",
+        },
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: "Failed to fetch infrastructure" });
+    }
+  });
+
+  // Get project backend code
+  app.get("/api/projects/:projectId/backend/code", async (req, res) => {
+    try {
+      const { projectId } = req.params;
+      const backend = await storage.getProjectBackend(projectId);
+      
+      if (!backend) {
+        return res.status(404).json({ success: false, error: "Backend not found" });
+      }
+      
+      res.json({
+        success: true,
+        files: backend.generatedCode?.files || [],
+        status: backend.status,
+        framework: backend.framework,
+        language: backend.language,
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: "Failed to fetch backend code" });
+    }
+  });
+
+  // Get project database schema
+  app.get("/api/projects/:projectId/database/schema", async (req, res) => {
+    try {
+      const { projectId } = req.params;
+      const database = await storage.getProjectDatabase(projectId);
+      
+      if (!database) {
+        return res.status(404).json({ success: false, error: "Database not found" });
+      }
+      
+      res.json({
+        success: true,
+        schema: database.schema,
+        generatedSchema: database.generatedSchema,
+        dbType: database.dbType,
+        orm: database.orm,
+        status: database.status,
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: "Failed to fetch database schema" });
+    }
+  });
+
+  // Manually trigger provisioning for existing project
+  app.post("/api/projects/:projectId/provision", requireAuth, async (req, res) => {
+    try {
+      const { projectId } = req.params;
+      const project = await storage.getProject(projectId);
+      
+      if (!project) {
+        return res.status(404).json({ success: false, error: "Project not found" });
+      }
+      
+      const { createAutoProvisionService } = await import("./auto-provision-service");
+      const provisionService = createAutoProvisionService(storage);
+      
+      const result = await provisionService.provisionProject(project, {
+        generateBackend: req.body.generateBackend !== false,
+        generateDatabase: req.body.generateDatabase !== false,
+        generateAuth: req.body.generateAuth !== false,
+        industry: project.industry || undefined,
+        language: project.language || "ar",
+      });
+      
+      res.json({ success: true, ...result });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to provision" });
     }
   });
 

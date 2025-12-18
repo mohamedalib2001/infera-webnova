@@ -230,6 +230,245 @@ export const insertProjectSchema = createInsertSchema(projects).omit({
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 export type Project = typeof projects.$inferSelect;
 
+// ==================== PROJECT INFRASTRUCTURE (Auto-Provisioning) ====================
+
+// Project Backend Configuration - الباك إند المولّد تلقائياً
+export const projectBackends = pgTable("project_backends", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  
+  // إعدادات الباك إند
+  framework: text("framework").notNull().default("express"), // express, fastify, nestjs
+  language: text("language").notNull().default("typescript"), // typescript, javascript
+  apiStyle: text("api_style").notNull().default("rest"), // rest, graphql
+  
+  // الكود المولّد
+  generatedCode: jsonb("generated_code").$type<{
+    files: Array<{
+      path: string;
+      content: string;
+      type: string;
+    }>;
+  }>(),
+  
+  // حالة التوليد
+  status: text("status").notNull().default("pending"), // pending, generating, ready, error
+  generationProgress: integer("generation_progress").default(0),
+  
+  // الميزات المُفعّلة
+  features: jsonb("features").$type<{
+    authentication: boolean;
+    crud: boolean;
+    validation: boolean;
+    rateLimiting: boolean;
+    errorHandling: boolean;
+    logging: boolean;
+    fileUpload: boolean;
+    email: boolean;
+  }>().default({
+    authentication: true,
+    crud: true,
+    validation: true,
+    rateLimiting: true,
+    errorHandling: true,
+    logging: true,
+    fileUpload: false,
+    email: false,
+  }),
+  
+  // بيانات النشر
+  deploymentConfig: jsonb("deployment_config").$type<{
+    port: number;
+    env: Record<string, string>;
+    buildCommand: string;
+    startCommand: string;
+  }>(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_project_backend_project").on(table.projectId),
+]);
+
+export const insertProjectBackendSchema = createInsertSchema(projectBackends).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertProjectBackend = z.infer<typeof insertProjectBackendSchema>;
+export type ProjectBackend = typeof projectBackends.$inferSelect;
+
+// Project Database Configuration - قاعدة البيانات المولّدة تلقائياً
+export const projectDatabases = pgTable("project_databases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  
+  // نوع قاعدة البيانات
+  dbType: text("db_type").notNull().default("postgresql"), // postgresql, mysql, sqlite, mongodb
+  orm: text("orm").notNull().default("drizzle"), // drizzle, prisma, typeorm, mongoose
+  
+  // الجداول والعلاقات
+  schema: jsonb("schema").$type<{
+    tables: Array<{
+      name: string;
+      columns: Array<{
+        name: string;
+        type: string;
+        nullable: boolean;
+        primaryKey: boolean;
+        unique: boolean;
+        default?: string;
+        references?: { table: string; column: string };
+      }>;
+      indexes: Array<{ name: string; columns: string[] }>;
+    }>;
+    relations: Array<{
+      from: { table: string; column: string };
+      to: { table: string; column: string };
+      type: string; // one-to-one, one-to-many, many-to-many
+    }>;
+  }>(),
+  
+  // الكود المولّد
+  generatedSchema: text("generated_schema"), // كود schema الفعلي
+  generatedMigrations: jsonb("generated_migrations").$type<string[]>(),
+  
+  // حالة التوليد
+  status: text("status").notNull().default("pending"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_project_database_project").on(table.projectId),
+]);
+
+export const insertProjectDatabaseSchema = createInsertSchema(projectDatabases).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertProjectDatabase = z.infer<typeof insertProjectDatabaseSchema>;
+export type ProjectDatabase = typeof projectDatabases.$inferSelect;
+
+// Project Auth Configuration - نظام المصادقة المولّد تلقائياً
+export const projectAuthConfigs = pgTable("project_auth_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  
+  // نوع المصادقة
+  authType: text("auth_type").notNull().default("jwt"), // jwt, session, oauth
+  
+  // إعدادات المستخدمين
+  userRoles: jsonb("user_roles").$type<Array<{
+    name: string;
+    nameAr: string;
+    permissions: string[];
+    isDefault: boolean;
+  }>>().default([
+    { name: "admin", nameAr: "مدير", permissions: ["*"], isDefault: false },
+    { name: "user", nameAr: "مستخدم", permissions: ["read", "write"], isDefault: true },
+    { name: "guest", nameAr: "زائر", permissions: ["read"], isDefault: false },
+  ]),
+  
+  // ميزات المصادقة
+  features: jsonb("features").$type<{
+    registration: boolean;
+    login: boolean;
+    logout: boolean;
+    passwordReset: boolean;
+    emailVerification: boolean;
+    twoFactorAuth: boolean;
+    socialLogin: boolean;
+    profileManagement: boolean;
+  }>().default({
+    registration: true,
+    login: true,
+    logout: true,
+    passwordReset: true,
+    emailVerification: false,
+    twoFactorAuth: false,
+    socialLogin: false,
+    profileManagement: true,
+  }),
+  
+  // الكود المولّد
+  generatedCode: jsonb("generated_code").$type<{
+    routes: string;
+    middleware: string;
+    controllers: string;
+    views: string;
+  }>(),
+  
+  // حالة التوليد
+  status: text("status").notNull().default("pending"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_project_auth_project").on(table.projectId),
+]);
+
+export const insertProjectAuthConfigSchema = createInsertSchema(projectAuthConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertProjectAuthConfig = z.infer<typeof insertProjectAuthConfigSchema>;
+export type ProjectAuthConfig = typeof projectAuthConfigs.$inferSelect;
+
+// Project Provisioning Jobs - وظائف التوليد التلقائي
+export const projectProvisioningJobs = pgTable("project_provisioning_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  
+  // نوع الوظيفة
+  jobType: text("job_type").notNull(), // full_provision, backend_only, database_only, auth_only
+  
+  // الحالة
+  status: text("status").notNull().default("queued"), // queued, running, completed, failed
+  progress: integer("progress").default(0), // 0-100
+  
+  // الخطوات
+  steps: jsonb("steps").$type<Array<{
+    name: string;
+    nameAr: string;
+    status: string; // pending, running, completed, failed
+    startedAt?: string;
+    completedAt?: string;
+    error?: string;
+  }>>().default([]),
+  
+  // النتائج
+  result: jsonb("result").$type<{
+    backendId?: string;
+    databaseId?: string;
+    authConfigId?: string;
+    deploymentReady: boolean;
+    errors: string[];
+  }>(),
+  
+  // الأخطاء
+  errorMessage: text("error_message"),
+  
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_provisioning_job_project").on(table.projectId),
+  index("IDX_provisioning_job_status").on(table.status),
+]);
+
+export const insertProjectProvisioningJobSchema = createInsertSchema(projectProvisioningJobs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertProjectProvisioningJob = z.infer<typeof insertProjectProvisioningJobSchema>;
+export type ProjectProvisioningJob = typeof projectProvisioningJobs.$inferSelect;
+
 // ==================== CHAT MESSAGES ====================
 
 // Chat messages table

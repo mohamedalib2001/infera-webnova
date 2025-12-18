@@ -345,6 +345,18 @@ import {
   projectImprovementHistory,
   type ProjectImprovementHistory,
   type InsertProjectImprovementHistory,
+  projectBackends,
+  type ProjectBackend,
+  type InsertProjectBackend,
+  projectDatabases,
+  type ProjectDatabase,
+  type InsertProjectDatabase,
+  projectAuthConfigs,
+  type ProjectAuthConfig,
+  type InsertProjectAuthConfig,
+  projectProvisioningJobs,
+  type ProjectProvisioningJob,
+  type InsertProjectProvisioningJob,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt, gte, lte } from "drizzle-orm";
@@ -5337,6 +5349,94 @@ body { font-family: 'Tajawal', sans-serif; }
     return db.select().from(projectImprovementHistory)
       .where(eq(projectImprovementHistory.projectId, projectId))
       .orderBy(desc(projectImprovementHistory.createdAt));
+  }
+
+  // ==================== PROJECT INFRASTRUCTURE (Auto-Provisioning) ====================
+
+  // Project Backends
+  async getProjectBackend(projectId: string): Promise<ProjectBackend | undefined> {
+    const [backend] = await db.select().from(projectBackends)
+      .where(eq(projectBackends.projectId, projectId));
+    return backend || undefined;
+  }
+
+  async createProjectBackend(data: InsertProjectBackend): Promise<ProjectBackend> {
+    const [backend] = await db.insert(projectBackends).values(data).returning();
+    return backend;
+  }
+
+  async updateProjectBackend(id: string, data: Partial<InsertProjectBackend>): Promise<ProjectBackend | undefined> {
+    const [backend] = await db.update(projectBackends)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(projectBackends.id, id))
+      .returning();
+    return backend || undefined;
+  }
+
+  // Project Databases
+  async getProjectDatabase(projectId: string): Promise<ProjectDatabase | undefined> {
+    const [database] = await db.select().from(projectDatabases)
+      .where(eq(projectDatabases.projectId, projectId));
+    return database || undefined;
+  }
+
+  async createProjectDatabase(data: InsertProjectDatabase): Promise<ProjectDatabase> {
+    const [database] = await db.insert(projectDatabases).values(data).returning();
+    return database;
+  }
+
+  async updateProjectDatabase(id: string, data: Partial<InsertProjectDatabase>): Promise<ProjectDatabase | undefined> {
+    const [database] = await db.update(projectDatabases)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(projectDatabases.id, id))
+      .returning();
+    return database || undefined;
+  }
+
+  // Project Auth Configs
+  async getProjectAuthConfig(projectId: string): Promise<ProjectAuthConfig | undefined> {
+    const [config] = await db.select().from(projectAuthConfigs)
+      .where(eq(projectAuthConfigs.projectId, projectId));
+    return config || undefined;
+  }
+
+  async createProjectAuthConfig(data: InsertProjectAuthConfig): Promise<ProjectAuthConfig> {
+    const [config] = await db.insert(projectAuthConfigs).values(data).returning();
+    return config;
+  }
+
+  async updateProjectAuthConfig(id: string, data: Partial<InsertProjectAuthConfig>): Promise<ProjectAuthConfig | undefined> {
+    const [config] = await db.update(projectAuthConfigs)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(projectAuthConfigs.id, id))
+      .returning();
+    return config || undefined;
+  }
+
+  // Project Provisioning Jobs
+  async getProjectProvisioningJob(id: string): Promise<ProjectProvisioningJob | undefined> {
+    const [job] = await db.select().from(projectProvisioningJobs)
+      .where(eq(projectProvisioningJobs.id, id));
+    return job || undefined;
+  }
+
+  async getProjectProvisioningJobs(projectId: string): Promise<ProjectProvisioningJob[]> {
+    return db.select().from(projectProvisioningJobs)
+      .where(eq(projectProvisioningJobs.projectId, projectId))
+      .orderBy(desc(projectProvisioningJobs.createdAt));
+  }
+
+  async createProjectProvisioningJob(data: InsertProjectProvisioningJob): Promise<ProjectProvisioningJob> {
+    const [job] = await db.insert(projectProvisioningJobs).values(data).returning();
+    return job;
+  }
+
+  async updateProjectProvisioningJob(id: string, data: Partial<InsertProjectProvisioningJob>): Promise<ProjectProvisioningJob | undefined> {
+    const [job] = await db.update(projectProvisioningJobs)
+      .set(data)
+      .where(eq(projectProvisioningJobs.id, id))
+      .returning();
+    return job || undefined;
   }
 
   async getRecentImprovements(projectId: string, limit: number = 10): Promise<ProjectImprovementHistory[]> {
