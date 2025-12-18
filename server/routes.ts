@@ -15,12 +15,49 @@ declare module 'express-session' {
   }
 }
 
-// Auth middleware
-const requireAuth = (req: Request, res: Response, next: NextFunction) => {
-  if (!req.session?.userId) {
-    return res.status(401).json({ error: "يجب تسجيل الدخول أولاً / Authentication required" });
+// Auth middleware - supports both Replit Auth and traditional sessions
+const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
+  // Check Replit Auth first (passport)
+  if (req.isAuthenticated && req.isAuthenticated() && req.user) {
+    const replitUser = req.user as any;
+    const userId = replitUser.claims?.sub;
+    if (userId) {
+      // Attach user to request for downstream use
+      let dbUser = await storage.getUser(userId);
+      
+      // Auto-provision user if not found (can happen if upsert failed)
+      if (!dbUser) {
+        const claims = replitUser.claims;
+        try {
+          dbUser = await storage.upsertUser({
+            id: userId,
+            email: claims?.email,
+            firstName: claims?.first_name,
+            lastName: claims?.last_name,
+            profileImageUrl: claims?.profile_image_url,
+            authProvider: "replit",
+          });
+        } catch (e) {
+          console.error("Failed to auto-provision user:", e);
+        }
+      }
+      
+      if (dbUser) {
+        req.session.userId = dbUser.id;
+        // Strip password before storing in session
+        const { password: _, ...userWithoutPassword } = dbUser;
+        req.session.user = userWithoutPassword;
+        return next();
+      }
+    }
   }
-  next();
+  
+  // Fallback to traditional session
+  if (req.session?.userId) {
+    return next();
+  }
+  
+  return res.status(401).json({ error: "يجب تسجيل الدخول أولاً / Authentication required" });
 };
 
 // Admin/Sovereign middleware
@@ -352,7 +389,30 @@ export async function registerRoutes(
   // Get all projects
   app.get("/api/projects", async (req, res) => {
     try {
-      const projects = await storage.getProjects();
+      // Check for authenticated user (Replit Auth or traditional session)
+      let userId: string | null = null;
+      
+      if (req.isAuthenticated && req.isAuthenticated() && req.user) {
+        const replitUser = req.user as any;
+        userId = replitUser.claims?.sub || null;
+      } else if (req.session?.userId) {
+        userId = req.session.userId;
+      }
+      
+      // Not authenticated - return empty array
+      if (!userId) {
+        return res.json([]);
+      }
+      
+      // Check if user is owner - owners see ALL projects
+      const user = await storage.getUser(userId);
+      if (user?.role === "owner") {
+        const allProjects = await storage.getProjects();
+        return res.json(allProjects);
+      }
+      
+      // Regular users see only their own projects
+      const projects = await storage.getProjectsByUser(userId);
       res.json(projects);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch projects" });
@@ -372,11 +432,28 @@ export async function registerRoutes(
     }
   });
 
-  // Create project
+  // Create project - attach to authenticated user (requires auth)
   app.post("/api/projects", async (req, res) => {
     try {
+      // Get authenticated user
+      let userId: string | null = null;
+      
+      if (req.isAuthenticated && req.isAuthenticated() && req.user) {
+        const replitUser = req.user as any;
+        userId = replitUser.claims?.sub || null;
+      } else if (req.session?.userId) {
+        userId = req.session.userId;
+      }
+      
+      // Require authentication to create projects
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required to create projects" });
+      }
+      
       const data = insertProjectSchema.parse(req.body);
-      const project = await storage.createProject(data);
+      // Attach userId to project
+      const projectData = { ...data, userId };
+      const project = await storage.createProject(projectData);
       res.status(201).json(project);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -403,12 +480,38 @@ export async function registerRoutes(
     }
   });
 
-  // Delete project
+  // Delete project - with ownership check
   app.delete("/api/projects/:id", async (req, res) => {
     try {
+      // Get authenticated user
+      let userId: string | null = null;
+      
+      if (req.isAuthenticated && req.isAuthenticated() && req.user) {
+        const replitUser = req.user as any;
+        userId = replitUser.claims?.sub || null;
+      } else if (req.session?.userId) {
+        userId = req.session.userId;
+      }
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      // Check project ownership
+      const project = await storage.getProject(req.params.id);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      // Allow owner role to delete any project, or project owner
+      const user = await storage.getUser(userId);
+      if (project.userId !== userId && user?.role !== "owner") {
+        return res.status(403).json({ error: "Not authorized to delete this project" });
+      }
+      
       const deleted = await storage.deleteProject(req.params.id);
       if (!deleted) {
-        return res.status(404).json({ error: "Project not found" });
+        return res.status(500).json({ error: "Failed to delete project" });
       }
       res.status(204).send();
     } catch (error) {
