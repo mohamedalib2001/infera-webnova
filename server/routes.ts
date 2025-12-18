@@ -4324,6 +4324,345 @@ export async function registerRoutes(
     }
   });
 
+  // Set remote repository (GitHub)
+  app.post("/api/dev-projects/:projectId/git/remote", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      const project = await storage.getDevProject(req.params.projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const { url, name = "origin" } = req.body;
+      if (!url || typeof url !== "string") {
+        return res.status(400).json({ error: "Remote URL required" });
+      }
+      
+      // Validate URL format (GitHub, GitLab, Bitbucket, etc.)
+      const validRemotePattern = /^https:\/\/(github\.com|gitlab\.com|bitbucket\.org)\/[\w-]+\/[\w.-]+\.git$/;
+      if (!validRemotePattern.test(url)) {
+        return res.status(400).json({ 
+          error: "Invalid remote URL format. Use: https://github.com/username/repo.git" 
+        });
+      }
+
+      const projectPath = path.join(os.tmpdir(), "infera-projects", req.params.projectId);
+      const gitPath = path.join(projectPath, ".git");
+      
+      if (!fs.existsSync(gitPath)) {
+        return res.status(400).json({ error: "Git not initialized. Please initialize git first." });
+      }
+      
+      const { execSync } = await import("child_process");
+      const sanitizedName = name.replace(/[^a-zA-Z0-9_-]/g, "").substring(0, 20) || "origin";
+      
+      // Check if remote exists
+      try {
+        execSync(`git remote get-url ${sanitizedName}`, { cwd: projectPath, encoding: "utf-8" });
+        // Remote exists, update it
+        execSync(`git remote set-url ${sanitizedName} "${url}"`, { cwd: projectPath, encoding: "utf-8" });
+      } catch {
+        // Remote doesn't exist, add it
+        execSync(`git remote add ${sanitizedName} "${url}"`, { cwd: projectPath, encoding: "utf-8" });
+      }
+      
+      res.json({ success: true, message: `Remote '${sanitizedName}' set to ${url}` });
+    } catch (error) {
+      console.error("Git remote error:", error);
+      res.status(500).json({ error: "Failed to set remote" });
+    }
+  });
+
+  // Get remotes
+  app.get("/api/dev-projects/:projectId/git/remotes", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      const project = await storage.getDevProject(req.params.projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const projectPath = path.join(os.tmpdir(), "infera-projects", req.params.projectId);
+      const gitPath = path.join(projectPath, ".git");
+      
+      if (!fs.existsSync(gitPath)) {
+        return res.json({ remotes: [] });
+      }
+      
+      const { execSync } = await import("child_process");
+      
+      let remotesOutput = "";
+      try {
+        remotesOutput = execSync("git remote -v", { cwd: projectPath, encoding: "utf-8" });
+      } catch {
+        return res.json({ remotes: [] });
+      }
+      
+      const remotes: Array<{name: string, url: string, type: string}> = [];
+      const seen = new Set<string>();
+      
+      remotesOutput.split("\n").filter(line => line.trim()).forEach(line => {
+        const match = line.match(/^(\S+)\s+(\S+)\s+\((\w+)\)$/);
+        if (match) {
+          const key = `${match[1]}-${match[3]}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            remotes.push({ name: match[1], url: match[2], type: match[3] });
+          }
+        }
+      });
+      
+      res.json({ remotes });
+    } catch (error) {
+      console.error("Git remotes error:", error);
+      res.status(500).json({ error: "Failed to get remotes" });
+    }
+  });
+
+  // Helper function to sanitize git inputs and prevent command injection
+  const sanitizeGitInput = (input: string, maxLength = 50): string | null => {
+    if (!input || typeof input !== "string") return null;
+    const sanitized = input.replace(/[^a-zA-Z0-9_.-]/g, "").substring(0, maxLength);
+    return sanitized.length > 0 ? sanitized : null;
+  };
+
+  const sanitizeGitToken = (token: string): string | null => {
+    if (!token || typeof token !== "string") return null;
+    if (token.length < 10 || token.length > 200) return null;
+    if (!/^[a-zA-Z0-9_-]+$/.test(token)) return null;
+    return token;
+  };
+
+  // Git push (requires GitHub token)
+  app.post("/api/dev-projects/:projectId/git/push", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      const project = await storage.getDevProject(req.params.projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const rawRemote = req.body.remote || "origin";
+      const rawBranch = req.body.branch || "main";
+      const rawToken = req.body.token;
+      
+      const remote = sanitizeGitInput(rawRemote);
+      const branch = sanitizeGitInput(rawBranch);
+      const token = sanitizeGitToken(rawToken);
+      
+      if (!remote || !branch) {
+        return res.status(400).json({ error: "Invalid remote or branch name" });
+      }
+      
+      if (!token) {
+        return res.status(400).json({ 
+          error: "Valid GitHub Personal Access Token required for push",
+          hint: "Create a token at: https://github.com/settings/tokens"
+        });
+      }
+
+      const projectPath = path.join(os.tmpdir(), "infera-projects", req.params.projectId);
+      const gitPath = path.join(projectPath, ".git");
+      
+      if (!fs.existsSync(gitPath)) {
+        return res.status(400).json({ error: "Git not initialized" });
+      }
+      
+      const { spawnSync } = await import("child_process");
+      
+      // Get remote URL using spawn (safer)
+      const getUrlResult = spawnSync("git", ["remote", "get-url", remote], { 
+        cwd: projectPath, 
+        encoding: "utf-8" 
+      });
+      
+      if (getUrlResult.status !== 0) {
+        return res.status(400).json({ error: `Remote '${remote}' not found. Please add a remote first.` });
+      }
+      
+      const remoteUrl = getUrlResult.stdout.trim();
+      
+      // Validate remote URL format
+      if (!remoteUrl.startsWith("https://github.com/") && 
+          !remoteUrl.startsWith("https://gitlab.com/") && 
+          !remoteUrl.startsWith("https://bitbucket.org/")) {
+        return res.status(400).json({ error: "Only HTTPS GitHub/GitLab/Bitbucket URLs are supported" });
+      }
+      
+      // Build authenticated URL
+      const authUrl = remoteUrl.replace("https://", `https://oauth2:${token}@`);
+      
+      try {
+        // Temporarily set remote with auth using spawn
+        spawnSync("git", ["remote", "set-url", remote, authUrl], { cwd: projectPath, encoding: "utf-8" });
+        
+        // Push using spawn (avoids shell injection)
+        const pushResult = spawnSync("git", ["push", "-u", remote, branch], { 
+          cwd: projectPath, 
+          encoding: "utf-8",
+          timeout: 60000
+        });
+        
+        // Always restore original URL (without token)
+        spawnSync("git", ["remote", "set-url", remote, remoteUrl], { cwd: projectPath, encoding: "utf-8" });
+        
+        if (pushResult.status !== 0) {
+          const errMsg = pushResult.stderr || "";
+          if (errMsg.includes("Authentication failed") || errMsg.includes("Invalid credentials")) {
+            return res.status(401).json({ 
+              error: "Authentication failed. Check your GitHub token.",
+              hint: "Token needs 'repo' scope for private repos"
+            });
+          }
+          return res.status(500).json({ error: "Push failed", details: errMsg.substring(0, 200) });
+        }
+        
+        res.json({ 
+          success: true, 
+          message: `Pushed to ${remote}/${branch}`
+        });
+      } catch (pushError: unknown) {
+        // Always restore original URL
+        try {
+          spawnSync("git", ["remote", "set-url", remote, remoteUrl], { cwd: projectPath, encoding: "utf-8" });
+        } catch {}
+        throw pushError;
+      }
+    } catch (error) {
+      console.error("Git push error");
+      res.status(500).json({ error: "Failed to push changes" });
+    }
+  });
+
+  // Git pull (requires GitHub token for private repos)
+  app.post("/api/dev-projects/:projectId/git/pull", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      const project = await storage.getDevProject(req.params.projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const rawRemote = req.body.remote || "origin";
+      const rawBranch = req.body.branch || "main";
+      const rawToken = req.body.token;
+      
+      const remote = sanitizeGitInput(rawRemote);
+      const branch = sanitizeGitInput(rawBranch);
+      const token = rawToken ? sanitizeGitToken(rawToken) : null;
+      
+      if (!remote || !branch) {
+        return res.status(400).json({ error: "Invalid remote or branch name" });
+      }
+
+      const projectPath = path.join(os.tmpdir(), "infera-projects", req.params.projectId);
+      const gitPath = path.join(projectPath, ".git");
+      
+      if (!fs.existsSync(gitPath)) {
+        return res.status(400).json({ error: "Git not initialized" });
+      }
+      
+      const { spawnSync } = await import("child_process");
+      
+      // Get remote URL using spawn
+      const getUrlResult = spawnSync("git", ["remote", "get-url", remote], { 
+        cwd: projectPath, 
+        encoding: "utf-8" 
+      });
+      
+      if (getUrlResult.status !== 0) {
+        return res.status(400).json({ error: `Remote '${remote}' not found` });
+      }
+      
+      const remoteUrl = getUrlResult.stdout.trim();
+      
+      try {
+        let pullResult;
+        
+        if (token) {
+          // Use token for authentication (private repos)
+          const authUrl = remoteUrl.replace("https://", `https://oauth2:${token}@`);
+          spawnSync("git", ["remote", "set-url", remote, authUrl], { cwd: projectPath, encoding: "utf-8" });
+          
+          pullResult = spawnSync("git", ["pull", remote, branch], { 
+            cwd: projectPath, 
+            encoding: "utf-8",
+            timeout: 60000
+          });
+          
+          // Restore original URL
+          spawnSync("git", ["remote", "set-url", remote, remoteUrl], { cwd: projectPath, encoding: "utf-8" });
+        } else {
+          // Try without token (public repos)
+          pullResult = spawnSync("git", ["pull", remote, branch], { 
+            cwd: projectPath, 
+            encoding: "utf-8",
+            timeout: 60000
+          });
+        }
+        
+        if (pullResult.status !== 0) {
+          const errMsg = pullResult.stderr || "";
+          if (errMsg.includes("Authentication failed")) {
+            return res.status(401).json({ error: "Authentication failed. Token required for private repos." });
+          }
+          if (errMsg.includes("CONFLICT") || errMsg.includes("merge conflict")) {
+            return res.status(409).json({ error: "Merge conflict detected. Please resolve conflicts manually." });
+          }
+          return res.status(500).json({ error: "Pull failed", details: errMsg.substring(0, 200) });
+        }
+        
+        // Sync pulled files back to database
+        const files = await storage.getProjectFiles(req.params.projectId);
+        for (const file of files) {
+          const filePath = path.join(projectPath, file.filePath || file.fileName);
+          if (fs.existsSync(filePath)) {
+            const content = fs.readFileSync(filePath, "utf-8");
+            if (content !== file.content) {
+              await storage.updateProjectFile(file.id, { content });
+            }
+          }
+        }
+        
+        res.json({ 
+          success: true, 
+          message: `Pulled from ${remote}/${branch}`
+        });
+      } catch (pullError: unknown) {
+        // Restore original URL if token was used
+        if (token) {
+          try {
+            spawnSync("git", ["remote", "set-url", remote, remoteUrl], { cwd: projectPath, encoding: "utf-8" });
+          } catch {}
+        }
+        throw pullError;
+      }
+    } catch (error) {
+      console.error("Git pull error");
+      res.status(500).json({ error: "Failed to pull changes" });
+    }
+  });
+
   // ==================== DEPLOYMENT API ====================
   
   // Get deployment status
