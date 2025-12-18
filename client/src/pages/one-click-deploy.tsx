@@ -178,10 +178,10 @@ export default function OneClickDeploy() {
   const [showRollbackDialog, setShowRollbackDialog] = useState(false);
   const [selectedDeployment, setSelectedDeployment] = useState<DeploymentRun | null>(null);
 
-  const { data: projectsData } = useQuery<{ success: boolean; projects: any[] }>({
+  const { data: projectsData } = useQuery<any[]>({
     queryKey: ["/api/projects"],
   });
-  const projects = projectsData?.projects || [];
+  const projects = Array.isArray(projectsData) ? projectsData : [];
 
   const { data: deploymentsData, isLoading: deploymentsLoading } = useQuery<{ success: boolean; deployments: DeploymentRun[] }>({
     queryKey: ["/api/deployments", selectedProject],
