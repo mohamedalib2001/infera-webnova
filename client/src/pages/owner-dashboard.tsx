@@ -845,7 +845,7 @@ function GovernanceSection({ t, language }: { t: typeof translations.ar; languag
 
   const activateKillSwitchMutation = useMutation({
     mutationFn: async (data: { scope: string; reason: string; reasonAr: string }) => {
-      return apiRequest('/api/governance/kill-switch/activate', { method: 'POST', body: JSON.stringify(data) });
+      return apiRequest('POST', '/api/governance/kill-switch/activate', data);
     },
     onSuccess: () => {
       toast({ title: language === 'ar' ? 'تم تفعيل زر الطوارئ' : 'Kill switch activated' });
@@ -856,10 +856,7 @@ function GovernanceSection({ t, language }: { t: typeof translations.ar; languag
 
   const processApprovalMutation = useMutation({
     mutationFn: async ({ id, decision }: { id: string; decision: 'approve' | 'reject' }) => {
-      return apiRequest(`/api/governance/approvals/${id}/decide`, { 
-        method: 'POST', 
-        body: JSON.stringify({ decision }) 
-      });
+      return apiRequest('POST', `/api/governance/approvals/${id}/decide`, { decision });
     },
     onSuccess: () => {
       toast({ title: language === 'ar' ? 'تمت معالجة الموافقة' : 'Approval processed' });
@@ -869,7 +866,7 @@ function GovernanceSection({ t, language }: { t: typeof translations.ar; languag
 
   const triggerRollbackMutation = useMutation({
     mutationFn: async (data: { reason: string; reasonAr: string }) => {
-      return apiRequest('/api/governance/safe-rollback', { method: 'POST', body: JSON.stringify(data) });
+      return apiRequest('POST', '/api/governance/safe-rollback', data);
     },
     onSuccess: () => {
       toast({ 
@@ -1107,12 +1104,12 @@ function DomainsSection({ t, language }: { t: typeof translations.ar; language: 
 
   const createDomainMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest('/api/domains', { method: 'POST', body: JSON.stringify(data) });
+      return apiRequest('POST', '/api/domains', data);
     },
     onSuccess: () => {
       toast({ title: language === 'ar' ? 'تم إضافة النطاق' : 'Domain added' });
       setShowAddDialog(false);
-      setNewDomainForm({ hostname: "", verificationMethod: "dns_txt", isPrimary: false });
+      setNewDomainForm({ hostname: "", verificationMethod: "dns_txt", isPrimary: false, tenantId: "" });
       queryClient.invalidateQueries({ queryKey: ['/api/domains'] });
     },
     onError: (error: any) => {
@@ -1122,7 +1119,7 @@ function DomainsSection({ t, language }: { t: typeof translations.ar; language: 
 
   const deleteDomainMutation = useMutation({
     mutationFn: async (id: string) => {
-      return apiRequest(`/api/domains/${id}`, { method: 'DELETE' });
+      return apiRequest('DELETE', `/api/domains/${id}`);
     },
     onSuccess: () => {
       toast({ title: language === 'ar' ? 'تم حذف النطاق' : 'Domain deleted' });
@@ -1132,7 +1129,7 @@ function DomainsSection({ t, language }: { t: typeof translations.ar; language: 
 
   const verifyDomainMutation = useMutation({
     mutationFn: async (id: string) => {
-      return apiRequest(`/api/domains/${id}/verify`, { method: 'POST' });
+      return apiRequest('POST', `/api/domains/${id}/verify`);
     },
     onSuccess: () => {
       toast({ title: language === 'ar' ? 'تم التحقق من النطاق' : 'Domain verified' });
@@ -1361,7 +1358,7 @@ function DomainsSection({ t, language }: { t: typeof translations.ar; language: 
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => copyToClipboard(selectedDomain.verificationToken)}
+                      onClick={() => copyToClipboard(selectedDomain.verificationToken || '')}
                     >
                       <Copy className="w-4 h-4" />
                     </Button>

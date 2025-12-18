@@ -54,6 +54,49 @@ The platform includes a comprehensive Integrations Hub for managing external ser
 *   ROOT_OWNER access required for all operations
 *   Complete audit trail for compliance
 
+## Sovereign User Management System (New Feature - Dec 2024)
+Complete user governance system with ROOT_OWNER controls:
+
+**User Status Management:**
+*   **Status Types**: ACTIVE, SUSPENDED, BANNED, PENDING, DEACTIVATED
+*   **Actions**: Suspend/Ban/Reactivate users with reason tracking
+*   **Middleware**: Automatic status check on all authenticated requests
+*   **Audit Trail**: Complete logging of all user governance actions
+
+**User Permissions:**
+*   Custom permission arrays per user
+*   Owner-only permission management
+*   ROOT_OWNER protection (cannot be suspended/banned/demoted)
+
+## Resource Usage & Cost Tracking System (New Feature - Dec 2024)
+Comprehensive tracking of user resource consumption with regional pricing:
+
+**Database Tables:**
+*   `userLocations`: Geographic tracking (country, city, timezone, IP, VPN detection)
+*   `resourceUsage`: Per-request tracking with realCostUSD and billedCostUSD
+*   `userUsageLimits`: Monthly/daily limits with auto-suspend capability
+*   `pricingConfig`: 4 pricing models (FREE, FIXED, MARKUP, SUBSIDIZED) with regional overrides
+*   `usageAlerts`: Multi-severity notification system
+*   `dailyUsageAggregates`: Daily rollup for performance
+*   `monthlyUsageSummary`: Monthly billing summaries
+
+**Owner Analytics:**
+*   Real-time cost vs. billed analysis
+*   Top 5 users by consumption
+*   Users where cost > billed (losing money alerts)
+*   Profit by service breakdown
+*   Geographic distribution of users
+
+**API Endpoints (Owner Only):**
+*   `GET /api/owner/users/:userId/usage` - User resource usage details
+*   `GET /api/owner/users/:userId/location` - User location info
+*   `GET /api/owner/users-with-locations` - All users with locations
+*   `GET /api/owner/users/country/:countryCode` - Users by country
+*   `POST /api/owner/users/:userId/usage-limits` - Set usage limits
+*   `GET /api/owner/pricing-configs` - Pricing configurations
+*   `GET /api/owner/usage-analytics` - Owner analytics dashboard
+*   `GET /api/owner/monthly-summaries` - Monthly billing summaries
+
 ## External Dependencies
 *   **Database**: PostgreSQL
 *   **ORM**: Drizzle ORM
