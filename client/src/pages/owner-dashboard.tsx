@@ -1790,6 +1790,16 @@ export default function OwnerDashboard() {
     reasonAr: "",
     targetLayerId: "",
   });
+  
+  // Direct Assistant Command Dialog
+  const [showDirectCommandDialog, setShowDirectCommandDialog] = useState(false);
+  const [directCommandAssistant, setDirectCommandAssistant] = useState<any>(null);
+  const [directCommandForm, setDirectCommandForm] = useState({
+    command: "",
+    mode: "AUTO" as "AUTO" | "MANUAL",
+    preferredModel: "claude-sonnet-4-20250514",
+  });
+  
   const [showPowerConfigDialog, setShowPowerConfigDialog] = useState(false);
   const [selectedLayerForPower, setSelectedLayerForPower] = useState<any>(null);
   const [powerConfigForm, setPowerConfigForm] = useState({
@@ -2098,6 +2108,69 @@ export default function OwnerDashboard() {
       toast({
         title: language === 'ar' ? "تم تحديث الاستقلالية" : "Autonomy Updated",
         description: language === 'ar' ? "تم تحديث وضع الاستقلالية" : "Autonomy mode has been updated",
+      });
+    },
+  });
+
+  // Assistant-specific Kill Switch
+  const toggleAssistantKillSwitchMutation = useMutation({
+    mutationFn: async ({ assistantId, activate, reason }: { assistantId: string; activate: boolean; reason?: string }) => {
+      return apiRequest('POST', `/api/assistants/${assistantId}/kill-switch`, { activate, reason });
+    },
+    onSuccess: (_, { activate }) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/ai/kill-switch'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/sovereign-assistants'] });
+      toast({
+        title: activate 
+          ? (language === 'ar' ? "تم تفعيل Kill Switch" : "Kill Switch Activated")
+          : (language === 'ar' ? "تم إلغاء Kill Switch" : "Kill Switch Deactivated"),
+        description: activate
+          ? (language === 'ar' ? "تم إيقاف المساعد عن التنفيذ" : "Assistant execution has been stopped")
+          : (language === 'ar' ? "تم استئناف عمل المساعد" : "Assistant execution has been resumed"),
+        variant: activate ? "destructive" : "default",
+      });
+    },
+  });
+
+  // Execute command directly on assistant
+  const executeAssistantCommandMutation = useMutation({
+    mutationFn: async ({ assistantId, command, mode, preferredModel }: { 
+      assistantId: string; 
+      command: string; 
+      mode?: string;
+      preferredModel?: string;
+    }) => {
+      const res = await apiRequest('POST', `/api/assistants/${assistantId}/execute`, { 
+        command, 
+        mode: mode || 'AUTO',
+        preferredModel 
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/ai/task-history'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/ai/cost-analytics'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/sovereign-assistants'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/assistants'] });
+      
+      if (data.success) {
+        toast({
+          title: language === 'ar' ? "تم تنفيذ الأمر بنجاح" : "Command Executed Successfully",
+          description: `${language === 'ar' ? 'النموذج' : 'Model'}: ${data.model} | ${language === 'ar' ? 'الوقت' : 'Time'}: ${(data.executionTimeMs / 1000).toFixed(1)}s | ${language === 'ar' ? 'التكلفة' : 'Cost'}: $${data.cost?.billed?.toFixed(4) || '0'}`,
+        });
+      } else {
+        toast({
+          title: language === 'ar' ? "فشل التنفيذ" : "Execution Failed",
+          description: data.error,
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: language === 'ar' ? "خطأ" : "Error",
+        description: error.message,
+        variant: "destructive",
       });
     },
   });
@@ -3026,6 +3099,19 @@ export default function OwnerDashboard() {
                               </div>
                             </div>
 
+                            {/* Model & Stats */}
+                            <div className="flex items-center justify-between gap-2 text-sm">
+                              <span className="text-muted-foreground">{language === 'ar' ? 'النموذج' : 'Model'}:</span>
+                              <Badge variant="secondary" className="text-xs font-mono">
+                                {assistant.model?.split('-').slice(0, 2).join('-') || 'claude-sonnet'}
+                              </Badge>
+                            </div>
+                            
+                            <div className="flex items-center justify-between gap-2 text-sm">
+                              <span className="text-muted-foreground">{language === 'ar' ? 'المهام المنجزة' : 'Tasks Completed'}:</span>
+                              <span className="font-bold">{assistant.totalTasksCompleted || 0}</span>
+                            </div>
+
                             <Separator />
 
                             <div className="space-y-2">
@@ -3041,22 +3127,34 @@ export default function OwnerDashboard() {
                                 )}
                               </div>
                             </div>
-
-                            <div className="space-y-2">
-                              <p className="text-sm font-medium">{t.sovereign.constraints}:</p>
-                              <div className="flex flex-wrap gap-1">
-                                {(assistant.constraints || []).slice(0, 2).map((constraint, idx) => (
-                                  <Badge key={idx} variant="outline" className="text-xs text-muted-foreground">
-                                    {constraint}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
                           </CardContent>
-                          <CardFooter className="pt-0">
-                            <Button variant="outline" size="sm" className="w-full" data-testid={`button-command-${assistant.id}`}>
+                          <CardFooter className="pt-0 flex gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="flex-1"
+                              onClick={() => {
+                                setDirectCommandAssistant(assistant);
+                                setDirectCommandForm({ command: "", mode: "AUTO", preferredModel: assistant.model || "claude-sonnet-4-20250514" });
+                                setShowDirectCommandDialog(true);
+                              }}
+                              data-testid={`button-command-${assistant.id}`}
+                            >
                               <Send className="w-4 h-4 ml-2" />
                               {t.sovereign.issueCommand}
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              onClick={() => toggleAssistantKillSwitchMutation.mutate({ 
+                                assistantId: assistant.id, 
+                                activate: true, 
+                                reason: 'Manual stop by owner' 
+                              })}
+                              disabled={toggleAssistantKillSwitchMutation.isPending}
+                              data-testid={`button-kill-${assistant.id}`}
+                            >
+                              <AlertCircle className="w-4 h-4" />
                             </Button>
                           </CardFooter>
                         </Card>
@@ -4508,6 +4606,102 @@ export default function OwnerDashboard() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Direct Command Dialog */}
+      <Dialog open={showDirectCommandDialog} onOpenChange={setShowDirectCommandDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="w-5 h-5" />
+              {language === 'ar' ? 'تنفيذ أمر مباشر' : 'Execute Direct Command'}
+            </DialogTitle>
+            <DialogDescription>
+              {directCommandAssistant && (
+                <span className="flex items-center gap-2 mt-1">
+                  <Crown className="w-4 h-4" />
+                  {language === 'ar' ? directCommandAssistant.nameAr : directCommandAssistant.name}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{language === 'ar' ? 'الأمر' : 'Command'}</Label>
+              <Textarea
+                value={directCommandForm.command}
+                onChange={(e) => setDirectCommandForm({ ...directCommandForm, command: e.target.value })}
+                placeholder={language === 'ar' ? 'أدخل الأمر هنا...' : 'Enter your command here...'}
+                className="min-h-[120px]"
+                data-testid="input-direct-command"
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{language === 'ar' ? 'وضع التنفيذ' : 'Execution Mode'}</Label>
+                <Select
+                  value={directCommandForm.mode}
+                  onValueChange={(value: "AUTO" | "MANUAL") => setDirectCommandForm({ ...directCommandForm, mode: value })}
+                >
+                  <SelectTrigger data-testid="select-execution-mode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="AUTO">{language === 'ar' ? 'تلقائي' : 'AUTO'}</SelectItem>
+                    <SelectItem value="MANUAL">{language === 'ar' ? 'يدوي' : 'MANUAL'}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {directCommandForm.mode === 'MANUAL' && (
+                <div className="space-y-2">
+                  <Label>{language === 'ar' ? 'النموذج' : 'Model'}</Label>
+                  <Select
+                    value={directCommandForm.preferredModel}
+                    onValueChange={(value) => setDirectCommandForm({ ...directCommandForm, preferredModel: value })}
+                  >
+                    <SelectTrigger data-testid="select-model">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="claude-sonnet-4-20250514">Claude Sonnet 4</SelectItem>
+                      <SelectItem value="claude-3-opus-20240229">Claude Opus</SelectItem>
+                      <SelectItem value="claude-3-haiku-20240307">Claude Haiku</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowDirectCommandDialog(false)}>
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button
+              onClick={() => {
+                if (directCommandAssistant && directCommandForm.command.trim()) {
+                  executeAssistantCommandMutation.mutate({
+                    assistantId: directCommandAssistant.id,
+                    command: directCommandForm.command,
+                    mode: directCommandForm.mode,
+                    preferredModel: directCommandForm.mode === 'MANUAL' ? directCommandForm.preferredModel : undefined,
+                  });
+                  setShowDirectCommandDialog(false);
+                }
+              }}
+              disabled={!directCommandForm.command.trim() || executeAssistantCommandMutation.isPending}
+              data-testid="button-execute-direct-command"
+            >
+              {executeAssistantCommandMutation.isPending ? (
+                <RefreshCw className="w-4 h-4 animate-spin ml-2" />
+              ) : (
+                <Play className="w-4 h-4 ml-2" />
+              )}
+              {language === 'ar' ? 'تنفيذ' : 'Execute'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
