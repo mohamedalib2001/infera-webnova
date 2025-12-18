@@ -17,9 +17,7 @@ import {
   Sparkles, 
   Terminal,
   Globe,
-  Users,
   TrendingUp,
-  Megaphone,
   Shield,
   Wrench,
   ChevronDown,
@@ -78,7 +76,6 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
   const growthItems = [
     { title: language === "ar" ? "محسّن SEO" : "SEO Optimizer", url: "/seo-optimizer", icon: Search, testId: "nav-seo" },
     { title: language === "ar" ? "التحليلات" : "Analytics", url: "/analytics", icon: BarChart3, testId: "nav-analytics" },
-    { title: language === "ar" ? "التسويق" : "Marketing", url: "/marketing", icon: Megaphone, testId: "nav-marketing" },
   ];
 
   const roleLabels: Record<string, { ar: string; en: string; color: "secondary" | "default" | "destructive" }> = {
