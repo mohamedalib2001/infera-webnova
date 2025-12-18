@@ -30,6 +30,7 @@ import Domains from "@/pages/domains";
 import Settings from "@/pages/settings";
 import PlatformGenerator from "@/pages/platform-generator";
 import ApiKeys from "@/pages/api-keys";
+import PaymentsDashboard from "@/pages/payments-dashboard";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -56,6 +57,7 @@ function Router() {
       <Route path="/settings" component={Settings} />
       <Route path="/platform-generator" component={PlatformGenerator} />
       <Route path="/api-keys" component={ApiKeys} />
+      <Route path="/payments" component={PaymentsDashboard} />
       <Route path="/preview/:shareCode" component={Preview} />
       <Route component={NotFound} />
     </Switch>

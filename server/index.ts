@@ -4,6 +4,9 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { initializeTerminalService, initializeRuntimeService } from "./terminal-service";
 import { setupAuth } from "./replitAuth";
+import { initStripeSystem } from "./stripeClient";
+import { WebhookHandlers } from "./webhookHandlers";
+import { paymentRoutes } from "./payment-routes";
 
 const app = express();
 const httpServer = createServer(app);
@@ -17,6 +20,29 @@ declare module "http" {
   }
 }
 
+app.post(
+  '/api/stripe/webhook',
+  express.raw({ type: 'application/json' }),
+  async (req, res) => {
+    const signature = req.headers['stripe-signature'];
+    if (!signature) {
+      return res.status(400).json({ error: 'Missing stripe-signature' });
+    }
+    try {
+      const sig = Array.isArray(signature) ? signature[0] : signature;
+      if (!Buffer.isBuffer(req.body)) {
+        console.error('[Stripe Webhook] req.body is not a Buffer');
+        return res.status(500).json({ error: 'Webhook processing error' });
+      }
+      await WebhookHandlers.processWebhook(req.body as Buffer, sig);
+      res.status(200).json({ received: true });
+    } catch (error: any) {
+      console.error('[Stripe Webhook] Error:', error.message);
+      res.status(400).json({ error: 'Webhook processing error' });
+    }
+  }
+);
+
 app.use(
   express.json({
     verify: (req, _res, buf) => {
@@ -26,6 +52,8 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
+
+app.use('/api/payments', paymentRoutes);
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -65,6 +93,10 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  await initStripeSystem().catch(err => {
+    console.warn('[Stripe] Initialization skipped:', err.message);
+  });
+  
   await setupAuth(app);
   await registerRoutes(httpServer, app);
 

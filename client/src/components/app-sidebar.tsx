@@ -281,6 +281,14 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/payments"}>
+                          <Link href="/payments" data-testid="nav-payments">
+                            <CreditCard className="h-4 w-4 text-green-500" />
+                            <span>{language === "ar" ? "لوحة الدفع" : "Payments"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
                     </>
                   )}
                 </SidebarMenu>

@@ -42,6 +42,8 @@ export const users = pgTable("users", {
   isActive: boolean("is_active").notNull().default(true),
   emailVerified: boolean("email_verified").notNull().default(false),
   language: text("language").notNull().default("ar"), // ar, en
+  stripeCustomerId: text("stripe_customer_id"), // Stripe customer ID
+  stripeSubscriptionId: text("stripe_subscription_id"), // Active Stripe subscription ID
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
