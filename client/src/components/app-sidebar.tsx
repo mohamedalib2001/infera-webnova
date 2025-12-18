@@ -282,7 +282,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
             <div className="flex items-center gap-3 p-2 rounded-lg bg-sidebar-accent">
               <Avatar className="h-8 w-8">
                 <AvatarFallback className="bg-gradient-to-br from-violet-500 to-pink-500 text-white text-sm">
-                  {getInitials(user.fullName, user.email)}
+                  {getInitials(user.fullName, user.email || undefined)}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">

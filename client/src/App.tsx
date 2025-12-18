@@ -26,6 +26,7 @@ import AiAppBuilder from "@/pages/ai-app-builder";
 import IDEProjects from "@/pages/ide-projects";
 import CloudIDE from "@/pages/cloud-ide";
 import SovereignControlCenter from "@/pages/sovereign-control-center";
+import Domains from "@/pages/domains";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -48,6 +49,7 @@ function Router() {
       <Route path="/ide" component={IDEProjects} />
       <Route path="/ide/:id" component={CloudIDE} />
       <Route path="/sovereign-control" component={SovereignControlCenter} />
+      <Route path="/domains" component={Domains} />
       <Route path="/preview/:shareCode" component={Preview} />
       <Route component={NotFound} />
     </Switch>
