@@ -71,8 +71,10 @@ export default function CloudIDE() {
   const { toast } = useToast();
   const [language, setLanguage] = useState<"ar" | "en">("ar");
   const [selectedFile, setSelectedFile] = useState<ProjectFile | null>(null);
+  const [openTabs, setOpenTabs] = useState<ProjectFile[]>([]);
   const [editorContent, setEditorContent] = useState("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [tabContents, setTabContents] = useState<Record<string, string>>({});
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(["/"]));
   const [activeTab, setActiveTab] = useState<"preview" | "console" | "database" | "ai">("preview");
   const [showPackageManager, setShowPackageManager] = useState(false);
@@ -518,13 +520,56 @@ export default function CloudIDE() {
   const fileTree = buildFileTree(files);
 
   const handleFileSelect = (file: ProjectFile) => {
-    if (hasUnsavedChanges && selectedFile) {
-      // Auto-save before switching
-      saveFileMutation.mutate({ fileId: selectedFile.id, content: editorContent });
+    // Save current content to tabContents before switching
+    if (selectedFile) {
+      setTabContents(prev => ({ ...prev, [selectedFile.id]: editorContent }));
+      if (hasUnsavedChanges) {
+        saveFileMutation.mutate({ fileId: selectedFile.id, content: editorContent });
+      }
     }
+    
+    // Add to open tabs if not already open
+    if (!openTabs.find(t => t.id === file.id)) {
+      setOpenTabs(prev => [...prev, file]);
+    }
+    
+    // Switch to the file
     setSelectedFile(file);
-    setEditorContent(file.content);
+    setEditorContent(tabContents[file.id] ?? file.content);
     setHasUnsavedChanges(false);
+  };
+
+  const handleCloseTab = (fileId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    
+    // Save content if there are unsaved changes
+    if (selectedFile?.id === fileId && hasUnsavedChanges) {
+      saveFileMutation.mutate({ fileId, content: editorContent });
+    }
+    
+    // Remove from open tabs
+    const newTabs = openTabs.filter(t => t.id !== fileId);
+    setOpenTabs(newTabs);
+    
+    // Remove from tabContents
+    setTabContents(prev => {
+      const updated = { ...prev };
+      delete updated[fileId];
+      return updated;
+    });
+    
+    // If closing current tab, switch to another
+    if (selectedFile?.id === fileId) {
+      if (newTabs.length > 0) {
+        const lastTab = newTabs[newTabs.length - 1];
+        setSelectedFile(lastTab);
+        setEditorContent(tabContents[lastTab.id] ?? lastTab.content);
+      } else {
+        setSelectedFile(null);
+        setEditorContent("");
+      }
+      setHasUnsavedChanges(false);
+    }
   };
 
   const handleEditorChange = (value: string | undefined) => {
@@ -1163,15 +1208,50 @@ export default function CloudIDE() {
         <main className="flex-1 flex flex-col overflow-hidden bg-[#1e1e1e]">
           {selectedFile ? (
             <div className="flex-1 overflow-hidden editor-container">
-              <div className="flex items-center gap-2 px-4 py-2 bg-[#252526] border-b border-[#3c3c3c]">
-                <FileCode className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium text-gray-300">{selectedFile.fileName}</span>
-                <Badge variant="outline" className="text-xs ml-auto">
+              {/* Multi-Tab Bar */}
+              <div className="flex items-center bg-[#252526] border-b border-[#3c3c3c] overflow-x-auto premium-scrollbar">
+                {openTabs.map((tab) => (
+                  <div
+                    key={tab.id}
+                    onClick={() => handleFileSelect(tab)}
+                    className={`group flex items-center gap-2 px-3 py-2 cursor-pointer border-r border-[#3c3c3c] min-w-[120px] max-w-[180px] transition-all ${
+                      selectedFile?.id === tab.id 
+                        ? "bg-[#1e1e1e] border-t-2 border-t-primary" 
+                        : "bg-[#2d2d2d] hover:bg-[#383838]"
+                    }`}
+                    data-testid={`tab-file-${tab.id}`}
+                  >
+                    <FileCode className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                    <span className="text-xs font-medium text-gray-300 truncate flex-1">{tab.fileName}</span>
+                    {selectedFile?.id === tab.id && hasUnsavedChanges && (
+                      <div className="w-2 h-2 rounded-full bg-yellow-500 flex-shrink-0" title={language === "ar" ? "تغييرات غير محفوظة" : "Unsaved changes"} />
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="w-4 h-4 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                      onClick={(e) => handleCloseTab(tab.id, e)}
+                      data-testid={`button-close-tab-${tab.id}`}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ))}
+                {openTabs.length === 0 && (
+                  <div className="flex items-center gap-2 px-4 py-2 text-gray-500 text-xs">
+                    {language === "ar" ? "لا توجد ملفات مفتوحة" : "No files open"}
+                  </div>
+                )}
+              </div>
+              {/* Current File Info */}
+              <div className="flex items-center gap-2 px-4 py-1.5 bg-[#1e1e1e] border-b border-[#3c3c3c]/50">
+                <span className="text-xs text-gray-500">{selectedFile.filePath || selectedFile.fileName}</span>
+                <Badge variant="outline" className="text-[10px] ml-auto h-5">
                   {selectedFile.fileType}
                 </Badge>
               </div>
               <Editor
-                height="calc(100% - 40px)"
+                height="calc(100% - 70px)"
                 language={getEditorLanguage(selectedFile.fileType)}
                 value={editorContent}
                 onChange={handleEditorChange}
