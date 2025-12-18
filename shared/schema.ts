@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, jsonb, integer, boolean, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, jsonb, integer, boolean, index, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -2043,6 +2043,235 @@ export const insertSystemSettingSchema = createInsertSchema(systemSettings).omit
 
 export type InsertSystemSetting = z.infer<typeof insertSystemSettingSchema>;
 export type SystemSettingRecord = typeof systemSettings.$inferSelect;
+
+// ============ AI SOVEREIGNTY LAYER ============
+// طبقة سيادة الذكاء - حصرية للمالك
+
+// AI Layer Types
+export const AI_LAYER_TYPES = ['INTERNAL_SOVEREIGN', 'EXTERNAL_MANAGED', 'HYBRID', 'SUBSCRIBER_RESTRICTED'] as const;
+export type AILayerType = typeof AI_LAYER_TYPES[number];
+
+// AI Layer Status
+export const AI_LAYER_STATUS = ['active', 'suspended', 'disabled', 'emergency_stopped'] as const;
+export type AILayerStatus = typeof AI_LAYER_STATUS[number];
+
+// AI Layers - طبقات الذكاء (OWNER ONLY)
+export const aiLayers = pgTable("ai_layers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  purpose: text("purpose").notNull(),
+  purposeAr: text("purpose_ar"),
+  type: text("type").notNull(), // INTERNAL_SOVEREIGN, EXTERNAL_MANAGED, HYBRID, SUBSCRIBER_RESTRICTED
+  status: text("status").notNull().default("active"), // active, suspended, disabled, emergency_stopped
+  priority: integer("priority").notNull().default(1), // 1-10, higher = more priority
+  allowedForSubscribers: boolean("allowed_for_subscribers").notNull().default(false),
+  subscriberVisibility: text("subscriber_visibility").notNull().default("hidden"), // hidden, limited, full
+  createdBy: varchar("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAILayerSchema = createInsertSchema(aiLayers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAILayer = z.infer<typeof insertAILayerSchema>;
+export type AILayerRecord = typeof aiLayers.$inferSelect;
+
+// AI Power Config - تكوين قوة الذكاء لكل طبقة (OWNER ONLY)
+export const aiPowerConfigs = pgTable("ai_power_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  layerId: varchar("layer_id").notNull().references(() => aiLayers.id, { onDelete: 'cascade' }),
+  powerLevel: integer("power_level").notNull().default(5), // 1-10
+  maxTokensPerRequest: integer("max_tokens_per_request").notNull().default(4096),
+  maxRequestsPerMinute: integer("max_requests_per_minute").notNull().default(60),
+  maxConcurrentRequests: integer("max_concurrent_requests").notNull().default(10),
+  cpuAllocation: text("cpu_allocation").notNull().default("standard"), // minimal, standard, high, maximum
+  memoryAllocation: text("memory_allocation").notNull().default("standard"), // minimal, standard, high, maximum
+  costPerRequest: real("cost_per_request").notNull().default(0),
+  monthlyBudgetLimit: real("monthly_budget_limit"), // null = unlimited
+  currentMonthUsage: real("current_month_usage").notNull().default(0),
+  ownerCanSeeRealCost: boolean("owner_can_see_real_cost").notNull().default(true),
+  subscriberCanSeeCost: boolean("subscriber_can_see_cost").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAIPowerConfigSchema = createInsertSchema(aiPowerConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAIPowerConfig = z.infer<typeof insertAIPowerConfigSchema>;
+export type AIPowerConfigRecord = typeof aiPowerConfigs.$inferSelect;
+
+// External AI Providers - مزودي الذكاء الخارجيين (OWNER ONLY)
+export const externalAIProviders = pgTable("external_ai_providers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  provider: text("provider").notNull(), // openai, anthropic, google, azure, custom
+  apiEndpoint: text("api_endpoint"),
+  apiKeySecretName: text("api_key_secret_name"), // reference to secret, not the actual key
+  isActive: boolean("is_active").notNull().default(true),
+  allowedForSubscribers: boolean("allowed_for_subscribers").notNull().default(false),
+  requiresOwnerApproval: boolean("requires_owner_approval").notNull().default(true),
+  linkedLayerIds: jsonb("linked_layer_ids").$type<string[]>().default([]),
+  rateLimit: integer("rate_limit").default(100), // requests per minute
+  monthlyBudget: real("monthly_budget"),
+  currentMonthSpend: real("current_month_spend").notNull().default(0),
+  addedBy: varchar("added_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertExternalAIProviderSchema = createInsertSchema(externalAIProviders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertExternalAIProvider = z.infer<typeof insertExternalAIProviderSchema>;
+export type ExternalAIProviderRecord = typeof externalAIProviders.$inferSelect;
+
+// Subscriber AI Limits - حدود المشتركين للذكاء (OWNER ONLY configurable)
+export const subscriberAILimits = pgTable("subscriber_ai_limits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  role: text("role").notNull(), // free, basic, pro, enterprise, sovereign
+  maxPowerLevel: integer("max_power_level").notNull().default(3), // 1-10
+  maxTokensPerRequest: integer("max_tokens_per_request").notNull().default(2048),
+  maxRequestsPerDay: integer("max_requests_per_day").notNull().default(100),
+  maxRequestsPerMinute: integer("max_requests_per_minute").notNull().default(10),
+  allowedTaskTypes: jsonb("allowed_task_types").$type<string[]>().default([]),
+  blockedTaskTypes: jsonb("blocked_task_types").$type<string[]>().default([]),
+  canAccessExternalAI: boolean("can_access_external_ai").notNull().default(false),
+  canSeeAILayers: boolean("can_see_ai_layers").notNull().default(false),
+  enforcementAction: text("enforcement_action").notNull().default("block"), // block, log, auto_suspend
+  isActive: boolean("is_active").notNull().default(true),
+  createdBy: varchar("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSubscriberAILimitSchema = createInsertSchema(subscriberAILimits).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSubscriberAILimit = z.infer<typeof insertSubscriberAILimitSchema>;
+export type SubscriberAILimitRecord = typeof subscriberAILimits.$inferSelect;
+
+// Sovereign AI Agents - وكلاء الذكاء السيادي (MUST have Layer)
+export const sovereignAIAgents = pgTable("sovereign_ai_agents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  layerId: varchar("layer_id").notNull().references(() => aiLayers.id, { onDelete: 'cascade' }), // MANDATORY - no AI without Layer
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  model: text("model").notNull().default("claude-sonnet-4-20250514"),
+  systemPrompt: text("system_prompt"),
+  temperature: real("temperature").notNull().default(0.7),
+  maxTokens: integer("max_tokens").notNull().default(4096),
+  isActive: boolean("is_active").notNull().default(true),
+  availableToSubscribers: boolean("available_to_subscribers").notNull().default(false),
+  requiresSovereignApproval: boolean("requires_sovereign_approval").notNull().default(true),
+  createdBy: varchar("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSovereignAIAgentSchema = createInsertSchema(sovereignAIAgents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSovereignAIAgent = z.infer<typeof insertSovereignAIAgentSchema>;
+export type SovereignAIAgentRecord = typeof sovereignAIAgents.$inferSelect;
+
+// AI Kill Switch State - حالة زر الطوارئ (OWNER ONLY)
+export const aiKillSwitchState = pgTable("ai_kill_switch_state", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  scope: text("scope").notNull(), // global, layer, external_only, specific_layer
+  targetLayerId: varchar("target_layer_id"), // null for global/external_only
+  isActivated: boolean("is_activated").notNull().default(false),
+  activatedBy: varchar("activated_by"),
+  activatedAt: timestamp("activated_at"),
+  reason: text("reason"),
+  reasonAr: text("reason_ar"),
+  autoReactivateAt: timestamp("auto_reactivate_at"), // null = manual reactivation only
+  canSubscriberDeactivate: boolean("can_subscriber_deactivate").notNull().default(false), // always false for owner actions
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAIKillSwitchStateSchema = createInsertSchema(aiKillSwitchState).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAIKillSwitchState = z.infer<typeof insertAIKillSwitchStateSchema>;
+export type AIKillSwitchStateRecord = typeof aiKillSwitchState.$inferSelect;
+
+// AI Sovereignty Audit Logs - سجل سيادة الذكاء (IMMUTABLE, OWNER ONLY)
+export const aiSovereigntyAuditLogs = pgTable("ai_sovereignty_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  action: text("action").notNull(), // LAYER_CREATED, POWER_CHANGED, EXTERNAL_LINKED, LIMIT_EXCEEDED, KILL_SWITCH_ACTIVATED
+  performedBy: varchar("performed_by").notNull(),
+  performerRole: text("performer_role").notNull(),
+  targetType: text("target_type").notNull(), // layer, power_config, external_provider, subscriber_limit, assistant, kill_switch
+  targetId: varchar("target_id"),
+  previousState: jsonb("previous_state").$type<Record<string, unknown>>(),
+  newState: jsonb("new_state").$type<Record<string, unknown>>(),
+  details: jsonb("details").$type<Record<string, unknown>>(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  timestamp: timestamp("timestamp").defaultNow(),
+  checksum: text("checksum"), // cryptographic seal for immutability verification
+  isExportable: boolean("is_exportable").notNull().default(true),
+});
+
+export const insertAISovereigntyAuditLogSchema = createInsertSchema(aiSovereigntyAuditLogs).omit({
+  id: true,
+  timestamp: true,
+});
+
+export type InsertAISovereigntyAuditLog = z.infer<typeof insertAISovereigntyAuditLogSchema>;
+export type AISovereigntyAuditLogRecord = typeof aiSovereigntyAuditLogs.$inferSelect;
+
+// AI Constitution - دستور الذكاء (OWNER ONLY)
+export const aiConstitution = pgTable("ai_constitution", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  version: text("version").notNull().default("1.0.0"),
+  rules: jsonb("rules").$type<{
+    noAIWithoutLayer: boolean;
+    noAIWithoutLimits: boolean;
+    noUndefinedPower: boolean;
+    noExternalWithoutApproval: boolean;
+    noSubscriberAccessWithoutDecision: boolean;
+  }>().notNull(),
+  enforcementLevel: text("enforcement_level").notNull().default("strict"), // strict, warning, permissive
+  isActive: boolean("is_active").notNull().default(true),
+  lastModifiedBy: varchar("last_modified_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAIConstitutionSchema = createInsertSchema(aiConstitution).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAIConstitution = z.infer<typeof insertAIConstitutionSchema>;
+export type AIConstitutionRecord = typeof aiConstitution.$inferSelect;
 
 // Helper functions for sovereign system
 export function isRootOwner(role: string): boolean {
