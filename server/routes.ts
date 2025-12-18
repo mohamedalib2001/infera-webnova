@@ -6892,6 +6892,139 @@ export async function registerRoutes(
     }
   });
 
+  // ============ Deployment & App Generation Routes ============
+  
+  // Deploy project to web
+  app.post("/api/dev-projects/:projectId/deploy", requireAuth, async (req, res) => {
+    try {
+      const { deployService } = await import('./deploy-service');
+      const projectId = parseInt(req.params.projectId);
+      const userId = parseInt(req.session?.userId || "0");
+      
+      const result = await deployService.deployProject({
+        projectId,
+        userId,
+        targetPlatform: req.body.targetPlatform || "web",
+        customDomain: req.body.customDomain,
+        environment: req.body.environment || "production",
+      });
+      
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ 
+        success: false,
+        error: error instanceof Error ? error.message : "فشل في النشر / Deployment failed" 
+      });
+    }
+  });
+
+  // Generate mobile app (React Native)
+  app.post("/api/dev-projects/:projectId/generate/mobile", requireAuth, async (req, res) => {
+    try {
+      const { deployService } = await import('./deploy-service');
+      const projectId = parseInt(req.params.projectId);
+      
+      const mobileCode = await deployService.generateMobileApp(projectId);
+      
+      res.json({
+        success: true,
+        message: "تم توليد تطبيق الجوال بنجاح! / Mobile app generated successfully!",
+        code: mobileCode,
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false,
+        error: error instanceof Error ? error.message : "فشل في توليد تطبيق الجوال" 
+      });
+    }
+  });
+
+  // Generate desktop app (Electron)
+  app.post("/api/dev-projects/:projectId/generate/desktop", requireAuth, async (req, res) => {
+    try {
+      const { deployService } = await import('./deploy-service');
+      const projectId = parseInt(req.params.projectId);
+      
+      const desktopCode = await deployService.generateDesktopApp(projectId);
+      
+      res.json({
+        success: true,
+        message: "تم توليد تطبيق سطح المكتب بنجاح! / Desktop app generated successfully!",
+        code: desktopCode,
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false,
+        error: error instanceof Error ? error.message : "فشل في توليد تطبيق سطح المكتب" 
+      });
+    }
+  });
+
+  // Generate full platform (web + mobile + desktop)
+  app.post("/api/dev-projects/:projectId/generate/full-platform", requireAuth, async (req, res) => {
+    try {
+      const { deployService } = await import('./deploy-service');
+      const projectId = parseInt(req.params.projectId);
+      
+      const fullPlatform = await deployService.generateFullPlatform(projectId);
+      
+      res.json({
+        success: true,
+        message: "تم توليد المنصة الكاملة بنجاح! / Full platform generated successfully!",
+        platform: fullPlatform,
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false,
+        error: error instanceof Error ? error.message : "فشل في توليد المنصة الكاملة" 
+      });
+    }
+  });
+
+  // Download mobile bundle
+  app.get("/api/dev-projects/:projectId/download/mobile", requireAuth, async (req, res) => {
+    try {
+      const { deployService } = await import('./deploy-service');
+      const projectId = parseInt(req.params.projectId);
+      
+      const { zipPath, fileName } = await deployService.downloadMobileBundle(projectId);
+      
+      res.json({
+        success: true,
+        downloadPath: zipPath,
+        fileName,
+        message: "جاهز للتحميل / Ready to download",
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false,
+        error: error instanceof Error ? error.message : "فشل في تحضير ملف التحميل" 
+      });
+    }
+  });
+
+  // Download desktop bundle
+  app.get("/api/dev-projects/:projectId/download/desktop", requireAuth, async (req, res) => {
+    try {
+      const { deployService } = await import('./deploy-service');
+      const projectId = parseInt(req.params.projectId);
+      
+      const { zipPath, fileName } = await deployService.downloadDesktopBundle(projectId);
+      
+      res.json({
+        success: true,
+        downloadPath: zipPath,
+        fileName,
+        message: "جاهز للتحميل / Ready to download",
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false,
+        error: error instanceof Error ? error.message : "فشل في تحضير ملف التحميل" 
+      });
+    }
+  });
+
   return httpServer;
 }
 
