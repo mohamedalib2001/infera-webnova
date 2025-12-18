@@ -51,6 +51,9 @@ import {
   Search,
   X,
   Check,
+  Key,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import type { DevProject, ProjectFile, RuntimeInstance, ConsoleLog } from "@shared/schema";
 import { SchemaBuilder } from "@/components/schema-builder";
@@ -76,7 +79,11 @@ export default function CloudIDE() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [tabContents, setTabContents] = useState<Record<string, string>>({});
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(["/"]));
-  const [activeTab, setActiveTab] = useState<"preview" | "console" | "database" | "ai">("preview");
+  const [activeTab, setActiveTab] = useState<"preview" | "console" | "database" | "ai" | "env">("preview");
+  const [envVars, setEnvVars] = useState<Record<string, string>>({});
+  const [newEnvKey, setNewEnvKey] = useState("");
+  const [newEnvValue, setNewEnvValue] = useState("");
+  const [showEnvValues, setShowEnvValues] = useState<Record<string, boolean>>({});
   const [showPackageManager, setShowPackageManager] = useState(false);
   const [showDeployDialog, setShowDeployDialog] = useState(false);
   const [packageSearch, setPackageSearch] = useState("");
@@ -1290,7 +1297,7 @@ export default function CloudIDE() {
 
         {/* Premium Preview / Console Panel */}
         <aside className="w-[420px] border-r flex flex-col bg-card/50 glass">
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "preview" | "console" | "database" | "ai")} className="flex flex-col h-full">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "preview" | "console" | "database" | "ai" | "env")} className="flex flex-col h-full">
             <TabsList className="w-full justify-start rounded-none border-b border-border/50 bg-transparent p-0 gap-0">
               <TabsTrigger
                 value="preview"
@@ -1325,6 +1332,14 @@ export default function CloudIDE() {
                 <span className="bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent font-semibold">
                   {language === "ar" ? "مساعد AI" : "AI Assistant"}
                 </span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="env"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-primary/5 px-4 py-3 transition-all"
+                data-testid="tab-env"
+              >
+                <Key className="w-4 h-4 ml-1" />
+                {language === "ar" ? "المتغيرات" : "Env"}
               </TabsTrigger>
             </TabsList>
 
@@ -1434,6 +1449,115 @@ export default function CloudIDE() {
               {projectId && (
                 <SchemaBuilder projectId={projectId} language={language} />
               )}
+            </TabsContent>
+
+            <TabsContent value="env" className="flex-1 m-0 overflow-auto p-4">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="font-semibold">
+                    {language === "ar" ? "متغيرات البيئة" : "Environment Variables"}
+                  </h3>
+                </div>
+                
+                <Card className="p-4">
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        value={newEnvKey}
+                        onChange={(e) => setNewEnvKey(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, "_"))}
+                        placeholder={language === "ar" ? "اسم المتغير (مثل: API_KEY)" : "Variable name (e.g., API_KEY)"}
+                        className="font-mono text-sm"
+                        data-testid="input-env-key"
+                      />
+                      <div className="flex gap-2">
+                        <Input
+                          value={newEnvValue}
+                          onChange={(e) => setNewEnvValue(e.target.value)}
+                          placeholder={language === "ar" ? "القيمة" : "Value"}
+                          type="password"
+                          className="flex-1 font-mono text-sm"
+                          data-testid="input-env-value"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            if (newEnvKey && newEnvValue) {
+                              setEnvVars({ ...envVars, [newEnvKey]: newEnvValue });
+                              setNewEnvKey("");
+                              setNewEnvValue("");
+                              toast({ title: language === "ar" ? "تمت إضافة المتغير" : "Variable added" });
+                            }
+                          }}
+                          disabled={!newEnvKey || !newEnvValue}
+                          data-testid="button-add-env"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                {Object.keys(envVars).length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Key className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                    <p className="font-medium">
+                      {language === "ar" ? "لا توجد متغيرات بيئة" : "No environment variables"}
+                    </p>
+                    <p className="text-sm">
+                      {language === "ar" 
+                        ? "أضف متغيرات البيئة لتخزين المفاتيح السرية والإعدادات"
+                        : "Add environment variables to store secrets and settings"}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {Object.entries(envVars).map(([key, value]) => (
+                      <Card key={key} className="p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-mono text-sm font-medium truncate">{key}</p>
+                            <p className="font-mono text-xs text-muted-foreground truncate">
+                              {showEnvValues[key] ? value : "••••••••••••"}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setShowEnvValues({ ...showEnvValues, [key]: !showEnvValues[key] })}
+                              data-testid={`button-toggle-env-${key}`}
+                            >
+                              {showEnvValues[key] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                const newVars = { ...envVars };
+                                delete newVars[key];
+                                setEnvVars(newVars);
+                                toast({ title: language === "ar" ? "تم حذف المتغير" : "Variable deleted" });
+                              }}
+                              data-testid={`button-delete-env-${key}`}
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
+                <div className="pt-4 border-t">
+                  <p className="text-xs text-muted-foreground">
+                    {language === "ar"
+                      ? "ملاحظة: المتغيرات المحفوظة هنا متاحة في runtime المشروع عبر process.env"
+                      : "Note: Variables saved here are available in your project runtime via process.env"}
+                  </p>
+                </div>
+              </div>
             </TabsContent>
 
             <TabsContent value="ai" className="flex-1 m-0 flex flex-col overflow-hidden">
