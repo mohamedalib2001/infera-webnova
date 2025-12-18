@@ -279,49 +279,20 @@ export function ChatInput({
           </div>
         )}
 
-        <div className="relative p-4">
-          <div className="flex items-end gap-2">
-            <div className="flex-1 min-w-0">
-              <Textarea
-                ref={textareaRef}
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={placeholder}
-                className="min-h-[44px] max-h-[150px] w-full resize-none border border-border/50 rounded-xl bg-background/50 px-4 py-3 text-base focus-visible:ring-1 focus-visible:ring-primary/50 placeholder:text-muted-foreground/60"
-                disabled={isLoading && !allowWhileLoading}
-                data-testid="input-chat-message"
-              />
-            </div>
-            <div className="flex items-center gap-2 shrink-0 pb-1">
-              {isLoading && onCancel && (
-                <Button
-                  onClick={onCancel}
-                  size="icon"
-                  className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  data-testid="button-stop-generation"
-                >
-                  <Square className="h-4 w-4 fill-current" />
-                </Button>
-              )}
-              <Button
-                onClick={handleSend}
-                disabled={!message.trim() || (isLoading && !allowWhileLoading)}
-                size="icon"
-                className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
-                data-testid="button-send-message"
-              >
-                {isLoading && !allowWhileLoading ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <ArrowUp className="h-5 w-5" />
-                )}
-              </Button>
-            </div>
-          </div>
+        <div className="p-4">
+          <Textarea
+            ref={textareaRef}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            className="min-h-[44px] max-h-[150px] resize-none border-0 bg-transparent text-base focus-visible:ring-0 placeholder:text-muted-foreground/60"
+            disabled={isLoading && !allowWhileLoading}
+            data-testid="input-chat-message"
+          />
         </div>
         
-        <div className="flex items-center justify-start px-4 pb-4 gap-1 flex-wrap">
+        <div className="flex items-center justify-between px-4 pb-4 gap-2">
           <div className="flex items-center gap-1">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -408,6 +379,32 @@ export function ChatInput({
               data-testid="button-analytics"
             >
               <BarChart3 className="h-5 w-5" />
+            </Button>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            {isLoading && onCancel && (
+              <Button
+                onClick={onCancel}
+                size="icon"
+                className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                data-testid="button-stop-generation"
+              >
+                <Square className="h-4 w-4 fill-current" />
+              </Button>
+            )}
+            <Button
+              onClick={handleSend}
+              disabled={!message.trim() || (isLoading && !allowWhileLoading)}
+              size="icon"
+              className="rounded-full bg-foreground text-background hover:bg-foreground/90"
+              data-testid="button-send-message"
+            >
+              {isLoading && !allowWhileLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <ArrowUp className="h-5 w-5" />
+              )}
             </Button>
           </div>
         </div>
