@@ -234,7 +234,7 @@ export default function Auth() {
                   
                   <TabsContent value="login">
                     <Form {...loginForm}>
-                      <form onSubmit={loginForm.handleSubmit((data) => loginMutation.mutate(data))} className="space-y-4">
+                      <form onSubmit={(e) => { e.preventDefault(); loginForm.handleSubmit((data) => loginMutation.mutate(data))(e); }} className="space-y-4">
                         <FormField
                           control={loginForm.control}
                           name="email"
@@ -295,7 +295,7 @@ export default function Auth() {
                   
                   <TabsContent value="register">
                     <Form {...registerForm}>
-                      <form onSubmit={registerForm.handleSubmit((data) => registerMutation.mutate(data))} className="space-y-4">
+                      <form onSubmit={(e) => { e.preventDefault(); registerForm.handleSubmit((data) => registerMutation.mutate(data))(e); }} className="space-y-4">
                         <FormField
                           control={registerForm.control}
                           name="email"
