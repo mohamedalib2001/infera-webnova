@@ -3373,11 +3373,45 @@ body { font-family: 'Tajawal', sans-serif; }
     return updated || undefined;
   }
 
+  // Alias functions for routes compatibility
+  async getAILayerById(id: string): Promise<AILayerRecord | undefined> {
+    return this.getAILayer(id);
+  }
+
+  async getAIPowerConfigs(): Promise<AIPowerConfigRecord[]> {
+    return this.getAllAIPowerConfigs();
+  }
+
+  async getAIKillSwitchState(): Promise<AIKillSwitchStateRecord[]> {
+    return this.getAIKillSwitchStates();
+  }
+
+  async activateAIKillSwitch(data: InsertAIKillSwitchState): Promise<AIKillSwitchStateRecord> {
+    return this.createAIKillSwitchState(data);
+  }
+
+  async deactivateAIKillSwitch(userId: string): Promise<AIKillSwitchStateRecord | undefined> {
+    const active = await this.getActiveAIKillSwitches();
+    if (active.length > 0) {
+      return this.deactivateKillSwitch(active[0].scope);
+    }
+    return undefined;
+  }
+
   // AI Sovereignty Audit Logs - سجل سيادة الذكاء
-  async getAISovereigntyAuditLogs(limit: number = 100): Promise<AISovereigntyAuditLogRecord[]> {
+  async getAISovereigntyAuditLogs(options: {
+    limit?: number;
+    offset?: number;
+    eventType?: string;
+    resourceType?: string;
+    isViolation?: boolean;
+    isEmergency?: boolean;
+  } = {}): Promise<AISovereigntyAuditLogRecord[]> {
+    const { limit = 100, offset = 0 } = options;
     return db.select().from(aiSovereigntyAuditLogs)
       .orderBy(desc(aiSovereigntyAuditLogs.timestamp))
-      .limit(limit);
+      .limit(limit)
+      .offset(offset);
   }
 
   async getAISovereigntyAuditLogsByAction(action: string): Promise<AISovereigntyAuditLogRecord[]> {
