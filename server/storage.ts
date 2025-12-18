@@ -876,6 +876,7 @@ export interface IStorage {
   // Deployment Runs
   getDeploymentRuns(): Promise<DeploymentRun[]>;
   getDeploymentRunsByServer(serverId: string): Promise<DeploymentRun[]>;
+  getDeploymentRunsByProject(projectId: string): Promise<DeploymentRun[]>;
   getDeploymentRun(id: string): Promise<DeploymentRun | undefined>;
   createDeploymentRun(run: InsertDeploymentRun): Promise<DeploymentRun>;
   updateDeploymentRun(id: string, data: Partial<InsertDeploymentRun>): Promise<DeploymentRun | undefined>;
@@ -4816,6 +4817,12 @@ body { font-family: 'Tajawal', sans-serif; }
   async getDeploymentRunsByServer(serverId: string): Promise<DeploymentRun[]> {
     return db.select().from(deploymentRuns)
       .where(eq(deploymentRuns.serverId, serverId))
+      .orderBy(desc(deploymentRuns.createdAt));
+  }
+  
+  async getDeploymentRunsByProject(projectId: string): Promise<DeploymentRun[]> {
+    return db.select().from(deploymentRuns)
+      .where(eq(deploymentRuns.projectId, projectId))
       .orderBy(desc(deploymentRuns.createdAt));
   }
   

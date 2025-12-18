@@ -47,6 +47,7 @@ import Marketing from "@/pages/marketing";
 import Invoices from "@/pages/invoices";
 import Integrations from "@/pages/integrations";
 import SmartSuggestions from "@/pages/smart-suggestions";
+import OneClickDeploy from "@/pages/one-click-deploy";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -86,6 +87,7 @@ function Router() {
       <Route path="/invoices" component={Invoices} />
       <Route path="/integrations" component={Integrations} />
       <Route path="/smart-suggestions" component={SmartSuggestions} />
+      <Route path="/deploy" component={OneClickDeploy} />
       <Route path="/preview/:shareCode" component={Preview} />
       <Route component={NotFound} />
     </Switch>
