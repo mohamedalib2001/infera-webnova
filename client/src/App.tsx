@@ -26,6 +26,7 @@ import Analytics from "@/pages/analytics";
 import SEOOptimizer from "@/pages/seo-optimizer";
 import WhiteLabel from "@/pages/white-label";
 import OwnerDashboard from "@/pages/owner-dashboard";
+import OwnerNotifications from "@/pages/owner-notifications";
 import AiAppBuilder from "@/pages/ai-app-builder";
 import IDEProjects from "@/pages/ide-projects";
 import CloudIDE from "@/pages/cloud-ide";
@@ -60,6 +61,7 @@ function Router() {
       <Route path="/seo-optimizer" component={SEOOptimizer} />
       <Route path="/white-label" component={WhiteLabel} />
       <Route path="/owner" component={OwnerDashboard} />
+      <Route path="/owner/notifications" component={OwnerNotifications} />
       <Route path="/ai-builder" component={AiAppBuilder} />
       <Route path="/ide" component={IDEProjects} />
       <Route path="/ide/:id" component={CloudIDE} />
