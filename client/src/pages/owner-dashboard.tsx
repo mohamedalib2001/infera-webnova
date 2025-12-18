@@ -77,11 +77,50 @@ const translations = {
       command: "مركز القيادة",
       assistants: "المساعدين AI",
       sovereign: "المساعدين السياديين",
+      aiSovereignty: "سيادة الذكاء",
       payments: "بوابات الدفع",
       auth: "طرق الدخول",
       platform: "إعدادات المنصة",
       users: "المستخدمين",
       logs: "سجل العمليات",
+    },
+    aiSovereignty: {
+      title: "طبقة سيادة الذكاء",
+      subtitle: "تحكم كامل في جميع عمليات الذكاء الاصطناعي",
+      layers: "طبقات الذكاء",
+      powerControl: "التحكم بالقوة",
+      externalProviders: "المزودين الخارجيين",
+      subscriberLimits: "حدود المشتركين",
+      killSwitch: "زر الطوارئ",
+      auditLogs: "سجل التدقيق",
+      constitution: "دستور الذكاء",
+      newLayer: "طبقة جديدة",
+      activateKillSwitch: "تفعيل الإيقاف الطارئ",
+      deactivateKillSwitch: "إلغاء الإيقاف الطارئ",
+      globalStop: "إيقاف شامل",
+      externalStop: "إيقاف المزودين الخارجيين",
+      layerStop: "إيقاف طبقة محددة",
+      powerLevels: {
+        minimal: "الحد الأدنى",
+        low: "منخفض",
+        medium: "متوسط",
+        high: "عالي",
+        maximum: "أقصى",
+        unlimited: "غير محدود",
+      },
+      layerTypes: {
+        internal: "داخلي سيادي",
+        external: "خارجي مُدار",
+        hybrid: "هجين",
+        restricted: "مقيد للمشتركين",
+      },
+      constitutionRules: {
+        noAIWithoutLayer: "لا ذكاء بدون طبقة",
+        noAIWithoutLimits: "لا ذكاء بدون حدود",
+        noUndefinedPower: "لا قوة غير محددة",
+        noExternalWithoutApproval: "لا خارجي بدون موافقة المالك",
+        noSubscriberAccessWithoutDecision: "لا وصول مشترك بدون قرار مالك",
+      },
     },
     command: {
       title: "مركز القيادة الاستراتيجي",
@@ -296,11 +335,50 @@ const translations = {
       command: "Command Center",
       assistants: "AI Assistants",
       sovereign: "Sovereign AI",
+      aiSovereignty: "AI Sovereignty",
       payments: "Payment Gateways",
       auth: "Login Methods",
       platform: "Platform Settings",
       users: "Users",
       logs: "Audit Logs",
+    },
+    aiSovereignty: {
+      title: "AI Sovereignty Layer",
+      subtitle: "Complete control over all AI operations",
+      layers: "AI Layers",
+      powerControl: "Power Control",
+      externalProviders: "External Providers",
+      subscriberLimits: "Subscriber Limits",
+      killSwitch: "Kill Switch",
+      auditLogs: "Audit Logs",
+      constitution: "AI Constitution",
+      newLayer: "New Layer",
+      activateKillSwitch: "Activate Kill Switch",
+      deactivateKillSwitch: "Deactivate Kill Switch",
+      globalStop: "Global Stop",
+      externalStop: "External Providers Stop",
+      layerStop: "Layer-Specific Stop",
+      powerLevels: {
+        minimal: "Minimal",
+        low: "Low",
+        medium: "Medium",
+        high: "High",
+        maximum: "Maximum",
+        unlimited: "Unlimited",
+      },
+      layerTypes: {
+        internal: "Internal Sovereign",
+        external: "External Managed",
+        hybrid: "Hybrid",
+        restricted: "Subscriber Restricted",
+      },
+      constitutionRules: {
+        noAIWithoutLayer: "No AI without Layer",
+        noAIWithoutLimits: "No AI without Limits",
+        noUndefinedPower: "No Undefined Power",
+        noExternalWithoutApproval: "No External without Owner Approval",
+        noSubscriberAccessWithoutDecision: "No Subscriber Access without Owner Decision",
+      },
     },
     command: {
       title: "Strategic Command Center",
@@ -995,7 +1073,7 @@ export default function OwnerDashboard() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 lg:w-auto lg:inline-grid gap-1">
+          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-9 lg:w-auto lg:inline-grid gap-1">
             <TabsTrigger value="command" className="gap-2" data-testid="tab-command">
               <Terminal className="w-4 h-4" />
               <span className="hidden sm:inline">{t.tabs.command}</span>
@@ -1003,6 +1081,10 @@ export default function OwnerDashboard() {
             <TabsTrigger value="sovereign" className="gap-2" data-testid="tab-sovereign">
               <Crown className="w-4 h-4" />
               <span className="hidden sm:inline">{t.tabs.sovereign}</span>
+            </TabsTrigger>
+            <TabsTrigger value="aiSovereignty" className="gap-2" data-testid="tab-ai-sovereignty">
+              <Shield className="w-4 h-4" />
+              <span className="hidden sm:inline">{t.tabs.aiSovereignty}</span>
             </TabsTrigger>
             <TabsTrigger value="assistants" className="gap-2" data-testid="tab-assistants">
               <Bot className="w-4 h-4" />
@@ -1585,6 +1667,158 @@ export default function OwnerDashboard() {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          <TabsContent value="aiSovereignty" className="space-y-6">
+            {/* AI Sovereignty Layer - Owner Only Control */}
+            <Card className="border-violet-500/30">
+              <CardHeader>
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-violet-600">
+                      <Shield className="w-5 h-5" />
+                      {t.aiSovereignty.title}
+                    </CardTitle>
+                    <CardDescription>{t.aiSovereignty.subtitle}</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* AI Layers Card */}
+                  <Card className="hover-elevate">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-3 rounded-xl bg-blue-500/10 text-blue-600">
+                          <Database className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold">{t.aiSovereignty.layers}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {language === 'ar' ? 'إدارة طبقات الذكاء' : 'Manage AI Layers'}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Power Control Card */}
+                  <Card className="hover-elevate">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-3 rounded-xl bg-orange-500/10 text-orange-600">
+                          <Zap className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold">{t.aiSovereignty.powerControl}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {language === 'ar' ? 'تحكم بمستويات القوة' : 'Control power levels'}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* External Providers Card */}
+                  <Card className="hover-elevate">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-3 rounded-xl bg-purple-500/10 text-purple-600">
+                          <Globe className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold">{t.aiSovereignty.externalProviders}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {language === 'ar' ? 'موافقة على المزودين' : 'Approve providers'}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Subscriber Limits Card */}
+                  <Card className="hover-elevate">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-3 rounded-xl bg-green-500/10 text-green-600">
+                          <Users className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold">{t.aiSovereignty.subscriberLimits}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {language === 'ar' ? 'تحديد حدود المشتركين' : 'Set subscriber limits'}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Kill Switch Card */}
+                  <Card className="border-red-500/30 hover-elevate">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-3 rounded-xl bg-red-500/10 text-red-600">
+                          <AlertCircle className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-red-600">{t.aiSovereignty.killSwitch}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {language === 'ar' ? 'إيقاف طارئ للذكاء' : 'Emergency AI stop'}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Constitution Card */}
+                  <Card className="hover-elevate">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-3 rounded-xl bg-amber-500/10 text-amber-600">
+                          <FileText className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold">{t.aiSovereignty.constitution}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {language === 'ar' ? 'قواعد دستورية للذكاء' : 'Constitutional AI rules'}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Constitutional Rules Display */}
+                <div className="mt-6 p-4 bg-muted/50 rounded-lg">
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <Shield className="w-4 h-4" />
+                    {t.aiSovereignty.constitution}
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      {t.aiSovereignty.constitutionRules.noAIWithoutLayer}
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      {t.aiSovereignty.constitutionRules.noAIWithoutLimits}
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      {t.aiSovereignty.constitutionRules.noUndefinedPower}
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      {t.aiSovereignty.constitutionRules.noExternalWithoutApproval}
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      {t.aiSovereignty.constitutionRules.noSubscriberAccessWithoutDecision}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="assistants" className="space-y-6">
