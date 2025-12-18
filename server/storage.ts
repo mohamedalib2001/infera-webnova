@@ -219,6 +219,27 @@ import {
   apiConfiguration,
   type ApiConfiguration,
   type InsertApiConfiguration,
+  serviceProviders,
+  type ServiceProvider,
+  type InsertServiceProvider,
+  providerApiKeys,
+  type ProviderApiKey,
+  type InsertProviderApiKey,
+  providerServices,
+  type ProviderService,
+  type InsertProviderService,
+  providerUsage,
+  type ProviderUsage,
+  type InsertProviderUsage,
+  providerAlerts,
+  type ProviderAlert,
+  type InsertProviderAlert,
+  failoverGroups,
+  type FailoverGroup,
+  type InsertFailoverGroup,
+  integrationAuditLogs,
+  type IntegrationAuditLog,
+  type InsertIntegrationAuditLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt } from "drizzle-orm";
@@ -561,6 +582,56 @@ export interface IStorage {
   getSystemSettingsByCategory(category: string): Promise<SystemSettingRecord[]>;
   createSystemSetting(setting: InsertSystemSetting): Promise<SystemSettingRecord>;
   updateSystemSetting(key: string, value: unknown, modifiedBy: string): Promise<SystemSettingRecord | undefined>;
+
+  // Service Providers (Integrations Hub)
+  getServiceProviders(): Promise<ServiceProvider[]>;
+  getServiceProvider(id: string): Promise<ServiceProvider | undefined>;
+  getServiceProviderBySlug(slug: string): Promise<ServiceProvider | undefined>;
+  getServiceProvidersByCategory(category: string): Promise<ServiceProvider[]>;
+  getActiveServiceProviders(): Promise<ServiceProvider[]>;
+  createServiceProvider(provider: InsertServiceProvider): Promise<ServiceProvider>;
+  updateServiceProvider(id: string, data: Partial<InsertServiceProvider>): Promise<ServiceProvider | undefined>;
+  deleteServiceProvider(id: string): Promise<boolean>;
+  
+  // Provider API Keys
+  getProviderApiKeys(providerId: string): Promise<ProviderApiKey[]>;
+  getProviderApiKey(id: string): Promise<ProviderApiKey | undefined>;
+  getDefaultProviderApiKey(providerId: string): Promise<ProviderApiKey | undefined>;
+  createProviderApiKey(key: InsertProviderApiKey): Promise<ProviderApiKey>;
+  updateProviderApiKey(id: string, data: Partial<InsertProviderApiKey>): Promise<ProviderApiKey | undefined>;
+  deleteProviderApiKey(id: string): Promise<boolean>;
+  rotateProviderApiKey(id: string, newEncryptedKey: string, newKeyHash: string): Promise<ProviderApiKey | undefined>;
+  
+  // Provider Services
+  getProviderServices(providerId: string): Promise<ProviderService[]>;
+  getProviderService(id: string): Promise<ProviderService | undefined>;
+  createProviderService(service: InsertProviderService): Promise<ProviderService>;
+  updateProviderService(id: string, data: Partial<InsertProviderService>): Promise<ProviderService | undefined>;
+  deleteProviderService(id: string): Promise<boolean>;
+  
+  // Provider Usage Analytics
+  getProviderUsage(providerId: string, startDate: Date, endDate: Date): Promise<ProviderUsage[]>;
+  createProviderUsage(usage: InsertProviderUsage): Promise<ProviderUsage>;
+  getProviderUsageSummary(providerId: string): Promise<{ totalRequests: number; totalCost: number; avgResponseTime: number }>;
+  
+  // Provider Alerts
+  getProviderAlerts(providerId?: string): Promise<ProviderAlert[]>;
+  getUnacknowledgedAlerts(): Promise<ProviderAlert[]>;
+  createProviderAlert(alert: InsertProviderAlert): Promise<ProviderAlert>;
+  acknowledgeProviderAlert(id: string, acknowledgedBy: string): Promise<ProviderAlert | undefined>;
+  resolveProviderAlert(id: string): Promise<ProviderAlert | undefined>;
+  
+  // Failover Groups
+  getFailoverGroups(): Promise<FailoverGroup[]>;
+  getFailoverGroup(id: string): Promise<FailoverGroup | undefined>;
+  getFailoverGroupByCategory(category: string): Promise<FailoverGroup | undefined>;
+  createFailoverGroup(group: InsertFailoverGroup): Promise<FailoverGroup>;
+  updateFailoverGroup(id: string, data: Partial<InsertFailoverGroup>): Promise<FailoverGroup | undefined>;
+  triggerFailover(id: string): Promise<FailoverGroup | undefined>;
+  
+  // Integration Audit Logs
+  getIntegrationAuditLogs(providerId?: string, limit?: number): Promise<IntegrationAuditLog[]>;
+  createIntegrationAuditLog(log: InsertIntegrationAuditLog): Promise<IntegrationAuditLog>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3459,6 +3530,262 @@ body { font-family: 'Tajawal', sans-serif; }
       }))
       .sort((a, b) => b.visitors - a.visitors)
       .slice(0, 5);
+  }
+
+  // ==================== SERVICE PROVIDER INTEGRATIONS HUB ====================
+  
+  async getServiceProviders(): Promise<ServiceProvider[]> {
+    return db.select().from(serviceProviders).orderBy(asc(serviceProviders.category), asc(serviceProviders.name));
+  }
+
+  async getServiceProvider(id: string): Promise<ServiceProvider | undefined> {
+    const [provider] = await db.select().from(serviceProviders).where(eq(serviceProviders.id, id));
+    return provider || undefined;
+  }
+
+  async getServiceProviderBySlug(slug: string): Promise<ServiceProvider | undefined> {
+    const [provider] = await db.select().from(serviceProviders).where(eq(serviceProviders.slug, slug));
+    return provider || undefined;
+  }
+
+  async getServiceProvidersByCategory(category: string): Promise<ServiceProvider[]> {
+    return db.select().from(serviceProviders)
+      .where(eq(serviceProviders.category, category))
+      .orderBy(desc(serviceProviders.priority), asc(serviceProviders.name));
+  }
+
+  async getActiveServiceProviders(): Promise<ServiceProvider[]> {
+    return db.select().from(serviceProviders)
+      .where(eq(serviceProviders.status, "active"))
+      .orderBy(asc(serviceProviders.category), desc(serviceProviders.priority));
+  }
+
+  async createServiceProvider(provider: InsertServiceProvider): Promise<ServiceProvider> {
+    const [created] = await db.insert(serviceProviders).values(provider).returning();
+    return created;
+  }
+
+  async updateServiceProvider(id: string, data: Partial<InsertServiceProvider>): Promise<ServiceProvider | undefined> {
+    const [updated] = await db.update(serviceProviders)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(serviceProviders.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteServiceProvider(id: string): Promise<boolean> {
+    const result = await db.delete(serviceProviders).where(eq(serviceProviders.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // Provider API Keys
+  async getProviderApiKeys(providerId: string): Promise<ProviderApiKey[]> {
+    return db.select().from(providerApiKeys)
+      .where(eq(providerApiKeys.providerId, providerId))
+      .orderBy(desc(providerApiKeys.isDefault), desc(providerApiKeys.createdAt));
+  }
+
+  async getProviderApiKey(id: string): Promise<ProviderApiKey | undefined> {
+    const [key] = await db.select().from(providerApiKeys).where(eq(providerApiKeys.id, id));
+    return key || undefined;
+  }
+
+  async getDefaultProviderApiKey(providerId: string): Promise<ProviderApiKey | undefined> {
+    const [key] = await db.select().from(providerApiKeys)
+      .where(and(eq(providerApiKeys.providerId, providerId), eq(providerApiKeys.isDefault, true)));
+    return key || undefined;
+  }
+
+  async createProviderApiKey(key: InsertProviderApiKey): Promise<ProviderApiKey> {
+    const [created] = await db.insert(providerApiKeys).values(key).returning();
+    return created;
+  }
+
+  async updateProviderApiKey(id: string, data: Partial<InsertProviderApiKey>): Promise<ProviderApiKey | undefined> {
+    const [updated] = await db.update(providerApiKeys)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(providerApiKeys.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteProviderApiKey(id: string): Promise<boolean> {
+    const result = await db.delete(providerApiKeys).where(eq(providerApiKeys.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async rotateProviderApiKey(id: string, newEncryptedKey: string, newKeyHash: string): Promise<ProviderApiKey | undefined> {
+    const [updated] = await db.update(providerApiKeys)
+      .set({ 
+        encryptedKey: newEncryptedKey, 
+        keyHash: newKeyHash,
+        lastRotatedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(providerApiKeys.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // Provider Services
+  async getProviderServices(providerId: string): Promise<ProviderService[]> {
+    return db.select().from(providerServices)
+      .where(eq(providerServices.providerId, providerId))
+      .orderBy(asc(providerServices.name));
+  }
+
+  async getProviderService(id: string): Promise<ProviderService | undefined> {
+    const [service] = await db.select().from(providerServices).where(eq(providerServices.id, id));
+    return service || undefined;
+  }
+
+  async createProviderService(service: InsertProviderService): Promise<ProviderService> {
+    const [created] = await db.insert(providerServices).values(service).returning();
+    return created;
+  }
+
+  async updateProviderService(id: string, data: Partial<InsertProviderService>): Promise<ProviderService | undefined> {
+    const [updated] = await db.update(providerServices)
+      .set(data)
+      .where(eq(providerServices.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteProviderService(id: string): Promise<boolean> {
+    const result = await db.delete(providerServices).where(eq(providerServices.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // Provider Usage Analytics
+  async getProviderUsage(providerId: string, startDate: Date, endDate: Date): Promise<ProviderUsage[]> {
+    return db.select().from(providerUsage)
+      .where(and(
+        eq(providerUsage.providerId, providerId),
+        gt(providerUsage.date, startDate)
+      ))
+      .orderBy(desc(providerUsage.date));
+  }
+
+  async createProviderUsage(usage: InsertProviderUsage): Promise<ProviderUsage> {
+    const [created] = await db.insert(providerUsage).values(usage).returning();
+    return created;
+  }
+
+  async getProviderUsageSummary(providerId: string): Promise<{ totalRequests: number; totalCost: number; avgResponseTime: number }> {
+    const usage = await db.select().from(providerUsage)
+      .where(eq(providerUsage.providerId, providerId));
+    
+    const totalRequests = usage.reduce((sum, u) => sum + u.requestCount, 0);
+    const totalCost = usage.reduce((sum, u) => sum + u.totalCost, 0);
+    const responseTimes = usage.filter(u => u.avgResponseTime).map(u => u.avgResponseTime!);
+    const avgResponseTime = responseTimes.length > 0 
+      ? Math.round(responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length)
+      : 0;
+    
+    return { totalRequests, totalCost, avgResponseTime };
+  }
+
+  // Provider Alerts
+  async getProviderAlerts(providerId?: string): Promise<ProviderAlert[]> {
+    if (providerId) {
+      return db.select().from(providerAlerts)
+        .where(eq(providerAlerts.providerId, providerId))
+        .orderBy(desc(providerAlerts.createdAt));
+    }
+    return db.select().from(providerAlerts).orderBy(desc(providerAlerts.createdAt));
+  }
+
+  async getUnacknowledgedAlerts(): Promise<ProviderAlert[]> {
+    return db.select().from(providerAlerts)
+      .where(eq(providerAlerts.isAcknowledged, false))
+      .orderBy(desc(providerAlerts.createdAt));
+  }
+
+  async createProviderAlert(alert: InsertProviderAlert): Promise<ProviderAlert> {
+    const [created] = await db.insert(providerAlerts).values(alert).returning();
+    return created;
+  }
+
+  async acknowledgeProviderAlert(id: string, acknowledgedBy: string): Promise<ProviderAlert | undefined> {
+    const [updated] = await db.update(providerAlerts)
+      .set({ isAcknowledged: true, acknowledgedBy, acknowledgedAt: new Date() })
+      .where(eq(providerAlerts.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async resolveProviderAlert(id: string): Promise<ProviderAlert | undefined> {
+    const [updated] = await db.update(providerAlerts)
+      .set({ resolvedAt: new Date() })
+      .where(eq(providerAlerts.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // Failover Groups
+  async getFailoverGroups(): Promise<FailoverGroup[]> {
+    return db.select().from(failoverGroups).orderBy(asc(failoverGroups.category));
+  }
+
+  async getFailoverGroup(id: string): Promise<FailoverGroup | undefined> {
+    const [group] = await db.select().from(failoverGroups).where(eq(failoverGroups.id, id));
+    return group || undefined;
+  }
+
+  async getFailoverGroupByCategory(category: string): Promise<FailoverGroup | undefined> {
+    const [group] = await db.select().from(failoverGroups).where(eq(failoverGroups.category, category));
+    return group || undefined;
+  }
+
+  async createFailoverGroup(group: InsertFailoverGroup): Promise<FailoverGroup> {
+    const [created] = await db.insert(failoverGroups).values(group).returning();
+    return created;
+  }
+
+  async updateFailoverGroup(id: string, data: Partial<InsertFailoverGroup>): Promise<FailoverGroup | undefined> {
+    const [updated] = await db.update(failoverGroups)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(failoverGroups.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async triggerFailover(id: string): Promise<FailoverGroup | undefined> {
+    const group = await this.getFailoverGroup(id);
+    if (!group || !group.fallbackProviderIds || group.fallbackProviderIds.length === 0) {
+      return undefined;
+    }
+    
+    const [updated] = await db.update(failoverGroups)
+      .set({ 
+        primaryProviderId: group.fallbackProviderIds[0],
+        fallbackProviderIds: [...group.fallbackProviderIds.slice(1), group.primaryProviderId].filter(Boolean) as string[],
+        lastFailoverAt: new Date(),
+        failoverCount: (group.failoverCount || 0) + 1,
+        updatedAt: new Date()
+      })
+      .where(eq(failoverGroups.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // Integration Audit Logs
+  async getIntegrationAuditLogs(providerId?: string, limit: number = 100): Promise<IntegrationAuditLog[]> {
+    if (providerId) {
+      return db.select().from(integrationAuditLogs)
+        .where(eq(integrationAuditLogs.providerId, providerId))
+        .orderBy(desc(integrationAuditLogs.createdAt))
+        .limit(limit);
+    }
+    return db.select().from(integrationAuditLogs)
+      .orderBy(desc(integrationAuditLogs.createdAt))
+      .limit(limit);
+  }
+
+  async createIntegrationAuditLog(log: InsertIntegrationAuditLog): Promise<IntegrationAuditLog> {
+    const [created] = await db.insert(integrationAuditLogs).values(log).returning();
+    return created;
   }
 }
 

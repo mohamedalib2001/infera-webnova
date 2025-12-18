@@ -519,12 +519,417 @@ export async function registerRoutes(
     }
   });
 
-  // ============ Integrations Routes - إدارة التكاملات ============
+  // ============ Integrations Hub Routes - مركز تكامل مزودي الخدمات ============
   
-  // Get integrations status
+  // Get all service providers
+  app.get("/api/service-providers", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || !isRootOwner(user.role)) {
+        return res.status(403).json({ error: "Owner access required" });
+      }
+      const providers = await storage.getServiceProviders();
+      res.json(providers);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get providers" });
+    }
+  });
+
+  // Get service providers by category
+  app.get("/api/service-providers/category/:category", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || !isRootOwner(user.role)) {
+        return res.status(403).json({ error: "Owner access required" });
+      }
+      const providers = await storage.getServiceProvidersByCategory(req.params.category);
+      res.json(providers);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get providers" });
+    }
+  });
+
+  // Get single service provider
+  app.get("/api/service-providers/:id", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || !isRootOwner(user.role)) {
+        return res.status(403).json({ error: "Owner access required" });
+      }
+      const provider = await storage.getServiceProvider(req.params.id);
+      if (!provider) return res.status(404).json({ error: "Provider not found" });
+      res.json(provider);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get provider" });
+    }
+  });
+
+  // Create service provider
+  app.post("/api/service-providers", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || !isRootOwner(user.role)) {
+        return res.status(403).json({ error: "Owner access required" });
+      }
+      const provider = await storage.createServiceProvider(req.body);
+      await storage.createIntegrationAuditLog({
+        providerId: provider.id,
+        userId: user.id,
+        action: "create",
+        resource: "provider",
+        resourceId: provider.id,
+        newValue: provider as any,
+        isSuccess: true,
+      });
+      res.json(provider);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create provider" });
+    }
+  });
+
+  // Update service provider
+  app.patch("/api/service-providers/:id", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || !isRootOwner(user.role)) {
+        return res.status(403).json({ error: "Owner access required" });
+      }
+      const previous = await storage.getServiceProvider(req.params.id);
+      const provider = await storage.updateServiceProvider(req.params.id, req.body);
+      if (!provider) return res.status(404).json({ error: "Provider not found" });
+      await storage.createIntegrationAuditLog({
+        providerId: provider.id,
+        userId: user.id,
+        action: "update",
+        resource: "provider",
+        resourceId: provider.id,
+        previousValue: previous as any,
+        newValue: provider as any,
+        isSuccess: true,
+      });
+      res.json(provider);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update provider" });
+    }
+  });
+
+  // Delete service provider
+  app.delete("/api/service-providers/:id", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || !isRootOwner(user.role)) {
+        return res.status(403).json({ error: "Owner access required" });
+      }
+      const provider = await storage.getServiceProvider(req.params.id);
+      const success = await storage.deleteServiceProvider(req.params.id);
+      if (success && provider) {
+        await storage.createIntegrationAuditLog({
+          providerId: req.params.id,
+          userId: user.id,
+          action: "delete",
+          resource: "provider",
+          resourceId: req.params.id,
+          previousValue: provider as any,
+          isSuccess: true,
+        });
+      }
+      res.json({ success });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete provider" });
+    }
+  });
+
+  // Get provider API keys
+  app.get("/api/service-providers/:providerId/api-keys", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || !isRootOwner(user.role)) {
+        return res.status(403).json({ error: "Owner access required" });
+      }
+      const keys = await storage.getProviderApiKeys(req.params.providerId);
+      // Don't return encrypted keys
+      const safeKeys = keys.map(k => ({ ...k, encryptedKey: undefined, keyHash: undefined }));
+      res.json(safeKeys);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get API keys" });
+    }
+  });
+
+  // Create provider API key
+  app.post("/api/service-providers/:providerId/api-keys", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || !isRootOwner(user.role)) {
+        return res.status(403).json({ error: "Owner access required" });
+      }
+      const { name, apiKey, environment = "production", isDefault = false } = req.body;
+      if (!name || !apiKey) {
+        return res.status(400).json({ error: "Name and API key are required" });
+      }
+      
+      // Hash and encrypt the API key
+      const crypto = require('crypto');
+      const keyHash = crypto.createHash('sha256').update(apiKey).digest('hex');
+      const keyPrefix = apiKey.substring(0, 8) + "...";
+      
+      // Simple encryption (in production, use proper key management)
+      const encryptionKey = process.env.SESSION_SECRET || 'default-key';
+      const iv = crypto.randomBytes(16);
+      const cipher = crypto.createCipheriv('aes-256-cbc', crypto.scryptSync(encryptionKey, 'salt', 32), iv);
+      let encryptedKey = cipher.update(apiKey, 'utf8', 'hex');
+      encryptedKey += cipher.final('hex');
+      encryptedKey = iv.toString('hex') + ':' + encryptedKey;
+      
+      const key = await storage.createProviderApiKey({
+        providerId: req.params.providerId,
+        name,
+        keyHash,
+        encryptedKey,
+        keyPrefix,
+        environment,
+        isDefault,
+        createdBy: user.id,
+      });
+      
+      // Update provider status to active
+      await storage.updateServiceProvider(req.params.providerId, { status: "active" });
+      
+      await storage.createIntegrationAuditLog({
+        providerId: req.params.providerId,
+        apiKeyId: key.id,
+        userId: user.id,
+        action: "create",
+        resource: "api_key",
+        resourceId: key.id,
+        isSuccess: true,
+      });
+      
+      res.json({ ...key, encryptedKey: undefined, keyHash: undefined });
+    } catch (error) {
+      console.error("Failed to create API key:", error);
+      res.status(500).json({ error: "Failed to create API key" });
+    }
+  });
+
+  // Toggle API key
+  app.patch("/api/provider-api-keys/:id/toggle", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || !isRootOwner(user.role)) {
+        return res.status(403).json({ error: "Owner access required" });
+      }
+      const { isActive } = req.body;
+      const key = await storage.updateProviderApiKey(req.params.id, { isActive });
+      if (!key) return res.status(404).json({ error: "API key not found" });
+      await storage.createIntegrationAuditLog({
+        apiKeyId: key.id,
+        userId: user.id,
+        action: isActive ? "activate" : "deactivate",
+        resource: "api_key",
+        resourceId: key.id,
+        isSuccess: true,
+      });
+      res.json({ ...key, encryptedKey: undefined, keyHash: undefined });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to toggle API key" });
+    }
+  });
+
+  // Delete API key
+  app.delete("/api/provider-api-keys/:id", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || !isRootOwner(user.role)) {
+        return res.status(403).json({ error: "Owner access required" });
+      }
+      const key = await storage.getProviderApiKey(req.params.id);
+      const success = await storage.deleteProviderApiKey(req.params.id);
+      if (success && key) {
+        await storage.createIntegrationAuditLog({
+          providerId: key.providerId,
+          apiKeyId: req.params.id,
+          userId: user.id,
+          action: "delete",
+          resource: "api_key",
+          resourceId: req.params.id,
+          isSuccess: true,
+        });
+      }
+      res.json({ success });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete API key" });
+    }
+  });
+
+  // Get provider services
+  app.get("/api/service-providers/:providerId/services", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || !isRootOwner(user.role)) {
+        return res.status(403).json({ error: "Owner access required" });
+      }
+      const services = await storage.getProviderServices(req.params.providerId);
+      res.json(services);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get services" });
+    }
+  });
+
+  // Get provider usage summary
+  app.get("/api/service-providers/:providerId/usage", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || !isRootOwner(user.role)) {
+        return res.status(403).json({ error: "Owner access required" });
+      }
+      const summary = await storage.getProviderUsageSummary(req.params.providerId);
+      res.json(summary);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get usage" });
+    }
+  });
+
+  // Get provider alerts
+  app.get("/api/provider-alerts", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || !isRootOwner(user.role)) {
+        return res.status(403).json({ error: "Owner access required" });
+      }
+      const providerId = req.query.providerId as string | undefined;
+      const alerts = await storage.getProviderAlerts(providerId);
+      res.json(alerts);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get alerts" });
+    }
+  });
+
+  // Acknowledge alert
+  app.patch("/api/provider-alerts/:id/acknowledge", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || !isRootOwner(user.role)) {
+        return res.status(403).json({ error: "Owner access required" });
+      }
+      const alert = await storage.acknowledgeProviderAlert(req.params.id, user.id);
+      if (!alert) return res.status(404).json({ error: "Alert not found" });
+      res.json(alert);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to acknowledge alert" });
+    }
+  });
+
+  // Get failover groups
+  app.get("/api/failover-groups", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || !isRootOwner(user.role)) {
+        return res.status(403).json({ error: "Owner access required" });
+      }
+      const groups = await storage.getFailoverGroups();
+      res.json(groups);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get failover groups" });
+    }
+  });
+
+  // Create failover group
+  app.post("/api/failover-groups", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || !isRootOwner(user.role)) {
+        return res.status(403).json({ error: "Owner access required" });
+      }
+      const group = await storage.createFailoverGroup(req.body);
+      res.json(group);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create failover group" });
+    }
+  });
+
+  // Trigger failover
+  app.post("/api/failover-groups/:id/trigger", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || !isRootOwner(user.role)) {
+        return res.status(403).json({ error: "Owner access required" });
+      }
+      const group = await storage.triggerFailover(req.params.id);
+      if (!group) return res.status(404).json({ error: "Failover group not found or no fallback available" });
+      await storage.createIntegrationAuditLog({
+        userId: user.id,
+        action: "failover",
+        resource: "failover_group",
+        resourceId: req.params.id,
+        newValue: group as any,
+        isSuccess: true,
+      });
+      res.json(group);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to trigger failover" });
+    }
+  });
+
+  // Get integration audit logs
+  app.get("/api/integration-audit-logs", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || !isRootOwner(user.role)) {
+        return res.status(403).json({ error: "Owner access required" });
+      }
+      const providerId = req.query.providerId as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 100;
+      const logs = await storage.getIntegrationAuditLogs(providerId, limit);
+      res.json(logs);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get audit logs" });
+    }
+  });
+
+  // Initialize built-in providers
+  app.post("/api/service-providers/init-builtin", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || !isRootOwner(user.role)) {
+        return res.status(403).json({ error: "Owner access required" });
+      }
+      
+      const builtInProviders = [
+        { name: "OpenAI", nameAr: "OpenAI", slug: "openai", category: "ai", description: "GPT-4o, GPT-4, GPT-3.5, Whisper, DALL-E", descriptionAr: "GPT-4o, GPT-4, GPT-3.5, Whisper, DALL-E", logo: "openai", website: "https://openai.com", docsUrl: "https://platform.openai.com/docs", isBuiltIn: true },
+        { name: "Anthropic Claude", nameAr: "أنثروبيك كلود", slug: "anthropic", category: "ai", description: "Claude 3.5 Opus / Sonnet / Haiku", descriptionAr: "Claude 3.5 Opus / Sonnet / Haiku", logo: "anthropic", website: "https://anthropic.com", docsUrl: "https://docs.anthropic.com", isBuiltIn: true, status: "active" },
+        { name: "Google AI (Gemini)", nameAr: "جوجل AI (جيميني)", slug: "google-ai", category: "ai", description: "Gemini Pro / Ultra, PaLM 2", descriptionAr: "Gemini Pro / Ultra, PaLM 2", logo: "google", website: "https://ai.google.dev", docsUrl: "https://ai.google.dev/docs", isBuiltIn: true },
+        { name: "Meta AI (Llama)", nameAr: "ميتا AI (Llama)", slug: "meta-ai", category: "ai", description: "Llama 2 / 3 Models", descriptionAr: "نماذج Llama 2 / 3", logo: "meta", website: "https://ai.meta.com", docsUrl: "https://ai.meta.com/llama", isBuiltIn: true },
+        { name: "Stripe", nameAr: "سترايب", slug: "stripe", category: "payment", description: "Payment processing & subscriptions", descriptionAr: "معالجة المدفوعات والاشتراكات", logo: "stripe", website: "https://stripe.com", docsUrl: "https://stripe.com/docs", isBuiltIn: true, status: "active" },
+        { name: "PayPal", nameAr: "باي بال", slug: "paypal", category: "payment", description: "PayPal payments & checkout", descriptionAr: "مدفوعات وتسوق باي بال", logo: "paypal", website: "https://paypal.com", docsUrl: "https://developer.paypal.com/docs", isBuiltIn: true },
+        { name: "Twilio", nameAr: "تويليو", slug: "twilio", category: "communication", description: "SMS, Voice, WhatsApp messaging", descriptionAr: "رسائل SMS والصوت والواتساب", logo: "twilio", website: "https://twilio.com", docsUrl: "https://www.twilio.com/docs", isBuiltIn: true },
+        { name: "SendGrid", nameAr: "سيند غريد", slug: "sendgrid", category: "communication", description: "Email delivery & marketing", descriptionAr: "إرسال البريد الإلكتروني والتسويق", logo: "sendgrid", website: "https://sendgrid.com", docsUrl: "https://docs.sendgrid.com", isBuiltIn: true },
+        { name: "AWS", nameAr: "AWS", slug: "aws", category: "cloud", description: "S3, Lambda, EC2, and more", descriptionAr: "S3, Lambda, EC2 وأكثر", logo: "aws", website: "https://aws.amazon.com", docsUrl: "https://docs.aws.amazon.com", isBuiltIn: true },
+        { name: "Cloudflare", nameAr: "كلاودفلير", slug: "cloudflare", category: "cloud", description: "CDN, DNS, Security", descriptionAr: "CDN, DNS, الأمان", logo: "cloudflare", website: "https://cloudflare.com", docsUrl: "https://developers.cloudflare.com", isBuiltIn: true },
+        { name: "Google Analytics", nameAr: "جوجل أناليتكس", slug: "google-analytics", category: "analytics", description: "GA4 Web Analytics", descriptionAr: "تحليلات الويب GA4", logo: "google", website: "https://analytics.google.com", docsUrl: "https://developers.google.com/analytics", isBuiltIn: true },
+        { name: "Algolia", nameAr: "ألغوليا", slug: "algolia", category: "search", description: "Search & Discovery API", descriptionAr: "واجهة البحث والاكتشاف", logo: "algolia", website: "https://algolia.com", docsUrl: "https://www.algolia.com/doc", isBuiltIn: true },
+        { name: "Cloudinary", nameAr: "كلاودناري", slug: "cloudinary", category: "media", description: "Image & Video Management", descriptionAr: "إدارة الصور والفيديو", logo: "cloudinary", website: "https://cloudinary.com", docsUrl: "https://cloudinary.com/documentation", isBuiltIn: true },
+        { name: "Google Maps", nameAr: "خرائط جوجل", slug: "google-maps", category: "maps", description: "Maps, Places, Geocoding", descriptionAr: "الخرائط والأماكن والترميز الجغرافي", logo: "google", website: "https://cloud.google.com/maps-platform", docsUrl: "https://developers.google.com/maps", isBuiltIn: true },
+      ];
+      
+      const created = [];
+      for (const provider of builtInProviders) {
+        const existing = await storage.getServiceProviderBySlug(provider.slug);
+        if (!existing) {
+          const newProvider = await storage.createServiceProvider(provider as any);
+          created.push(newProvider);
+        }
+      }
+      
+      res.json({ created: created.length, providers: created });
+    } catch (error) {
+      console.error("Failed to init providers:", error);
+      res.status(500).json({ error: "Failed to initialize providers" });
+    }
+  });
+
+  // Legacy integrations status (for backward compatibility)
   app.get("/api/integrations/status", requireAuth, async (req, res) => {
     try {
-      // Check which API keys are configured
       const status: Record<string, boolean> = {
         OPENAI_API_KEY: !!process.env.OPENAI_API_KEY,
         ANTHROPIC_API_KEY: !!process.env.ANTHROPIC_API_KEY,
@@ -538,71 +943,6 @@ export async function registerRoutes(
       res.json(status);
     } catch (error) {
       res.status(500).json({ error: "Failed to get integrations status" });
-    }
-  });
-
-  // Configure integration (Owner only)
-  app.post("/api/integrations/configure", requireAuth, async (req, res) => {
-    try {
-      const user = req.session.user;
-      if (!user || !isRootOwner(user.role)) {
-        return res.status(403).json({ error: "Owner access required" });
-      }
-      
-      const { providerId, apiKey } = req.body;
-      
-      if (!providerId || !apiKey) {
-        return res.status(400).json({ error: "Provider ID and API key are required" });
-      }
-      
-      // Note: In production, this would update secrets via Replit Secrets API
-      // For now, we log and return success
-      console.log(`[Integrations] Configuring provider: ${providerId}`);
-      
-      res.json({ 
-        success: true, 
-        message: "Integration configured. Please add the API key to Replit Secrets manually.",
-        providerId,
-      });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to configure integration" });
-    }
-  });
-
-  // Toggle integration (Owner only)
-  app.post("/api/integrations/toggle", requireAuth, async (req, res) => {
-    try {
-      const user = req.session.user;
-      if (!user || !isRootOwner(user.role)) {
-        return res.status(403).json({ error: "Owner access required" });
-      }
-      
-      const { providerId, enabled } = req.body;
-      console.log(`[Integrations] Toggling ${providerId}: ${enabled}`);
-      
-      res.json({ success: true, providerId, enabled });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to toggle integration" });
-    }
-  });
-
-  // Delete integration (Owner only)
-  app.delete("/api/integrations/:providerId", requireAuth, async (req, res) => {
-    try {
-      const user = req.session.user;
-      if (!user || !isRootOwner(user.role)) {
-        return res.status(403).json({ error: "Owner access required" });
-      }
-      
-      const { providerId } = req.params;
-      console.log(`[Integrations] Deleting provider: ${providerId}`);
-      
-      res.json({ 
-        success: true, 
-        message: "Integration removed. Please remove the API key from Replit Secrets manually.",
-      });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to delete integration" });
     }
   });
 

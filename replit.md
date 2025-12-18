@@ -35,6 +35,25 @@ The platform features an AI Chat Interface, a live preview with responsive viewp
 
 **Design Principles:** The architecture is Modular and Event-Driven, adhering to Contract-First design using JSON Schemas and Event Contracts, with a Plugin Architecture for extensibility and Multi-Tenancy for tier-based quotas and isolation.
 
+## Service Providers Integration Hub (New Feature - Dec 2024)
+The platform includes a comprehensive Integrations Hub for managing external service providers:
+
+**Features:**
+*   **14 Built-in Providers** across 8 categories: AI (OpenAI, Claude, Google AI, Meta AI), Payment (Stripe, PayPal), Communication (Twilio, SendGrid), Cloud (AWS, Cloudflare), Analytics (Google Analytics), Search (Algolia), Media (Cloudinary), Maps (Google Maps)
+*   **Secure API Key Management**: AES-256 encryption for stored keys, key rotation support, hash verification
+*   **Performance Monitoring**: Health score, response time, success rate, request counts
+*   **Cost Tracking**: Monthly budget and spending per provider
+*   **Failover System**: Automatic switching between providers based on health metrics
+*   **Alert System**: Multi-severity notifications for provider issues
+*   **Audit Logging**: Complete history of all operations on providers and keys
+*   **Advanced Filtering**: Search, filter by status/category, grid/list views
+
+**Security:**
+*   API keys encrypted with AES-256-CBC before storage
+*   Keys never returned to frontend (only prefix shown)
+*   ROOT_OWNER access required for all operations
+*   Complete audit trail for compliance
+
 ## External Dependencies
 *   **Database**: PostgreSQL
 *   **ORM**: Drizzle ORM
