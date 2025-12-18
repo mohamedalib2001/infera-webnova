@@ -2070,7 +2070,7 @@ export async function registerRoutes(
       }
       
       // Get assistant
-      const assistants = await storage.getAllAssistants();
+      const assistants = await storage.getAiAssistants();
       const assistant = assistants.find(a => a.id === assistantId);
       
       if (!assistant) {
