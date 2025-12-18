@@ -2134,13 +2134,17 @@ export default function OwnerDashboard() {
 
   // Execute command directly on assistant
   const executeAssistantCommandMutation = useMutation({
-    mutationFn: async ({ assistantId, command, mode, preferredModel }: { 
+    mutationFn: async ({ assistantId, command, mode, preferredModel, isAiAssistant }: { 
       assistantId: string; 
       command: string; 
       mode?: string;
       preferredModel?: string;
+      isAiAssistant?: boolean;
     }) => {
-      return await apiRequest('POST', `/api/owner/sovereign-assistants/${assistantId}/execute`, { 
+      const endpoint = isAiAssistant 
+        ? `/api/assistants/${assistantId}/execute`
+        : `/api/owner/sovereign-assistants/${assistantId}/execute`;
+      return await apiRequest('POST', endpoint, { 
         command, 
         mode: mode || 'AUTO',
         model: preferredModel 
@@ -3974,8 +3978,9 @@ export default function OwnerDashboard() {
                               className="w-full" 
                               variant="outline"
                               onClick={() => {
-                                setSelectedAssistant(assistant.id);
-                                setShowNewInstructionDialog(true);
+                                setDirectCommandAssistant({ ...assistant, isAiAssistant: true });
+                                setDirectCommandForm({ command: "", mode: "AUTO", preferredModel: assistant.model || "claude-sonnet-4-20250514" });
+                                setShowDirectCommandDialog(true);
                               }}
                               data-testid={`button-command-${assistant.id}`}
                             >
@@ -4684,6 +4689,7 @@ export default function OwnerDashboard() {
                     command: directCommandForm.command,
                     mode: directCommandForm.mode,
                     preferredModel: directCommandForm.mode === 'MANUAL' ? directCommandForm.preferredModel : undefined,
+                    isAiAssistant: directCommandAssistant.isAiAssistant || false,
                   });
                   setShowDirectCommandDialog(false);
                 }
