@@ -5859,6 +5859,12 @@ export const aiProviderConfigs = pgTable("ai_provider_configs", {
   lastTestResult: text("last_test_result"), // success, failed
   lastTestError: text("last_test_error"),
   
+  // Balance tracking
+  currentBalance: real("current_balance"), // Current credit balance in USD
+  lowBalanceThreshold: real("low_balance_threshold").default(10), // Alert when balance below this
+  lastBalanceCheckAt: timestamp("last_balance_check_at"),
+  balanceCheckError: text("balance_check_error"),
+  
   // Audit
   createdBy: varchar("created_by").references(() => users.id),
   updatedBy: varchar("updated_by").references(() => users.id),

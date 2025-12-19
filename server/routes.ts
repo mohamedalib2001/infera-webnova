@@ -2842,6 +2842,115 @@ export async function registerRoutes(
     }
   });
 
+  // Check AI provider balance (owner only)
+  app.post("/api/owner/ai-providers/:provider/balance", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { provider } = req.params;
+      const { decrypt } = await import("./encryption");
+      
+      const configs = await db.select().from(aiProviderConfigs).where(eq(aiProviderConfigs.provider, provider)).limit(1);
+      
+      if (configs.length === 0 || !configs[0].encryptedApiKey) {
+        return res.status(404).json({ error: "مفتاح API غير موجود / API key not found" });
+      }
+      
+      const apiKey = decrypt(configs[0].encryptedApiKey);
+      let balanceResult: { success: boolean; balance: number | null; error: string } = { 
+        success: false, 
+        balance: null, 
+        error: "" 
+      };
+      
+      if (provider === 'anthropic') {
+        // Anthropic doesn't have a public balance API, we'll estimate based on usage
+        // For now, mark as not available
+        balanceResult.error = "Anthropic لا يوفر API للرصيد / Anthropic doesn't provide balance API";
+      } else if (provider === 'openai') {
+        try {
+          // OpenAI billing/usage API
+          const response = await fetch('https://api.openai.com/v1/dashboard/billing/credit_grants', {
+            headers: { 'Authorization': `Bearer ${apiKey}` }
+          });
+          if (response.ok) {
+            const data = await response.json();
+            balanceResult.success = true;
+            balanceResult.balance = data.total_available || 0;
+          } else {
+            // Try alternate endpoint
+            const subResponse = await fetch('https://api.openai.com/v1/dashboard/billing/subscription', {
+              headers: { 'Authorization': `Bearer ${apiKey}` }
+            });
+            if (subResponse.ok) {
+              const subData = await subResponse.json();
+              balanceResult.success = true;
+              balanceResult.balance = subData.hard_limit_usd || subData.soft_limit_usd || 0;
+            } else {
+              balanceResult.error = "تعذر الحصول على الرصيد / Could not fetch balance";
+            }
+          }
+        } catch (e: any) {
+          balanceResult.error = e.message;
+        }
+      } else if (provider === 'google') {
+        // Google doesn't have a simple balance API
+        balanceResult.error = "Google لا يوفر API للرصيد / Google doesn't provide balance API";
+      } else {
+        balanceResult.error = "مزود غير مدعوم / Provider not supported";
+      }
+      
+      // Update balance in database
+      await db.update(aiProviderConfigs)
+        .set({
+          currentBalance: balanceResult.balance,
+          lastBalanceCheckAt: new Date(),
+          balanceCheckError: balanceResult.error || null,
+        })
+        .where(eq(aiProviderConfigs.provider, provider));
+      
+      // Check if low balance and send notification
+      const config = configs[0];
+      const threshold = config.lowBalanceThreshold || 10;
+      if (balanceResult.success && balanceResult.balance !== null && balanceResult.balance < threshold) {
+        // Create low balance notification
+        await storage.createNotification({
+          userId: req.session.userId!,
+          type: "warning",
+          title: `رصيد منخفض: ${config.displayName}`,
+          titleAr: `رصيد منخفض: ${config.displayName}`,
+          message: `Balance is $${balanceResult.balance.toFixed(2)}, below threshold of $${threshold}`,
+          messageAr: `الرصيد $${balanceResult.balance.toFixed(2)}، أقل من الحد $${threshold}`,
+          link: "/owner/ai-settings",
+        });
+      }
+      
+      res.json(balanceResult);
+    } catch (error: any) {
+      console.error("Check balance error:", error);
+      res.status(500).json({ error: error.message || "فشل في التحقق من الرصيد" });
+    }
+  });
+
+  // Update low balance threshold (owner only)
+  app.patch("/api/owner/ai-providers/:provider/threshold", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { provider } = req.params;
+      const { threshold } = req.body;
+      
+      if (typeof threshold !== 'number' || threshold < 0) {
+        return res.status(400).json({ error: "قيمة الحد غير صالحة / Invalid threshold value" });
+      }
+      
+      await db.update(aiProviderConfigs)
+        .set({ lowBalanceThreshold: threshold })
+        .where(eq(aiProviderConfigs.provider, provider));
+      
+      res.json({ success: true, message: "تم تحديث الحد / Threshold updated" });
+    } catch (error: any) {
+      console.error("Update threshold error:", error);
+      res.status(500).json({ error: error.message || "فشل في تحديث الحد" });
+    }
+  });
+
   // ============ Owner User Management APIs ============
 
   // Get all users (owner only)

@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Key, Plus, Eye, EyeOff, RefreshCw, Trash2, Shield, CheckCircle, XCircle, Loader2, Bot, Sparkles, AlertTriangle } from "lucide-react";
+import { Key, Plus, Eye, EyeOff, RefreshCw, Trash2, Shield, CheckCircle, XCircle, Loader2, Bot, Sparkles, AlertTriangle, DollarSign } from "lucide-react";
 import { SiOpenai, SiGooglecloud } from "react-icons/si";
 
 const translations = {
@@ -134,6 +134,10 @@ interface AIProviderConfig {
   lastTestedAt: string | null;
   lastTestResult: string | null;
   lastTestError: string | null;
+  currentBalance: number | null;
+  lowBalanceThreshold: number | null;
+  lastBalanceCheckAt: string | null;
+  balanceCheckError: string | null;
 }
 
 export default function AISettingsPage() {
@@ -228,6 +232,40 @@ export default function AISettingsPage() {
       });
     },
     onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: language === "ar" ? "خطأ" : "Error",
+        description: error.message,
+      });
+    },
+  });
+
+  const [checkingBalance, setCheckingBalance] = useState<string | null>(null);
+
+  const balanceMutation = useMutation({
+    mutationFn: async (provider: string) => {
+      setCheckingBalance(provider);
+      const response = await apiRequest("POST", `/api/owner/ai-providers/${provider}/balance`);
+      return response;
+    },
+    onSuccess: (data) => {
+      setCheckingBalance(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/owner/ai-providers"] });
+      if (data.success) {
+        toast({
+          title: language === "ar" ? "تم التحقق من الرصيد" : "Balance Checked",
+          description: language === "ar" ? `الرصيد: $${data.balance?.toFixed(2) || 0}` : `Balance: $${data.balance?.toFixed(2) || 0}`,
+        });
+      } else if (data.error) {
+        toast({
+          variant: "destructive",
+          title: language === "ar" ? "تعذر التحقق" : "Check Failed",
+          description: data.error,
+        });
+      }
+    },
+    onError: (error: any) => {
+      setCheckingBalance(null);
       toast({
         variant: "destructive",
         title: language === "ar" ? "خطأ" : "Error",
@@ -390,6 +428,54 @@ export default function AISettingsPage() {
                         )}
                         <span className="text-muted-foreground">
                           {t.lastTested}: {new Date(config.lastTestedAt).toLocaleDateString(language === "ar" ? "ar-SA" : "en-US")}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Balance Section */}
+                    <div className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/50">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <span className="text-sm font-medium">
+                            {language === "ar" ? "الرصيد" : "Balance"}:
+                          </span>
+                          {config.currentBalance !== null ? (
+                            <span className={`text-sm font-bold ${
+                              config.currentBalance < (config.lowBalanceThreshold || 10) 
+                                ? "text-red-500" 
+                                : "text-green-600"
+                            }`}>
+                              {" "}${config.currentBalance.toFixed(2)}
+                            </span>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">
+                              {" "}{language === "ar" ? "غير متوفر" : "N/A"}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => balanceMutation.mutate(config.provider)}
+                        disabled={!config.hasApiKey || checkingBalance === config.provider}
+                        data-testid={`button-balance-${config.provider}`}
+                      >
+                        {checkingBalance === config.provider ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                    {config.currentBalance !== null && config.currentBalance < (config.lowBalanceThreshold || 10) && (
+                      <div className="flex items-center gap-2 text-sm text-orange-600 dark:text-orange-400">
+                        <AlertTriangle className="h-4 w-4" />
+                        <span>
+                          {language === "ar" 
+                            ? `تنبيه: الرصيد أقل من الحد (${config.lowBalanceThreshold || 10}$)` 
+                            : `Warning: Balance below threshold ($${config.lowBalanceThreshold || 10})`}
                         </span>
                       </div>
                     )}
