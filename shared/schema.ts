@@ -4326,6 +4326,7 @@ export const providerCredentials = pgTable("provider_credentials", {
   encryptedToken: text("encrypted_token").notNull(),
   tokenIv: text("token_iv").notNull(), // Initialization Vector
   tokenAuthTag: text("token_auth_tag"), // Authentication Tag for GCM
+  tokenSalt: text("token_salt"), // Salt for key derivation
   
   // معلومات للعرض (غير حساسة)
   lastFourChars: text("last_four_chars"), // آخر 4 أحرف للعرض

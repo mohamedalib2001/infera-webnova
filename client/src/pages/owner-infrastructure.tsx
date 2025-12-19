@@ -202,6 +202,7 @@ export default function OwnerInfrastructure() {
   const [showProviderSettings, setShowProviderSettings] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<InfrastructureProvider | null>(null);
   const [newProviderForm, setNewProviderForm] = useState({ name: "", displayName: "", type: "primary" });
+  const [apiTokenInput, setApiTokenInput] = useState("");
   const [newServerForm, setNewServerForm] = useState({ name: "", providerId: "", serverType: "", region: "", cpu: 2, ram: 4, storage: 40 });
 
   const { data: providersData, isLoading: loadingProviders, refetch: refetchProviders } = useQuery<{ providers: InfrastructureProvider[] }>({
@@ -307,6 +308,23 @@ export default function OwnerInfrastructure() {
     onError: (error: any) => {
       toast({ 
         title: language === 'ar' ? 'فشل الحذف' : 'Delete failed',
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
+  });
+
+  const saveCredentialsMutation = useMutation({
+    mutationFn: (data: { providerId: string; token: string }) => 
+      apiRequest('POST', `/api/owner/infrastructure/providers/${data.providerId}/credentials`, { token: data.token }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/infrastructure/providers'] });
+      setApiTokenInput("");
+      toast({ title: language === 'ar' ? 'تم حفظ بيانات الاعتماد' : 'Credentials saved' });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: language === 'ar' ? 'فشل الحفظ' : 'Save failed',
         description: error.message,
         variant: 'destructive'
       });
@@ -570,6 +588,7 @@ export default function OwnerInfrastructure() {
                       className="w-full mt-4"
                       onClick={() => {
                         setSelectedProvider(provider);
+                        setApiTokenInput("");
                         setShowProviderSettings(true);
                       }}
                       data-testid={`button-provider-settings-${provider.id}`}
@@ -618,6 +637,33 @@ export default function OwnerInfrastructure() {
                   </div>
 
                   <div className="border-t pt-4 space-y-3">
+                    <div>
+                      <Label>{language === 'ar' ? 'رمز API' : 'API Token'}</Label>
+                      <div className="flex gap-2 mt-1">
+                        <Input 
+                          type="password"
+                          placeholder={language === 'ar' ? 'أدخل رمز API الخاص بالمزود' : 'Enter provider API token'}
+                          value={apiTokenInput}
+                          onChange={(e) => setApiTokenInput(e.target.value)}
+                          data-testid="input-api-token"
+                        />
+                        <Button 
+                          onClick={() => saveCredentialsMutation.mutate({ providerId: selectedProvider.id, token: apiTokenInput })}
+                          disabled={saveCredentialsMutation.isPending || !apiTokenInput.trim()}
+                          data-testid="button-save-token"
+                        >
+                          {saveCredentialsMutation.isPending ? (
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                          ) : (
+                            language === 'ar' ? 'حفظ' : 'Save'
+                          )}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {language === 'ar' ? 'يتم تشفير الرمز وتخزينه بشكل آمن' : 'Token is encrypted and stored securely'}
+                      </p>
+                    </div>
+
                     <Button 
                       variant="outline" 
                       className="w-full"

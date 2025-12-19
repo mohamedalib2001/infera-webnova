@@ -8950,9 +8950,9 @@ export async function registerRoutes(
   app.post("/api/owner/infrastructure/providers/:id/credentials", requireOwner, async (req, res) => {
     try {
       const { id: providerId } = req.params;
-      const { apiToken } = req.body;
+      const { token } = req.body;
       
-      if (!apiToken || typeof apiToken !== 'string') {
+      if (!token || typeof token !== 'string') {
         return res.status(400).json({ success: false, error: "API token is required" });
       }
 
@@ -8962,7 +8962,7 @@ export async function registerRoutes(
       }
 
       const { encryptToken } = await import('./crypto-service');
-      const encrypted = encryptToken(apiToken);
+      const encrypted = encryptToken(token);
 
       const credential = await storage.createProviderCredential({
         providerId,
@@ -8970,6 +8970,7 @@ export async function registerRoutes(
         encryptedToken: encrypted.encryptedToken,
         tokenIv: encrypted.tokenIv,
         tokenAuthTag: encrypted.tokenAuthTag,
+        tokenSalt: encrypted.tokenSalt,
         lastFourChars: encrypted.lastFourChars,
         tokenHash: encrypted.tokenHash,
         isActive: true,
