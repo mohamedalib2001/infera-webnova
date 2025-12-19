@@ -1,6 +1,6 @@
 import { useLanguage } from "@/hooks/use-language";
 import { useState, useEffect, useRef } from "react";
-import { Check, Loader2, Clock, Sparkles, Code, Palette, Wand2, FileCode, Bug, Zap } from "lucide-react";
+import { Check, Loader2, Clock, Sparkles, Code, Palette, Wand2, FileCode, Bug, Zap, Brain, Search, Database, Shield, Cpu, Terminal } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface LogEntry {
@@ -9,7 +9,7 @@ interface LogEntry {
   messageEn: string;
   status: 'pending' | 'active' | 'completed';
   timestamp: Date;
-  icon: 'analyze' | 'structure' | 'design' | 'code' | 'review' | 'optimize';
+  icon: 'analyze' | 'structure' | 'design' | 'code' | 'review' | 'optimize' | 'think' | 'search' | 'database' | 'security' | 'process';
 }
 
 interface ThinkingIndicatorProps {
@@ -18,14 +18,26 @@ interface ThinkingIndicatorProps {
   logs?: string[];
 }
 
+const THINKING_MESSAGES = [
+  { ar: 'جاري التفكير...', en: 'Thinking...' },
+  { ar: 'تحليل الطلب...', en: 'Analyzing request...' },
+  { ar: 'فهم السياق...', en: 'Understanding context...' },
+  { ar: 'معالجة المعلومات...', en: 'Processing information...' },
+  { ar: 'بناء الاستجابة...', en: 'Building response...' },
+];
+
 const GENERATION_STEPS = [
+  { id: 'think', message: 'تحليل وفهم الطلب', messageEn: 'Analyzing and understanding request', icon: 'think' as const, duration: 1500 },
+  { id: 'search', message: 'البحث في قاعدة المعرفة', messageEn: 'Searching knowledge base', icon: 'search' as const, duration: 1800 },
   { id: 'analyze', message: 'تحليل مواصفات المنصة السيادية', messageEn: 'Analyzing sovereign platform specifications', icon: 'analyze' as const, duration: 2000 },
-  { id: 'blueprint', message: 'إنشاء المخطط الذكي (Blueprint)', messageEn: 'Creating Smart Blueprint', icon: 'structure' as const, duration: 3000 },
-  { id: 'compliance', message: 'إعداد متطلبات الامتثال والحوكمة', messageEn: 'Configuring compliance & governance requirements', icon: 'design' as const, duration: 4000 },
-  { id: 'codegen', message: 'توليد الكود السيادي', messageEn: 'Generating sovereign codebase', icon: 'code' as const, duration: 8000 },
-  { id: 'runtime', message: 'تهيئة طبقة التشغيل (Runtime)', messageEn: 'Initializing Runtime Layer', icon: 'code' as const, duration: 5000 },
-  { id: 'deploy', message: 'نشر المنصة وتفعيل المراقبة', messageEn: 'Deploying platform & enabling monitoring', icon: 'optimize' as const, duration: 4000 },
-  { id: 'autonomous', message: 'تفعيل التشغيل الذاتي والشفاء الذاتي', messageEn: 'Activating autonomous operation & self-healing', icon: 'review' as const, duration: 3000 },
+  { id: 'blueprint', message: 'إنشاء المخطط الذكي (Blueprint)', messageEn: 'Creating Smart Blueprint', icon: 'structure' as const, duration: 2500 },
+  { id: 'database', message: 'تصميم هيكل قاعدة البيانات', messageEn: 'Designing database structure', icon: 'database' as const, duration: 2000 },
+  { id: 'security', message: 'تطبيق بروتوكولات الأمان', messageEn: 'Applying security protocols', icon: 'security' as const, duration: 1800 },
+  { id: 'codegen', message: 'توليد الكود السيادي', messageEn: 'Generating sovereign codebase', icon: 'code' as const, duration: 3000 },
+  { id: 'process', message: 'معالجة وتحسين الكود', messageEn: 'Processing and optimizing code', icon: 'process' as const, duration: 2500 },
+  { id: 'runtime', message: 'تهيئة طبقة التشغيل', messageEn: 'Initializing Runtime Layer', icon: 'code' as const, duration: 2000 },
+  { id: 'deploy', message: 'نشر المنصة وتفعيل المراقبة', messageEn: 'Deploying platform & monitoring', icon: 'optimize' as const, duration: 2000 },
+  { id: 'autonomous', message: 'تفعيل التشغيل الذاتي', messageEn: 'Activating autonomous operation', icon: 'review' as const, duration: 1500 },
 ];
 
 export function ThinkingIndicator({ isActive, currentStep, logs }: ThinkingIndicatorProps) {
@@ -33,7 +45,47 @@ export function ThinkingIndicator({ isActive, currentStep, logs }: ThinkingIndic
   const [seconds, setSeconds] = useState(0);
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [thinkingText, setThinkingText] = useState('');
+  const [thinkingMessageIndex, setThinkingMessageIndex] = useState(0);
+  const [cursorVisible, setCursorVisible] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+  
+  // Cursor blink effect
+  useEffect(() => {
+    if (!isActive) return;
+    const cursorTimer = setInterval(() => {
+      setCursorVisible(prev => !prev);
+    }, 530);
+    return () => clearInterval(cursorTimer);
+  }, [isActive]);
+
+  // Typing effect for thinking messages
+  useEffect(() => {
+    if (!isActive) {
+      setThinkingText('');
+      setThinkingMessageIndex(0);
+      return;
+    }
+
+    const currentMessage = THINKING_MESSAGES[thinkingMessageIndex];
+    const fullText = isRtl ? currentMessage.ar : currentMessage.en;
+    let charIndex = 0;
+
+    const typeTimer = setInterval(() => {
+      if (charIndex <= fullText.length) {
+        setThinkingText(fullText.slice(0, charIndex));
+        charIndex++;
+      } else {
+        clearInterval(typeTimer);
+        // Move to next message after a pause
+        setTimeout(() => {
+          setThinkingMessageIndex(prev => (prev + 1) % THINKING_MESSAGES.length);
+        }, 1500);
+      }
+    }, 50);
+
+    return () => clearInterval(typeTimer);
+  }, [isActive, thinkingMessageIndex, isRtl]);
   
   useEffect(() => {
     if (!isActive) {
@@ -120,6 +172,11 @@ export function ThinkingIndicator({ isActive, currentStep, logs }: ThinkingIndic
       code: <Code className={`${baseClass} ${activeClass}`} />,
       review: <Bug className={`${baseClass} ${activeClass}`} />,
       optimize: <Zap className={`${baseClass} ${activeClass}`} />,
+      think: <Brain className={`${baseClass} ${activeClass}`} />,
+      search: <Search className={`${baseClass} ${activeClass}`} />,
+      database: <Database className={`${baseClass} ${activeClass}`} />,
+      security: <Shield className={`${baseClass} ${activeClass}`} />,
+      process: <Cpu className={`${baseClass} ${activeClass}`} />,
     };
     
     return iconMap[iconType] || <Wand2 className={`${baseClass} ${activeClass}`} />;
@@ -144,13 +201,22 @@ export function ThinkingIndicator({ isActive, currentStep, logs }: ThinkingIndic
             </div>
           </div>
           
-          <div className={`flex flex-col gap-0.5 ${isRtl ? 'items-end' : 'items-start'}`}>
+          <div className={`flex flex-col gap-1 ${isRtl ? 'items-end' : 'items-start'}`}>
+            {/* Current phase with gradient */}
             <span className="text-sm font-semibold bg-gradient-to-r from-violet-400 via-purple-500 to-cyan-400 bg-clip-text text-transparent">
               {isRtl ? currentPhase?.message : currentPhase?.messageEn}
             </span>
-            <span className="text-xs text-muted-foreground">
-              {isRtl ? "الذكاء الاصطناعي يبني منصتك السيادية" : "AI is building your sovereign platform"}
-            </span>
+            {/* Typing effect with cursor */}
+            <div className="flex items-center gap-0.5">
+              <Brain className="w-3 h-3 text-violet-400 animate-pulse" />
+              <span className="text-xs text-violet-300 font-mono">
+                {thinkingText}
+                <span 
+                  className={`inline-block w-0.5 h-3 bg-violet-400 ml-0.5 ${cursorVisible ? 'opacity-100' : 'opacity-0'}`}
+                  style={{ transition: 'opacity 0.1s' }}
+                />
+              </span>
+            </div>
           </div>
         </div>
 
