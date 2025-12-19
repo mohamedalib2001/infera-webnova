@@ -6037,9 +6037,76 @@ export async function registerRoutes(
         visibleToSubscribers: false,
       });
 
+      // Clear email config cache if SMTP settings were updated
+      if (key === "smtp_config") {
+        const { clearEmailConfigCache } = await import("./email");
+        clearEmailConfigCache();
+      }
+
       res.json(setting);
     } catch (error) {
       res.status(500).json({ error: "فشل في تحديث الإعداد / Failed to update setting" });
+    }
+  });
+
+  // Test email configuration
+  app.post("/api/owner/email/test", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { to } = req.body;
+      if (!to) {
+        return res.status(400).json({ error: "البريد الإلكتروني مطلوب / Email address required" });
+      }
+
+      const { sendTestEmail } = await import("./email");
+      const result = await sendTestEmail(to, storage);
+      
+      await storage.createSovereignAuditLog({
+        action: 'EMAIL_TEST_SENT',
+        performedBy: req.session.userId!,
+        performerRole: 'owner',
+        targetType: 'email_config',
+        targetId: 'smtp_test',
+        details: { to, success: result.success },
+        visibleToSubscribers: false,
+      });
+
+      if (result.success) {
+        res.json({ success: true, message: "تم إرسال البريد التجريبي بنجاح / Test email sent successfully" });
+      } else {
+        res.status(400).json({ success: false, error: result.error });
+      }
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "فشل في إرسال البريد التجريبي / Failed to send test email" });
+    }
+  });
+
+  // Get current email configuration status (without exposing password)
+  app.get("/api/owner/email/status", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const setting = await storage.getSystemSetting("smtp_config");
+      
+      if (!setting || !setting.value) {
+        return res.json({ 
+          configured: false,
+          source: "none",
+          config: null 
+        });
+      }
+
+      const config = setting.value as any;
+      res.json({
+        configured: config.enabled && config.host && config.user && config.pass,
+        source: "database",
+        config: {
+          host: config.host || null,
+          port: config.port || 587,
+          secure: config.secure || false,
+          from: config.from || config.user || null,
+          enabled: config.enabled || false,
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب حالة البريد / Failed to get email status" });
     }
   });
 
