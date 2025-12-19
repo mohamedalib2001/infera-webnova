@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateWebsiteCode, refineWebsiteCode } from "./anthropic";
 import apiKeysRoutes from "./api-keys-routes";
+import { registerDomainRoutes } from "./domain-routes";
 import { 
   insertProjectSchema, insertMessageSchema, insertProjectVersionSchema, 
   insertShareLinkSchema, insertUserSchema, insertAiModelSchema, 
@@ -8764,6 +8765,9 @@ export async function registerRoutes(
 
   // ==================== SOVEREIGN API KEYS ROUTES ====================
   app.use("/api/api-keys", apiKeysRoutes);
+
+  // ==================== NAMECHEAP DOMAIN MANAGEMENT ====================
+  registerDomainRoutes(app);
 
   // ==================== SOVEREIGN INFRASTRUCTURE MANAGEMENT ====================
   
