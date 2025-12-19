@@ -274,6 +274,25 @@ export default function OwnerInfrastructure() {
     }
   });
 
+  const syncServersMutation = useMutation({
+    mutationFn: (providerId: string) => apiRequest('POST', `/api/owner/infrastructure/providers/${providerId}/sync-servers`),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/infrastructure/servers'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/infrastructure/providers'] });
+      toast({ 
+        title: language === 'ar' ? 'تمت المزامنة' : 'Sync completed',
+        description: data.message
+      });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: language === 'ar' ? 'فشلت المزامنة' : 'Sync failed',
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
+  });
+
   const availableProviders = availableProvidersData?.providers || [];
 
   const createProviderMutation = useMutation({
@@ -686,6 +705,21 @@ export default function OwnerInfrastructure() {
                         <Activity className="w-4 h-4 mr-2" />
                       )}
                       {language === 'ar' ? 'اختبار الاتصال' : 'Test Connection'}
+                    </Button>
+
+                    <Button 
+                      variant="default" 
+                      className="w-full"
+                      onClick={() => syncServersMutation.mutate(selectedProvider.id)}
+                      disabled={syncServersMutation.isPending || selectedProvider.connectionStatus !== 'connected'}
+                      data-testid="button-sync-servers"
+                    >
+                      {syncServersMutation.isPending ? (
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                      )}
+                      {language === 'ar' ? 'مزامنة السيرفرات' : 'Sync Servers'}
                     </Button>
 
                     <Button 

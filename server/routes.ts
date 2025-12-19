@@ -9197,6 +9197,95 @@ export async function registerRoutes(
     }
   });
 
+  // Sync servers from Hetzner using stored encrypted credentials
+  app.post("/api/owner/infrastructure/providers/:providerId/sync-servers", requireOwner, async (req, res) => {
+    try {
+      const { providerId } = req.params;
+      
+      const provider = await storage.getInfrastructureProvider(providerId);
+      if (!provider) {
+        return res.status(404).json({ success: false, error: "Provider not found" });
+      }
+
+      const credential = await storage.getProviderCredentialByProviderId(providerId);
+      if (!credential || !credential.encryptedToken) {
+        return res.status(400).json({ success: false, error: "No credentials found for this provider" });
+      }
+
+      // Decrypt the stored token
+      const { decryptToken } = await import('./crypto-service');
+      const apiToken = decryptToken({
+        encryptedToken: credential.encryptedToken,
+        tokenIv: credential.tokenIv!,
+        tokenAuthTag: credential.tokenAuthTag,
+        tokenSalt: credential.tokenSalt,
+      });
+
+      // Fetch servers from Hetzner API
+      if (provider.name === 'hetzner') {
+        const response = await fetch("https://api.hetzner.cloud/v1/servers", {
+          headers: {
+            "Authorization": `Bearer ${apiToken}`,
+            "Content-Type": "application/json"
+          }
+        });
+
+        if (!response.ok) {
+          return res.status(400).json({ success: false, error: "Failed to fetch servers from Hetzner" });
+        }
+
+        const data = await response.json();
+        const hetznerServers = data.servers || [];
+
+        // Sync servers to local database
+        const syncedServers = [];
+        for (const hServer of hetznerServers) {
+          const existingServers = await storage.getInfrastructureServers();
+          const existing = existingServers.find(s => s.externalId === String(hServer.id));
+
+          const serverData = {
+            name: hServer.name,
+            externalId: String(hServer.id),
+            providerId: providerId,
+            status: hServer.status === 'running' ? 'running' as const : 'stopped' as const,
+            publicIp: hServer.public_net?.ipv4?.ip || null,
+            privateIp: hServer.private_net?.[0]?.ip || null,
+            region: hServer.datacenter?.location?.name || 'unknown',
+            serverType: hServer.server_type?.name || 'unknown',
+            cpuCores: hServer.server_type?.cores || 0,
+            ramGb: Math.round((hServer.server_type?.memory || 0)),
+            storageGb: hServer.server_type?.disk || 0,
+            monthlyCost: hServer.server_type?.prices?.[0]?.price_monthly?.gross ? parseFloat(hServer.server_type.prices[0].price_monthly.gross) : 0,
+          };
+
+          if (existing) {
+            const updated = await storage.updateInfrastructureServer(existing.id, serverData);
+            syncedServers.push(updated);
+          } else {
+            const created = await storage.createInfrastructureServer(serverData);
+            syncedServers.push(created);
+          }
+        }
+
+        // Update provider's active server count
+        await storage.updateInfrastructureProvider(providerId, {
+          activeServers: hetznerServers.length,
+          healthScore: 100
+        });
+
+        res.json({ 
+          success: true, 
+          message: `Synced ${syncedServers.length} servers from Hetzner`,
+          servers: syncedServers
+        });
+      } else {
+        return res.status(400).json({ success: false, error: "Provider sync not supported" });
+      }
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to sync servers" });
+    }
+  });
+
   // Deployment Templates
   app.get("/api/owner/infrastructure/templates", requireOwner, async (req, res) => {
     try {
