@@ -161,7 +161,7 @@ export async function createBuildPlan(prompt: string, userId?: string): Promise<
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-20241022",
+      model: "claude-sonnet-4-5",
       max_tokens: 4096,
       system: PLANNING_SYSTEM_PROMPT,
       messages: [
@@ -281,7 +281,7 @@ export async function executeBuildStep(
     onProgress?.(30, `Generating ${task.taskType} code...`);
 
     const response = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-20241022",
+      model: "claude-sonnet-4-5",
       max_tokens: 8192,
       system: CODE_GENERATION_SYSTEM_PROMPT,
       messages: [
