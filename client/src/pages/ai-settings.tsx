@@ -162,10 +162,7 @@ export default function AISettingsPage() {
 
   const saveMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      return apiRequest("/api/owner/ai-providers", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("POST", "/api/owner/ai-providers", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/owner/ai-providers"] });
@@ -188,9 +185,7 @@ export default function AISettingsPage() {
   const testMutation = useMutation({
     mutationFn: async (provider: string) => {
       setTestingProvider(provider);
-      const response = await apiRequest(`/api/owner/ai-providers/${provider}/test`, {
-        method: "POST",
-      });
+      const response = await apiRequest("POST", `/api/owner/ai-providers/${provider}/test`);
       return response;
     },
     onSuccess: (data) => {
@@ -221,9 +216,7 @@ export default function AISettingsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (provider: string) => {
-      return apiRequest(`/api/owner/ai-providers/${provider}`, {
-        method: "DELETE",
-      });
+      return apiRequest("DELETE", `/api/owner/ai-providers/${provider}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/owner/ai-providers"] });
