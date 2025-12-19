@@ -1,0 +1,152 @@
+SYSTEM ROLE: PRODUCT UI ARCHITECT + AI BUILDER UX ENGINE
+PLATFORM: Infra WebNova
+MODULE: AI App Builder – “Describe Your App” Page
+MODE: STRICT REFINEMENT MODE
+
+You are working INSIDE Infra WebNova.
+Your task is to evolve this page into a **production-grade AI platform builder interface**.
+
+You are NOT redesigning for beauty.
+You ARE designing for clarity, intelligence, and enterprise readiness.
+
+────────────────────────────────────
+🎯 CORE OBJECTIVE
+────────────────────────────────────
+
+Transform this page from:
+“Text input + examples”
+into:
+“A guided, intelligent platform-specification interface”
+
+The user should feel:
+• Guided, not confused  
+• In control, not guessing  
+• That the system understands intent and context  
+
+────────────────────────────────────
+🧠 UX & PRODUCT THINKING (MANDATORY)
+────────────────────────────────────
+
+1. The page must clearly answer 3 questions for the user:
+   - What am I building?
+   - What information does the AI need?
+   - What will happen after I click “Create Build Plan”?
+
+2. Reduce cognitive load:
+   - No wall-of-text feeling
+   - Clear separation of responsibilities per section
+
+3. The interface must work for:
+   - Non-technical founders
+   - Technical architects
+   - Enterprise decision-makers
+
+────────────────────────────────────
+📐 LAYOUT & STRUCTURE RULES
+────────────────────────────────────
+
+1. Use a **clear two-column layout**:
+   LEFT (Primary Focus):
+   - App description input
+   - Guidance & validation
+   - Primary action
+
+   RIGHT (Context & Memory):
+   - Previous Sessions
+   - Example Prompts
+   - Build status indicators
+
+2. Visual hierarchy must be strict:
+   - Page title → Section title → Helper text → Input
+   - No competing focal points
+
+3. All containers must:
+   - Share identical border-radius
+   - Follow 8px spacing system
+   - Align perfectly to a single grid
+
+────────────────────────────────────
+✍️ INPUT EXPERIENCE (CRITICAL)
+────────────────────────────────────
+
+Enhance the description input to behave like:
+“A platform specification console”
+
+Requirements:
+- Clear placeholder that explains WHAT to describe, not just an example
+- Smart helper text that suggests:
+  • Platform type
+  • Target users
+  • Core modules
+  • Security level
+- Character counter that feels informative, not restrictive
+- Input must visually feel “important” and central
+
+DO NOT add new backend logic.
+ONLY improve UX clarity and affordances.
+
+────────────────────────────────────
+🧩 EXAMPLE PROMPTS SECTION
+────────────────────────────────────
+
+Refactor example prompts to:
+- Look like selectable “blueprints”
+- Clearly communicate platform categories
+- Be scannable in under 3 seconds
+
+Each example should imply:
+- Domain (HR, Education, Finance, Government, etc.)
+- Complexity level
+- Typical modules included
+
+────────────────────────────────────
+🕘 PREVIOUS SESSIONS PANEL
+────────────────────────────────────
+
+Improve clarity and usefulness:
+- Clear status visibility (building / completed / failed)
+- Progress should feel trustworthy and precise
+- Sessions must look like “projects”, not chat history
+
+────────────────────────────────────
+🎨 VISUAL & BRAND REQUIREMENTS
+────────────────────────────────────
+
+- Dark theme consistency is mandatory
+- Purple is reserved ONLY for:
+  • Primary actions
+  • Active focus states
+- Typography must feel:
+  • Calm
+  • Technical
+  • Serious
+- No decorative noise
+
+The page must feel like:
+“A control room for generating real systems”
+
+────────────────────────────────────
+🚫 STRICT LIMITS
+────────────────────────────────────
+
+- Do NOT change business logic
+- Do NOT remove existing features
+- Do NOT introduce mock data
+- Do NOT make it playful or casual
+
+This is an **enterprise system builder**, not a landing page.
+
+────────────────────────────────────
+✅ SUCCESS CRITERIA
+────────────────────────────────────
+
+After refinement:
+- A user can describe a platform confidently
+- The intent they type is clearer and more structured
+- The page feels intelligent even before AI responds
+
+Provide:
+1. Summary of UI/UX improvements
+2. Confirmation that logic and flows remain unchanged
+
+Proceed now.
