@@ -1,0 +1,82 @@
+You are implementing the AI Models system for Infra Web Nova.
+
+IMPORTANT:
+This system MUST be fully dynamic and owner-controlled.
+No AI model names may be hardcoded in services or business logic.
+
+==================================================
+CORE RULE
+==================================================
+AI models are managed ONLY through the Owner Account.
+Developers do NOT modify code to add or change models.
+
+==================================================
+MODEL REGISTRY (DYNAMIC)
+==================================================
+Implement a dynamic AI Model Registry backed by a database.
+
+Each model must store:
+- Internal model ID (Nova ID)
+- Display name
+- Provider type (initially: replit)
+- Provider model name (exact Replit name)
+- Enabled / Disabled
+- Recommended flag
+- Capabilities (chat, code, reasoning, etc.)
+
+Models can be:
+- Added
+- Edited
+- Disabled
+ONLY by the Owner account via UI.
+
+==================================================
+PROVIDER ABSTRACTION
+==================================================
+Infra Web Nova must NOT depend directly on Replit.
+
+Implement a Provider Adapter layer:
+- ReplitAdapter (initial)
+- Future adapters can replace it without changing core logic
+
+Core logic calls:
+callModel(provider, providerModelName, payload)
+
+==================================================
+SERVICE MODEL RESOLUTION
+==================================================
+Services must NOT select models directly.
+
+For each request:
+1. Resolve model from Service Config (DB)
+2. If unavailable → fallback
+3. If unavailable → global default
+
+==================================================
+GLOBAL & SERVICE SETTINGS
+==================================================
+Owner can manage:
+- Global default model
+- Emergency kill switch
+- Token limits
+- Service → Model mapping
+- Fallback behavior
+
+==================================================
+VALIDATION
+==================================================
+- Block AI calls if no active model exists
+- Block startup if owner disabled all models
+- Validate provider model name before saving
+- Replit model names must be stored EXACTLY
+
+==================================================
+GOAL
+==================================================
+Infra Web Nova must be able to:
+- Add new models without code changes
+- Switch providers without rewriting services
+- Remain independent from Replit in the future
+
+This is a production system.
+Hardcoding model names or bypassing the registry is forbidden.

@@ -5899,3 +5899,75 @@ export const insertAiProviderConfigSchema = createInsertSchema(aiProviderConfigs
 
 export type InsertAiProviderConfig = z.infer<typeof insertAiProviderConfigSchema>;
 export type AiProviderConfig = typeof aiProviderConfigs.$inferSelect;
+
+// ==================== AI USAGE TRACKING ====================
+
+// Track AI usage per provider for cost estimation
+export const aiUsageLogs = pgTable("ai_usage_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  provider: text("provider").notNull(), // anthropic, openai, google, meta, replit
+  model: text("model").notNull(), // claude-sonnet-4-5, gpt-4o, etc.
+  
+  // Usage metrics
+  requestCount: integer("request_count").notNull().default(1),
+  inputTokens: integer("input_tokens").notNull().default(0),
+  outputTokens: integer("output_tokens").notNull().default(0),
+  totalTokens: integer("total_tokens").notNull().default(0),
+  
+  // Cost estimation (in USD)
+  estimatedCost: real("estimated_cost").notNull().default(0),
+  
+  // Request details
+  requestType: text("request_type").notNull().default("chat"), // chat, completion, embedding, image
+  success: boolean("success").notNull().default(true),
+  errorMessage: text("error_message"),
+  latencyMs: integer("latency_ms"), // Response time in milliseconds
+  
+  // User context
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_ai_usage_provider").on(table.provider),
+  index("IDX_ai_usage_created").on(table.createdAt),
+  index("IDX_ai_usage_user").on(table.userId),
+]);
+
+export const insertAiUsageLogSchema = createInsertSchema(aiUsageLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAiUsageLog = z.infer<typeof insertAiUsageLogSchema>;
+export type AiUsageLog = typeof aiUsageLogs.$inferSelect;
+
+// Aggregated usage statistics per provider per day
+export const aiUsageStats = pgTable("ai_usage_stats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  provider: text("provider").notNull(),
+  date: timestamp("date").notNull(), // Day for aggregation
+  
+  // Aggregated metrics
+  totalRequests: integer("total_requests").notNull().default(0),
+  successfulRequests: integer("successful_requests").notNull().default(0),
+  failedRequests: integer("failed_requests").notNull().default(0),
+  totalInputTokens: integer("total_input_tokens").notNull().default(0),
+  totalOutputTokens: integer("total_output_tokens").notNull().default(0),
+  totalTokens: integer("total_tokens").notNull().default(0),
+  totalEstimatedCost: real("total_estimated_cost").notNull().default(0),
+  avgLatencyMs: integer("avg_latency_ms"),
+  
+  // Timestamps
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_ai_stats_provider_date").on(table.provider, table.date),
+]);
+
+export const insertAiUsageStatsSchema = createInsertSchema(aiUsageStats).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertAiUsageStats = z.infer<typeof insertAiUsageStatsSchema>;
+export type AiUsageStats = typeof aiUsageStats.$inferSelect;
