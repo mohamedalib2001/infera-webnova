@@ -148,6 +148,10 @@ interface AIProviderConfig {
   baseUrl: string | null;
   isActive: boolean;
   status: 'active' | 'paused' | 'disabled';
+  priority: number;
+  capabilities: string[];
+  isHealthy: boolean;
+  consecutiveFailures: number;
   lastTestedAt: string | null;
   lastTestResult: string | null;
   lastTestError: string | null;
@@ -317,6 +321,26 @@ export default function AISettingsPage() {
     },
   });
 
+  const priorityMutation = useMutation({
+    mutationFn: async ({ provider, priority }: { provider: string; priority: number }) => {
+      return apiRequest("PATCH", `/api/owner/ai-providers/${provider}/priority`, { priority });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/owner/ai-providers"] });
+      toast({
+        title: language === "ar" ? "تم التحديث" : "Updated",
+        description: language === "ar" ? "تم تحديث أولوية المزود" : "Provider priority updated",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: language === "ar" ? "خطأ" : "Error",
+        description: error.message,
+      });
+    },
+  });
+
   const resetForm = () => {
     setFormData({
       provider: "anthropic",
@@ -429,7 +453,17 @@ export default function AISettingsPage() {
                           <Icon className="h-5 w-5 text-white" />
                         </div>
                         <div>
-                          <CardTitle className="text-lg">{config.displayName}</CardTitle>
+                          <div className="flex items-center gap-2">
+                            <CardTitle className="text-lg">{config.displayName}</CardTitle>
+                            <Badge variant="outline" className="text-xs">
+                              {language === "ar" ? `أولوية ${config.priority || 100}` : `P${config.priority || 100}`}
+                            </Badge>
+                            {!config.isHealthy && (
+                              <Badge variant="destructive" className="text-xs">
+                                {language === "ar" ? "غير صحي" : "Unhealthy"}
+                              </Badge>
+                            )}
+                          </div>
                           <CardDescription className="capitalize">{config.provider}</CardDescription>
                         </div>
                       </div>

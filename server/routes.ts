@@ -3009,6 +3009,72 @@ export async function registerRoutes(
     }
   });
 
+  // Update AI provider priority (owner only)
+  app.patch("/api/owner/ai-providers/:provider/priority", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { provider } = req.params;
+      const { priority } = req.body;
+      
+      if (typeof priority !== 'number' || priority < 1) {
+        return res.status(400).json({ error: "أولوية غير صالحة / Invalid priority" });
+      }
+      
+      await db.update(aiProviderConfigs)
+        .set({ 
+          priority,
+          updatedBy: req.session.userId,
+          updatedAt: new Date(),
+        })
+        .where(eq(aiProviderConfigs.provider, provider));
+      
+      res.json({ success: true, message: "تم تحديث الأولوية / Priority updated" });
+    } catch (error: any) {
+      console.error("Update priority error:", error);
+      res.status(500).json({ error: error.message || "فشل في تحديث الأولوية" });
+    }
+  });
+
+  // Reset provider health (owner only)
+  app.post("/api/owner/ai-providers/:provider/reset-health", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { provider } = req.params;
+      
+      await db.update(aiProviderConfigs)
+        .set({
+          consecutiveFailures: 0,
+          isHealthy: true,
+        })
+        .where(eq(aiProviderConfigs.provider, provider));
+      
+      res.json({ success: true, message: "تم إعادة تعيين صحة المزود / Provider health reset" });
+    } catch (error: any) {
+      console.error("Reset health error:", error);
+      res.status(500).json({ error: error.message || "فشل في إعادة التعيين" });
+    }
+  });
+
+  // Get provider for AI operations (internal use)
+  app.get("/api/ai/provider", async (req, res) => {
+    try {
+      const { aiProviderRegistry } = await import("./ai-provider-registry");
+      const capability = (req.query.capability as string) || 'chat';
+      const provider = await aiProviderRegistry.selectProvider({ capability: capability as any });
+      
+      if (!provider) {
+        return res.status(503).json({ error: "لا يوجد مزود متاح / No provider available" });
+      }
+      
+      res.json({
+        provider: provider.provider,
+        displayName: provider.displayName,
+        model: provider.defaultModel,
+      });
+    } catch (error: any) {
+      console.error("Get provider error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ============ Owner User Management APIs ============
 
   // Get all users (owner only)

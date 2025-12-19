@@ -5842,6 +5842,10 @@ export type AIProvider = typeof aiProviders[number];
 export const aiProviderStatuses = ['active', 'paused', 'disabled'] as const;
 export type AiProviderStatus = typeof aiProviderStatuses[number];
 
+// AI provider capability types
+export const aiCapabilities = ['chat', 'coding', 'image', 'embedding', 'tooling'] as const;
+export type AiCapability = typeof aiCapabilities[number];
+
 // Secure AI provider configurations - only accessible by owner
 export const aiProviderConfigs = pgTable("ai_provider_configs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -5856,8 +5860,16 @@ export const aiProviderConfigs = pgTable("ai_provider_configs", {
   // Configuration
   isActive: boolean("is_active").notNull().default(false),
   status: text("status").notNull().default("disabled"), // active, paused, disabled
+  priority: integer("priority").notNull().default(100), // Lower = higher priority (1 = highest)
+  capabilities: jsonb("capabilities").$type<string[]>().default(['chat', 'coding']), // chat, coding, image, embedding
   defaultModel: text("default_model"), // claude-sonnet-4-5, gpt-4o, etc.
   baseUrl: text("base_url"), // Custom base URL if needed
+  
+  // Health tracking
+  lastFailureAt: timestamp("last_failure_at"),
+  failureCount: integer("failure_count").notNull().default(0),
+  consecutiveFailures: integer("consecutive_failures").notNull().default(0),
+  isHealthy: boolean("is_healthy").notNull().default(true),
   
   // Metadata
   lastTestedAt: timestamp("last_tested_at"),
