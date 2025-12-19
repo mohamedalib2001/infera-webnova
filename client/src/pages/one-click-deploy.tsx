@@ -484,11 +484,23 @@ export default function OneClickDeploy() {
                       <SelectValue placeholder={t.selectProject} />
                     </SelectTrigger>
                     <SelectContent>
-                      {projects.map((project) => (
+                      {projects.map((project: any) => (
                         <SelectItem key={project.id} value={project.id}>
                           <div className="flex items-center gap-2">
-                            <Box className="h-4 w-4" />
-                            {project.name}
+                            {project.isSystemProject ? (
+                              <>
+                                <Sparkles className="h-4 w-4 text-primary" />
+                                <span className="font-semibold text-primary">{project.name}</span>
+                                <Badge variant="secondary" className="text-xs">
+                                  {language === "ar" ? "النظام" : "Core"}
+                                </Badge>
+                              </>
+                            ) : (
+                              <>
+                                <Box className="h-4 w-4" />
+                                {project.name}
+                              </>
+                            )}
                           </div>
                         </SelectItem>
                       ))}

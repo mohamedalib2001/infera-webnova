@@ -214,6 +214,7 @@ export const projects = pgTable("projects", {
   thumbnail: text("thumbnail"),
   customDomain: text("custom_domain"),
   isPublished: boolean("is_published").notNull().default(false),
+  isSystemProject: boolean("is_system_project").notNull().default(false), // True for INFERA WebNova core
   seoTitle: text("seo_title"),
   seoDescription: text("seo_description"),
   seoKeywords: text("seo_keywords"),

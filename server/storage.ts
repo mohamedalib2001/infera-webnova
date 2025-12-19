@@ -421,6 +421,7 @@ export interface IStorage {
   createProject(project: InsertProject): Promise<Project>;
   updateProject(id: string, project: Partial<InsertProject>): Promise<Project | undefined>;
   deleteProject(id: string): Promise<boolean>;
+  ensureSystemProject(): Promise<Project>;
   
   // Messages
   getMessagesByProject(projectId: string): Promise<Message[]>;
@@ -1857,6 +1858,35 @@ body { font-family: 'Tajawal', sans-serif; }
   async deleteProject(id: string): Promise<boolean> {
     const result = await db.delete(projects).where(eq(projects.id, id));
     return (result.rowCount ?? 0) > 0;
+  }
+
+  async ensureSystemProject(): Promise<Project> {
+    const SYSTEM_PROJECT_ID = "infera-webnova-core";
+    
+    const [existing] = await db.select().from(projects).where(eq(projects.id, SYSTEM_PROJECT_ID));
+    if (existing) {
+      return existing;
+    }
+    
+    const [systemProject] = await db.insert(projects).values({
+      id: SYSTEM_PROJECT_ID,
+      name: "INFERA WebNova",
+      description: "نظام التشغيل الذاتي للمنصات الرقمية - Autonomous Digital Platform Operating System",
+      industry: "platform",
+      language: "ar",
+      htmlCode: "",
+      cssCode: "",
+      jsCode: "",
+      isPublished: false,
+      isSystemProject: true,
+    }).onConflictDoNothing().returning();
+    
+    if (systemProject) {
+      return systemProject;
+    }
+    
+    const [refetched] = await db.select().from(projects).where(eq(projects.id, SYSTEM_PROJECT_ID));
+    return refetched;
   }
 
   // Message methods

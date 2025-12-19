@@ -1100,16 +1100,25 @@ export async function registerRoutes(
         return res.json([]);
       }
       
+      // Ensure INFERA WebNova system project exists
+      const systemProject = await storage.ensureSystemProject();
+      
       // Check if user is owner - owners see ALL projects
       const user = await storage.getUser(userId);
       if (user?.role === "owner") {
         const allProjects = await storage.getProjects();
-        return res.json(allProjects);
+        // Put system project first
+        const sorted = [
+          ...allProjects.filter(p => p.isSystemProject),
+          ...allProjects.filter(p => !p.isSystemProject)
+        ];
+        return res.json(sorted);
       }
       
-      // Regular users see only their own projects
+      // Regular users see their projects + system project
       const projects = await storage.getProjectsByUser(userId);
-      res.json(projects);
+      const result = [systemProject, ...projects.filter(p => !p.isSystemProject)];
+      res.json(result);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch projects" });
     }
