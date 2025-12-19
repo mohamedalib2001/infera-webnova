@@ -185,6 +185,16 @@ export default function OneClickDeploy() {
   });
   const projects = Array.isArray(projectsData) ? projectsData : [];
 
+  const { data: domainsData } = useQuery<any>({
+    queryKey: ["/api/domains"],
+    queryFn: async () => {
+      const res = await fetch("/api/domains");
+      if (!res.ok) return { domains: [] };
+      return res.json();
+    }
+  });
+  const domains = domainsData?.domains || domainsData || [];
+
   const { data: deploymentsData, isLoading: deploymentsLoading } = useQuery<{ success: boolean; deployments: DeploymentRun[] }>({
     queryKey: ["/api/deployments", selectedProject],
     queryFn: async () => {
@@ -363,12 +373,24 @@ export default function OneClickDeploy() {
 
                 <div className="space-y-2">
                   <Label>{t.customDomain}</Label>
-                  <Input
-                    placeholder="example.com"
-                    value={customDomain}
-                    onChange={(e) => setCustomDomain(e.target.value)}
-                    data-testid="input-custom-domain"
-                  />
+                  <Select value={customDomain || "none"} onValueChange={(v) => setCustomDomain(v === "none" ? "" : v)}>
+                    <SelectTrigger data-testid="select-custom-domain">
+                      <SelectValue placeholder={language === "ar" ? "اختر نطاقاً" : "Select a domain"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">
+                        {language === "ar" ? "بدون نطاق مخصص" : "No custom domain"}
+                      </SelectItem>
+                      {Array.isArray(domains) && domains.map((domain: any) => (
+                        <SelectItem key={domain.id} value={domain.hostname || domain.id}>
+                          <div className="flex items-center gap-2">
+                            <Globe className="h-4 w-4" />
+                            {domain.hostname}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
