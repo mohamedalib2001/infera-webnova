@@ -442,7 +442,7 @@ export default function DomainsPage() {
     queryKey: ['/api/domains'],
     enabled: isAuthenticated && configStatus?.configured,
     queryFn: async () => {
-      const res = await fetch('/api/domains');
+      const res = await fetch('/api/domains', { credentials: 'include' });
       const data = await res.json();
       return data.domains || [];
     },
@@ -452,7 +452,7 @@ export default function DomainsPage() {
     queryKey: ['/api/domains', selectedDomain?.id, 'dns'],
     enabled: isAuthenticated && !!selectedDomain?.id,
     queryFn: async () => {
-      const res = await fetch(`/api/domains/${selectedDomain?.id}/dns`);
+      const res = await fetch(`/api/domains/${selectedDomain?.id}/dns`, { credentials: 'include' });
       const data = await res.json();
       return data.records || [];
     },
@@ -462,7 +462,7 @@ export default function DomainsPage() {
     queryKey: ['/api/domains', selectedDomain?.id, 'links'],
     enabled: isAuthenticated && !!selectedDomain?.id,
     queryFn: async () => {
-      const res = await fetch(`/api/domains/${selectedDomain?.id}/platform-links`);
+      const res = await fetch(`/api/domains/${selectedDomain?.id}/platform-links`, { credentials: 'include' });
       const data = await res.json();
       return data.links || [];
     },
@@ -477,7 +477,7 @@ export default function DomainsPage() {
     queryKey: ['/api/domains/providers'],
     enabled: isAuthenticated,
     queryFn: async () => {
-      const res = await fetch('/api/domains/providers');
+      const res = await fetch('/api/domains/providers', { credentials: 'include' });
       return res.json();
     },
   });
