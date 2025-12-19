@@ -685,12 +685,16 @@ export default function OwnerInfrastructure() {
                     <Label>{language === 'ar' ? 'المزود' : 'Provider'}</Label>
                     <Select value={newServerForm.providerId} onValueChange={(v) => setNewServerForm({...newServerForm, providerId: v})}>
                       <SelectTrigger data-testid="select-server-provider">
-                        <SelectValue />
+                        <SelectValue placeholder={language === 'ar' ? 'اختر المزود' : 'Select Provider'} />
                       </SelectTrigger>
                       <SelectContent>
-                        {providers.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>{p.displayName}</SelectItem>
-                        ))}
+                        {providers.length === 0 ? (
+                          <SelectItem value="none" disabled>{language === 'ar' ? 'لا يوجد مزودين' : 'No providers'}</SelectItem>
+                        ) : (
+                          providers.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>{p.displayName}</SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -728,7 +732,7 @@ export default function OwnerInfrastructure() {
                       serverType: 'cx21',
                       region: 'eu-central'
                     })}
-                    disabled={createServerMutation.isPending || !newServerForm.name}
+                    disabled={createServerMutation.isPending || !newServerForm.name || !newServerForm.providerId}
                     data-testid="button-confirm-add-server"
                   >
                     {t.servers.add}
