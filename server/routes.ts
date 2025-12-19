@@ -2782,7 +2782,16 @@ export async function registerRoutes(
             testResult.success = true;
           } else {
             const errorData = await response.json();
-            testResult.error = errorData.error?.message || `HTTP ${response.status}`;
+            const errorMsg = errorData.error?.message || `HTTP ${response.status}`;
+            // Quota exceeded means the API key is valid, just rate limited
+            if (errorMsg.includes('quota') || errorMsg.includes('RATE_LIMIT') || response.status === 429) {
+              testResult.success = true;
+              testResult.error = "";
+            } else if (errorMsg.includes('API_KEY_INVALID') || response.status === 401 || response.status === 403) {
+              testResult.error = "مفتاح API غير صالح / Invalid API key";
+            } else {
+              testResult.error = errorMsg;
+            }
           }
         } catch (e: any) {
           testResult.error = e.message;
