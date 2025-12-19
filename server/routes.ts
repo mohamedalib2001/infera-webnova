@@ -1,9 +1,11 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
 import { generateWebsiteCode, refineWebsiteCode } from "./anthropic";
 import apiKeysRoutes from "./api-keys-routes";
 import { registerDomainRoutes } from "./domain-routes";
+import { eq } from "drizzle-orm";
 import { 
   insertProjectSchema, insertMessageSchema, insertProjectVersionSchema, 
   insertShareLinkSchema, insertUserSchema, insertAiModelSchema, 
@@ -14,7 +16,8 @@ import {
   getOperationalMode, type User,
   insertInfrastructureProviderSchema, insertInfrastructureServerSchema,
   insertDeploymentRunSchema, insertInfrastructureBackupSchema,
-  insertExternalIntegrationSessionSchema
+  insertExternalIntegrationSessionSchema,
+  domainPlatformLinks
 } from "@shared/schema";
 import { z } from "zod";
 import crypto, { randomBytes } from "crypto";
@@ -1192,6 +1195,52 @@ export async function registerRoutes(
         return res.status(400).json({ error: error.errors });
       }
       res.status(500).json({ error: "Failed to update project" });
+    }
+  });
+
+  // Get platform deletion info - details before deletion
+  app.get("/api/projects/:id/deletion-info", async (req, res) => {
+    try {
+      const projectId = req.params.id;
+      const project = await storage.getProject(projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+
+      // Get linked domains from database
+      const linkedDomainRows = await db.select()
+        .from(domainPlatformLinks)
+        .where(eq(domainPlatformLinks.platformId, projectId));
+      
+      const linkedDomains = linkedDomainRows.map(link => ({
+        id: link.domainId,
+        name: link.subdomain ? `${link.subdomain}.domain` : 'Primary Domain'
+      }));
+
+      // Get collaborators count
+      const collaborators = await storage.getProjectCollaborators(projectId);
+      
+      // Get database/backend info
+      const database = await storage.getProjectDatabase(projectId);
+      const backend = await storage.getProjectBackend(projectId);
+
+      res.json({
+        domains: linkedDomains,
+        collaborators: collaborators?.length || 0,
+        filesCount: 0,
+        hasDatabase: !!database,
+        hasBackend: !!backend
+      });
+    } catch (error) {
+      console.error("Failed to get deletion info:", error);
+      res.json({
+        domains: [],
+        collaborators: 0,
+        filesCount: 0,
+        hasDatabase: false,
+        hasBackend: false
+      });
     }
   });
 

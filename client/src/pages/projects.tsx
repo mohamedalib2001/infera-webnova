@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { ProjectCard } from "@/components/project-card";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,25 +16,59 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, AlertTriangle } from "lucide-react";
+import { Plus, AlertTriangle, Globe, Server, Database, Users, Trash2, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Project } from "@shared/schema";
 import { useLanguage } from "@/hooks/use-language";
+
+interface PlatformDetails {
+  domains: { id: string; name: string }[];
+  collaborators: number;
+  filesCount: number;
+  hasDatabase: boolean;
+  hasBackend: boolean;
+}
 
 export default function Projects() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { language } = useLanguage();
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [platformDetails, setPlatformDetails] = useState<PlatformDetails | null>(null);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
   const { data: projects, isLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
   });
 
+  // Fetch platform details when deletion dialog opens
+  useEffect(() => {
+    if (projectToDelete) {
+      setIsLoadingDetails(true);
+      fetch(`/api/projects/${projectToDelete.id}/deletion-info`, { credentials: 'include' })
+        .then(res => res.json())
+        .then(data => {
+          setPlatformDetails(data);
+          setIsLoadingDetails(false);
+        })
+        .catch(() => {
+          setPlatformDetails(null);
+          setIsLoadingDetails(false);
+        });
+    } else {
+      setPlatformDetails(null);
+    }
+  }, [projectToDelete]);
+
   const deleteMutation = useMutation({
     mutationFn: async (projectId: string) => {
-      await apiRequest("DELETE", `/api/projects/${projectId}`);
+      const response = await apiRequest("DELETE", `/api/projects/${projectId}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to delete");
+      }
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
@@ -42,9 +77,10 @@ export default function Projects() {
       });
       setProjectToDelete(null);
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({ 
-        title: language === "ar" ? "فشل حذف المنصة" : "Failed to delete platform", 
+        title: language === "ar" ? "فشل حذف المنصة" : "Failed to delete platform",
+        description: error.message,
         variant: "destructive" 
       });
       setProjectToDelete(null);
@@ -70,23 +106,47 @@ export default function Projects() {
       title: "منصاتي السيادية",
       subtitle: "إدارة وتشغيل منصاتك المستقلة",
       newPlatform: "منصة جديدة",
-      deleteTitle: "تأكيد حذف المنصة",
-      deleteDescription: "هل أنت متأكد من حذف المنصة؟ هذا الإجراء لا يمكن التراجع عنه وسيتم حذف جميع البيانات المرتبطة بها.",
-      deleteWarning: "تحذير: سيتم حذف جميع الملفات والإعدادات والبيانات نهائياً.",
-      cancel: "إلغاء",
-      confirmDelete: "نعم، حذف المنصة",
+      deleteTitle: "تحذير: حذف نهائي للمنصة",
+      deleteDescription: "أنت على وشك حذف هذه المنصة نهائياً. هذا الإجراء لا يمكن التراجع عنه!",
+      deleteWarning: "جميع البيانات التالية سيتم حذفها بشكل دائم:",
+      platformName: "اسم المنصة",
+      linkedDomains: "النطاقات المرتبطة",
+      collaborators: "المتعاونون",
+      database: "قاعدة البيانات",
+      backend: "الخادم الخلفي",
+      noDomains: "لا توجد نطاقات مرتبطة",
+      hasDatabase: "متصلة",
+      noDatabase: "غير متصلة",
+      hasBackend: "مُعد",
+      noBackend: "غير مُعد",
+      finalWarning: "هل أنت متأكد تماماً من رغبتك في الحذف؟",
+      cancel: "لا، إلغاء الحذف",
+      confirmDelete: "نعم، حذف نهائياً",
       deleting: "جاري الحذف...",
+      loading: "جاري تحميل تفاصيل المنصة...",
     },
     en: {
       title: "My Sovereign Platforms",
       subtitle: "Manage and operate your autonomous platforms",
       newPlatform: "New Platform",
-      deleteTitle: "Confirm Platform Deletion",
-      deleteDescription: "Are you sure you want to delete this platform? This action cannot be undone and all associated data will be permanently removed.",
-      deleteWarning: "Warning: All files, settings, and data will be permanently deleted.",
-      cancel: "Cancel",
-      confirmDelete: "Yes, Delete Platform",
+      deleteTitle: "Warning: Permanent Platform Deletion",
+      deleteDescription: "You are about to permanently delete this platform. This action cannot be undone!",
+      deleteWarning: "The following data will be permanently deleted:",
+      platformName: "Platform Name",
+      linkedDomains: "Linked Domains",
+      collaborators: "Collaborators",
+      database: "Database",
+      backend: "Backend Server",
+      noDomains: "No linked domains",
+      hasDatabase: "Connected",
+      noDatabase: "Not connected",
+      hasBackend: "Configured",
+      noBackend: "Not configured",
+      finalWarning: "Are you absolutely sure you want to delete?",
+      cancel: "No, Cancel Deletion",
+      confirmDelete: "Yes, Delete Permanently",
       deleting: "Deleting...",
+      loading: "Loading platform details...",
     }
   };
 
@@ -135,32 +195,97 @@ export default function Projects() {
       )}
 
       <AlertDialog open={!!projectToDelete} onOpenChange={(open) => !open && setProjectToDelete(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-lg">
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <ShieldAlert className="h-6 w-6" />
               {t.deleteTitle}
             </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-2">
-              <p>{t.deleteDescription}</p>
-              {projectToDelete && (
-                <p className="font-medium text-foreground">
-                  {language === "ar" ? "المنصة:" : "Platform:"} {projectToDelete.name}
+            <AlertDialogDescription asChild>
+              <div className="space-y-4">
+                <p className="text-base">{t.deleteDescription}</p>
+                
+                {projectToDelete && (
+                  <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">{t.platformName}:</span>
+                      <span className="font-bold text-foreground">{projectToDelete.name}</span>
+                    </div>
+                    
+                    {isLoadingDetails ? (
+                      <div className="text-center py-2 text-muted-foreground text-sm">
+                        {t.loading}
+                      </div>
+                    ) : platformDetails && (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground flex items-center gap-2">
+                            <Globe className="w-4 h-4" />
+                            {t.linkedDomains}:
+                          </span>
+                          <div className="flex flex-wrap gap-1 justify-end">
+                            {platformDetails.domains.length > 0 ? (
+                              platformDetails.domains.map(d => (
+                                <Badge key={d.id} variant="outline" className="text-xs">
+                                  {d.name}
+                                </Badge>
+                              ))
+                            ) : (
+                              <span className="text-xs text-muted-foreground">{t.noDomains}</span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground flex items-center gap-2">
+                            <Users className="w-4 h-4" />
+                            {t.collaborators}:
+                          </span>
+                          <Badge variant="secondary">{platformDetails.collaborators}</Badge>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground flex items-center gap-2">
+                            <Database className="w-4 h-4" />
+                            {t.database}:
+                          </span>
+                          <Badge variant={platformDetails.hasDatabase ? "default" : "outline"}>
+                            {platformDetails.hasDatabase ? t.hasDatabase : t.noDatabase}
+                          </Badge>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground flex items-center gap-2">
+                            <Server className="w-4 h-4" />
+                            {t.backend}:
+                          </span>
+                          <Badge variant={platformDetails.hasBackend ? "default" : "outline"}>
+                            {platformDetails.hasBackend ? t.hasBackend : t.noBackend}
+                          </Badge>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+                
+                <p className="text-destructive font-medium text-center py-2 bg-destructive/5 rounded-md">
+                  <AlertTriangle className="w-4 h-4 inline mr-2" />
+                  {t.finalWarning}
                 </p>
-              )}
-              <p className="text-destructive text-sm">{t.deleteWarning}</p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
             <AlertDialogCancel data-testid="button-cancel-delete">
               {t.cancel}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
-              disabled={deleteMutation.isPending}
+              disabled={deleteMutation.isPending || isLoadingDetails}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               data-testid="button-confirm-delete"
             >
+              <Trash2 className="w-4 h-4 mr-2" />
               {deleteMutation.isPending ? t.deleting : t.confirmDelete}
             </AlertDialogAction>
           </AlertDialogFooter>
