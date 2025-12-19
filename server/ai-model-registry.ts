@@ -654,5 +654,6 @@ class AIModelRegistry {
   }
 }
 
-// Export singleton instance
+// Export singleton instance and class
 export const aiModelRegistry = AIModelRegistry.getInstance();
+export { AIModelRegistry };

@@ -5984,9 +5984,18 @@ export type AIModelCapabilityV2 = typeof aiModelCapabilitiesV2[number];
 export const aiModelProvidersV2 = ['replit', 'anthropic', 'openai', 'google', 'meta', 'mistral', 'cohere', 'custom'] as const;
 export type AIModelProviderV2 = typeof aiModelProvidersV2[number];
 
-// ==================== AI SERVICE CONFIGURATIONS ====================
+// ==================== AI SERVICE CONFIGURATIONS (Dynamic Service Registry) ====================
 // Maps internal services to AI models with fallback logic
 // References the existing aiModels table for model assignments
+// DYNAMIC EXECUTION LAYER: Every sidebar item, page, or chat is a "Service Unit"
+
+// Service type enum for categorizing services
+export const aiServiceTypes = ['chat', 'assistant', 'analysis', 'automation', 'system'] as const;
+export type AIServiceType = typeof aiServiceTypes[number];
+
+// AI execution modes - how AI routing is handled
+export const aiExecutionModes = ['auto', 'manual', 'disabled'] as const;
+export type AIExecutionMode = typeof aiExecutionModes[number];
 
 export const aiServiceConfigs = pgTable("ai_service_configs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -5996,17 +6005,35 @@ export const aiServiceConfigs = pgTable("ai_service_configs", {
   displayName: text("display_name").notNull(),
   displayNameAr: text("display_name_ar"),
   description: text("description"),
+  descriptionAr: text("description_ar"),
+  
+  // Dynamic Service Registry fields
+  serviceType: text("service_type").notNull().default("chat"), // chat, assistant, analysis, automation, system
+  aiMode: text("ai_mode").notNull().default("auto"), // auto, manual, disabled
+  
+  // Sidebar/Page linking
+  sidebarPath: text("sidebar_path"), // e.g., "/chat", "/code-editor", "/analytics"
+  icon: text("icon"), // lucide icon name for sidebar
+  sortOrder: integer("sort_order").default(50),
   
   // Model assignment (references existing aiModels table by modelId)
-  primaryModelId: text("primary_model_id"), // References aiModels.modelId
+  primaryModelId: text("primary_model_id"), // References aiModels.modelId (used in manual mode)
   fallbackModelId: text("fallback_model_id"), // References aiModels.modelId
   
-  // Required capabilities for this service
+  // Auto mode configuration
+  preferredCapabilities: jsonb("preferred_capabilities").$type<string[]>().default([]), // Used in auto mode for smart selection
   requiredCapabilities: jsonb("required_capabilities").$type<string[]>().default([]),
+  performanceMode: text("performance_mode").default("balanced"), // speed, balanced, quality
+  costSensitivity: text("cost_sensitivity").default("medium"), // low, medium, high
   
   // Token limits for this service
   maxInputTokens: integer("max_input_tokens").default(50000),
   maxOutputTokens: integer("max_output_tokens").default(4096),
+  
+  // System prompt / behavior customization
+  systemPrompt: text("system_prompt"),
+  systemPromptAr: text("system_prompt_ar"),
+  temperature: real("temperature").default(0.7),
   
   // Rate limiting
   rateLimit: integer("rate_limit").default(100), // Requests per minute
@@ -6014,6 +6041,7 @@ export const aiServiceConfigs = pgTable("ai_service_configs", {
   
   // Status
   isEnabled: boolean("is_enabled").notNull().default(true),
+  isVisible: boolean("is_visible").notNull().default(true), // Show in sidebar
   
   // Audit
   updatedBy: varchar("updated_by").references(() => users.id),
@@ -6021,6 +6049,9 @@ export const aiServiceConfigs = pgTable("ai_service_configs", {
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("IDX_ai_service_name").on(table.serviceName),
+  index("IDX_ai_service_type").on(table.serviceType),
+  index("IDX_ai_service_mode").on(table.aiMode),
+  index("IDX_ai_service_sidebar").on(table.sidebarPath),
 ]);
 
 export const insertAiServiceConfigSchema = createInsertSchema(aiServiceConfigs).omit({

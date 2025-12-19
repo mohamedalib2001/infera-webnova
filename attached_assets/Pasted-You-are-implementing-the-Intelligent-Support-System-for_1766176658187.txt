@@ -1,0 +1,234 @@
+You are implementing the Intelligent Support System for Infra Web Nova.
+
+Infra Web Nova is a sovereign-grade platform that integrates AI deeply
+into every operational layer.
+
+Your task is to build a next-generation Support & Operations System
+that combines human agents, AI models, automation, and analytics
+into one unified experience.
+
+==================================================
+CORE VISION
+==================================================
+This is NOT a traditional support ticket system.
+
+This is:
+- AI-augmented
+- Context-aware
+- Multi-role
+- Self-improving
+- Deeply integrated into Infra Web Nova Core
+
+==================================================
+SUPPORT ACTORS
+==================================================
+
+1. End User
+- Submits support requests
+- Chats with AI or human agents
+- Sees real-time status and history
+
+2. Support Agent
+- Uses an intelligent dashboard
+- Assisted by AI copilots
+- Handles tickets, chats, escalations
+
+3. Support Supervisor
+- Monitors performance
+- Manages agents
+- Controls AI behavior
+
+4. Platform Owner
+- Full visibility
+- Policy control
+- AI governance
+
+==================================================
+SUPPORT CHANNELS
+==================================================
+
+Implement multiple support channels:
+- Live Chat
+- AI Chat (Self-service)
+- Ticket System
+- System Alerts
+- Internal Notes (agent-only)
+
+All channels must be unified under ONE system.
+
+==================================================
+INTELLIGENT TICKET & CHAT SYSTEM
+==================================================
+
+Each support interaction must be treated as a "Support Session".
+
+A Support Session includes:
+- User identity
+- Organization
+- Platform context (page, service, error, logs)
+- Conversation history
+- AI involvement level
+- Assigned agent (if any)
+- Priority & SLA
+- Status lifecycle
+
+==================================================
+AI-FIRST SUPPORT FLOW
+==================================================
+
+Default behavior:
+1. User starts a support request
+2. AI Support Assistant engages FIRST
+3. AI attempts:
+   - Problem understanding
+   - Knowledge base lookup
+   - System diagnostics
+   - Resolution suggestion
+
+If AI confidence < threshold:
+→ Escalate to Human Agent
+
+==================================================
+AI CAPABILITIES (MANDATORY)
+==================================================
+
+The AI Support Assistant must:
+- Understand Infra Web Nova services
+- Access system logs (read-only)
+- Analyze errors & configurations
+- Suggest fixes step-by-step
+- Summarize issues for human agents
+- Auto-tag issues (billing, AI, API, security, UI, etc.)
+- Detect urgency and risk
+
+==================================================
+SMART ROUTING & ESCALATION
+==================================================
+
+Implement intelligent routing:
+- Based on issue type
+- Based on customer plan
+- Based on agent skills
+- Based on SLA
+
+AI must recommend:
+- Best agent
+- Priority level
+- Estimated resolution time
+
+==================================================
+SUPPORT AGENT DASHBOARD (CRITICAL)
+==================================================
+
+Build an advanced Support Agent Control Panel with:
+
+- Live queue
+- Active chats
+- Ticket inbox
+- AI-generated summaries
+- Suggested responses
+- One-click actions
+- Internal notes
+- Knowledge base suggestions
+
+Each agent MUST see:
+- Which AI model is assisting
+- AI confidence level
+- AI recommendation source
+
+==================================================
+AI COPILOT FOR AGENTS
+==================================================
+
+Each support agent has an AI Copilot that:
+- Suggests replies
+- Summarizes long conversations
+- Drafts technical responses
+- Flags risks or policy violations
+- Learns from resolved tickets
+
+==================================================
+KNOWLEDGE BASE (SELF-IMPROVING)
+==================================================
+
+Implement a Knowledge Base that:
+- Is used by AI first
+- Is updated from resolved tickets
+- Can be edited by supervisors
+- Supports versioning
+- Supports multi-language
+
+==================================================
+OBSERVABILITY & ANALYTICS
+==================================================
+
+Provide dashboards for:
+- Response times
+- Resolution rates
+- AI vs Human resolution ratio
+- Agent performance
+- Customer satisfaction
+- Recurring issues
+- AI accuracy over time
+
+==================================================
+SECURITY & GOVERNANCE
+==================================================
+
+- Role-based access (User / Agent / Supervisor / Owner)
+- Full audit logs
+- Sensitive data masking
+- AI decision traceability
+- Manual override at any point
+
+==================================================
+UI / UX REQUIREMENTS
+==================================================
+
+- Dark-mode first
+- Clean, professional, enterprise UI
+- Real-time updates
+- Clear AI vs Human indicators
+- Minimal friction
+- Multilingual support (Arabic first-class)
+
+==================================================
+INTEGRATION REQUIREMENTS
+==================================================
+
+The Support System MUST integrate with:
+- User accounts
+- Organizations
+- Subscriptions
+- AI Models Registry
+- Service Registry
+- System Logs
+- Billing & Usage
+
+==================================================
+FINAL OUTPUT REQUIRED
+==================================================
+
+1. Support system architecture
+2. Intelligent ticket & chat flow
+3. AI Support Assistant logic
+4. Support Agent Dashboard
+5. Role-based permissions
+6. Example usage flows
+7. Clean separation between AI, UI, and logic
+
+==================================================
+FINAL STATEMENT
+==================================================
+
+This Support System must demonstrate the true intelligence
+and power of Infra Web Nova.
+
+It should feel like:
+"An AI-powered operations command center"
+—not a traditional helpdesk.
+
+This is a production-grade system.
+Do not simplify.
+Do not hardcode.
+Do not build a basic ticketing tool.
