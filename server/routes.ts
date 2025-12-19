@@ -1913,13 +1913,13 @@ export async function registerRoutes(
 
   // ============ Chatbots Routes ============
 
-  // Middleware to check chatbot access (Pro, Enterprise, Sovereign)
+  // Middleware to check chatbot access (Owner, Admin, Pro, Enterprise, Sovereign)
   const requireChatbotAccess = async (req: Request, res: Response, next: NextFunction) => {
     const user = req.session?.user;
     if (!user) {
       return res.status(401).json({ error: "غير مصرح / Unauthorized" });
     }
-    const allowedRoles = ['pro', 'enterprise', 'sovereign'];
+    const allowedRoles = ['owner', 'admin', 'pro', 'enterprise', 'sovereign'];
     if (!allowedRoles.includes(user.role)) {
       return res.status(403).json({ 
         error: "هذه الميزة متاحة لخطط Pro وأعلى فقط / This feature requires Pro plan or higher" 
