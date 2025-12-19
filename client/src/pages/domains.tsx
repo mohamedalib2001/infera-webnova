@@ -362,6 +362,8 @@ export default function DomainsPage() {
     apiKey: "",
     clientIp: "",
     sandbox: false,
+    permissions: "",
+    storage: "database",
   });
   const [detectedIp, setDetectedIp] = useState<string | null>(null);
   const [isDetectingIp, setIsDetectingIp] = useState(false);
@@ -671,6 +673,33 @@ export default function DomainsPage() {
           data-testid="checkbox-sandbox"
         />
         <Label htmlFor="sandbox">{t.settings.sandbox}</Label>
+      </div>
+      <div className="space-y-2">
+        <Label>{language === 'ar' ? 'الصلاحيات' : 'Permissions'}</Label>
+        <Input
+          value={namecheapSettings.permissions || ''}
+          onChange={(e) => setNamecheapSettings(prev => ({ ...prev, permissions: e.target.value }))}
+          placeholder={language === 'ar' ? 'مثال: domains,dns,ssl' : 'e.g., domains,dns,ssl'}
+          data-testid="input-permissions"
+        />
+        <p className="text-xs text-muted-foreground">
+          {language === 'ar' ? 'الصلاحيات المفعلة في حساب Namecheap API' : 'Permissions enabled in your Namecheap API account'}
+        </p>
+      </div>
+      <div className="space-y-2">
+        <Label>{language === 'ar' ? 'طريقة التخزين' : 'Storage'}</Label>
+        <Select 
+          value={namecheapSettings.storage || 'database'} 
+          onValueChange={(value) => setNamecheapSettings(prev => ({ ...prev, storage: value }))}
+        >
+          <SelectTrigger data-testid="select-storage">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="database">{language === 'ar' ? 'قاعدة البيانات (مشفر)' : 'Database (Encrypted)'}</SelectItem>
+            <SelectItem value="env">{language === 'ar' ? 'متغيرات البيئة' : 'Environment Variables'}</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
     </div>
   );
