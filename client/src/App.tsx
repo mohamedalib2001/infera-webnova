@@ -150,12 +150,12 @@ function AppContent() {
   };
 
   return (
-    <div dir={isRtl ? "rtl" : "ltr"}>
+    <div dir={isRtl ? "rtl" : "ltr"} className="h-screen overflow-hidden">
       <SidebarProvider style={style as React.CSSProperties}>
         <div className="flex h-screen w-full">
           <AppSidebar side={isRtl ? "right" : "left"} />
           <div className="flex flex-col flex-1 min-w-0">
-            <header className="flex items-center justify-between gap-2 p-3 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
+            <header className="flex items-center justify-between gap-2 p-3 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50 h-16">
               <SidebarTrigger data-testid="button-sidebar-toggle" />
               <div className="flex items-center gap-2">
                 <NotificationBell />
@@ -163,7 +163,7 @@ function AppContent() {
                 <ThemeToggle />
               </div>
             </header>
-            <main className="flex-1 overflow-auto">
+            <main className="flex-1 overflow-auto w-full">
               <Router />
             </main>
           </div>
