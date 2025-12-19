@@ -1,7 +1,7 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { User, Sparkles, Clock } from "lucide-react";
+import { User, Sparkles, Clock, Bot } from "lucide-react";
 import type { ChatMessage as ChatMessageType } from "@shared/schema";
 
 interface ChatMessageProps {
@@ -47,6 +47,15 @@ export function ChatMessage({ message, onSuggestionClick }: ChatMessageProps) {
         >
           <p className="text-sm whitespace-pre-wrap">{message.content}</p>
         </div>
+        
+        {!isUser && message.modelInfo && (
+          <div className="flex items-center gap-1.5 mt-1 text-[10px] text-muted-foreground">
+            <Bot className="h-3 w-3" />
+            <span>{message.modelInfo.name}</span>
+            <span className="opacity-50">•</span>
+            <span>{message.modelInfo.provider}</span>
+          </div>
+        )}
         
         {!isUser && message.suggestions && message.suggestions.length > 0 && (
           <div className="flex flex-col gap-2 mt-2 w-full">

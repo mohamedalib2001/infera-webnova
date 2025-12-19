@@ -698,6 +698,10 @@ export interface ChatMessage {
   timestamp: Date;
   status?: 'sending' | 'queued' | 'done';
   suggestions?: string[];
+  modelInfo?: {
+    name: string;
+    provider: string;
+  };
 }
 
 // Auth types

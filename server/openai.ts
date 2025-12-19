@@ -131,7 +131,22 @@ ${context ? `\nسياق المشروع الحالي:\n${context}` : ""}
     }
     jsonStr = jsonStr.trim();
 
-    const result = JSON.parse(jsonStr);
+    // Try parsing, if fails try to fix truncated JSON
+    let result;
+    try {
+      result = JSON.parse(jsonStr);
+    } catch (parseError) {
+      console.log("[generateWebsiteCode] Initial JSON parse failed, attempting to fix truncated JSON");
+      const fixedJson = fixTruncatedJson(jsonStr);
+      try {
+        result = JSON.parse(fixedJson);
+        console.log("[generateWebsiteCode] Fixed JSON parsed successfully");
+      } catch (fixError) {
+        console.error("[generateWebsiteCode] Could not fix JSON:", fixError);
+        throw parseError;
+      }
+    }
+    
     return {
       html: result.html || "",
       css: result.css || "",
@@ -149,6 +164,96 @@ export interface SmartChatResponse {
   message: string;
   code?: GeneratedCode;
   suggestions?: string[];
+  modelInfo?: {
+    name: string;
+    provider: string;
+  };
+}
+
+// Helper function to fix truncated JSON from AI responses
+function fixTruncatedJson(jsonStr: string): string {
+  let str = jsonStr.trim();
+  
+  // Remove trailing backslash if present (common truncation issue)
+  while (str.endsWith('\\')) {
+    str = str.slice(0, -1);
+  }
+  
+  // Track state through the JSON
+  let braceCount = 0;
+  let bracketCount = 0;
+  let inString = false;
+  let lastChar = '';
+  
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i];
+    
+    // Handle escape sequences
+    if (lastChar === '\\') {
+      lastChar = '';
+      continue;
+    }
+    
+    if (char === '\\') {
+      lastChar = '\\';
+      continue;
+    }
+    
+    if (char === '"') {
+      inString = !inString;
+    } else if (!inString) {
+      if (char === '{') braceCount++;
+      else if (char === '}') braceCount--;
+      else if (char === '[') bracketCount++;
+      else if (char === ']') bracketCount--;
+    }
+    
+    lastChar = char;
+  }
+  
+  // If string ends with escape char, remove it
+  if (lastChar === '\\') {
+    str = str.slice(0, -1);
+  }
+  
+  // If we're in an unterminated string, close it
+  if (inString) {
+    str += '"';
+  }
+  
+  // Remove trailing comma before closing (invalid JSON)
+  str = str.replace(/,(\s*)$/, '$1');
+  
+  // Check if we need to complete a partial key-value pair
+  // e.g., {"key": "value", "partialKey" -> needs ": ""
+  const lastColon = str.lastIndexOf(':');
+  const lastQuote = str.lastIndexOf('"');
+  const lastBrace = Math.max(str.lastIndexOf('{'), str.lastIndexOf(','));
+  
+  // If there's a key without value (pattern: "key" at end or "key": at end)
+  if (lastQuote > lastColon && lastQuote > lastBrace) {
+    // Check if we're in a position where value is expected
+    const afterQuote = str.slice(lastQuote + 1).trim();
+    if (afterQuote === '' || afterQuote === ':') {
+      if (afterQuote === '') {
+        str += ': ""';
+      } else {
+        str += ' ""';
+      }
+    }
+  }
+  
+  // Close any unclosed brackets/braces
+  while (bracketCount > 0) {
+    str += ']';
+    bracketCount--;
+  }
+  while (braceCount > 0) {
+    str += '}';
+    braceCount--;
+  }
+  
+  return str;
 }
 
 export interface ChatMessage {
@@ -317,6 +422,12 @@ export async function smartChat(
 ): Promise<SmartChatResponse> {
   const hasExistingCode = !!(projectContext?.htmlCode && projectContext.htmlCode.length > 10);
   
+  // Model info to include in all responses
+  const modelInfo = {
+    name: DEFAULT_ANTHROPIC_MODEL,
+    provider: "Anthropic"
+  };
+  
   const { intent, codeRequest } = await analyzeIntent(prompt, hasExistingCode);
   
   if (intent === "conversation" || intent === "help") {
@@ -324,7 +435,8 @@ export async function smartChat(
     return {
       type: intent,
       message: response.message,
-      suggestions: response.suggestions
+      suggestions: response.suggestions,
+      modelInfo
     };
   }
   
@@ -335,13 +447,15 @@ export async function smartChat(
         type: "code_generation",
         message: code.message,
         code: code,
-        suggestions: ["عدل التصميم", "أضف ميزات جديدة", "غير الألوان"]
+        suggestions: ["عدل التصميم", "أضف ميزات جديدة", "غير الألوان"],
+        modelInfo
       };
     } catch (error) {
       return {
         type: "conversation",
         message: "حدث خطأ أثناء إنشاء الكود. يرجى المحاولة مرة أخرى.\n\nError generating code. Please try again.",
-        suggestions: ["حاول مرة أخرى"]
+        suggestions: ["حاول مرة أخرى"],
+        modelInfo
       };
     }
   }
@@ -358,13 +472,15 @@ export async function smartChat(
         type: "code_refinement",
         message: code.message,
         code: code,
-        suggestions: ["استمر في التعديل", "احفظ المشروع", "معاينة"]
+        suggestions: ["استمر في التعديل", "احفظ المشروع", "معاينة"],
+        modelInfo
       };
     } catch (error) {
       return {
         type: "conversation",
         message: "حدث خطأ أثناء تعديل الكود. يرجى المحاولة مرة أخرى.\n\nError refining code. Please try again.",
-        suggestions: ["حاول مرة أخرى"]
+        suggestions: ["حاول مرة أخرى"],
+        modelInfo
       };
     }
   }
@@ -373,7 +489,8 @@ export async function smartChat(
   return {
     type: "conversation",
     message: response.message,
-    suggestions: response.suggestions
+    suggestions: response.suggestions,
+    modelInfo
   };
 }
 

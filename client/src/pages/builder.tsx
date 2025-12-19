@@ -203,6 +203,10 @@ export default function Builder() {
     message: string;
     code?: GenerateCodeResponse;
     suggestions?: string[];
+    modelInfo?: {
+      name: string;
+      provider: string;
+    };
   }
 
   const processMessage = async (content: string) => {
@@ -251,6 +255,7 @@ export default function Builder() {
         content: data.message,
         timestamp: new Date(),
         suggestions: data.suggestions,
+        modelInfo: data.modelInfo,
       };
       
       setMessages((prev) => [...prev, aiMessage]);
