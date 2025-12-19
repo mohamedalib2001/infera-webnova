@@ -263,72 +263,124 @@ export interface ChatMessage {
 
 export async function analyzeIntent(
   prompt: string,
-  hasExistingCode: boolean = false
+  hasExistingCode: boolean = false,
+  conversationHistory: ChatMessage[] = []
 ): Promise<{ intent: "conversation" | "code_generation" | "code_refinement" | "help"; codeRequest?: string }> {
+  const anthropic = await getAnthropicClientAsync();
+  
+  // If no API available, use basic pattern matching as fallback
+  if (!anthropic) {
+    return analyzeIntentFallback(prompt, hasExistingCode);
+  }
+  
+  // Build context from conversation history
+  const historyContext = conversationHistory.slice(-6).map(m => 
+    `${m.role === 'user' ? 'المستخدم' : 'المساعد'}: ${m.content}`
+  ).join('\n');
+  
+  const systemPrompt = `أنت محلل نوايا ذكي. مهمتك تحديد ما يريده المستخدم بالضبط.
+
+## أنواع النوايا:
+1. "conversation" - المستخدم يسأل سؤال، يريد شرح، يتحدث، يستفسر، يناقش
+2. "code_generation" - المستخدم يريد إنشاء موقع/منصة/تطبيق جديد من الصفر
+3. "code_refinement" - المستخدم يريد تعديل كود موجود (فقط إذا كان هناك كود موجود)
+
+## قواعد مهمة جداً:
+- إذا قال المستخدم "عاوز اسألك" أو "سؤال" أو "كيف" = conversation
+- إذا ذكر المستخدم أنه سيفعل شيء في المستقبل (راح، سوف، بكرة) = conversation
+- إذا كان يتحدث عن خططه فقط = conversation
+- فقط إذا طلب صراحة "أنشئ لي" أو "اعمل لي" الآن = code_generation
+
+## هل يوجد كود حالي؟ ${hasExistingCode ? 'نعم' : 'لا'}
+
+رد بـ JSON فقط:
+{"intent": "conversation|code_generation|code_refinement", "reason": "سبب قصير"}`;
+
+  const userMessage = historyContext 
+    ? `سياق المحادثة السابقة:\n${historyContext}\n\nالرسالة الحالية: ${prompt}`
+    : `الرسالة: ${prompt}`;
+
+  try {
+    console.log("[AnalyzeIntent] Using AI to analyze intent...");
+    
+    const response = await anthropic.messages.create({
+      model: DEFAULT_ANTHROPIC_MODEL,
+      max_tokens: 200,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userMessage }],
+    });
+
+    const textContent = response.content.find(c => c.type === 'text');
+    if (!textContent || textContent.type !== 'text') {
+      return analyzeIntentFallback(prompt, hasExistingCode);
+    }
+
+    let jsonStr = textContent.text.trim();
+    if (jsonStr.startsWith('```json')) jsonStr = jsonStr.slice(7);
+    if (jsonStr.startsWith('```')) jsonStr = jsonStr.slice(3);
+    if (jsonStr.endsWith('```')) jsonStr = jsonStr.slice(0, -3);
+    jsonStr = jsonStr.trim();
+
+    const result = JSON.parse(jsonStr);
+    const intent = result.intent as "conversation" | "code_generation" | "code_refinement" | "help";
+    
+    console.log(`[AnalyzeIntent] AI decision: ${intent} (${result.reason})`);
+    
+    // Validate the intent
+    if (!["conversation", "code_generation", "code_refinement", "help"].includes(intent)) {
+      return { intent: "conversation" };
+    }
+    
+    // Don't allow code_refinement if no existing code
+    if (intent === "code_refinement" && !hasExistingCode) {
+      return { intent: "conversation" };
+    }
+    
+    return { intent, codeRequest: intent !== "conversation" ? prompt : undefined };
+  } catch (error) {
+    console.error("[AnalyzeIntent] AI analysis failed, using fallback:", error);
+    return analyzeIntentFallback(prompt, hasExistingCode);
+  }
+}
+
+function analyzeIntentFallback(
+  prompt: string,
+  hasExistingCode: boolean
+): { intent: "conversation" | "code_generation" | "code_refinement" | "help"; codeRequest?: string } {
   const lowerPrompt = prompt.toLowerCase();
   
-  // FIRST: Check for question/conversation patterns - these take PRIORITY
+  // Question patterns take priority
   const questionPatterns = [
-    // Arabic question patterns
-    'سؤال', 'اسألك', 'أسألك', 'اسأل', 'أسأل', 'استفسار', 'ممكن اعرف', 'كيف', 'لماذا', 'ما هو', 'ما هي', 'ماذا', 'هل',
-    'وضح', 'اشرح', 'فسر', 'علمني', 'ايش', 'شو', 'ليش', 'عرفني', 'اخبرني', 'قولي',
-    'فهمني', 'ساعدني افهم', 'محتاج افهم', 'عندي سؤال', 'ودي اسأل', 'ابي اسأل', 'عاوز اسأل', 'اريد اسأل',
-    // English question patterns
-    'question', 'ask you', 'can you explain', 'what is', 'what are', 'how do', 'how can', 'why', 'tell me about',
-    'explain', 'help me understand', 'i want to know', 'could you', 'would you', 'can i ask', 'i have a question',
-    '?', '؟'
+    'سؤال', 'اسألك', 'أسألك', 'اسأل', 'أسأل', 'كيف', 'لماذا', 'ما هو', 'ما هي', 'ماذا', 'هل',
+    'اشرح', 'علمني', 'عاوز اسأل', 'عندي سؤال', 'راح', 'سوف', 'بكرة', 'لاحقاً',
+    'question', 'ask you', 'what is', 'how do', 'how can', 'why', 'explain', '?', '؟'
   ];
   
-  // Check if this is clearly a question/conversation
-  const isQuestion = questionPatterns.some(pattern => 
-    prompt.includes(pattern) || lowerPrompt.includes(pattern)
-  );
-  
-  // If the prompt contains clear question words, prioritize conversation
-  if (isQuestion) {
-    console.log("[AnalyzeIntent] -> conversation (question detected)");
+  if (questionPatterns.some(p => prompt.includes(p) || lowerPrompt.includes(p))) {
+    console.log("[AnalyzeIntent Fallback] -> conversation");
     return { intent: "conversation" };
   }
   
-  // Keywords for code refinement - check before generation
-  const codeRefineKeywords = [
-    'عدل', 'غير', 'حسن', 'طور', 'أضف', 'اضف', 'احذف', 'ازل', 'كبر', 'صغر',
-    'modify', 'change', 'improve', 'update', 'add', 'remove', 'delete', 'fix', 'adjust', 'enhance'
-  ];
-  
-  // Check for code refinement first
-  const hasRefineKeyword = codeRefineKeywords.some(kw => prompt.includes(kw) || lowerPrompt.includes(kw));
-  
-  if (hasRefineKeyword && hasExistingCode) {
-    console.log("[AnalyzeIntent] -> code_refinement");
+  // Code refinement
+  const refineKeywords = ['عدل', 'غير', 'حسن', 'أضف', 'احذف', 'modify', 'change', 'add', 'remove', 'fix'];
+  if (hasExistingCode && refineKeywords.some(k => prompt.includes(k) || lowerPrompt.includes(k))) {
+    console.log("[AnalyzeIntent Fallback] -> code_refinement");
     return { intent: "code_refinement", codeRequest: prompt };
   }
   
-  // Strong code generation patterns (explicit requests only)
-  const strongCodeGenPatterns = [
-    // Arabic strong patterns - require action verb + "لي" (for me) or direct request
-    'أنشئ لي', 'انشئ لي', 'اصنع لي', 'ابني لي', 'صمم لي', 'اعمل لي', 'سوي لي',
-    'أنشئ منصة', 'انشئ منصة', 'اصنع منصة', 'ابني منصة', 'صمم منصة', 'اعمل منصة',
-    'أنشئ موقع', 'انشئ موقع', 'اصنع موقع', 'ابني موقع', 'صمم موقع', 'اعمل موقع',
-    'أريد منصة', 'عاوز منصة', 'ابغى منصة', 'اريد موقع', 'عاوز موقع', 'ابغى موقع',
-    // English strong patterns
-    'create a', 'build a', 'make a', 'design a', 'generate a', 'develop a',
-    'create me', 'build me', 'make me', 'design me',
-    'i want a website', 'i need a platform', 'i want to create', 'i need to build'
+  // Strong code generation patterns
+  const codeGenPatterns = [
+    'أنشئ لي', 'انشئ لي', 'اصنع لي', 'ابني لي', 'صمم لي', 'اعمل لي',
+    'أريد منصة', 'عاوز منصة', 'اريد موقع', 'عاوز موقع',
+    'create a', 'build a', 'make a', 'design a', 'i want a website', 'i need a platform'
   ];
   
-  const hasStrongPattern = strongCodeGenPatterns.some(pattern => 
-    prompt.includes(pattern) || lowerPrompt.includes(pattern)
-  );
-  
-  // Only trigger code generation if we have a strong explicit pattern
-  if (hasStrongPattern) {
-    console.log(`[AnalyzeIntent] -> code_generation (strong pattern detected)`);
+  if (codeGenPatterns.some(p => prompt.includes(p) || lowerPrompt.includes(p))) {
+    console.log("[AnalyzeIntent Fallback] -> code_generation");
     return { intent: "code_generation", codeRequest: prompt };
   }
   
-  // Default to conversation for everything else
-  console.log("[AnalyzeIntent] -> conversation (default)");
+  console.log("[AnalyzeIntent Fallback] -> conversation (default)");
   return { intent: "conversation" };
 }
 
@@ -455,7 +507,7 @@ export async function smartChat(
     provider: "Anthropic"
   };
   
-  const { intent, codeRequest } = await analyzeIntent(prompt, hasExistingCode);
+  const { intent, codeRequest } = await analyzeIntent(prompt, hasExistingCode, conversationHistory);
   
   if (intent === "conversation" || intent === "help") {
     const response = await conversationalResponse(prompt, conversationHistory);
