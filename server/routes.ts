@@ -3217,6 +3217,257 @@ export async function registerRoutes(
     }
   });
 
+  // ============ AI Model Registry APIs (Owner Only) ============
+  
+  // Get all AI models
+  app.get("/api/owner/ai-models", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { aiModelRegistry } = await import("./ai-model-registry");
+      const models = await aiModelRegistry.getAllModels();
+      res.json(models);
+    } catch (error: any) {
+      console.error("Get AI models error:", error);
+      res.status(500).json({ error: error.message || "فشل في جلب النماذج" });
+    }
+  });
+
+  // Get active AI models
+  app.get("/api/owner/ai-models/active", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { aiModelRegistry } = await import("./ai-model-registry");
+      const models = await aiModelRegistry.getActiveModels();
+      res.json(models);
+    } catch (error: any) {
+      console.error("Get active models error:", error);
+      res.status(500).json({ error: error.message || "فشل في جلب النماذج النشطة" });
+    }
+  });
+
+  // Create new AI model
+  app.post("/api/owner/ai-models", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { aiModelRegistry } = await import("./ai-model-registry");
+      const model = await aiModelRegistry.createModel(req.body, req.session.userId!);
+      res.json(model);
+    } catch (error: any) {
+      console.error("Create model error:", error);
+      res.status(500).json({ error: error.message || "فشل في إنشاء النموذج" });
+    }
+  });
+
+  // Update AI model
+  app.put("/api/owner/ai-models/:modelId", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { aiModelRegistry } = await import("./ai-model-registry");
+      const { modelId } = req.params;
+      const model = await aiModelRegistry.updateModel(modelId, req.body, req.session.userId!);
+      if (!model) {
+        return res.status(404).json({ error: "النموذج غير موجود / Model not found" });
+      }
+      res.json(model);
+    } catch (error: any) {
+      console.error("Update model error:", error);
+      res.status(500).json({ error: error.message || "فشل في تحديث النموذج" });
+    }
+  });
+
+  // Toggle AI model active status
+  app.patch("/api/owner/ai-models/:modelId/toggle", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { aiModelRegistry } = await import("./ai-model-registry");
+      const { modelId } = req.params;
+      const { isActive } = req.body;
+      await aiModelRegistry.setModelActive(modelId, isActive);
+      res.json({ success: true, message: isActive ? "تم تفعيل النموذج" : "تم إيقاف النموذج" });
+    } catch (error: any) {
+      console.error("Toggle model error:", error);
+      res.status(500).json({ error: error.message || "فشل في تبديل حالة النموذج" });
+    }
+  });
+
+  // Set default model
+  app.patch("/api/owner/ai-models/:modelId/set-default", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { aiModelRegistry } = await import("./ai-model-registry");
+      const { modelId } = req.params;
+      await aiModelRegistry.setDefaultModel(modelId);
+      res.json({ success: true, message: "تم تعيين النموذج الافتراضي / Default model set" });
+    } catch (error: any) {
+      console.error("Set default model error:", error);
+      res.status(500).json({ error: error.message || "فشل في تعيين النموذج الافتراضي" });
+    }
+  });
+
+  // Delete AI model
+  app.delete("/api/owner/ai-models/:modelId", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { aiModelRegistry } = await import("./ai-model-registry");
+      const { modelId } = req.params;
+      await aiModelRegistry.deleteModel(modelId);
+      res.json({ success: true, message: "تم حذف النموذج / Model deleted" });
+    } catch (error: any) {
+      console.error("Delete model error:", error);
+      res.status(500).json({ error: error.message || "فشل في حذف النموذج" });
+    }
+  });
+
+  // ============ AI Service Configurations APIs ============
+
+  // Get all service configurations
+  app.get("/api/owner/ai-services", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { aiModelRegistry } = await import("./ai-model-registry");
+      const configs = await aiModelRegistry.getServiceConfigs();
+      res.json(configs);
+    } catch (error: any) {
+      console.error("Get service configs error:", error);
+      res.status(500).json({ error: error.message || "فشل في جلب تكوينات الخدمات" });
+    }
+  });
+
+  // Upsert service configuration
+  app.post("/api/owner/ai-services", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { aiModelRegistry } = await import("./ai-model-registry");
+      const config = await aiModelRegistry.upsertServiceConfig({
+        ...req.body,
+        updatedBy: req.session.userId,
+      });
+      res.json(config);
+    } catch (error: any) {
+      console.error("Upsert service config error:", error);
+      res.status(500).json({ error: error.message || "فشل في تحديث تكوين الخدمة" });
+    }
+  });
+
+  // ============ AI Global Settings APIs ============
+
+  // Get global AI settings
+  app.get("/api/owner/ai-global-settings", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { aiModelRegistry } = await import("./ai-model-registry");
+      const settings = await aiModelRegistry.getGlobalSettings();
+      res.json(settings || {
+        emergencyKillSwitch: false,
+        enableAutoFallback: true,
+        maxFallbackAttempts: 3,
+        globalRateLimitPerMinute: 60,
+        dailyCostLimitUsd: 100,
+        monthlyCostLimitUsd: 2000,
+      });
+    } catch (error: any) {
+      console.error("Get global settings error:", error);
+      res.status(500).json({ error: error.message || "فشل في جلب الإعدادات العامة" });
+    }
+  });
+
+  // Update global AI settings
+  app.put("/api/owner/ai-global-settings", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { aiGlobalSettings: globalSettingsTable } = await import("@shared/schema");
+      
+      // Check if settings exist
+      const [existing] = await db.select().from(globalSettingsTable).limit(1);
+      
+      const settingsData = {
+        ...req.body,
+        updatedBy: req.session.userId,
+        updatedAt: new Date(),
+      };
+
+      let result;
+      if (existing) {
+        [result] = await db.update(globalSettingsTable)
+          .set(settingsData)
+          .where(eq(globalSettingsTable.id, existing.id))
+          .returning();
+      } else {
+        [result] = await db.insert(globalSettingsTable).values(settingsData).returning();
+      }
+
+      res.json(result);
+    } catch (error: any) {
+      console.error("Update global settings error:", error);
+      res.status(500).json({ error: error.message || "فشل في تحديث الإعدادات العامة" });
+    }
+  });
+
+  // Toggle emergency kill switch
+  app.post("/api/owner/ai-kill-switch", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { enabled, reason } = req.body;
+      const { aiGlobalSettings: globalSettingsTable } = await import("@shared/schema");
+      
+      const [existing] = await db.select().from(globalSettingsTable).limit(1);
+      
+      const updateData = {
+        emergencyKillSwitch: enabled,
+        killSwitchReason: enabled ? (reason || 'No reason provided') : null,
+        killSwitchActivatedAt: enabled ? new Date() : null,
+        killSwitchActivatedBy: enabled ? req.session.userId : null,
+        updatedBy: req.session.userId,
+        updatedAt: new Date(),
+      };
+
+      if (existing) {
+        await db.update(globalSettingsTable)
+          .set(updateData)
+          .where(eq(globalSettingsTable.id, existing.id));
+      } else {
+        await db.insert(globalSettingsTable).values(updateData);
+      }
+
+      res.json({ 
+        success: true, 
+        message: enabled 
+          ? "تم تفعيل مفتاح الإيقاف الطارئ / Emergency kill switch activated" 
+          : "تم إيقاف مفتاح الإيقاف الطارئ / Emergency kill switch deactivated" 
+      });
+    } catch (error: any) {
+      console.error("Toggle kill switch error:", error);
+      res.status(500).json({ error: error.message || "فشل في تبديل مفتاح الإيقاف" });
+    }
+  });
+
+  // Validate AI system readiness
+  app.get("/api/owner/ai-system/validate", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { aiModelRegistry } = await import("./ai-model-registry");
+      const validation = await aiModelRegistry.validateSystemReady();
+      res.json(validation);
+    } catch (error: any) {
+      console.error("Validate system error:", error);
+      res.status(500).json({ error: error.message || "فشل في التحقق من النظام" });
+    }
+  });
+
+  // Resolve model for a service (for testing)
+  app.get("/api/owner/ai-services/:serviceName/resolve", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { aiModelRegistry } = await import("./ai-model-registry");
+      const { serviceName } = req.params;
+      const model = await aiModelRegistry.resolveModelForService(serviceName);
+      
+      if (!model) {
+        return res.status(404).json({ error: "لم يتم العثور على نموذج لهذه الخدمة / No model found for service" });
+      }
+      
+      res.json({
+        serviceName,
+        resolvedModel: {
+          modelId: model.modelId,
+          name: model.name,
+          provider: model.provider,
+          isActive: model.isActive,
+          isDefault: model.isDefault,
+        }
+      });
+    } catch (error: any) {
+      console.error("Resolve model error:", error);
+      res.status(500).json({ error: error.message || "فشل في تحليل النموذج" });
+    }
+  });
+
   // ============ Owner User Management APIs ============
 
   // Get all users (owner only)
