@@ -155,8 +155,7 @@ export default function SettingsPage() {
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: { firstName: string; lastName: string }) => {
-      const response = await apiRequest("PATCH", "/api/user/profile", data);
-      return response.json();
+      return await apiRequest("PATCH", "/api/user/profile", data);
     },
     onSuccess: () => {
       toast({
@@ -176,8 +175,7 @@ export default function SettingsPage() {
 
   const changePasswordMutation = useMutation({
     mutationFn: async (data: { currentPassword: string; newPassword: string }) => {
-      const response = await apiRequest("POST", "/api/user/change-password", data);
-      return response.json();
+      return await apiRequest("POST", "/api/user/change-password", data);
     },
     onSuccess: () => {
       toast({
