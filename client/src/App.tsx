@@ -166,6 +166,32 @@ function AppContent() {
             <main className="flex-1 overflow-auto">
               <Router />
             </main>
+            <footer className="border-t bg-gradient-to-r from-background via-muted/30 to-background py-3 px-4">
+              <div className="flex items-center justify-center gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-primary/20 blur-md rounded-full" />
+                    <div className="relative w-6 h-6 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
+                      <span className="text-[10px] font-bold text-primary-foreground">IE</span>
+                    </div>
+                  </div>
+                  <span className="text-sm font-medium bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                    INFERA Engine
+                  </span>
+                </div>
+                <span className="text-muted-foreground/50">|</span>
+                <span className="text-xs text-muted-foreground">
+                  {isRtl 
+                    ? 'تقنيات مبتكرة لعالم رقمي متطور' 
+                    : 'Innovative Technology for an Evolving Digital World'
+                  }
+                </span>
+                <span className="text-muted-foreground/50">|</span>
+                <span className="text-xs text-muted-foreground/70">
+                  © {new Date().getFullYear()} INFERA Engine
+                </span>
+              </div>
+            </footer>
           </div>
         </div>
       </SidebarProvider>
