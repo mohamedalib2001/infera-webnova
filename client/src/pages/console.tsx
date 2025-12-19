@@ -84,7 +84,7 @@ export default function ConsolePage() {
 
   const chatMutation = useMutation({
     mutationFn: async (prompt: string) => {
-      const response = await apiRequest("POST", "/api/smart-chat", {
+      const data = await apiRequest("POST", "/api/smart-chat", {
         prompt,
         mode,
         settings,
@@ -93,7 +93,7 @@ export default function ConsolePage() {
           content: m.content
         }))
       });
-      return response.json();
+      return data;
     },
     onSuccess: (data) => {
       const assistantMessage: ConsoleMessage = {
