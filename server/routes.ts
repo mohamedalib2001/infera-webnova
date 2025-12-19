@@ -8189,6 +8189,10 @@ export async function registerRoutes(
     }
   });
 
+  // ==================== NAMECHEAP DOMAIN MANAGEMENT ====================
+  // Must be registered BEFORE Custom Domains API to avoid route conflicts
+  registerDomainRoutes(app);
+
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
   // Helper: Generate verification token
@@ -8767,9 +8771,6 @@ export async function registerRoutes(
 
   // ==================== SOVEREIGN API KEYS ROUTES ====================
   app.use("/api/api-keys", apiKeysRoutes);
-
-  // ==================== NAMECHEAP DOMAIN MANAGEMENT ====================
-  registerDomainRoutes(app);
 
   // ==================== SOVEREIGN INFRASTRUCTURE MANAGEMENT ====================
   
