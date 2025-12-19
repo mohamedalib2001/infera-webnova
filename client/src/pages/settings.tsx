@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -9,7 +9,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Link } from "wouter";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -153,6 +153,62 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
+  // Notification preferences state
+  const [emailNotifications, setEmailNotifications] = useState(false);
+  const [pushNotifications, setPushNotifications] = useState(false);
+  const [twoFactor, setTwoFactor] = useState(false);
+
+  // Fetch notification preferences
+  const { data: notificationPrefs } = useQuery<{
+    emailNotifications: boolean;
+    pushNotifications: boolean;
+    twoFactor: boolean;
+  }>({
+    queryKey: ["/api/user/notifications"],
+    enabled: isAuthenticated,
+  });
+
+  // Sync notification preferences with fetched data
+  useEffect(() => {
+    if (notificationPrefs) {
+      setEmailNotifications(notificationPrefs.emailNotifications);
+      setPushNotifications(notificationPrefs.pushNotifications);
+      setTwoFactor(notificationPrefs.twoFactor);
+    }
+  }, [notificationPrefs]);
+
+  // Mutation to save notification preferences
+  const saveNotificationsMutation = useMutation({
+    mutationFn: async (data: { emailNotifications: boolean; pushNotifications: boolean; twoFactor: boolean }) => {
+      return await apiRequest("POST", "/api/user/notifications", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user/notifications"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: language === "ar" ? "فشل في حفظ الإعدادات" : "Failed to save settings",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handler for notification toggle
+  const handleNotificationToggle = (type: "email" | "push" | "twoFactor", value: boolean) => {
+    const newPrefs = {
+      emailNotifications: type === "email" ? value : emailNotifications,
+      pushNotifications: type === "push" ? value : pushNotifications,
+      twoFactor: type === "twoFactor" ? value : twoFactor,
+    };
+    
+    if (type === "email") setEmailNotifications(value);
+    if (type === "push") setPushNotifications(value);
+    if (type === "twoFactor") setTwoFactor(value);
+    
+    saveNotificationsMutation.mutate(newPrefs);
+  };
+
   const updateProfileMutation = useMutation({
     mutationFn: async (data: { firstName: string; lastName: string }) => {
       return await apiRequest("PATCH", "/api/user/profile", data);
@@ -283,12 +339,24 @@ export default function SettingsPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <Label htmlFor="email-notifications">{t.options.emailNotifications}</Label>
-              <Switch id="email-notifications" data-testid="switch-email-notifications" />
+              <Switch 
+                id="email-notifications" 
+                data-testid="switch-email-notifications"
+                checked={emailNotifications}
+                onCheckedChange={(checked) => handleNotificationToggle("email", checked)}
+                disabled={saveNotificationsMutation.isPending}
+              />
             </div>
             <Separator />
             <div className="flex items-center justify-between">
               <Label htmlFor="push-notifications">{t.options.pushNotifications}</Label>
-              <Switch id="push-notifications" data-testid="switch-push-notifications" />
+              <Switch 
+                id="push-notifications" 
+                data-testid="switch-push-notifications"
+                checked={pushNotifications}
+                onCheckedChange={(checked) => handleNotificationToggle("push", checked)}
+                disabled={saveNotificationsMutation.isPending}
+              />
             </div>
           </CardContent>
         </Card>
@@ -304,7 +372,13 @@ export default function SettingsPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <Label htmlFor="two-factor">{t.options.twoFactor}</Label>
-              <Switch id="two-factor" data-testid="switch-two-factor" />
+              <Switch 
+                id="two-factor" 
+                data-testid="switch-two-factor"
+                checked={twoFactor}
+                onCheckedChange={(checked) => handleNotificationToggle("twoFactor", checked)}
+                disabled={saveNotificationsMutation.isPending}
+              />
             </div>
             <Separator />
             <div className="flex items-center justify-between">

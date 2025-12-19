@@ -410,7 +410,8 @@ export async function registerRoutes(
       }
       
       // Try to get from system settings
-      const setting = await storage.getSystemSettingByKey(`user_notifications_${userId}`);
+      const settingKey = `user_notifications_${userId}`;
+      const setting = await storage.getSystemSetting(settingKey);
       
       if (setting && setting.value) {
         return res.json(setting.value);
@@ -445,13 +446,14 @@ export async function registerRoutes(
       };
       
       // Check if setting exists
-      const existing = await storage.getSystemSettingByKey(`user_notifications_${userId}`);
+      const settingKey = `user_notifications_${userId}`;
+      const existing = await storage.getSystemSetting(settingKey);
       
       if (existing) {
-        await storage.updateSystemSetting(existing.id, { value: preferences });
+        await storage.updateSystemSetting(settingKey, preferences, userId);
       } else {
         await storage.createSystemSetting({
-          key: `user_notifications_${userId}`,
+          key: settingKey,
           value: preferences,
           category: "user_preferences",
           description: `Notification preferences for user ${userId}`,
