@@ -1,3 +1,4 @@
+import { DEFAULT_ANTHROPIC_MODEL } from "./ai-config";
 import Anthropic from "@anthropic-ai/sdk";
 import { findBestTemplate } from "./premium-templates";
 
@@ -96,7 +97,7 @@ const PLANNER_PROMPT = `You are an expert website architect. Analyze the user's 
 async function createWebsitePlan(userRequest: string): Promise<WebsitePlan> {
   try {
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5",
+      model: DEFAULT_ANTHROPIC_MODEL,
       max_tokens: 2000,
       messages: [{ role: "user", content: userRequest }],
       system: PLANNER_PROMPT,
@@ -249,7 +250,7 @@ async function buildWebsite(
       : generateBuilderPrompt(plan, template);
     
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5",
+      model: DEFAULT_ANTHROPIC_MODEL,
       max_tokens: 16000,
       messages: [{ role: "user", content: `Build this website: ${userRequest}` }],
       system: systemPrompt,
@@ -543,7 +544,7 @@ If code context is provided, use it to give a more accurate answer.`;
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5",
+      model: DEFAULT_ANTHROPIC_MODEL,
       max_tokens: 2000,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],

@@ -1,3 +1,4 @@
+import { DEFAULT_ANTHROPIC_MODEL } from "./ai-config";
 import { storage } from "./storage";
 import type { DevProject, ProjectFile, InsertProjectFile } from "@shared/schema";
 import Anthropic from "@anthropic-ai/sdk";
@@ -158,7 +159,7 @@ Return JSON format:
 
     try {
       const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-5",
+        model: DEFAULT_ANTHROPIC_MODEL,
         max_tokens: 8192,
         messages: [{ role: "user", content: prompt }],
       });
@@ -240,7 +241,7 @@ Return JSON format:
 
     try {
       const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-5",
+        model: DEFAULT_ANTHROPIC_MODEL,
         max_tokens: 8192,
         messages: [{ role: "user", content: prompt }],
       });

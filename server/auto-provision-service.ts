@@ -1,3 +1,4 @@
+import { DEFAULT_ANTHROPIC_MODEL } from "./ai-config";
 import Anthropic from "@anthropic-ai/sdk";
 import type { 
   Project, 
@@ -252,7 +253,7 @@ Return ONLY the TypeScript code, no explanations.`;
 
     try {
       const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-5",
+        model: DEFAULT_ANTHROPIC_MODEL,
         max_tokens: 4000,
         messages: [{ role: "user", content: prompt }],
       });
@@ -292,7 +293,7 @@ Each value should be the TypeScript/HTML code as a string.`;
 
     try {
       const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-5",
+        model: DEFAULT_ANTHROPIC_MODEL,
         max_tokens: 8000,
         messages: [{ role: "user", content: prompt }],
       });

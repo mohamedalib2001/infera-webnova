@@ -1,3 +1,4 @@
+import { DEFAULT_ANTHROPIC_MODEL } from "./ai-config";
 import Anthropic from "@anthropic-ai/sdk";
 
 const anthropic = new Anthropic();
@@ -87,7 +88,7 @@ Return ONLY valid JSON in this exact format:
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5",
+      model: DEFAULT_ANTHROPIC_MODEL,
       max_tokens: 16000,
       messages: [{ role: "user", content: prompt }],
     });

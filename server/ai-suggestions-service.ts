@@ -1,3 +1,4 @@
+import { DEFAULT_ANTHROPIC_MODEL } from "./ai-config";
 import Anthropic from "@anthropic-ai/sdk";
 
 const anthropic = new Anthropic();
@@ -92,7 +93,7 @@ Provide 3-10 actionable suggestions sorted by priority. Be specific and provide 
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5",
+      model: DEFAULT_ANTHROPIC_MODEL,
       max_tokens: 4096,
       messages: [{ role: "user", content: prompt }],
     });

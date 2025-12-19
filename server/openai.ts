@@ -1,16 +1,6 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { getAnthropicClient, DEFAULT_ANTHROPIC_MODEL } from "./ai-config";
 
-let anthropic: Anthropic | null = null;
-
-const anthropicApiKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
-const anthropicBaseUrl = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
-
-if (anthropicApiKey) {
-  anthropic = new Anthropic({ 
-    apiKey: anthropicApiKey,
-    ...(anthropicBaseUrl && { baseURL: anthropicBaseUrl }),
-  });
-}
+const anthropic = getAnthropicClient();
 
 export interface GeneratedCode {
   html: string;
@@ -84,7 +74,7 @@ Important: Only respond with valid JSON. No markdown code blocks or extra text.`
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5",
+      model: DEFAULT_ANTHROPIC_MODEL,
       max_tokens: 8192,
       messages: [
         { role: "user", content: `${systemPrompt}\n\nUser request: ${prompt}` },
@@ -231,7 +221,7 @@ You are Claude, an advanced AI model from Anthropic. Respond intelligently with 
     console.log("[ConversationalResponse] Processing with", messages.length, "messages in context");
     
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5",
+      model: DEFAULT_ANTHROPIC_MODEL,
       max_tokens: 2048,
       system: systemPrompt,
       messages: messages,
@@ -390,7 +380,7 @@ Important: Only respond with valid JSON. No markdown code blocks or extra text.`
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5",
+      model: DEFAULT_ANTHROPIC_MODEL,
       max_tokens: 8192,
       messages: [
         { role: "user", content: systemPrompt },

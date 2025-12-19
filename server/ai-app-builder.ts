@@ -1,3 +1,4 @@
+import { DEFAULT_ANTHROPIC_MODEL } from "./ai-config";
 import Anthropic from "@anthropic-ai/sdk";
 import { storage } from "./storage";
 import type { AiBuildSession, InsertAiBuildSession, InsertAiBuildTask, InsertAiBuildArtifact } from "@shared/schema";
@@ -161,7 +162,7 @@ export async function createBuildPlan(prompt: string, userId?: string): Promise<
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5",
+      model: DEFAULT_ANTHROPIC_MODEL,
       max_tokens: 4096,
       system: PLANNING_SYSTEM_PROMPT,
       messages: [
@@ -281,7 +282,7 @@ export async function executeBuildStep(
     onProgress?.(30, `Generating ${task.taskType} code...`);
 
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5",
+      model: DEFAULT_ANTHROPIC_MODEL,
       max_tokens: 8192,
       system: CODE_GENERATION_SYSTEM_PROMPT,
       messages: [
