@@ -6,7 +6,17 @@ import {
   insertMarketplaceItemSchema,
   insertMarketplaceInstallationSchema
 } from "@shared/schema";
-import { eq, and, sql, desc, asc } from "drizzle-orm";
+import { eq, and, desc, isNotNull, sql, ilike, or } from "drizzle-orm";
+import { z } from "zod";
+
+const installBodySchema = z.object({
+  platformId: z.string().optional()
+});
+
+const rateBodySchema = z.object({
+  rating: z.number().min(1).max(5),
+  review: z.string().optional()
+});
 
 const router = Router();
 
@@ -110,25 +120,29 @@ router.get("/items", async (req: Request, res: Response) => {
   try {
     const { type, category, search } = req.query;
     
-    let items = await db.select().from(marketplaceItems)
-      .where(eq(marketplaceItems.isActive, true))
-      .orderBy(desc(marketplaceItems.downloads));
+    const conditions = [eq(marketplaceItems.isActive, true)];
     
     if (type && type !== "all") {
-      items = items.filter(i => i.type === type);
+      conditions.push(eq(marketplaceItems.type, type as string));
     }
     
     if (category && category !== "all") {
-      items = items.filter(i => i.category === category);
+      conditions.push(eq(marketplaceItems.category, category as string));
     }
     
-    if (search && typeof search === "string") {
-      const searchLower = search.toLowerCase();
-      items = items.filter(i => 
-        i.name.toLowerCase().includes(searchLower) || 
-        i.description.toLowerCase().includes(searchLower)
+    if (search && typeof search === "string" && search.trim()) {
+      const searchPattern = `%${search.trim()}%`;
+      conditions.push(
+        or(
+          ilike(marketplaceItems.name, searchPattern),
+          ilike(marketplaceItems.description, searchPattern)
+        )!
       );
     }
+    
+    const items = await db.select().from(marketplaceItems)
+      .where(and(...conditions))
+      .orderBy(desc(marketplaceItems.downloads));
     
     res.json(items);
   } catch (error) {
@@ -170,7 +184,12 @@ router.post("/install/:itemId", async (req: Request, res: Response) => {
     }
     
     const { itemId } = req.params;
-    const { platformId } = req.body;
+    
+    const parsed = installBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid request", errorAr: "طلب غير صالح" });
+    }
+    const { platformId } = parsed.data;
     
     const item = await db.select().from(marketplaceItems).where(eq(marketplaceItems.id, itemId)).limit(1);
     if (item.length === 0) {
@@ -196,9 +215,7 @@ router.post("/install/:itemId", async (req: Request, res: Response) => {
       isActive: true
     }).returning();
     
-    await db.update(marketplaceItems)
-      .set({ downloads: sql`${marketplaceItems.downloads} + 1` })
-      .where(eq(marketplaceItems.id, itemId));
+    await db.execute(sql`UPDATE marketplace_items SET downloads = COALESCE(downloads, 0) + 1 WHERE id = ${itemId}`);
     
     res.json({ 
       success: true, 
@@ -247,11 +264,12 @@ router.post("/rate/:itemId", async (req: Request, res: Response) => {
     }
     
     const { itemId } = req.params;
-    const { rating, review } = req.body;
     
-    if (!rating || rating < 1 || rating > 5) {
+    const parsed = rateBodySchema.safeParse(req.body);
+    if (!parsed.success) {
       return res.status(400).json({ error: "Rating must be 1-5", errorAr: "التقييم يجب أن يكون من 1 إلى 5" });
     }
+    const { rating, review } = parsed.data;
     
     const installation = await db.select().from(marketplaceInstallations)
       .where(and(
@@ -271,7 +289,7 @@ router.post("/rate/:itemId", async (req: Request, res: Response) => {
       .from(marketplaceInstallations)
       .where(and(
         eq(marketplaceInstallations.itemId, itemId),
-        sql`${marketplaceInstallations.rating} IS NOT NULL`
+        isNotNull(marketplaceInstallations.rating)
       ));
     
     const avgRating = allRatings.reduce((sum, r) => sum + (r.rating || 0), 0) / allRatings.length;
