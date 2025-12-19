@@ -39,7 +39,8 @@ import {
   Clock,
   Play,
   Pause,
-  RotateCcw
+  RotateCcw,
+  Loader2
 } from "lucide-react";
 import { SiHetzner, SiAmazonwebservices, SiGooglecloud, SiDigitalocean } from "react-icons/si";
 import type { InfrastructureProvider, InfrastructureServer, DeploymentRun, InfrastructureBackup } from "@shared/schema";
