@@ -1039,21 +1039,34 @@ export function registerDomainRoutes(app: Express) {
         });
       }
 
-      const { platformId, subdomain, targetAddress, targetPort, sslEnabled } = req.body;
+      const { platformId, subdomain, linkType, targetAddress, targetPort, sslEnabled } = req.body;
       
-      if (!platformId || !targetAddress) {
+      if (!platformId) {
         return res.status(400).json({ 
-          error: "Platform ID and target address required",
-          errorAr: "معرف المنصة وعنوان الهدف مطلوبان"
+          error: "Platform ID required",
+          errorAr: "معرف المنصة مطلوب"
         });
       }
+
+      // Get platform details to fetch target address if not provided
+      const [platform] = await db.select().from(platforms).where(eq(platforms.id, platformId));
+      
+      if (!platform) {
+        return res.status(404).json({ 
+          error: "Platform not found",
+          errorAr: "المنصة غير موجودة"
+        });
+      }
+
+      // Use provided targetAddress or get from platform's primaryUrl
+      const finalTargetAddress = targetAddress || platform.primaryUrl || 'pending-configuration';
 
       const [link] = await db.insert(domainPlatformLinks).values({
         domainId: domain.id,
         platformId,
         subdomain: subdomain || null,
-        targetType: "server",
-        targetAddress,
+        targetType: linkType || "primary",
+        targetAddress: finalTargetAddress,
         targetPort: targetPort || null,
         sslEnabled: sslEnabled !== false,
         isActive: true,

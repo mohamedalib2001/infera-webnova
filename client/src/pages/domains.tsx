@@ -256,7 +256,7 @@ interface NamecheapConfig {
 }
 
 interface Domain {
-  id: number;
+  id: string;
   domainName: string;
   status: string;
   expirationDate?: string;
