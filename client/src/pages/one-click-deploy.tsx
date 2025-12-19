@@ -544,14 +544,17 @@ export default function OneClickDeploy() {
                           {language === "ar" ? "نطاق INFERA الافتراضي" : "Default INFERA Domain"}
                         </div>
                       </SelectItem>
-                      {Array.isArray(domains) && domains.map((domain: any) => (
-                        <SelectItem key={domain.id} value={domain.hostname || domain.id}>
-                          <div className="flex items-center gap-2">
-                            <Globe className="h-4 w-4 text-primary" />
-                            {domain.hostname}
-                          </div>
-                        </SelectItem>
-                      ))}
+                      {Array.isArray(domains) && domains.map((domain: any) => {
+                        const domainDisplayName = domain.domainName || domain.hostname || domain.id;
+                        return (
+                          <SelectItem key={domain.id} value={domainDisplayName}>
+                            <div className="flex items-center gap-2">
+                              <Globe className="h-4 w-4 text-primary" />
+                              {domainDisplayName}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
