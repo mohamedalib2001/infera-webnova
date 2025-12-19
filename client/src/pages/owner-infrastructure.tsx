@@ -233,7 +233,7 @@ export default function OwnerInfrastructure() {
     queryKey: ['/api/owner/infrastructure/available-providers']
   });
 
-  const { data: encryptionStatusData } = useQuery<{ customEncryptionEnabled: boolean; encryptionActive: boolean }>({
+  const { data: encryptionStatusData, isLoading: loadingEncryptionStatus } = useQuery<{ customEncryptionEnabled: boolean; encryptionActive: boolean }>({
     queryKey: ['/api/owner/infrastructure/encryption-status']
   });
 
@@ -1027,43 +1027,52 @@ export default function OwnerInfrastructure() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${encryptionStatusData?.encryptionActive ? 'bg-green-500' : 'bg-red-500'}`} />
-                    <div>
-                      <p className="font-medium">{language === 'ar' ? 'حالة التشفير' : 'Encryption Status'}</p>
-                      <p className="text-sm text-muted-foreground">
+                {loadingEncryptionStatus ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-muted-foreground">{language === 'ar' ? 'جاري التحميل...' : 'Loading...'}</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full ${encryptionStatusData?.encryptionActive ? 'bg-green-500' : 'bg-red-500'}`} />
+                        <div>
+                          <p className="font-medium">{language === 'ar' ? 'حالة التشفير' : 'Encryption Status'}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {encryptionStatusData?.encryptionActive 
+                              ? (language === 'ar' ? 'نشط' : 'Active')
+                              : (language === 'ar' ? 'غير نشط' : 'Inactive')}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge className={encryptionStatusData?.encryptionActive ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}>
                         {encryptionStatusData?.encryptionActive 
-                          ? (language === 'ar' ? 'نشط' : 'Active')
-                          : (language === 'ar' ? 'غير نشط' : 'Inactive')}
-                      </p>
+                          ? (language === 'ar' ? 'مفعّل' : 'Enabled')
+                          : (language === 'ar' ? 'معطّل' : 'Disabled')}
+                      </Badge>
                     </div>
-                  </div>
-                  <Badge className={encryptionStatusData?.encryptionActive ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}>
-                    {encryptionStatusData?.encryptionActive 
-                      ? (language === 'ar' ? 'مفعّل' : 'Enabled')
-                      : (language === 'ar' ? 'معطّل' : 'Disabled')}
-                  </Badge>
-                </div>
 
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${encryptionStatusData?.customEncryptionEnabled ? 'bg-green-500' : 'bg-yellow-500'}`} />
-                    <div>
-                      <p className="font-medium">{language === 'ar' ? 'مفتاح تشفير مخصص' : 'Custom Encryption Key'}</p>
-                      <p className="text-sm text-muted-foreground">
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full ${encryptionStatusData?.customEncryptionEnabled ? 'bg-green-500' : 'bg-yellow-500'}`} />
+                        <div>
+                          <p className="font-medium">{language === 'ar' ? 'مفتاح تشفير مخصص' : 'Custom Encryption Key'}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {encryptionStatusData?.customEncryptionEnabled 
+                              ? (language === 'ar' ? 'تم تكوين INFRA_CREDENTIALS_SECRET' : 'INFRA_CREDENTIALS_SECRET configured')
+                              : (language === 'ar' ? 'يستخدم مفتاح الجلسة الافتراضي' : 'Using default session key')}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge className={encryptionStatusData?.customEncryptionEnabled ? 'bg-green-600 text-white' : 'bg-yellow-600 text-white'}>
                         {encryptionStatusData?.customEncryptionEnabled 
-                          ? (language === 'ar' ? 'تم تكوين INFRA_CREDENTIALS_SECRET' : 'INFRA_CREDENTIALS_SECRET configured')
-                          : (language === 'ar' ? 'يستخدم مفتاح الجلسة الافتراضي' : 'Using default session key')}
-                      </p>
+                          ? (language === 'ar' ? 'مخصص' : 'Custom')
+                          : (language === 'ar' ? 'افتراضي' : 'Default')}
+                      </Badge>
                     </div>
-                  </div>
-                  <Badge className={encryptionStatusData?.customEncryptionEnabled ? 'bg-green-600 text-white' : 'bg-yellow-600 text-white'}>
-                    {encryptionStatusData?.customEncryptionEnabled 
-                      ? (language === 'ar' ? 'مخصص' : 'Custom')
-                      : (language === 'ar' ? 'افتراضي' : 'Default')}
-                  </Badge>
-                </div>
+                  </>
+                )}
 
                 <div className="border-t pt-4">
                   <p className="text-sm text-muted-foreground mb-2">
@@ -1088,7 +1097,12 @@ export default function OwnerInfrastructure() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {providers.filter(p => p.connectionStatus === 'connected').length === 0 ? (
+                {loadingProviders ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-muted-foreground">{language === 'ar' ? 'جاري التحميل...' : 'Loading...'}</span>
+                  </div>
+                ) : providers.filter(p => p.connectionStatus === 'connected').length === 0 ? (
                   <div className="text-center py-4">
                     <Shield className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                     <p className="text-muted-foreground">
