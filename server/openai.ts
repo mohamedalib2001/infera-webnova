@@ -199,35 +199,43 @@ export async function conversationalResponse(
     };
   }
 
+  // Build conversation context string for better understanding
+  const historyContext = conversationHistory.length > 0 
+    ? `\n\n## سجل المحادثة السابقة / Previous Conversation:\n${conversationHistory.slice(-6).map(m => `${m.role === 'user' ? 'المستخدم' : 'المساعد'}: ${m.content}`).join('\n')}`
+    : '';
+
   const systemPrompt = `أنت مساعد ذكي ودود في منصة INFERA WebNova لإنشاء المنصات الرقمية.
 You are a friendly smart assistant for INFERA WebNova digital platform builder.
 
-## قواعدك:
-- رد بشكل ودي ومختصر على التحيات والأسئلة
+## قواعدك الهامة:
+- افهم سياق المحادثة جيداً وتذكر ما قاله المستخدم سابقاً
+- رد بشكل مفيد ومناسب لما يسأل عنه المستخدم
 - استخدم نفس لغة المستخدم (عربي/إنجليزي)
-- اقترح دائماً كيف يمكنك مساعدة المستخدم
-- لا تولد كود - فقط محادثة
+- إذا سأل المستخدم سؤالاً محدداً، أجب عليه مباشرة
+- لا ترد برسالة ترحيب إذا كانت المحادثة جارية بالفعل
+- اقترح خطوات عملية بناءً على احتياجات المستخدم
 
-## ما يمكنك فعله:
+## قدراتك:
 - إنشاء مواقع ويب كاملة
 - تعديل وتحسين المواقع الموجودة
 - شرح المفاهيم التقنية
 - المساعدة في تصميم المشاريع
+- الإجابة على الأسئلة التقنية
+${historyContext}
 
-أجب بـ JSON:
-{"message": "ردك الودي", "suggestions": ["اقتراح 1", "اقتراح 2"]}`;
+## الرسالة الحالية من المستخدم:
+${prompt}
 
-  const messages = [
-    ...conversationHistory.slice(-4).map(m => ({ role: m.role, content: m.content })),
-    { role: "user" as const, content: prompt }
-  ];
+أجب بـ JSON فقط (بدون markdown):
+{"message": "ردك المفيد والمناسب للسياق", "suggestions": ["اقتراح مفيد 1", "اقتراح مفيد 2"]}`;
 
   try {
+    console.log("[ConversationalResponse] Processing with history:", conversationHistory.length, "messages");
+    
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 512,
-      system: systemPrompt,
-      messages: messages,
+      max_tokens: 1024,
+      messages: [{ role: "user", content: systemPrompt }],
     });
 
     const textContent = response.content.find(c => c.type === 'text');
@@ -242,14 +250,22 @@ You are a friendly smart assistant for INFERA WebNova digital platform builder.
     jsonStr = jsonStr.trim();
 
     const result = JSON.parse(jsonStr);
+    console.log("[ConversationalResponse] Success:", result.message?.substring(0, 50));
     return {
-      message: result.message || "مرحباً! كيف يمكنني مساعدتك؟",
-      suggestions: result.suggestions || ["أنشئ موقع جديد", "ساعدني في تعديل موقعي"]
+      message: result.message || "كيف يمكنني مساعدتك؟",
+      suggestions: result.suggestions || ["أخبرني المزيد", "ساعدني في مشروعي"]
     };
-  } catch {
+  } catch (error) {
+    console.error("[ConversationalResponse] Error:", error);
+    // Provide a more context-aware fallback
+    const isArabic = /[\u0600-\u06FF]/.test(prompt);
     return {
-      message: "مرحباً بك في INFERA WebNova! كيف يمكنني مساعدتك اليوم؟\n\nWelcome to INFERA WebNova! How can I help you today?",
-      suggestions: ["أنشئ موقع ويب", "Create a website", "ساعدني", "Help me"]
+      message: isArabic 
+        ? `أفهم أنك تريد: "${prompt}". كيف يمكنني مساعدتك بشكل أفضل؟`
+        : `I understand you're asking about: "${prompt}". How can I help you better?`,
+      suggestions: isArabic 
+        ? ["أخبرني المزيد", "أنشئ موقع ويب", "ساعدني"]
+        : ["Tell me more", "Create a website", "Help me"]
     };
   }
 }
