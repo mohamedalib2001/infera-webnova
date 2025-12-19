@@ -41,7 +41,6 @@ import {
   Mail,
   SquareTerminal,
   Headphones,
-  HeadphonesIcon,
 } from "lucide-react";
 import {
   Sidebar,
@@ -400,7 +399,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                       <SidebarMenuItem>
                         <SidebarMenuButton asChild isActive={location === "/support/agent"}>
                           <Link href="/support/agent" data-testid="nav-support-agent">
-                            <HeadphonesIcon className="h-4 w-4 text-green-500" />
+                            <Headphones className="h-4 w-4 text-green-500" />
                             <span>{language === "ar" ? "لوحة الدعم" : "Support Dashboard"}</span>
                           </Link>
                         </SidebarMenuButton>
