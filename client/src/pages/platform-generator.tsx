@@ -323,7 +323,15 @@ export default function PlatformGenerator() {
             <div className="text-center py-8 text-muted-foreground">
               <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p>{text.noProjects}</p>
-              <p className="text-sm">{text.createFirst}</p>
+              <p className="text-sm mb-4">{text.createFirst}</p>
+              <Button 
+                variant="default"
+                onClick={() => window.location.href = "/cloud-ide"}
+                data-testid="button-go-to-ide"
+              >
+                <Code className="w-4 h-4 mr-2" />
+                {language === "ar" ? "انتقل إلى Cloud IDE" : "Go to Cloud IDE"}
+              </Button>
             </div>
           ) : (
             <Select value={selectedProject} onValueChange={setSelectedProject}>
