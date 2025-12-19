@@ -5831,3 +5831,48 @@ export const insertMarketplaceInstallationSchema = createInsertSchema(marketplac
 export type InsertMarketplaceInstallation = z.infer<typeof insertMarketplaceInstallationSchema>;
 export type MarketplaceInstallation = typeof marketplaceInstallations.$inferSelect;
 
+
+// ==================== AI PROVIDER CONFIGURATIONS (Owner Only) ====================
+
+// AI providers supported
+export const aiProviders = ['anthropic', 'openai', 'google', 'meta'] as const;
+export type AIProvider = typeof aiProviders[number];
+
+// Secure AI provider configurations - only accessible by owner
+export const aiProviderConfigs = pgTable("ai_provider_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  provider: text("provider").notNull(), // anthropic, openai, google, etc.
+  displayName: text("display_name").notNull(), // User-friendly name
+  
+  // Encrypted API key - never exposed to client
+  encryptedApiKey: text("encrypted_api_key"),
+  apiKeyPrefix: text("api_key_prefix"), // First 8 chars for display (sk-ant-***)
+  
+  // Configuration
+  isActive: boolean("is_active").notNull().default(false),
+  defaultModel: text("default_model"), // claude-sonnet-4-5, gpt-4o, etc.
+  baseUrl: text("base_url"), // Custom base URL if needed
+  
+  // Metadata
+  lastTestedAt: timestamp("last_tested_at"),
+  lastTestResult: text("last_test_result"), // success, failed
+  lastTestError: text("last_test_error"),
+  
+  // Audit
+  createdBy: varchar("created_by").references(() => users.id),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_ai_provider").on(table.provider),
+]);
+
+export const insertAiProviderConfigSchema = createInsertSchema(aiProviderConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAiProviderConfig = z.infer<typeof insertAiProviderConfigSchema>;
+export type AiProviderConfig = typeof aiProviderConfigs.$inferSelect;
