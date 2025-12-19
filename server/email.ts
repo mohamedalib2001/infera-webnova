@@ -64,18 +64,46 @@ function getEmailWrapper(content: string, isRTL: boolean = false): string {
             </td>
           </tr>
           
-          <!-- Footer -->
+          <!-- Footer - Neural Pulse Design -->
           <tr>
             <td align="center" style="padding-top: 32px;">
-              <table role="presentation" cellpadding="0" cellspacing="0">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(196, 181, 253, 0.15) 50%, rgba(139, 92, 246, 0.1) 100%); border-radius: 12px; border: 1px solid rgba(139, 92, 246, 0.2);">
                 <tr>
-                  <td align="center" style="color: ${BRAND.lightGray}; font-size: 12px; line-height: 1.6;">
-                    <p style="margin: 0;">
-                      ${isRTL ? 'منصة بناء المواقع بالذكاء الاصطناعي' : 'AI-Powered Platform Builder'}
-                    </p>
-                    <p style="margin: 8px 0 0 0;">
-                      &copy; ${new Date().getFullYear()} INFERA WebNova. ${isRTL ? 'جميع الحقوق محفوظة.' : 'All rights reserved.'}
-                    </p>
+                  <td style="padding: 20px;">
+                    <!-- Neural nodes decoration -->
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td align="center">
+                          <!-- Glowing orbs representing neural nodes -->
+                          <span style="display: inline-block; width: 6px; height: 6px; background: radial-gradient(circle, ${BRAND.primary} 0%, transparent 70%); border-radius: 50%; margin: 0 4px; box-shadow: 0 0 8px ${BRAND.primary};"></span>
+                          <span style="display: inline-block; width: 8px; height: 8px; background: radial-gradient(circle, #C4B5FD 0%, transparent 70%); border-radius: 50%; margin: 0 4px; box-shadow: 0 0 10px #C4B5FD;"></span>
+                          <span style="display: inline-block; width: 10px; height: 10px; background: radial-gradient(circle, ${BRAND.primary} 0%, transparent 70%); border-radius: 50%; margin: 0 4px; box-shadow: 0 0 12px ${BRAND.primary};"></span>
+                          <span style="display: inline-block; width: 8px; height: 8px; background: radial-gradient(circle, #C4B5FD 0%, transparent 70%); border-radius: 50%; margin: 0 4px; box-shadow: 0 0 10px #C4B5FD;"></span>
+                          <span style="display: inline-block; width: 6px; height: 6px; background: radial-gradient(circle, ${BRAND.primary} 0%, transparent 70%); border-radius: 50%; margin: 0 4px; box-shadow: 0 0 8px ${BRAND.primary};"></span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td align="center" style="padding-top: 12px;">
+                          <p style="margin: 0; font-size: 13px; font-weight: 600; color: ${BRAND.primary}; letter-spacing: 1px;">
+                            INFERA Engine
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td align="center" style="padding-top: 8px;">
+                          <p style="margin: 0; font-size: 12px; color: ${BRAND.gray}; direction: rtl;">
+                            تقنيات مبتكرة لعالم رقمي متطور
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td align="center" style="padding-top: 12px;">
+                          <p style="margin: 0; font-size: 11px; color: ${BRAND.lightGray};">
+                            &copy; ${new Date().getFullYear()} INFERA Engine
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
               </table>
