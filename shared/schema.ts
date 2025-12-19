@@ -5704,3 +5704,90 @@ export const insertNamecheapOperationLogSchema = createInsertSchema(namecheapOpe
 export type InsertNamecheapOperationLog = z.infer<typeof insertNamecheapOperationLogSchema>;
 export type NamecheapOperationLog = typeof namecheapOperationLogs.$inferSelect;
 
+// ==================== MARKETPLACE ====================
+
+// Marketplace items - templates and extensions
+export const marketplaceItems = pgTable("marketplace_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  description: text("description").notNull(),
+  descriptionAr: text("description_ar"),
+  
+  author: text("author").notNull(),
+  authorId: varchar("author_id").references(() => users.id, { onDelete: "set null" }),
+  
+  type: text("type").notNull().default("template"), // template, extension
+  category: text("category").notNull(), // ecommerce, admin, auth, payment, blog, ai, etc.
+  
+  isPremium: boolean("is_premium").notNull().default(false),
+  price: integer("price").default(0), // in cents
+  
+  downloads: integer("downloads").notNull().default(0),
+  rating: real("rating").default(0),
+  ratingCount: integer("rating_count").default(0),
+  
+  icon: text("icon").default("package"),
+  previewImage: text("preview_image"),
+  sourceUrl: text("source_url"), // GitHub repo or source
+  
+  version: text("version").default("1.0.0"),
+  features: jsonb("features").$type<string[]>().default([]),
+  featuresAr: jsonb("features_ar").$type<string[]>().default([]),
+  
+  isActive: boolean("is_active").notNull().default(true),
+  isFeatured: boolean("is_featured").notNull().default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_marketplace_type").on(table.type),
+  index("IDX_marketplace_category").on(table.category),
+  index("IDX_marketplace_featured").on(table.isFeatured),
+]);
+
+export const insertMarketplaceItemSchema = createInsertSchema(marketplaceItems).omit({
+  id: true,
+  downloads: true,
+  rating: true,
+  ratingCount: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertMarketplaceItem = z.infer<typeof insertMarketplaceItemSchema>;
+export type MarketplaceItem = typeof marketplaceItems.$inferSelect;
+
+// Marketplace installations - tracks which items users have installed
+export const marketplaceInstallations = pgTable("marketplace_installations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  itemId: varchar("item_id").references(() => marketplaceItems.id, { onDelete: "cascade" }).notNull(),
+  
+  platformId: varchar("platform_id").references(() => platforms.id, { onDelete: "set null" }),
+  
+  installedVersion: text("installed_version").default("1.0.0"),
+  
+  rating: integer("rating"), // User's rating 1-5
+  review: text("review"),
+  
+  isActive: boolean("is_active").notNull().default(true),
+  
+  installedAt: timestamp("installed_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_installation_user").on(table.userId),
+  index("IDX_installation_item").on(table.itemId),
+]);
+
+export const insertMarketplaceInstallationSchema = createInsertSchema(marketplaceInstallations).omit({
+  id: true,
+  installedAt: true,
+  updatedAt: true,
+});
+
+export type InsertMarketplaceInstallation = z.infer<typeof insertMarketplaceInstallationSchema>;
+export type MarketplaceInstallation = typeof marketplaceInstallations.$inferSelect;
+
