@@ -195,8 +195,13 @@ export async function sendOTPEmail(
       },
     });
     
+    // Format sender address properly: "Display Name <email@domain.com>"
+    const fromAddress = config.from && config.from.includes('@') 
+      ? config.from 
+      : `${config.from || 'INFERA WebNova'} <${config.user}>`;
+    
     await transporter.sendMail({
-      from: config.from,
+      from: fromAddress,
       to,
       subject,
       html,
@@ -271,8 +276,13 @@ export async function sendWelcomeEmail(
       },
     });
     
+    // Format sender address properly: "Display Name <email@domain.com>"
+    const fromAddress = config.from && config.from.includes('@') 
+      ? config.from 
+      : `${config.from || 'INFERA WebNova'} <${config.user}>`;
+    
     await transporter.sendMail({
-      from: config.from,
+      from: fromAddress,
       to,
       subject,
       html,
@@ -335,8 +345,13 @@ export async function sendTestEmail(
       },
     });
     
+    // Format sender address properly: "Display Name <email@domain.com>"
+    const fromAddress = config.from && config.from.includes('@') 
+      ? config.from 
+      : `${config.from || 'INFERA WebNova'} <${config.user}>`;
+    
     await transporter.sendMail({
-      from: config.from,
+      from: fromAddress,
       to,
       subject: "INFERA WebNova - Email Test / اختبار البريد",
       html,
