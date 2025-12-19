@@ -8819,6 +8819,133 @@ export async function registerRoutes(
     }
   });
 
+  // Test Hetzner connection and auto-connect
+  app.post("/api/owner/infrastructure/providers/test-hetzner", requireOwner, async (req, res) => {
+    try {
+      const apiToken = process.env.HETZNER_API_TOKEN;
+      if (!apiToken) {
+        return res.status(400).json({ 
+          success: false, 
+          connected: false,
+          error: "HETZNER_API_TOKEN not configured" 
+        });
+      }
+
+      // Test connection to Hetzner API
+      const response = await fetch("https://api.hetzner.cloud/v1/servers", {
+        headers: {
+          "Authorization": `Bearer ${apiToken}`,
+          "Content-Type": "application/json"
+        }
+      });
+
+      if (!response.ok) {
+        return res.json({ 
+          success: true, 
+          connected: false,
+          error: "Invalid API token or connection failed" 
+        });
+      }
+
+      const data = await response.json();
+      
+      res.json({ 
+        success: true, 
+        connected: true,
+        serverCount: data.servers?.length || 0,
+        message: "Successfully connected to Hetzner Cloud"
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        connected: false,
+        error: error instanceof Error ? error.message : "Connection test failed" 
+      });
+    }
+  });
+
+  // Auto-connect Hetzner provider
+  app.post("/api/owner/infrastructure/providers/connect-hetzner", requireOwner, async (req, res) => {
+    try {
+      const apiToken = process.env.HETZNER_API_TOKEN;
+      if (!apiToken) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "HETZNER_API_TOKEN not configured" 
+        });
+      }
+
+      // Test connection first
+      const testResponse = await fetch("https://api.hetzner.cloud/v1/servers", {
+        headers: {
+          "Authorization": `Bearer ${apiToken}`,
+          "Content-Type": "application/json"
+        }
+      });
+
+      if (!testResponse.ok) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Failed to connect to Hetzner API" 
+        });
+      }
+
+      const serverData = await testResponse.json();
+      
+      // Check if Hetzner provider already exists
+      const existingProviders = await storage.getInfrastructureProviders();
+      const existingHetzner = existingProviders.find(p => p.name === 'hetzner');
+      
+      if (existingHetzner) {
+        // Update existing provider
+        const updated = await storage.updateInfrastructureProvider(existingHetzner.id, {
+          connectionStatus: 'connected',
+          activeServers: serverData.servers?.length || 0,
+          healthScore: 100
+        });
+        return res.json({ success: true, provider: updated, action: 'updated' });
+      }
+
+      // Create new Hetzner provider
+      const provider = await storage.createInfrastructureProvider({
+        name: 'hetzner',
+        displayName: 'Hetzner Cloud',
+        connectionStatus: 'connected',
+        isPrimary: true,
+        activeServers: serverData.servers?.length || 0,
+        totalCostThisMonth: 0,
+        healthScore: 100
+      });
+
+      res.json({ success: true, provider, action: 'created' });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to connect Hetzner" 
+      });
+    }
+  });
+
+  // Check available providers from environment
+  app.get("/api/owner/infrastructure/available-providers", requireOwner, async (req, res) => {
+    const providers = [];
+    
+    if (process.env.HETZNER_API_TOKEN) {
+      providers.push({ name: 'hetzner', displayName: 'Hetzner Cloud', configured: true });
+    }
+    if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+      providers.push({ name: 'aws', displayName: 'Amazon AWS', configured: true });
+    }
+    if (process.env.GOOGLE_CLOUD_KEY) {
+      providers.push({ name: 'gcp', displayName: 'Google Cloud', configured: true });
+    }
+    if (process.env.DIGITALOCEAN_TOKEN) {
+      providers.push({ name: 'digitalocean', displayName: 'DigitalOcean', configured: true });
+    }
+
+    res.json({ success: true, providers });
+  });
+
   // Infrastructure Servers
   app.get("/api/owner/infrastructure/servers", requireOwner, async (req, res) => {
     try {

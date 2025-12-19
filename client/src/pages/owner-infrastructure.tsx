@@ -226,6 +226,50 @@ export default function OwnerInfrastructure() {
     queryKey: ['/api/owner/infrastructure/budgets']
   });
 
+  const { data: availableProvidersData } = useQuery<{ providers: { name: string; displayName: string; configured: boolean }[] }>({
+    queryKey: ['/api/owner/infrastructure/available-providers']
+  });
+
+  const connectHetznerMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/owner/infrastructure/providers/connect-hetzner'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/infrastructure/providers'] });
+      toast({ 
+        title: language === 'ar' ? 'تم ربط Hetzner بنجاح' : 'Hetzner connected successfully',
+        description: language === 'ar' ? 'يمكنك الآن إدارة السيرفرات' : 'You can now manage servers'
+      });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: language === 'ar' ? 'فشل الربط' : 'Connection failed',
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
+  });
+
+  const testHetznerMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/owner/infrastructure/providers/test-hetzner'),
+    onSuccess: (data: any) => {
+      if (data.connected) {
+        toast({ 
+          title: language === 'ar' ? 'الاتصال ناجح' : 'Connection successful',
+          description: language === 'ar' ? `عدد السيرفرات: ${data.serverCount}` : `Server count: ${data.serverCount}`
+        });
+      } else {
+        toast({ 
+          title: language === 'ar' ? 'فشل الاتصال' : 'Connection failed',
+          description: data.error,
+          variant: 'destructive'
+        });
+      }
+    }
+  });
+
+  const availableProviders = availableProvidersData?.providers || [];
+  const hetznerConfigured = availableProviders.some(p => p.name === 'hetzner');
+  const hetznerConnected = providers.some(p => p.name === 'hetzner' && p.connectionStatus === 'connected');
+
   const createProviderMutation = useMutation({
     mutationFn: (data: any) => apiRequest('POST', '/api/owner/infrastructure/providers', data),
     onSuccess: () => {
@@ -406,9 +450,62 @@ export default function OwnerInfrastructure() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Show Hetzner quick connect card if configured but not connected */}
+            {hetznerConfigured && !hetznerConnected && (
+              <Card className="border-dashed border-2 border-primary/50 bg-primary/5" data-testid="card-hetzner-connect">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center gap-3">
+                    <SiHetzner className="w-8 h-8 text-red-500" />
+                    <div>
+                      <CardTitle className="text-base">Hetzner Cloud</CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        {language === 'ar' ? 'مفتاح API جاهز للربط' : 'API key ready to connect'}
+                      </p>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      {language === 'ar' 
+                        ? 'تم العثور على مفتاح HETZNER_API_TOKEN. اضغط للربط واستيراد السيرفرات.'
+                        : 'HETZNER_API_TOKEN found. Click to connect and import servers.'}
+                    </p>
+                    <div className="flex gap-2">
+                      <Button 
+                        onClick={() => connectHetznerMutation.mutate()}
+                        disabled={connectHetznerMutation.isPending}
+                        className="flex-1"
+                        data-testid="button-connect-hetzner"
+                      >
+                        {connectHetznerMutation.isPending ? (
+                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                        )}
+                        {language === 'ar' ? 'ربط الآن' : 'Connect Now'}
+                      </Button>
+                      <Button 
+                        variant="outline"
+                        onClick={() => testHetznerMutation.mutate()}
+                        disabled={testHetznerMutation.isPending}
+                        data-testid="button-test-hetzner"
+                      >
+                        {testHetznerMutation.isPending ? (
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Activity className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
             {loadingProviders ? (
               <div className="col-span-3 text-center py-8 text-muted-foreground">{t.loading}</div>
-            ) : providers.length === 0 ? (
+            ) : providers.length === 0 && !hetznerConfigured ? (
               <div className="col-span-3 text-center py-8 text-muted-foreground">{t.empty}</div>
             ) : (
               providers.map((provider) => (
