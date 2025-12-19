@@ -1487,8 +1487,10 @@ export default function DomainsPage() {
                   return (
                     <div 
                       key={provider.id}
-                    className={`p-4 rounded-lg border transition-all hover-elevate ${colors.bg} ${colors.border} ${
-                      provider.isConfigured ? 'ring-2 ring-primary/20' : ''
+                    className={`p-4 rounded-lg border transition-all hover-elevate ${
+                      provider.isConfigured 
+                        ? 'bg-green-500/10 dark:bg-green-500/15 border-green-500/30' 
+                        : 'bg-red-500/10 dark:bg-red-500/15 border-red-500/30'
                     }`}
                     data-testid={`provider-card-${provider.id}`}
                   >
