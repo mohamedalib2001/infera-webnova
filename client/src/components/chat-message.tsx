@@ -49,13 +49,13 @@ export function ChatMessage({ message, onSuggestionClick }: ChatMessageProps) {
         </div>
         
         {!isUser && message.suggestions && message.suggestions.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-2">
+          <div className="flex flex-col gap-2 mt-2 w-full">
             {message.suggestions.map((suggestion, index) => (
               <Button
                 key={index}
                 variant="outline"
                 size="sm"
-                className="text-xs"
+                className="text-xs text-start whitespace-normal h-auto py-2 justify-start"
                 onClick={() => onSuggestionClick?.(suggestion)}
                 data-testid={`button-suggestion-${index}`}
               >

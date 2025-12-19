@@ -420,7 +420,7 @@ export default function Builder() {
         </div>
         
         {/* Chat Panel - Full width on mobile */}
-        <div className="w-full md:w-[340px] flex flex-col border-t md:border-t-0 md:border-s bg-background max-h-[50vh] md:max-h-none">
+        <div className="w-full md:w-[380px] flex flex-col border-t md:border-t-0 md:border-s bg-background max-h-[50vh] md:max-h-none overflow-hidden">
           <ScrollArea className="flex-1 p-4">
             {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center py-12">
