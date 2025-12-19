@@ -96,6 +96,7 @@ function Router() {
       <Route path="/smart-suggestions" component={SmartSuggestions} />
       <Route path="/deploy" component={OneClickDeploy} />
       <Route path="/ssl" component={SSLCertificates} />
+      <Route path="/ssl-certificates" component={SSLCertificates} />
       <Route path="/backend-generator" component={BackendGenerator} />
       <Route path="/git" component={GitControl} />
       <Route path="/ai-copilot" component={AICopilot} />
