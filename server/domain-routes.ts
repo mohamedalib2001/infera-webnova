@@ -364,6 +364,114 @@ export function registerDomainRoutes(app: Express) {
     });
   });
 
+  // Import domains from Namecheap account
+  app.post("/api/domains/import", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const client = await getNamecheapClient();
+      if (!client) {
+        return res.status(503).json({ 
+          error: "Namecheap API not configured",
+          errorAr: "لم يتم تكوين Namecheap API"
+        });
+      }
+
+      const user = req.session.user!;
+      const domainList = await client.getDomainList();
+      
+      if (!domainList.success || !domainList.data) {
+        return res.status(400).json({ 
+          error: domainList.error || "Failed to fetch domains from Namecheap",
+          errorAr: "فشل جلب النطاقات من Namecheap"
+        });
+      }
+
+      let imported = 0;
+      let skipped = 0;
+      const importedDomains: string[] = [];
+
+      for (const domain of domainList.data) {
+        // Check if domain already exists in database
+        const [existing] = await db.select().from(namecheapDomains)
+          .where(eq(namecheapDomains.domainName, domain.domainName.toLowerCase()));
+        
+        if (existing) {
+          // Update existing domain
+          await db.update(namecheapDomains)
+            .set({
+              namecheapId: domain.domainId,
+              status: domain.isExpired ? 'expired' : 'active',
+              expiresAt: domain.expires ? new Date(domain.expires) : null,
+              isAutoRenew: domain.autoRenew,
+              isLocked: domain.isLocked,
+              whoisGuard: domain.whoisGuard,
+              lastSyncAt: new Date()
+            })
+            .where(eq(namecheapDomains.id, existing.id));
+          skipped++;
+        } else {
+          // Insert new domain
+          const parts = domain.domainName.split('.');
+          const sld = parts[0];
+          const tld = parts.slice(1).join('.');
+          
+          await db.insert(namecheapDomains).values({
+            domainName: domain.domainName.toLowerCase(),
+            sld,
+            tld,
+            ownerId: user.id,
+            status: domain.isExpired ? 'expired' : 'active',
+            registeredAt: domain.created ? new Date(domain.created) : new Date(),
+            expiresAt: domain.expires ? new Date(domain.expires) : null,
+            isAutoRenew: domain.autoRenew,
+            isLocked: domain.isLocked,
+            whoisGuard: domain.whoisGuard,
+            lastSyncAt: new Date()
+          });
+          
+          // Update with namecheapId after insert
+          await db.update(namecheapDomains)
+            .set({ namecheapId: domain.domainId })
+            .where(eq(namecheapDomains.domainName, domain.domainName.toLowerCase()));
+          
+          imported++;
+          importedDomains.push(domain.domainName);
+        }
+      }
+
+      // Log the operation
+      await logDomainOperation(
+        null,
+        'bulk_import',
+        user.id,
+        user.email || null,
+        'import',
+        { imported, skipped, total: domainList.data.length },
+        true,
+        undefined,
+        req.ip || undefined,
+        req.get('user-agent')
+      );
+
+      res.json({
+        success: true,
+        imported,
+        skipped,
+        total: domainList.data.length,
+        importedDomains,
+        message: {
+          en: `Imported ${imported} domains, ${skipped} already existed`,
+          ar: `تم استيراد ${imported} نطاق، ${skipped} موجود مسبقاً`
+        }
+      });
+    } catch (error: any) {
+      console.error("Failed to import domains:", error);
+      res.status(500).json({ 
+        error: error.message || "Failed to import domains",
+        errorAr: "فشل استيراد النطاقات"
+      });
+    }
+  });
+
   // Domain Registrar Providers Management
   app.get("/api/domains/providers", requireAuth, async (req, res) => {
     const providers = domainRegistrarRegistry.listAll();

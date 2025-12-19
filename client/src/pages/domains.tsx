@@ -63,7 +63,9 @@ const translations = {
       links: "ربط المنصات",
     },
     checkDomain: "فحص التوفر",
-    registerDomain: "تسجيل نطاق",
+    registerDomain: "تسجيل نطاق جديد",
+    importDomains: "استيراد نطاقاتي",
+    importing: "جاري الاستيراد...",
     domainName: "اسم النطاق",
     domainPlaceholder: "example.com",
     status: "الحالة",
@@ -156,7 +158,9 @@ const translations = {
       links: "Platform Links",
     },
     checkDomain: "Check Availability",
-    registerDomain: "Register Domain",
+    registerDomain: "Register New Domain",
+    importDomains: "Import My Domains",
+    importing: "Importing...",
     domainName: "Domain Name",
     domainPlaceholder: "example.com",
     status: "Status",
@@ -555,6 +559,34 @@ export default function DomainsPage() {
     },
   });
 
+  const importDomainsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/domains/import');
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        const msg = language === 'ar' 
+          ? `تم استيراد ${data.imported} نطاق، ${data.skipped} موجود مسبقاً`
+          : `Imported ${data.imported} domains, ${data.skipped} already existed`;
+        toast({ title: msg });
+        queryClient.invalidateQueries({ queryKey: ['/api/domains'] });
+      } else {
+        toast({ 
+          title: language === 'ar' ? 'فشل الاستيراد' : 'Import failed', 
+          description: data.errorAr || data.error,
+          variant: 'destructive' 
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: language === 'ar' ? 'فشل استيراد النطاقات' : 'Failed to import domains',
+        variant: 'destructive' 
+      });
+    },
+  });
+
   const addDnsRecordMutation = useMutation({
     mutationFn: async (record: typeof newDnsRecord & { domainId: number }) => {
       return apiRequest('POST', `/api/domains/${record.domainId}/dns`, record);
@@ -776,6 +808,20 @@ export default function DomainsPage() {
             <Settings className="w-3 h-3" />
             {configStatus?.configured ? t.configured : t.notConfigured}
           </Badge>
+          
+          <Button 
+            variant="outline"
+            onClick={() => importDomainsMutation.mutate()}
+            disabled={importDomainsMutation.isPending || !configStatus?.configured}
+            data-testid="button-import-domains"
+          >
+            {importDomainsMutation.isPending ? (
+              <RefreshCw className="w-4 h-4 animate-spin mr-2" />
+            ) : (
+              <RefreshCw className="w-4 h-4 mr-2" />
+            )}
+            {importDomainsMutation.isPending ? t.importing : t.importDomains}
+          </Button>
           
           <Dialog open={showRegisterDialog} onOpenChange={setShowRegisterDialog}>
             <DialogTrigger asChild>
