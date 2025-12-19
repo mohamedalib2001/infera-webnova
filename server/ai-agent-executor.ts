@@ -70,9 +70,9 @@ export class AIAgentExecutor {
   
   private initializeDefaultPricing() {
     this.modelPricing.set('claude-sonnet-4-5', { input: 3, output: 15, markup: 50 });
-    this.modelPricing.set('claude-3-opus-20240229', { input: 15, output: 75, markup: 50 });
-    this.modelPricing.set('claude-3-sonnet-20240229', { input: 3, output: 15, markup: 50 });
-    this.modelPricing.set('claude-3-haiku-20240307', { input: 0.25, output: 1.25, markup: 50 });
+    this.modelPricing.set('claude-opus-4-5', { input: 15, output: 75, markup: 50 });
+    this.modelPricing.set('claude-sonnet-4-5', { input: 3, output: 15, markup: 50 });
+    this.modelPricing.set('claude-haiku-4-5', { input: 0.25, output: 1.25, markup: 50 });
     this.modelPricing.set('gpt-4', { input: 30, output: 60, markup: 50 });
     this.modelPricing.set('gpt-4-turbo', { input: 10, output: 30, markup: 50 });
     this.modelPricing.set('gpt-3.5-turbo', { input: 0.5, output: 1.5, markup: 50 });
@@ -130,14 +130,14 @@ export class AIAgentExecutor {
     
     switch (taskType) {
       case 'analysis':
-        return { model: 'claude-3-opus-20240229', provider: 'anthropic' };
+        return { model: 'claude-opus-4-5', provider: 'anthropic' };
       case 'coding':
       case 'development':
         return { model: 'claude-sonnet-4-5', provider: 'anthropic' };
       case 'long_context':
         return { model: 'claude-sonnet-4-5', provider: 'anthropic' };
       case 'cheap_bulk':
-        return { model: 'claude-3-haiku-20240307', provider: 'anthropic' };
+        return { model: 'claude-haiku-4-5', provider: 'anthropic' };
       default:
         return { model: 'claude-sonnet-4-5', provider: 'anthropic' };
     }
