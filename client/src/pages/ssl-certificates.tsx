@@ -98,6 +98,25 @@ const translations = {
       generate: "إنشاء شهادة",
       generating: "جاري الإنشاء..."
     },
+    csrForm: {
+      title: "إنشاء طلب توقيع شهادة (CSR)",
+      description: "أنشئ CSR لتفعيل شهادة SSL في Namecheap أو أي مزود آخر",
+      domain: "النطاق",
+      domainPlaceholder: "example.com",
+      organization: "اسم المؤسسة (اختياري)",
+      organizationUnit: "القسم (اختياري)",
+      city: "المدينة (اختياري)",
+      state: "المنطقة/الولاية (اختياري)",
+      country: "رمز الدولة",
+      email: "البريد الإلكتروني (اختياري)",
+      generate: "إنشاء CSR",
+      generating: "جاري الإنشاء...",
+      result: "تم إنشاء CSR بنجاح",
+      copyCSR: "نسخ CSR",
+      copyPrivateKey: "نسخ المفتاح الخاص",
+      instructions: "تعليمات",
+      warning: "تحذير: احفظ المفتاح الخاص في مكان آمن - ستحتاجه لتثبيت الشهادة لاحقاً"
+    },
     linkForm: {
       title: "ربط الشهادة بمنصة",
       selectPlatform: "اختر المنصة",
@@ -187,6 +206,25 @@ const translations = {
       generate: "Generate Certificate",
       generating: "Generating..."
     },
+    csrForm: {
+      title: "Generate Certificate Signing Request (CSR)",
+      description: "Create a CSR to activate an SSL certificate on Namecheap or other providers",
+      domain: "Domain",
+      domainPlaceholder: "example.com",
+      organization: "Organization (optional)",
+      organizationUnit: "Department (optional)",
+      city: "City (optional)",
+      state: "State/Province (optional)",
+      country: "Country Code",
+      email: "Email (optional)",
+      generate: "Generate CSR",
+      generating: "Generating...",
+      result: "CSR Generated Successfully",
+      copyCSR: "Copy CSR",
+      copyPrivateKey: "Copy Private Key",
+      instructions: "Instructions",
+      warning: "Warning: Save the private key securely - you'll need it to install the certificate later"
+    },
     linkForm: {
       title: "Link Certificate to Platform",
       selectPlatform: "Select Platform",
@@ -274,6 +312,7 @@ export default function SSLCertificates() {
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showGenerateDialog, setShowGenerateDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showCSRDialog, setShowCSRDialog] = useState(false);
   const [selectedCertificate, setSelectedCertificate] = useState<SSLCertificate | null>(null);
   
   const [uploadForm, setUploadForm] = useState({
@@ -282,6 +321,22 @@ export default function SSLCertificates() {
     certificateChain: "",
     privateKey: ""
   });
+
+  const [csrForm, setCSRForm] = useState({
+    domain: "",
+    organization: "",
+    organizationUnit: "",
+    city: "",
+    state: "",
+    country: "SA",
+    email: ""
+  });
+
+  const [csrResult, setCSRResult] = useState<{
+    csr: string;
+    privateKey: string;
+    instructions: { en: string; ar: string };
+  } | null>(null);
 
   const [selectedDomainForGenerate, setSelectedDomainForGenerate] = useState("");
 
@@ -375,6 +430,28 @@ export default function SSLCertificates() {
       queryClient.invalidateQueries({ queryKey: ["/api/ssl/certificates"] });
     }
   });
+
+  const csrMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/ssl/generate-csr", csrForm);
+    },
+    onSuccess: (data: any) => {
+      setCSRResult({
+        csr: data.csr,
+        privateKey: data.privateKey,
+        instructions: data.instructions
+      });
+      toast({ title: language === 'ar' ? 'تم إنشاء CSR بنجاح' : 'CSR generated successfully' });
+    },
+    onError: () => {
+      toast({ title: language === 'ar' ? 'فشل إنشاء CSR' : 'Failed to generate CSR', variant: "destructive" });
+    }
+  });
+
+  const copyToClipboard = (text: string, type: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: language === 'ar' ? `تم نسخ ${type}` : `${type} copied to clipboard` });
+  };
 
   const getDaysRemaining = (expiresAt?: string) => {
     if (!expiresAt) return null;
@@ -527,6 +604,165 @@ export default function SSLCertificates() {
                   {uploadMutation.isPending ? t.uploadForm.uploading : t.uploadForm.upload}
                 </Button>
               </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={showCSRDialog} onOpenChange={(open) => {
+            setShowCSRDialog(open);
+            if (!open) {
+              setCSRResult(null);
+              setCSRForm({ domain: "", organization: "", organizationUnit: "", city: "", state: "", country: "SA", email: "" });
+            }
+          }}>
+            <DialogTrigger asChild>
+              <Button variant="secondary" data-testid="button-generate-csr">
+                <FileKey className="h-4 w-4 mr-2" />
+                {language === 'ar' ? 'إنشاء CSR' : 'Generate CSR'}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{t.csrForm.title}</DialogTitle>
+                <DialogDescription>{t.csrForm.description}</DialogDescription>
+              </DialogHeader>
+              
+              {!csrResult ? (
+                <div className="space-y-4 py-4">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>{t.csrForm.domain} *</Label>
+                      <Input
+                        placeholder={t.csrForm.domainPlaceholder}
+                        value={csrForm.domain}
+                        onChange={(e) => setCSRForm(f => ({ ...f, domain: e.target.value }))}
+                        data-testid="input-csr-domain"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t.csrForm.country}</Label>
+                      <Input
+                        placeholder="SA"
+                        value={csrForm.country}
+                        onChange={(e) => setCSRForm(f => ({ ...f, country: e.target.value.toUpperCase().slice(0, 2) }))}
+                        maxLength={2}
+                        data-testid="input-csr-country"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>{t.csrForm.organization}</Label>
+                      <Input
+                        value={csrForm.organization}
+                        onChange={(e) => setCSRForm(f => ({ ...f, organization: e.target.value }))}
+                        data-testid="input-csr-organization"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t.csrForm.organizationUnit}</Label>
+                      <Input
+                        value={csrForm.organizationUnit}
+                        onChange={(e) => setCSRForm(f => ({ ...f, organizationUnit: e.target.value }))}
+                        data-testid="input-csr-unit"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>{t.csrForm.city}</Label>
+                      <Input
+                        value={csrForm.city}
+                        onChange={(e) => setCSRForm(f => ({ ...f, city: e.target.value }))}
+                        data-testid="input-csr-city"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t.csrForm.state}</Label>
+                      <Input
+                        value={csrForm.state}
+                        onChange={(e) => setCSRForm(f => ({ ...f, state: e.target.value }))}
+                        data-testid="input-csr-state"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t.csrForm.email}</Label>
+                    <Input
+                      type="email"
+                      value={csrForm.email}
+                      onChange={(e) => setCSRForm(f => ({ ...f, email: e.target.value }))}
+                      data-testid="input-csr-email"
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button 
+                      onClick={() => csrMutation.mutate()}
+                      disabled={!csrForm.domain || csrMutation.isPending}
+                      data-testid="button-confirm-csr"
+                    >
+                      {csrMutation.isPending ? t.csrForm.generating : t.csrForm.generate}
+                    </Button>
+                  </DialogFooter>
+                </div>
+              ) : (
+                <div className="space-y-4 py-4">
+                  <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
+                    <p className="text-green-800 dark:text-green-200 font-medium">{t.csrForm.result}</p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>CSR (Certificate Signing Request)</Label>
+                      <Button size="sm" variant="outline" onClick={() => copyToClipboard(csrResult.csr, 'CSR')}>
+                        <Copy className="h-3 w-3 mr-1" />
+                        {t.csrForm.copyCSR}
+                      </Button>
+                    </div>
+                    <Textarea
+                      readOnly
+                      value={csrResult.csr}
+                      className="font-mono text-xs min-h-[120px] bg-muted"
+                      data-testid="textarea-csr-result"
+                    />
+                  </div>
+                  
+                  <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
+                    <p className="text-yellow-800 dark:text-yellow-200 text-sm flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                      {t.csrForm.warning}
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>{language === 'ar' ? 'المفتاح الخاص' : 'Private Key'}</Label>
+                      <Button size="sm" variant="outline" onClick={() => copyToClipboard(csrResult.privateKey, 'Private Key')}>
+                        <Copy className="h-3 w-3 mr-1" />
+                        {t.csrForm.copyPrivateKey}
+                      </Button>
+                    </div>
+                    <Textarea
+                      readOnly
+                      value={csrResult.privateKey}
+                      className="font-mono text-xs min-h-[120px] bg-muted"
+                      data-testid="textarea-privatekey-result"
+                    />
+                  </div>
+                  
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                    <p className="text-blue-800 dark:text-blue-200 text-sm">
+                      <strong>{t.csrForm.instructions}:</strong><br />
+                      {language === 'ar' ? csrResult.instructions.ar : csrResult.instructions.en}
+                    </p>
+                  </div>
+                  
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowCSRDialog(false)}>
+                      {language === 'ar' ? 'إغلاق' : 'Close'}
+                    </Button>
+                  </DialogFooter>
+                </div>
+              )}
             </DialogContent>
           </Dialog>
         </div>

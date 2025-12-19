@@ -380,4 +380,131 @@ router.delete("/certificates/:id", async (req: Request, res: Response) => {
   }
 });
 
+// CSR Generation Schema
+const generateCSRSchema = z.object({
+  domain: z.string().min(1),
+  organization: z.string().optional().default(''),
+  organizationUnit: z.string().optional().default(''),
+  city: z.string().optional().default(''),
+  state: z.string().optional().default(''),
+  country: z.string().length(2).optional().default('SA'),
+  email: z.string().email().optional()
+});
+
+// Generate CSR for Namecheap/other SSL providers
+router.post("/generate-csr", async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId || (req.user as any)?.claims?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized", errorAr: "غير مصرح" });
+    }
+
+    const parsed = generateCSRSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ 
+        error: "Invalid request", 
+        errorAr: "طلب غير صالح",
+        details: parsed.error.errors 
+      });
+    }
+
+    const { domain, organization, organizationUnit, city, state, country, email } = parsed.data;
+
+    // Generate RSA key pair
+    const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', {
+      modulusLength: 2048,
+      publicKeyEncoding: {
+        type: 'spki',
+        format: 'pem'
+      },
+      privateKeyEncoding: {
+        type: 'pkcs8',
+        format: 'pem'
+      }
+    });
+
+    // Build the subject string for CSR
+    const subjectParts = [`CN=${domain}`];
+    if (organization) subjectParts.push(`O=${organization}`);
+    if (organizationUnit) subjectParts.push(`OU=${organizationUnit}`);
+    if (city) subjectParts.push(`L=${city}`);
+    if (state) subjectParts.push(`ST=${state}`);
+    if (country) subjectParts.push(`C=${country}`);
+    
+    const subject = '/' + subjectParts.join('/');
+
+    // Use OpenSSL via child_process to generate CSR
+    const { execSync } = await import('child_process');
+    const fs = await import('fs');
+    const path = await import('path');
+    const os = await import('os');
+
+    // Create temp files
+    const tempDir = os.tmpdir();
+    const keyFile = path.join(tempDir, `key_${Date.now()}.pem`);
+    const csrFile = path.join(tempDir, `csr_${Date.now()}.pem`);
+
+    try {
+      // Write private key to temp file
+      fs.writeFileSync(keyFile, privateKey, { mode: 0o600 });
+
+      // Generate CSR using OpenSSL
+      const opensslCmd = `openssl req -new -key "${keyFile}" -out "${csrFile}" -subj "${subject}" -sha256`;
+      execSync(opensslCmd, { stdio: 'pipe' });
+
+      // Read the generated CSR
+      const csr = fs.readFileSync(csrFile, 'utf8');
+
+      // Store encrypted private key for later use
+      const encryptedPrivateKey = encryptData(privateKey);
+      
+      // Store in database (create or update)
+      let existingDomain = await db.select().from(customDomains)
+        .where(eq(customDomains.hostname, domain))
+        .limit(1);
+
+      if (existingDomain.length > 0) {
+        // Update existing domain with CSR status
+        await db.update(customDomains)
+          .set({ 
+            sslStatus: 'csr_generated',
+            statusMessage: `CSR generated at ${new Date().toISOString()}`,
+            statusMessageAr: `تم إنشاء CSR في ${new Date().toISOString()}`
+          })
+          .where(eq(customDomains.id, existingDomain[0].id));
+      }
+
+      // Clean up temp files
+      fs.unlinkSync(keyFile);
+      fs.unlinkSync(csrFile);
+
+      res.json({ 
+        success: true, 
+        message: "CSR generated successfully",
+        messageAr: "تم إنشاء طلب توقيع الشهادة بنجاح",
+        csr,
+        domain,
+        subject,
+        instructions: {
+          en: "Copy the CSR above and paste it into Namecheap's SSL activation page. Keep the private key secure - you will need it to install the certificate.",
+          ar: "انسخ طلب توقيع الشهادة أعلاه والصقه في صفحة تفعيل SSL في Namecheap. احتفظ بالمفتاح الخاص بشكل آمن - ستحتاجه لتثبيت الشهادة."
+        },
+        privateKey: privateKey // Important: User needs this to install the certificate later
+      });
+    } catch (opensslError) {
+      // Clean up temp files on error
+      try { fs.unlinkSync(keyFile); } catch {}
+      try { fs.unlinkSync(csrFile); } catch {}
+      throw opensslError;
+    }
+  } catch (error) {
+    console.error("Error generating CSR:", error);
+    res.status(500).json({ 
+      error: "Failed to generate CSR", 
+      errorAr: "فشل في إنشاء طلب توقيع الشهادة",
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 export default router;
