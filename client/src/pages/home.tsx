@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { GradientBackground } from "@/components/gradient-background";
 import { ChatInput } from "@/components/chat-input";
 import { ProjectCard } from "@/components/project-card";
@@ -55,6 +57,7 @@ export default function Home() {
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("platforms");
   const { t, isRtl, language } = useLanguage();
+  const { toast } = useToast();
 
   const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -62,6 +65,24 @@ export default function Home() {
 
   const { data: templates, isLoading: templatesLoading } = useQuery<Template[]>({
     queryKey: ["/api/templates"],
+  });
+
+  const deleteProjectMutation = useMutation({
+    mutationFn: async (projectId: string) => {
+      await apiRequest("DELETE", `/api/projects/${projectId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      toast({
+        title: language === 'ar' ? 'تم حذف المنصة بنجاح' : 'Platform deleted successfully',
+      });
+    },
+    onError: () => {
+      toast({
+        title: language === 'ar' ? 'فشل في حذف المنصة' : 'Failed to delete platform',
+        variant: "destructive",
+      });
+    },
   });
 
   const handleChatSubmit = async (message: string) => {
@@ -73,7 +94,9 @@ export default function Home() {
   };
 
   const handleDeleteProject = (project: Project) => {
-    console.log("Delete project:", project.id);
+    if (confirm(language === 'ar' ? `هل تريد حذف "${project.name}"؟` : `Delete "${project.name}"?`)) {
+      deleteProjectMutation.mutate(project.id);
+    }
   };
 
   const handleUseTemplate = (template: Template) => {
