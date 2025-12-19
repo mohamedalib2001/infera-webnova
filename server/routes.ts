@@ -1821,6 +1821,133 @@ ${project.description || ""}
     }
   });
 
+  // ============ Platform Orchestrator Routes - توليد منصات متكاملة ============
+  
+  // Generate complete platform with auth, database, and deployment
+  app.post("/api/platform/generate", requireAuth, async (req, res) => {
+    try {
+      const { platformOrchestrator } = await import("./platform-orchestrator");
+      
+      const specSchema = z.object({
+        name: z.string().min(1),
+        nameAr: z.string().optional(),
+        description: z.string().min(1),
+        descriptionAr: z.string().optional(),
+        industry: z.enum(["government", "commercial", "healthcare", "education", "financial", "hr", "ecommerce", "other"]),
+        features: z.array(z.string()),
+        language: z.enum(["ar", "en", "bilingual"]).default("bilingual"),
+        auth: z.object({
+          authType: z.enum(["jwt", "session", "both"]).default("both"),
+          providers: z.array(z.enum(["local", "google", "github", "oauth2"])).default(["local"]),
+          roleBasedAccess: z.boolean().default(true),
+          roles: z.array(z.string()).optional(),
+          twoFactorAuth: z.boolean().optional(),
+          passwordPolicy: z.object({
+            minLength: z.number().default(8),
+            requireUppercase: z.boolean().default(true),
+            requireNumbers: z.boolean().default(true),
+            requireSymbols: z.boolean().default(false),
+          }).optional(),
+        }),
+        database: z.object({
+          type: z.enum(["postgresql", "mysql"]).default("postgresql"),
+          includeSeeding: z.boolean().optional(),
+        }),
+        deployment: z.object({
+          provider: z.enum(["hetzner", "aws", "local"]).default("local"),
+          serverConfig: z.object({
+            name: z.string(),
+            serverType: z.enum(["cx11", "cx21", "cx31", "cx41", "cx51", "cpx11", "cpx21", "cpx31"]).default("cx11"),
+            location: z.enum(["fsn1", "nbg1", "hel1", "ash", "hil"]).default("fsn1"),
+            image: z.enum(["ubuntu-22.04", "ubuntu-20.04", "debian-11", "debian-12"]).default("ubuntu-22.04"),
+          }).optional(),
+          domain: z.string().optional(),
+          enableSsl: z.boolean().optional(),
+          autoScale: z.boolean().optional(),
+        }).optional(),
+        integrations: z.object({
+          payments: z.array(z.enum(["stripe", "paypal", "tap"])).optional(),
+          email: z.enum(["sendgrid", "smtp"]).optional(),
+          storage: z.enum(["cloudinary", "s3"]).optional(),
+          analytics: z.boolean().optional(),
+        }).optional(),
+      });
+
+      const spec = specSchema.parse(req.body);
+      
+      console.log(`[PlatformOrchestrator] Starting generation for: ${spec.name}`);
+      
+      const result = await platformOrchestrator.generateCompletePlatform({
+        ...spec,
+        nameAr: spec.nameAr || spec.name,
+        descriptionAr: spec.descriptionAr || spec.description,
+      }, (progress) => {
+        console.log(`[PlatformOrchestrator] ${progress.phaseEn}: ${progress.progress}%`);
+      });
+      
+      if (!result.success) {
+        return res.status(500).json({
+          success: false,
+          error: result.error,
+          logs: result.logs,
+        });
+      }
+      
+      res.json({
+        success: true,
+        projectId: result.projectId,
+        summary: result.summary,
+        files: result.project?.files || [],
+        apiEndpoints: result.project?.apiEndpoints || [],
+        authDocumentation: result.authSystem?.documentation,
+        deployment: result.deployment,
+        logs: result.logs,
+      });
+    } catch (error) {
+      console.error("[PlatformOrchestrator] Generation error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: error.errors });
+      }
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to generate platform" 
+      });
+    }
+  });
+
+  // Get deployment status
+  app.get("/api/platform/deployment-status", requireAuth, async (req, res) => {
+    try {
+      const { platformOrchestrator } = await import("./platform-orchestrator");
+      const status = platformOrchestrator.getDeployerStatus();
+      res.json(status);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get deployment status" });
+    }
+  });
+
+  // List deployed platforms
+  app.get("/api/platform/deployed", requireAuth, async (req, res) => {
+    try {
+      const { platformOrchestrator } = await import("./platform-orchestrator");
+      const platforms = await platformOrchestrator.listDeployedPlatforms();
+      res.json({ platforms });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to list deployed platforms" });
+    }
+  });
+
+  // Delete deployed platform
+  app.delete("/api/platform/deployed/:serverId", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { platformOrchestrator } = await import("./platform-orchestrator");
+      const success = await platformOrchestrator.deletePlatform(req.params.serverId);
+      res.json({ success });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete platform" });
+    }
+  });
+
   // ============ Templates Routes ============
   
   // Get all templates
