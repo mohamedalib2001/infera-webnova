@@ -26,6 +26,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
@@ -653,6 +654,25 @@ export default function DomainsPage() {
     onSuccess: () => {
       toast({ title: t.success.unlinked });
       queryClient.invalidateQueries({ queryKey: ['/api/domains', selectedDomain?.id, 'links'] });
+    },
+  });
+
+  const toggleProviderMutation = useMutation({
+    mutationFn: async (data: { slug: string; enabled: boolean }) => {
+      return apiRequest('POST', `/api/domains/providers/${data.slug}/toggle`, { enabled: data.enabled });
+    },
+    onSuccess: (_, variables) => {
+      const message = variables.enabled 
+        ? (language === 'ar' ? 'تم تفعيل المزود' : 'Provider activated')
+        : (language === 'ar' ? 'تم إلغاء تفعيل المزود' : 'Provider deactivated');
+      toast({ title: message });
+      queryClient.invalidateQueries({ queryKey: ['/api/domains/providers'] });
+    },
+    onError: () => {
+      toast({ 
+        title: language === 'ar' ? 'فشل تغيير حالة المزود' : 'Failed to toggle provider', 
+        variant: 'destructive' 
+      });
     },
   });
 
@@ -1488,19 +1508,37 @@ export default function DomainsPage() {
                         <ExternalLink className="w-3 h-3" />
                         {language === 'ar' ? 'الموقع' : 'Website'}
                       </a>
-                      {provider.id === 'namecheap' && !provider.isConfigured && (
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => setActiveTab('domains')}
-                          data-testid="button-configure-namecheap"
-                        >
-                          {language === 'ar' ? 'إعداد' : 'Configure'}
-                        </Button>
-                      )}
-                      {provider.isConfigured && (
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      )}
+                      <div className="flex items-center gap-2">
+                        {provider.id === 'namecheap' && !provider.isConfigured && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => setActiveTab('domains')}
+                            data-testid="button-configure-namecheap"
+                          >
+                            {language === 'ar' ? 'إعداد' : 'Configure'}
+                          </Button>
+                        )}
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-muted-foreground">
+                            {provider.isConfigured 
+                              ? (language === 'ar' ? 'مفعل' : 'Active')
+                              : (language === 'ar' ? 'معطل' : 'Inactive')
+                            }
+                          </span>
+                          <Switch
+                            checked={provider.isConfigured || provider.status === 'active'}
+                            onCheckedChange={(checked) => {
+                              toggleProviderMutation.mutate({ 
+                                slug: provider.id, 
+                                enabled: checked 
+                              });
+                            }}
+                            disabled={toggleProviderMutation.isPending}
+                            data-testid={`switch-provider-${provider.id}`}
+                          />
+                        </div>
+                      </div>
                     </div>
                     </div>
                   );

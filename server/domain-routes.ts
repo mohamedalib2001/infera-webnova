@@ -11,6 +11,7 @@ import {
   namecheapContacts,
   namecheapOperationLogs,
   platforms,
+  serviceProviders,
   type User,
   type NamecheapDomain,
   type NamecheapDnsRecord,
@@ -648,6 +649,70 @@ export function registerDomainRoutes(app: Express) {
         success: false,
         error: error.message,
         errorAr: "فشل تهيئة مزودي النطاقات"
+      });
+    }
+  });
+
+  // Toggle provider activation status (Owner only)
+  app.post("/api/domains/providers/:slug/toggle", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const { enabled } = req.body;
+      
+      // Get provider from registry
+      const config = domainRegistrarRegistry.getConfig(slug);
+      if (!config) {
+        return res.status(404).json({ 
+          error: "Provider not found",
+          errorAr: "المزود غير موجود"
+        });
+      }
+
+      // Get or create provider in database
+      let dbProvider = await storage.getServiceProviderBySlug(slug);
+      const newStatus = enabled ? 'active' : 'inactive';
+      
+      if (!dbProvider) {
+        // Create the provider in database
+        dbProvider = await storage.createServiceProvider({
+          name: config.name,
+          nameAr: config.nameAr || config.name,
+          slug: config.slug,
+          category: 'domain_registrar',
+          status: newStatus,
+        });
+      } else {
+        // Update existing provider status
+        await db.update(serviceProviders)
+          .set({ 
+            status: newStatus, 
+            updatedAt: new Date()
+          })
+          .where(eq(serviceProviders.id, dbProvider.id));
+        
+        dbProvider = { ...dbProvider, status: newStatus };
+      }
+
+      res.json({
+        success: true,
+        provider: {
+          slug,
+          name: config.name,
+          nameAr: config.nameAr,
+          status: enabled ? 'active' : 'inactive',
+          isActive: enabled,
+        },
+        message: {
+          en: enabled ? `${config.name} has been activated` : `${config.name} has been deactivated`,
+          ar: enabled ? `تم تفعيل ${config.nameAr || config.name}` : `تم إلغاء تفعيل ${config.nameAr || config.name}`
+        }
+      });
+    } catch (error: any) {
+      console.error("Failed to toggle provider:", error);
+      res.status(500).json({ 
+        success: false,
+        error: error.message || "Failed to toggle provider",
+        errorAr: "فشل تغيير حالة المزود"
       });
     }
   });
