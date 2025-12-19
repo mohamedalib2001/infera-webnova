@@ -286,7 +286,14 @@ import {
   securityIncidents,
   type SecurityIncident,
   type InsertSecurityIncident,
-  // Sovereign Infrastructure
+  // Sovereign Infrastructure - Audit & Logs
+  infrastructureAuditLogs,
+  type InfrastructureAuditLog,
+  type InsertInfrastructureAuditLog,
+  providerErrorLogs,
+  type ProviderErrorLog,
+  type InsertProviderErrorLog,
+  // Sovereign Infrastructure - Providers
   infrastructureProviders,
   type InfrastructureProvider,
   type InsertInfrastructureProvider,
@@ -865,6 +872,24 @@ export interface IStorage {
   resolveSecurityIncident(id: string, resolution: string, resolvedBy: string): Promise<SecurityIncident | undefined>;
   
   // ==================== SOVEREIGN INFRASTRUCTURE ====================
+  // Infrastructure Audit Logs (Immutable)
+  getInfrastructureAuditLogs(filters?: {
+    userId?: string;
+    action?: string;
+    targetType?: string;
+    targetId?: string;
+    providerId?: string;
+    success?: boolean;
+    limit?: number;
+    offset?: number;
+  }): Promise<InfrastructureAuditLog[]>;
+  createInfrastructureAuditLog(log: InsertInfrastructureAuditLog): Promise<InfrastructureAuditLog>;
+  
+  // Provider Error Logs
+  getProviderErrorLogs(providerId?: string, limit?: number): Promise<ProviderErrorLog[]>;
+  createProviderErrorLog(log: InsertProviderErrorLog): Promise<ProviderErrorLog>;
+  resolveProviderErrorLog(id: string, resolvedBy: string): Promise<ProviderErrorLog | undefined>;
+  
   // Infrastructure Providers
   getInfrastructureProviders(): Promise<InfrastructureProvider[]>;
   getInfrastructureProvider(id: string): Promise<InfrastructureProvider | undefined>;
@@ -4729,6 +4754,84 @@ body { font-family: 'Tajawal', sans-serif; }
   }
   
   // ==================== SOVEREIGN INFRASTRUCTURE ====================
+  
+  // Infrastructure Audit Logs (Immutable - No delete/update methods!)
+  async getInfrastructureAuditLogs(filters?: {
+    userId?: string;
+    action?: string;
+    targetType?: string;
+    targetId?: string;
+    providerId?: string;
+    success?: boolean;
+    limit?: number;
+    offset?: number;
+  }): Promise<InfrastructureAuditLog[]> {
+    let query = db.select().from(infrastructureAuditLogs);
+    const conditions: any[] = [];
+    
+    if (filters?.userId) {
+      conditions.push(eq(infrastructureAuditLogs.userId, filters.userId));
+    }
+    if (filters?.action) {
+      conditions.push(eq(infrastructureAuditLogs.action, filters.action));
+    }
+    if (filters?.targetType) {
+      conditions.push(eq(infrastructureAuditLogs.targetType, filters.targetType));
+    }
+    if (filters?.targetId) {
+      conditions.push(eq(infrastructureAuditLogs.targetId, filters.targetId));
+    }
+    if (filters?.providerId) {
+      conditions.push(eq(infrastructureAuditLogs.providerId, filters.providerId));
+    }
+    if (filters?.success !== undefined) {
+      conditions.push(eq(infrastructureAuditLogs.success, filters.success));
+    }
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    return query
+      .orderBy(desc(infrastructureAuditLogs.createdAt))
+      .limit(filters?.limit || 100)
+      .offset(filters?.offset || 0);
+  }
+  
+  async createInfrastructureAuditLog(log: InsertInfrastructureAuditLog): Promise<InfrastructureAuditLog> {
+    const [created] = await db.insert(infrastructureAuditLogs).values(log).returning();
+    return created;
+  }
+  
+  // Provider Error Logs
+  async getProviderErrorLogs(providerId?: string, limit: number = 100): Promise<ProviderErrorLog[]> {
+    let query = db.select().from(providerErrorLogs);
+    
+    if (providerId) {
+      query = query.where(eq(providerErrorLogs.providerId, providerId)) as any;
+    }
+    
+    return query
+      .orderBy(desc(providerErrorLogs.createdAt))
+      .limit(limit);
+  }
+  
+  async createProviderErrorLog(log: InsertProviderErrorLog): Promise<ProviderErrorLog> {
+    const [created] = await db.insert(providerErrorLogs).values(log).returning();
+    return created;
+  }
+  
+  async resolveProviderErrorLog(id: string, resolvedBy: string): Promise<ProviderErrorLog | undefined> {
+    const [updated] = await db.update(providerErrorLogs)
+      .set({ 
+        resolved: true, 
+        resolvedAt: new Date(), 
+        resolvedBy 
+      })
+      .where(eq(providerErrorLogs.id, id))
+      .returning();
+    return updated || undefined;
+  }
   
   // Infrastructure Providers
   async getInfrastructureProviders(): Promise<InfrastructureProvider[]> {

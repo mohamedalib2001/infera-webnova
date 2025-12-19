@@ -1,0 +1,264 @@
+🧭 خارطة طريق نهائية – بدون تأجيل أي عنصر أساسي
+
+هذه الخريطة تمثل Minimum Complete Platform (MCP)
+وليس مجرد MVP شكلي.
+
+🔐 المرحلة 1: الأمن والمصادقة (أساس المنصة – لا يُمس)
+✅ نظام المستخدمين
+
+تسجيل / تسجيل دخول
+
+Session management
+
+Token rotation
+
+✅ الصلاحيات (RBAC)
+
+Owner
+
+Admin
+
+Viewer
+
+التحقق يتم في Backend فقط (ليس UI)
+
+✅ إدارة الأسرار
+
+تشفير API Tokens (AES-256-GCM)
+
+Salt + Key rotation
+
+Masked display (****1234)
+
+لا يوجد endpoint يعيد التوكن كاملًا
+
+✅ الحماية
+
+Rate limiting (per user + per IP)
+
+CSRF protection
+
+Brute-force protection
+
+IP allowlist (اختياري للـ Owner)
+
+✅ Audit Log (إجباري)
+
+كل Action
+
+كل User
+
+قبل التنفيذ وبعده
+
+لا يمكن حذفه حتى من Owner
+
+📌 بدون هذه المرحلة = المنصة غير صالحة للنشر
+
+🔌 المرحلة 2: Hetzner Integration (القلب الحقيقي)
+✅ Service Layer واضح
+
+HetznerClient
+
+Error mapping
+
+Retry logic
+
+Rate limit handler
+
+✅ العمليات الكاملة (API فقط – بدون SSH)
+
+Start
+
+Stop
+
+Reboot
+
+Power Off
+
+Reset (Soft/Hard)
+
+Fetch server details
+
+Fetch metrics (إن وُجدت)
+
+✅ عزل كامل
+
+لا logic خاص بالـ UI
+
+كل شيء يمر عبر Backend
+
+🖥️ المرحلة 3: الواجهة الأساسية (UX غير قابل للكسر)
+✅ Dashboard
+
+Servers list
+
+Status badges
+
+Provider badge
+
+Last sync time
+
+✅ أزرار التحكم
+
+Disabled حسب الدور
+
+Confirmation modal
+
+Typing confirmation (اسم السيرفر)
+
+✅ التحديث
+
+Auto refresh (30–60s)
+
+Manual Sync button
+
+Loading + error states
+
+🔄 المرحلة 4: المزامنة والبيانات (State Consistency)
+✅ Sync Engine
+
+Pull from provider
+
+Upsert servers
+
+Detect deletions
+
+Prevent duplicates (ProviderID + AccountID)
+
+✅ Server Metadata
+
+Internal name
+
+Tags
+
+Notes
+
+Project / Environment
+
+هذه ليست “رفاهية” — بل أساس التنظيم بعد 10+ سيرفرات
+
+🧾 المرحلة 5: السجلات (للأمان + الثقة)
+✅ Audit Logs UI
+
+فلترة حسب:
+
+User
+
+Server
+
+Action
+
+Result
+
+✅ Provider Logs
+
+API errors
+
+Rate limit hits
+
+Invalid token
+
+Network failures
+
+📌 أي خطأ غير مسجّل = خطر
+
+💰 المرحلة 6: التكلفة (حتى لو Informational)
+✅ Cost Model
+
+Per server cost
+
+Monthly estimate
+
+Provider snapshot
+
+✅ عرض واضح
+
+لا تعديل
+
+لا Billing
+
+Read-only
+
+وجودها الآن يمنع إعادة تصميم DB لاحقًا
+
+🚨 المرحلة 7: إدارة الأخطاء (UX احترافي)
+✅ Error States
+
+User-friendly messages
+
+Technical log في الخلفية
+
+Retry suggestions
+
+✅ حالات خاصة
+
+Internet down
+
+API token revoked
+
+Provider outage
+
+Partial sync
+
+🧪 المرحلة 8: الاختبارات (Gate قبل النشر)
+🔒 اختبارات أمن
+
+صلاحيات
+
+Token access
+
+Role enforcement
+
+⚙️ اختبارات تشغيل
+
+Start / Stop / Reboot
+
+Sync twice
+
+Delete server من Hetzner
+
+🧍 اختبارات أدوار
+
+Viewer لا يتحكم
+
+Admin لا يرى التوكن
+
+Owner كامل الصلاحية
+
+📌 أي اختبار يفشل = لا Publish
+
+📚 المرحلة 9: التوثيق والنشر (جزء من المنتج)
+✅ Documentation
+
+API reference
+
+Security model
+
+User guide
+
+Incident response
+
+✅ Deployment
+
+Staging
+
+Production
+
+Backups
+
+Basic monitoring
+
+❌ ما تم استبعاده نهائيًا (قرار معماري)
+
+SSH access
+
+Web terminal
+
+File upload
+
+Auto-deploy
+
+Remote command execution
+
+هذه ليست “لاحقًا”
+هذه خارج Scope المنصة

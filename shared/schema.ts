@@ -4250,6 +4250,117 @@ export type SecurityIncident = typeof securityIncidents.$inferSelect;
 // ==================== SOVEREIGN INFRASTRUCTURE ====================
 // البنية التحتية السيادية
 
+// Infrastructure Roles for MCP (Owner/Admin/Viewer)
+export const infrastructureRoles = ['owner', 'admin', 'viewer'] as const;
+export type InfrastructureRole = typeof infrastructureRoles[number];
+
+// Infrastructure role permissions mapping
+export const infrastructureRolePermissions = {
+  owner: ['*'], // Full access
+  admin: ['servers:read', 'servers:control', 'providers:read', 'logs:read'], // No token access
+  viewer: ['servers:read', 'providers:read'], // Read only
+} as const;
+
+// Check infrastructure permission
+export function hasInfraPermission(role: InfrastructureRole, permission: string): boolean {
+  const perms = infrastructureRolePermissions[role];
+  return perms.includes('*') || perms.includes(permission as any);
+}
+
+// Immutable Audit Log for Infrastructure Actions
+export const infrastructureAuditLogs = pgTable("infrastructure_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Who performed the action
+  userId: varchar("user_id").notNull(),
+  userEmail: text("user_email"),
+  userRole: text("user_role").notNull(), // owner, admin, viewer
+  userIp: text("user_ip"),
+  
+  // What action was performed
+  action: text("action").notNull(), // server:start, server:stop, server:reboot, provider:create, etc.
+  actionCategory: text("action_category").notNull(), // server, provider, sync, auth
+  
+  // Target of the action
+  targetType: text("target_type").notNull(), // server, provider, credentials
+  targetId: varchar("target_id"),
+  targetName: text("target_name"),
+  
+  // Before/After state (for auditing)
+  stateBefore: jsonb("state_before").$type<Record<string, any>>(),
+  stateAfter: jsonb("state_after").$type<Record<string, any>>(),
+  
+  // Result
+  success: boolean("success").notNull(),
+  errorMessage: text("error_message"),
+  errorCode: text("error_code"),
+  
+  // Provider-specific
+  providerId: varchar("provider_id"),
+  providerType: text("provider_type"), // hetzner, aws, gcp, etc.
+  externalRequestId: text("external_request_id"), // Provider's request ID
+  
+  // Metadata
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  requestDuration: integer("request_duration"), // ms
+  
+  // Immutable timestamp
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_audit_user").on(table.userId),
+  index("idx_audit_action").on(table.action),
+  index("idx_audit_target").on(table.targetType, table.targetId),
+  index("idx_audit_created").on(table.createdAt),
+  index("idx_audit_provider").on(table.providerId),
+]);
+
+export const insertInfrastructureAuditLogSchema = createInsertSchema(infrastructureAuditLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertInfrastructureAuditLog = z.infer<typeof insertInfrastructureAuditLogSchema>;
+export type InfrastructureAuditLog = typeof infrastructureAuditLogs.$inferSelect;
+
+// Provider Error Logs (API errors, rate limits, etc.)
+export const providerErrorLogs = pgTable("provider_error_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  providerId: varchar("provider_id").notNull(),
+  providerType: text("provider_type").notNull(),
+  
+  // Error details
+  errorType: text("error_type").notNull(), // api_error, rate_limit, invalid_token, network_failure, timeout
+  errorCode: text("error_code"),
+  errorMessage: text("error_message").notNull(),
+  httpStatus: integer("http_status"),
+  
+  // Request context
+  endpoint: text("endpoint"),
+  method: text("method"),
+  requestPayload: jsonb("request_payload").$type<Record<string, any>>(),
+  responseBody: jsonb("response_body").$type<Record<string, any>>(),
+  
+  // Resolution
+  resolved: boolean("resolved").notNull().default(false),
+  resolvedAt: timestamp("resolved_at"),
+  resolvedBy: varchar("resolved_by"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_provider_error_provider").on(table.providerId),
+  index("idx_provider_error_type").on(table.errorType),
+  index("idx_provider_error_created").on(table.createdAt),
+]);
+
+export const insertProviderErrorLogSchema = createInsertSchema(providerErrorLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertProviderErrorLog = z.infer<typeof insertProviderErrorLogSchema>;
+export type ProviderErrorLog = typeof providerErrorLogs.$inferSelect;
+
 // مزودي البنية التحتية (Hetzner, AWS, GCP, etc.)
 export const infrastructureProviders = pgTable("infrastructure_providers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

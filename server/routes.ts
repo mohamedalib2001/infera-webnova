@@ -9286,6 +9286,159 @@ export async function registerRoutes(
     }
   });
 
+  // Server Control Actions (Start, Stop, Reboot, Reset, PowerOff)
+  app.post("/api/owner/infrastructure/servers/:serverId/action", requireOwner, async (req, res) => {
+    try {
+      const { serverId } = req.params;
+      const { action, confirmationName } = req.body;
+      
+      const server = await storage.getInfrastructureServer(serverId);
+      if (!server) {
+        return res.status(404).json({ success: false, error: "Server not found" });
+      }
+      
+      // For destructive actions, require confirmation by typing server name
+      const destructiveActions = ['power_off', 'reset', 'shutdown'];
+      if (destructiveActions.includes(action) && confirmationName !== server.name) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Please type the server name to confirm this action",
+          requiresConfirmation: true
+        });
+      }
+      
+      const provider = await storage.getInfrastructureProvider(server.providerId);
+      if (!provider) {
+        return res.status(404).json({ success: false, error: "Provider not found" });
+      }
+      
+      if (provider.name !== 'hetzner') {
+        return res.status(400).json({ success: false, error: "Provider not supported for remote control" });
+      }
+      
+      // Get credentials and create client
+      const credential = await storage.getProviderCredentialByProviderId(provider.id);
+      if (!credential) {
+        return res.status(400).json({ success: false, error: "No credentials found for provider" });
+      }
+      
+      const decryptedToken = cryptoService.decrypt(credential.encryptedToken, credential.salt);
+      if (!decryptedToken) {
+        return res.status(500).json({ success: false, error: "Failed to decrypt credentials" });
+      }
+      
+      const { createHetznerClient } = await import("./hetzner-client");
+      const client = await createHetznerClient(
+        provider.id,
+        req.session!.userId!,
+        req.session?.email,
+        'owner',
+        req.ip
+      );
+      
+      if (!client) {
+        return res.status(500).json({ success: false, error: "Failed to create Hetzner client" });
+      }
+      
+      const externalId = parseInt(server.externalId || '0');
+      if (!externalId) {
+        return res.status(400).json({ success: false, error: "Server has no external ID" });
+      }
+      
+      let result;
+      switch (action) {
+        case 'power_on':
+        case 'start':
+          result = await client.powerOn(externalId, server.name);
+          break;
+        case 'power_off':
+          result = await client.powerOff(externalId, server.name);
+          break;
+        case 'shutdown':
+        case 'stop':
+          result = await client.shutdown(externalId, server.name);
+          break;
+        case 'reboot':
+          result = await client.reboot(externalId, server.name);
+          break;
+        case 'reset':
+          result = await client.reset(externalId, server.name);
+          break;
+        default:
+          return res.status(400).json({ success: false, error: "Unknown action" });
+      }
+      
+      if (!result.success) {
+        return res.status(500).json({ success: false, error: result.error });
+      }
+      
+      // Update local server status
+      const newStatus = ['power_on', 'start'].includes(action) ? 'starting' : 
+                        ['shutdown', 'stop'].includes(action) ? 'stopping' : 
+                        action === 'reboot' ? 'rebooting' : 'unknown';
+      
+      await storage.updateInfrastructureServer(serverId, { status: newStatus as any });
+      
+      res.json({ 
+        success: true, 
+        message: `Action ${action} executed successfully`,
+        actionId: result.action?.id
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to execute action" });
+    }
+  });
+
+  // Infrastructure Audit Logs
+  app.get("/api/owner/infrastructure/audit-logs", requireOwner, async (req, res) => {
+    try {
+      const { userId, action, targetType, targetId, providerId, success, limit, offset } = req.query;
+      
+      const logs = await storage.getInfrastructureAuditLogs({
+        userId: userId as string,
+        action: action as string,
+        targetType: targetType as string,
+        targetId: targetId as string,
+        providerId: providerId as string,
+        success: success === 'true' ? true : success === 'false' ? false : undefined,
+        limit: limit ? parseInt(limit as string) : 100,
+        offset: offset ? parseInt(offset as string) : 0,
+      });
+      
+      res.json({ success: true, logs });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch audit logs" });
+    }
+  });
+
+  // Provider Error Logs
+  app.get("/api/owner/infrastructure/error-logs", requireOwner, async (req, res) => {
+    try {
+      const { providerId, limit } = req.query;
+      
+      const logs = await storage.getProviderErrorLogs(
+        providerId as string,
+        limit ? parseInt(limit as string) : 100
+      );
+      
+      res.json({ success: true, logs });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch error logs" });
+    }
+  });
+
+  app.post("/api/owner/infrastructure/error-logs/:id/resolve", requireOwner, async (req, res) => {
+    try {
+      const log = await storage.resolveProviderErrorLog(req.params.id, req.session!.userId!);
+      if (!log) {
+        return res.status(404).json({ success: false, error: "Error log not found" });
+      }
+      res.json({ success: true, log });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to resolve error log" });
+    }
+  });
+
   // Deployment Templates
   app.get("/api/owner/infrastructure/templates", requireOwner, async (req, res) => {
     try {
