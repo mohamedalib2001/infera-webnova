@@ -31,6 +31,28 @@ import {
   Zap, Clock, DollarSign, Activity, AlertOctagon
 } from "lucide-react";
 
+// Helper function to normalize Arabic numerals to ASCII
+const normalizeArabicNumerals = (value: string): string => {
+  const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+  let normalized = value;
+  arabicNumerals.forEach((arabic, index) => {
+    normalized = normalized.replace(new RegExp(arabic, 'g'), String(index));
+  });
+  // Also handle Persian numerals
+  const persianNumerals = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+  persianNumerals.forEach((persian, index) => {
+    normalized = normalized.replace(new RegExp(persian, 'g'), String(index));
+  });
+  return normalized;
+};
+
+// Parse number from potentially localized string
+const parseLocalizedNumber = (value: string): number => {
+  const normalized = normalizeArabicNumerals(value);
+  const parsed = parseFloat(normalized);
+  return isNaN(parsed) ? 0 : parsed;
+};
+
 const translations = {
   en: {
     title: "AI Model Registry",
@@ -894,11 +916,16 @@ export default function AIModelRegistry() {
                 <div className="space-y-2">
                   <Label>{t.maxFallbackAttempts}</Label>
                   <Input
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={globalSettings?.maxFallbackAttempts || 3}
-                    onChange={(e) => saveGlobalSettingsMutation.mutate({ maxFallbackAttempts: parseInt(e.target.value) })}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9٠-٩۰-۹]*"
+                    value={String(globalSettings?.maxFallbackAttempts || 3)}
+                    onChange={(e) => {
+                      const value = parseLocalizedNumber(e.target.value);
+                      if (value >= 1 && value <= 10) {
+                        saveGlobalSettingsMutation.mutate({ maxFallbackAttempts: Math.floor(value) });
+                      }
+                    }}
                     data-testid="input-max-fallback"
                   />
                 </div>
@@ -906,11 +933,16 @@ export default function AIModelRegistry() {
                 <div className="space-y-2">
                   <Label>{t.dailyCostLimit}</Label>
                   <Input
-                    type="number"
-                    min={0}
-                    step={10}
-                    value={globalSettings?.dailyCostLimitUsd || 100}
-                    onChange={(e) => saveGlobalSettingsMutation.mutate({ dailyCostLimitUsd: parseFloat(e.target.value) })}
+                    type="text"
+                    inputMode="decimal"
+                    pattern="[0-9٠-٩۰-۹.٫]*"
+                    value={String(globalSettings?.dailyCostLimitUsd || 100)}
+                    onChange={(e) => {
+                      const value = parseLocalizedNumber(e.target.value);
+                      if (value >= 0) {
+                        saveGlobalSettingsMutation.mutate({ dailyCostLimitUsd: value });
+                      }
+                    }}
                     data-testid="input-daily-cost-limit"
                   />
                 </div>
@@ -918,11 +950,16 @@ export default function AIModelRegistry() {
                 <div className="space-y-2">
                   <Label>{t.monthlyCostLimit}</Label>
                   <Input
-                    type="number"
-                    min={0}
-                    step={100}
-                    value={globalSettings?.monthlyCostLimitUsd || 2000}
-                    onChange={(e) => saveGlobalSettingsMutation.mutate({ monthlyCostLimitUsd: parseFloat(e.target.value) })}
+                    type="text"
+                    inputMode="decimal"
+                    pattern="[0-9٠-٩۰-۹.٫]*"
+                    value={String(globalSettings?.monthlyCostLimitUsd || 2000)}
+                    onChange={(e) => {
+                      const value = parseLocalizedNumber(e.target.value);
+                      if (value >= 0) {
+                        saveGlobalSettingsMutation.mutate({ monthlyCostLimitUsd: value });
+                      }
+                    }}
                     data-testid="input-monthly-cost-limit"
                   />
                 </div>
