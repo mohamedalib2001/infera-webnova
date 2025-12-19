@@ -59,6 +59,8 @@ import Marketplace from "@/pages/marketplace";
 import Collaboration from "@/pages/collaboration";
 import SSLCertificates from "@/pages/ssl-certificates";
 import ConsolePage from "@/pages/console";
+import Support from "@/pages/support";
+import SupportAgentDashboard from "@/pages/support-agent-dashboard";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -111,6 +113,8 @@ function Router() {
       <Route path="/marketplace" component={Marketplace} />
       <Route path="/collaboration" component={Collaboration} />
       <Route path="/console" component={ConsolePage} />
+      <Route path="/support" component={Support} />
+      <Route path="/support/agent" component={SupportAgentDashboard} />
       <Route path="/preview/:shareCode" component={Preview} />
       <Route component={NotFound} />
     </Switch>

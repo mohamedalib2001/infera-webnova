@@ -40,6 +40,8 @@ import {
   ShieldCheck,
   Mail,
   SquareTerminal,
+  Headphones,
+  HeadphonesIcon,
 } from "lucide-react";
 import {
   Sidebar,
@@ -97,6 +99,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
   const managementItems = [
     { title: language === "ar" ? "المشاريع" : "Projects", url: "/projects", icon: FolderOpen, testId: "nav-projects" },
     { title: language === "ar" ? "النطاقات" : "Domains", url: "/domains", icon: Globe, testId: "nav-domains", requiresAuth: true },
+    { title: language === "ar" ? "الدعم" : "Support", url: "/support", icon: Headphones, testId: "nav-support", requiresAuth: true },
     { title: language === "ar" ? "الإعدادات" : "Settings", url: "/settings", icon: Settings, testId: "nav-settings", requiresAuth: true },
   ];
 
@@ -391,6 +394,14 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                           <Link href="/owner/email-settings" data-testid="nav-owner-email-settings">
                             <Mail className="h-4 w-4 text-teal-500" />
                             <span>{language === "ar" ? "إعدادات البريد" : "Email Settings"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/support/agent"}>
+                          <Link href="/support/agent" data-testid="nav-support-agent">
+                            <HeadphonesIcon className="h-4 w-4 text-green-500" />
+                            <span>{language === "ar" ? "لوحة الدعم" : "Support Dashboard"}</span>
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
