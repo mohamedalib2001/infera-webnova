@@ -56,6 +56,7 @@ import TestingGenerator from "@/pages/testing-generator";
 import Marketplace from "@/pages/marketplace";
 import Collaboration from "@/pages/collaboration";
 import SSLCertificates from "@/pages/ssl-certificates";
+import ConsolePage from "@/pages/console";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -105,6 +106,7 @@ function Router() {
       <Route path="/testing" component={TestingGenerator} />
       <Route path="/marketplace" component={Marketplace} />
       <Route path="/collaboration" component={Collaboration} />
+      <Route path="/console" component={ConsolePage} />
       <Route path="/preview/:shareCode" component={Preview} />
       <Route component={NotFound} />
     </Switch>
