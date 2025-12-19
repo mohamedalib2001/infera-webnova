@@ -93,10 +93,10 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Skip Stripe initialization for now - causes timeout issues
-  // initStripeSystem().catch(err => {
-  //   console.warn('[Stripe] Initialization skipped:', err.message);
-  // });
+  // Run Stripe initialization in background (non-blocking)
+  initStripeSystem().catch(err => {
+    console.warn('[Stripe] Initialization skipped:', err.message);
+  });
   
   await setupAuth(app);
   await registerRoutes(httpServer, app);
