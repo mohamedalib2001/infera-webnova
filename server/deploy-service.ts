@@ -1,11 +1,8 @@
-import { DEFAULT_ANTHROPIC_MODEL } from "./ai-config";
+import { DEFAULT_ANTHROPIC_MODEL, getAnthropicClientAsync } from "./ai-config";
 import { storage } from "./storage";
 import type { DevProject, ProjectFile, InsertProjectFile } from "@shared/schema";
-import Anthropic from "@anthropic-ai/sdk";
 import fs from "fs/promises";
 import path from "path";
-
-const anthropic = new Anthropic();
 
 export interface DeploymentConfig {
   projectId: number;
@@ -158,13 +155,23 @@ Return JSON format:
 }`;
 
     try {
+      const anthropic = await getAnthropicClientAsync();
+      if (!anthropic) {
+        return {
+          reactNative: {
+            appJs: getDefaultReactNativeApp(project.name),
+            packageJson: getDefaultPackageJson(project.name),
+            components: {},
+          },
+        };
+      }
       const response = await anthropic.messages.create({
         model: DEFAULT_ANTHROPIC_MODEL,
         max_tokens: 8192,
         messages: [{ role: "user", content: prompt }],
       });
 
-      const textContent = response.content.find(c => c.type === "text");
+      const textContent = response.content.find((c: any) => c.type === "text");
       if (!textContent || textContent.type !== "text") {
         throw new Error("No content generated");
       }
@@ -240,13 +247,24 @@ Return JSON format:
 }`;
 
     try {
+      const anthropic = await getAnthropicClientAsync();
+      if (!anthropic) {
+        return {
+          electron: {
+            mainJs: getDefaultElectronMain(project.name),
+            preloadJs: getDefaultPreload(),
+            rendererHtml: webCode.html,
+            packageJson: getDefaultElectronPackageJson(project.name),
+          },
+        };
+      }
       const response = await anthropic.messages.create({
         model: DEFAULT_ANTHROPIC_MODEL,
         max_tokens: 8192,
         messages: [{ role: "user", content: prompt }],
       });
 
-      const textContent = response.content.find(c => c.type === "text");
+      const textContent = response.content.find((c: any) => c.type === "text");
       if (!textContent || textContent.type !== "text") {
         throw new Error("No content generated");
       }

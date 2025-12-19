@@ -1,7 +1,4 @@
-import { DEFAULT_ANTHROPIC_MODEL } from "./ai-config";
-import Anthropic from "@anthropic-ai/sdk";
-
-const anthropic = new Anthropic();
+import { DEFAULT_ANTHROPIC_MODEL, getAnthropicClientAsync } from "./ai-config";
 
 export interface AnalysisResult {
   overallScore: number;
@@ -92,6 +89,10 @@ Return a JSON object with the following structure:
 Provide 3-10 actionable suggestions sorted by priority. Be specific and provide code examples where possible.`;
 
   try {
+    const anthropic = await getAnthropicClientAsync();
+    if (!anthropic) {
+      return getDefaultAnalysisResult();
+    }
     const response = await anthropic.messages.create({
       model: DEFAULT_ANTHROPIC_MODEL,
       max_tokens: 4096,

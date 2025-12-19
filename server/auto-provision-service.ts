@@ -1,5 +1,4 @@
-import { DEFAULT_ANTHROPIC_MODEL } from "./ai-config";
-import Anthropic from "@anthropic-ai/sdk";
+import { DEFAULT_ANTHROPIC_MODEL, getAnthropicClientAsync } from "./ai-config";
 import type { 
   Project, 
   ProjectBackend, 
@@ -11,8 +10,6 @@ import type {
   InsertProjectAuthConfig,
   InsertProjectProvisioningJob
 } from "@shared/schema";
-
-const anthropic = new Anthropic();
 
 interface ProvisioningOptions {
   generateBackend: boolean;
@@ -252,13 +249,17 @@ Requirements:
 Return ONLY the TypeScript code, no explanations.`;
 
     try {
+      const anthropic = await getAnthropicClientAsync();
+      if (!anthropic) {
+        return this.getFallbackDatabaseSchema();
+      }
       const response = await anthropic.messages.create({
         model: DEFAULT_ANTHROPIC_MODEL,
         max_tokens: 4000,
         messages: [{ role: "user", content: prompt }],
       });
 
-      const textBlock = response.content.find((b) => b.type === "text");
+      const textBlock = response.content.find((b: any) => b.type === "text");
       let code = textBlock?.text || "";
       code = code.replace(/```typescript\n?/g, "").replace(/```\n?/g, "");
       return code;
@@ -292,13 +293,17 @@ Return a JSON object with keys: routes, middleware, controllers, views
 Each value should be the TypeScript/HTML code as a string.`;
 
     try {
+      const anthropic = await getAnthropicClientAsync();
+      if (!anthropic) {
+        return this.getFallbackAuthCode();
+      }
       const response = await anthropic.messages.create({
         model: DEFAULT_ANTHROPIC_MODEL,
         max_tokens: 8000,
         messages: [{ role: "user", content: prompt }],
       });
 
-      const textBlock = response.content.find((b) => b.type === "text");
+      const textBlock = response.content.find((b: any) => b.type === "text");
       const text = textBlock?.text || "";
       
       const jsonMatch = text.match(/\{[\s\S]*\}/);

@@ -11,18 +11,7 @@ import {
   type InsertAiTaskExecution 
 } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
-
-const anthropicApiKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
-const anthropicBaseUrl = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
-
-let anthropicClient: Anthropic | null = null;
-
-if (anthropicApiKey) {
-  anthropicClient = new Anthropic({
-    apiKey: anthropicApiKey,
-    ...(anthropicBaseUrl && { baseURL: anthropicBaseUrl }),
-  });
-}
+import { getAnthropicClientAsync } from "./ai-config";
 
 export interface TaskExecutionRequest {
   instructionId: string;
@@ -201,6 +190,7 @@ export class AIAgentExecutor {
       .returning();
     
     try {
+      const anthropicClient = await getAnthropicClientAsync();
       if (!anthropicClient) {
         throw new Error('AI provider not configured. Please set up API keys.');
       }

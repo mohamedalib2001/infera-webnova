@@ -1,9 +1,6 @@
-import { DEFAULT_ANTHROPIC_MODEL } from "./ai-config";
-import Anthropic from "@anthropic-ai/sdk";
+import { DEFAULT_ANTHROPIC_MODEL, getAnthropicClientAsync } from "./ai-config";
 import { storage } from "./storage";
 import type { AiBuildSession, InsertAiBuildSession, InsertAiBuildTask, InsertAiBuildArtifact } from "@shared/schema";
-
-const anthropic = new Anthropic();
 
 interface BuildPlan {
   summary: string;
@@ -161,6 +158,10 @@ export async function createBuildPlan(prompt: string, userId?: string): Promise<
   });
 
   try {
+    const anthropic = await getAnthropicClientAsync();
+    if (!anthropic) {
+      throw new Error("AI provider not configured");
+    }
     const response = await anthropic.messages.create({
       model: DEFAULT_ANTHROPIC_MODEL,
       max_tokens: 4096,
@@ -281,6 +282,10 @@ export async function executeBuildStep(
 
     onProgress?.(30, `Generating ${task.taskType} code...`);
 
+    const anthropic = await getAnthropicClientAsync();
+    if (!anthropic) {
+      throw new Error("AI provider not configured");
+    }
     const response = await anthropic.messages.create({
       model: DEFAULT_ANTHROPIC_MODEL,
       max_tokens: 8192,

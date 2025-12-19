@@ -1,4 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { db } from "./db";
+import { aiProviderConfigs } from "@shared/schema";
+import { eq } from "drizzle-orm";
+import { decrypt } from "./encryption";
 
 export const SUPPORTED_ANTHROPIC_MODELS = [
   "claude-sonnet-4-5",
@@ -13,9 +17,78 @@ export const DEFAULT_ANTHROPIC_MODEL: SupportedAnthropicModel = "claude-sonnet-4
 
 let anthropicInstance: Anthropic | null = null;
 let cachedApiKey: string | null = null;
+let cachedBaseURL: string | null = null;
+
+async function getStoredAnthropicKey(): Promise<{ apiKey: string | null; baseUrl: string | null }> {
+  try {
+    const config = await db.select()
+      .from(aiProviderConfigs)
+      .where(eq(aiProviderConfigs.provider, "anthropic"))
+      .limit(1);
+    
+    if (config.length > 0 && config[0].encryptedApiKey && config[0].isActive) {
+      const decryptedKey = decrypt(config[0].encryptedApiKey);
+      return {
+        apiKey: decryptedKey,
+        baseUrl: config[0].baseUrl || null,
+      };
+    }
+    return { apiKey: null, baseUrl: null };
+  } catch (error) {
+    console.error("[AI-Config] Error fetching stored API key:", error);
+    return { apiKey: null, baseUrl: null };
+  }
+}
+
+export async function getAnthropicClientAsync(): Promise<Anthropic | null> {
+  const stored = await getStoredAnthropicKey();
+  
+  const directApiKey = stored.apiKey || process.env.ANTHROPIC_API_KEY;
+  const replitApiKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+  const replitBaseURL = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
+  
+  const useStoredKey = !!stored.apiKey;
+  const useDirectEnv = !useStoredKey && !!process.env.ANTHROPIC_API_KEY;
+  const currentApiKey = stored.apiKey || process.env.ANTHROPIC_API_KEY || replitApiKey;
+  const currentBaseURL = stored.baseUrl || ((!useStoredKey && !useDirectEnv) ? replitBaseURL : null);
+  
+  if (anthropicInstance && cachedApiKey === currentApiKey && cachedBaseURL === currentBaseURL) {
+    return anthropicInstance;
+  }
+  
+  if (!currentApiKey) {
+    console.warn("[AI-Config] No Anthropic API key found");
+    return null;
+  }
+  
+  try {
+    if (currentBaseURL) {
+      anthropicInstance = new Anthropic({
+        apiKey: currentApiKey,
+        baseURL: currentBaseURL,
+      });
+    } else {
+      anthropicInstance = new Anthropic({ apiKey: currentApiKey });
+    }
+    cachedApiKey = currentApiKey;
+    cachedBaseURL = currentBaseURL || null;
+    
+    if (useStoredKey) {
+      console.log("[AI-Config] Using STORED API key from database (encrypted)");
+    } else if (useDirectEnv) {
+      console.log("[AI-Config] Using DIRECT Anthropic API (Claude Console)");
+    } else {
+      console.log("[AI-Config] Using Replit AI Integrations");
+    }
+    
+    return anthropicInstance;
+  } catch (error) {
+    console.error("[AI-Config] Failed to initialize Anthropic client:", error);
+    return null;
+  }
+}
 
 export function getAnthropicClient(): Anthropic | null {
-  // Priority: Direct Anthropic API key first (cheaper), then Replit AI Integrations
   const directApiKey = process.env.ANTHROPIC_API_KEY;
   const replitApiKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
   const replitBaseURL = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
@@ -23,13 +96,12 @@ export function getAnthropicClient(): Anthropic | null {
   const useDirectApi = !!directApiKey;
   const currentApiKey = directApiKey || replitApiKey;
   
-  // Dynamic reload: if API key changed, recreate the client
   if (anthropicInstance && cachedApiKey === currentApiKey) {
     return anthropicInstance;
   }
   
   if (!currentApiKey) {
-    console.warn("[AI-Config] No Anthropic API key found");
+    console.warn("[AI-Config] No Anthropic API key found (sync method - use getAnthropicClientAsync for DB keys)");
     return null;
   }
   
@@ -55,6 +127,7 @@ export function getAnthropicClient(): Anthropic | null {
 export function resetAnthropicClient(): void {
   anthropicInstance = null;
   cachedApiKey = null;
+  cachedBaseURL = null;
   console.log("[AI-Config] Anthropic client reset - will reinitialize on next request");
 }
 

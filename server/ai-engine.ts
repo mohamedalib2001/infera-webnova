@@ -1,14 +1,5 @@
-import { DEFAULT_ANTHROPIC_MODEL } from "./ai-config";
-import Anthropic from "@anthropic-ai/sdk";
+import { DEFAULT_ANTHROPIC_MODEL, getAnthropicClientAsync } from "./ai-config";
 import { findBestTemplate } from "./premium-templates";
-
-const apiKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
-const baseURL = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
-
-const anthropic = new Anthropic({
-  apiKey: apiKey,
-  ...(baseURL && { baseURL }),
-});
 
 // ============= Types =============
 
@@ -96,6 +87,10 @@ const PLANNER_PROMPT = `You are an expert website architect. Analyze the user's 
 
 async function createWebsitePlan(userRequest: string): Promise<WebsitePlan> {
   try {
+    const anthropic = await getAnthropicClientAsync();
+    if (!anthropic) {
+      throw new Error("AI provider not configured");
+    }
     const response = await anthropic.messages.create({
       model: DEFAULT_ANTHROPIC_MODEL,
       max_tokens: 2000,
@@ -245,6 +240,10 @@ async function buildWebsite(
   console.log(`Building ${isRetry ? "(retry with fixes)" : "with template: " + template.id}`);
   
   try {
+    const anthropic = await getAnthropicClientAsync();
+    if (!anthropic) {
+      throw new Error("AI provider not configured");
+    }
     const systemPrompt = isRetry 
       ? generateRetryPrompt(plan, previousOutput!, validationFeedback!)
       : generateBuilderPrompt(plan, template);
@@ -543,6 +542,10 @@ If code context is provided, use it to give a more accurate answer.`;
     : prompt;
 
   try {
+    const anthropic = await getAnthropicClientAsync();
+    if (!anthropic) {
+      return language === "ar" ? "مزود AI غير مهيأ" : "AI provider not configured";
+    }
     const response = await anthropic.messages.create({
       model: DEFAULT_ANTHROPIC_MODEL,
       max_tokens: 2000,

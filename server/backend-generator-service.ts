@@ -1,7 +1,4 @@
-import { DEFAULT_ANTHROPIC_MODEL } from "./ai-config";
-import Anthropic from "@anthropic-ai/sdk";
-
-const anthropic = new Anthropic();
+import { DEFAULT_ANTHROPIC_MODEL, getAnthropicClientAsync } from "./ai-config";
 
 export interface BackendGenerationRequest {
   projectName: string;
@@ -87,6 +84,11 @@ Return ONLY valid JSON in this exact format:
 }`;
 
   try {
+    const anthropic = await getAnthropicClientAsync();
+    if (!anthropic) {
+      console.log("AI provider not configured, using default backend template");
+      return getDefaultBackend(request);
+    }
     const response = await anthropic.messages.create({
       model: DEFAULT_ANTHROPIC_MODEL,
       max_tokens: 16000,

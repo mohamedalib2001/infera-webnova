@@ -1,6 +1,4 @@
-import { getAnthropicClient, DEFAULT_ANTHROPIC_MODEL } from "./ai-config";
-
-const anthropic = getAnthropicClient();
+import { getAnthropicClientAsync, DEFAULT_ANTHROPIC_MODEL } from "./ai-config";
 
 export interface GeneratedCode {
   html: string;
@@ -43,6 +41,7 @@ export async function generateWebsiteCode(
   prompt: string,
   context?: string
 ): Promise<GeneratedCode> {
+  const anthropic = await getAnthropicClientAsync();
   if (!anthropic) {
     console.log("Anthropic client not initialized - API key missing");
     return getDefaultCode();
@@ -205,6 +204,7 @@ export async function conversationalResponse(
   prompt: string,
   conversationHistory: ChatMessage[] = []
 ): Promise<{ message: string; suggestions: string[] }> {
+  const anthropic = await getAnthropicClientAsync();
   if (!anthropic) {
     return {
       message: "مفتاح API غير معرف.\n\nAPI key not configured.",
@@ -383,6 +383,7 @@ export async function refineWebsiteCode(
   currentCss: string,
   currentJs: string
 ): Promise<GeneratedCode> {
+  const anthropic = await getAnthropicClientAsync();
   if (!anthropic) {
     return {
       html: currentHtml,

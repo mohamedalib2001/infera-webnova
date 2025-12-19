@@ -1,0 +1,128 @@
+Build a centralized AI Models Settings Page specifically for Replit Agent using ModelFarm as the ONLY model provider.
+
+CONTEXT & CONSTRAINTS:
+- Replit automatically translates model names internally.
+- Model names MUST be specified exactly as required by Replit (no aliases).
+- API keys are internally managed by Replit.
+- Environment variables must be validated before activation.
+- All models are provided exclusively via ModelFarm.
+
+SUPPORTED MODELS (STRICT – DO NOT ADD OTHERS):
+Anthropic Claude models available through ModelFarm:
+- claude-sonnet-4-5 (RECOMMENDED – default)
+- claude-opus-4-5
+- claude-haiku-4-5
+- claude-opus-4-1
+
+CORE PROBLEM TO SOLVE:
+Currently, each file defines the model separately, causing incompatibility and inconsistency.
+SOLUTION REQUIRED:
+Create ONE centralized configuration system that controls model selection, behavior, and usage across the entire platform.
+
+PAGE OBJECTIVE:
+Provide the most powerful and granular AI model settings dashboard possible, while remaining fully compatible with Replit Agent and ModelFarm.
+
+--------------------------------------------------
+PAGE STRUCTURE
+--------------------------------------------------
+
+1. Global Model Control (Top Section)
+- Primary Default Model (dropdown from supported list)
+- Global Enable / Disable AI
+- Global Performance Mode:
+  • Maximum Accuracy
+  • Balanced (default)
+  • Maximum Speed
+- Global Context Length Limit
+- Global Token Budget Guard
+- Emergency Kill Switch (disable all AI calls instantly)
+
+2. Model Registry (ModelFarm Only)
+For each supported model show:
+
+Model Card:
+- Model Name (exact Replit-compatible name)
+- Provider: ModelFarm / Anthropic
+- Status badge:
+  • Active
+  • Disabled
+  • Experimental
+- Recommendation badge for claude-sonnet-4-5
+
+Per-Model Controls:
+- Enable / Disable model
+- Speed Control:
+  • Fast
+  • Balanced
+  • Precise
+- Temperature slider
+- Max tokens per response
+- Context window usage %
+- Cost awareness indicator (read-only)
+- Fallback model selector (from same list)
+- Strict validation: block saving if model name is invalid
+
+3. Service-Level Model Assignment
+Create logical services (even if virtual):
+
+- Agent Chat
+- Code Generation
+- Reasoning / Planning
+- Long Context Analysis
+- Fast Responses
+
+For each service:
+- Primary Model (dropdown)
+- Fallback Model
+- Allow override (on/off)
+- Speed vs Quality slider
+- Auto-switch on failure (on/off)
+
+4. Central Configuration File (CRITICAL)
+Generate a single source of truth config file, e.g.:
+
+/config/ai-models.config.ts (or .json)
+
+This file must:
+- Define all models once
+- Be imported everywhere
+- Prevent per-file model definitions
+- Validate model names at runtime
+- Expose helper functions:
+  • getDefaultModel()
+  • getModelForService(serviceName)
+  • validateModelName(name)
+
+5. Validation & Safety
+- Block saving if environment variables are missing
+- Warn if recommended model is disabled
+- Show warning if fallback is same as primary
+- Prevent app startup if no active model exists
+
+6. UI / UX REQUIREMENTS
+- Replit-native design
+- Clean, compact, developer-focused UI
+- Toggle-heavy, no unnecessary animations
+- Inline warnings and tooltips
+- Dark mode optimized
+
+7. FUTURE-PROOFING
+- Ability to add future Claude versions easily
+- Model versioning support
+- Config export / import
+- No hardcoded logic outside the config file
+
+IMPORTANT RULES:
+- DO NOT introduce external providers
+- DO NOT rename models
+- DO NOT bypass Replit’s internal translation
+- Respect ModelFarm as the sole gateway
+
+FINAL OUTPUT REQUIRED:
+- Full settings page UI layout
+- Central config file structure
+- Example usage across the app
+- Validation logic
+- Clear separation of concerns
+
+This is a production-grade system, not a demo.
