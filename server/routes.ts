@@ -10000,9 +10000,11 @@ export async function registerRoutes(
   app.post("/api/owner/notifications/alert", requireOwner, async (req, res) => {
     try {
       const { notificationEngine } = await import("./notification-engine");
-      const { title, titleAr, message, messageAr, type, metadata } = req.body;
+      const { title, titleAr, message, messageAr, type, metadata, targetType, targetUserIds } = req.body;
       const notification = await notificationEngine.sendOwnerAlert(
-        title, titleAr, message, messageAr, type, metadata
+        title, titleAr, message, messageAr, type, metadata, 
+        targetType || 'all', 
+        targetUserIds || []
       );
       res.json({ success: true, notification });
     } catch (error) {

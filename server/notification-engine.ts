@@ -314,23 +314,61 @@ class NotificationEngine {
     message: string,
     messageAr: string,
     type: string,
-    metadata?: Record<string, unknown>
-  ): Promise<SovereignNotification> {
-    return this.send({
-      title,
-      titleAr,
-      message,
-      messageAr,
-      type,
-      isOwnerOnly: true,
-      metadata,
-      sourceSystem: 'sovereignty',
-      context: {
-        eventSeverity: 80,
-        userImpact: 'critical',
-        riskLevel: 'high'
+    metadata?: Record<string, unknown>,
+    targetType: 'all' | 'specific' = 'all',
+    targetUserIds: string[] = []
+  ): Promise<SovereignNotification | SovereignNotification[]> {
+    // If targeting specific users, create individual notifications for each
+    if (targetType === 'specific') {
+      if (targetUserIds.length === 0) {
+        throw new Error('At least one user must be selected when targeting specific users');
       }
-    });
+      const notifications: SovereignNotification[] = [];
+      for (const userId of targetUserIds) {
+        const notification = await this.send({
+          title,
+          titleAr,
+          message,
+          messageAr,
+          type,
+          targetUserId: userId,
+          isOwnerOnly: false,
+          metadata: { ...metadata, targetedAlert: true },
+          sourceSystem: 'sovereignty',
+          context: {
+            eventSeverity: 80,
+            userImpact: 'critical',
+            riskLevel: 'high'
+          }
+        });
+        notifications.push(notification);
+      }
+      return notifications;
+    }
+    
+    // Target all users: get all users and create individual notifications
+    const allUsers = await storage.getAllUsers();
+    const notifications: SovereignNotification[] = [];
+    for (const user of allUsers) {
+      const notification = await this.send({
+        title,
+        titleAr,
+        message,
+        messageAr,
+        type,
+        targetUserId: user.id,
+        isOwnerOnly: false,
+        metadata: { ...metadata, broadcastAlert: true },
+        sourceSystem: 'sovereignty',
+        context: {
+          eventSeverity: 80,
+          userImpact: 'critical',
+          riskLevel: 'high'
+        }
+      });
+      notifications.push(notification);
+    }
+    return notifications;
   }
   
   private isBusinessHours(): boolean {

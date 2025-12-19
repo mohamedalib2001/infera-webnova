@@ -97,7 +97,11 @@ const translations = {
       alertTitle: "عنوان التنبيه",
       alertMessage: "رسالة التنبيه",
       alertType: "نوع التنبيه",
-      send: "إرسال فوري"
+      send: "إرسال فوري",
+      targetType: "المستهدفين",
+      allUsers: "جميع المستخدمين",
+      specificUsers: "مستخدمين محددين",
+      selectUsers: "اختر المستخدمين"
     },
     empty: "لا توجد إشعارات",
     loading: "جاري التحميل...",
@@ -155,7 +159,11 @@ const translations = {
       alertTitle: "Alert Title",
       alertMessage: "Alert Message",
       alertType: "Alert Type",
-      send: "Send Now"
+      send: "Send Now",
+      targetType: "Target",
+      allUsers: "All Users",
+      specificUsers: "Specific Users",
+      selectUsers: "Select Users"
     },
     empty: "No notifications",
     loading: "Loading...",
@@ -208,7 +216,9 @@ export default function OwnerNotifications() {
     titleAr: "",
     message: "",
     messageAr: "",
-    type: "SECURITY"
+    type: "SECURITY",
+    targetType: "all" as "all" | "specific",
+    targetUserIds: [] as string[]
   });
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
 
@@ -248,6 +258,14 @@ export default function OwnerNotifications() {
     queryKey: ['/api/owner/notification-analytics']
   });
 
+  // Fetch users for targeting
+  const { data: usersData } = useQuery<Array<{ id: string; username: string; email: string; fullName: string }>>({
+    queryKey: ['/api/owner/users'],
+    enabled: alertForm.targetType === 'specific'
+  });
+
+  const availableUsers = usersData || [];
+
   // Extract arrays from response objects
   const notifications = notificationsData?.notifications || [];
   const sovereignNotifications = sovereignData?.notifications || [];
@@ -277,7 +295,7 @@ export default function OwnerNotifications() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/owner/notifications'] });
       setShowAlertDialog(false);
-      setAlertForm({ title: "", titleAr: "", message: "", messageAr: "", type: "SECURITY" });
+      setAlertForm({ title: "", titleAr: "", message: "", messageAr: "", type: "SECURITY", targetType: "all", targetUserIds: [] });
       toast({ title: language === 'ar' ? 'تم إرسال التنبيه' : 'Alert sent' });
     }
   });
@@ -472,11 +490,54 @@ export default function OwnerNotifications() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div>
+                  <Label>{t.newAlert.targetType}</Label>
+                  <Select value={alertForm.targetType} onValueChange={(v: "all" | "specific") => setAlertForm({...alertForm, targetType: v, targetUserIds: []})}>
+                    <SelectTrigger data-testid="select-target-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t.newAlert.allUsers}</SelectItem>
+                      <SelectItem value="specific">{t.newAlert.specificUsers}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {alertForm.targetType === 'specific' && (
+                  <div>
+                    <Label>{t.newAlert.selectUsers}</Label>
+                    <div className="border rounded-md p-2 max-h-40 overflow-y-auto space-y-2">
+                      {availableUsers.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">{language === 'ar' ? 'جاري تحميل المستخدمين...' : 'Loading users...'}</p>
+                      ) : (
+                        availableUsers.map(user => (
+                          <div key={user.id} className="flex items-center gap-2">
+                            <input 
+                              type="checkbox"
+                              id={`user-${user.id}`}
+                              checked={alertForm.targetUserIds.includes(user.id)}
+                              onChange={(e) => {
+                                const userIds = e.target.checked 
+                                  ? [...alertForm.targetUserIds, user.id]
+                                  : alertForm.targetUserIds.filter(id => id !== user.id);
+                                setAlertForm({...alertForm, targetUserIds: userIds});
+                              }}
+                              className="rounded"
+                              data-testid={`checkbox-user-${user.id}`}
+                            />
+                            <label htmlFor={`user-${user.id}`} className="text-sm">
+                              {user.fullName || user.username} ({user.email})
+                            </label>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
               <DialogFooter>
                 <Button 
                   onClick={() => sendAlertMutation.mutate(alertForm)}
-                  disabled={sendAlertMutation.isPending || !alertForm.title || !alertForm.message}
+                  disabled={sendAlertMutation.isPending || !alertForm.title || !alertForm.message || (alertForm.targetType === 'specific' && alertForm.targetUserIds.length === 0)}
                   data-testid="button-confirm-send-alert"
                 >
                   <Send className="w-4 h-4 mr-2" />
