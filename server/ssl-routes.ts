@@ -561,7 +561,7 @@ router.get("/csr-requests", async (req: Request, res: Response) => {
   }
 });
 
-// Get single CSR request with CSR content
+// Get single CSR request with CSR content (without private key by default)
 router.get("/csr-requests/:id", async (req: Request, res: Response) => {
   try {
     const userId = (req.session as any)?.userId || (req.user as any)?.claims?.sub;
@@ -582,25 +582,75 @@ router.get("/csr-requests/:id", async (req: Request, res: Response) => {
       });
     }
 
-    // Decrypt private key for authorized users
-    let decryptedPrivateKey = null;
-    try {
-      decryptedPrivateKey = decryptData(request.privateKeyEncrypted);
-    } catch {
-      decryptedPrivateKey = "Error decrypting key";
-    }
+    // Return CSR without private key for security
+    const { privateKeyEncrypted, ...safeRequest } = request;
 
     res.json({ 
-      csrRequest: {
-        ...request,
-        privateKey: decryptedPrivateKey
-      }
+      csrRequest: safeRequest,
+      hasPrivateKey: !!privateKeyEncrypted
     });
   } catch (error) {
     console.error("Error fetching CSR request:", error);
     res.status(500).json({ 
       error: "Failed to fetch CSR request", 
       errorAr: "فشل في جلب طلب CSR" 
+    });
+  }
+});
+
+// Get private key for CSR (separate secure endpoint with explicit action)
+router.post("/csr-requests/:id/private-key", async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId || (req.user as any)?.claims?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized", errorAr: "غير مصرح" });
+    }
+
+    const { id } = req.params;
+    const { confirmAccess } = req.body;
+
+    if (!confirmAccess) {
+      return res.status(400).json({ 
+        error: "Access confirmation required", 
+        errorAr: "يجب تأكيد الوصول للمفتاح الخاص" 
+      });
+    }
+
+    const [request] = await db.select()
+      .from(csrRequests)
+      .where(eq(csrRequests.id, id))
+      .limit(1);
+
+    if (!request) {
+      return res.status(404).json({ 
+        error: "CSR request not found", 
+        errorAr: "لم يتم العثور على طلب CSR" 
+      });
+    }
+
+    // Decrypt private key only on explicit request
+    let decryptedPrivateKey = null;
+    try {
+      decryptedPrivateKey = decryptData(request.privateKeyEncrypted);
+    } catch {
+      return res.status(500).json({ 
+        error: "Failed to decrypt private key", 
+        errorAr: "فشل في فك تشفير المفتاح الخاص" 
+      });
+    }
+
+    res.json({ 
+      privateKey: decryptedPrivateKey,
+      warning: {
+        en: "Keep this private key secure. You will need it to install your SSL certificate.",
+        ar: "احفظ هذا المفتاح الخاص بشكل آمن. ستحتاجه لتثبيت شهادة SSL الخاصة بك."
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching private key:", error);
+    res.status(500).json({ 
+      error: "Failed to fetch private key", 
+      errorAr: "فشل في جلب المفتاح الخاص" 
     });
   }
 });

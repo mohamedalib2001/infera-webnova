@@ -540,12 +540,31 @@ export default function SSLCertificates() {
       const res = await fetch(`/api/ssl/csr-requests/${id}`);
       if (res.ok) {
         const data = await res.json();
-        setCSRDetails(data.csrRequest);
+        setCSRDetails({ ...data.csrRequest, hasPrivateKey: data.hasPrivateKey, privateKey: null });
         setSelectedCSRId(id);
         setShowCSRDetailsDialog(true);
       }
     } catch (error) {
       toast({ title: language === 'ar' ? 'فشل جلب التفاصيل' : 'Failed to fetch details', variant: "destructive" });
+    }
+  };
+
+  const requestPrivateKey = async (id: string) => {
+    try {
+      const res = await fetch(`/api/ssl/csr-requests/${id}/private-key`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmAccess: true })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCSRDetails((prev: any) => ({ ...prev, privateKey: data.privateKey }));
+        toast({ title: language === 'ar' ? 'تم جلب المفتاح الخاص' : 'Private key retrieved' });
+      } else {
+        toast({ title: language === 'ar' ? 'فشل جلب المفتاح الخاص' : 'Failed to retrieve private key', variant: "destructive" });
+      }
+    } catch (error) {
+      toast({ title: language === 'ar' ? 'فشل جلب المفتاح الخاص' : 'Failed to retrieve private key', variant: "destructive" });
     }
   };
 
@@ -1207,22 +1226,41 @@ export default function SSLCertificates() {
                   <KeyRound className="h-4 w-4" />
                   {t.uploadForm.privateKey}
                 </Label>
-                <div className="relative">
-                  <Textarea
-                    readOnly
-                    value={csrDetails.privateKey}
-                    className="font-mono text-xs min-h-[150px]"
-                  />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="absolute top-2 right-2"
-                    onClick={() => copyToClipboard(csrDetails.privateKey, language === 'ar' ? 'المفتاح الخاص' : 'Private Key')}
-                  >
-                    <Copy className="h-3 w-3 mr-1" />
-                    {t.csrForm.copyPrivateKey}
-                  </Button>
-                </div>
+                {csrDetails.privateKey ? (
+                  <div className="relative">
+                    <Textarea
+                      readOnly
+                      value={csrDetails.privateKey}
+                      className="font-mono text-xs min-h-[150px]"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="absolute top-2 right-2"
+                      onClick={() => copyToClipboard(csrDetails.privateKey, language === 'ar' ? 'المفتاح الخاص' : 'Private Key')}
+                    >
+                      <Copy className="h-3 w-3 mr-1" />
+                      {t.csrForm.copyPrivateKey}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="p-4 border rounded-md bg-muted/50 text-center">
+                    <Lock className="h-8 w-8 mx-auto mb-2 text-amber-600" />
+                    <p className="text-sm text-muted-foreground mb-3">
+                      {language === 'ar' 
+                        ? 'المفتاح الخاص مشفر ومحفوظ بشكل آمن' 
+                        : 'Private key is encrypted and securely stored'}
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={() => selectedCSRId && requestPrivateKey(selectedCSRId)}
+                      data-testid="button-request-private-key"
+                    >
+                      <Unlock className="h-4 w-4 mr-2" />
+                      {language === 'ar' ? 'الوصول للمفتاح الخاص' : 'Access Private Key'}
+                    </Button>
+                  </div>
+                )}
                 <p className="text-sm text-amber-600 flex items-center gap-1">
                   <AlertTriangle className="h-4 w-4" />
                   {t.csrForm.warning}
