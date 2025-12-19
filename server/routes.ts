@@ -2800,6 +2800,29 @@ export async function registerRoutes(
         // Meta Llama - typically accessed via other APIs, mark as configured
         testResult.success = true;
         testResult.error = "";
+      } else if (provider === 'replit') {
+        // Replit AI Integrations - uses built-in API, no key needed
+        try {
+          // Test using Replit AI Integrations (Anthropic)
+          const Anthropic = require("@anthropic-ai/sdk").default;
+          const client = new Anthropic();
+          await client.messages.create({
+            model: "claude-sonnet-4-5-20250514",
+            max_tokens: 10,
+            messages: [{ role: "user", content: "Hi" }],
+          });
+          testResult.success = true;
+          testResult.error = "";
+        } catch (e: any) {
+          const errorMsg = e.message || "";
+          // Rate limit or quota means key is valid
+          if (errorMsg.includes("rate") || errorMsg.includes("quota") || e.status === 429) {
+            testResult.success = true;
+            testResult.error = "";
+          } else {
+            testResult.error = e.message;
+          }
+        }
       } else {
         testResult.error = "مزود غير مدعوم للاختبار / Provider not supported for testing";
       }
