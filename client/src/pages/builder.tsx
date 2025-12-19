@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { 
   ArrowRight, ArrowLeft, Save, Loader2, Sparkles, 
   Globe, Terminal, FolderTree, LayoutGrid, Monitor, 
@@ -412,65 +413,75 @@ export default function Builder() {
         </div>
       )}
       
-      {/* Main content */}
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-        {/* Preview Panel - Hidden on mobile when chat is focused */}
-        <div className="flex-1 p-2 md:p-4 bg-muted/30 min-h-[200px] md:min-h-0">
-          <CodePreview
-            html={html}
-            css={css}
-            js={js}
-            isGenerating={isGenerating}
-          />
-        </div>
-        
-        {/* Chat Panel - Full width on mobile */}
-        <div className="w-full md:w-[380px] flex flex-col border-t md:border-t-0 md:border-s bg-background max-h-[50vh] md:max-h-none overflow-hidden">
-          <ScrollArea className="flex-1 p-4">
-            {messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center py-12">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center mb-4">
-                  <Sparkles className="h-8 w-8 text-white" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">{t("builder.startConversation")}</h3>
-                <p className="text-sm text-muted-foreground max-w-[250px]">
-                  {t("builder.startDescription")}
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {messages.map((message) => (
-                  <ChatMessage 
-                    key={message.id} 
-                    message={message}
-                    onSuggestionClick={(suggestion) => handleSendMessage(suggestion)}
-                  />
-                ))}
-                {isGenerating && (
-                  <ThinkingIndicator isActive={isGenerating} />
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-            )}
-          </ScrollArea>
-          
-          <div className="p-4 border-t">
-            {pendingMessages.length > 0 && (
-              <div className="mb-2 px-2 py-1 bg-muted rounded-md text-xs text-muted-foreground flex items-center gap-2">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                {t("builder.pendingMessages") || "Pending"}: {pendingMessages.length}
-              </div>
-            )}
-            <ChatInput
-              onSend={handleSendMessage}
-              onCancel={handleCancelGeneration}
-              isLoading={isGenerating}
-              allowWhileLoading={true}
-              placeholder={t("builder.describePlaceholder")}
+      {/* Main content with resizable panels */}
+      <ResizablePanelGroup 
+        direction="horizontal" 
+        className="flex-1 overflow-hidden"
+      >
+        {/* Preview Panel */}
+        <ResizablePanel defaultSize={65} minSize={30}>
+          <div className="h-full p-2 md:p-4 bg-muted/30">
+            <CodePreview
+              html={html}
+              css={css}
+              js={js}
+              isGenerating={isGenerating}
             />
           </div>
-        </div>
-      </div>
+        </ResizablePanel>
+        
+        {/* Resizable Handle - drag to resize */}
+        <ResizableHandle withHandle className="hidden md:flex" />
+        
+        {/* Chat Panel - Resizable */}
+        <ResizablePanel defaultSize={35} minSize={20} maxSize={60}>
+          <div className="h-full flex flex-col border-s bg-background overflow-hidden">
+            <ScrollArea className="flex-1 p-4">
+              {messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center py-12">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center mb-4">
+                    <Sparkles className="h-8 w-8 text-white" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">{t("builder.startConversation")}</h3>
+                  <p className="text-sm text-muted-foreground max-w-[250px]">
+                    {t("builder.startDescription")}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {messages.map((message) => (
+                    <ChatMessage 
+                      key={message.id} 
+                      message={message}
+                      onSuggestionClick={(suggestion) => handleSendMessage(suggestion)}
+                    />
+                  ))}
+                  {isGenerating && (
+                    <ThinkingIndicator isActive={isGenerating} />
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
+              )}
+            </ScrollArea>
+            
+            <div className="p-4 border-t">
+              {pendingMessages.length > 0 && (
+                <div className="mb-2 px-2 py-1 bg-muted rounded-md text-xs text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  {t("builder.pendingMessages") || "Pending"}: {pendingMessages.length}
+                </div>
+              )}
+              <ChatInput
+                onSend={handleSendMessage}
+                onCancel={handleCancelGeneration}
+                isLoading={isGenerating}
+                allowWhileLoading={true}
+                placeholder={t("builder.describePlaceholder")}
+              />
+            </div>
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
       
       {/* Bottom Tool Panel - When a tool is active */}
       {activeBottomTool && (
