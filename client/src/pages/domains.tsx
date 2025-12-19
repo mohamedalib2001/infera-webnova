@@ -1323,7 +1323,13 @@ export default function DomainsPage() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {platformLinks.map((link) => (
+                    {platformLinks.map((link) => {
+                      const linkedPlatform = platformsList.find(p => p.id === link.platformId);
+                      const platformName = linkedPlatform 
+                        ? (language === 'ar' && linkedPlatform.nameAr ? linkedPlatform.nameAr : linkedPlatform.name)
+                        : `Platform #${link.platformId.slice(0, 8)}`;
+                      
+                      return (
                       <div 
                         key={link.id} 
                         className="flex items-center justify-between p-3 bg-muted/50 rounded-md"
@@ -1334,9 +1340,9 @@ export default function DomainsPage() {
                             <Server className="w-4 h-4 text-primary" />
                           </div>
                           <div>
-                            <p className="font-medium">{`Platform #${link.platformId}`}</p>
+                            <p className="font-medium">{platformName}</p>
                             <div className="flex items-center gap-2 mt-0.5">
-                              <Badge variant="outline" className="text-xs">{link.linkType}</Badge>
+                              <Badge variant="outline" className="text-xs">{link.targetType || link.linkType}</Badge>
                               {link.subdomain && (
                                 <span className="text-xs text-muted-foreground">
                                   {link.subdomain}.{selectedDomain.domainName}
@@ -1355,7 +1361,8 @@ export default function DomainsPage() {
                           {t.unlink}
                         </Button>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
