@@ -20,8 +20,10 @@ import {
   insertDeploymentRunSchema, insertInfrastructureBackupSchema,
   insertExternalIntegrationSessionSchema,
   domainPlatformLinks,
-  aiProviderConfigs
+  aiProviderConfigs,
+  aiUsageLogs
 } from "@shared/schema";
+import { sql } from "drizzle-orm";
 import { z } from "zod";
 import crypto, { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
@@ -3080,6 +3082,137 @@ export async function registerRoutes(
       });
     } catch (error: any) {
       console.error("Get provider error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============ AI Usage Tracking APIs ============
+
+  // Get AI usage statistics (owner only)
+  app.get("/api/owner/ai-usage/stats", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { days = 30 } = req.query;
+      const daysNum = parseInt(days as string) || 30;
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - daysNum);
+      
+      // Get aggregated stats from logs
+      const usageLogs = await db.select()
+        .from(aiUsageLogs)
+        .where(sql`${aiUsageLogs.createdAt} >= ${startDate}`);
+      
+      // Aggregate by provider
+      const byProvider: Record<string, { 
+        requests: number; 
+        tokens: number; 
+        cost: number;
+        successRate: number;
+      }> = {};
+      
+      let totalRequests = 0;
+      let totalTokens = 0;
+      let totalCost = 0;
+      let successfulRequests = 0;
+      
+      for (const log of usageLogs) {
+        const provider = log.provider;
+        if (!byProvider[provider]) {
+          byProvider[provider] = { requests: 0, tokens: 0, cost: 0, successRate: 0 };
+        }
+        byProvider[provider].requests += 1;
+        byProvider[provider].tokens += log.totalTokens || 0;
+        byProvider[provider].cost += log.estimatedCost || 0;
+        if (log.success) {
+          successfulRequests++;
+        }
+        
+        totalRequests++;
+        totalTokens += log.totalTokens || 0;
+        totalCost += log.estimatedCost || 0;
+      }
+      
+      // Calculate success rates
+      for (const provider of Object.keys(byProvider)) {
+        const providerLogs = usageLogs.filter(l => l.provider === provider);
+        const successCount = providerLogs.filter(l => l.success).length;
+        byProvider[provider].successRate = providerLogs.length > 0 
+          ? Math.round((successCount / providerLogs.length) * 100) 
+          : 100;
+      }
+      
+      res.json({
+        period: `${daysNum} days`,
+        totalRequests,
+        totalTokens,
+        totalCost: Math.round(totalCost * 10000) / 10000,
+        successRate: totalRequests > 0 ? Math.round((successfulRequests / totalRequests) * 100) : 100,
+        byProvider,
+      });
+    } catch (error: any) {
+      console.error("Get AI usage stats error:", error);
+      res.status(500).json({ error: error.message || "فشل في جلب إحصائيات الاستخدام" });
+    }
+  });
+
+  // Get recent AI usage logs (owner only)
+  app.get("/api/owner/ai-usage/logs", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { limit = 50, provider } = req.query;
+      const limitNum = Math.min(parseInt(limit as string) || 50, 200);
+      
+      let query = db.select().from(aiUsageLogs).orderBy(sql`${aiUsageLogs.createdAt} DESC`).limit(limitNum);
+      
+      if (provider && typeof provider === 'string') {
+        query = db.select()
+          .from(aiUsageLogs)
+          .where(eq(aiUsageLogs.provider, provider))
+          .orderBy(sql`${aiUsageLogs.createdAt} DESC`)
+          .limit(limitNum);
+      }
+      
+      const logs = await query;
+      res.json(logs);
+    } catch (error: any) {
+      console.error("Get AI usage logs error:", error);
+      res.status(500).json({ error: error.message || "فشل في جلب سجلات الاستخدام" });
+    }
+  });
+
+  // Log AI usage (internal use)
+  app.post("/api/ai/log-usage", async (req, res) => {
+    try {
+      const { provider, model, inputTokens, outputTokens, requestType, success, errorMessage, latencyMs, userId } = req.body;
+      
+      // Pricing per 1M tokens (approximate)
+      const pricing: Record<string, { input: number; output: number }> = {
+        'anthropic': { input: 3.0, output: 15.0 }, // Claude Sonnet 4
+        'openai': { input: 2.5, output: 10.0 }, // GPT-4o
+        'google': { input: 0.075, output: 0.30 }, // Gemini Pro
+        'meta': { input: 0.8, output: 0.8 }, // Llama via Replicate
+        'replit': { input: 0, output: 0 }, // Replit uses account credits
+      };
+      
+      const totalTokens = (inputTokens || 0) + (outputTokens || 0);
+      const providerPricing = pricing[provider] || { input: 1.0, output: 1.0 };
+      const estimatedCost = ((inputTokens || 0) * providerPricing.input + (outputTokens || 0) * providerPricing.output) / 1000000;
+      
+      await db.insert(aiUsageLogs).values({
+        provider,
+        model: model || 'unknown',
+        inputTokens: inputTokens || 0,
+        outputTokens: outputTokens || 0,
+        totalTokens,
+        estimatedCost,
+        requestType: requestType || 'chat',
+        success: success !== false,
+        errorMessage: errorMessage || null,
+        latencyMs: latencyMs || null,
+        userId: userId || null,
+      });
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Log AI usage error:", error);
       res.status(500).json({ error: error.message });
     }
   });
