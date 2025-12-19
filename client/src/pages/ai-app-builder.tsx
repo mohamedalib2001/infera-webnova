@@ -29,7 +29,15 @@ import {
   FileCode,
   Clock,
   Rocket,
-  ChevronRight
+  Building2,
+  GraduationCap,
+  ShoppingCart,
+  Users,
+  BarChart3,
+  FileText,
+  Layers,
+  Shield,
+  Zap
 } from "lucide-react";
 import type { AiBuildSession, AiBuildTask, AiBuildArtifact } from "@shared/schema";
 
@@ -48,14 +56,73 @@ const taskTypeIcons: Record<string, typeof Database> = {
   integration: Link2,
 };
 
-const statusColors: Record<string, string> = {
-  pending: "bg-muted text-muted-foreground",
-  running: "bg-blue-500/10 text-blue-500",
-  completed: "bg-green-500/10 text-green-500",
-  failed: "bg-red-500/10 text-red-500",
-  planning: "bg-yellow-500/10 text-yellow-500",
-  building: "bg-blue-500/10 text-blue-500",
-  planned: "bg-purple-500/10 text-purple-500",
+const statusConfig: Record<string, { bg: string; text: string; label: string; labelAr: string }> = {
+  pending: { bg: "bg-muted", text: "text-muted-foreground", label: "Pending", labelAr: "قيد الانتظار" },
+  running: { bg: "bg-blue-500/10", text: "text-blue-500", label: "Running", labelAr: "قيد التنفيذ" },
+  completed: { bg: "bg-green-500/10", text: "text-green-500", label: "Completed", labelAr: "مكتمل" },
+  failed: { bg: "bg-red-500/10", text: "text-red-500", label: "Failed", labelAr: "فشل" },
+  planning: { bg: "bg-yellow-500/10", text: "text-yellow-500", label: "Planning", labelAr: "تخطيط" },
+  building: { bg: "bg-blue-500/10", text: "text-blue-500", label: "Building", labelAr: "بناء" },
+  planned: { bg: "bg-purple-500/10", text: "text-purple-500", label: "Planned", labelAr: "مُخطط" },
+};
+
+const blueprintExamples = [
+  {
+    id: "hr",
+    icon: Users,
+    titleAr: "منصة موارد بشرية",
+    titleEn: "HR Management",
+    descAr: "إدارة الموظفين والإجازات والحضور",
+    descEn: "Employees, leaves, attendance",
+    prompt: "منصة موارد بشرية مع إدارة الموظفين، طلبات الإجازات، تتبع الحضور، وتقارير الأداء مع لوحة تحكم للمديرين",
+    complexity: "enterprise",
+  },
+  {
+    id: "ecommerce",
+    icon: ShoppingCart,
+    titleAr: "متجر إلكتروني",
+    titleEn: "E-Commerce",
+    descAr: "منتجات، سلة، دفع، شحن",
+    descEn: "Products, cart, payment, shipping",
+    prompt: "متجر إلكتروني مع سلة التسوق والدفع وإدارة المنتجات والمخزون",
+    complexity: "advanced",
+  },
+  {
+    id: "project",
+    icon: Layers,
+    titleAr: "إدارة مشاريع",
+    titleEn: "Project Management",
+    descAr: "مهام، فرق، تتبع التقدم",
+    descEn: "Tasks, teams, progress tracking",
+    prompt: "نظام إدارة مشاريع مع المهام والفرق وتتبع التقدم",
+    complexity: "standard",
+  },
+  {
+    id: "cms",
+    icon: FileText,
+    titleAr: "نظام إدارة محتوى",
+    titleEn: "CMS / Blog",
+    descAr: "مقالات، تصنيفات، تعليقات",
+    descEn: "Articles, categories, comments",
+    prompt: "مدونة مع نظام تعليقات وتصنيفات وإدارة المحتوى",
+    complexity: "standard",
+  },
+  {
+    id: "analytics",
+    icon: BarChart3,
+    titleAr: "لوحة تحليلات",
+    titleEn: "Analytics Dashboard",
+    descAr: "تقارير، رسوم بيانية، إحصائيات",
+    descEn: "Reports, charts, statistics",
+    prompt: "لوحة تحكم إدارية مع تقارير ورسوم بيانية وإحصائيات تفاعلية",
+    complexity: "advanced",
+  },
+];
+
+const complexityColors: Record<string, string> = {
+  standard: "bg-green-500/10 text-green-600",
+  advanced: "bg-blue-500/10 text-blue-600",
+  enterprise: "bg-purple-500/10 text-purple-600",
 };
 
 export default function AiAppBuilder() {
@@ -146,16 +213,20 @@ export default function AiAppBuilder() {
     }
   };
 
+  const runningSessions = sessions.filter(s => s.status === "running" || s.status === "building");
+  const plannedSessions = sessions.filter(s => s.status === "planned" || s.status === "planning");
+  const completedSessions = sessions.filter(s => s.status === "completed" || s.status === "failed");
+
   return (
     <div className="min-h-screen bg-background" data-testid="page-ai-app-builder">
-      <div className="container max-w-7xl mx-auto p-6 space-y-6">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <header className="mb-8">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
               <Sparkles className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold" data-testid="text-page-title">
+              <h1 className="text-2xl font-semibold tracking-tight" data-testid="text-page-title">
                 منشئ التطبيقات بالذكاء الاصطناعي
               </h1>
               <p className="text-sm text-muted-foreground">
@@ -163,48 +234,82 @@ export default function AiAppBuilder() {
               </p>
             </div>
           </div>
-        </div>
+        </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Bot className="w-5 h-5" />
-                  وصف التطبيق / Describe Your App
-                </CardTitle>
-                <CardDescription>
-                  اكتب وصفاً لما تريد بناءه وسيقوم الذكاء الاصطناعي بإنشاء التطبيق كاملاً
-                </CardDescription>
+          <div className="lg:col-span-2 space-y-6">
+            <Card className="border-border/60">
+              <CardHeader className="pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                    <Bot className="w-5 h-5 text-foreground" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">وصف التطبيق / Describe Your App</CardTitle>
+                    <CardDescription className="text-sm">
+                      صف المنصة التي تريد بناءها بالتفصيل
+                    </CardDescription>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Textarea
-                  placeholder="مثال: أريد منصة موارد بشرية تتضمن إدارة الموظفين، طلبات الإجازات، تتبع الحضور، وتقارير الأداء مع لوحة تحكم للمديرين...
+                <div className="space-y-3">
+                  <div className="text-xs text-muted-foreground flex items-center gap-4 flex-wrap">
+                    <span className="flex items-center gap-1.5">
+                      <Shield className="w-3.5 h-3.5" />
+                      نوع المنصة
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5" />
+                      المستخدمين المستهدفين
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5" />
+                      الوحدات الأساسية
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5" />
+                      مستوى الأمان
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <Textarea
+                      placeholder="صف المنصة التي تريد بناءها...
 
-Example: I want an HR platform with employee management, leave requests, attendance tracking, and performance reports with a dashboard for managers..."
-                  className="min-h-[150px] resize-none"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  data-testid="input-app-description"
-                />
-                <div className="flex items-center justify-between gap-4">
-                  <p className="text-xs text-muted-foreground">
-                    {prompt.length}/10 حرف كحد أدنى / minimum characters
-                  </p>
+مثال: أريد منصة موارد بشرية تتضمن إدارة الموظفين، طلبات الإجازات، تتبع الحضور، وتقارير الأداء مع لوحة تحكم للمديرين
+
+Example: I want an HR platform with employee management, leave requests, attendance tracking, and performance reports with a dashboard for managers"
+                      className="min-h-[160px] resize-none text-sm leading-relaxed"
+                      value={prompt}
+                      onChange={(e) => setPrompt(e.target.value)}
+                      data-testid="input-app-description"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-4 pt-2">
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className={prompt.length >= 10 ? "text-green-600" : ""}>
+                      {prompt.length} حرف
+                    </span>
+                    <span className="text-border">|</span>
+                    <span>10 حرف كحد أدنى</span>
+                  </div>
                   <Button 
                     onClick={handleSubmit}
                     disabled={planMutation.isPending || prompt.length < 10}
+                    className="gap-2 px-6"
                     data-testid="button-create-plan"
                   >
                     {planMutation.isPending ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        جاري التخطيط... / Planning...
+                        <span>جاري التخطيط...</span>
                       </>
                     ) : (
                       <>
                         <Sparkles className="w-4 h-4" />
-                        إنشاء خطة البناء / Create Build Plan
+                        <span>إنشاء خطة البناء / Create Build Plan</span>
                       </>
                     )}
                   </Button>
@@ -213,60 +318,78 @@ Example: I want an HR platform with employee management, leave requests, attenda
             </Card>
 
             {activeSessionId && sessionDetails && (
-              <Card>
-                <CardHeader>
+              <Card className="border-border/60">
+                <CardHeader className="pb-4">
                   <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <CardTitle className="flex items-center gap-2">
-                        <Rocket className="w-5 h-5" />
-                        {sessionDetails.session.appName || "تطبيق جديد"}
-                      </CardTitle>
-                      <CardDescription>
-                        {sessionDetails.session.plan?.summary}
-                      </CardDescription>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                        <Rocket className="w-5 h-5 text-foreground" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg">
+                          {sessionDetails.session.appName || "تطبيق جديد"}
+                        </CardTitle>
+                        <CardDescription className="text-sm line-clamp-1">
+                          {sessionDetails.session.plan?.summary}
+                        </CardDescription>
+                      </div>
                     </div>
-                    <Badge className={statusColors[sessionDetails.session.status || "pending"]}>
-                      {sessionDetails.session.status}
+                    <Badge 
+                      className={`${statusConfig[sessionDetails.session.status || "pending"]?.bg} ${statusConfig[sessionDetails.session.status || "pending"]?.text}`}
+                    >
+                      {statusConfig[sessionDetails.session.status || "pending"]?.labelAr}
                     </Badge>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-6">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
-                      <span>التقدم / Progress</span>
-                      <span>{sessionDetails.session.progress}%</span>
+                      <span className="text-muted-foreground">التقدم / Progress</span>
+                      <span className="font-medium">{sessionDetails.session.progress}%</span>
                     </div>
-                    <Progress value={sessionDetails.session.progress || 0} />
+                    <Progress value={sessionDetails.session.progress || 0} className="h-2" />
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    {sessionDetails.session.plan?.features?.map((feature, i) => (
-                      <Badge key={i} variant="secondary">
-                        {feature}
-                      </Badge>
-                    ))}
-                  </div>
+                  {sessionDetails.session.plan?.features && sessionDetails.session.plan.features.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {sessionDetails.session.plan.features.map((feature, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs">
+                          {feature}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
 
                   <Separator />
 
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-sm">خطوات البناء / Build Steps</h4>
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-sm flex items-center gap-2">
+                      <Zap className="w-4 h-4" />
+                      خطوات البناء / Build Steps
+                    </h4>
                     <div className="space-y-2">
-                      {sessionDetails.tasks.map((task) => {
+                      {sessionDetails.tasks.map((task, index) => {
                         const Icon = taskTypeIcons[task.taskType] || Code;
+                        const isActive = task.status === "running";
                         return (
                           <div 
                             key={task.id}
-                            className="flex items-center gap-3 p-3 rounded-lg bg-muted/50"
+                            className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                              isActive ? "bg-primary/5 border border-primary/20" : "bg-muted/50"
+                            }`}
                           >
-                            {getStatusIcon(task.status)}
-                            <Icon className="w-4 h-4 text-muted-foreground" />
+                            <div className="flex items-center justify-center w-6 h-6">
+                              {getStatusIcon(task.status)}
+                            </div>
+                            <div className="w-8 h-8 rounded-md bg-background flex items-center justify-center">
+                              <Icon className="w-4 h-4 text-muted-foreground" />
+                            </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium truncate">{task.title}</p>
                               <p className="text-xs text-muted-foreground truncate">{task.titleAr}</p>
                             </div>
                             {task.status === "running" && (
-                              <Progress value={task.progress || 0} className="w-20" />
+                              <Progress value={task.progress || 0} className="w-24 h-1.5" />
                             )}
                           </div>
                         );
@@ -276,7 +399,7 @@ Example: I want an HR platform with employee management, leave requests, attenda
 
                   {sessionDetails.session.status === "planned" && (
                     <Button 
-                      className="w-full"
+                      className="w-full gap-2"
                       onClick={handleExecute}
                       disabled={executeMutation.isPending}
                       data-testid="button-start-build"
@@ -284,12 +407,12 @@ Example: I want an HR platform with employee management, leave requests, attenda
                       {executeMutation.isPending ? (
                         <>
                           <Loader2 className="w-4 h-4 animate-spin" />
-                          جاري البناء... / Building...
+                          <span>جاري البناء... / Building...</span>
                         </>
                       ) : (
                         <>
                           <Play className="w-4 h-4" />
-                          بدء البناء / Start Building
+                          <span>بدء البناء / Start Building</span>
                         </>
                       )}
                     </Button>
@@ -299,57 +422,59 @@ Example: I want an HR platform with employee management, leave requests, attenda
             )}
 
             {activeSessionId && sessionDetails?.artifacts && sessionDetails.artifacts.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileCode className="w-5 h-5" />
-                    الملفات المُنشأة / Generated Files
-                  </CardTitle>
+              <Card className="border-border/60">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                      <FileCode className="w-5 h-5 text-foreground" />
+                    </div>
+                    <CardTitle className="text-lg">الملفات المُنشأة / Generated Files</CardTitle>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <Tabs defaultValue="all">
-                    <TabsList>
-                      <TabsTrigger value="all">الكل / All</TabsTrigger>
-                      <TabsTrigger value="schema">قاعدة البيانات / Database</TabsTrigger>
-                      <TabsTrigger value="backend">الخلفية / Backend</TabsTrigger>
-                      <TabsTrigger value="frontend">الواجهة / Frontend</TabsTrigger>
+                    <TabsList className="w-full justify-start gap-1 bg-muted/50 p-1">
+                      <TabsTrigger value="all" className="text-xs">الكل / All</TabsTrigger>
+                      <TabsTrigger value="schema" className="text-xs">قاعدة البيانات</TabsTrigger>
+                      <TabsTrigger value="backend" className="text-xs">الخلفية</TabsTrigger>
+                      <TabsTrigger value="frontend" className="text-xs">الواجهة</TabsTrigger>
                     </TabsList>
                     <TabsContent value="all" className="mt-4">
-                      <ScrollArea className="h-[300px]">
+                      <ScrollArea className="h-[280px]">
                         <div className="space-y-2">
                           {sessionDetails.artifacts.map((artifact) => (
                             <div 
                               key={artifact.id}
-                              className="flex items-center gap-3 p-3 rounded-lg border hover-elevate cursor-pointer"
+                              className="flex items-center gap-3 p-3 rounded-lg border border-border/60 hover-elevate cursor-pointer"
                             >
                               <Code className="w-4 h-4 text-muted-foreground" />
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium truncate">{artifact.fileName}</p>
                                 <p className="text-xs text-muted-foreground truncate">{artifact.filePath}</p>
                               </div>
-                              <Badge variant="outline">{artifact.fileType}</Badge>
+                              <Badge variant="outline" className="text-xs">{artifact.fileType}</Badge>
                             </div>
                           ))}
                         </div>
                       </ScrollArea>
                     </TabsContent>
                     <TabsContent value="schema" className="mt-4">
-                      <ScrollArea className="h-[300px]">
-                        <pre className="text-xs bg-muted p-4 rounded-lg overflow-x-auto">
+                      <ScrollArea className="h-[280px]">
+                        <pre className="text-xs bg-muted p-4 rounded-lg overflow-x-auto font-mono">
                           {sessionDetails.session.generatedSchema || "لم يتم إنشاء قاعدة البيانات بعد / Schema not generated yet"}
                         </pre>
                       </ScrollArea>
                     </TabsContent>
                     <TabsContent value="backend" className="mt-4">
-                      <ScrollArea className="h-[300px]">
-                        <pre className="text-xs bg-muted p-4 rounded-lg overflow-x-auto">
+                      <ScrollArea className="h-[280px]">
+                        <pre className="text-xs bg-muted p-4 rounded-lg overflow-x-auto font-mono">
                           {sessionDetails.session.generatedBackend || "لم يتم إنشاء الخلفية بعد / Backend not generated yet"}
                         </pre>
                       </ScrollArea>
                     </TabsContent>
                     <TabsContent value="frontend" className="mt-4">
-                      <ScrollArea className="h-[300px]">
-                        <pre className="text-xs bg-muted p-4 rounded-lg overflow-x-auto">
+                      <ScrollArea className="h-[280px]">
+                        <pre className="text-xs bg-muted p-4 rounded-lg overflow-x-auto font-mono">
                           {sessionDetails.session.generatedFrontend || "لم يتم إنشاء الواجهة بعد / Frontend not generated yet"}
                         </pre>
                       </ScrollArea>
@@ -360,88 +485,172 @@ Example: I want an HR platform with employee management, leave requests, attenda
             )}
           </div>
 
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="w-5 h-5" />
-                  الجلسات السابقة / Previous Sessions
-                </CardTitle>
+          <div className="space-y-6">
+            <Card className="border-border/60">
+              <CardHeader className="pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                    <Clock className="w-5 h-5 text-foreground" />
+                  </div>
+                  <CardTitle className="text-lg">الجلسات السابقة / Previous Sessions</CardTitle>
+                </div>
               </CardHeader>
               <CardContent>
                 {sessionsLoading ? (
-                  <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center justify-center py-12">
                     <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                   </div>
                 ) : sessions.length === 0 ? (
-                  <p className="text-center text-sm text-muted-foreground py-8">
-                    لا توجد جلسات سابقة / No previous sessions
-                  </p>
+                  <div className="text-center py-12">
+                    <div className="w-12 h-12 rounded-xl bg-muted mx-auto flex items-center justify-center mb-3">
+                      <Building2 className="w-6 h-6 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      لا توجد جلسات سابقة / No previous sessions
+                    </p>
+                  </div>
                 ) : (
                   <ScrollArea className="h-[400px]">
-                    <div className="space-y-2">
-                      {sessions.map((session) => (
-                        <div
-                          key={session.id}
-                          className={`p-3 rounded-lg border cursor-pointer hover-elevate ${
-                            activeSessionId === session.id ? "border-primary bg-primary/5" : ""
-                          }`}
-                          onClick={() => setActiveSessionId(session.id)}
-                          data-testid={`card-session-${session.id}`}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="font-medium text-sm truncate flex-1">
-                              {session.appName || "تطبيق جديد"}
-                            </p>
-                            <Badge className={statusColors[session.status || "pending"]} variant="secondary">
-                              {session.status}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                            {session.prompt.substring(0, 100)}...
+                    <div className="space-y-4">
+                      {runningSessions.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            قيد التنفيذ / Running
                           </p>
-                          <div className="flex items-center gap-2 mt-2">
-                            <Progress value={session.progress || 0} className="flex-1 h-1" />
-                            <span className="text-xs text-muted-foreground">{session.progress}%</span>
-                          </div>
+                          {runningSessions.map((session) => (
+                            <SessionCard 
+                              key={session.id} 
+                              session={session} 
+                              isActive={activeSessionId === session.id}
+                              onClick={() => setActiveSessionId(session.id)}
+                            />
+                          ))}
                         </div>
-                      ))}
+                      )}
+                      {plannedSessions.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            مُخطط / Planned
+                          </p>
+                          {plannedSessions.map((session) => (
+                            <SessionCard 
+                              key={session.id} 
+                              session={session} 
+                              isActive={activeSessionId === session.id}
+                              onClick={() => setActiveSessionId(session.id)}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      {completedSessions.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            مكتمل / Completed
+                          </p>
+                          {completedSessions.map((session) => (
+                            <SessionCard 
+                              key={session.id} 
+                              session={session} 
+                              isActive={activeSessionId === session.id}
+                              onClick={() => setActiveSessionId(session.id)}
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </ScrollArea>
                 )}
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <Sparkles className="w-4 h-4" />
-                  أمثلة للطلبات / Example Prompts
-                </CardTitle>
+            <Card className="border-border/60">
+              <CardHeader className="pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                    <Sparkles className="w-5 h-5 text-foreground" />
+                  </div>
+                  <CardTitle className="text-lg">أمثلة للطلبات / Example Prompts</CardTitle>
+                </div>
               </CardHeader>
               <CardContent className="space-y-2">
-                {[
-                  "منصة موارد بشرية مع إدارة الموظفين والإجازات",
-                  "متجر إلكتروني مع سلة التسوق والدفع",
-                  "نظام إدارة مشاريع مع المهام والفرق",
-                  "مدونة مع نظام تعليقات وتصنيفات",
-                  "لوحة تحكم إدارية مع تقارير ورسوم بيانية",
-                ].map((example, i) => (
-                  <Button
-                    key={i}
-                    variant="ghost"
-                    className="w-full justify-start text-left h-auto py-2"
-                    onClick={() => setPrompt(example)}
-                    data-testid={`button-example-${i}`}
-                  >
-                    <ChevronRight className="w-4 h-4 shrink-0" />
-                    <span className="truncate text-xs">{example}</span>
-                  </Button>
-                ))}
+                {blueprintExamples.map((example) => {
+                  const Icon = example.icon;
+                  return (
+                    <div
+                      key={example.id}
+                      className="p-3 rounded-lg border border-border/60 cursor-pointer hover-elevate transition-colors"
+                      onClick={() => setPrompt(example.prompt)}
+                      data-testid={`button-example-${example.id}`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                          <Icon className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <p className="text-sm font-medium">{example.titleAr}</p>
+                            <Badge 
+                              variant="secondary" 
+                              className={`text-[10px] ${complexityColors[example.complexity]}`}
+                            >
+                              {example.complexity}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground">{example.descAr}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </CardContent>
             </Card>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function SessionCard({ 
+  session, 
+  isActive, 
+  onClick 
+}: { 
+  session: AiBuildSession; 
+  isActive: boolean; 
+  onClick: () => void;
+}) {
+  const config = statusConfig[session.status || "pending"];
+  
+  return (
+    <div
+      className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+        isActive 
+          ? "border-primary bg-primary/5" 
+          : "border-border/60 hover-elevate"
+      }`}
+      onClick={onClick}
+      data-testid={`card-session-${session.id}`}
+    >
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <p className="font-medium text-sm truncate flex-1">
+          {session.appName || "تطبيق جديد"}
+        </p>
+        <Badge 
+          variant="secondary" 
+          className={`text-xs ${config.bg} ${config.text}`}
+        >
+          {config.labelAr}
+        </Badge>
+      </div>
+      <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
+        {session.prompt.substring(0, 80)}...
+      </p>
+      <div className="flex items-center gap-3">
+        <Progress value={session.progress || 0} className="flex-1 h-1.5" />
+        <span className="text-xs font-medium text-muted-foreground min-w-[32px] text-left">
+          {session.progress}%
+        </span>
       </div>
     </div>
   );
