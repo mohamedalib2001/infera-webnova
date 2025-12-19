@@ -196,10 +196,10 @@ export default function SmartSuggestions() {
   const [rating, setRating] = useState(0);
   const [feedback, setFeedback] = useState("");
 
-  const { data: projectsData } = useQuery<{ success: boolean; projects: any[] }>({
+  const { data: projectsData } = useQuery<any[]>({
     queryKey: ["/api/projects"],
   });
-  const projects = projectsData?.projects || [];
+  const projects = Array.isArray(projectsData) ? projectsData : (projectsData?.projects || []);
 
   const { data: suggestionsData, isLoading: suggestionsLoading } = useQuery<{ success: boolean; suggestions: SmartSuggestion[] }>({
     queryKey: ["/api/suggestions", selectedProject],
