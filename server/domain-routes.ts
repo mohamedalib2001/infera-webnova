@@ -3,6 +3,7 @@ import { db } from "./db";
 import { NamecheapClient } from "./namecheap-client";
 import { storage } from "./storage";
 import crypto from "crypto";
+import { domainRegistrarRegistry, getTier1Providers, initializeDomainProviders } from "./domain-registrar-registry";
 import { 
   namecheapDomains,
   namecheapDnsRecords,
@@ -86,7 +87,7 @@ const requireSovereign = (req: Request, res: Response, next: NextFunction) => {
   next();
 };
 
-async function getNamecheapClient(): Promise<NamecheapClient | null> {
+export async function getNamecheapClient(): Promise<NamecheapClient | null> {
   // First check cached config
   if (cachedNamecheapConfig) {
     return new NamecheapClient(cachedNamecheapConfig);
@@ -142,7 +143,7 @@ async function getNamecheapClient(): Promise<NamecheapClient | null> {
 }
 
 // Clear cached config when settings are updated
-function clearNamecheapCache() {
+export function clearNamecheapCache() {
   cachedNamecheapConfig = null;
 }
 
@@ -177,6 +178,10 @@ async function logDomainOperation(
 }
 
 export function registerDomainRoutes(app: Express) {
+  // Initialize domain providers on startup (fire and forget)
+  initializeDomainProviders().catch(err => {
+    console.log("[Domains] Auto-initialization skipped or failed:", err.message);
+  });
 
   // Get current server IP for Namecheap whitelist
   app.get("/api/domains/server-ip", requireAuth, requireSovereign, async (req, res) => {
@@ -357,6 +362,65 @@ export function registerDomainRoutes(app: Express) {
         ? { en: "Namecheap API configured", ar: "تم تكوين Namecheap API" }
         : { en: "Namecheap credentials not configured", ar: "لم يتم تكوين بيانات Namecheap" }
     });
+  });
+
+  // Domain Registrar Providers Management
+  app.get("/api/domains/providers", requireAuth, async (req, res) => {
+    const providers = domainRegistrarRegistry.listAll();
+    res.json({
+      success: true,
+      providers: providers.map(p => ({
+        ...p,
+        isConfigured: p.status === 'active' || p.status === 'configured',
+        isAvailable: p.status !== 'coming_soon',
+      })),
+      total: providers.length,
+      active: domainRegistrarRegistry.listActive().length,
+      available: domainRegistrarRegistry.listAvailable().length
+    });
+  });
+
+  app.get("/api/domains/providers/:slug", requireAuth, async (req, res) => {
+    const config = domainRegistrarRegistry.getConfig(req.params.slug);
+    if (!config) {
+      return res.status(404).json({ 
+        error: "Provider not found",
+        errorAr: "المزود غير موجود"
+      });
+    }
+    
+    const dbProvider = await storage.getServiceProviderBySlug(req.params.slug);
+    
+    res.json({
+      success: true,
+      provider: {
+        ...config,
+        dbId: dbProvider?.id,
+        dbStatus: dbProvider?.status,
+        isConfigured: config.status === 'active' || config.status === 'configured',
+        isAvailable: config.status !== 'coming_soon',
+      }
+    });
+  });
+
+  app.post("/api/domains/providers/initialize", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      await initializeDomainProviders();
+      res.json({ 
+        success: true,
+        message: { 
+          en: "Domain providers initialized successfully",
+          ar: "تم تهيئة مزودي النطاقات بنجاح"
+        },
+        providers: getTier1Providers().length
+      });
+    } catch (error: any) {
+      res.status(500).json({ 
+        success: false,
+        error: error.message,
+        errorAr: "فشل تهيئة مزودي النطاقات"
+      });
+    }
   });
 
   app.post("/api/domains/check-availability", requireAuth, async (req, res) => {

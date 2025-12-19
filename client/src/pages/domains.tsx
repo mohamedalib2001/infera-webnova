@@ -290,6 +290,28 @@ interface AvailabilityResult {
   currency?: string;
 }
 
+interface DomainProvider {
+  id: string;
+  slug: string;
+  name: string;
+  nameAr: string;
+  logo: string;
+  website: string;
+  status: 'active' | 'configured' | 'inactive' | 'coming_soon';
+  tier: number;
+  capabilities: {
+    domainRegistration: boolean;
+    domainTransfer: boolean;
+    dnsManagement: boolean;
+    whoisPrivacy: boolean;
+    autoRenew: boolean;
+    bulkOperations: boolean;
+    apiAvailable: boolean;
+  };
+  isConfigured: boolean;
+  isAvailable: boolean;
+}
+
 function getStatusBadgeVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   switch (status) {
     case 'active':
@@ -447,6 +469,15 @@ export default function DomainsPage() {
   const { data: platforms = [] } = useQuery<{ id: number; name: string }[]>({
     queryKey: ['/api/projects'],
     enabled: isAuthenticated,
+  });
+
+  const { data: providersData } = useQuery<{ providers: DomainProvider[]; total: number; active: number }>({
+    queryKey: ['/api/domains/providers'],
+    enabled: isAuthenticated,
+    queryFn: async () => {
+      const res = await fetch('/api/domains/providers');
+      return res.json();
+    },
   });
 
   const checkAvailabilityMutation = useMutation({
@@ -806,6 +837,10 @@ export default function DomainsPage() {
           <TabsTrigger value="links" disabled={!selectedDomain} data-testid="tab-links">
             <Link2 className="w-4 h-4 mr-2" />
             {t.tabs.links}
+          </TabsTrigger>
+          <TabsTrigger value="providers" data-testid="tab-providers">
+            <Settings className="w-4 h-4 mr-2" />
+            {language === 'ar' ? 'المزودين' : 'Providers'}
           </TabsTrigger>
         </TabsList>
 
@@ -1202,6 +1237,120 @@ export default function DomainsPage() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="providers" className="space-y-4 mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="w-5 h-5" />
+                {language === 'ar' ? 'مزودي خدمات النطاقات' : 'Domain Service Providers'}
+              </CardTitle>
+              <CardDescription>
+                {language === 'ar' 
+                  ? `${providersData?.total || 0} مزود متاح - ${providersData?.active || 0} مفعل`
+                  : `${providersData?.total || 0} providers available - ${providersData?.active || 0} active`
+                }
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {providersData?.providers?.map((provider) => (
+                  <div 
+                    key={provider.id}
+                    className={`p-4 rounded-lg border transition-colors ${
+                      provider.isConfigured 
+                        ? 'bg-primary/5 border-primary/30' 
+                        : provider.status === 'coming_soon'
+                          ? 'bg-muted/30 border-muted'
+                          : 'bg-card border-border'
+                    }`}
+                    data-testid={`provider-card-${provider.id}`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-md flex items-center justify-center ${
+                          provider.isConfigured 
+                            ? 'bg-primary/20 text-primary' 
+                            : 'bg-muted text-muted-foreground'
+                        }`}>
+                          <Globe className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="font-medium">
+                            {language === 'ar' ? provider.nameAr : provider.name}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge 
+                              variant={
+                                provider.isConfigured ? 'default' 
+                                : provider.status === 'coming_soon' ? 'secondary' 
+                                : 'outline'
+                              }
+                              className="text-xs"
+                            >
+                              {provider.isConfigured 
+                                ? (language === 'ar' ? 'مفعل' : 'Active')
+                                : provider.status === 'coming_soon'
+                                  ? (language === 'ar' ? 'قريباً' : 'Coming Soon')
+                                  : (language === 'ar' ? 'غير مفعل' : 'Inactive')
+                              }
+                            </Badge>
+                            <Badge variant="outline" className="text-xs">
+                              Tier {provider.tier}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-3 flex flex-wrap gap-1">
+                      {provider.capabilities.domainRegistration && (
+                        <Badge variant="outline" className="text-xs">
+                          {language === 'ar' ? 'تسجيل' : 'Register'}
+                        </Badge>
+                      )}
+                      {provider.capabilities.dnsManagement && (
+                        <Badge variant="outline" className="text-xs">
+                          DNS
+                        </Badge>
+                      )}
+                      {provider.capabilities.whoisPrivacy && (
+                        <Badge variant="outline" className="text-xs">
+                          {language === 'ar' ? 'خصوصية' : 'Privacy'}
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between gap-2">
+                      <a 
+                        href={provider.website} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-xs text-muted-foreground flex items-center gap-1"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        {language === 'ar' ? 'الموقع' : 'Website'}
+                      </a>
+                      {provider.id === 'namecheap' && !provider.isConfigured && (
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => setActiveTab('domains')}
+                          data-testid="button-configure-namecheap"
+                        >
+                          {language === 'ar' ? 'إعداد' : 'Configure'}
+                        </Button>
+                      )}
+                      {provider.isConfigured && (
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
