@@ -567,8 +567,7 @@ export default function DomainsPage() {
 
   const importDomainsMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/domains/import');
-      return response.json();
+      return await apiRequest('POST', '/api/domains/import');
     },
     onSuccess: (data) => {
       if (data.success) {
