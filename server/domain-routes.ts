@@ -687,6 +687,60 @@ export function registerDomainRoutes(app: Express) {
     }
   });
 
+  app.delete("/api/domains/link/:linkId", requireAuth, async (req, res) => {
+    try {
+      const linkId = parseInt(req.params.linkId);
+      const [link] = await db.select().from(domainPlatformLinks)
+        .where(eq(domainPlatformLinks.id, linkId));
+      
+      if (!link) {
+        return res.status(404).json({ 
+          error: "Link not found",
+          errorAr: "الربط غير موجود"
+        });
+      }
+
+      const [domain] = await db.select().from(namecheapDomains)
+        .where(eq(namecheapDomains.id, link.domainId));
+
+      const user = req.session.user!;
+      if (domain && domain.ownerId !== user.id && user.role !== 'sovereign' && user.role !== 'owner') {
+        return res.status(403).json({ 
+          error: "Access denied",
+          errorAr: "الوصول مرفوض"
+        });
+      }
+
+      await db.delete(domainPlatformLinks)
+        .where(eq(domainPlatformLinks.id, linkId));
+
+      if (domain) {
+        await logDomainOperation(
+          domain.id,
+          domain.domainName,
+          user.id,
+          user.email || null,
+          "unlink_platform",
+          { linkId, platformId: link.platformId },
+          true,
+          undefined,
+          req.ip || undefined,
+          req.get("user-agent")
+        );
+      }
+
+      res.json({ 
+        success: true,
+        message: { en: "Platform unlinked", ar: "تم إلغاء ربط المنصة" }
+      });
+    } catch (e: any) {
+      res.status(500).json({ 
+        error: e.message,
+        errorAr: "حدث خطأ أثناء إلغاء الربط"
+      });
+    }
+  });
+
   app.post("/api/domains/:id/sync", requireAuth, async (req, res) => {
     try {
       const [domain] = await db.select().from(namecheapDomains)

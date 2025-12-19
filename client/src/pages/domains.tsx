@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -15,6 +17,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/use-language";
@@ -33,134 +43,219 @@ import {
   Trash2,
   ExternalLink,
   Info,
+  Search,
+  Settings,
+  Link2,
+  FileText,
+  Server,
+  Edit,
+  Save,
+  X,
 } from "lucide-react";
 
 const translations = {
   ar: {
     title: "إدارة النطاقات",
-    subtitle: "ربط نطاقاتك الخاصة بمنصتك",
-    addDomain: "إضافة نطاق",
-    hostname: "اسم النطاق",
-    hostnamePlaceholder: "example.com",
-    status: "الحالة",
-    sslStatus: "حالة SSL",
-    actions: "الإجراءات",
-    verify: "تحقق",
-    delete: "حذف",
-    noDomains: "لا توجد نطاقات مضافة",
-    noDomainsDesc: "أضف نطاقك الأول لربطه بمنصتك",
-    addDomainTitle: "إضافة نطاق جديد",
-    addDomainDesc: "أدخل اسم النطاق الذي تريد ربطه",
-    cancel: "إلغاء",
-    add: "إضافة",
-    verificationRequired: "مطلوب التحقق",
-    verificationInstructions: "أضف سجل DNS التالي للتحقق من ملكية النطاق:",
-    recordType: "نوع السجل",
-    recordName: "الاسم",
-    recordValue: "القيمة",
-    copied: "تم النسخ",
-    copyToClipboard: "نسخ",
-    statuses: {
-      pending: "معلق",
-      verifying: "قيد التحقق",
-      verified: "تم التحقق",
-      ssl_pending: "SSL معلق",
-      ssl_issued: "SSL صادر",
-      active: "نشط",
-      error: "خطأ",
+    subtitle: "تسجيل وإدارة نطاقاتك عبر Namecheap",
+    tabs: {
+      domains: "النطاقات",
+      dns: "سجلات DNS",
+      links: "ربط المنصات",
     },
-    sslStatuses: {
-      none: "غير مفعل",
-      pending: "معلق",
-      active: "نشط",
-      error: "خطأ",
+    checkDomain: "فحص التوفر",
+    registerDomain: "تسجيل نطاق",
+    domainName: "اسم النطاق",
+    domainPlaceholder: "example.com",
+    status: "الحالة",
+    expiryDate: "تاريخ الانتهاء",
+    actions: "الإجراءات",
+    noDomains: "لا توجد نطاقات مسجلة",
+    noDomainsDesc: "قم بتسجيل نطاقك الأول عبر Namecheap",
+    available: "متاح للتسجيل",
+    unavailable: "غير متاح",
+    price: "السعر",
+    years: "سنوات",
+    register: "تسجيل",
+    renew: "تجديد",
+    cancel: "إلغاء",
+    save: "حفظ",
+    edit: "تعديل",
+    delete: "حذف",
+    dnsRecords: "سجلات DNS",
+    recordType: "النوع",
+    host: "المضيف",
+    value: "القيمة",
+    ttl: "TTL",
+    addRecord: "إضافة سجل",
+    platformLink: "ربط بمنصة",
+    selectPlatform: "اختر منصة",
+    linkType: "نوع الربط",
+    primary: "أساسي",
+    alias: "بديل",
+    subdomain: "نطاق فرعي",
+    subdomainPrefix: "بادئة النطاق الفرعي",
+    link: "ربط",
+    unlink: "إلغاء الربط",
+    linkedPlatforms: "المنصات المربوطة",
+    noLinkedPlatforms: "لا توجد منصات مربوطة",
+    configStatus: "حالة التكوين",
+    configured: "مُعَد",
+    notConfigured: "غير مُعَد",
+    configureFirst: "يرجى تكوين بيانات اعتماد Namecheap أولاً",
+    checkingAvailability: "جاري الفحص...",
+    registering: "جاري التسجيل...",
+    renewalPrice: "سعر التجديد",
+    autoRenew: "تجديد تلقائي",
+    copied: "تم النسخ",
+    loginRequired: "يجب تسجيل الدخول لإدارة النطاقات",
+    ownerOnly: "هذه الميزة متاحة لمالك المنصة فقط",
+    success: {
+      registered: "تم تسجيل النطاق بنجاح",
+      renewed: "تم تجديد النطاق بنجاح",
+      dnsUpdated: "تم تحديث سجلات DNS",
+      linked: "تم ربط النطاق بالمنصة",
+      unlinked: "تم إلغاء ربط النطاق",
     },
     errors: {
-      domainExists: "هذا النطاق مضاف مسبقاً",
-      invalidDomain: "صيغة النطاق غير صحيحة",
-      quotaExceeded: "تجاوزت الحد الأقصى للنطاقات",
-      verificationFailed: "فشل التحقق من النطاق",
+      checkFailed: "فشل في فحص توفر النطاق",
+      registerFailed: "فشل في تسجيل النطاق",
+      renewFailed: "فشل في تجديد النطاق",
+      dnsFailed: "فشل في تحديث سجلات DNS",
+      linkFailed: "فشل في ربط النطاق",
       generic: "حدث خطأ، حاول مرة أخرى",
     },
-    quotaInfo: "النطاقات المستخدمة",
-    loginRequired: "يجب تسجيل الدخول لإدارة النطاقات",
+    statuses: {
+      active: "نشط",
+      expired: "منتهي",
+      pending: "معلق",
+      locked: "مقفل",
+    },
   },
   en: {
     title: "Domain Management",
-    subtitle: "Connect your custom domains to your platform",
-    addDomain: "Add Domain",
-    hostname: "Domain Name",
-    hostnamePlaceholder: "example.com",
-    status: "Status",
-    sslStatus: "SSL Status",
-    actions: "Actions",
-    verify: "Verify",
-    delete: "Delete",
-    noDomains: "No domains added",
-    noDomainsDesc: "Add your first domain to connect it to your platform",
-    addDomainTitle: "Add New Domain",
-    addDomainDesc: "Enter the domain name you want to connect",
-    cancel: "Cancel",
-    add: "Add",
-    verificationRequired: "Verification Required",
-    verificationInstructions: "Add the following DNS record to verify domain ownership:",
-    recordType: "Record Type",
-    recordName: "Name",
-    recordValue: "Value",
-    copied: "Copied",
-    copyToClipboard: "Copy",
-    statuses: {
-      pending: "Pending",
-      verifying: "Verifying",
-      verified: "Verified",
-      ssl_pending: "SSL Pending",
-      ssl_issued: "SSL Issued",
-      active: "Active",
-      error: "Error",
+    subtitle: "Register and manage your domains via Namecheap",
+    tabs: {
+      domains: "Domains",
+      dns: "DNS Records",
+      links: "Platform Links",
     },
-    sslStatuses: {
-      none: "None",
-      pending: "Pending",
-      active: "Active",
-      error: "Error",
+    checkDomain: "Check Availability",
+    registerDomain: "Register Domain",
+    domainName: "Domain Name",
+    domainPlaceholder: "example.com",
+    status: "Status",
+    expiryDate: "Expiry Date",
+    actions: "Actions",
+    noDomains: "No domains registered",
+    noDomainsDesc: "Register your first domain via Namecheap",
+    available: "Available for registration",
+    unavailable: "Not available",
+    price: "Price",
+    years: "years",
+    register: "Register",
+    renew: "Renew",
+    cancel: "Cancel",
+    save: "Save",
+    edit: "Edit",
+    delete: "Delete",
+    dnsRecords: "DNS Records",
+    recordType: "Type",
+    host: "Host",
+    value: "Value",
+    ttl: "TTL",
+    addRecord: "Add Record",
+    platformLink: "Link to Platform",
+    selectPlatform: "Select Platform",
+    linkType: "Link Type",
+    primary: "Primary",
+    alias: "Alias",
+    subdomain: "Subdomain",
+    subdomainPrefix: "Subdomain Prefix",
+    link: "Link",
+    unlink: "Unlink",
+    linkedPlatforms: "Linked Platforms",
+    noLinkedPlatforms: "No linked platforms",
+    configStatus: "Config Status",
+    configured: "Configured",
+    notConfigured: "Not Configured",
+    configureFirst: "Please configure Namecheap credentials first",
+    checkingAvailability: "Checking...",
+    registering: "Registering...",
+    renewalPrice: "Renewal Price",
+    autoRenew: "Auto Renew",
+    copied: "Copied",
+    loginRequired: "Please login to manage domains",
+    ownerOnly: "This feature is only available to platform owners",
+    success: {
+      registered: "Domain registered successfully",
+      renewed: "Domain renewed successfully",
+      dnsUpdated: "DNS records updated",
+      linked: "Domain linked to platform",
+      unlinked: "Domain unlinked",
     },
     errors: {
-      domainExists: "This domain already exists",
-      invalidDomain: "Invalid domain format",
-      quotaExceeded: "Domain quota exceeded",
-      verificationFailed: "Domain verification failed",
+      checkFailed: "Failed to check domain availability",
+      registerFailed: "Failed to register domain",
+      renewFailed: "Failed to renew domain",
+      dnsFailed: "Failed to update DNS records",
+      linkFailed: "Failed to link domain",
       generic: "An error occurred, please try again",
     },
-    quotaInfo: "Domains used",
-    loginRequired: "Please login to manage domains",
+    statuses: {
+      active: "Active",
+      expired: "Expired",
+      pending: "Pending",
+      locked: "Locked",
+    },
   },
 };
 
 interface Domain {
   id: number;
-  hostname: string;
+  domainName: string;
   status: string;
-  sslStatus: string;
-  verificationToken?: string;
-  createdAt: string;
+  expirationDate?: string;
+  isAutoRenew?: boolean;
+  whoisGuard?: boolean;
+  isLocked?: boolean;
+  nameservers?: string;
+  registrationDate?: string;
 }
 
-interface DomainQuota {
-  maxDomains: number;
-  usedDomains: number;
+interface DnsRecord {
+  id: number;
+  domainId: number;
+  recordType: string;
+  hostName: string;
+  address: string;
+  ttl: number;
+  mxPref?: number;
+  isActive?: boolean;
+}
+
+interface PlatformLink {
+  id: number;
+  domainId: number;
+  platformId: number;
+  linkType: string;
+  subdomain?: string;
+  isActive: boolean;
+}
+
+interface AvailabilityResult {
+  domain: string;
+  available: boolean;
+  price?: number;
+  currency?: string;
 }
 
 function getStatusBadgeVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   switch (status) {
     case 'active':
-    case 'verified':
-    case 'ssl_issued':
       return 'default';
     case 'pending':
-    case 'verifying':
-    case 'ssl_pending':
       return 'secondary';
-    case 'error':
+    case 'expired':
       return 'destructive';
     default:
       return 'outline';
@@ -170,15 +265,13 @@ function getStatusBadgeVariant(status: string): "default" | "secondary" | "destr
 function getStatusIcon(status: string) {
   switch (status) {
     case 'active':
-    case 'verified':
-    case 'ssl_issued':
       return CheckCircle2;
     case 'pending':
-    case 'verifying':
-    case 'ssl_pending':
       return Clock;
-    case 'error':
+    case 'expired':
       return XCircle;
+    case 'locked':
+      return Shield;
     default:
       return AlertCircle;
   }
@@ -190,58 +283,153 @@ export default function DomainsPage() {
   const { isAuthenticated, user } = useAuth();
   const t = translations[language];
   
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [newDomain, setNewDomain] = useState("");
+  const [activeTab, setActiveTab] = useState("domains");
+  const [searchDomain, setSearchDomain] = useState("");
+  const [showRegisterDialog, setShowRegisterDialog] = useState(false);
   const [selectedDomain, setSelectedDomain] = useState<Domain | null>(null);
+  const [availabilityResult, setAvailabilityResult] = useState<AvailabilityResult | null>(null);
+  const [years, setYears] = useState(1);
+  const [showDnsDialog, setShowDnsDialog] = useState(false);
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [newDnsRecord, setNewDnsRecord] = useState({ recordType: "A", hostName: "@", address: "", ttl: 1800 });
+  const [linkFormData, setLinkFormData] = useState({ platformId: "", linkType: "primary", subdomain: "" });
 
-  const { data: domains = [], isLoading } = useQuery<Domain[]>({
-    queryKey: ['/api/custom-domains'],
+  const { data: configStatus } = useQuery<{ configured: boolean }>({
+    queryKey: ['/api/domains/config-status'],
     enabled: isAuthenticated,
   });
 
-  const { data: quota } = useQuery<DomainQuota>({
-    queryKey: ['/api/domain-quotas', user?.id],
-    enabled: isAuthenticated && !!user?.id,
-  });
-
-  const addDomainMutation = useMutation({
-    mutationFn: async (hostname: string) => {
-      return apiRequest('POST', '/api/custom-domains', { hostname });
-    },
-    onSuccess: () => {
-      toast({ title: language === 'ar' ? 'تم إضافة النطاق' : 'Domain added successfully' });
-      setShowAddDialog(false);
-      setNewDomain("");
-      queryClient.invalidateQueries({ queryKey: ['/api/custom-domains'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/domain-quotas'] });
-    },
-    onError: (error: any) => {
-      const message = error?.message || t.errors.generic;
-      toast({ title: message, variant: 'destructive' });
+  const { data: domains = [], isLoading: domainsLoading } = useQuery<Domain[]>({
+    queryKey: ['/api/domains'],
+    enabled: isAuthenticated && configStatus?.configured,
+    queryFn: async () => {
+      const res = await fetch('/api/domains');
+      const data = await res.json();
+      return data.domains || [];
     },
   });
 
-  const deleteDomainMutation = useMutation({
-    mutationFn: async (id: number) => {
-      return apiRequest('DELETE', `/api/custom-domains/${id}`);
-    },
-    onSuccess: () => {
-      toast({ title: language === 'ar' ? 'تم حذف النطاق' : 'Domain deleted' });
-      queryClient.invalidateQueries({ queryKey: ['/api/custom-domains'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/domain-quotas'] });
+  const { data: dnsRecords = [], isLoading: dnsLoading } = useQuery<DnsRecord[]>({
+    queryKey: ['/api/domains', selectedDomain?.id, 'dns'],
+    enabled: isAuthenticated && !!selectedDomain?.id,
+    queryFn: async () => {
+      const res = await fetch(`/api/domains/${selectedDomain?.id}/dns`);
+      const data = await res.json();
+      return data.records || [];
     },
   });
 
-  const verifyDomainMutation = useMutation({
-    mutationFn: async (id: number) => {
-      return apiRequest('POST', `/api/custom-domains/${id}/verify`);
+  const { data: platformLinks = [] } = useQuery<PlatformLink[]>({
+    queryKey: ['/api/domains', selectedDomain?.id, 'links'],
+    enabled: isAuthenticated && !!selectedDomain?.id,
+    queryFn: async () => {
+      const res = await fetch(`/api/domains/${selectedDomain?.id}/platform-links`);
+      const data = await res.json();
+      return data.links || [];
     },
-    onSuccess: () => {
-      toast({ title: language === 'ar' ? 'تم إرسال طلب التحقق' : 'Verification initiated' });
-      queryClient.invalidateQueries({ queryKey: ['/api/custom-domains'] });
+  });
+
+  const { data: platforms = [] } = useQuery<{ id: number; name: string }[]>({
+    queryKey: ['/api/projects'],
+    enabled: isAuthenticated,
+  });
+
+  const checkAvailabilityMutation = useMutation({
+    mutationFn: async (domain: string) => {
+      const response = await apiRequest('POST', '/api/domains/check-availability', { domains: [domain] });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.success && data.domains && data.domains.length > 0) {
+        const result = data.domains[0];
+        setAvailabilityResult({
+          domain: result.domain || result.Domain,
+          available: result.available ?? result.Available,
+          price: result.price || result.PremiumRegistrationPrice,
+          currency: result.currency || 'USD',
+        });
+      }
     },
     onError: () => {
-      toast({ title: t.errors.verificationFailed, variant: 'destructive' });
+      toast({ title: t.errors.checkFailed, variant: 'destructive' });
+    },
+  });
+
+  const registerDomainMutation = useMutation({
+    mutationFn: async ({ domainName, years }: { domainName: string; years: number }) => {
+      return apiRequest('POST', '/api/domains/register', { domainName, years });
+    },
+    onSuccess: () => {
+      toast({ title: t.success.registered });
+      setShowRegisterDialog(false);
+      setSearchDomain("");
+      setAvailabilityResult(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/domains'] });
+    },
+    onError: () => {
+      toast({ title: t.errors.registerFailed, variant: 'destructive' });
+    },
+  });
+
+  const renewDomainMutation = useMutation({
+    mutationFn: async ({ domainId, years }: { domainId: number; years: number }) => {
+      return apiRequest('POST', `/api/domains/${domainId}/renew`, { years });
+    },
+    onSuccess: () => {
+      toast({ title: t.success.renewed });
+      queryClient.invalidateQueries({ queryKey: ['/api/domains'] });
+    },
+    onError: () => {
+      toast({ title: t.errors.renewFailed, variant: 'destructive' });
+    },
+  });
+
+  const addDnsRecordMutation = useMutation({
+    mutationFn: async (record: typeof newDnsRecord & { domainId: number }) => {
+      return apiRequest('POST', `/api/domains/${record.domainId}/dns`, record);
+    },
+    onSuccess: () => {
+      toast({ title: t.success.dnsUpdated });
+      setNewDnsRecord({ recordType: "A", hostName: "@", address: "", ttl: 1800 });
+      queryClient.invalidateQueries({ queryKey: ['/api/domains', selectedDomain?.id, 'dns'] });
+    },
+    onError: () => {
+      toast({ title: t.errors.dnsFailed, variant: 'destructive' });
+    },
+  });
+
+  const deleteDnsRecordMutation = useMutation({
+    mutationFn: async ({ domainId, recordId }: { domainId: number; recordId: number }) => {
+      return apiRequest('DELETE', `/api/domains/${domainId}/dns/${recordId}`);
+    },
+    onSuccess: () => {
+      toast({ title: t.success.dnsUpdated });
+      queryClient.invalidateQueries({ queryKey: ['/api/domains', selectedDomain?.id, 'dns'] });
+    },
+  });
+
+  const linkPlatformMutation = useMutation({
+    mutationFn: async (data: { domainId: number; platformId: number; linkType: string; subdomain?: string }) => {
+      return apiRequest('POST', `/api/domains/${data.domainId}/link-platform`, data);
+    },
+    onSuccess: () => {
+      toast({ title: t.success.linked });
+      setShowLinkDialog(false);
+      setLinkFormData({ platformId: "", linkType: "primary", subdomain: "" });
+      queryClient.invalidateQueries({ queryKey: ['/api/domains', selectedDomain?.id, 'links'] });
+    },
+    onError: () => {
+      toast({ title: t.errors.linkFailed, variant: 'destructive' });
+    },
+  });
+
+  const unlinkPlatformMutation = useMutation({
+    mutationFn: async (linkId: number) => {
+      return apiRequest('DELETE', `/api/domains/link/${linkId}`);
+    },
+    onSuccess: () => {
+      toast({ title: t.success.unlinked });
+      queryClient.invalidateQueries({ queryKey: ['/api/domains', selectedDomain?.id, 'links'] });
     },
   });
 
@@ -252,7 +440,7 @@ export default function DomainsPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="container max-w-4xl py-8">
+      <div className="container max-w-6xl py-8">
         <Alert>
           <Info className="h-4 w-4" />
           <AlertTitle>{t.loginRequired}</AlertTitle>
@@ -261,8 +449,24 @@ export default function DomainsPage() {
     );
   }
 
+  if (configStatus && !configStatus.configured) {
+    return (
+      <div className="container max-w-6xl py-8">
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>{t.configureFirst}</AlertTitle>
+          <AlertDescription>
+            {language === 'ar' 
+              ? 'انتقل إلى صفحة الإعدادات لتكوين بيانات اعتماد Namecheap API'
+              : 'Go to Settings to configure your Namecheap API credentials'}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   return (
-    <div className="container max-w-4xl py-8 space-y-6">
+    <div className="container max-w-6xl py-8 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -273,203 +477,521 @@ export default function DomainsPage() {
         </div>
         
         <div className="flex items-center gap-3">
-          {quota && (
-            <Badge variant="outline" className="text-sm">
-              {t.quotaInfo}: {quota.usedDomains} / {quota.maxDomains}
-            </Badge>
-          )}
+          <Badge variant={configStatus?.configured ? "default" : "destructive"} className="gap-1">
+            <Settings className="w-3 h-3" />
+            {configStatus?.configured ? t.configured : t.notConfigured}
+          </Badge>
           
-          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+          <Dialog open={showRegisterDialog} onOpenChange={setShowRegisterDialog}>
             <DialogTrigger asChild>
-              <Button data-testid="button-add-domain">
+              <Button data-testid="button-register-domain">
                 <Plus className="w-4 h-4 mr-2" />
-                {t.addDomain}
+                {t.registerDomain}
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>{t.addDomainTitle}</DialogTitle>
-                <DialogDescription>{t.addDomainDesc}</DialogDescription>
+                <DialogTitle>{t.registerDomain}</DialogTitle>
+                <DialogDescription>{t.checkDomain}</DialogDescription>
               </DialogHeader>
-              <div className="py-4">
-                <Label htmlFor="domain">{t.hostname}</Label>
-                <Input
-                  id="domain"
-                  value={newDomain}
-                  onChange={(e) => setNewDomain(e.target.value)}
-                  placeholder={t.hostnamePlaceholder}
-                  data-testid="input-domain"
-                />
+              <div className="space-y-4 py-4">
+                <div className="flex gap-2">
+                  <Input
+                    value={searchDomain}
+                    onChange={(e) => setSearchDomain(e.target.value)}
+                    placeholder={t.domainPlaceholder}
+                    data-testid="input-search-domain"
+                  />
+                  <Button
+                    onClick={() => checkAvailabilityMutation.mutate(searchDomain)}
+                    disabled={!searchDomain || checkAvailabilityMutation.isPending}
+                    data-testid="button-check-availability"
+                  >
+                    {checkAvailabilityMutation.isPending ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Search className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+
+                {availabilityResult && (
+                  <Card className={availabilityResult.available ? "border-green-500" : "border-destructive"}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {availabilityResult.available ? (
+                            <CheckCircle2 className="w-5 h-5 text-green-500" />
+                          ) : (
+                            <XCircle className="w-5 h-5 text-destructive" />
+                          )}
+                          <span className="font-medium">{availabilityResult.domain}</span>
+                        </div>
+                        <Badge variant={availabilityResult.available ? "default" : "destructive"}>
+                          {availabilityResult.available ? t.available : t.unavailable}
+                        </Badge>
+                      </div>
+                      {availabilityResult.available && availabilityResult.price && (
+                        <div className="mt-3 flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">{t.price}:</span>
+                          <span className="font-medium">
+                            ${availabilityResult.price} / {t.years}
+                          </span>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {availabilityResult?.available && (
+                  <div className="space-y-2">
+                    <Label>{t.years}</Label>
+                    <Select value={years.toString()} onValueChange={(v) => setYears(parseInt(v))}>
+                      <SelectTrigger data-testid="select-years">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[1, 2, 3, 5, 10].map((y) => (
+                          <SelectItem key={y} value={y.toString()}>{y} {t.years}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+                <Button variant="outline" onClick={() => setShowRegisterDialog(false)}>
                   {t.cancel}
                 </Button>
-                <Button 
-                  onClick={() => addDomainMutation.mutate(newDomain)}
-                  disabled={!newDomain || addDomainMutation.isPending}
-                  data-testid="button-confirm-add"
-                >
-                  {addDomainMutation.isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : t.add}
-                </Button>
+                {availabilityResult?.available && (
+                  <Button
+                    onClick={() => registerDomainMutation.mutate({ domainName: searchDomain, years })}
+                    disabled={registerDomainMutation.isPending}
+                    data-testid="button-confirm-register"
+                  >
+                    {registerDomainMutation.isPending ? (
+                      <RefreshCw className="w-4 h-4 animate-spin mr-2" />
+                    ) : null}
+                    {t.register}
+                  </Button>
+                )}
               </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-20 w-full" />
-          ))}
-        </div>
-      ) : domains.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <Globe className="w-12 h-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium">{t.noDomains}</h3>
-            <p className="text-sm text-muted-foreground mb-4">{t.noDomainsDesc}</p>
-            <Button onClick={() => setShowAddDialog(true)} data-testid="button-add-first-domain">
-              <Plus className="w-4 h-4 mr-2" />
-              {t.addDomain}
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {domains.map((domain) => {
-            const StatusIcon = getStatusIcon(domain.status);
-            const SslIcon = getStatusIcon(domain.sslStatus);
-            
-            return (
-              <Card key={domain.id} data-testid={`domain-card-${domain.id}`}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between gap-4 flex-wrap">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
-                        <Globe className="w-5 h-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-medium flex items-center gap-2">
-                          {domain.hostname}
-                          <a 
-                            href={`https://${domain.hostname}`} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-muted-foreground"
-                            data-testid={`link-domain-${domain.id}`}
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </a>
-                        </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant={getStatusBadgeVariant(domain.status)} className="text-xs gap-1">
-                            <StatusIcon className="w-3 h-3" />
-                            {t.statuses[domain.status as keyof typeof t.statuses] || domain.status}
-                          </Badge>
-                          <Badge variant={getStatusBadgeVariant(domain.sslStatus)} className="text-xs gap-1">
-                            <Shield className="w-3 h-3" />
-                            SSL: {t.sslStatuses[domain.sslStatus as keyof typeof t.sslStatuses] || domain.sslStatus}
-                          </Badge>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="domains" data-testid="tab-domains">
+            <Globe className="w-4 h-4 mr-2" />
+            {t.tabs.domains}
+          </TabsTrigger>
+          <TabsTrigger value="dns" disabled={!selectedDomain} data-testid="tab-dns">
+            <Server className="w-4 h-4 mr-2" />
+            {t.tabs.dns}
+          </TabsTrigger>
+          <TabsTrigger value="links" disabled={!selectedDomain} data-testid="tab-links">
+            <Link2 className="w-4 h-4 mr-2" />
+            {t.tabs.links}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="domains" className="space-y-4 mt-4">
+          {domainsLoading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-20 w-full" />
+              ))}
+            </div>
+          ) : domains.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                <Globe className="w-12 h-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium">{t.noDomains}</h3>
+                <p className="text-sm text-muted-foreground mb-4">{t.noDomainsDesc}</p>
+                <Button onClick={() => setShowRegisterDialog(true)} data-testid="button-add-first-domain">
+                  <Plus className="w-4 h-4 mr-2" />
+                  {t.registerDomain}
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {domains.map((domain) => {
+                const StatusIcon = getStatusIcon(domain.status);
+                const isSelected = selectedDomain?.id === domain.id;
+                
+                return (
+                  <Card 
+                    key={domain.id} 
+                    className={`cursor-pointer transition-colors ${isSelected ? 'border-primary' : ''}`}
+                    onClick={() => setSelectedDomain(domain)}
+                    data-testid={`domain-card-${domain.id}`}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between gap-4 flex-wrap">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
+                            <Globe className="w-5 h-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-medium flex items-center gap-2">
+                              {domain.domainName}
+                              <a 
+                                href={`https://${domain.domainName}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-muted-foreground"
+                                onClick={(e) => e.stopPropagation()}
+                                data-testid={`link-domain-${domain.id}`}
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </a>
+                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge variant={getStatusBadgeVariant(domain.status)} className="text-xs gap-1">
+                                <StatusIcon className="w-3 h-3" />
+                                {t.statuses[domain.status as keyof typeof t.statuses] || domain.status}
+                              </Badge>
+                              {domain.isLocked && (
+                                <Badge variant="outline" className="text-xs gap-1">
+                                  <Shield className="w-3 h-3" />
+                                  {t.statuses.locked}
+                                </Badge>
+                              )}
+                              {domain.isAutoRenew && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {t.autoRenew}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-4">
+                          {domain.expirationDate && (
+                            <div className="text-sm text-muted-foreground">
+                              <span>{t.expiryDate}: </span>
+                              <span className="font-medium">
+                                {new Date(domain.expirationDate).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US')}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => renewDomainMutation.mutate({ domainId: domain.id, years: 1 })}
+                              disabled={renewDomainMutation.isPending}
+                              data-testid={`button-renew-${domain.id}`}
+                            >
+                              <RefreshCw className="w-4 h-4 mr-1" />
+                              {t.renew}
+                            </Button>
+                          </div>
                         </div>
                       </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="dns" className="space-y-4 mt-4">
+          {selectedDomain && (
+            <>
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <CardTitle className="text-lg">{t.dnsRecords}</CardTitle>
+                      <CardDescription>{selectedDomain.domainName}</CardDescription>
                     </div>
-                    
-                    <div className="flex items-center gap-2">
-                      {(domain.status === 'pending' || domain.status === 'verifying') && (
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => setSelectedDomain(domain)}
-                          data-testid={`button-verify-${domain.id}`}
-                        >
-                          <CheckCircle2 className="w-4 h-4 mr-1" />
-                          {t.verify}
+                    <Dialog open={showDnsDialog} onOpenChange={setShowDnsDialog}>
+                      <DialogTrigger asChild>
+                        <Button size="sm" data-testid="button-add-dns">
+                          <Plus className="w-4 h-4 mr-2" />
+                          {t.addRecord}
                         </Button>
-                      )}
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={() => deleteDomainMutation.mutate(domain.id)}
-                        disabled={deleteDomainMutation.isPending}
-                        data-testid={`button-delete-${domain.id}`}
-                      >
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
-                    </div>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>{t.addRecord}</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="space-y-2">
+                            <Label>{t.recordType}</Label>
+                            <Select 
+                              value={newDnsRecord.recordType} 
+                              onValueChange={(v) => setNewDnsRecord({ ...newDnsRecord, recordType: v })}
+                            >
+                              <SelectTrigger data-testid="select-record-type">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'SRV'].map((type) => (
+                                  <SelectItem key={type} value={type}>{type}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>{t.host}</Label>
+                            <Input
+                              value={newDnsRecord.hostName}
+                              onChange={(e) => setNewDnsRecord({ ...newDnsRecord, hostName: e.target.value })}
+                              placeholder="@"
+                              data-testid="input-dns-host"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>{t.value}</Label>
+                            <Input
+                              value={newDnsRecord.address}
+                              onChange={(e) => setNewDnsRecord({ ...newDnsRecord, address: e.target.value })}
+                              placeholder="192.168.1.1"
+                              data-testid="input-dns-value"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>{t.ttl}</Label>
+                            <Select 
+                              value={newDnsRecord.ttl.toString()} 
+                              onValueChange={(v) => setNewDnsRecord({ ...newDnsRecord, ttl: parseInt(v) })}
+                            >
+                              <SelectTrigger data-testid="select-ttl">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {[300, 600, 1800, 3600, 14400, 86400].map((ttl) => (
+                                  <SelectItem key={ttl} value={ttl.toString()}>{ttl}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setShowDnsDialog(false)}>
+                            {t.cancel}
+                          </Button>
+                          <Button
+                            onClick={() => addDnsRecordMutation.mutate({ 
+                              ...newDnsRecord, 
+                              domainId: selectedDomain.id 
+                            })}
+                            disabled={!newDnsRecord.address || addDnsRecordMutation.isPending}
+                            data-testid="button-save-dns"
+                          >
+                            <Save className="w-4 h-4 mr-2" />
+                            {t.save}
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
                   </div>
+                </CardHeader>
+                <CardContent>
+                  {dnsLoading ? (
+                    <Skeleton className="h-32 w-full" />
+                  ) : dnsRecords.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <FileText className="w-8 h-8 mx-auto mb-2" />
+                      <p>{language === 'ar' ? 'لا توجد سجلات DNS' : 'No DNS records'}</p>
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{t.recordType}</TableHead>
+                          <TableHead>{t.host}</TableHead>
+                          <TableHead>{t.value}</TableHead>
+                          <TableHead>{t.ttl}</TableHead>
+                          <TableHead>{t.actions}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {dnsRecords.map((record) => (
+                          <TableRow key={record.id} data-testid={`dns-record-${record.id}`}>
+                            <TableCell>
+                              <Badge variant="outline">{record.recordType}</Badge>
+                            </TableCell>
+                            <TableCell className="font-mono text-sm">{record.hostName}</TableCell>
+                            <TableCell className="font-mono text-sm max-w-[200px] truncate">
+                              <div className="flex items-center gap-2">
+                                <span className="truncate">{record.address}</span>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => copyToClipboard(record.address)}
+                                  data-testid={`button-copy-${record.id}`}
+                                >
+                                  <Copy className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                            <TableCell>{record.ttl}</TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => deleteDnsRecordMutation.mutate({ 
+                                  domainId: selectedDomain.id, 
+                                  recordId: record.id 
+                                })}
+                                data-testid={`button-delete-dns-${record.id}`}
+                              >
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
                 </CardContent>
               </Card>
-            );
-          })}
-        </div>
-      )}
+            </>
+          )}
+        </TabsContent>
 
-      {selectedDomain && (
-        <Dialog open={!!selectedDomain} onOpenChange={() => setSelectedDomain(null)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t.verificationRequired}</DialogTitle>
-              <DialogDescription>
-                {t.verificationInstructions}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="py-4 space-y-4">
-              <div className="bg-muted p-4 rounded-md space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">{t.recordType}</span>
-                  <code className="bg-background px-2 py-1 rounded text-sm">TXT</code>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">{t.recordName}</span>
-                  <div className="flex items-center gap-2">
-                    <code className="bg-background px-2 py-1 rounded text-sm">_infera-verify</code>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => copyToClipboard('_infera-verify')}
-                      data-testid="button-copy-record-name"
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                    </Button>
+        <TabsContent value="links" className="space-y-4 mt-4">
+          {selectedDomain && (
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <CardTitle className="text-lg">{t.linkedPlatforms}</CardTitle>
+                    <CardDescription>{selectedDomain.domainName}</CardDescription>
                   </div>
+                  <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" data-testid="button-link-platform">
+                        <Link2 className="w-4 h-4 mr-2" />
+                        {t.platformLink}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>{t.platformLink}</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label>{t.selectPlatform}</Label>
+                          <Select 
+                            value={linkFormData.platformId} 
+                            onValueChange={(v) => setLinkFormData({ ...linkFormData, platformId: v })}
+                          >
+                            <SelectTrigger data-testid="select-platform">
+                              <SelectValue placeholder={t.selectPlatform} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {platforms.map((p) => (
+                                <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>{t.linkType}</Label>
+                          <Select 
+                            value={linkFormData.linkType} 
+                            onValueChange={(v) => setLinkFormData({ ...linkFormData, linkType: v })}
+                          >
+                            <SelectTrigger data-testid="select-link-type">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="primary">{t.primary}</SelectItem>
+                              <SelectItem value="alias">{t.alias}</SelectItem>
+                              <SelectItem value="subdomain">{t.subdomain}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {linkFormData.linkType === 'subdomain' && (
+                          <div className="space-y-2">
+                            <Label>{t.subdomainPrefix}</Label>
+                            <Input
+                              value={linkFormData.subdomain}
+                              onChange={(e) => setLinkFormData({ ...linkFormData, subdomain: e.target.value })}
+                              placeholder="app"
+                              data-testid="input-subdomain"
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowLinkDialog(false)}>
+                          {t.cancel}
+                        </Button>
+                        <Button
+                          onClick={() => linkPlatformMutation.mutate({
+                            domainId: selectedDomain.id,
+                            platformId: parseInt(linkFormData.platformId),
+                            linkType: linkFormData.linkType,
+                            subdomain: linkFormData.subdomain || undefined,
+                          })}
+                          disabled={!linkFormData.platformId || linkPlatformMutation.isPending}
+                          data-testid="button-confirm-link"
+                        >
+                          <Link2 className="w-4 h-4 mr-2" />
+                          {t.link}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">{t.recordValue}</span>
-                  <div className="flex items-center gap-2">
-                    <code className="bg-background px-2 py-1 rounded text-sm text-xs max-w-[200px] truncate">
-                      {selectedDomain.verificationToken || `infera-verify-${selectedDomain.id}`}
-                    </code>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => copyToClipboard(selectedDomain.verificationToken || `infera-verify-${selectedDomain.id}`)}
-                      data-testid="button-copy-record-value"
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                    </Button>
+              </CardHeader>
+              <CardContent>
+                {platformLinks.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Link2 className="w-8 h-8 mx-auto mb-2" />
+                    <p>{t.noLinkedPlatforms}</p>
                   </div>
-                </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setSelectedDomain(null)} data-testid="button-cancel-verify">
-                {t.cancel}
-              </Button>
-              <Button 
-                onClick={() => {
-                  verifyDomainMutation.mutate(selectedDomain.id);
-                  setSelectedDomain(null);
-                }}
-                data-testid="button-confirm-verify"
-              >
-                {t.verify}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+                ) : (
+                  <div className="space-y-3">
+                    {platformLinks.map((link) => (
+                      <div 
+                        key={link.id} 
+                        className="flex items-center justify-between p-3 bg-muted/50 rounded-md"
+                        data-testid={`platform-link-${link.id}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center">
+                            <Server className="w-4 h-4 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-medium">{`Platform #${link.platformId}`}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <Badge variant="outline" className="text-xs">{link.linkType}</Badge>
+                              {link.subdomain && (
+                                <span className="text-xs text-muted-foreground">
+                                  {link.subdomain}.{selectedDomain.domainName}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => unlinkPlatformMutation.mutate(link.id)}
+                          data-testid={`button-unlink-${link.id}`}
+                        >
+                          <X className="w-4 h-4 mr-1" />
+                          {t.unlink}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
