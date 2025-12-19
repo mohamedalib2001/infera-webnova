@@ -5971,3 +5971,166 @@ export const insertAiUsageStatsSchema = createInsertSchema(aiUsageStats).omit({
 
 export type InsertAiUsageStats = z.infer<typeof insertAiUsageStatsSchema>;
 export type AiUsageStats = typeof aiUsageStats.$inferSelect;
+
+// ==================== DYNAMIC AI MODELS REGISTRY V2 (Owner Controlled) ====================
+// Enhanced model registry with provider abstraction and service mapping
+// Works alongside existing aiModels table for backward compatibility
+
+// Extended model capabilities enum
+export const aiModelCapabilitiesV2 = ['chat', 'code', 'reasoning', 'image', 'embedding', 'vision', 'function_calling', 'json_mode'] as const;
+export type AIModelCapabilityV2 = typeof aiModelCapabilitiesV2[number];
+
+// Provider types - extensible for future providers
+export const aiModelProvidersV2 = ['replit', 'anthropic', 'openai', 'google', 'meta', 'mistral', 'cohere', 'custom'] as const;
+export type AIModelProviderV2 = typeof aiModelProvidersV2[number];
+
+// ==================== AI SERVICE CONFIGURATIONS ====================
+// Maps internal services to AI models with fallback logic
+// References the existing aiModels table for model assignments
+
+export const aiServiceConfigs = pgTable("ai_service_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Service identification
+  serviceName: text("service_name").notNull().unique(), // e.g., "chat", "code_generation", "translation"
+  displayName: text("display_name").notNull(),
+  displayNameAr: text("display_name_ar"),
+  description: text("description"),
+  
+  // Model assignment (references existing aiModels table by modelId)
+  primaryModelId: text("primary_model_id"), // References aiModels.modelId
+  fallbackModelId: text("fallback_model_id"), // References aiModels.modelId
+  
+  // Required capabilities for this service
+  requiredCapabilities: jsonb("required_capabilities").$type<string[]>().default([]),
+  
+  // Token limits for this service
+  maxInputTokens: integer("max_input_tokens").default(50000),
+  maxOutputTokens: integer("max_output_tokens").default(4096),
+  
+  // Rate limiting
+  rateLimit: integer("rate_limit").default(100), // Requests per minute
+  rateLimitWindow: integer("rate_limit_window").default(60), // Window in seconds
+  
+  // Status
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  
+  // Audit
+  updatedBy: varchar("updated_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_ai_service_name").on(table.serviceName),
+]);
+
+export const insertAiServiceConfigSchema = createInsertSchema(aiServiceConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAiServiceConfig = z.infer<typeof insertAiServiceConfigSchema>;
+export type AiServiceConfig = typeof aiServiceConfigs.$inferSelect;
+
+// ==================== AI GLOBAL SETTINGS ====================
+// Platform-wide AI settings managed by owner
+
+export const aiGlobalSettings = pgTable("ai_global_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Emergency controls
+  emergencyKillSwitch: boolean("emergency_kill_switch").notNull().default(false),
+  killSwitchReason: text("kill_switch_reason"),
+  killSwitchActivatedAt: timestamp("kill_switch_activated_at"),
+  killSwitchActivatedBy: varchar("kill_switch_activated_by").references(() => users.id),
+  
+  // Default model (references aiModels.modelId)
+  globalDefaultModelId: text("global_default_model_id"),
+  
+  // Token limits (global caps)
+  globalMaxInputTokens: integer("global_max_input_tokens").default(100000),
+  globalMaxOutputTokens: integer("global_max_output_tokens").default(8192),
+  
+  // Rate limiting (global)
+  globalRateLimitPerMinute: integer("global_rate_limit_per_minute").default(60),
+  globalRateLimitPerHour: integer("global_rate_limit_per_hour").default(1000),
+  globalRateLimitPerDay: integer("global_rate_limit_per_day").default(10000),
+  
+  // Cost controls
+  dailyCostLimitUsd: real("daily_cost_limit_usd").default(100),
+  monthlyCostLimitUsd: real("monthly_cost_limit_usd").default(2000),
+  costAlertThreshold: real("cost_alert_threshold").default(0.8), // Alert at 80% of limit
+  
+  // Fallback behavior
+  enableAutoFallback: boolean("enable_auto_fallback").notNull().default(true),
+  maxFallbackAttempts: integer("max_fallback_attempts").default(3),
+  
+  // Logging & Monitoring
+  enableDetailedLogging: boolean("enable_detailed_logging").notNull().default(true),
+  logRetentionDays: integer("log_retention_days").default(90),
+  
+  // Health check settings
+  healthCheckIntervalMinutes: integer("health_check_interval_minutes").default(5),
+  unhealthyAfterFailures: integer("unhealthy_after_failures").default(3),
+  
+  // Audit
+  updatedBy: varchar("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAiGlobalSettingsSchema = createInsertSchema(aiGlobalSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertAiGlobalSettings = z.infer<typeof insertAiGlobalSettingsSchema>;
+export type AiGlobalSettings = typeof aiGlobalSettings.$inferSelect;
+
+// ==================== AI PROVIDER ADAPTERS ====================
+// Provider adapter configurations for abstraction layer
+
+export const aiProviderAdapters = pgTable("ai_provider_adapters", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Provider identification
+  providerKey: text("provider_key").notNull().unique(), // replit, anthropic, openai, etc.
+  displayName: text("display_name").notNull(),
+  displayNameAr: text("display_name_ar"),
+  
+  // Connection details (encrypted API keys stored separately in ai_provider_configs)
+  baseUrl: text("base_url"), // API endpoint
+  apiVersion: text("api_version"), // API version if applicable
+  
+  // Adapter settings
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  priority: integer("priority").notNull().default(50), // Lower = higher priority (1-100)
+  
+  // Capabilities this provider supports
+  supportedCapabilities: jsonb("supported_capabilities").$type<string[]>().default([]),
+  
+  // Rate limiting (provider-level)
+  rateLimitPerMinute: integer("rate_limit_per_minute").default(100),
+  
+  // Health status
+  isHealthy: boolean("is_healthy").notNull().default(true),
+  lastHealthCheck: timestamp("last_health_check"),
+  consecutiveFailures: integer("consecutive_failures").notNull().default(0),
+  
+  // Audit
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_ai_adapter_provider").on(table.providerKey),
+  index("IDX_ai_adapter_enabled").on(table.isEnabled),
+]);
+
+export const insertAiProviderAdapterSchema = createInsertSchema(aiProviderAdapters).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastHealthCheck: true,
+  consecutiveFailures: true,
+});
+
+export type InsertAiProviderAdapter = z.infer<typeof insertAiProviderAdapterSchema>;
+export type AiProviderAdapter = typeof aiProviderAdapters.$inferSelect;

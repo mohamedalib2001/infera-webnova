@@ -1,0 +1,168 @@
+You are implementing the Dynamic AI Execution Layer for Infra Web Nova.
+
+Infra Web Nova is a platform with:
+- Sidebar-driven modules
+- Multiple pages
+- Multiple chat and service experiences
+- A centralized AI system
+
+Your task is to dynamically connect ALL UI modules, pages, and chats
+to AI models and providers in a clean, scalable, and production-grade way.
+
+==================================================
+CORE PRINCIPLE (NON-NEGOTIABLE)
+==================================================
+NO page, chat, or service may hardcode:
+- AI model
+- Provider
+- AI behavior
+
+ALL AI execution must be resolved dynamically at runtime.
+
+==================================================
+DYNAMIC SERVICE REGISTRY
+==================================================
+Create a Service Registry where EVERY sidebar item, page, or chat
+is treated as a "Service Unit".
+
+Each service MUST have:
+- serviceId (unique)
+- displayName (shown in UI)
+- serviceType:
+  - chat
+  - assistant
+  - analysis
+  - automation
+  - system
+- aiMode:
+  - auto
+  - manual
+  - disabled
+
+==================================================
+AI ROUTING MODES
+==================================================
+
+1. AUTO MODE (DEFAULT – SMART ROUTING)
+When aiMode = "auto":
+- The system automatically selects:
+  - The best model
+  - The best provider
+Based on:
+  - Service type
+  - Required capabilities (chat, code, reasoning)
+  - Global performance mode
+  - Cost and speed policies
+
+2. MANUAL MODE
+When aiMode = "manual":
+- Owner explicitly selects:
+  - Provider
+  - Model
+  - Fallback model
+- No automatic override unless failure occurs
+
+3. DISABLED MODE
+- No AI calls allowed
+- UI must reflect "AI Disabled"
+
+==================================================
+MODEL & PROVIDER ABSTRACTION
+==================================================
+Infra Web Nova must NOT depend on Replit or any provider directly.
+
+Implement a Provider Adapter Layer:
+- Initial adapter: Replit / ModelFarm
+- Future adapters can be added without changing services
+
+Each model record must store:
+- Internal Nova Model ID
+- Display name
+- Provider
+- Provider model name (exact)
+- Capabilities
+- Status (active / disabled)
+
+==================================================
+RUNTIME MODEL RESOLUTION (CRITICAL)
+==================================================
+For EVERY AI request:
+
+1. Identify the serviceId
+2. Load service configuration
+3. Resolve AI mode:
+   - auto → smart selector
+   - manual → assigned model
+4. Validate model availability
+5. Apply fallback if needed
+6. Execute via provider adapter
+
+==================================================
+UI REQUIREMENTS (VERY IMPORTANT)
+==================================================
+
+For EVERY page, chat, or service UI:
+- Show AI status badge:
+  - 🟢 Auto
+  - 🔵 Manual
+  - ⚫ Disabled
+- Show active model name
+- Show model type (e.g. Claude Sonnet – Reasoning)
+- Show provider icon
+- Show fallback indicator if active
+
+Example UI label:
+"Powered by Claude Sonnet 4.5 • ModelFarm • Auto Mode"
+
+==================================================
+SIDEBAR & PAGE INTEGRATION
+==================================================
+Each sidebar item MUST be linked to a serviceId.
+
+When navigating:
+- The system resolves the AI configuration dynamically
+- The page does NOT choose the model
+- The page only requests "AI for this serviceId"
+
+==================================================
+OWNER CONTROL PANEL
+==================================================
+Only the Owner can:
+- Add / remove AI models
+- Enable / disable providers
+- Assign models to services
+- Switch service AI mode (auto / manual / disabled)
+- Define fallback chains
+- Set global AI policies
+
+No code changes are allowed to:
+- Add new models
+- Change providers
+- Change routing behavior
+
+==================================================
+VALIDATION & SAFETY
+==================================================
+- Block execution if no valid model exists
+- Block startup if all models are disabled
+- Prevent manual mode without a valid model
+- Prevent saving invalid provider model names
+
+==================================================
+OUTPUT REQUIRED
+==================================================
+1. Dynamic Service Registry
+2. AI Routing & Resolution Engine
+3. Provider Adapter Layer
+4. UI indicators per service (model + provider)
+5. Clean separation between UI, logic, and providers
+
+==================================================
+FINAL NOTE
+==================================================
+Infra Web Nova must feel like an intelligent operating system,
+where AI adapts automatically to each module,
+while still allowing full owner control.
+
+This is a production system.
+Hardcoding models or bypassing the routing layer is forbidden.
