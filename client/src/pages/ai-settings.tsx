@@ -267,40 +267,6 @@ export default function AISettingsPage() {
     },
   });
 
-  const [checkingBalance, setCheckingBalance] = useState<string | null>(null);
-
-  const balanceMutation = useMutation({
-    mutationFn: async (provider: string) => {
-      setCheckingBalance(provider);
-      const response = await apiRequest("POST", `/api/owner/ai-providers/${provider}/balance`);
-      return response;
-    },
-    onSuccess: (data) => {
-      setCheckingBalance(null);
-      queryClient.invalidateQueries({ queryKey: ["/api/owner/ai-providers"] });
-      if (data.success) {
-        toast({
-          title: language === "ar" ? "تم التحقق من الرصيد" : "Balance Checked",
-          description: language === "ar" ? `الرصيد: $${data.balance?.toFixed(2) || 0}` : `Balance: $${data.balance?.toFixed(2) || 0}`,
-        });
-      } else if (data.error) {
-        toast({
-          variant: "destructive",
-          title: language === "ar" ? "تعذر التحقق" : "Check Failed",
-          description: data.error,
-        });
-      }
-    },
-    onError: (error: any) => {
-      setCheckingBalance(null);
-      toast({
-        variant: "destructive",
-        title: language === "ar" ? "خطأ" : "Error",
-        description: error.message,
-      });
-    },
-  });
-
   const statusMutation = useMutation({
     mutationFn: async ({ provider, status }: { provider: string; status: string }) => {
       return apiRequest("PATCH", `/api/owner/ai-providers/${provider}/status`, { status });
@@ -562,44 +528,16 @@ export default function AISettingsPage() {
                     )}
 
                     {/* Balance Section */}
-                    <div className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/50">
-                      <div className="flex items-center gap-2">
-                        <DollarSign className="h-4 w-4 text-muted-foreground" />
-                        <div>
+                    <div className="p-2 rounded-md bg-muted/50 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <DollarSign className="h-4 w-4 text-muted-foreground" />
                           <span className="text-sm font-medium">
-                            {language === "ar" ? "الرصيد" : "Balance"}:
+                            {language === "ar" ? "الرصيد والفوترة" : "Balance & Billing"}
                           </span>
-                          {config.currentBalance !== null ? (
-                            <span className={`text-sm font-bold ${
-                              config.currentBalance < (config.lowBalanceThreshold || 10) 
-                                ? "text-red-500" 
-                                : "text-green-600"
-                            }`}>
-                              {" "}${config.currentBalance.toFixed(2)}
-                            </span>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">
-                              {" "}{language === "ar" ? "غير متوفر" : "N/A"}
-                            </span>
-                          )}
                         </div>
-                      </div>
-                      <div className="flex items-center gap-1">
                         <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => balanceMutation.mutate(config.provider)}
-                          disabled={!config.hasApiKey || checkingBalance === config.provider}
-                          data-testid={`button-balance-${config.provider}`}
-                        >
-                          {checkingBalance === config.provider ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <RefreshCw className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <Button
-                          variant="outline"
+                          variant="default"
                           size="sm"
                           onClick={() => {
                             const info = providerInfo[config.provider as ProviderType];
@@ -607,27 +545,19 @@ export default function AISettingsPage() {
                               window.open(info.billingUrl, '_blank', 'noopener,noreferrer');
                             }
                           }}
-                          data-testid={`button-recharge-${config.provider}`}
+                          data-testid={`button-billing-${config.provider}`}
                           className="gap-1"
                         >
-                          <CreditCard className="h-4 w-4" />
-                          <span className="hidden sm:inline">
-                            {language === "ar" ? "شحن الرصيد" : "Recharge"}
-                          </span>
-                          <ExternalLink className="h-3 w-3" />
+                          <ExternalLink className="h-4 w-4" />
+                          {language === "ar" ? "عرض لوحة الفوترة" : "View Billing Dashboard"}
                         </Button>
                       </div>
+                      <p className="text-xs text-muted-foreground">
+                        {language === "ar" 
+                          ? "ملاحظة: معظم مزودي AI لا يوفرون واجهة برمجية للتحقق من الرصيد. استخدم الرابط أعلاه لعرض الرصيد والشحن مباشرة."
+                          : "Note: Most AI providers don't offer a balance check API. Use the link above to view your balance and recharge directly."}
+                      </p>
                     </div>
-                    {config.currentBalance !== null && config.currentBalance < (config.lowBalanceThreshold || 10) && (
-                      <div className="flex items-center gap-2 text-sm text-orange-600 dark:text-orange-400">
-                        <AlertTriangle className="h-4 w-4" />
-                        <span>
-                          {language === "ar" 
-                            ? `تنبيه: الرصيد أقل من الحد (${config.lowBalanceThreshold || 10}$)` 
-                            : `Warning: Balance below threshold ($${config.lowBalanceThreshold || 10})`}
-                        </span>
-                      </div>
-                    )}
 
                     {/* Priority Control */}
                     <div className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/50">
