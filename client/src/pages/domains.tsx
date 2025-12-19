@@ -1284,45 +1284,50 @@ export default function DomainsPage() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {providersData?.providers?.map((provider) => (
-                  <div 
-                    key={provider.id}
-                    className={`p-4 rounded-lg border transition-colors ${
-                      provider.isConfigured 
-                        ? 'bg-primary/5 border-primary/30' 
-                        : provider.status === 'coming_soon'
-                          ? 'bg-muted/30 border-muted'
-                          : 'bg-card border-border'
+                {providersData?.providers?.map((provider) => {
+                  const providerColors: Record<string, { bg: string; border: string; icon: string }> = {
+                    namecheap: { bg: 'bg-orange-500/10', border: 'border-orange-500/30', icon: 'text-orange-500' },
+                    godaddy: { bg: 'bg-green-500/10', border: 'border-green-500/30', icon: 'text-green-500' },
+                    cloudflare: { bg: 'bg-amber-500/10', border: 'border-amber-500/30', icon: 'text-amber-500' },
+                    squarespace: { bg: 'bg-neutral-500/10', border: 'border-neutral-500/30', icon: 'text-neutral-400' },
+                    dynadot: { bg: 'bg-blue-500/10', border: 'border-blue-500/30', icon: 'text-blue-500' },
+                    porkbun: { bg: 'bg-pink-500/10', border: 'border-pink-500/30', icon: 'text-pink-500' },
+                    hover: { bg: 'bg-cyan-500/10', border: 'border-cyan-500/30', icon: 'text-cyan-500' },
+                    ionos: { bg: 'bg-blue-600/10', border: 'border-blue-600/30', icon: 'text-blue-600' },
+                    gandi: { bg: 'bg-teal-500/10', border: 'border-teal-500/30', icon: 'text-teal-500' },
+                    enom: { bg: 'bg-indigo-500/10', border: 'border-indigo-500/30', icon: 'text-indigo-500' },
+                    opensrs: { bg: 'bg-purple-500/10', border: 'border-purple-500/30', icon: 'text-purple-500' },
+                    namecom: { bg: 'bg-red-500/10', border: 'border-red-500/30', icon: 'text-red-500' },
+                    registercom: { bg: 'bg-sky-500/10', border: 'border-sky-500/30', icon: 'text-sky-500' },
+                    networksolutions: { bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', icon: 'text-emerald-500' },
+                  };
+                  const colors = providerColors[provider.id] || { bg: 'bg-primary/10', border: 'border-primary/30', icon: 'text-primary' };
+                  
+                  return (
+                    <div 
+                      key={provider.id}
+                    className={`p-4 rounded-lg border transition-all hover-elevate ${colors.bg} ${colors.border} ${
+                      provider.isConfigured ? 'ring-2 ring-primary/20' : ''
                     }`}
                     data-testid={`provider-card-${provider.id}`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-md flex items-center justify-center ${
-                          provider.isConfigured 
-                            ? 'bg-primary/20 text-primary' 
-                            : 'bg-muted text-muted-foreground'
-                        }`}>
-                          <Globe className="w-5 h-5" />
+                        <div className={`w-12 h-12 rounded-lg flex items-center justify-center bg-background/80 ${colors.icon}`}>
+                          <Globe className="w-6 h-6" />
                         </div>
                         <div>
-                          <p className="font-medium">
+                          <p className="font-semibold text-foreground">
                             {language === 'ar' ? provider.nameAr : provider.name}
                           </p>
                           <div className="flex items-center gap-2 mt-1">
                             <Badge 
-                              variant={
-                                provider.isConfigured ? 'default' 
-                                : provider.status === 'coming_soon' ? 'secondary' 
-                                : 'outline'
-                              }
+                              variant={provider.isConfigured ? 'default' : 'secondary'}
                               className="text-xs"
                             >
                               {provider.isConfigured 
                                 ? (language === 'ar' ? 'مفعل' : 'Active')
-                                : provider.status === 'coming_soon'
-                                  ? (language === 'ar' ? 'قريباً' : 'Coming Soon')
-                                  : (language === 'ar' ? 'غير مفعل' : 'Inactive')
+                                : (language === 'ar' ? 'متاح' : 'Available')
                               }
                             </Badge>
                             <Badge variant="outline" className="text-xs">
@@ -1395,8 +1400,9 @@ export default function DomainsPage() {
                         <CheckCircle2 className="w-4 h-4 text-green-500" />
                       )}
                     </div>
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
