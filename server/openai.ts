@@ -137,55 +137,44 @@ export async function analyzeIntent(
   prompt: string,
   hasExistingCode: boolean = false
 ): Promise<{ intent: "conversation" | "code_generation" | "code_refinement" | "help"; codeRequest?: string }> {
-  if (!anthropic) {
-    return { intent: "conversation" };
+  const lowerPrompt = prompt.toLowerCase();
+  
+  // Keywords for code generation (Arabic and English)
+  const codeGenKeywords = [
+    'أنشئ', 'انشئ', 'اصنع', 'ابني', 'صمم', 'اعمل', 'سوي', 'اريد', 'عاوز', 'ابغى', 'أريد',
+    'منصة', 'موقع', 'صفحة', 'تطبيق', 'نظام', 'لوحة', 'واجهة', 'متجر', 'بوابة',
+    'create', 'make', 'build', 'design', 'generate', 'develop',
+    'website', 'platform', 'page', 'app', 'application', 'system', 'dashboard', 'portal', 'store',
+    'حكومي', 'حكومية', 'تجاري', 'تعليمي', 'صحي', 'مالي', 'government', 'commercial', 'educational'
+  ];
+  
+  // Keywords for code refinement
+  const codeRefineKeywords = [
+    'عدل', 'غير', 'حسن', 'طور', 'أضف', 'اضف', 'احذف', 'ازل', 'كبر', 'صغر',
+    'modify', 'change', 'improve', 'update', 'add', 'remove', 'delete', 'fix', 'adjust', 'enhance'
+  ];
+  
+  // Check for code generation - if contains ANY code gen keyword
+  const hasCodeGenKeyword = codeGenKeywords.some(kw => prompt.includes(kw) || lowerPrompt.includes(kw));
+  
+  // Check for code refinement - if contains refine keyword AND has existing code
+  const hasRefineKeyword = codeRefineKeywords.some(kw => prompt.includes(kw) || lowerPrompt.includes(kw));
+  
+  console.log(`[AnalyzeIntent] prompt="${prompt.substring(0, 50)}..." hasCodeGen=${hasCodeGenKeyword} hasRefine=${hasRefineKeyword} hasExisting=${hasExistingCode}`);
+  
+  // Priority: refinement > generation > conversation
+  if (hasRefineKeyword && hasExistingCode) {
+    console.log("[AnalyzeIntent] -> code_refinement");
+    return { intent: "code_refinement", codeRequest: prompt };
   }
-
-  const systemPrompt = `أنت محلل للنوايا. حدد نوع طلب المستخدم:
-You are an intent analyzer. Determine the user request type:
-
-1. "conversation" - تحيات، أسئلة عامة، محادثة عادية (مرحبا، كيف حالك، ما هو...)
-   Greetings, general questions, normal chat (hello, how are you, what is...)
-   
-2. "code_generation" - طلب إنشاء موقع/صفحة/تطبيق جديد
-   Request to create new website/page/app
-   
-3. "code_refinement" - طلب تعديل/تحسين كود موجود (فقط إذا كان hasExistingCode=true)
-   Request to modify/improve existing code (only if hasExistingCode=true)
-   
-4. "help" - طلب مساعدة تقنية أو شرح
-   Request for technical help or explanation
-
-أجب بـ JSON فقط:
-{"intent": "...", "codeRequest": "طلب الكود إذا كان النوع code_generation أو code_refinement"}`;
-
-  try {
-    const response = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 256,
-      system: systemPrompt,
-      messages: [{ role: "user", content: `hasExistingCode: ${hasExistingCode}\nUser message: ${prompt}` }],
-    });
-
-    const textContent = response.content.find(c => c.type === 'text');
-    if (!textContent || textContent.type !== 'text') {
-      return { intent: "conversation" };
-    }
-
-    let jsonStr = textContent.text.trim();
-    if (jsonStr.startsWith('```json')) jsonStr = jsonStr.slice(7);
-    if (jsonStr.startsWith('```')) jsonStr = jsonStr.slice(3);
-    if (jsonStr.endsWith('```')) jsonStr = jsonStr.slice(0, -3);
-    jsonStr = jsonStr.trim();
-
-    const result = JSON.parse(jsonStr);
-    return {
-      intent: result.intent || "conversation",
-      codeRequest: result.codeRequest
-    };
-  } catch {
-    return { intent: "conversation" };
+  
+  if (hasCodeGenKeyword) {
+    console.log("[AnalyzeIntent] -> code_generation");
+    return { intent: "code_generation", codeRequest: prompt };
   }
+  
+  console.log("[AnalyzeIntent] -> conversation");
+  return { intent: "conversation" };
 }
 
 export async function conversationalResponse(
