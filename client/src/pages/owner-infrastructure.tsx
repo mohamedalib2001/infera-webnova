@@ -199,6 +199,8 @@ export default function OwnerInfrastructure() {
   const [activeTab, setActiveTab] = useState("providers");
   const [showAddProvider, setShowAddProvider] = useState(false);
   const [showAddServer, setShowAddServer] = useState(false);
+  const [showProviderSettings, setShowProviderSettings] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<InfrastructureProvider | null>(null);
   const [newProviderForm, setNewProviderForm] = useState({ name: "", displayName: "", type: "primary" });
   const [newServerForm, setNewServerForm] = useState({ name: "", providerId: "", serverType: "", region: "", cpu: 2, ram: 4, storage: 40 });
 
@@ -291,6 +293,23 @@ export default function OwnerInfrastructure() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/owner/infrastructure/servers'] });
       toast({ title: language === 'ar' ? 'تم حذف السيرفر' : 'Server deleted' });
+    }
+  });
+
+  const deleteProviderMutation = useMutation({
+    mutationFn: (id: string) => apiRequest('DELETE', `/api/owner/infrastructure/providers/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/infrastructure/providers'] });
+      setShowProviderSettings(false);
+      setSelectedProvider(null);
+      toast({ title: language === 'ar' ? 'تم حذف المزود' : 'Provider deleted' });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: language === 'ar' ? 'فشل الحذف' : 'Delete failed',
+        description: error.message,
+        variant: 'destructive'
+      });
     }
   });
 
@@ -545,7 +564,16 @@ export default function OwnerInfrastructure() {
                         <span className="font-medium">{provider.healthScore || 0}%</span>
                       </div>
                     </div>
-                    <Button variant="outline" size="sm" className="w-full mt-4">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full mt-4"
+                      onClick={() => {
+                        setSelectedProvider(provider);
+                        setShowProviderSettings(true);
+                      }}
+                      data-testid={`button-provider-settings-${provider.id}`}
+                    >
                       <Settings className="w-4 h-4 mr-2" />
                       {language === 'ar' ? 'إعدادات' : 'Settings'}
                     </Button>
@@ -554,6 +582,80 @@ export default function OwnerInfrastructure() {
               ))
             )}
           </div>
+
+          {/* Provider Settings Dialog */}
+          <Dialog open={showProviderSettings} onOpenChange={setShowProviderSettings}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-3">
+                  {selectedProvider && getProviderIcon(selectedProvider.name)}
+                  {language === 'ar' ? 'إعدادات المزود' : 'Provider Settings'}
+                </DialogTitle>
+              </DialogHeader>
+              {selectedProvider && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">{language === 'ar' ? 'الاسم' : 'Name'}</span>
+                      <p className="font-medium">{selectedProvider.displayName}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">{language === 'ar' ? 'الحالة' : 'Status'}</span>
+                      <div className="mt-1">
+                        <Badge className={getStatusColor(selectedProvider.connectionStatus)}>
+                          {selectedProvider.connectionStatus === 'connected' ? t.providers.connected : t.providers.disconnected}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">{language === 'ar' ? 'السيرفرات النشطة' : 'Active Servers'}</span>
+                      <p className="font-medium">{selectedProvider.activeServers || 0}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">{language === 'ar' ? 'صحة الاتصال' : 'Health Score'}</span>
+                      <p className="font-medium">{selectedProvider.healthScore || 0}%</p>
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-4 space-y-3">
+                    <Button 
+                      variant="outline" 
+                      className="w-full"
+                      onClick={() => testHetznerMutation.mutate()}
+                      disabled={testHetznerMutation.isPending || selectedProvider.name !== 'hetzner'}
+                      data-testid="button-test-provider-connection"
+                    >
+                      {testHetznerMutation.isPending ? (
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Activity className="w-4 h-4 mr-2" />
+                      )}
+                      {language === 'ar' ? 'اختبار الاتصال' : 'Test Connection'}
+                    </Button>
+
+                    <Button 
+                      variant="destructive" 
+                      className="w-full"
+                      onClick={() => {
+                        if (confirm(language === 'ar' ? 'هل أنت متأكد من حذف هذا المزود؟' : 'Are you sure you want to delete this provider?')) {
+                          deleteProviderMutation.mutate(selectedProvider.id);
+                        }
+                      }}
+                      disabled={deleteProviderMutation.isPending}
+                      data-testid="button-delete-provider"
+                    >
+                      {deleteProviderMutation.isPending ? (
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4 mr-2" />
+                      )}
+                      {language === 'ar' ? 'حذف المزود' : 'Delete Provider'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         <TabsContent value="servers">
