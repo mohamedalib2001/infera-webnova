@@ -1948,6 +1948,141 @@ ${project.description || ""}
     }
   });
 
+  // ============ Governance Routes - حوكمة التنفيذ ============
+
+  // Initialize governance session
+  app.post("/api/governance/initialize", requireAuth, async (req, res) => {
+    try {
+      const { platformOrchestrator } = await import("./platform-orchestrator");
+      const { projectId, language = "en" } = req.body;
+      
+      const sessionId = crypto.randomUUID();
+      const handshake = platformOrchestrator.initializeGovernanceSession(projectId, sessionId);
+      const message = platformOrchestrator.getHandshakeMessage(sessionId, language);
+      
+      res.json({
+        success: true,
+        sessionId,
+        handshake,
+        message,
+        messageAr: platformOrchestrator.getHandshakeMessage(sessionId, 'ar'),
+        messageEn: platformOrchestrator.getHandshakeMessage(sessionId, 'en'),
+      });
+    } catch (error) {
+      console.error("[Governance] Initialize error:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to initialize governance" 
+      });
+    }
+  });
+
+  // Get system directive for session
+  app.get("/api/governance/:sessionId/directive", requireAuth, async (req, res) => {
+    try {
+      const { platformOrchestrator } = await import("./platform-orchestrator");
+      const directive = platformOrchestrator.getSystemDirective(req.params.sessionId);
+      res.json({ success: true, directive });
+    } catch (error) {
+      res.status(404).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Session not found" 
+      });
+    }
+  });
+
+  // Get governance session state
+  app.get("/api/governance/:sessionId/state", requireAuth, async (req, res) => {
+    try {
+      const { platformOrchestrator } = await import("./platform-orchestrator");
+      const session = platformOrchestrator.getGovernanceSession(req.params.sessionId);
+      
+      if (!session) {
+        return res.status(404).json({ success: false, error: "Session not found" });
+      }
+      
+      res.json({ 
+        success: true, 
+        state: session.getState(),
+        statusEn: session.getStatusMessage('en'),
+        statusAr: session.getStatusMessage('ar'),
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: "Failed to get session state" });
+    }
+  });
+
+  // Start execution phase
+  app.post("/api/governance/:sessionId/start-phase", requireAuth, async (req, res) => {
+    try {
+      const { platformOrchestrator } = await import("./platform-orchestrator");
+      const { phase } = req.body;
+      
+      const result = platformOrchestrator.startPhase(req.params.sessionId, phase);
+      
+      if (!result.success) {
+        return res.status(400).json({ success: false, error: result.error });
+      }
+      
+      const session = platformOrchestrator.getGovernanceSession(req.params.sessionId);
+      res.json({ 
+        success: true, 
+        state: session?.getState(),
+        directive: platformOrchestrator.getSystemDirective(req.params.sessionId),
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: "Failed to start phase" });
+    }
+  });
+
+  // Approve completed phase
+  app.post("/api/governance/:sessionId/approve-phase", requireAuth, async (req, res) => {
+    try {
+      const { platformOrchestrator } = await import("./platform-orchestrator");
+      const { phase } = req.body;
+      
+      const result = platformOrchestrator.approvePhase(req.params.sessionId, phase);
+      
+      if (!result.success) {
+        return res.status(400).json({ success: false, error: result.error });
+      }
+      
+      const session = platformOrchestrator.getGovernanceSession(req.params.sessionId);
+      res.json({ 
+        success: true, 
+        state: session?.getState(),
+        nextPhase: session?.getState().pendingPhases[0] || null,
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: "Failed to approve phase" });
+    }
+  });
+
+  // Get technical stack
+  app.get("/api/governance/technical-stack", async (req, res) => {
+    try {
+      const { platformOrchestrator } = await import("./platform-orchestrator");
+      res.json({ 
+        success: true, 
+        stack: platformOrchestrator.getTechnicalStack(),
+        qualityRules: platformOrchestrator.getQualityRules(),
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: "Failed to get technical stack" });
+    }
+  });
+
+  // Cleanup governance session
+  app.delete("/api/governance/:sessionId", requireAuth, async (req, res) => {
+    try {
+      const { platformOrchestrator } = await import("./platform-orchestrator");
+      platformOrchestrator.cleanupGovernanceSession(req.params.sessionId);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ success: false, error: "Failed to cleanup session" });
+    }
+  });
+
   // ============ Templates Routes ============
   
   // Get all templates

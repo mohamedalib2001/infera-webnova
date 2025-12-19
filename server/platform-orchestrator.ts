@@ -1,6 +1,16 @@
 import { FullStackGenerator, fullStackGenerator, FullStackProjectSpec, GeneratedFullStackProject } from "./full-stack-generator";
 import { AuthSystemGenerator, authGenerator, AuthConfig, GeneratedAuthSystem } from "./auth-generator";
 import { PlatformDeployer, platformDeployer, PlatformDeploymentSpec, DeploymentResult, HetznerServerConfig } from "./platform-deployment";
+import { 
+  AIExecutionGovernance, 
+  generateSystemDirective, 
+  generateHandshake, 
+  formatHandshakeMessage,
+  FIXED_TECHNICAL_STACK,
+  ZERO_TOLERANCE_RULES,
+  type ExecutionPhase,
+  type HandshakeResponse
+} from "./ai-execution-governance";
 
 export interface CompletePlatformSpec {
   name: string;
@@ -362,6 +372,67 @@ export function registerPaymentRoutes(app: Express) {
 
   async deletePlatform(serverId: string): Promise<boolean> {
     return platformDeployer.deleteServer(serverId);
+  }
+
+  // ==================== GOVERNANCE INTEGRATION ====================
+
+  private governanceSessions: Map<string, AIExecutionGovernance> = new Map();
+
+  initializeGovernanceSession(projectId: string, sessionId: string): HandshakeResponse {
+    const governance = new AIExecutionGovernance(projectId, sessionId);
+    this.governanceSessions.set(sessionId, governance);
+    
+    console.log(`[Governance] Session initialized: ${sessionId}`);
+    return generateHandshake(governance);
+  }
+
+  getGovernanceSession(sessionId: string): AIExecutionGovernance | undefined {
+    return this.governanceSessions.get(sessionId);
+  }
+
+  getSystemDirective(sessionId: string): string {
+    const governance = this.governanceSessions.get(sessionId);
+    if (!governance) {
+      throw new Error(`Governance session not found: ${sessionId}`);
+    }
+    return generateSystemDirective(governance);
+  }
+
+  startPhase(sessionId: string, phase: ExecutionPhase): { success: boolean; error?: string } {
+    const governance = this.governanceSessions.get(sessionId);
+    if (!governance) {
+      return { success: false, error: `Governance session not found: ${sessionId}` };
+    }
+    return governance.startPhase(phase);
+  }
+
+  approvePhase(sessionId: string, phase: ExecutionPhase): { success: boolean; error?: string } {
+    const governance = this.governanceSessions.get(sessionId);
+    if (!governance) {
+      return { success: false, error: `Governance session not found: ${sessionId}` };
+    }
+    return governance.approvePhase(phase);
+  }
+
+  getHandshakeMessage(sessionId: string, language: 'en' | 'ar' = 'en'): string {
+    const governance = this.governanceSessions.get(sessionId);
+    if (!governance) {
+      throw new Error(`Governance session not found: ${sessionId}`);
+    }
+    return formatHandshakeMessage(generateHandshake(governance), language);
+  }
+
+  getTechnicalStack() {
+    return FIXED_TECHNICAL_STACK;
+  }
+
+  getQualityRules() {
+    return ZERO_TOLERANCE_RULES;
+  }
+
+  cleanupGovernanceSession(sessionId: string): void {
+    this.governanceSessions.delete(sessionId);
+    console.log(`[Governance] Session cleaned up: ${sessionId}`);
   }
 }
 
