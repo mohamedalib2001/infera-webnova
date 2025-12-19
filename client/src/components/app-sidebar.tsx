@@ -38,6 +38,7 @@ import {
   Store,
   Users,
   ShieldCheck,
+  Mail,
 } from "lucide-react";
 import {
   Sidebar,
@@ -364,6 +365,14 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                           <Link href="/owner/ai-sovereignty" data-testid="nav-owner-ai-sovereignty">
                             <Brain className="h-4 w-4 text-purple-500" />
                             <span>{language === "ar" ? "سيادة الذكاء" : "AI Sovereignty"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/owner/email-settings"}>
+                          <Link href="/owner/email-settings" data-testid="nav-owner-email-settings">
+                            <Mail className="h-4 w-4 text-teal-500" />
+                            <span>{language === "ar" ? "إعدادات البريد" : "Email Settings"}</span>
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
