@@ -482,9 +482,18 @@ export default function DomainsPage() {
     },
   });
 
+  const cleanDomainName = (domain: string): string => {
+    return domain.toLowerCase().trim()
+      .replace(/^https?:\/\//i, '')
+      .replace(/^www\./i, '')
+      .replace(/\/.*$/, '');
+  };
+
   const checkAvailabilityMutation = useMutation({
     mutationFn: async (domain: string) => {
-      const response = await apiRequest('POST', '/api/domains/check-availability', { domains: [domain] });
+      const cleanedDomain = cleanDomainName(domain);
+      setSearchDomain(cleanedDomain);
+      const response = await apiRequest('POST', '/api/domains/check-availability', { domains: [cleanedDomain] });
       return response.json();
     },
     onSuccess: (data) => {
@@ -505,17 +514,31 @@ export default function DomainsPage() {
 
   const registerDomainMutation = useMutation({
     mutationFn: async ({ domainName, years }: { domainName: string; years: number }) => {
-      return apiRequest('POST', '/api/domains/register', { domainName, years });
+      const cleanedDomain = cleanDomainName(domainName);
+      const response = await apiRequest('POST', '/api/domains/register', { domainName: cleanedDomain, years });
+      return response.json();
     },
-    onSuccess: () => {
-      toast({ title: t.success.registered });
-      setShowRegisterDialog(false);
-      setSearchDomain("");
-      setAvailabilityResult(null);
-      queryClient.invalidateQueries({ queryKey: ['/api/domains'] });
+    onSuccess: (data) => {
+      if (data.success) {
+        toast({ title: t.success.registered });
+        setShowRegisterDialog(false);
+        setSearchDomain("");
+        setAvailabilityResult(null);
+        queryClient.invalidateQueries({ queryKey: ['/api/domains'] });
+      } else {
+        toast({ 
+          title: t.errors.registerFailed, 
+          description: data.errorAr || data.error,
+          variant: 'destructive' 
+        });
+      }
     },
-    onError: () => {
-      toast({ title: t.errors.registerFailed, variant: 'destructive' });
+    onError: (error: any) => {
+      toast({ 
+        title: t.errors.registerFailed, 
+        description: language === 'ar' ? 'فشل التسجيل - تحقق من رصيد الحساب' : 'Registration failed - check account balance',
+        variant: 'destructive' 
+      });
     },
   });
 
