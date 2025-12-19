@@ -43,7 +43,7 @@ import {
   Loader2
 } from "lucide-react";
 import { SiHetzner, SiAmazonwebservices, SiGooglecloud, SiDigitalocean } from "react-icons/si";
-import type { InfrastructureProvider, InfrastructureServer, DeploymentRun, InfrastructureBackup } from "@shared/schema";
+import type { InfrastructureProvider, InfrastructureServer, DeploymentRun, InfrastructureBackup, InfrastructureAuditLog, ProviderErrorLog } from "@shared/schema";
 
 const translations = {
   ar: {
@@ -54,7 +54,8 @@ const translations = {
       servers: "السيرفرات",
       deployments: "عمليات النشر",
       backups: "النسخ الاحتياطية",
-      costs: "التكاليف"
+      costs: "التكاليف",
+      auditLogs: "سجل العمليات"
     },
     providers: {
       title: "مزودي البنية التحتية",
@@ -105,6 +106,19 @@ const translations = {
       budget: "الميزانية",
       alerts: "تنبيهات التكلفة"
     },
+    controls: {
+      start: "تشغيل",
+      stop: "إيقاف",
+      reboot: "إعادة تشغيل",
+      reset: "إعادة ضبط",
+      powerOff: "إيقاف فوري",
+      confirmAction: "تأكيد الإجراء",
+      confirmMessage: "اكتب اسم السيرفر للتأكيد:",
+      cancel: "إلغاء",
+      confirm: "تأكيد",
+      actionSuccess: "تم تنفيذ الإجراء بنجاح",
+      actionFailed: "فشل تنفيذ الإجراء"
+    },
     empty: "لا توجد بيانات",
     loading: "جاري التحميل..."
   },
@@ -116,7 +130,8 @@ const translations = {
       servers: "Servers",
       deployments: "Deployments",
       backups: "Backups",
-      costs: "Costs"
+      costs: "Costs",
+      auditLogs: "Audit Logs"
     },
     providers: {
       title: "Infrastructure Providers",
@@ -167,6 +182,19 @@ const translations = {
       budget: "Budget",
       alerts: "Cost Alerts"
     },
+    controls: {
+      start: "Start",
+      stop: "Stop",
+      reboot: "Reboot",
+      reset: "Hard Reset",
+      powerOff: "Power Off",
+      confirmAction: "Confirm Action",
+      confirmMessage: "Type server name to confirm:",
+      cancel: "Cancel",
+      confirm: "Confirm",
+      actionSuccess: "Action executed successfully",
+      actionFailed: "Action failed"
+    },
     empty: "No data",
     loading: "Loading..."
   }
@@ -216,6 +244,14 @@ export default function OwnerInfrastructure() {
 
   const { data: deploymentsData, isLoading: loadingDeployments } = useQuery<{ deployments: DeploymentRun[] }>({
     queryKey: ['/api/owner/infrastructure/deployments']
+  });
+
+  const { data: auditLogsData, isLoading: loadingAuditLogs } = useQuery<{ logs: InfrastructureAuditLog[] }>({
+    queryKey: ['/api/owner/infrastructure/audit-logs']
+  });
+
+  const { data: errorLogsData, isLoading: loadingErrorLogs } = useQuery<{ logs: ProviderErrorLog[] }>({
+    queryKey: ['/api/owner/infrastructure/error-logs']
   });
 
   const { data: backupsData, isLoading: loadingBackups } = useQuery<{ backups: InfrastructureBackup[] }>({
@@ -320,6 +356,50 @@ export default function OwnerInfrastructure() {
       toast({ title: language === 'ar' ? 'تم حذف السيرفر' : 'Server deleted' });
     }
   });
+
+  const [serverActionModal, setServerActionModal] = useState<{
+    open: boolean;
+    server: InfrastructureServer | null;
+    action: string;
+    confirmationName: string;
+    requiresConfirmation: boolean;
+  }>({ open: false, server: null, action: '', confirmationName: '', requiresConfirmation: false });
+
+  const serverActionMutation = useMutation({
+    mutationFn: ({ serverId, action, confirmationName }: { serverId: string; action: string; confirmationName?: string }) =>
+      apiRequest('POST', `/api/owner/infrastructure/servers/${serverId}/action`, { action, confirmationName }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/owner/infrastructure/servers'] });
+      setServerActionModal({ open: false, server: null, action: '', confirmationName: '', requiresConfirmation: false });
+      toast({ title: t.controls.actionSuccess });
+    },
+    onError: (error: any) => {
+      if (error?.requiresConfirmation) {
+        setServerActionModal(prev => ({ ...prev, requiresConfirmation: true }));
+      } else {
+        toast({ title: t.controls.actionFailed, description: error?.message, variant: 'destructive' });
+      }
+    }
+  });
+
+  const handleServerAction = (server: InfrastructureServer, action: string) => {
+    const destructiveActions = ['power_off', 'reset', 'shutdown', 'stop'];
+    if (destructiveActions.includes(action)) {
+      setServerActionModal({ open: true, server, action, confirmationName: '', requiresConfirmation: true });
+    } else {
+      serverActionMutation.mutate({ serverId: server.id, action });
+    }
+  };
+
+  const confirmServerAction = () => {
+    if (serverActionModal.server && serverActionModal.action) {
+      serverActionMutation.mutate({
+        serverId: serverActionModal.server.id,
+        action: serverActionModal.action,
+        confirmationName: serverActionModal.confirmationName
+      });
+    }
+  };
 
   const deleteProviderMutation = useMutation({
     mutationFn: (id: string) => apiRequest('DELETE', `/api/owner/infrastructure/providers/${id}`),
@@ -452,6 +532,10 @@ export default function OwnerInfrastructure() {
           <TabsTrigger value="costs" className="gap-2" data-testid="tab-costs">
             <DollarSign className="w-4 h-4" />
             {t.tabs.costs}
+          </TabsTrigger>
+          <TabsTrigger value="auditLogs" className="gap-2" data-testid="tab-audit-logs">
+            <Activity className="w-4 h-4" />
+            {t.tabs.auditLogs}
           </TabsTrigger>
           <TabsTrigger value="security" className="gap-2" data-testid="tab-security">
             <Shield className="w-4 h-4" />
@@ -853,9 +937,42 @@ export default function OwnerInfrastructure() {
                           <Badge className={getStatusColor(server.status)}>
                             {t.servers[server.status as keyof typeof t.servers] || server.status}
                           </Badge>
-                          <Button size="icon" variant="ghost">
-                            {server.powerStatus === 'on' ? <Power className="w-4 h-4 text-green-500" /> : <PowerOff className="w-4 h-4 text-red-500" />}
-                          </Button>
+                          {server.status === 'stopped' ? (
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              onClick={() => handleServerAction(server, 'start')}
+                              disabled={serverActionMutation.isPending}
+                              data-testid={`button-start-${server.id}`}
+                            >
+                              <Play className="w-4 h-4 text-green-500" />
+                            </Button>
+                          ) : server.status === 'running' ? (
+                            <>
+                              <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                onClick={() => handleServerAction(server, 'stop')}
+                                disabled={serverActionMutation.isPending}
+                                data-testid={`button-stop-${server.id}`}
+                              >
+                                <Pause className="w-4 h-4 text-orange-500" />
+                              </Button>
+                              <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                onClick={() => handleServerAction(server, 'reboot')}
+                                disabled={serverActionMutation.isPending}
+                                data-testid={`button-reboot-${server.id}`}
+                              >
+                                <RotateCcw className="w-4 h-4 text-blue-500" />
+                              </Button>
+                            </>
+                          ) : (
+                            <Button size="icon" variant="ghost" disabled>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            </Button>
+                          )}
                           <Button size="icon" variant="ghost" onClick={() => deleteServerMutation.mutate(server.id)}>
                             <Trash2 className="w-4 h-4 text-red-500" />
                           </Button>
@@ -1047,6 +1164,121 @@ export default function OwnerInfrastructure() {
           </div>
         </TabsContent>
 
+        {/* Audit Logs Tab */}
+        <TabsContent value="auditLogs">
+          <div className="grid grid-cols-1 gap-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="w-5 h-5" />
+                    {language === 'ar' ? 'سجل العمليات' : 'Operations Log'}
+                  </CardTitle>
+                  <CardDescription>
+                    {language === 'ar' 
+                      ? 'تتبع جميع العمليات على البنية التحتية' 
+                      : 'Track all infrastructure operations'}
+                  </CardDescription>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {loadingAuditLogs ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-muted-foreground">{t.loading}</span>
+                  </div>
+                ) : (auditLogsData?.logs?.length || 0) === 0 ? (
+                  <div className="text-center py-8">
+                    <Activity className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">
+                      {language === 'ar' ? 'لا توجد سجلات بعد' : 'No logs yet'}
+                    </p>
+                  </div>
+                ) : (
+                  <ScrollArea className="h-[400px]">
+                    <div className="space-y-2">
+                      {auditLogsData?.logs?.map((log) => (
+                        <div key={log.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-3 h-3 rounded-full ${log.success ? 'bg-green-500' : 'bg-red-500'}`} />
+                            <div>
+                              <p className="font-medium text-sm">{log.action}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {log.targetName || log.targetId} • {log.userEmail || log.userId}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <Badge className={log.success ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}>
+                              {log.success ? (language === 'ar' ? 'نجح' : 'Success') : (language === 'ar' ? 'فشل' : 'Failed')}
+                            </Badge>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {new Date(log.createdAt).toLocaleString(language === 'ar' ? 'ar-SA' : 'en-US')}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-yellow-500" />
+                  {language === 'ar' ? 'أخطاء المزودين' : 'Provider Errors'}
+                </CardTitle>
+                <CardDescription>
+                  {language === 'ar' 
+                    ? 'أخطاء API وحدود المعدل وإخفاقات الشبكة' 
+                    : 'API errors, rate limits, and network failures'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loadingErrorLogs ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-muted-foreground">{t.loading}</span>
+                  </div>
+                ) : (errorLogsData?.logs?.length || 0) === 0 ? (
+                  <div className="text-center py-8">
+                    <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
+                    <p className="text-muted-foreground">
+                      {language === 'ar' ? 'لا توجد أخطاء' : 'No errors'}
+                    </p>
+                  </div>
+                ) : (
+                  <ScrollArea className="h-[300px]">
+                    <div className="space-y-2">
+                      {errorLogsData?.logs?.map((log) => (
+                        <div key={log.id} className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-950/20 rounded-md border border-red-200 dark:border-red-900">
+                          <div className="flex items-center gap-3">
+                            <AlertTriangle className="w-4 h-4 text-red-500" />
+                            <div>
+                              <p className="font-medium text-sm">{log.errorType}</p>
+                              <p className="text-xs text-muted-foreground">{log.errorMessage}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <Badge className={log.resolved ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}>
+                              {log.resolved ? (language === 'ar' ? 'تم الحل' : 'Resolved') : (language === 'ar' ? 'نشط' : 'Active')}
+                            </Badge>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {new Date(log.createdAt).toLocaleString(language === 'ar' ? 'ar-SA' : 'en-US')}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
         <TabsContent value="security">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
@@ -1164,6 +1396,56 @@ export default function OwnerInfrastructure() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Server Action Confirmation Modal */}
+      <Dialog open={serverActionModal.open} onOpenChange={(open) => !open && setServerActionModal({ open: false, server: null, action: '', confirmationName: '', requiresConfirmation: false })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-yellow-500" />
+              {t.controls.confirmAction}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="mb-4">
+              {language === 'ar' 
+                ? `هل أنت متأكد من ${serverActionModal.action === 'stop' ? 'إيقاف' : serverActionModal.action === 'reboot' ? 'إعادة تشغيل' : serverActionModal.action === 'reset' ? 'إعادة ضبط' : serverActionModal.action === 'power_off' ? 'إيقاف فوري' : ''} السيرفر "${serverActionModal.server?.name}"؟`
+                : `Are you sure you want to ${serverActionModal.action} the server "${serverActionModal.server?.name}"?`}
+            </p>
+            {serverActionModal.requiresConfirmation && (
+              <div className="space-y-2">
+                <Label>{t.controls.confirmMessage}</Label>
+                <Input
+                  value={serverActionModal.confirmationName}
+                  onChange={(e) => setServerActionModal(prev => ({ ...prev, confirmationName: e.target.value }))}
+                  placeholder={serverActionModal.server?.name || ''}
+                  data-testid="input-confirm-server-name"
+                />
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setServerActionModal({ open: false, server: null, action: '', confirmationName: '', requiresConfirmation: false })}
+            >
+              {t.controls.cancel}
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={confirmServerAction}
+              disabled={serverActionMutation.isPending || (serverActionModal.requiresConfirmation && serverActionModal.confirmationName !== serverActionModal.server?.name)}
+              data-testid="button-confirm-action"
+            >
+              {serverActionMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                t.controls.confirm
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
