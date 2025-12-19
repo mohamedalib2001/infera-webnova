@@ -5548,6 +5548,48 @@ export const insertNamecheapDnsRecordSchema = createInsertSchema(namecheapDnsRec
 export type InsertNamecheapDnsRecord = z.infer<typeof insertNamecheapDnsRecordSchema>;
 export type NamecheapDnsRecord = typeof namecheapDnsRecords.$inferSelect;
 
+// Platforms table - stores all platforms in the system
+export const platforms = pgTable("platforms", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  slug: text("slug").notNull().unique(),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  
+  // Platform type: app, website, api, service
+  platformType: text("platform_type").notNull().default("app"),
+  
+  // Owner/Creator
+  ownerId: varchar("owner_id").references(() => users.id, { onDelete: "set null" }),
+  
+  // Status: active, inactive, maintenance, archived
+  status: text("status").notNull().default("active"),
+  
+  // URL/Domain info
+  primaryUrl: text("primary_url"),
+  
+  // Settings
+  isPublic: boolean("is_public").notNull().default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_platforms_owner").on(table.ownerId),
+  index("IDX_platforms_status").on(table.status),
+  index("IDX_platforms_slug").on(table.slug),
+]);
+
+export const insertPlatformSchema = createInsertSchema(platforms).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertPlatform = z.infer<typeof insertPlatformSchema>;
+export type Platform = typeof platforms.$inferSelect;
+
 // Domain-Platform linkage table
 export const domainPlatformLinks = pgTable("domain_platform_links", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

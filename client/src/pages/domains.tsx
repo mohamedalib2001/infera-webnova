@@ -472,10 +472,15 @@ export default function DomainsPage() {
     },
   });
 
-  const { data: platforms = [] } = useQuery<{ id: number; name: string }[]>({
-    queryKey: ['/api/projects'],
+  const { data: platformsData } = useQuery<{ platforms: { id: string; name: string; nameAr: string | null; slug: string; status: string }[]; total: number }>({
+    queryKey: ['/api/platforms'],
     enabled: isAuthenticated,
+    queryFn: async () => {
+      const res = await fetch('/api/platforms', { credentials: 'include' });
+      return res.json();
+    },
   });
+  const platformsList = platformsData?.platforms || [];
 
   const { data: providersData } = useQuery<{ providers: DomainProvider[]; total: number; active: number }>({
     queryKey: ['/api/domains/providers'],
@@ -627,7 +632,7 @@ export default function DomainsPage() {
   });
 
   const linkPlatformMutation = useMutation({
-    mutationFn: async (data: { domainId: number; platformId: number; linkType: string; subdomain?: string }) => {
+    mutationFn: async (data: { domainId: string; platformId: string; linkType: string; subdomain?: string }) => {
       return apiRequest('POST', `/api/domains/${data.domainId}/link-platform`, data);
     },
     onSuccess: () => {
@@ -1248,9 +1253,15 @@ export default function DomainsPage() {
                               <SelectValue placeholder={t.selectPlatform} />
                             </SelectTrigger>
                             <SelectContent>
-                              {platforms.map((p) => (
-                                <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
-                              ))}
+                              {platformsList.length === 0 ? (
+                                <SelectItem value="none" disabled>{language === 'ar' ? 'لا توجد منصات' : 'No platforms available'}</SelectItem>
+                              ) : (
+                                platformsList.map((p) => (
+                                  <SelectItem key={p.id} value={p.id}>
+                                    {language === 'ar' && p.nameAr ? p.nameAr : p.name}
+                                  </SelectItem>
+                                ))
+                              )}
                             </SelectContent>
                           </Select>
                         </div>
@@ -1289,11 +1300,11 @@ export default function DomainsPage() {
                         <Button
                           onClick={() => linkPlatformMutation.mutate({
                             domainId: selectedDomain.id,
-                            platformId: parseInt(linkFormData.platformId),
+                            platformId: linkFormData.platformId,
                             linkType: linkFormData.linkType,
                             subdomain: linkFormData.subdomain || undefined,
                           })}
-                          disabled={!linkFormData.platformId || linkPlatformMutation.isPending}
+                          disabled={!linkFormData.platformId || linkFormData.platformId === 'none' || linkPlatformMutation.isPending}
                           data-testid="button-confirm-link"
                         >
                           <Link2 className="w-4 h-4 mr-2" />

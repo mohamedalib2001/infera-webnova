@@ -10,11 +10,13 @@ import {
   domainPlatformLinks,
   namecheapContacts,
   namecheapOperationLogs,
+  platforms,
   type User,
   type NamecheapDomain,
   type NamecheapDnsRecord,
   type DomainPlatformLink,
-  type NamecheapOperationLog
+  type NamecheapOperationLog,
+  type Platform
 } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
 
@@ -468,6 +470,28 @@ export function registerDomainRoutes(app: Express) {
       res.status(500).json({ 
         error: error.message || "Failed to import domains",
         errorAr: "فشل استيراد النطاقات"
+      });
+    }
+  });
+
+  // Get all platforms for domain linking
+  app.get("/api/platforms", requireAuth, async (req, res) => {
+    try {
+      const allPlatforms = await db.select().from(platforms).orderBy(desc(platforms.createdAt));
+      res.json({
+        success: true,
+        platforms: allPlatforms,
+        total: allPlatforms.length,
+        message: {
+          en: "Platforms retrieved",
+          ar: "تم جلب المنصات"
+        }
+      });
+    } catch (error: any) {
+      console.error("Failed to get platforms:", error);
+      res.status(500).json({ 
+        error: error.message || "Failed to get platforms",
+        errorAr: "فشل جلب المنصات"
       });
     }
   });
