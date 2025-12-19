@@ -22,7 +22,12 @@ import {
   Settings,
   Shield,
   RefreshCw,
-  Info
+  Info,
+  Users,
+  CreditCard,
+  ShieldCheck,
+  Headphones,
+  Bell
 } from "lucide-react";
 
 const translations = {
@@ -85,6 +90,22 @@ const translations = {
       saveFailed: "فشل في حفظ الإعدادات",
       testSuccess: "تم إرسال البريد التجريبي بنجاح",
       testFailed: "فشل في إرسال البريد التجريبي"
+    },
+    addresses: {
+      title: "عناوين البريد",
+      subtitle: "عناوين البريد المخصصة لأنواع المعاملات المختلفة",
+      noreply: "البريد الافتراضي",
+      noreplyDesc: "للإشعارات العامة والرسائل الآلية",
+      admin: "بريد الإدارة",
+      adminDesc: "للإشعارات الإدارية والتقارير",
+      billing: "بريد الفواتير",
+      billingDesc: "للفواتير والمعاملات المالية",
+      security: "بريد الأمان",
+      securityDesc: "لتنبيهات الأمان وإعادة تعيين كلمات المرور",
+      support: "بريد الدعم الفني",
+      supportDesc: "لطلبات الدعم والمساعدة",
+      save: "حفظ العناوين",
+      saveSuccess: "تم حفظ عناوين البريد بنجاح"
     }
   },
   en: {
@@ -146,6 +167,22 @@ const translations = {
       saveFailed: "Failed to save settings",
       testSuccess: "Test email sent successfully",
       testFailed: "Failed to send test email"
+    },
+    addresses: {
+      title: "Email Addresses",
+      subtitle: "Dedicated email addresses for different transaction types",
+      noreply: "Default Email",
+      noreplyDesc: "For general notifications and automated messages",
+      admin: "Admin Email",
+      adminDesc: "For administrative notifications and reports",
+      billing: "Billing Email",
+      billingDesc: "For invoices and financial transactions",
+      security: "Security Email",
+      securityDesc: "For security alerts and password resets",
+      support: "Support Email",
+      supportDesc: "For support requests and assistance",
+      save: "Save Addresses",
+      saveSuccess: "Email addresses saved successfully"
     }
   }
 };
@@ -170,6 +207,14 @@ interface EmailStatus {
     from: string | null;
     enabled: boolean;
   } | null;
+}
+
+interface EmailAddresses {
+  noreply: string;
+  admin: string;
+  billing: string;
+  security: string;
+  support: string;
 }
 
 const PRESETS = {
@@ -197,6 +242,13 @@ export default function OwnerEmailSettings() {
   
   const [showPassword, setShowPassword] = useState(false);
   const [testEmail, setTestEmail] = useState("");
+  const [emailAddresses, setEmailAddresses] = useState<EmailAddresses>({
+    noreply: "noreply@inferaengine.com",
+    admin: "",
+    billing: "",
+    security: "",
+    support: ""
+  });
   const [formData, setFormData] = useState<SmtpConfig>({
     enabled: false,
     host: "",
@@ -227,6 +279,16 @@ export default function OwnerEmailSettings() {
         user: smtpSetting.value.user || "",
         pass: smtpSetting.value.pass || "",
         from: smtpSetting.value.from || ""
+      });
+    }
+    const addressesSetting = settingsArray.find((s: any) => s.key === "email_addresses");
+    if (addressesSetting?.value) {
+      setEmailAddresses({
+        noreply: addressesSetting.value.noreply || "noreply@inferaengine.com",
+        admin: addressesSetting.value.admin || "",
+        billing: addressesSetting.value.billing || "",
+        security: addressesSetting.value.security || "",
+        support: addressesSetting.value.support || ""
       });
     }
   };
@@ -292,6 +354,41 @@ export default function OwnerEmailSettings() {
     }
   });
 
+  const saveAddressesMutation = useMutation({
+    mutationFn: async (data: EmailAddresses) => {
+      const settingsArray = Array.isArray(currentSetting) ? currentSetting : (currentSetting as any)?.data || [];
+      const existingSetting = settingsArray.find((s: any) => s.key === "email_addresses");
+
+      if (existingSetting) {
+        return apiRequest("PATCH", `/api/owner/system-settings/email_addresses`, {
+          value: data
+        });
+      } else {
+        return apiRequest("POST", `/api/owner/system-settings`, {
+          key: "email_addresses",
+          value: data,
+          category: "email",
+          description: "Platform email addresses for different purposes",
+          descriptionAr: "عناوين البريد الإلكتروني للمنصة لأغراض مختلفة"
+        });
+      }
+    },
+    onSuccess: () => {
+      toast({
+        title: t.addresses.saveSuccess,
+        variant: "default"
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/owner/system-settings/category/email"] });
+      refetchSettings();
+    },
+    onError: () => {
+      toast({
+        title: t.messages.saveFailed,
+        variant: "destructive"
+      });
+    }
+  });
+
   const applyPreset = (preset: keyof typeof PRESETS) => {
     setFormData(prev => ({
       ...prev,
@@ -307,6 +404,10 @@ export default function OwnerEmailSettings() {
     if (testEmail) {
       testMutation.mutate(testEmail);
     }
+  };
+
+  const handleSaveAddresses = () => {
+    saveAddressesMutation.mutate(emailAddresses);
   };
 
   return (
@@ -584,6 +685,115 @@ export default function OwnerEmailSettings() {
           </CardContent>
         </Card>
       </div>
+
+      <Card data-testid="card-email-addresses">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Users className="h-5 w-5" />
+            {t.addresses.title}
+          </CardTitle>
+          <CardDescription>{t.addresses.subtitle}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="email-noreply" className="flex items-center gap-2">
+                <Bell className="h-4 w-4 text-blue-500" />
+                {t.addresses.noreply}
+              </Label>
+              <Input
+                id="email-noreply"
+                type="email"
+                value={emailAddresses.noreply}
+                onChange={(e) => setEmailAddresses(prev => ({ ...prev, noreply: e.target.value }))}
+                placeholder="noreply@inferaengine.com"
+                data-testid="input-email-noreply"
+              />
+              <p className="text-xs text-muted-foreground">{t.addresses.noreplyDesc}</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email-admin" className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-purple-500" />
+                {t.addresses.admin}
+              </Label>
+              <Input
+                id="email-admin"
+                type="email"
+                value={emailAddresses.admin}
+                onChange={(e) => setEmailAddresses(prev => ({ ...prev, admin: e.target.value }))}
+                placeholder="admin@inferaengine.com"
+                data-testid="input-email-admin"
+              />
+              <p className="text-xs text-muted-foreground">{t.addresses.adminDesc}</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email-billing" className="flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-green-500" />
+                {t.addresses.billing}
+              </Label>
+              <Input
+                id="email-billing"
+                type="email"
+                value={emailAddresses.billing}
+                onChange={(e) => setEmailAddresses(prev => ({ ...prev, billing: e.target.value }))}
+                placeholder="billing@inferaengine.com"
+                data-testid="input-email-billing"
+              />
+              <p className="text-xs text-muted-foreground">{t.addresses.billingDesc}</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email-security" className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-red-500" />
+                {t.addresses.security}
+              </Label>
+              <Input
+                id="email-security"
+                type="email"
+                value={emailAddresses.security}
+                onChange={(e) => setEmailAddresses(prev => ({ ...prev, security: e.target.value }))}
+                placeholder="security@inferaengine.com"
+                data-testid="input-email-security"
+              />
+              <p className="text-xs text-muted-foreground">{t.addresses.securityDesc}</p>
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="email-support" className="flex items-center gap-2">
+                <Headphones className="h-4 w-4 text-orange-500" />
+                {t.addresses.support}
+              </Label>
+              <Input
+                id="email-support"
+                type="email"
+                value={emailAddresses.support}
+                onChange={(e) => setEmailAddresses(prev => ({ ...prev, support: e.target.value }))}
+                placeholder="support@inferaengine.com"
+                data-testid="input-email-support"
+              />
+              <p className="text-xs text-muted-foreground">{t.addresses.supportDesc}</p>
+            </div>
+          </div>
+
+          <Button 
+            onClick={handleSaveAddresses}
+            disabled={saveAddressesMutation.isPending}
+            className="w-full"
+            data-testid="button-save-addresses"
+          >
+            {saveAddressesMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                {t.form.saving}
+              </>
+            ) : (
+              t.addresses.save
+            )}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }
