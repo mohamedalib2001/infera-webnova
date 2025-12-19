@@ -2837,6 +2837,44 @@ export const insertSSLCertificateSchema = createInsertSchema(sslCertificates).om
 export type InsertSSLCertificate = z.infer<typeof insertSSLCertificateSchema>;
 export type SSLCertificateRecord = typeof sslCertificates.$inferSelect;
 
+// CSR Requests table - طلبات توقيع الشهادات
+export const csrRequests = pgTable("csr_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(), // المستخدم الذي أنشأ الطلب
+  domain: text("domain").notNull(), // النطاق
+  organization: text("organization"), // اسم المؤسسة
+  organizationUnit: text("organization_unit"), // القسم
+  city: text("city"), // المدينة
+  state: text("state"), // المنطقة
+  country: text("country").notNull().default("SA"), // رمز الدولة
+  email: text("email"), // البريد الإلكتروني
+  csrContent: text("csr_content").notNull(), // محتوى CSR
+  privateKeyEncrypted: text("private_key_encrypted").notNull(), // المفتاح الخاص (مشفر)
+  status: text("status").notNull().default("generated"), // generated, submitted, issued, expired, revoked
+  provider: text("provider").notNull().default("namecheap"), // namecheap, comodo, digicert, etc
+  certificateId: varchar("certificate_id"), // ربط بشهادة SSL بعد الإصدار
+  submittedAt: timestamp("submitted_at"), // تاريخ الإرسال للمزود
+  issuedAt: timestamp("issued_at"), // تاريخ إصدار الشهادة
+  expiresAt: timestamp("expires_at"), // تاريخ انتهاء الشهادة
+  notes: text("notes"), // ملاحظات
+  notesAr: text("notes_ar"), // ملاحظات بالعربي
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_csr_requests_user").on(table.userId),
+  index("IDX_csr_requests_domain").on(table.domain),
+  index("IDX_csr_requests_status").on(table.status),
+]);
+
+export const insertCSRRequestSchema = createInsertSchema(csrRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertCSRRequest = z.infer<typeof insertCSRRequestSchema>;
+export type CSRRequestRecord = typeof csrRequests.$inferSelect;
+
 // Domain Audit Logs table - سجل تدقيق النطاقات
 export const domainAuditLogs = pgTable("domain_audit_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

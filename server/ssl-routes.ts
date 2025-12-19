@@ -3,6 +3,7 @@ import { db } from "./db";
 import {
   sslCertificates,
   customDomains,
+  csrRequests,
   insertSSLCertificateSchema
 } from "@shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -458,7 +459,25 @@ router.post("/generate-csr", async (req: Request, res: Response) => {
       // Store encrypted private key for later use
       const encryptedPrivateKey = encryptData(privateKey);
       
-      // Store in database (create or update)
+      // Save CSR request to database
+      const [csrRecord] = await db.insert(csrRequests).values({
+        userId,
+        domain,
+        organization: organization || null,
+        organizationUnit: organizationUnit || null,
+        city: city || null,
+        state: state || null,
+        country: country || 'SA',
+        email: email || null,
+        csrContent: csr,
+        privateKeyEncrypted: encryptedPrivateKey,
+        status: 'generated',
+        provider: 'namecheap',
+        notes: `Subject: ${subject}`,
+        notesAr: `الموضوع: ${subject}`
+      }).returning();
+      
+      // Update domain if exists
       let existingDomain = await db.select().from(customDomains)
         .where(eq(customDomains.hostname, domain))
         .limit(1);
@@ -482,6 +501,7 @@ router.post("/generate-csr", async (req: Request, res: Response) => {
         success: true, 
         message: "CSR generated successfully",
         messageAr: "تم إنشاء طلب توقيع الشهادة بنجاح",
+        csrId: csrRecord.id,
         csr,
         domain,
         subject,
@@ -503,6 +523,160 @@ router.post("/generate-csr", async (req: Request, res: Response) => {
       error: "Failed to generate CSR", 
       errorAr: "فشل في إنشاء طلب توقيع الشهادة",
       details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Get all CSR requests
+router.get("/csr-requests", async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId || (req.user as any)?.claims?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized", errorAr: "غير مصرح" });
+    }
+
+    const requests = await db.select({
+      id: csrRequests.id,
+      domain: csrRequests.domain,
+      organization: csrRequests.organization,
+      status: csrRequests.status,
+      provider: csrRequests.provider,
+      createdAt: csrRequests.createdAt,
+      submittedAt: csrRequests.submittedAt,
+      issuedAt: csrRequests.issuedAt,
+      expiresAt: csrRequests.expiresAt,
+      notes: csrRequests.notes,
+      notesAr: csrRequests.notesAr
+    })
+    .from(csrRequests)
+    .orderBy(desc(csrRequests.createdAt));
+
+    res.json({ csrRequests: requests });
+  } catch (error) {
+    console.error("Error fetching CSR requests:", error);
+    res.status(500).json({ 
+      error: "Failed to fetch CSR requests", 
+      errorAr: "فشل في جلب طلبات CSR" 
+    });
+  }
+});
+
+// Get single CSR request with CSR content
+router.get("/csr-requests/:id", async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId || (req.user as any)?.claims?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized", errorAr: "غير مصرح" });
+    }
+
+    const { id } = req.params;
+    const [request] = await db.select()
+      .from(csrRequests)
+      .where(eq(csrRequests.id, id))
+      .limit(1);
+
+    if (!request) {
+      return res.status(404).json({ 
+        error: "CSR request not found", 
+        errorAr: "لم يتم العثور على طلب CSR" 
+      });
+    }
+
+    // Decrypt private key for authorized users
+    let decryptedPrivateKey = null;
+    try {
+      decryptedPrivateKey = decryptData(request.privateKeyEncrypted);
+    } catch {
+      decryptedPrivateKey = "Error decrypting key";
+    }
+
+    res.json({ 
+      csrRequest: {
+        ...request,
+        privateKey: decryptedPrivateKey
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching CSR request:", error);
+    res.status(500).json({ 
+      error: "Failed to fetch CSR request", 
+      errorAr: "فشل في جلب طلب CSR" 
+    });
+  }
+});
+
+// Update CSR request status
+router.patch("/csr-requests/:id", async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId || (req.user as any)?.claims?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized", errorAr: "غير مصرح" });
+    }
+
+    const { id } = req.params;
+    const { status, notes, notesAr } = req.body;
+
+    const updateData: Record<string, any> = { updatedAt: new Date() };
+    if (status) {
+      updateData.status = status;
+      if (status === 'submitted') {
+        updateData.submittedAt = new Date();
+      } else if (status === 'issued') {
+        updateData.issuedAt = new Date();
+      }
+    }
+    if (notes !== undefined) updateData.notes = notes;
+    if (notesAr !== undefined) updateData.notesAr = notesAr;
+
+    const [updated] = await db.update(csrRequests)
+      .set(updateData)
+      .where(eq(csrRequests.id, id))
+      .returning();
+
+    if (!updated) {
+      return res.status(404).json({ 
+        error: "CSR request not found", 
+        errorAr: "لم يتم العثور على طلب CSR" 
+      });
+    }
+
+    res.json({ 
+      success: true,
+      message: "CSR request updated",
+      messageAr: "تم تحديث طلب CSR",
+      csrRequest: updated
+    });
+  } catch (error) {
+    console.error("Error updating CSR request:", error);
+    res.status(500).json({ 
+      error: "Failed to update CSR request", 
+      errorAr: "فشل في تحديث طلب CSR" 
+    });
+  }
+});
+
+// Delete CSR request
+router.delete("/csr-requests/:id", async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId || (req.user as any)?.claims?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized", errorAr: "غير مصرح" });
+    }
+
+    const { id } = req.params;
+    
+    await db.delete(csrRequests).where(eq(csrRequests.id, id));
+
+    res.json({ 
+      success: true,
+      message: "CSR request deleted",
+      messageAr: "تم حذف طلب CSR"
+    });
+  } catch (error) {
+    console.error("Error deleting CSR request:", error);
+    res.status(500).json({ 
+      error: "Failed to delete CSR request", 
+      errorAr: "فشل في حذف طلب CSR" 
     });
   }
 });

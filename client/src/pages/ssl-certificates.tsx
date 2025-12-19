@@ -117,6 +117,21 @@ const translations = {
       instructions: "تعليمات",
       warning: "تحذير: احفظ المفتاح الخاص في مكان آمن - ستحتاجه لتثبيت الشهادة لاحقاً"
     },
+    csrList: {
+      title: "طلبات توقيع الشهادات (CSR)",
+      noRequests: "لا توجد طلبات CSR",
+      viewDetails: "عرض التفاصيل",
+      markSubmitted: "تم الإرسال",
+      markIssued: "تم الإصدار",
+      delete: "حذف",
+      statusLabels: {
+        generated: "تم الإنشاء",
+        submitted: "تم الإرسال",
+        issued: "تم الإصدار",
+        expired: "منتهية",
+        revoked: "ملغاة"
+      }
+    },
     linkForm: {
       title: "ربط الشهادة بمنصة",
       selectPlatform: "اختر المنصة",
@@ -225,6 +240,21 @@ const translations = {
       instructions: "Instructions",
       warning: "Warning: Save the private key securely - you'll need it to install the certificate later"
     },
+    csrList: {
+      title: "Certificate Signing Requests (CSR)",
+      noRequests: "No CSR requests",
+      viewDetails: "View Details",
+      markSubmitted: "Mark Submitted",
+      markIssued: "Mark Issued",
+      delete: "Delete",
+      statusLabels: {
+        generated: "Generated",
+        submitted: "Submitted",
+        issued: "Issued",
+        expired: "Expired",
+        revoked: "Revoked"
+      }
+    },
     linkForm: {
       title: "Link Certificate to Platform",
       selectPlatform: "Select Platform",
@@ -282,6 +312,20 @@ interface CustomDomain {
   domainName?: string;
   status: string;
   sslStatus?: string;
+}
+
+interface CSRRequest {
+  id: string;
+  domain: string;
+  organization?: string;
+  status: string;
+  provider: string;
+  createdAt: string;
+  submittedAt?: string;
+  issuedAt?: string;
+  expiresAt?: string;
+  notes?: string;
+  notesAr?: string;
 }
 
 const statusColors: Record<string, string> = {
@@ -364,6 +408,22 @@ export default function SSLCertificates() {
   });
   const domains = domainsData?.domains || [];
 
+  const { data: csrRequestsData, isLoading: csrLoading } = useQuery<{ csrRequests: CSRRequest[] }>({
+    queryKey: ["/api/ssl/csr-requests"],
+    queryFn: async () => {
+      const res = await fetch("/api/ssl/csr-requests");
+      if (!res.ok) {
+        return { csrRequests: [] };
+      }
+      return res.json();
+    }
+  });
+  const csrRequests = csrRequestsData?.csrRequests || [];
+
+  const [showCSRDetailsDialog, setShowCSRDetailsDialog] = useState(false);
+  const [selectedCSRId, setSelectedCSRId] = useState<string | null>(null);
+  const [csrDetails, setCSRDetails] = useState<any>(null);
+
   const uploadMutation = useMutation({
     mutationFn: async () => {
       return apiRequest("POST", "/api/ssl/certificates/upload", uploadForm);
@@ -441,12 +501,69 @@ export default function SSLCertificates() {
         privateKey: data.privateKey,
         instructions: data.instructions
       });
+      queryClient.invalidateQueries({ queryKey: ["/api/ssl/csr-requests"] });
       toast({ title: language === 'ar' ? 'تم إنشاء CSR بنجاح' : 'CSR generated successfully' });
     },
     onError: () => {
       toast({ title: language === 'ar' ? 'فشل إنشاء CSR' : 'Failed to generate CSR', variant: "destructive" });
     }
   });
+
+  const updateCSRStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      return apiRequest("PATCH", `/api/ssl/csr-requests/${id}`, { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ssl/csr-requests"] });
+      toast({ title: language === 'ar' ? 'تم تحديث الحالة' : 'Status updated' });
+    },
+    onError: () => {
+      toast({ title: language === 'ar' ? 'فشل تحديث الحالة' : 'Failed to update status', variant: "destructive" });
+    }
+  });
+
+  const deleteCSRMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/ssl/csr-requests/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ssl/csr-requests"] });
+      toast({ title: language === 'ar' ? 'تم حذف CSR' : 'CSR deleted' });
+    },
+    onError: () => {
+      toast({ title: language === 'ar' ? 'فشل الحذف' : 'Delete failed', variant: "destructive" });
+    }
+  });
+
+  const viewCSRDetails = async (id: string) => {
+    try {
+      const res = await fetch(`/api/ssl/csr-requests/${id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCSRDetails(data.csrRequest);
+        setSelectedCSRId(id);
+        setShowCSRDetailsDialog(true);
+      }
+    } catch (error) {
+      toast({ title: language === 'ar' ? 'فشل جلب التفاصيل' : 'Failed to fetch details', variant: "destructive" });
+    }
+  };
+
+  const getCSRStatusBadge = (status: string) => {
+    const csrStatusColors: Record<string, string> = {
+      generated: "bg-yellow-500",
+      submitted: "bg-blue-500",
+      issued: "bg-green-500",
+      expired: "bg-red-500",
+      revoked: "bg-gray-500"
+    };
+    const statusLabel = t.csrList.statusLabels[status as keyof typeof t.csrList.statusLabels] || status;
+    return (
+      <Badge variant="secondary" className={`${csrStatusColors[status] || "bg-gray-500"} text-white`}>
+        {statusLabel}
+      </Badge>
+    );
+  };
 
   const copyToClipboard = (text: string, type: string) => {
     navigator.clipboard.writeText(text);
@@ -919,6 +1036,203 @@ export default function SSLCertificates() {
               data-testid="button-confirm-delete"
             >
               {deleteMutation.isPending ? (language === 'ar' ? 'جاري الحذف...' : 'Deleting...') : t.delete}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* CSR Requests Section */}
+      <Separator className="my-8" />
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold flex items-center gap-3" data-testid="text-csr-title">
+          <FileKey className="h-6 w-6 text-blue-500" />
+          {t.csrList.title}
+        </h2>
+      </div>
+
+      {csrLoading ? (
+        <Card className="text-center py-8">
+          <CardContent>
+            <RefreshCw className="h-8 w-8 mx-auto animate-spin text-muted-foreground" />
+          </CardContent>
+        </Card>
+      ) : csrRequests.length === 0 ? (
+        <Card className="text-center py-8">
+          <CardContent>
+            <FileKey className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">{t.csrList.noRequests}</p>
+            <Button className="mt-4" onClick={() => setShowCSRDialog(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              {t.csrForm.generate}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4">
+          {csrRequests.map((csr) => (
+            <Card key={csr.id} data-testid={`card-csr-${csr.id}`}>
+              <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0 pb-2">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900">
+                    <FileKey className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Globe className="h-4 w-4" />
+                      {csr.domain}
+                    </CardTitle>
+                    <CardDescription className="flex items-center gap-2 mt-1">
+                      <Badge variant="outline">{csr.provider}</Badge>
+                      {getCSRStatusBadge(csr.status)}
+                    </CardDescription>
+                  </div>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {new Date(csr.createdAt).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US')}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {csr.organization && (
+                  <p className="text-sm text-muted-foreground">
+                    {language === 'ar' ? 'المؤسسة:' : 'Organization:'} {csr.organization}
+                  </p>
+                )}
+              </CardContent>
+              <CardFooter className="flex justify-end gap-2 pt-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => viewCSRDetails(csr.id)}
+                  data-testid={`button-view-csr-${csr.id}`}
+                >
+                  <ExternalLink className="h-4 w-4 mr-1" />
+                  {t.csrList.viewDetails}
+                </Button>
+                {csr.status === 'generated' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => updateCSRStatusMutation.mutate({ id: csr.id, status: 'submitted' })}
+                    data-testid={`button-submit-csr-${csr.id}`}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                    {t.csrList.markSubmitted}
+                  </Button>
+                )}
+                {csr.status === 'submitted' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => updateCSRStatusMutation.mutate({ id: csr.id, status: 'issued' })}
+                    data-testid={`button-issued-csr-${csr.id}`}
+                  >
+                    <ShieldCheck className="h-4 w-4 mr-1" />
+                    {t.csrList.markIssued}
+                  </Button>
+                )}
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => deleteCSRMutation.mutate(csr.id)}
+                  data-testid={`button-delete-csr-${csr.id}`}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  {t.csrList.delete}
+                </Button>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* CSR Details Dialog */}
+      <Dialog open={showCSRDetailsDialog} onOpenChange={setShowCSRDetailsDialog}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{t.csrList.viewDetails}</DialogTitle>
+            <DialogDescription>
+              {csrDetails?.domain}
+            </DialogDescription>
+          </DialogHeader>
+          {csrDetails && (
+            <div className="space-y-4">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <Label>{t.csrForm.domain}</Label>
+                  <p className="font-medium">{csrDetails.domain}</p>
+                </div>
+                <div>
+                  <Label>{t.status}</Label>
+                  {getCSRStatusBadge(csrDetails.status)}
+                </div>
+                {csrDetails.organization && (
+                  <div>
+                    <Label>{t.csrForm.organization}</Label>
+                    <p className="font-medium">{csrDetails.organization}</p>
+                  </div>
+                )}
+                {csrDetails.country && (
+                  <div>
+                    <Label>{t.csrForm.country}</Label>
+                    <p className="font-medium">{csrDetails.country}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <FileKey className="h-4 w-4" />
+                  CSR
+                </Label>
+                <div className="relative">
+                  <Textarea
+                    readOnly
+                    value={csrDetails.csrContent}
+                    className="font-mono text-xs min-h-[150px]"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="absolute top-2 right-2"
+                    onClick={() => copyToClipboard(csrDetails.csrContent, 'CSR')}
+                  >
+                    <Copy className="h-3 w-3 mr-1" />
+                    {t.csrForm.copyCSR}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-amber-600">
+                  <KeyRound className="h-4 w-4" />
+                  {t.uploadForm.privateKey}
+                </Label>
+                <div className="relative">
+                  <Textarea
+                    readOnly
+                    value={csrDetails.privateKey}
+                    className="font-mono text-xs min-h-[150px]"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="absolute top-2 right-2"
+                    onClick={() => copyToClipboard(csrDetails.privateKey, language === 'ar' ? 'المفتاح الخاص' : 'Private Key')}
+                  >
+                    <Copy className="h-3 w-3 mr-1" />
+                    {t.csrForm.copyPrivateKey}
+                  </Button>
+                </div>
+                <p className="text-sm text-amber-600 flex items-center gap-1">
+                  <AlertTriangle className="h-4 w-4" />
+                  {t.csrForm.warning}
+                </p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCSRDetailsDialog(false)}>
+              {language === 'ar' ? 'إغلاق' : 'Close'}
             </Button>
           </DialogFooter>
         </DialogContent>
