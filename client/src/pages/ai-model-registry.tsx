@@ -8,7 +8,7 @@
  * - Global Settings: Emergency controls and system-wide config
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLanguage } from "@/hooks/use-language";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -296,6 +296,12 @@ export default function AIModelRegistry() {
     isEnabled: true,
   });
 
+  // Local state for editable number fields (to prevent overwriting on each keystroke)
+  const [localMaxFallback, setLocalMaxFallback] = useState<string>("");
+  const [localDailyCost, setLocalDailyCost] = useState<string>("");
+  const [localMonthlyCost, setLocalMonthlyCost] = useState<string>("");
+  const [settingsInitialized, setSettingsInitialized] = useState(false);
+
   const { data: models = [], isLoading: modelsLoading } = useQuery<AiModel[]>({
     queryKey: ["/api/owner/ai-models"],
   });
@@ -311,6 +317,16 @@ export default function AIModelRegistry() {
   const { data: systemValidation } = useQuery<{ ready: boolean; errors: string[] }>({
     queryKey: ["/api/owner/ai-system/validate"],
   });
+
+  // Initialize local state from global settings when loaded
+  useEffect(() => {
+    if (globalSettings && !settingsInitialized) {
+      setLocalMaxFallback(String(globalSettings.maxFallbackAttempts || 3));
+      setLocalDailyCost(String(globalSettings.dailyCostLimitUsd || 100));
+      setLocalMonthlyCost(String(globalSettings.monthlyCostLimitUsd || 2000));
+      setSettingsInitialized(true);
+    }
+  }, [globalSettings, settingsInitialized]);
 
   const saveModelMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -918,12 +934,14 @@ export default function AIModelRegistry() {
                   <Input
                     type="text"
                     inputMode="numeric"
-                    pattern="[0-9٠-٩۰-۹]*"
-                    value={String(globalSettings?.maxFallbackAttempts || 3)}
-                    onChange={(e) => {
-                      const value = parseLocalizedNumber(e.target.value);
+                    value={localMaxFallback}
+                    onChange={(e) => setLocalMaxFallback(e.target.value)}
+                    onBlur={() => {
+                      const value = parseLocalizedNumber(localMaxFallback);
                       if (value >= 1 && value <= 10) {
                         saveGlobalSettingsMutation.mutate({ maxFallbackAttempts: Math.floor(value) });
+                      } else {
+                        setLocalMaxFallback(String(globalSettings?.maxFallbackAttempts || 3));
                       }
                     }}
                     data-testid="input-max-fallback"
@@ -935,12 +953,14 @@ export default function AIModelRegistry() {
                   <Input
                     type="text"
                     inputMode="decimal"
-                    pattern="[0-9٠-٩۰-۹.٫]*"
-                    value={String(globalSettings?.dailyCostLimitUsd || 100)}
-                    onChange={(e) => {
-                      const value = parseLocalizedNumber(e.target.value);
+                    value={localDailyCost}
+                    onChange={(e) => setLocalDailyCost(e.target.value)}
+                    onBlur={() => {
+                      const value = parseLocalizedNumber(localDailyCost);
                       if (value >= 0) {
                         saveGlobalSettingsMutation.mutate({ dailyCostLimitUsd: value });
+                      } else {
+                        setLocalDailyCost(String(globalSettings?.dailyCostLimitUsd || 100));
                       }
                     }}
                     data-testid="input-daily-cost-limit"
@@ -952,12 +972,14 @@ export default function AIModelRegistry() {
                   <Input
                     type="text"
                     inputMode="decimal"
-                    pattern="[0-9٠-٩۰-۹.٫]*"
-                    value={String(globalSettings?.monthlyCostLimitUsd || 2000)}
-                    onChange={(e) => {
-                      const value = parseLocalizedNumber(e.target.value);
+                    value={localMonthlyCost}
+                    onChange={(e) => setLocalMonthlyCost(e.target.value)}
+                    onBlur={() => {
+                      const value = parseLocalizedNumber(localMonthlyCost);
                       if (value >= 0) {
                         saveGlobalSettingsMutation.mutate({ monthlyCostLimitUsd: value });
+                      } else {
+                        setLocalMonthlyCost(String(globalSettings?.monthlyCostLimitUsd || 2000));
                       }
                     }}
                     data-testid="input-monthly-cost-limit"
