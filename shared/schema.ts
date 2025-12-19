@@ -4518,11 +4518,24 @@ export const infrastructureServers = pgTable("infrastructure_servers", {
   maintenanceMode: boolean("maintenance_mode").notNull().default(false),
   lastBackupAt: timestamp("last_backup_at"),
   
+  // Metadata (MCP Phase 4)
+  tags: jsonb("tags").$type<string[]>().default(sql`'[]'::jsonb`),
+  notes: text("notes"),
+  projectId: varchar("project_id"),
+  ownerNotes: text("owner_notes"),
+  labels: jsonb("labels").$type<Record<string, string>>().default(sql`'{}'::jsonb`),
+  
+  // Sync metadata
+  lastSyncAt: timestamp("last_sync_at"),
+  syncError: text("sync_error"),
+  syncStatus: text("sync_status").default("synced"), // synced, pending, error
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("IDX_server_provider").on(table.providerId),
   index("IDX_server_status").on(table.status),
+  index("IDX_server_project").on(table.projectId),
 ]);
 
 export const insertInfrastructureServerSchema = createInsertSchema(infrastructureServers).omit({

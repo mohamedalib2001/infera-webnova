@@ -1111,7 +1111,8 @@ export default function OwnerInfrastructure() {
         </TabsContent>
 
         <TabsContent value="costs">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Summary Card */}
             <Card>
               <CardHeader>
                 <CardTitle>{t.costs.title}</CardTitle>
@@ -1138,8 +1139,47 @@ export default function OwnerInfrastructure() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Per Server Costs */}
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Server className="w-5 h-5" />
+                  {language === 'ar' ? 'تكلفة كل سيرفر' : 'Per Server Costs'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[250px]">
+                  {servers.length === 0 ? (
+                    <div className="text-center py-4">
+                      <Server className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                      <p className="text-muted-foreground">{language === 'ar' ? 'لا توجد سيرفرات' : 'No servers'}</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {servers.map((server) => (
+                        <div key={server.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-md" data-testid={`cost-row-${server.id}`}>
+                          <div className="flex items-center gap-3">
+                            <Server className="w-4 h-4 text-muted-foreground" />
+                            <div>
+                              <p className="font-medium text-sm">{server.name}</p>
+                              <p className="text-xs text-muted-foreground">{server.serverType} • {server.region}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium">${(server.costPerMonth || 0).toFixed(2)}<span className="text-xs text-muted-foreground">/mo</span></p>
+                            <p className="text-xs text-muted-foreground">${(server.costPerHour || 0).toFixed(4)}/hr</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </CardContent>
+            </Card>
             
-            <Card>
+            {/* Alerts */}
+            <Card className="lg:col-span-3">
               <CardHeader>
                 <CardTitle>{t.costs.alerts}</CardTitle>
               </CardHeader>
