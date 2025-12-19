@@ -281,7 +281,7 @@ export default function SettingsPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="container max-w-4xl py-8">
+      <div className="container max-w-4xl mx-auto py-8">
         <Alert>
           <Info className="h-4 w-4" />
           <AlertTitle>{t.loginRequired}</AlertTitle>
@@ -291,7 +291,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="container max-w-4xl py-8 space-y-6">
+    <div className="container max-w-4xl mx-auto py-8 space-y-6">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <Settings className="w-6 h-6" />
