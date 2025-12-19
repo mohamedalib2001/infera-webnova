@@ -92,7 +92,7 @@ Provide 3-10 actionable suggestions sorted by priority. Be specific and provide 
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-3-5-sonnet-20241022",
       max_tokens: 4096,
       messages: [{ role: "user", content: prompt }],
     });

@@ -1952,7 +1952,7 @@ export async function registerRoutes(
         name: name.trim(),
         description: description || "",
         systemPrompt: systemPrompt || "You are a helpful assistant.",
-        model: model || "claude-sonnet-4-20250514",
+        model: model || "claude-3-5-sonnet-20241022",
         temperature: typeof temperature === 'number' ? Math.round(temperature * 100) : 70,
         maxTokens: maxTokens || 1000,
         greeting: greeting || "",
@@ -1996,7 +1996,7 @@ export async function registerRoutes(
       const anthropic = new Anthropic();
       
       const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-3-5-sonnet-20241022",
         max_tokens: maxTokens || 1000,
         system: systemPrompt || "You are a helpful assistant.",
         messages: [
@@ -2123,7 +2123,7 @@ export async function registerRoutes(
       }
 
       const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-3-5-sonnet-20241022",
         max_tokens: 500,
         messages: [
           { role: "user", content: `${prompt}\n\nHTML Content:\n${content.substring(0, 3000)}` }
@@ -3397,7 +3397,7 @@ export async function registerRoutes(
           specialty: "development",
           capabilities: ["code_generation", "bug_fixing", "api_integration", "database_design"],
           systemPrompt: "You are Nova Developer, an expert AI assistant specializing in web development. You help with coding, debugging, API integrations, and technical implementations. Provide clean, efficient, and well-documented code.",
-          model: "claude-sonnet-4-20250514",
+          model: "claude-3-5-sonnet-20241022",
           temperature: 70,
           maxTokens: 4000,
           isActive: true,
@@ -3412,7 +3412,7 @@ export async function registerRoutes(
           specialty: "design",
           capabilities: ["ui_design", "css_styling", "responsive_design", "color_schemes"],
           systemPrompt: "You are Nova Designer, an expert AI assistant specializing in UI/UX design. You help create beautiful, intuitive, and accessible user interfaces with modern design principles.",
-          model: "claude-sonnet-4-20250514",
+          model: "claude-3-5-sonnet-20241022",
           temperature: 80,
           maxTokens: 3000,
           isActive: true,
@@ -3427,7 +3427,7 @@ export async function registerRoutes(
           specialty: "content",
           capabilities: ["copywriting", "translation", "seo_content", "localization"],
           systemPrompt: "You are Nova Content, an expert AI assistant specializing in content creation. You help write compelling copy, translate content between Arabic and English, and optimize content for SEO.",
-          model: "claude-sonnet-4-20250514",
+          model: "claude-3-5-sonnet-20241022",
           temperature: 85,
           maxTokens: 3000,
           isActive: true,
@@ -3442,7 +3442,7 @@ export async function registerRoutes(
           specialty: "analytics",
           capabilities: ["data_analysis", "reporting", "metrics", "optimization"],
           systemPrompt: "You are Nova Analyst, an expert AI assistant specializing in data analysis and business intelligence. You help analyze metrics, identify trends, and provide actionable insights.",
-          model: "claude-sonnet-4-20250514",
+          model: "claude-3-5-sonnet-20241022",
           temperature: 60,
           maxTokens: 3000,
           isActive: true,
@@ -3457,7 +3457,7 @@ export async function registerRoutes(
           specialty: "security",
           capabilities: ["security_audit", "vulnerability_check", "compliance", "best_practices"],
           systemPrompt: "You are Nova Security, an expert AI assistant specializing in security and compliance. You help identify vulnerabilities, ensure best practices, and maintain platform security.",
-          model: "claude-sonnet-4-20250514",
+          model: "claude-3-5-sonnet-20241022",
           temperature: 50,
           maxTokens: 3000,
           isActive: true,
@@ -4341,7 +4341,7 @@ export async function registerRoutes(
         },
         {
           provider: "anthropic",
-          modelId: "claude-sonnet-4-20250514",
+          modelId: "claude-3-5-sonnet-20241022",
           name: "Claude Sonnet 4",
           nameAr: "كلود سونيت 4",
           description: "Anthropic's balanced model for most tasks",
@@ -4410,9 +4410,9 @@ export async function registerRoutes(
       const defaultPolicies = [
         { planRole: "free", name: "Free Plan Policy", nameAr: "سياسة الباقة المجانية", dailyRequestLimit: 5, monthlyRequestLimit: 50, maxTokensPerRequest: 1000, dailyCostLimit: 10, monthlyCostLimit: 50, allowedModels: ["gpt-4o-mini"], requestsPerMinute: 2, requestsPerHour: 20, isActive: true },
         { planRole: "basic", name: "Basic Plan Policy", nameAr: "سياسة الباقة الأساسية", dailyRequestLimit: 20, monthlyRequestLimit: 300, maxTokensPerRequest: 2000, dailyCostLimit: 50, monthlyCostLimit: 200, allowedModels: ["gpt-4o-mini", "gpt-4o"], requestsPerMinute: 5, requestsPerHour: 50, isActive: true },
-        { planRole: "pro", name: "Pro Plan Policy", nameAr: "سياسة الباقة الاحترافية", dailyRequestLimit: 100, monthlyRequestLimit: 2000, maxTokensPerRequest: 4000, dailyCostLimit: 200, monthlyCostLimit: 1000, allowedModels: ["gpt-4o-mini", "gpt-4o", "claude-sonnet-4-20250514"], allowCodeGeneration: true, allowImageGeneration: true, requestsPerMinute: 15, requestsPerHour: 200, isActive: true },
-        { planRole: "enterprise", name: "Enterprise Plan Policy", nameAr: "سياسة باقة المؤسسات", dailyRequestLimit: 500, monthlyRequestLimit: 10000, maxTokensPerRequest: 8000, dailyCostLimit: 1000, monthlyCostLimit: 5000, allowedModels: ["gpt-4o-mini", "gpt-4o", "claude-sonnet-4-20250514"], allowCodeGeneration: true, allowImageGeneration: true, allowVision: true, requestsPerMinute: 30, requestsPerHour: 500, isActive: true },
-        { planRole: "sovereign", name: "Sovereign Plan Policy", nameAr: "سياسة الباقة السيادية", dailyRequestLimit: 1000, monthlyRequestLimit: 50000, maxTokensPerRequest: 16000, dailyCostLimit: 5000, monthlyCostLimit: 25000, allowedModels: ["gpt-4o-mini", "gpt-4o", "claude-sonnet-4-20250514"], allowCodeGeneration: true, allowImageGeneration: true, allowVision: true, requestsPerMinute: 60, requestsPerHour: 1000, isActive: true },
+        { planRole: "pro", name: "Pro Plan Policy", nameAr: "سياسة الباقة الاحترافية", dailyRequestLimit: 100, monthlyRequestLimit: 2000, maxTokensPerRequest: 4000, dailyCostLimit: 200, monthlyCostLimit: 1000, allowedModels: ["gpt-4o-mini", "gpt-4o", "claude-3-5-sonnet-20241022"], allowCodeGeneration: true, allowImageGeneration: true, requestsPerMinute: 15, requestsPerHour: 200, isActive: true },
+        { planRole: "enterprise", name: "Enterprise Plan Policy", nameAr: "سياسة باقة المؤسسات", dailyRequestLimit: 500, monthlyRequestLimit: 10000, maxTokensPerRequest: 8000, dailyCostLimit: 1000, monthlyCostLimit: 5000, allowedModels: ["gpt-4o-mini", "gpt-4o", "claude-3-5-sonnet-20241022"], allowCodeGeneration: true, allowImageGeneration: true, allowVision: true, requestsPerMinute: 30, requestsPerHour: 500, isActive: true },
+        { planRole: "sovereign", name: "Sovereign Plan Policy", nameAr: "سياسة الباقة السيادية", dailyRequestLimit: 1000, monthlyRequestLimit: 50000, maxTokensPerRequest: 16000, dailyCostLimit: 5000, monthlyCostLimit: 25000, allowedModels: ["gpt-4o-mini", "gpt-4o", "claude-3-5-sonnet-20241022"], allowCodeGeneration: true, allowImageGeneration: true, allowVision: true, requestsPerMinute: 60, requestsPerHour: 1000, isActive: true },
       ];
       const createdPolicies = [];
       for (const policy of defaultPolicies) {
@@ -5447,7 +5447,7 @@ export async function registerRoutes(
       // Execute command using AI Agent Executor
       const { aiAgentExecutor } = await import("./ai-agent-executor");
       const startTime = Date.now();
-      const selectedModel = mode === "MANUAL" && model ? model : assistant.model || "claude-sonnet-4-20250514";
+      const selectedModel = mode === "MANUAL" && model ? model : assistant.model || "claude-3-5-sonnet-20241022";
       
       const result = await aiAgentExecutor.executeCommand({
         assistantId: id,
@@ -5520,7 +5520,7 @@ export async function registerRoutes(
           scopeOfAuthority: ["ai_models", "ai_policies", "ai_cost_tracking", "emergency_controls"],
           constraints: ["Cannot delete user data", "Cannot modify billing without approval", "Max cost change: 50% per action"],
           systemPrompt: "You are the AI Governor, responsible for managing all AI operations on the INFERA platform. Your primary objectives are cost optimization, policy enforcement, and ensuring AI systems operate within defined boundaries. Always prioritize platform stability and user safety.",
-          model: "claude-sonnet-4-20250514",
+          model: "claude-3-5-sonnet-20241022",
           temperature: 30,
           maxTokens: 8000,
           isActive: true,
@@ -5538,7 +5538,7 @@ export async function registerRoutes(
           scopeOfAuthority: ["feature_flags", "platform_settings", "system_configuration"],
           constraints: ["Cannot modify security policies", "Cannot access user data", "Changes require rollback plan"],
           systemPrompt: "You are the Platform Architect, responsible for maintaining and improving the INFERA platform infrastructure. Focus on stability, scalability, and performance optimization. All changes must be reversible and thoroughly planned.",
-          model: "claude-sonnet-4-20250514",
+          model: "claude-3-5-sonnet-20241022",
           temperature: 40,
           maxTokens: 8000,
           isActive: true,
@@ -5556,7 +5556,7 @@ export async function registerRoutes(
           scopeOfAuthority: ["emergency_controls", "maintenance_mode", "system_rollbacks", "crisis_management"],
           constraints: ["All actions logged immediately", "Owner notification required", "Time-limited emergency powers"],
           systemPrompt: "You are the Operations Commander, the first responder for platform emergencies. Your role is to maintain platform stability and execute crisis response protocols. Speed and decisiveness are critical, but all actions must be logged and reversible.",
-          model: "claude-sonnet-4-20250514",
+          model: "claude-3-5-sonnet-20241022",
           temperature: 20,
           maxTokens: 8000,
           isActive: true,
@@ -5574,7 +5574,7 @@ export async function registerRoutes(
           scopeOfAuthority: ["security_policies", "audit_logs", "threat_detection", "compliance_rules", "breach_isolation"],
           constraints: ["Cannot access encrypted data", "Cannot modify user credentials", "Escalation required for account suspension", "Owner notification on breach"],
           systemPrompt: "You are the Security & Compliance Guardian, the vigilant protector of the INFERA platform. Continuously monitor for anomalies, threats, and compliance violations. Autonomously isolate breaches when detected, enforce security policies in real time, and ensure regulatory compliance. Document all incidents thoroughly and prioritize user privacy and data protection.",
-          model: "claude-sonnet-4-20250514",
+          model: "claude-3-5-sonnet-20241022",
           temperature: 20,
           maxTokens: 8000,
           isActive: true,
@@ -5592,7 +5592,7 @@ export async function registerRoutes(
           scopeOfAuthority: ["pricing_rules", "user_segmentation", "subscription_flows", "retention_campaigns", "engagement_optimization"],
           constraints: ["Cannot modify individual payments", "Price changes limited to 25%", "A/B tests require owner approval", "Cannot access payment credentials"],
           systemPrompt: "You are the Business & Growth Strategist, responsible for driving sustainable growth for INFERA. Analyze revenue, churn, conversion, and engagement metrics continuously. Execute owner-approved optimizations to pricing models, subscriptions, and growth mechanisms. Focus on long-term value creation and sustainable business growth.",
-          model: "claude-sonnet-4-20250514",
+          model: "claude-3-5-sonnet-20241022",
           temperature: 45,
           maxTokens: 8000,
           isActive: true,
@@ -10701,7 +10701,7 @@ export async function registerRoutes(
       const anthropic = new Anthropic();
       
       const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-3-5-sonnet-20241022",
         max_tokens: 4000,
         messages: [{ role: "user", content: prompt }],
       });
