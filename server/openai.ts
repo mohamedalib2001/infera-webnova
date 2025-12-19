@@ -267,41 +267,68 @@ export async function analyzeIntent(
 ): Promise<{ intent: "conversation" | "code_generation" | "code_refinement" | "help"; codeRequest?: string }> {
   const lowerPrompt = prompt.toLowerCase();
   
-  // Keywords for code generation (Arabic and English)
-  const codeGenKeywords = [
-    'أنشئ', 'انشئ', 'اصنع', 'ابني', 'صمم', 'اعمل', 'سوي', 'اريد', 'عاوز', 'ابغى', 'أريد',
-    'منصة', 'موقع', 'صفحة', 'تطبيق', 'نظام', 'لوحة', 'واجهة', 'متجر', 'بوابة',
-    'create', 'make', 'build', 'design', 'generate', 'develop',
-    'website', 'platform', 'page', 'app', 'application', 'system', 'dashboard', 'portal', 'store',
-    'حكومي', 'حكومية', 'تجاري', 'تعليمي', 'صحي', 'مالي', 'government', 'commercial', 'educational'
+  // FIRST: Check for question/conversation patterns - these take PRIORITY
+  const questionPatterns = [
+    // Arabic question patterns
+    'سؤال', 'اسألك', 'أسألك', 'اسأل', 'أسأل', 'استفسار', 'ممكن اعرف', 'كيف', 'لماذا', 'ما هو', 'ما هي', 'ماذا', 'هل',
+    'وضح', 'اشرح', 'فسر', 'علمني', 'ايش', 'شو', 'ليش', 'عرفني', 'اخبرني', 'قولي',
+    'فهمني', 'ساعدني افهم', 'محتاج افهم', 'عندي سؤال', 'ودي اسأل', 'ابي اسأل', 'عاوز اسأل', 'اريد اسأل',
+    // English question patterns
+    'question', 'ask you', 'can you explain', 'what is', 'what are', 'how do', 'how can', 'why', 'tell me about',
+    'explain', 'help me understand', 'i want to know', 'could you', 'would you', 'can i ask', 'i have a question',
+    '?', '؟'
   ];
   
-  // Keywords for code refinement
+  // Check if this is clearly a question/conversation
+  const isQuestion = questionPatterns.some(pattern => 
+    prompt.includes(pattern) || lowerPrompt.includes(pattern)
+  );
+  
+  // If the prompt contains clear question words, prioritize conversation
+  if (isQuestion) {
+    console.log("[AnalyzeIntent] -> conversation (question detected)");
+    return { intent: "conversation" };
+  }
+  
+  // Keywords for code refinement - check before generation
   const codeRefineKeywords = [
     'عدل', 'غير', 'حسن', 'طور', 'أضف', 'اضف', 'احذف', 'ازل', 'كبر', 'صغر',
     'modify', 'change', 'improve', 'update', 'add', 'remove', 'delete', 'fix', 'adjust', 'enhance'
   ];
   
-  // Check for code generation - if contains ANY code gen keyword
-  const hasCodeGenKeyword = codeGenKeywords.some(kw => prompt.includes(kw) || lowerPrompt.includes(kw));
-  
-  // Check for code refinement - if contains refine keyword AND has existing code
+  // Check for code refinement first
   const hasRefineKeyword = codeRefineKeywords.some(kw => prompt.includes(kw) || lowerPrompt.includes(kw));
   
-  console.log(`[AnalyzeIntent] prompt="${prompt.substring(0, 50)}..." hasCodeGen=${hasCodeGenKeyword} hasRefine=${hasRefineKeyword} hasExisting=${hasExistingCode}`);
-  
-  // Priority: refinement > generation > conversation
   if (hasRefineKeyword && hasExistingCode) {
     console.log("[AnalyzeIntent] -> code_refinement");
     return { intent: "code_refinement", codeRequest: prompt };
   }
   
-  if (hasCodeGenKeyword) {
-    console.log("[AnalyzeIntent] -> code_generation");
+  // Strong code generation patterns (explicit requests only)
+  const strongCodeGenPatterns = [
+    // Arabic strong patterns - require action verb + "لي" (for me) or direct request
+    'أنشئ لي', 'انشئ لي', 'اصنع لي', 'ابني لي', 'صمم لي', 'اعمل لي', 'سوي لي',
+    'أنشئ منصة', 'انشئ منصة', 'اصنع منصة', 'ابني منصة', 'صمم منصة', 'اعمل منصة',
+    'أنشئ موقع', 'انشئ موقع', 'اصنع موقع', 'ابني موقع', 'صمم موقع', 'اعمل موقع',
+    'أريد منصة', 'عاوز منصة', 'ابغى منصة', 'اريد موقع', 'عاوز موقع', 'ابغى موقع',
+    // English strong patterns
+    'create a', 'build a', 'make a', 'design a', 'generate a', 'develop a',
+    'create me', 'build me', 'make me', 'design me',
+    'i want a website', 'i need a platform', 'i want to create', 'i need to build'
+  ];
+  
+  const hasStrongPattern = strongCodeGenPatterns.some(pattern => 
+    prompt.includes(pattern) || lowerPrompt.includes(pattern)
+  );
+  
+  // Only trigger code generation if we have a strong explicit pattern
+  if (hasStrongPattern) {
+    console.log(`[AnalyzeIntent] -> code_generation (strong pattern detected)`);
     return { intent: "code_generation", codeRequest: prompt };
   }
   
-  console.log("[AnalyzeIntent] -> conversation");
+  // Default to conversation for everything else
+  console.log("[AnalyzeIntent] -> conversation (default)");
   return { intent: "conversation" };
 }
 
