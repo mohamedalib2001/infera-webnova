@@ -6165,3 +6165,511 @@ export const insertAiProviderAdapterSchema = createInsertSchema(aiProviderAdapte
 
 export type InsertAiProviderAdapter = z.infer<typeof insertAiProviderAdapterSchema>;
 export type AiProviderAdapter = typeof aiProviderAdapters.$inferSelect;
+
+// ==================== INTELLIGENT SUPPORT SYSTEM ====================
+
+// Support channel types
+export const supportChannels = ['live_chat', 'ai_chat', 'ticket', 'system_alert', 'internal_note'] as const;
+export type SupportChannel = typeof supportChannels[number];
+
+// Support session status
+export const supportSessionStatuses = ['open', 'pending', 'in_progress', 'escalated', 'resolved', 'closed'] as const;
+export type SupportSessionStatus = typeof supportSessionStatuses[number];
+
+// Support priority levels
+export const supportPriorities = ['low', 'medium', 'high', 'urgent', 'critical'] as const;
+export type SupportPriority = typeof supportPriorities[number];
+
+// Support issue categories
+export const supportCategories = [
+  'billing', 'ai', 'api', 'security', 'ui', 'account', 'integration', 
+  'performance', 'feature_request', 'bug_report', 'general', 'other'
+] as const;
+export type SupportCategory = typeof supportCategories[number];
+
+// Support agent status
+export const agentStatuses = ['available', 'busy', 'away', 'offline'] as const;
+export type AgentStatus = typeof agentStatuses[number];
+
+// ==================== SUPPORT SESSIONS ====================
+// Unified model for all support interactions
+
+export const supportSessions = pgTable("support_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Session identification
+  ticketNumber: text("ticket_number").notNull().unique(), // Human-readable ticket number: SUP-20231219-0001
+  
+  // User context
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
+  organizationId: varchar("organization_id"),
+  userEmail: text("user_email"),
+  userName: text("user_name"),
+  
+  // Channel & type
+  channel: text("channel").notNull().default("ai_chat"), // live_chat, ai_chat, ticket, system_alert
+  category: text("category").notNull().default("general"),
+  subcategory: text("subcategory"),
+  
+  // Subject & summary
+  subject: text("subject").notNull(),
+  subjectAr: text("subject_ar"),
+  summary: text("summary"), // AI-generated summary
+  summaryAr: text("summary_ar"),
+  
+  // Status & priority
+  status: text("status").notNull().default("open"),
+  priority: text("priority").notNull().default("medium"),
+  
+  // AI handling
+  aiHandled: boolean("ai_handled").notNull().default(false),
+  aiConfidence: real("ai_confidence").default(0), // 0-1 confidence score
+  aiModelUsed: text("ai_model_used"), // Model ID used for this session
+  aiResolutionAttempted: boolean("ai_resolution_attempted").notNull().default(false),
+  aiEscalationReason: text("ai_escalation_reason"),
+  
+  // Agent assignment
+  assignedAgentId: varchar("assigned_agent_id").references(() => users.id),
+  assignedAt: timestamp("assigned_at"),
+  lastAgentActivity: timestamp("last_agent_activity"),
+  
+  // SLA tracking
+  slaId: varchar("sla_id"),
+  slaFirstResponseDue: timestamp("sla_first_response_due"),
+  slaResolutionDue: timestamp("sla_resolution_due"),
+  slaFirstResponseMet: boolean("sla_first_response_met"),
+  slaResolutionMet: boolean("sla_resolution_met"),
+  
+  // Platform context (captured at session start)
+  platformContext: jsonb("platform_context").$type<{
+    currentPage?: string;
+    currentService?: string;
+    errorLogs?: string[];
+    browserInfo?: string;
+    platformVersion?: string;
+  }>().default({}),
+  
+  // Resolution
+  resolvedAt: timestamp("resolved_at"),
+  resolvedBy: varchar("resolved_by").references(() => users.id),
+  resolutionType: text("resolution_type"), // ai_resolved, agent_resolved, user_closed, auto_closed
+  resolutionNotes: text("resolution_notes"),
+  
+  // Feedback
+  satisfactionRating: integer("satisfaction_rating"), // 1-5
+  satisfactionFeedback: text("satisfaction_feedback"),
+  
+  // Tags for categorization
+  tags: jsonb("tags").$type<string[]>().default([]),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  closedAt: timestamp("closed_at"),
+}, (table) => [
+  index("IDX_support_session_user").on(table.userId),
+  index("IDX_support_session_agent").on(table.assignedAgentId),
+  index("IDX_support_session_status").on(table.status),
+  index("IDX_support_session_priority").on(table.priority),
+  index("IDX_support_session_channel").on(table.channel),
+  index("IDX_support_session_created").on(table.createdAt),
+]);
+
+export const insertSupportSessionSchema = createInsertSchema(supportSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSupportSession = z.infer<typeof insertSupportSessionSchema>;
+export type SupportSession = typeof supportSessions.$inferSelect;
+
+// ==================== SUPPORT MESSAGES ====================
+// All messages within a support session
+
+export const supportMessages = pgTable("support_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Session reference
+  sessionId: varchar("session_id").notNull().references(() => supportSessions.id, { onDelete: "cascade" }),
+  
+  // Sender identification
+  senderType: text("sender_type").notNull(), // user, agent, ai, system
+  senderId: varchar("sender_id"), // User ID if applicable
+  senderName: text("sender_name"),
+  
+  // Message content
+  content: text("content").notNull(),
+  contentAr: text("content_ar"),
+  contentType: text("content_type").notNull().default("text"), // text, image, file, code, system
+  
+  // AI context
+  isAiGenerated: boolean("is_ai_generated").notNull().default(false),
+  aiConfidence: real("ai_confidence"), // Confidence score for AI responses
+  aiSuggested: boolean("ai_suggested").notNull().default(false), // Suggested by AI for agent
+  aiModelUsed: text("ai_model_used"), // Model that generated this
+  
+  // Agent interaction
+  isInternal: boolean("is_internal").notNull().default(false), // Internal note (not visible to user)
+  usedAsSuggestion: boolean("used_as_suggestion").notNull().default(false), // Agent used AI suggestion
+  
+  // Attachments
+  attachments: jsonb("attachments").$type<Array<{
+    type: string;
+    url: string;
+    name: string;
+    size?: number;
+  }>>().default([]),
+  
+  // Delivery status
+  deliveredAt: timestamp("delivered_at"),
+  readAt: timestamp("read_at"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_support_message_session").on(table.sessionId),
+  index("IDX_support_message_sender").on(table.senderId),
+  index("IDX_support_message_created").on(table.createdAt),
+]);
+
+export const insertSupportMessageSchema = createInsertSchema(supportMessages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertSupportMessage = z.infer<typeof insertSupportMessageSchema>;
+export type SupportMessage = typeof supportMessages.$inferSelect;
+
+// ==================== SUPPORT KNOWLEDGE BASE ====================
+// Self-improving knowledge base for AI and agents
+
+export const supportKnowledgeBase = pgTable("support_knowledge_base", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Article identification
+  slug: text("slug").notNull().unique(), // URL-friendly identifier
+  
+  // Content
+  title: text("title").notNull(),
+  titleAr: text("title_ar"),
+  content: text("content").notNull(), // Markdown content
+  contentAr: text("content_ar"),
+  
+  // Categorization
+  category: text("category").notNull(),
+  subcategory: text("subcategory"),
+  tags: jsonb("tags").$type<string[]>().default([]),
+  
+  // AI integration
+  embedding: jsonb("embedding").$type<number[]>(), // Vector embedding for semantic search
+  aiRelevanceScore: real("ai_relevance_score").default(0), // How often AI uses this
+  
+  // Versioning
+  version: integer("version").notNull().default(1),
+  previousVersionId: varchar("previous_version_id"),
+  
+  // Publishing
+  isPublished: boolean("is_published").notNull().default(false),
+  isInternal: boolean("is_internal").notNull().default(false), // Only for agents/AI
+  
+  // Usage tracking
+  viewCount: integer("view_count").notNull().default(0),
+  helpfulCount: integer("helpful_count").notNull().default(0),
+  notHelpfulCount: integer("not_helpful_count").notNull().default(0),
+  
+  // AI learning
+  derivedFromSessionId: varchar("derived_from_session_id"), // If auto-generated from resolved ticket
+  lastAiReview: timestamp("last_ai_review"),
+  aiSuggestedUpdates: text("ai_suggested_updates"),
+  
+  // Audit
+  createdBy: varchar("created_by").references(() => users.id),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_kb_category").on(table.category),
+  index("IDX_kb_published").on(table.isPublished),
+  index("IDX_kb_slug").on(table.slug),
+]);
+
+export const insertSupportKnowledgeBaseSchema = createInsertSchema(supportKnowledgeBase).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  viewCount: true,
+  helpfulCount: true,
+  notHelpfulCount: true,
+});
+
+export type InsertSupportKnowledgeBase = z.infer<typeof insertSupportKnowledgeBaseSchema>;
+export type SupportKnowledgeBase = typeof supportKnowledgeBase.$inferSelect;
+
+// ==================== SUPPORT AGENTS ====================
+// Agent configurations and status
+
+export const supportAgents = pgTable("support_agents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User reference
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }).unique(),
+  
+  // Agent profile
+  displayName: text("display_name").notNull(),
+  displayNameAr: text("display_name_ar"),
+  avatar: text("avatar"),
+  
+  // Status
+  status: text("status").notNull().default("offline"), // available, busy, away, offline
+  statusMessage: text("status_message"),
+  lastActiveAt: timestamp("last_active_at"),
+  
+  // Skills & specializations
+  skills: jsonb("skills").$type<string[]>().default([]), // billing, technical, security, etc.
+  languages: jsonb("languages").$type<string[]>().default(["en", "ar"]),
+  maxConcurrentChats: integer("max_concurrent_chats").notNull().default(5),
+  currentChatCount: integer("current_chat_count").notNull().default(0),
+  
+  // Performance metrics
+  totalSessionsHandled: integer("total_sessions_handled").notNull().default(0),
+  averageRating: real("average_rating").default(0),
+  totalRatings: integer("total_ratings").notNull().default(0),
+  averageResponseTime: integer("average_response_time").default(0), // seconds
+  averageResolutionTime: integer("average_resolution_time").default(0), // minutes
+  
+  // AI Copilot settings
+  aiCopilotEnabled: boolean("ai_copilot_enabled").notNull().default(true),
+  aiSuggestionsEnabled: boolean("ai_suggestions_enabled").notNull().default(true),
+  aiAutoTranslate: boolean("ai_auto_translate").notNull().default(false),
+  
+  // Supervisor assignment
+  supervisorId: varchar("supervisor_id").references(() => users.id),
+  
+  // Audit
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_agent_user").on(table.userId),
+  index("IDX_agent_status").on(table.status),
+]);
+
+export const insertSupportAgentSchema = createInsertSchema(supportAgents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  totalSessionsHandled: true,
+  totalRatings: true,
+  currentChatCount: true,
+});
+
+export type InsertSupportAgent = z.infer<typeof insertSupportAgentSchema>;
+export type SupportAgent = typeof supportAgents.$inferSelect;
+
+// ==================== SUPPORT SLA POLICIES ====================
+// SLA policies for different customer tiers
+
+export const supportSlaPolicies = pgTable("support_sla_policies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Policy identification
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  description: text("description"),
+  
+  // Target plan/tier
+  targetRole: text("target_role").notNull(), // free, basic, pro, enterprise, sovereign
+  targetPriority: text("target_priority"), // If specific to priority level
+  
+  // Response times (in minutes)
+  firstResponseTime: integer("first_response_time").notNull(), // Minutes
+  resolutionTime: integer("resolution_time").notNull(), // Minutes
+  
+  // Business hours consideration
+  businessHoursOnly: boolean("business_hours_only").notNull().default(true),
+  businessHoursStart: text("business_hours_start").default("09:00"), // HH:MM
+  businessHoursEnd: text("business_hours_end").default("18:00"),
+  businessDays: jsonb("business_days").$type<number[]>().default([1, 2, 3, 4, 5]), // 0=Sunday, 6=Saturday
+  timezone: text("timezone").default("UTC"),
+  
+  // Escalation rules
+  autoEscalateAfter: integer("auto_escalate_after"), // Minutes before auto-escalation
+  escalationLevel: text("escalation_level"), // supervisor, owner
+  
+  // Status
+  isActive: boolean("is_active").notNull().default(true),
+  priority: integer("priority").notNull().default(50), // Lower = higher priority
+  
+  // Audit
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSupportSlaPolicySchema = createInsertSchema(supportSlaPolicies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSupportSlaPolicy = z.infer<typeof insertSupportSlaPolicySchema>;
+export type SupportSlaPolicy = typeof supportSlaPolicies.$inferSelect;
+
+// ==================== SUPPORT ROUTING RULES ====================
+// Intelligent routing rules for ticket assignment
+
+export const supportRoutingRules = pgTable("support_routing_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Rule identification
+  name: text("name").notNull(),
+  description: text("description"),
+  
+  // Matching conditions
+  matchCategory: text("match_category"),
+  matchPriority: text("match_priority"),
+  matchChannel: text("match_channel"),
+  matchUserRole: text("match_user_role"),
+  matchKeywords: jsonb("match_keywords").$type<string[]>().default([]),
+  
+  // Routing action
+  routeToAgentId: varchar("route_to_agent_id").references(() => supportAgents.id),
+  routeToSkill: text("route_to_skill"), // Route to agent with this skill
+  routeToQueue: text("route_to_queue"), // Route to specific queue
+  
+  // AI behavior
+  aiFirst: boolean("ai_first").notNull().default(true), // Try AI first
+  aiConfidenceThreshold: real("ai_confidence_threshold").default(0.7), // Below this, escalate
+  
+  // Priority adjustment
+  priorityOverride: text("priority_override"), // Override priority
+  
+  // Status
+  isActive: boolean("is_active").notNull().default(true),
+  priority: integer("priority").notNull().default(50), // Rule priority (lower = checked first)
+  
+  // Audit
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSupportRoutingRuleSchema = createInsertSchema(supportRoutingRules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSupportRoutingRule = z.infer<typeof insertSupportRoutingRuleSchema>;
+export type SupportRoutingRule = typeof supportRoutingRules.$inferSelect;
+
+// ==================== SUPPORT ANALYTICS ====================
+// Aggregated analytics for support performance
+
+export const supportAnalytics = pgTable("support_analytics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Time period
+  periodType: text("period_type").notNull(), // hourly, daily, weekly, monthly
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  
+  // Volume metrics
+  totalSessions: integer("total_sessions").notNull().default(0),
+  newSessions: integer("new_sessions").notNull().default(0),
+  resolvedSessions: integer("resolved_sessions").notNull().default(0),
+  escalatedSessions: integer("escalated_sessions").notNull().default(0),
+  
+  // Channel breakdown
+  sessionsByChannel: jsonb("sessions_by_channel").$type<Record<string, number>>().default({}),
+  sessionsByCategory: jsonb("sessions_by_category").$type<Record<string, number>>().default({}),
+  sessionsByPriority: jsonb("sessions_by_priority").$type<Record<string, number>>().default({}),
+  
+  // AI metrics
+  aiHandledCount: integer("ai_handled_count").notNull().default(0),
+  aiResolvedCount: integer("ai_resolved_count").notNull().default(0),
+  aiEscalatedCount: integer("ai_escalated_count").notNull().default(0),
+  averageAiConfidence: real("average_ai_confidence").default(0),
+  
+  // Response time metrics (in seconds)
+  averageFirstResponseTime: integer("average_first_response_time").default(0),
+  averageResolutionTime: integer("average_resolution_time").default(0),
+  
+  // SLA metrics
+  slaFirstResponseMet: integer("sla_first_response_met").notNull().default(0),
+  slaFirstResponseBreached: integer("sla_first_response_breached").notNull().default(0),
+  slaResolutionMet: integer("sla_resolution_met").notNull().default(0),
+  slaResolutionBreached: integer("sla_resolution_breached").notNull().default(0),
+  
+  // Satisfaction metrics
+  totalRatings: integer("total_ratings").notNull().default(0),
+  averageSatisfaction: real("average_satisfaction").default(0),
+  satisfactionBreakdown: jsonb("satisfaction_breakdown").$type<Record<string, number>>().default({}),
+  
+  // Agent performance
+  agentMetrics: jsonb("agent_metrics").$type<Array<{
+    agentId: string;
+    sessionsHandled: number;
+    averageRating: number;
+    averageResponseTime: number;
+  }>>().default([]),
+  
+  // Timestamps
+  calculatedAt: timestamp("calculated_at").defaultNow(),
+}, (table) => [
+  index("IDX_analytics_period").on(table.periodType, table.periodStart),
+]);
+
+export const insertSupportAnalyticsSchema = createInsertSchema(supportAnalytics).omit({
+  id: true,
+  calculatedAt: true,
+});
+
+export type InsertSupportAnalytics = z.infer<typeof insertSupportAnalyticsSchema>;
+export type SupportAnalytics = typeof supportAnalytics.$inferSelect;
+
+// ==================== AI SUPPORT DIAGNOSTICS ====================
+// System diagnostics captured by AI during support
+
+export const supportDiagnostics = pgTable("support_diagnostics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Session reference
+  sessionId: varchar("session_id").notNull().references(() => supportSessions.id, { onDelete: "cascade" }),
+  
+  // Diagnostic type
+  diagnosticType: text("diagnostic_type").notNull(), // error_log, performance, config, api, database
+  
+  // Captured data
+  capturedData: jsonb("captured_data").$type<{
+    logs?: string[];
+    errors?: Array<{ message: string; stack?: string; timestamp: string }>;
+    metrics?: Record<string, number>;
+    config?: Record<string, unknown>;
+    apiCalls?: Array<{ endpoint: string; status: number; latency: number }>;
+  }>().default({}),
+  
+  // AI analysis
+  aiAnalysis: text("ai_analysis"),
+  aiAnalysisAr: text("ai_analysis_ar"),
+  aiSuggestedFixes: jsonb("ai_suggested_fixes").$type<string[]>().default([]),
+  aiConfidence: real("ai_confidence").default(0),
+  
+  // Status
+  isResolved: boolean("is_resolved").notNull().default(false),
+  resolvedBy: varchar("resolved_by").references(() => users.id),
+  resolutionNotes: text("resolution_notes"),
+  
+  // Timestamps
+  capturedAt: timestamp("captured_at").defaultNow(),
+  analyzedAt: timestamp("analyzed_at"),
+}, (table) => [
+  index("IDX_diagnostics_session").on(table.sessionId),
+  index("IDX_diagnostics_type").on(table.diagnosticType),
+]);
+
+export const insertSupportDiagnosticsSchema = createInsertSchema(supportDiagnostics).omit({
+  id: true,
+  capturedAt: true,
+});
+
+export type InsertSupportDiagnostics = z.infer<typeof insertSupportDiagnosticsSchema>;
+export type SupportDiagnostics = typeof supportDiagnostics.$inferSelect;
