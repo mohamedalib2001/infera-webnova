@@ -19,7 +19,8 @@ import {
   insertInfrastructureProviderSchema, insertInfrastructureServerSchema,
   insertDeploymentRunSchema, insertInfrastructureBackupSchema,
   insertExternalIntegrationSessionSchema,
-  domainPlatformLinks
+  domainPlatformLinks,
+  aiProviderConfigs
 } from "@shared/schema";
 import { z } from "zod";
 import crypto, { randomBytes } from "crypto";
@@ -2627,6 +2628,181 @@ export async function registerRoutes(
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "فشل في تحديث Kill Switch" });
+    }
+  });
+
+  // ============ Owner AI Provider Config APIs ============
+
+  // Get all AI provider configs (owner only) - returns masked keys
+  app.get("/api/owner/ai-providers", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const configs = await db.select().from(aiProviderConfigs);
+      // Never expose encrypted keys, only prefix
+      res.json(configs.map(c => ({
+        ...c,
+        encryptedApiKey: undefined,
+        hasApiKey: !!c.encryptedApiKey,
+      })));
+    } catch (error) {
+      console.error("Get AI providers error:", error);
+      res.status(500).json({ error: "فشل في جلب إعدادات الذكاء الاصطناعي" });
+    }
+  });
+
+  // Create/Update AI provider config (owner only)
+  app.post("/api/owner/ai-providers", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { provider, displayName, apiKey, defaultModel, baseUrl, isActive } = req.body;
+      
+      if (!provider || !displayName) {
+        return res.status(400).json({ error: "المزود والاسم مطلوبان / Provider and name required" });
+      }
+      
+      // Import encryption
+      const { encrypt, getApiKeyPrefix } = await import("./encryption");
+      
+      // Check if provider exists
+      const existing = await db.select().from(aiProviderConfigs).where(eq(aiProviderConfigs.provider, provider)).limit(1);
+      
+      let result;
+      const updateData: any = {
+        displayName,
+        defaultModel,
+        baseUrl,
+        isActive: isActive ?? true,
+        updatedBy: req.session.userId,
+        updatedAt: new Date(),
+      };
+      
+      if (apiKey) {
+        updateData.encryptedApiKey = encrypt(apiKey);
+        updateData.apiKeyPrefix = getApiKeyPrefix(apiKey);
+      }
+      
+      if (existing.length > 0) {
+        // Update existing
+        result = await db.update(aiProviderConfigs)
+          .set(updateData)
+          .where(eq(aiProviderConfigs.provider, provider))
+          .returning();
+      } else {
+        // Create new
+        result = await db.insert(aiProviderConfigs)
+          .values({
+            provider,
+            displayName,
+            encryptedApiKey: apiKey ? encrypt(apiKey) : null,
+            apiKeyPrefix: apiKey ? getApiKeyPrefix(apiKey) : null,
+            defaultModel,
+            baseUrl,
+            isActive: isActive ?? true,
+            createdBy: req.session.userId,
+            updatedBy: req.session.userId,
+          })
+          .returning();
+      }
+      
+      // Log the action
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: existing.length > 0 ? "ai_provider_updated" : "ai_provider_created",
+        entityType: "ai_provider",
+        entityId: result[0].id,
+        details: { provider, hasApiKey: !!apiKey },
+      });
+      
+      res.json({
+        ...result[0],
+        encryptedApiKey: undefined,
+        hasApiKey: !!result[0].encryptedApiKey,
+      });
+    } catch (error) {
+      console.error("Save AI provider error:", error);
+      res.status(500).json({ error: "فشل في حفظ إعدادات الذكاء الاصطناعي" });
+    }
+  });
+
+  // Test AI provider connection (owner only)
+  app.post("/api/owner/ai-providers/:provider/test", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { provider } = req.params;
+      const { decrypt } = await import("./encryption");
+      
+      const configs = await db.select().from(aiProviderConfigs).where(eq(aiProviderConfigs.provider, provider)).limit(1);
+      
+      if (configs.length === 0 || !configs[0].encryptedApiKey) {
+        return res.status(404).json({ error: "مفتاح API غير موجود / API key not found" });
+      }
+      
+      const apiKey = decrypt(configs[0].encryptedApiKey);
+      
+      let testResult = { success: false, error: "" };
+      
+      if (provider === 'anthropic') {
+        try {
+          const Anthropic = (await import("@anthropic-ai/sdk")).default;
+          const client = new Anthropic({ apiKey });
+          await client.messages.create({
+            model: "claude-haiku-4-5",
+            max_tokens: 10,
+            messages: [{ role: "user", content: "Hi" }],
+          });
+          testResult.success = true;
+        } catch (e: any) {
+          testResult.error = e.message;
+        }
+      } else if (provider === 'openai') {
+        try {
+          const OpenAI = (await import("openai")).default;
+          const client = new OpenAI({ apiKey });
+          await client.chat.completions.create({
+            model: "gpt-4o-mini",
+            max_tokens: 10,
+            messages: [{ role: "user", content: "Hi" }],
+          });
+          testResult.success = true;
+        } catch (e: any) {
+          testResult.error = e.message;
+        }
+      } else {
+        testResult.error = "مزود غير مدعوم للاختبار / Provider not supported for testing";
+      }
+      
+      // Update test result
+      await db.update(aiProviderConfigs)
+        .set({
+          lastTestedAt: new Date(),
+          lastTestResult: testResult.success ? 'success' : 'failed',
+          lastTestError: testResult.error || null,
+        })
+        .where(eq(aiProviderConfigs.provider, provider));
+      
+      res.json(testResult);
+    } catch (error: any) {
+      console.error("Test AI provider error:", error);
+      res.status(500).json({ error: error.message || "فشل في اختبار الاتصال" });
+    }
+  });
+
+  // Delete AI provider config (owner only)
+  app.delete("/api/owner/ai-providers/:provider", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { provider } = req.params;
+      
+      await db.delete(aiProviderConfigs).where(eq(aiProviderConfigs.provider, provider));
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "ai_provider_deleted",
+        entityType: "ai_provider",
+        entityId: provider,
+        details: { provider },
+      });
+      
+      res.json({ success: true, message: "تم حذف المزود / Provider deleted" });
+    } catch (error) {
+      console.error("Delete AI provider error:", error);
+      res.status(500).json({ error: "فشل في حذف المزود" });
     }
   });
 
