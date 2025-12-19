@@ -742,7 +742,7 @@ export default function DomainsPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="container max-w-6xl py-8">
+      <div className="container max-w-6xl mx-auto py-8">
         <Alert>
           <Info className="h-4 w-4" />
           <AlertTitle>{t.loginRequired}</AlertTitle>
@@ -860,7 +860,7 @@ export default function DomainsPage() {
 
   if (configStatus && !configStatus.configured) {
     return (
-      <div className="container max-w-6xl py-8 space-y-6">
+      <div className="container max-w-6xl mx-auto py-8 space-y-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -892,7 +892,7 @@ export default function DomainsPage() {
   }
 
   return (
-    <div className="container max-w-6xl py-8 space-y-6">
+    <div className="container max-w-6xl mx-auto py-8 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
