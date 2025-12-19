@@ -697,6 +697,7 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   status?: 'sending' | 'queued' | 'done';
+  suggestions?: string[];
 }
 
 // Auth types

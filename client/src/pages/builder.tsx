@@ -178,6 +178,13 @@ export default function Builder() {
     processMessage(content);
   };
 
+  interface SmartChatResponse {
+    type: "conversation" | "code_generation" | "code_refinement" | "help" | "project_info";
+    message: string;
+    code?: GenerateCodeResponse;
+    suggestions?: string[];
+  }
+
   const processMessage = async (content: string) => {
     const userMessage: ChatMessageType = {
       id: crypto.randomUUID(),
@@ -192,47 +199,38 @@ export default function Builder() {
     
     abortControllerRef.current = new AbortController();
     
-    const newProjectKeywords = [
-      'أنشئ', 'اصنع', 'ابني', 'صمم', 'جديد', 'منصة', 'نظام', 'بوابة', 'سيادي', 'مالي', 'صحي', 'حكومي', 'تعليمي',
-      'create', 'build', 'make', 'design', 'new', 'platform', 'system', 'portal', 'sovereign', 'financial', 'healthcare', 'government', 'education'
-    ];
-    const isNewProjectRequest = newProjectKeywords.some(kw => content.toLowerCase().includes(kw)) && 
-                                 !content.toLowerCase().includes('عدل') && 
-                                 !content.toLowerCase().includes('غير') &&
-                                 !content.toLowerCase().includes('modify') &&
-                                 !content.toLowerCase().includes('change') &&
-                                 !content.toLowerCase().includes('update');
-    
-    const conversationContext = messages
+    const conversationHistory = messages
       .filter(m => m.status !== 'queued')
-      .slice(-10)
-      .map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`)
-      .join('\n');
+      .slice(-6)
+      .map(m => ({ role: m.role, content: m.content }));
     
     try {
-      console.log("Starting generation request...", isNewProjectRequest ? "(NEW)" : "(MODIFY)");
-      const data: GenerateCodeResponse = await apiRequest("POST", "/api/generate", {
+      console.log("Starting smart chat request...");
+      const data: SmartChatResponse = await apiRequest("POST", "/api/smart-chat", {
         prompt: content,
-        projectId,
-        context: (!isNewProjectRequest && html) 
-          ? `Previous conversation:\n${conversationContext}\n\nCurrent HTML: ${html}\nCurrent CSS: ${css}\nCurrent JS: ${js}` 
-          : conversationContext ? `Previous conversation:\n${conversationContext}` : undefined,
+        conversationHistory,
+        projectContext: {
+          name: projectName,
+          htmlCode: html,
+          cssCode: css,
+          jsCode: js,
+        },
       });
       
-      console.log("Generation response received:", data);
-      console.log("HTML length:", data.html?.length || 0);
-      console.log("CSS length:", data.css?.length || 0);
-      console.log("JS length:", data.js?.length || 0);
+      console.log("Smart chat response:", data.type);
       
-      setHtml(data.html || "");
-      setCss(data.css || "");
-      setJs(data.js || "");
+      if (data.code && (data.type === "code_generation" || data.type === "code_refinement")) {
+        setHtml(data.code.html || "");
+        setCss(data.code.css || "");
+        setJs(data.code.js || "");
+      }
       
       const aiMessage: ChatMessageType = {
         id: crypto.randomUUID(),
         role: "assistant",
         content: data.message,
         timestamp: new Date(),
+        suggestions: data.suggestions,
       };
       
       setMessages((prev) => [...prev, aiMessage]);
@@ -349,7 +347,11 @@ export default function Builder() {
             ) : (
               <div className="space-y-4">
                 {messages.map((message) => (
-                  <ChatMessage key={message.id} message={message} />
+                  <ChatMessage 
+                    key={message.id} 
+                    message={message}
+                    onSuggestionClick={(suggestion) => handleSendMessage(suggestion)}
+                  />
                 ))}
                 {isGenerating && (
                   <ThinkingIndicator isActive={isGenerating} />

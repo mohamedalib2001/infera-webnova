@@ -1,13 +1,15 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { User, Sparkles, Clock } from "lucide-react";
 import type { ChatMessage as ChatMessageType } from "@shared/schema";
 
 interface ChatMessageProps {
   message: ChatMessageType;
+  onSuggestionClick?: (suggestion: string) => void;
 }
 
-export function ChatMessage({ message }: ChatMessageProps) {
+export function ChatMessage({ message, onSuggestionClick }: ChatMessageProps) {
   const isUser = message.role === "user";
   const isQueued = message.status === "queued";
   
@@ -45,6 +47,23 @@ export function ChatMessage({ message }: ChatMessageProps) {
         >
           <p className="text-sm whitespace-pre-wrap">{message.content}</p>
         </div>
+        
+        {!isUser && message.suggestions && message.suggestions.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {message.suggestions.map((suggestion, index) => (
+              <Button
+                key={index}
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                onClick={() => onSuggestionClick?.(suggestion)}
+                data-testid={`button-suggestion-${index}`}
+              >
+                {suggestion}
+              </Button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1692,6 +1692,41 @@ export async function registerRoutes(
     }
   });
 
+  // ============ Smart Chat Route ============
+  
+  const smartChatSchema = z.object({
+    prompt: z.string().min(1, "Prompt is required"),
+    conversationHistory: z.array(z.object({
+      role: z.enum(["user", "assistant"]),
+      content: z.string()
+    })).optional().default([]),
+    projectContext: z.object({
+      name: z.string().optional(),
+      htmlCode: z.string().optional(),
+      cssCode: z.string().optional(),
+      jsCode: z.string().optional(),
+    }).optional(),
+  });
+
+  app.post("/api/smart-chat", async (req, res) => {
+    try {
+      const { prompt, conversationHistory, projectContext } = smartChatSchema.parse(req.body);
+      const { smartChat } = await import("./openai");
+      
+      const result = await smartChat(prompt, conversationHistory, projectContext);
+      res.json(result);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error("Smart chat error:", error);
+      res.status(500).json({ 
+        error: "فشل في معالجة المحادثة / Failed to process chat",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // ============ Project Versions Routes ============
 
   // Get all versions for a project

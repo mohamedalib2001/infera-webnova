@@ -121,6 +121,211 @@ Important: Only respond with valid JSON. No markdown code blocks or extra text.`
   }
 }
 
+export interface SmartChatResponse {
+  type: "conversation" | "code_generation" | "code_refinement" | "help" | "project_info";
+  message: string;
+  code?: GeneratedCode;
+  suggestions?: string[];
+}
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export async function analyzeIntent(
+  prompt: string,
+  hasExistingCode: boolean = false
+): Promise<{ intent: "conversation" | "code_generation" | "code_refinement" | "help"; codeRequest?: string }> {
+  if (!anthropic) {
+    return { intent: "conversation" };
+  }
+
+  const systemPrompt = `أنت محلل للنوايا. حدد نوع طلب المستخدم:
+You are an intent analyzer. Determine the user request type:
+
+1. "conversation" - تحيات، أسئلة عامة، محادثة عادية (مرحبا، كيف حالك، ما هو...)
+   Greetings, general questions, normal chat (hello, how are you, what is...)
+   
+2. "code_generation" - طلب إنشاء موقع/صفحة/تطبيق جديد
+   Request to create new website/page/app
+   
+3. "code_refinement" - طلب تعديل/تحسين كود موجود (فقط إذا كان hasExistingCode=true)
+   Request to modify/improve existing code (only if hasExistingCode=true)
+   
+4. "help" - طلب مساعدة تقنية أو شرح
+   Request for technical help or explanation
+
+أجب بـ JSON فقط:
+{"intent": "...", "codeRequest": "طلب الكود إذا كان النوع code_generation أو code_refinement"}`;
+
+  try {
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 256,
+      system: systemPrompt,
+      messages: [{ role: "user", content: `hasExistingCode: ${hasExistingCode}\nUser message: ${prompt}` }],
+    });
+
+    const textContent = response.content.find(c => c.type === 'text');
+    if (!textContent || textContent.type !== 'text') {
+      return { intent: "conversation" };
+    }
+
+    let jsonStr = textContent.text.trim();
+    if (jsonStr.startsWith('```json')) jsonStr = jsonStr.slice(7);
+    if (jsonStr.startsWith('```')) jsonStr = jsonStr.slice(3);
+    if (jsonStr.endsWith('```')) jsonStr = jsonStr.slice(0, -3);
+    jsonStr = jsonStr.trim();
+
+    const result = JSON.parse(jsonStr);
+    return {
+      intent: result.intent || "conversation",
+      codeRequest: result.codeRequest
+    };
+  } catch {
+    return { intent: "conversation" };
+  }
+}
+
+export async function conversationalResponse(
+  prompt: string,
+  conversationHistory: ChatMessage[] = []
+): Promise<{ message: string; suggestions: string[] }> {
+  if (!anthropic) {
+    return {
+      message: "مفتاح API غير معرف.\n\nAPI key not configured.",
+      suggestions: []
+    };
+  }
+
+  const systemPrompt = `أنت مساعد ذكي ودود في منصة INFERA WebNova لإنشاء المنصات الرقمية.
+You are a friendly smart assistant for INFERA WebNova digital platform builder.
+
+## قواعدك:
+- رد بشكل ودي ومختصر على التحيات والأسئلة
+- استخدم نفس لغة المستخدم (عربي/إنجليزي)
+- اقترح دائماً كيف يمكنك مساعدة المستخدم
+- لا تولد كود - فقط محادثة
+
+## ما يمكنك فعله:
+- إنشاء مواقع ويب كاملة
+- تعديل وتحسين المواقع الموجودة
+- شرح المفاهيم التقنية
+- المساعدة في تصميم المشاريع
+
+أجب بـ JSON:
+{"message": "ردك الودي", "suggestions": ["اقتراح 1", "اقتراح 2"]}`;
+
+  const messages = [
+    ...conversationHistory.slice(-4).map(m => ({ role: m.role, content: m.content })),
+    { role: "user" as const, content: prompt }
+  ];
+
+  try {
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 512,
+      system: systemPrompt,
+      messages: messages,
+    });
+
+    const textContent = response.content.find(c => c.type === 'text');
+    if (!textContent || textContent.type !== 'text') {
+      throw new Error("No content");
+    }
+
+    let jsonStr = textContent.text.trim();
+    if (jsonStr.startsWith('```json')) jsonStr = jsonStr.slice(7);
+    if (jsonStr.startsWith('```')) jsonStr = jsonStr.slice(3);
+    if (jsonStr.endsWith('```')) jsonStr = jsonStr.slice(0, -3);
+    jsonStr = jsonStr.trim();
+
+    const result = JSON.parse(jsonStr);
+    return {
+      message: result.message || "مرحباً! كيف يمكنني مساعدتك؟",
+      suggestions: result.suggestions || ["أنشئ موقع جديد", "ساعدني في تعديل موقعي"]
+    };
+  } catch {
+    return {
+      message: "مرحباً بك في INFERA WebNova! كيف يمكنني مساعدتك اليوم؟\n\nWelcome to INFERA WebNova! How can I help you today?",
+      suggestions: ["أنشئ موقع ويب", "Create a website", "ساعدني", "Help me"]
+    };
+  }
+}
+
+export async function smartChat(
+  prompt: string,
+  conversationHistory: ChatMessage[] = [],
+  projectContext?: {
+    name?: string;
+    htmlCode?: string;
+    cssCode?: string;
+    jsCode?: string;
+  }
+): Promise<SmartChatResponse> {
+  const hasExistingCode = !!(projectContext?.htmlCode && projectContext.htmlCode.length > 10);
+  
+  const { intent, codeRequest } = await analyzeIntent(prompt, hasExistingCode);
+  
+  if (intent === "conversation" || intent === "help") {
+    const response = await conversationalResponse(prompt, conversationHistory);
+    return {
+      type: intent,
+      message: response.message,
+      suggestions: response.suggestions
+    };
+  }
+  
+  if (intent === "code_generation") {
+    try {
+      const code = await generateWebsiteCode(codeRequest || prompt);
+      return {
+        type: "code_generation",
+        message: code.message,
+        code: code,
+        suggestions: ["عدل التصميم", "أضف ميزات جديدة", "غير الألوان"]
+      };
+    } catch (error) {
+      return {
+        type: "conversation",
+        message: "حدث خطأ أثناء إنشاء الكود. يرجى المحاولة مرة أخرى.\n\nError generating code. Please try again.",
+        suggestions: ["حاول مرة أخرى"]
+      };
+    }
+  }
+  
+  if (intent === "code_refinement" && hasExistingCode) {
+    try {
+      const code = await refineWebsiteCode(
+        codeRequest || prompt,
+        projectContext!.htmlCode!,
+        projectContext!.cssCode || "",
+        projectContext!.jsCode || ""
+      );
+      return {
+        type: "code_refinement",
+        message: code.message,
+        code: code,
+        suggestions: ["استمر في التعديل", "احفظ المشروع", "معاينة"]
+      };
+    } catch (error) {
+      return {
+        type: "conversation",
+        message: "حدث خطأ أثناء تعديل الكود. يرجى المحاولة مرة أخرى.\n\nError refining code. Please try again.",
+        suggestions: ["حاول مرة أخرى"]
+      };
+    }
+  }
+  
+  const response = await conversationalResponse(prompt, conversationHistory);
+  return {
+    type: "conversation",
+    message: response.message,
+    suggestions: response.suggestions
+  };
+}
+
 export async function refineWebsiteCode(
   prompt: string,
   currentHtml: string,
