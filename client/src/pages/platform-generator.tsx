@@ -425,6 +425,11 @@ export default function PlatformGenerator() {
                   </>
                 )}
               </Button>
+              {!selectedProject && (
+                <p className="text-xs text-muted-foreground text-center" data-testid="text-select-project-hint-web">
+                  {language === "ar" ? "اختر مشروعاً أولاً" : "Select a project first"}
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -461,6 +466,11 @@ export default function PlatformGenerator() {
                   </>
                 )}
               </Button>
+              {!selectedProject && (
+                <p className="text-xs text-muted-foreground text-center" data-testid="text-select-project-hint-mobile">
+                  {language === "ar" ? "اختر مشروعاً أولاً" : "Select a project first"}
+                </p>
+              )}
               {mobileMutation.isSuccess && (
                 <Button variant="outline" className="w-full" data-testid="button-download-mobile">
                   <Download className="w-4 h-4" />
@@ -503,6 +513,11 @@ export default function PlatformGenerator() {
                   </>
                 )}
               </Button>
+              {!selectedProject && (
+                <p className="text-xs text-muted-foreground text-center" data-testid="text-select-project-hint-desktop">
+                  {language === "ar" ? "اختر مشروعاً أولاً" : "Select a project first"}
+                </p>
+              )}
               {desktopMutation.isSuccess && (
                 <Button variant="outline" className="w-full" data-testid="button-download-desktop">
                   <Download className="w-4 h-4" />
@@ -526,26 +541,33 @@ export default function PlatformGenerator() {
             </div>
           </CardHeader>
           <CardContent>
-            <Button 
-              onClick={() => handleAction("full")}
-              disabled={!selectedProject || fullPlatformMutation.isPending}
-              className="w-full"
-              variant="default"
-              data-testid="button-generate-full"
-            >
-              {fullPlatformMutation.isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  {text.generating}
-                </>
-              ) : (
-                <>
-                  <Rocket className="w-4 h-4" />
-                  {text.generateAll}
-                  <ArrowRight className="w-4 h-4" />
-                </>
+            <div className="space-y-3">
+              <Button 
+                onClick={() => handleAction("full")}
+                disabled={!selectedProject || fullPlatformMutation.isPending}
+                className="w-full"
+                variant="default"
+                data-testid="button-generate-full"
+              >
+                {fullPlatformMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {text.generating}
+                  </>
+                ) : (
+                  <>
+                    <Rocket className="w-4 h-4" />
+                    {text.generateAll}
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </Button>
+              {!selectedProject && (
+                <p className="text-xs text-muted-foreground text-center" data-testid="text-select-project-hint-full">
+                  {language === "ar" ? "اختر مشروعاً أولاً" : "Select a project first"}
+                </p>
               )}
-            </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
