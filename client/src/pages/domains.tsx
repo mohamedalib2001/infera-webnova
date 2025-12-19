@@ -566,9 +566,24 @@ export default function DomainsPage() {
     },
     onSuccess: (data) => {
       if (data.success) {
-        const msg = language === 'ar' 
-          ? `تم استيراد ${data.imported} نطاق، ${data.skipped} موجود مسبقاً`
-          : `Imported ${data.imported} domains, ${data.skipped} already existed`;
+        let msg: string;
+        if (data.imported > 0 && data.skipped > 0) {
+          msg = language === 'ar' 
+            ? `تم استيراد ${data.imported} نطاق جديد، وتحديث ${data.skipped} نطاق موجود`
+            : `Imported ${data.imported} new domains, updated ${data.skipped} existing`;
+        } else if (data.imported > 0) {
+          msg = language === 'ar' 
+            ? `تم استيراد ${data.imported} نطاق بنجاح`
+            : `Successfully imported ${data.imported} domains`;
+        } else if (data.skipped > 0) {
+          msg = language === 'ar' 
+            ? `تم تحديث ${data.skipped} نطاق (كلها موجودة مسبقاً)`
+            : `Updated ${data.skipped} domains (all already existed)`;
+        } else {
+          msg = language === 'ar' 
+            ? 'لا توجد نطاقات في حساب Namecheap'
+            : 'No domains found in Namecheap account';
+        }
         toast({ title: msg });
         queryClient.invalidateQueries({ queryKey: ['/api/domains'] });
       } else {
