@@ -84,7 +84,7 @@ Important: Only respond with valid JSON. No markdown code blocks or extra text.`
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-3-5-sonnet-20241022",
       max_tokens: 8192,
       messages: [
         { role: "user", content: `${systemPrompt}\n\nUser request: ${prompt}` },
@@ -161,7 +161,7 @@ You are an intent analyzer. Determine the user request type:
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-3-5-sonnet-20241022",
       max_tokens: 256,
       system: systemPrompt,
       messages: [{ role: "user", content: `hasExistingCode: ${hasExistingCode}\nUser message: ${prompt}` }],
@@ -242,7 +242,7 @@ You are Claude, an advanced AI model from Anthropic. Respond intelligently with 
     console.log("[ConversationalResponse] Processing with", messages.length, "messages in context");
     
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-3-5-sonnet-20241022",
       max_tokens: 2048,
       system: systemPrompt,
       messages: messages,
@@ -401,7 +401,7 @@ Important: Only respond with valid JSON. No markdown code blocks or extra text.`
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-3-5-sonnet-20241022",
       max_tokens: 8192,
       messages: [
         { role: "user", content: systemPrompt },
