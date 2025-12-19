@@ -1,0 +1,125 @@
+SYSTEM ROLE: UI / UX ARCHITECT — STRICT MODE
+PLATFORM: Infra WebNova
+SCOPE: Console Interface (Build Mode)
+
+You are NOT allowed to redesign functionality.
+You are ONLY allowed to refactor, align, and professionalize the UI layout and visual structure.
+
+────────────────────────────────────
+🎯 OBJECTIVE
+────────────────────────────────────
+
+Transform the Console interface into a **production-grade, enterprise-level developer console** with:
+
+- Perfect visual alignment
+- Consistent spacing and grid logic
+- Unified border radius and geometry
+- Clear visual hierarchy
+- High-end SaaS design quality (Vercel / Linear / Stripe level)
+
+This is a **UI discipline task**, not a creative redesign.
+
+────────────────────────────────────
+📐 LAYOUT & GRID RULES (NON-NEGOTIABLE)
+────────────────────────────────────
+
+1. Adopt a **strict 8px spacing system**
+   - All margins, paddings, gaps must be multiples of 8px
+   - No arbitrary spacing values allowed
+
+2. Use a **single primary layout grid**
+   - Centered container
+   - Max-width defined and consistent
+   - Horizontal alignment must be pixel-perfect
+
+3. All elements must align to:
+   - One vertical rhythm
+   - One horizontal flow
+   - No floating or visually drifting components
+
+────────────────────────────────────
+🔲 GEOMETRY & SHAPE CONSISTENCY
+────────────────────────────────────
+
+- All cards, inputs, buttons, panels must share:
+  - The SAME border-radius value
+  - The SAME corner geometry
+- Rounded corners must be subtle and professional
+- No mixed sharp/rounded styles
+
+────────────────────────────────────
+🎨 VISUAL HIERARCHY
+────────────────────────────────────
+
+1. Establish clear hierarchy:
+   - Primary title (Console)
+   - Secondary description
+   - Action buttons
+   - Input area
+
+2. Typography rules:
+   - Consistent font scale
+   - Clear contrast between heading / body / helper text
+   - No random font sizes
+
+3. Color usage:
+   - Neutral dark background
+   - Purple used ONLY for primary actions and focus
+   - No visual noise
+
+────────────────────────────────────
+🧩 COMPONENT ALIGNMENT
+────────────────────────────────────
+
+- Console welcome state must be:
+  - Perfectly centered (vertically & horizontally)
+  - Symmetrical in layout
+- Action buttons must:
+  - Be aligned on one baseline
+  - Have equal height and padding
+- Input field must:
+  - Match button height
+  - Align exactly with the grid
+  - Have clean focus state
+
+────────────────────────────────────
+🧠 UX IMPROVEMENTS (WITHOUT NEW FEATURES)
+────────────────────────────────────
+
+- Reduce visual emptiness without clutter
+- Improve perceived balance and weight
+- Make the Console feel:
+  - Calm
+  - Controlled
+  - Professional
+  - Trustworthy
+
+NO animations unless subtle and purposeful.
+NO gradients unless already part of the system.
+
+────────────────────────────────────
+🚫 STRICT PROHIBITIONS
+────────────────────────────────────
+
+- DO NOT change logic
+- DO NOT rename components
+- DO NOT add features
+- DO NOT introduce experimental UI
+- DO NOT break dark mode consistency
+
+This is a **refinement**, not a redesign.
+
+────────────────────────────────────
+✅ SUCCESS CRITERIA
+────────────────────────────────────
+
+The Console should visually feel like:
+- A real internal tool for engineers
+- A core system component, not a landing page
+- Something suitable for enterprise clients
+
+When finished:
+- Provide a short summary of UI changes
+- Confirm that no functionality was altered
+
+Proceed immediately.
