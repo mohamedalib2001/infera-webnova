@@ -400,6 +400,77 @@ export async function registerRoutes(
     }
   });
 
+  // Get user notification preferences
+  app.get("/api/user/notifications", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId || req.session.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "غير مسجل الدخول / Not logged in" });
+      }
+      
+      // Try to get from system settings
+      const setting = await storage.getSystemSettingByKey(`user_notifications_${userId}`);
+      
+      if (setting && setting.value) {
+        return res.json(setting.value);
+      }
+      
+      // Default preferences
+      res.json({
+        emailNotifications: false,
+        pushNotifications: false,
+        twoFactor: false,
+      });
+    } catch (error) {
+      console.error("Get notifications error:", error);
+      res.status(500).json({ error: "فشل في جلب إعدادات الإشعارات / Failed to get notification settings" });
+    }
+  });
+
+  // Update user notification preferences
+  app.post("/api/user/notifications", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId || req.session.user?.id;
+      const { emailNotifications, pushNotifications, twoFactor } = req.body;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "غير مسجل الدخول / Not logged in" });
+      }
+      
+      const preferences = {
+        emailNotifications: !!emailNotifications,
+        pushNotifications: !!pushNotifications,
+        twoFactor: !!twoFactor,
+      };
+      
+      // Check if setting exists
+      const existing = await storage.getSystemSettingByKey(`user_notifications_${userId}`);
+      
+      if (existing) {
+        await storage.updateSystemSetting(existing.id, { value: preferences });
+      } else {
+        await storage.createSystemSetting({
+          key: `user_notifications_${userId}`,
+          value: preferences,
+          category: "user_preferences",
+          description: `Notification preferences for user ${userId}`,
+          descriptionAr: `إعدادات الإشعارات للمستخدم ${userId}`,
+          modifiableBySubscribers: true,
+        });
+      }
+      
+      res.json({ 
+        success: true, 
+        preferences,
+        message: "تم تحديث إعدادات الإشعارات بنجاح / Notification settings updated successfully" 
+      });
+    } catch (error) {
+      console.error("Update notifications error:", error);
+      res.status(500).json({ error: "فشل في تحديث إعدادات الإشعارات / Failed to update notification settings" });
+    }
+  });
+
   // Change password
   app.post("/api/user/change-password", requireAuth, async (req, res) => {
     try {
