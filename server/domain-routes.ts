@@ -653,6 +653,84 @@ export function registerDomainRoutes(app: Express) {
     }
   });
 
+  // Configure provider with credentials (Owner only)
+  app.post("/api/domains/providers/:slug/configure", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const credentials = req.body;
+      
+      // Get provider from registry
+      const config = domainRegistrarRegistry.getConfig(slug);
+      if (!config) {
+        return res.status(404).json({ 
+          error: "Provider not found",
+          errorAr: "المزود غير موجود"
+        });
+      }
+
+      // Validate required credentials
+      const missingFields = config.requiredCredentials.filter(
+        field => !credentials[field] || !credentials[field].trim()
+      );
+      
+      if (missingFields.length > 0) {
+        return res.status(400).json({ 
+          error: `Missing required fields: ${missingFields.join(', ')}`,
+          errorAr: `حقول مطلوبة مفقودة: ${missingFields.join(', ')}`
+        });
+      }
+
+      // Encrypt sensitive credentials
+      const encryptedCredentials: Record<string, string> = {};
+      for (const [key, value] of Object.entries(credentials)) {
+        if (typeof value === 'string' && value.trim()) {
+          const isSensitive = key.toLowerCase().includes('key') || 
+                              key.toLowerCase().includes('secret') || 
+                              key.toLowerCase().includes('password') ||
+                              key.toLowerCase().includes('token');
+          encryptedCredentials[key] = isSensitive ? encryptApiKey(value) : value;
+        }
+      }
+
+      // Get or create provider in database
+      let dbProvider = await storage.getServiceProviderBySlug(slug);
+      
+      if (!dbProvider) {
+        dbProvider = await storage.createServiceProvider({
+          name: config.name,
+          nameAr: config.nameAr || config.name,
+          slug: config.slug,
+          category: 'domain_registrar',
+          status: 'active',
+          apiConfig: encryptedCredentials,
+        });
+      } else {
+        await db.update(serviceProviders)
+          .set({ 
+            status: 'active',
+            apiConfig: encryptedCredentials,
+            updatedAt: new Date()
+          })
+          .where(eq(serviceProviders.id, dbProvider.id));
+      }
+
+      res.json({
+        success: true,
+        message: {
+          en: `${config.name} has been configured and activated`,
+          ar: `تم إعداد وتفعيل ${config.nameAr || config.name}`
+        }
+      });
+    } catch (error: any) {
+      console.error("Failed to configure provider:", error);
+      res.status(500).json({ 
+        success: false,
+        error: error.message || "Failed to configure provider",
+        errorAr: "فشل إعداد المزود"
+      });
+    }
+  });
+
   // Toggle provider activation status (Owner only)
   app.post("/api/domains/providers/:slug/toggle", requireAuth, requireSovereign, async (req, res) => {
     try {

@@ -362,6 +362,9 @@ export default function DomainsPage() {
   const [newDnsRecord, setNewDnsRecord] = useState({ recordType: "A", hostName: "@", address: "", ttl: 1800 });
   const [linkFormData, setLinkFormData] = useState({ platformId: "", linkType: "primary", subdomain: "" });
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+  const [showProviderConfigDialog, setShowProviderConfigDialog] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<DomainProvider | null>(null);
+  const [providerCredentials, setProviderCredentials] = useState<Record<string, string>>({});
   const [namecheapSettings, setNamecheapSettings] = useState({
     apiUser: "",
     apiKey: "",
@@ -674,6 +677,63 @@ export default function DomainsPage() {
       });
     },
   });
+
+  const configureProviderMutation = useMutation({
+    mutationFn: async (data: { slug: string; credentials: Record<string, string> }) => {
+      const response = await apiRequest('POST', `/api/domains/providers/${data.slug}/configure`, data.credentials);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(language === 'ar' ? errorData.errorAr : errorData.error);
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({ 
+        title: data.message?.[language] || (language === 'ar' ? 'تم حفظ إعدادات المزود بنجاح' : 'Provider configured successfully')
+      });
+      setShowProviderConfigDialog(false);
+      setSelectedProvider(null);
+      setProviderCredentials({});
+      queryClient.invalidateQueries({ queryKey: ['/api/domains/providers'] });
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: language === 'ar' ? 'فشل حفظ إعدادات المزود' : 'Failed to configure provider',
+        description: error.message,
+        variant: 'destructive' 
+      });
+    },
+  });
+
+  const openProviderConfig = (provider: DomainProvider) => {
+    setSelectedProvider(provider);
+    const initialCredentials: Record<string, string> = {};
+    provider.requiredCredentials.forEach(cred => {
+      initialCredentials[cred] = '';
+    });
+    setProviderCredentials(initialCredentials);
+    setShowProviderConfigDialog(true);
+  };
+
+  const getCredentialLabel = (key: string): { en: string; ar: string } => {
+    const labels: Record<string, { en: string; ar: string }> = {
+      apiKey: { en: 'API Key', ar: 'مفتاح API' },
+      apiSecret: { en: 'API Secret', ar: 'المفتاح السري' },
+      apiUser: { en: 'API Username', ar: 'اسم مستخدم API' },
+      apiToken: { en: 'API Token', ar: 'رمز API' },
+      accountId: { en: 'Account ID', ar: 'معرف الحساب' },
+      clientIp: { en: 'Whitelisted IP', ar: 'عنوان IP المسموح' },
+      username: { en: 'Username', ar: 'اسم المستخدم' },
+      password: { en: 'Password', ar: 'كلمة المرور' },
+      token: { en: 'Access Token', ar: 'رمز الوصول' },
+      secretApiKey: { en: 'Secret API Key', ar: 'المفتاح السري لـ API' },
+      prefix: { en: 'API Prefix', ar: 'بادئة API' },
+      uid: { en: 'User ID', ar: 'معرف المستخدم' },
+      pw: { en: 'Password', ar: 'كلمة المرور' },
+      resellerIp: { en: 'Reseller IP', ar: 'عنوان IP للموزع' },
+    };
+    return labels[key] || { en: key, ar: key };
+  };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -1508,16 +1568,18 @@ export default function DomainsPage() {
                         {language === 'ar' ? 'الموقع' : 'Website'}
                       </a>
                       <div className="flex items-center gap-2">
-                        {provider.id === 'namecheap' && !provider.isConfigured && (
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => setActiveTab('domains')}
-                            data-testid="button-configure-namecheap"
-                          >
-                            {language === 'ar' ? 'إعداد' : 'Configure'}
-                          </Button>
-                        )}
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => provider.id === 'namecheap' 
+                            ? setShowSettingsDialog(true) 
+                            : openProviderConfig(provider)
+                          }
+                          data-testid={`button-configure-${provider.id}`}
+                        >
+                          <Settings className="w-3 h-3 mr-1" />
+                          {language === 'ar' ? 'إعداد' : 'Configure'}
+                        </Button>
                         <div className="flex items-center gap-1.5">
                           <span className="text-xs text-muted-foreground">
                             {provider.isConfigured 
@@ -1528,10 +1590,16 @@ export default function DomainsPage() {
                           <Switch
                             checked={provider.isConfigured || provider.status === 'active'}
                             onCheckedChange={(checked) => {
-                              toggleProviderMutation.mutate({ 
-                                slug: provider.id, 
-                                enabled: checked 
-                              });
+                              if (checked && !provider.isConfigured) {
+                                provider.id === 'namecheap' 
+                                  ? setShowSettingsDialog(true) 
+                                  : openProviderConfig(provider);
+                              } else {
+                                toggleProviderMutation.mutate({ 
+                                  slug: provider.id, 
+                                  enabled: checked 
+                                });
+                              }
                             }}
                             disabled={toggleProviderMutation.isPending}
                             data-testid={`switch-provider-${provider.id}`}
@@ -1547,6 +1615,108 @@ export default function DomainsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Provider Configuration Dialog */}
+      <Dialog open={showProviderConfigDialog} onOpenChange={setShowProviderConfigDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings className="w-5 h-5" />
+              {language === 'ar' 
+                ? `إعداد ${selectedProvider?.nameAr || selectedProvider?.name}`
+                : `Configure ${selectedProvider?.name}`
+              }
+            </DialogTitle>
+            <DialogDescription>
+              {language === 'ar' 
+                ? 'أدخل بيانات الاعتماد المطلوبة للاتصال بالمزود'
+                : 'Enter the required credentials to connect to this provider'
+              }
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {selectedProvider?.requiredCredentials.map((credKey) => {
+              const label = getCredentialLabel(credKey);
+              const isPassword = credKey.toLowerCase().includes('key') || 
+                                 credKey.toLowerCase().includes('secret') || 
+                                 credKey.toLowerCase().includes('password') ||
+                                 credKey.toLowerCase().includes('token');
+              return (
+                <div key={credKey} className="space-y-2">
+                  <Label htmlFor={credKey}>
+                    {language === 'ar' ? label.ar : label.en}
+                  </Label>
+                  <Input
+                    id={credKey}
+                    type={isPassword ? 'password' : 'text'}
+                    value={providerCredentials[credKey] || ''}
+                    onChange={(e) => setProviderCredentials(prev => ({
+                      ...prev,
+                      [credKey]: e.target.value
+                    }))}
+                    placeholder={language === 'ar' ? `أدخل ${label.ar}` : `Enter ${label.en}`}
+                    data-testid={`input-${credKey}`}
+                  />
+                </div>
+              );
+            })}
+            
+            {selectedProvider && (
+              <Alert>
+                <Info className="w-4 h-4" />
+                <AlertDescription className="text-xs">
+                  {language === 'ar' 
+                    ? `احصل على بيانات الاعتماد من لوحة تحكم ${selectedProvider.nameAr || selectedProvider.name}`
+                    : `Get credentials from ${selectedProvider.name} dashboard`
+                  }
+                  <a 
+                    href={selectedProvider.docsUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="block mt-1 text-primary underline"
+                  >
+                    {language === 'ar' ? 'عرض التوثيق' : 'View Documentation'}
+                  </a>
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowProviderConfigDialog(false);
+                setSelectedProvider(null);
+                setProviderCredentials({});
+              }}
+            >
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button
+              onClick={() => {
+                if (selectedProvider) {
+                  configureProviderMutation.mutate({
+                    slug: selectedProvider.id,
+                    credentials: providerCredentials
+                  });
+                }
+              }}
+              disabled={configureProviderMutation.isPending || 
+                !selectedProvider?.requiredCredentials.every(key => providerCredentials[key]?.trim())}
+              data-testid="button-save-provider-config"
+            >
+              {configureProviderMutation.isPending ? (
+                <RefreshCw className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <Save className="w-4 h-4 mr-2" />
+              )}
+              {language === 'ar' ? 'حفظ وتفعيل' : 'Save & Activate'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
