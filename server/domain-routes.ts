@@ -1,6 +1,8 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { db } from "./db";
 import { NamecheapClient } from "./namecheap-client";
+import { storage } from "./storage";
+import crypto from "crypto";
 import { 
   namecheapDomains,
   namecheapDnsRecords,
@@ -14,6 +16,47 @@ import {
   type NamecheapOperationLog
 } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
+
+// Encryption helpers for storing API keys securely
+function getEncryptionKey(): string {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error('SESSION_SECRET must be set and at least 32 characters for secure encryption');
+  }
+  return secret;
+}
+
+function encryptApiKey(apiKey: string): string {
+  const encryptionKey = getEncryptionKey();
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv('aes-256-cbc', crypto.scryptSync(encryptionKey, 'salt', 32), iv);
+  let encrypted = cipher.update(apiKey, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return iv.toString('hex') + ':' + encrypted;
+}
+
+function decryptApiKey(encryptedKey: string): string {
+  try {
+    const encryptionKey = getEncryptionKey();
+    const [ivHex, encrypted] = encryptedKey.split(':');
+    const iv = Buffer.from(ivHex, 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-cbc', crypto.scryptSync(encryptionKey, 'salt', 32), iv);
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch {
+    return '';
+  }
+}
+
+// Cache for Namecheap config
+let cachedNamecheapConfig: {
+  apiUser: string;
+  apiKey: string;
+  userName: string;
+  clientIp: string;
+  sandbox: boolean;
+} | null = null;
 
 declare module 'express-session' {
   interface SessionData {
@@ -43,7 +86,40 @@ const requireSovereign = (req: Request, res: Response, next: NextFunction) => {
   next();
 };
 
-function getNamecheapClient(): NamecheapClient | null {
+async function getNamecheapClient(): Promise<NamecheapClient | null> {
+  // First check cached config
+  if (cachedNamecheapConfig) {
+    return new NamecheapClient(cachedNamecheapConfig);
+  }
+
+  // Try to load from database (service provider API keys)
+  try {
+    const provider = await storage.getServiceProviderBySlug('namecheap');
+    if (provider) {
+      const apiKeys = await storage.getProviderApiKeys(provider.id);
+      const activeKey = apiKeys.find(k => k.isActive && k.environment === 'production');
+      
+      if (activeKey && activeKey.encryptedKey) {
+        const decryptedKey = decryptApiKey(activeKey.encryptedKey);
+        // Parse metadata for username and IP
+        const metadata = (provider as any).metadata || {};
+        
+        cachedNamecheapConfig = {
+          apiUser: metadata.apiUser || activeKey.name,
+          apiKey: decryptedKey,
+          userName: metadata.userName || metadata.apiUser || activeKey.name,
+          clientIp: metadata.clientIp || '127.0.0.1',
+          sandbox: metadata.sandbox === true
+        };
+        
+        return new NamecheapClient(cachedNamecheapConfig);
+      }
+    }
+  } catch (e) {
+    console.error("Failed to load Namecheap config from DB:", e);
+  }
+
+  // Fallback to environment variables
   const apiUser = process.env.NAMECHEAP_API_USER;
   const apiKey = process.env.NAMECHEAP_API_KEY;
   const userName = process.env.NAMECHEAP_USERNAME || apiUser;
@@ -54,13 +130,20 @@ function getNamecheapClient(): NamecheapClient | null {
     return null;
   }
 
-  return new NamecheapClient({
+  cachedNamecheapConfig = {
     apiUser,
     apiKey,
     userName: userName!,
     clientIp,
     sandbox
-  });
+  };
+
+  return new NamecheapClient(cachedNamecheapConfig);
+}
+
+// Clear cached config when settings are updated
+function clearNamecheapCache() {
+  cachedNamecheapConfig = null;
 }
 
 async function logDomainOperation(
@@ -95,8 +178,178 @@ async function logDomainOperation(
 
 export function registerDomainRoutes(app: Express) {
 
+  // Get current server IP for Namecheap whitelist
+  app.get("/api/domains/server-ip", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const response = await fetch('https://api.ipify.org?format=json');
+      const data = await response.json();
+      res.json({ 
+        success: true, 
+        ip: data.ip,
+        message: { 
+          en: "Add this IP to your Namecheap API whitelist", 
+          ar: "أضف هذا الـ IP إلى القائمة البيضاء في Namecheap API" 
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: "Failed to detect server IP",
+        errorAr: "فشل في الكشف عن IP الخادم"
+      });
+    }
+  });
+
+  // Save Namecheap configuration
+  app.post("/api/domains/config", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { apiUser, apiKey, clientIp, sandbox = false } = req.body;
+      
+      // Get or create Namecheap provider
+      let provider = await storage.getServiceProviderBySlug('namecheap');
+      if (!provider) {
+        provider = await storage.createServiceProvider({
+          name: "Namecheap",
+          nameAr: "نيم شيب",
+          slug: "namecheap",
+          category: "domains",
+          description: "Domain registration, DNS management, SSL certificates",
+          descriptionAr: "تسجيل الدومينات، إدارة DNS، شهادات SSL",
+          logo: "namecheap",
+          website: "https://namecheap.com",
+          docsUrl: "https://www.namecheap.com/support/api/intro/",
+          isBuiltIn: true,
+          status: "inactive"
+        });
+      }
+
+      // Check for existing key
+      const existingKeys = await storage.getProviderApiKeys(provider.id);
+      const existingKey = existingKeys.find(k => k.isActive);
+      
+      // Validate: require all fields for new config, allow empty apiKey for updates
+      if (!apiUser) {
+        return res.status(400).json({ 
+          error: "API User is required",
+          errorAr: "مطلوب اسم مستخدم API"
+        });
+      }
+      
+      if (!clientIp) {
+        return res.status(400).json({ 
+          error: "Client IP is required",
+          errorAr: "مطلوب عنوان IP الخادم"
+        });
+      }
+      
+      if (!apiKey && !existingKey) {
+        return res.status(400).json({ 
+          error: "API Key is required for new configuration",
+          errorAr: "مطلوب مفتاح API للإعدادات الجديدة"
+        });
+      }
+
+      // If new API key provided, update credentials
+      if (apiKey) {
+        // Encrypt and store API key
+        const encryptedKey = encryptApiKey(apiKey);
+        const keyPrefix = apiKey.substring(0, 8) + "...";
+        const keyHash = crypto.createHash('sha256').update(apiKey).digest('hex');
+        
+        if (existingKey) {
+          // Delete old key
+          await storage.deleteProviderApiKey(existingKey.id);
+        }
+
+        await storage.createProviderApiKey({
+          providerId: provider.id,
+          name: apiUser,
+          keyHash,
+          encryptedKey,
+          keyPrefix,
+          environment: 'production',
+          isDefault: true,
+          isActive: true,
+          createdBy: req.session.user?.id || null
+        });
+      }
+
+      // Update provider metadata with username and IP
+      await storage.updateServiceProvider(provider.id, { 
+        status: "active",
+        metadata: { apiUser, userName: apiUser, clientIp, sandbox }
+      });
+
+      // Clear cache to use new credentials
+      clearNamecheapCache();
+
+      // Test connection
+      const client = await getNamecheapClient();
+      if (client) {
+        const testResult = await client.getAccountBalance();
+        if (testResult.success) {
+          res.json({ 
+            success: true, 
+            message: { 
+              en: "Namecheap configured successfully", 
+              ar: "تم تكوين Namecheap بنجاح" 
+            },
+            balance: testResult.data?.balance,
+            currency: testResult.data?.currency
+          });
+        } else {
+          res.json({ 
+            success: false, 
+            error: testResult.error,
+            errorAr: "فشل اختبار الاتصال - تحقق من البيانات وعنوان IP"
+          });
+        }
+      } else {
+        res.status(500).json({ 
+          success: false, 
+          error: "Failed to create client",
+          errorAr: "فشل إنشاء العميل"
+        });
+      }
+    } catch (error) {
+      console.error("Failed to save Namecheap config:", error);
+      res.status(500).json({ 
+        error: "Failed to save configuration",
+        errorAr: "فشل حفظ الإعدادات"
+      });
+    }
+  });
+
+  // Get current Namecheap configuration (without exposing full API key)
+  app.get("/api/domains/config", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const provider = await storage.getServiceProviderBySlug('namecheap');
+      if (!provider) {
+        return res.json({ configured: false });
+      }
+
+      const apiKeys = await storage.getProviderApiKeys(provider.id);
+      const activeKey = apiKeys.find(k => k.isActive);
+      const metadata = (provider as any).metadata || {};
+
+      res.json({
+        configured: !!activeKey,
+        apiUser: metadata.apiUser || activeKey?.name || null,
+        clientIp: metadata.clientIp || null,
+        sandbox: metadata.sandbox || false,
+        keyPrefix: activeKey?.keyPrefix || null,
+        status: provider.status
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        error: "Failed to get configuration",
+        errorAr: "فشل جلب الإعدادات"
+      });
+    }
+  });
+
   app.get("/api/domains/config-status", requireAuth, requireSovereign, async (req, res) => {
-    const client = getNamecheapClient();
+    const client = await getNamecheapClient();
     res.json({
       configured: !!client,
       sandbox: process.env.NAMECHEAP_SANDBOX === 'true',
@@ -116,7 +369,7 @@ export function registerDomainRoutes(app: Express) {
         });
       }
 
-      const client = getNamecheapClient();
+      const client = await getNamecheapClient();
       if (!client) {
         return res.status(503).json({ 
           error: "Namecheap API not configured",
@@ -170,7 +423,7 @@ export function registerDomainRoutes(app: Express) {
         });
       }
 
-      const client = getNamecheapClient();
+      const client = await getNamecheapClient();
       if (!client) {
         return res.status(503).json({ 
           error: "Namecheap API not configured",
@@ -328,7 +581,7 @@ export function registerDomainRoutes(app: Express) {
         });
       }
 
-      const client = getNamecheapClient();
+      const client = await getNamecheapClient();
       if (!client) {
         return res.status(503).json({ 
           error: "Namecheap API not configured",
@@ -463,7 +716,7 @@ export function registerDomainRoutes(app: Express) {
         isActive: true
       }).returning();
 
-      const client = getNamecheapClient();
+      const client = await getNamecheapClient();
       if (client) {
         const allRecords = await db.select().from(namecheapDnsRecords)
           .where(eq(namecheapDnsRecords.domainId, domain.id));
@@ -526,7 +779,7 @@ export function registerDomainRoutes(app: Express) {
       await db.delete(namecheapDnsRecords)
         .where(eq(namecheapDnsRecords.id, req.params.recordId));
 
-      const client = getNamecheapClient();
+      const client = await getNamecheapClient();
       if (client) {
         const allRecords = await db.select().from(namecheapDnsRecords)
           .where(eq(namecheapDnsRecords.domainId, domain.id));
@@ -598,7 +851,7 @@ export function registerDomainRoutes(app: Express) {
         verificationStatus: "pending"
       }).returning();
 
-      const client = getNamecheapClient();
+      const client = await getNamecheapClient();
       if (client && targetAddress) {
         const hostName = subdomain || "@";
         const isIpAddress = /^(\d{1,3}\.){3}\d{1,3}$/.test(targetAddress);
@@ -761,7 +1014,7 @@ export function registerDomainRoutes(app: Express) {
         });
       }
 
-      const client = getNamecheapClient();
+      const client = await getNamecheapClient();
       if (!client) {
         return res.status(503).json({ 
           error: "Namecheap API not configured",

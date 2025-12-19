@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -130,6 +130,22 @@ const translations = {
       pending: "معلق",
       locked: "مقفل",
     },
+    settings: {
+      title: "إعدادات Namecheap",
+      apiUser: "اسم مستخدم API",
+      apiKey: "مفتاح API",
+      clientIp: "عنوان IP المسموح",
+      sandbox: "وضع الاختبار",
+      serverIp: "عنوان IP الخادم الحالي",
+      detectIp: "كشف IP تلقائي",
+      saveConfig: "حفظ الإعدادات",
+      testConnection: "اختبار الاتصال",
+      balance: "الرصيد",
+      configSuccess: "تم تكوين Namecheap بنجاح",
+      configError: "فشل في تكوين Namecheap",
+      ipNote: "يجب إضافة هذا العنوان في قائمة IP المسموحة في Namecheap",
+      detecting: "جاري الكشف...",
+    },
   },
   en: {
     title: "Domain Management",
@@ -207,8 +223,33 @@ const translations = {
       pending: "Pending",
       locked: "Locked",
     },
+    settings: {
+      title: "Namecheap Settings",
+      apiUser: "API Username",
+      apiKey: "API Key",
+      clientIp: "Allowed IP Address",
+      sandbox: "Sandbox Mode",
+      serverIp: "Current Server IP",
+      detectIp: "Auto-detect IP",
+      saveConfig: "Save Settings",
+      testConnection: "Test Connection",
+      balance: "Balance",
+      configSuccess: "Namecheap configured successfully",
+      configError: "Failed to configure Namecheap",
+      ipNote: "Add this IP address to the whitelist in your Namecheap account",
+      detecting: "Detecting...",
+    },
   },
 };
+
+interface NamecheapConfig {
+  configured: boolean;
+  apiUser?: string;
+  clientIp?: string;
+  sandbox?: boolean;
+  keyPrefix?: string;
+  status?: string;
+}
 
 interface Domain {
   id: number;
@@ -293,10 +334,84 @@ export default function DomainsPage() {
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [newDnsRecord, setNewDnsRecord] = useState({ recordType: "A", hostName: "@", address: "", ttl: 1800 });
   const [linkFormData, setLinkFormData] = useState({ platformId: "", linkType: "primary", subdomain: "" });
+  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+  const [namecheapSettings, setNamecheapSettings] = useState({
+    apiUser: "",
+    apiKey: "",
+    clientIp: "",
+    sandbox: false,
+  });
+  const [detectedIp, setDetectedIp] = useState<string | null>(null);
+  const [isDetectingIp, setIsDetectingIp] = useState(false);
 
-  const { data: configStatus } = useQuery<{ configured: boolean }>({
+  const { data: configStatus, refetch: refetchConfigStatus } = useQuery<{ configured: boolean }>({
     queryKey: ['/api/domains/config-status'],
     enabled: isAuthenticated,
+  });
+
+  const { data: namecheapConfig } = useQuery<NamecheapConfig>({
+    queryKey: ['/api/domains/config'],
+    enabled: isAuthenticated,
+    queryFn: async () => {
+      const res = await fetch('/api/domains/config');
+      return res.json();
+    },
+  });
+
+  // Load saved config into form when available
+  useEffect(() => {
+    if (namecheapConfig && namecheapConfig.configured) {
+      setNamecheapSettings(prev => ({
+        ...prev,
+        apiUser: namecheapConfig.apiUser || '',
+        clientIp: namecheapConfig.clientIp || '',
+        sandbox: namecheapConfig.sandbox || false,
+        // apiKey is not loaded from server for security - leave empty
+      }));
+    }
+  }, [namecheapConfig]);
+
+  const detectServerIp = async () => {
+    setIsDetectingIp(true);
+    try {
+      const res = await fetch('/api/domains/server-ip');
+      const data = await res.json();
+      if (data.success && data.ip) {
+        setDetectedIp(data.ip);
+        setNamecheapSettings(prev => ({ ...prev, clientIp: data.ip }));
+      }
+    } catch (error) {
+      console.error('Failed to detect IP:', error);
+    } finally {
+      setIsDetectingIp(false);
+    }
+  };
+
+  const saveConfigMutation = useMutation({
+    mutationFn: async (config: typeof namecheapSettings) => {
+      const response = await apiRequest('POST', '/api/domains/config', config);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        toast({ 
+          title: t.settings.configSuccess,
+          description: data.balance ? `${t.settings.balance}: $${data.balance} ${data.currency}` : undefined
+        });
+        setShowSettingsDialog(false);
+        refetchConfigStatus();
+        queryClient.invalidateQueries({ queryKey: ['/api/domains/config'] });
+      } else {
+        toast({ 
+          title: t.settings.configError, 
+          description: data.error,
+          variant: 'destructive' 
+        });
+      }
+    },
+    onError: () => {
+      toast({ title: t.settings.configError, variant: 'destructive' });
+    },
   });
 
   const { data: domains = [], isLoading: domainsLoading } = useQuery<Domain[]>({
@@ -449,18 +564,115 @@ export default function DomainsPage() {
     );
   }
 
-  if (configStatus && !configStatus.configured) {
-    return (
-      <div className="container max-w-6xl py-8">
+  // Settings form component to avoid duplication
+  const SettingsForm = ({ showExisting = false }: { showExisting?: boolean }) => (
+    <div className="space-y-4">
+      {showExisting && namecheapConfig?.configured && (
         <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>{t.configureFirst}</AlertTitle>
+          <CheckCircle2 className="w-4 h-4" />
           <AlertDescription>
-            {language === 'ar' 
-              ? 'انتقل إلى صفحة الإعدادات لتكوين بيانات اعتماد Namecheap API'
-              : 'Go to Settings to configure your Namecheap API credentials'}
+            {language === 'ar' ? 'الإعدادات الحالية' : 'Current settings'}: {namecheapConfig.apiUser} ({namecheapConfig.keyPrefix})
           </AlertDescription>
         </Alert>
+      )}
+      <div className="space-y-2">
+        <Label>{t.settings.apiUser}</Label>
+        <Input
+          value={namecheapSettings.apiUser || (showExisting ? namecheapConfig?.apiUser || '' : '')}
+          onChange={(e) => setNamecheapSettings(prev => ({ ...prev, apiUser: e.target.value }))}
+          placeholder="your_username"
+          data-testid="input-api-user"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>{t.settings.apiKey}</Label>
+        <Input
+          type="password"
+          value={namecheapSettings.apiKey}
+          onChange={(e) => setNamecheapSettings(prev => ({ ...prev, apiKey: e.target.value }))}
+          placeholder={showExisting && namecheapConfig?.keyPrefix ? namecheapConfig.keyPrefix : "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}
+          data-testid="input-api-key"
+        />
+        {showExisting && namecheapConfig?.keyPrefix && !namecheapSettings.apiKey && (
+          <p className="text-xs text-muted-foreground">
+            {language === 'ar' ? 'اترك فارغاً للإبقاء على المفتاح الحالي' : 'Leave empty to keep current key'}
+          </p>
+        )}
+      </div>
+      <div className="space-y-2">
+        <Label>{t.settings.clientIp}</Label>
+        <div className="flex gap-2">
+          <Input
+            value={namecheapSettings.clientIp || (showExisting ? namecheapConfig?.clientIp || '' : '')}
+            onChange={(e) => setNamecheapSettings(prev => ({ ...prev, clientIp: e.target.value }))}
+            placeholder="xxx.xxx.xxx.xxx"
+            data-testid="input-client-ip"
+          />
+          <Button 
+            variant="outline" 
+            onClick={detectServerIp}
+            disabled={isDetectingIp}
+            data-testid="button-detect-ip"
+          >
+            {isDetectingIp ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              t.settings.detectIp
+            )}
+          </Button>
+        </div>
+        {detectedIp && (
+          <Alert className="mt-2">
+            <Info className="w-4 h-4" />
+            <AlertDescription>
+              {t.settings.ipNote}: <code className="bg-muted px-1 rounded">{detectedIp}</code>
+            </AlertDescription>
+          </Alert>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          id="sandbox"
+          checked={namecheapSettings.sandbox}
+          onChange={(e) => setNamecheapSettings(prev => ({ ...prev, sandbox: e.target.checked }))}
+          className="rounded border-gray-300"
+          data-testid="checkbox-sandbox"
+        />
+        <Label htmlFor="sandbox">{t.settings.sandbox}</Label>
+      </div>
+    </div>
+  );
+
+  if (configStatus && !configStatus.configured) {
+    return (
+      <div className="container max-w-6xl py-8 space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Settings className="w-5 h-5" />
+              {t.settings.title}
+            </CardTitle>
+            <CardDescription>{t.configureFirst}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <SettingsForm />
+          </CardContent>
+          <CardFooter>
+            <Button 
+              onClick={() => saveConfigMutation.mutate(namecheapSettings)}
+              disabled={!namecheapSettings.apiUser || !namecheapSettings.apiKey || !namecheapSettings.clientIp || saveConfigMutation.isPending}
+              data-testid="button-save-config"
+            >
+              {saveConfigMutation.isPending ? (
+                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4 mr-2" />
+              )}
+              {t.settings.saveConfig}
+            </Button>
+          </CardFooter>
+        </Card>
       </div>
     );
   }

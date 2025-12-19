@@ -944,6 +944,8 @@ export async function registerRoutes(
         { name: "Algolia", nameAr: "ألغوليا", slug: "algolia", category: "search", description: "Search & Discovery API", descriptionAr: "واجهة البحث والاكتشاف", logo: "algolia", website: "https://algolia.com", docsUrl: "https://www.algolia.com/doc", isBuiltIn: true },
         { name: "Cloudinary", nameAr: "كلاودناري", slug: "cloudinary", category: "media", description: "Image & Video Management", descriptionAr: "إدارة الصور والفيديو", logo: "cloudinary", website: "https://cloudinary.com", docsUrl: "https://cloudinary.com/documentation", isBuiltIn: true },
         { name: "Google Maps", nameAr: "خرائط جوجل", slug: "google-maps", category: "maps", description: "Maps, Places, Geocoding", descriptionAr: "الخرائط والأماكن والترميز الجغرافي", logo: "google", website: "https://cloud.google.com/maps-platform", docsUrl: "https://developers.google.com/maps", isBuiltIn: true },
+        { name: "Namecheap", nameAr: "نيم شيب", slug: "namecheap", category: "domains", description: "Domain registration, DNS management, SSL certificates", descriptionAr: "تسجيل الدومينات، إدارة DNS، شهادات SSL", logo: "namecheap", website: "https://namecheap.com", docsUrl: "https://www.namecheap.com/support/api/intro/", isBuiltIn: true },
+        { name: "Hetzner", nameAr: "هتزنر", slug: "hetzner", category: "cloud", description: "Cloud servers, dedicated servers, storage", descriptionAr: "خوادم سحابية، خوادم مخصصة، تخزين", logo: "hetzner", website: "https://hetzner.com", docsUrl: "https://docs.hetzner.cloud/", isBuiltIn: true, status: "active" },
       ];
       
       const created = [];
