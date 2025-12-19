@@ -496,6 +496,90 @@ export function registerDomainRoutes(app: Express) {
     }
   });
 
+  // Create a new platform
+  app.post("/api/platforms", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { name, nameAr, slug, description, descriptionAr, primaryUrl, type, status } = req.body;
+      
+      if (!name || !slug) {
+        return res.status(400).json({ 
+          error: "Name and slug are required",
+          errorAr: "الاسم والمعرف مطلوبان"
+        });
+      }
+
+      // Check if slug already exists
+      const [existing] = await db.select().from(platforms).where(eq(platforms.slug, slug));
+      if (existing) {
+        return res.status(400).json({ 
+          error: "A platform with this slug already exists",
+          errorAr: "منصة بهذا المعرف موجودة مسبقاً"
+        });
+      }
+
+      const [newPlatform] = await db.insert(platforms).values({
+        name,
+        nameAr: nameAr || null,
+        slug,
+        description: description || null,
+        descriptionAr: descriptionAr || null,
+        primaryUrl: primaryUrl || null,
+        type: type || 'web',
+        status: status || 'active',
+        ownerId: req.session.userId,
+      }).returning();
+
+      res.json({
+        success: true,
+        platform: newPlatform,
+        message: {
+          en: "Platform created successfully",
+          ar: "تم إنشاء المنصة بنجاح"
+        }
+      });
+    } catch (error: any) {
+      console.error("Failed to create platform:", error);
+      res.status(500).json({ 
+        error: error.message || "Failed to create platform",
+        errorAr: "فشل إنشاء المنصة"
+      });
+    }
+  });
+
+  // Delete a platform
+  app.delete("/api/platforms/:id", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const [platform] = await db.select().from(platforms).where(eq(platforms.id, req.params.id));
+      
+      if (!platform) {
+        return res.status(404).json({ 
+          error: "Platform not found",
+          errorAr: "المنصة غير موجودة"
+        });
+      }
+
+      // Delete associated links first
+      await db.delete(domainPlatformLinks).where(eq(domainPlatformLinks.platformId, req.params.id));
+      
+      // Delete the platform
+      await db.delete(platforms).where(eq(platforms.id, req.params.id));
+
+      res.json({
+        success: true,
+        message: {
+          en: "Platform deleted successfully",
+          ar: "تم حذف المنصة بنجاح"
+        }
+      });
+    } catch (error: any) {
+      console.error("Failed to delete platform:", error);
+      res.status(500).json({ 
+        error: error.message || "Failed to delete platform",
+        errorAr: "فشل حذف المنصة"
+      });
+    }
+  });
+
   // Domain Registrar Providers Management
   app.get("/api/domains/providers", requireAuth, async (req, res) => {
     const providers = domainRegistrarRegistry.listAll();
