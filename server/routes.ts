@@ -358,6 +358,94 @@ export async function registerRoutes(
     }
   });
 
+  // ============ User Profile Routes - مسارات الملف الشخصي ============
+
+  // Update user profile
+  app.patch("/api/user/profile", requireAuth, async (req, res) => {
+    try {
+      const { firstName, lastName } = req.body;
+      const userId = req.session.userId || req.session.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "غير مسجل الدخول / Not logged in" });
+      }
+      
+      const updateData: any = {};
+      if (firstName !== undefined) updateData.firstName = firstName;
+      if (lastName !== undefined) updateData.lastName = lastName;
+      if (firstName && lastName) {
+        updateData.fullName = `${firstName} ${lastName}`;
+      }
+      
+      const updatedUser = await storage.updateUser(userId, updateData);
+      
+      if (!updatedUser) {
+        return res.status(404).json({ error: "المستخدم غير موجود / User not found" });
+      }
+      
+      // Update session
+      if (req.session.user) {
+        req.session.user = { ...req.session.user, ...updateData };
+      }
+      
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      res.json({ 
+        success: true, 
+        user: userWithoutPassword,
+        message: "تم تحديث الملف الشخصي بنجاح / Profile updated successfully" 
+      });
+    } catch (error) {
+      console.error("Profile update error:", error);
+      res.status(500).json({ error: "فشل في تحديث الملف الشخصي / Failed to update profile" });
+    }
+  });
+
+  // Change password
+  app.post("/api/user/change-password", requireAuth, async (req, res) => {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      const userId = req.session.userId || req.session.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "غير مسجل الدخول / Not logged in" });
+      }
+      
+      if (!newPassword || newPassword.length < 8) {
+        return res.status(400).json({ 
+          error: "كلمة المرور يجب أن تكون 8 أحرف على الأقل / Password must be at least 8 characters" 
+        });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "المستخدم غير موجود / User not found" });
+      }
+      
+      // Check if user has a password (might be OAuth user)
+      if (user.password) {
+        const bcrypt = await import("bcryptjs");
+        const isValid = await bcrypt.compare(currentPassword, user.password);
+        if (!isValid) {
+          return res.status(400).json({ error: "كلمة المرور الحالية غير صحيحة / Current password is incorrect" });
+        }
+      }
+      
+      // Hash new password
+      const bcrypt = await import("bcryptjs");
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      
+      await storage.updateUser(userId, { password: hashedPassword });
+      
+      res.json({ 
+        success: true, 
+        message: "تم تغيير كلمة المرور بنجاح / Password changed successfully" 
+      });
+    } catch (error) {
+      console.error("Password change error:", error);
+      res.status(500).json({ error: "فشل في تغيير كلمة المرور / Failed to change password" });
+    }
+  });
+
   // ============ Subscription Plans Routes - خطط الاشتراك ============
   
   // Get all subscription plans

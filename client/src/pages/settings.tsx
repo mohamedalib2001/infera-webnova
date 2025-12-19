@@ -1,12 +1,25 @@
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Link } from "wouter";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { 
   Settings, 
   Globe, 
@@ -16,6 +29,9 @@ import {
   User, 
   Key,
   Info,
+  Loader2,
+  Save,
+  Pencil,
 } from "lucide-react";
 
 const translations = {
@@ -44,6 +60,30 @@ const translations = {
       changePassword: "تغيير كلمة المرور",
       editProfile: "تعديل الملف الشخصي",
     },
+    editProfileDialog: {
+      title: "تعديل الملف الشخصي",
+      description: "تحديث معلومات حسابك الشخصية",
+      firstName: "الاسم الأول",
+      lastName: "الاسم الأخير",
+      email: "البريد الإلكتروني",
+      save: "حفظ التغييرات",
+      cancel: "إلغاء",
+      success: "تم تحديث الملف الشخصي بنجاح",
+      error: "فشل في تحديث الملف الشخصي",
+    },
+    changePasswordDialog: {
+      title: "تغيير كلمة المرور",
+      description: "أدخل كلمة المرور الحالية والجديدة",
+      currentPassword: "كلمة المرور الحالية",
+      newPassword: "كلمة المرور الجديدة",
+      confirmPassword: "تأكيد كلمة المرور الجديدة",
+      save: "تغيير كلمة المرور",
+      cancel: "إلغاء",
+      success: "تم تغيير كلمة المرور بنجاح",
+      error: "فشل في تغيير كلمة المرور",
+      mismatch: "كلمات المرور غير متطابقة",
+      tooShort: "كلمة المرور يجب أن تكون 8 أحرف على الأقل",
+    },
   },
   en: {
     title: "Settings",
@@ -70,13 +110,120 @@ const translations = {
       changePassword: "Change Password",
       editProfile: "Edit Profile",
     },
+    editProfileDialog: {
+      title: "Edit Profile",
+      description: "Update your personal account information",
+      firstName: "First Name",
+      lastName: "Last Name",
+      email: "Email",
+      save: "Save Changes",
+      cancel: "Cancel",
+      success: "Profile updated successfully",
+      error: "Failed to update profile",
+    },
+    changePasswordDialog: {
+      title: "Change Password",
+      description: "Enter your current and new password",
+      currentPassword: "Current Password",
+      newPassword: "New Password",
+      confirmPassword: "Confirm New Password",
+      save: "Change Password",
+      cancel: "Cancel",
+      success: "Password changed successfully",
+      error: "Failed to change password",
+      mismatch: "Passwords do not match",
+      tooShort: "Password must be at least 8 characters",
+    },
   },
 };
 
 export default function SettingsPage() {
   const { language } = useLanguage();
   const { isAuthenticated, user } = useAuth();
+  const { toast } = useToast();
   const t = translations[language];
+  
+  const [editProfileOpen, setEditProfileOpen] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  
+  const [firstName, setFirstName] = useState(user?.firstName || "");
+  const [lastName, setLastName] = useState(user?.lastName || "");
+  
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const updateProfileMutation = useMutation({
+    mutationFn: async (data: { firstName: string; lastName: string }) => {
+      const response = await apiRequest("PATCH", "/api/user/profile", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: t.editProfileDialog.success,
+      });
+      setEditProfileOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t.editProfileDialog.error,
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const changePasswordMutation = useMutation({
+    mutationFn: async (data: { currentPassword: string; newPassword: string }) => {
+      const response = await apiRequest("POST", "/api/user/change-password", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: t.changePasswordDialog.success,
+      });
+      setChangePasswordOpen(false);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: t.changePasswordDialog.error,
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEditProfile = () => {
+    setFirstName(user?.firstName || "");
+    setLastName(user?.lastName || "");
+    setEditProfileOpen(true);
+  };
+
+  const handleSaveProfile = () => {
+    updateProfileMutation.mutate({ firstName, lastName });
+  };
+
+  const handleChangePassword = () => {
+    if (newPassword.length < 8) {
+      toast({
+        title: t.changePasswordDialog.tooShort,
+        variant: "destructive",
+      });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: t.changePasswordDialog.mismatch,
+        variant: "destructive",
+      });
+      return;
+    }
+    changePasswordMutation.mutate({ currentPassword, newPassword });
+  };
 
   if (!isAuthenticated) {
     return (
@@ -114,7 +261,13 @@ export default function SettingsPage() {
                 <p className="font-medium">{user?.fullName || user?.username}</p>
                 <p className="text-sm text-muted-foreground">{user?.email}</p>
               </div>
-              <Button variant="outline" size="sm" data-testid="button-edit-profile">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                data-testid="button-edit-profile"
+                onClick={handleEditProfile}
+              >
+                <Pencil className="w-4 h-4 mr-2" />
                 {t.options.editProfile}
               </Button>
             </div>
@@ -158,7 +311,12 @@ export default function SettingsPage() {
             <Separator />
             <div className="flex items-center justify-between">
               <span>{t.options.changePassword}</span>
-              <Button variant="outline" size="sm" data-testid="button-change-password">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                data-testid="button-change-password"
+                onClick={() => setChangePasswordOpen(true)}
+              >
                 <Key className="w-4 h-4 mr-2" />
                 {t.options.changePassword}
               </Button>
@@ -184,6 +342,145 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Edit Profile Dialog */}
+      <Dialog open={editProfileOpen} onOpenChange={setEditProfileOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="w-5 h-5" />
+              {t.editProfileDialog.title}
+            </DialogTitle>
+            <DialogDescription>
+              {t.editProfileDialog.description}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="firstName">{t.editProfileDialog.firstName}</Label>
+              <Input
+                id="firstName"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                data-testid="input-first-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lastName">{t.editProfileDialog.lastName}</Label>
+              <Input
+                id="lastName"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                data-testid="input-last-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">{t.editProfileDialog.email}</Label>
+              <Input
+                id="email"
+                value={user?.email || ""}
+                disabled
+                className="bg-muted"
+                data-testid="input-email-disabled"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setEditProfileOpen(false)}
+              data-testid="button-cancel-edit-profile"
+            >
+              {t.editProfileDialog.cancel}
+            </Button>
+            <Button 
+              onClick={handleSaveProfile}
+              disabled={updateProfileMutation.isPending}
+              data-testid="button-save-profile"
+            >
+              {updateProfileMutation.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4 mr-2" />
+              )}
+              {t.editProfileDialog.save}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Password Dialog */}
+      <Dialog open={changePasswordOpen} onOpenChange={setChangePasswordOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="w-5 h-5" />
+              {t.changePasswordDialog.title}
+            </DialogTitle>
+            <DialogDescription>
+              {t.changePasswordDialog.description}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="currentPassword">{t.changePasswordDialog.currentPassword}</Label>
+              <Input
+                id="currentPassword"
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                data-testid="input-current-password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">{t.changePasswordDialog.newPassword}</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                data-testid="input-new-password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">{t.changePasswordDialog.confirmPassword}</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                data-testid="input-confirm-password"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setChangePasswordOpen(false);
+                setCurrentPassword("");
+                setNewPassword("");
+                setConfirmPassword("");
+              }}
+              data-testid="button-cancel-change-password"
+            >
+              {t.changePasswordDialog.cancel}
+            </Button>
+            <Button 
+              onClick={handleChangePassword}
+              disabled={changePasswordMutation.isPending || !currentPassword || !newPassword || !confirmPassword}
+              data-testid="button-save-password"
+            >
+              {changePasswordMutation.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Key className="w-4 h-4 mr-2" />
+              )}
+              {t.changePasswordDialog.save}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
