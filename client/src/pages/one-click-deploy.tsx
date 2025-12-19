@@ -241,17 +241,20 @@ export default function OneClickDeploy() {
   const [isDeploying, setIsDeploying] = useState(false);
   const pipelineIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { data: projects = [] } = useQuery<any[]>({
+  const { data: projectsData } = useQuery<any>({
     queryKey: ["/api/projects"],
   });
+  const projects = Array.isArray(projectsData) ? projectsData : (projectsData?.projects || []);
 
-  const { data: domains = [] } = useQuery<any[]>({
+  const { data: domainsData } = useQuery<any>({
     queryKey: ["/api/domains"],
   });
+  const domains = Array.isArray(domainsData) ? domainsData : (domainsData?.domains || []);
 
-  const { data: deployments = [] } = useQuery<DeploymentRun[]>({
+  const { data: deploymentsData } = useQuery<any>({
     queryKey: ["/api/deployments"],
   });
+  const deployments: DeploymentRun[] = Array.isArray(deploymentsData) ? deploymentsData : (deploymentsData?.deployments || []);
 
   const currentDeployment = deployments.find(d => d.status === "running" || d.status === "deploying" || d.status === "building");
 
