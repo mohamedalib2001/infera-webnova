@@ -367,16 +367,29 @@ export function registerDomainRoutes(app: Express) {
   // Domain Registrar Providers Management
   app.get("/api/domains/providers", requireAuth, async (req, res) => {
     const providers = domainRegistrarRegistry.listAll();
+    
+    // Get actual status from database for each provider
+    const providersWithDbStatus = await Promise.all(providers.map(async (p) => {
+      const dbProvider = await storage.getServiceProviderBySlug(p.slug);
+      const actualStatus = dbProvider?.status || p.status;
+      const isConfigured = actualStatus === 'active' || actualStatus === 'configured';
+      return {
+        ...p,
+        status: actualStatus,
+        isConfigured,
+        isAvailable: actualStatus !== 'coming_soon' && p.status !== 'coming_soon',
+      };
+    }));
+    
+    const activeCount = providersWithDbStatus.filter(p => p.isConfigured).length;
+    const availableCount = providersWithDbStatus.filter(p => p.isAvailable).length;
+    
     res.json({
       success: true,
-      providers: providers.map(p => ({
-        ...p,
-        isConfigured: p.status === 'active' || p.status === 'configured',
-        isAvailable: p.status !== 'coming_soon',
-      })),
+      providers: providersWithDbStatus,
       total: providers.length,
-      active: domainRegistrarRegistry.listActive().length,
-      available: domainRegistrarRegistry.listAvailable().length
+      active: activeCount,
+      available: availableCount
     });
   });
 
