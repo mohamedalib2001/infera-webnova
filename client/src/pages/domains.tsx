@@ -1310,6 +1310,11 @@ export default function DomainsPage() {
                           {language === 'ar' ? 'تسجيل' : 'Register'}
                         </Badge>
                       )}
+                      {provider.capabilities.domainTransfer && (
+                        <Badge variant="outline" className="text-xs">
+                          {language === 'ar' ? 'نقل' : 'Transfer'}
+                        </Badge>
+                      )}
                       {provider.capabilities.dnsManagement && (
                         <Badge variant="outline" className="text-xs">
                           DNS
@@ -1318,6 +1323,21 @@ export default function DomainsPage() {
                       {provider.capabilities.whoisPrivacy && (
                         <Badge variant="outline" className="text-xs">
                           {language === 'ar' ? 'خصوصية' : 'Privacy'}
+                        </Badge>
+                      )}
+                      {provider.capabilities.autoRenew && (
+                        <Badge variant="outline" className="text-xs">
+                          {language === 'ar' ? 'تجديد تلقائي' : 'Auto-Renew'}
+                        </Badge>
+                      )}
+                      {provider.capabilities.bulkOperations && (
+                        <Badge variant="outline" className="text-xs">
+                          {language === 'ar' ? 'عمليات جماعية' : 'Bulk Ops'}
+                        </Badge>
+                      )}
+                      {provider.capabilities.apiAvailable && (
+                        <Badge variant="outline" className="text-xs">
+                          API
                         </Badge>
                       )}
                     </div>
