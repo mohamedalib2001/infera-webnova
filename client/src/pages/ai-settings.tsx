@@ -341,6 +341,26 @@ export default function AISettingsPage() {
     },
   });
 
+  const healthResetMutation = useMutation({
+    mutationFn: async (provider: string) => {
+      return apiRequest("POST", `/api/owner/ai-providers/${provider}/reset-health`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/owner/ai-providers"] });
+      toast({
+        title: language === "ar" ? "تم إعادة التعيين" : "Reset",
+        description: language === "ar" ? "تم إعادة تعيين صحة المزود" : "Provider health reset",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: language === "ar" ? "خطأ" : "Error",
+        description: error.message,
+      });
+    },
+  });
+
   const resetForm = () => {
     setFormData({
       provider: "anthropic",
@@ -442,7 +462,7 @@ export default function AISettingsPage() {
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
-            {providers.map((config) => {
+            {[...providers].sort((a, b) => (a.priority || 100) - (b.priority || 100)).map((config) => {
               const Icon = getProviderIcon(config.provider);
               return (
                 <Card key={config.id} className="relative" data-testid={`card-provider-${config.provider}`}>
@@ -608,6 +628,59 @@ export default function AISettingsPage() {
                         </span>
                       </div>
                     )}
+
+                    {/* Priority Control */}
+                    <div className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/50">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">
+                          {language === "ar" ? "الأولوية" : "Priority"}:
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          {language === "ar" ? "(1 = الأعلى)" : "(1 = highest)"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={String(config.priority || 100)}
+                          onValueChange={(value) => {
+                            const val = parseInt(value);
+                            if (!isNaN(val) && val >= 1 && val <= 100) {
+                              priorityMutation.mutate({ provider: config.provider, priority: val });
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="w-20" data-testid={`select-priority-${config.provider}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1">1</SelectItem>
+                            <SelectItem value="2">2</SelectItem>
+                            <SelectItem value="3">3</SelectItem>
+                            <SelectItem value="4">4</SelectItem>
+                            <SelectItem value="5">5</SelectItem>
+                            <SelectItem value="10">10</SelectItem>
+                            <SelectItem value="50">50</SelectItem>
+                            <SelectItem value="100">100</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {!config.isHealthy && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => healthResetMutation.mutate(config.provider)}
+                            disabled={healthResetMutation.isPending}
+                            data-testid={`button-reset-health-${config.provider}`}
+                          >
+                            {healthResetMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <RefreshCw className="h-4 w-4" />
+                            )}
+                            {language === "ar" ? "إعادة التعيين" : "Reset"}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
 
                     <Separator />
 

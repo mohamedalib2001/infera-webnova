@@ -3015,13 +3015,22 @@ export async function registerRoutes(
       const { provider } = req.params;
       const { priority } = req.body;
       
-      if (typeof priority !== 'number' || priority < 1) {
-        return res.status(400).json({ error: "أولوية غير صالحة / Invalid priority" });
+      if (typeof priority !== 'number' || priority < 1 || priority > 100 || isNaN(priority)) {
+        return res.status(400).json({ error: "أولوية غير صالحة (1-100) / Invalid priority (1-100)" });
+      }
+      
+      const existing = await db.select()
+        .from(aiProviderConfigs)
+        .where(eq(aiProviderConfigs.provider, provider))
+        .limit(1);
+      
+      if (existing.length === 0) {
+        return res.status(404).json({ error: "المزود غير موجود / Provider not found" });
       }
       
       await db.update(aiProviderConfigs)
         .set({ 
-          priority,
+          priority: Math.round(priority),
           updatedBy: req.session.userId,
           updatedAt: new Date(),
         })

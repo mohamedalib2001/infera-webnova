@@ -2,6 +2,8 @@ import { db } from "./db";
 import { aiProviderConfigs } from "@shared/schema";
 import { eq, and, desc, asc } from "drizzle-orm";
 import { decrypt } from "./encryption";
+import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 
 export type AICapability = 'chat' | 'coding' | 'image' | 'embedding' | 'tooling';
 
@@ -192,18 +194,27 @@ class AIProviderRegistry {
 
     switch (provider) {
       case 'anthropic':
-        const Anthropic = require("@anthropic-ai/sdk").default;
+        if (!providerInfo.apiKey) {
+          throw new Error("Anthropic API key not configured");
+        }
         return new Anthropic({ apiKey: providerInfo.apiKey });
       
       case 'openai':
-        const OpenAI = require("openai").default;
+        if (!providerInfo.apiKey) {
+          throw new Error("OpenAI API key not configured");
+        }
         return new OpenAI({ apiKey: providerInfo.apiKey });
       
       case 'replit':
-        const ReplitAnthropic = require("@anthropic-ai/sdk").default;
-        return new ReplitAnthropic();
+        if (!process.env.ANTHROPIC_API_KEY && !process.env.REPLIT_AI_API_KEY) {
+          throw new Error("Replit AI not available - not running in Replit environment or AI not enabled");
+        }
+        return new Anthropic();
       
       case 'google':
+        if (!providerInfo.apiKey) {
+          throw new Error("Google API key not configured");
+        }
         return { apiKey: providerInfo.apiKey, model: providerInfo.defaultModel };
       
       default:
