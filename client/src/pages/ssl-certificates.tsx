@@ -240,9 +240,10 @@ interface SSLCertificate {
 
 interface CustomDomain {
   id: string;
-  hostname: string;
+  hostname?: string;
+  domainName?: string;
   status: string;
-  sslStatus: string;
+  sslStatus?: string;
 }
 
 const statusColors: Record<string, string> = {
@@ -429,7 +430,7 @@ export default function SSLCertificates() {
                         <SelectItem key={domain.id} value={domain.id}>
                           <div className="flex items-center gap-2">
                             <Globe className="h-4 w-4" />
-                            {domain.hostname}
+                            {domain.domainName || domain.hostname || domain.id}
                           </div>
                         </SelectItem>
                       ))}
