@@ -5835,14 +5835,18 @@ export type MarketplaceInstallation = typeof marketplaceInstallations.$inferSele
 // ==================== AI PROVIDER CONFIGURATIONS (Owner Only) ====================
 
 // AI providers supported
-export const aiProviders = ['anthropic', 'openai', 'google', 'meta'] as const;
+export const aiProviders = ['anthropic', 'openai', 'google', 'meta', 'replit'] as const;
 export type AIProvider = typeof aiProviders[number];
+
+// AI provider status types
+export const aiProviderStatuses = ['active', 'paused', 'disabled'] as const;
+export type AiProviderStatus = typeof aiProviderStatuses[number];
 
 // Secure AI provider configurations - only accessible by owner
 export const aiProviderConfigs = pgTable("ai_provider_configs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
-  provider: text("provider").notNull(), // anthropic, openai, google, etc.
+  provider: text("provider").notNull(), // anthropic, openai, google, replit, etc.
   displayName: text("display_name").notNull(), // User-friendly name
   
   // Encrypted API key - never exposed to client
@@ -5851,6 +5855,7 @@ export const aiProviderConfigs = pgTable("ai_provider_configs", {
   
   // Configuration
   isActive: boolean("is_active").notNull().default(false),
+  status: text("status").notNull().default("disabled"), // active, paused, disabled
   defaultModel: text("default_model"), // claude-sonnet-4-5, gpt-4o, etc.
   baseUrl: text("base_url"), // Custom base URL if needed
   

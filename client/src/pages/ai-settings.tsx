@@ -100,6 +100,7 @@ const providerInfo = {
     models: ["claude-sonnet-4-5", "claude-opus-4-5", "claude-haiku-4-5", "claude-opus-4-1"],
     placeholder: "sk-ant-api03-...",
     billingUrl: "https://console.anthropic.com/settings/billing",
+    requiresApiKey: true,
   },
   openai: {
     icon: SiOpenai,
@@ -107,6 +108,7 @@ const providerInfo = {
     models: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"],
     placeholder: "sk-...",
     billingUrl: "https://platform.openai.com/account/billing",
+    requiresApiKey: true,
   },
   google: {
     icon: SiGooglecloud,
@@ -114,6 +116,7 @@ const providerInfo = {
     models: ["gemini-pro", "gemini-ultra", "palm-2"],
     placeholder: "AIza...",
     billingUrl: "https://console.cloud.google.com/billing",
+    requiresApiKey: true,
   },
   meta: {
     icon: Sparkles,
@@ -121,6 +124,15 @@ const providerInfo = {
     models: ["llama-2-70b", "llama-2-13b"],
     placeholder: "...",
     billingUrl: "https://ai.meta.com/",
+    requiresApiKey: true,
+  },
+  replit: {
+    icon: Sparkles,
+    color: "bg-indigo-500",
+    models: ["claude-sonnet-4-5", "gpt-4o", "gemini-2.5-flash"],
+    placeholder: "",
+    billingUrl: "https://replit.com/account#billing",
+    requiresApiKey: false,
   },
 };
 
@@ -135,6 +147,7 @@ interface AIProviderConfig {
   defaultModel: string | null;
   baseUrl: string | null;
   isActive: boolean;
+  status: 'active' | 'paused' | 'disabled';
   lastTestedAt: string | null;
   lastTestResult: string | null;
   lastTestError: string | null;
@@ -143,6 +156,12 @@ interface AIProviderConfig {
   lastBalanceCheckAt: string | null;
   balanceCheckError: string | null;
 }
+
+const statusInfo = {
+  active: { label: "Active", labelAr: "نشط", color: "bg-green-600", icon: CheckCircle },
+  paused: { label: "Paused", labelAr: "متوقف مؤقتاً", color: "bg-yellow-500", icon: AlertTriangle },
+  disabled: { label: "Disabled", labelAr: "معطل", color: "bg-gray-500", icon: XCircle },
+};
 
 export default function AISettingsPage() {
   const { language } = useLanguage();
@@ -278,6 +297,26 @@ export default function AISettingsPage() {
     },
   });
 
+  const statusMutation = useMutation({
+    mutationFn: async ({ provider, status }: { provider: string; status: string }) => {
+      return apiRequest("PATCH", `/api/owner/ai-providers/${provider}/status`, { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/owner/ai-providers"] });
+      toast({
+        title: language === "ar" ? "تم التحديث" : "Updated",
+        description: language === "ar" ? "تم تحديث حالة المزود" : "Provider status updated",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: language === "ar" ? "خطأ" : "Error",
+        description: error.message,
+      });
+    },
+  });
+
   const resetForm = () => {
     setFormData({
       provider: "anthropic",
@@ -394,12 +433,37 @@ export default function AISettingsPage() {
                           <CardDescription className="capitalize">{config.provider}</CardDescription>
                         </div>
                       </div>
-                      <Badge 
-                        variant={config.isActive ? "default" : "secondary"}
-                        className={config.isActive ? "bg-green-600" : ""}
+                      <Select
+                        value={config.status || 'disabled'}
+                        onValueChange={(value) => statusMutation.mutate({ provider: config.provider, status: value })}
                       >
-                        {config.isActive ? t.connected : t.disconnected}
-                      </Badge>
+                        <SelectTrigger 
+                          className={`w-32 ${statusInfo[config.status as keyof typeof statusInfo]?.color || 'bg-gray-500'} text-white border-none`}
+                          data-testid={`select-status-${config.provider}`}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                              <span>{language === "ar" ? "نشط" : "Active"}</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="paused">
+                            <div className="flex items-center gap-2">
+                              <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                              <span>{language === "ar" ? "متوقف مؤقتاً" : "Paused"}</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="disabled">
+                            <div className="flex items-center gap-2">
+                              <XCircle className="h-4 w-4 text-gray-500" />
+                              <span>{language === "ar" ? "معطل" : "Disabled"}</span>
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">

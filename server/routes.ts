@@ -2951,6 +2951,41 @@ export async function registerRoutes(
     }
   });
 
+  // Update AI provider status (owner only)
+  app.patch("/api/owner/ai-providers/:provider/status", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { provider } = req.params;
+      const { status } = req.body;
+      
+      const validStatuses = ['active', 'paused', 'disabled'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ error: "حالة غير صالحة / Invalid status" });
+      }
+      
+      await db.update(aiProviderConfigs)
+        .set({ 
+          status,
+          isActive: status === 'active',
+          updatedBy: req.session.userId,
+          updatedAt: new Date(),
+        })
+        .where(eq(aiProviderConfigs.provider, provider));
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "ai_provider_status_changed",
+        entityType: "ai_provider",
+        entityId: provider,
+        details: { provider, status },
+      });
+      
+      res.json({ success: true, message: "تم تحديث الحالة / Status updated" });
+    } catch (error: any) {
+      console.error("Update status error:", error);
+      res.status(500).json({ error: error.message || "فشل في تحديث الحالة" });
+    }
+  });
+
   // ============ Owner User Management APIs ============
 
   // Get all users (owner only)
