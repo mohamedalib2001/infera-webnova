@@ -199,43 +199,53 @@ export async function conversationalResponse(
     };
   }
 
-  // Build conversation context string for better understanding
-  const historyContext = conversationHistory.length > 0 
-    ? `\n\n## سجل المحادثة السابقة / Previous Conversation:\n${conversationHistory.slice(-6).map(m => `${m.role === 'user' ? 'المستخدم' : 'المساعد'}: ${m.content}`).join('\n')}`
-    : '';
+  // Build proper messages array with conversation history
+  const systemPrompt = `أنت مساعد ذكي متقدم جداً في منصة INFERA WebNova - منصة إنشاء المواقع والتطبيقات بالذكاء الاصطناعي.
+You are a highly advanced AI assistant for INFERA WebNova - an AI-powered platform builder.
 
-  const systemPrompt = `أنت مساعد ذكي ودود في منصة INFERA WebNova لإنشاء المنصات الرقمية.
-You are a friendly smart assistant for INFERA WebNova digital platform builder.
+أنت Claude، نموذج ذكاء اصطناعي متطور من Anthropic. أجب بذكاء وفهم عميق.
+You are Claude, an advanced AI model from Anthropic. Respond intelligently with deep understanding.
 
-## قواعدك الهامة:
-- افهم سياق المحادثة جيداً وتذكر ما قاله المستخدم سابقاً
-- رد بشكل مفيد ومناسب لما يسأل عنه المستخدم
-- استخدم نفس لغة المستخدم (عربي/إنجليزي)
-- إذا سأل المستخدم سؤالاً محدداً، أجب عليه مباشرة
-- لا ترد برسالة ترحيب إذا كانت المحادثة جارية بالفعل
-- اقترح خطوات عملية بناءً على احتياجات المستخدم
+## قدراتك الكاملة:
+- فهم السياق والتذكر الكامل للمحادثة
+- الإجابة على أي سؤال بشكل مفصل ودقيق
+- إنشاء مواقع ويب وتطبيقات كاملة
+- تعديل وتحسين الأكواد
+- شرح المفاهيم التقنية بوضوح
+- المساعدة في التخطيط والتصميم
+- حل المشاكل البرمجية
+- تقديم نصائح احترافية
 
-## قدراتك:
-- إنشاء مواقع ويب كاملة
-- تعديل وتحسين المواقع الموجودة
-- شرح المفاهيم التقنية
-- المساعدة في تصميم المشاريع
-- الإجابة على الأسئلة التقنية
-${historyContext}
+## قواعد الرد:
+1. افهم ما يريده المستخدم تماماً قبل الرد
+2. استخدم نفس لغة المستخدم (عربي أو إنجليزي)
+3. كن مفيداً ومباشراً - لا ترد برسائل ترحيب متكررة
+4. إذا كانت المحادثة مستمرة، تذكر السياق السابق
+5. قدم اقتراحات عملية مفيدة
 
-## الرسالة الحالية من المستخدم:
-${prompt}
+رد بصيغة JSON:
+{"message": "ردك الذكي والمفيد", "suggestions": ["اقتراح 1", "اقتراح 2", "اقتراح 3"]}`;
 
-أجب بـ JSON فقط (بدون markdown):
-{"message": "ردك المفيد والمناسب للسياق", "suggestions": ["اقتراح مفيد 1", "اقتراح مفيد 2"]}`;
+  // Build messages with proper roles
+  const messages: Array<{role: "user" | "assistant", content: string}> = [];
+  
+  // Add conversation history with proper roles (last 12 messages)
+  const recentHistory = conversationHistory.slice(-12);
+  for (const msg of recentHistory) {
+    messages.push({ role: msg.role, content: msg.content });
+  }
+  
+  // Add current user message
+  messages.push({ role: "user", content: prompt });
 
   try {
-    console.log("[ConversationalResponse] Processing with history:", conversationHistory.length, "messages");
+    console.log("[ConversationalResponse] Processing with", messages.length, "messages in context");
     
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 1024,
-      messages: [{ role: "user", content: systemPrompt }],
+      max_tokens: 2048,
+      system: systemPrompt,
+      messages: messages,
     });
 
     const textContent = response.content.find(c => c.type === 'text');
@@ -243,29 +253,41 @@ ${prompt}
       throw new Error("No content");
     }
 
-    let jsonStr = textContent.text.trim();
-    if (jsonStr.startsWith('```json')) jsonStr = jsonStr.slice(7);
-    if (jsonStr.startsWith('```')) jsonStr = jsonStr.slice(3);
-    if (jsonStr.endsWith('```')) jsonStr = jsonStr.slice(0, -3);
-    jsonStr = jsonStr.trim();
+    let responseText = textContent.text.trim();
+    
+    // Try to parse as JSON, but also handle plain text responses
+    try {
+      // Clean JSON markers
+      let jsonStr = responseText;
+      if (jsonStr.startsWith('```json')) jsonStr = jsonStr.slice(7);
+      if (jsonStr.startsWith('```')) jsonStr = jsonStr.slice(3);
+      if (jsonStr.endsWith('```')) jsonStr = jsonStr.slice(0, -3);
+      jsonStr = jsonStr.trim();
 
-    const result = JSON.parse(jsonStr);
-    console.log("[ConversationalResponse] Success:", result.message?.substring(0, 50));
-    return {
-      message: result.message || "كيف يمكنني مساعدتك؟",
-      suggestions: result.suggestions || ["أخبرني المزيد", "ساعدني في مشروعي"]
-    };
+      const result = JSON.parse(jsonStr);
+      console.log("[ConversationalResponse] JSON parsed successfully");
+      return {
+        message: result.message || responseText,
+        suggestions: result.suggestions || []
+      };
+    } catch {
+      // If JSON parsing fails, use the raw response
+      console.log("[ConversationalResponse] Using raw text response");
+      return {
+        message: responseText,
+        suggestions: []
+      };
+    }
   } catch (error) {
-    console.error("[ConversationalResponse] Error:", error);
-    // Provide a more context-aware fallback
+    console.error("[ConversationalResponse] API Error:", error);
     const isArabic = /[\u0600-\u06FF]/.test(prompt);
     return {
       message: isArabic 
-        ? `أفهم أنك تريد: "${prompt}". كيف يمكنني مساعدتك بشكل أفضل؟`
-        : `I understand you're asking about: "${prompt}". How can I help you better?`,
+        ? "عذراً، حدث خطأ في معالجة طلبك. يرجى المحاولة مرة أخرى."
+        : "Sorry, an error occurred processing your request. Please try again.",
       suggestions: isArabic 
-        ? ["أخبرني المزيد", "أنشئ موقع ويب", "ساعدني"]
-        : ["Tell me more", "Create a website", "Help me"]
+        ? ["حاول مرة أخرى"]
+        : ["Try again"]
     };
   }
 }
