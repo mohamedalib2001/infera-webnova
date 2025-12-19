@@ -290,6 +290,9 @@ import {
   infrastructureProviders,
   type InfrastructureProvider,
   type InsertInfrastructureProvider,
+  providerCredentials,
+  type ProviderCredential,
+  type InsertProviderCredential,
   infrastructureServers,
   type InfrastructureServer,
   type InsertInfrastructureServer,
@@ -869,6 +872,11 @@ export interface IStorage {
   createInfrastructureProvider(provider: InsertInfrastructureProvider): Promise<InfrastructureProvider>;
   updateInfrastructureProvider(id: string, data: Partial<InsertInfrastructureProvider>): Promise<InfrastructureProvider | undefined>;
   deleteInfrastructureProvider(id: string): Promise<boolean>;
+  
+  // Provider Credentials
+  getProviderCredentialByProviderId(providerId: string): Promise<ProviderCredential | undefined>;
+  createProviderCredential(credential: InsertProviderCredential): Promise<ProviderCredential>;
+  deleteProviderCredential(id: string): Promise<boolean>;
   
   // Infrastructure Servers
   getInfrastructureServers(): Promise<InfrastructureServer[]>;
@@ -4754,6 +4762,23 @@ body { font-family: 'Tajawal', sans-serif; }
   
   async deleteInfrastructureProvider(id: string): Promise<boolean> {
     const result = await db.delete(infrastructureProviders).where(eq(infrastructureProviders.id, id));
+    return true;
+  }
+  
+  // Provider Credentials
+  async getProviderCredentialByProviderId(providerId: string): Promise<ProviderCredential | undefined> {
+    const [credential] = await db.select().from(providerCredentials)
+      .where(eq(providerCredentials.providerId, providerId));
+    return credential || undefined;
+  }
+  
+  async createProviderCredential(credential: InsertProviderCredential): Promise<ProviderCredential> {
+    const [created] = await db.insert(providerCredentials).values(credential).returning();
+    return created;
+  }
+  
+  async deleteProviderCredential(id: string): Promise<boolean> {
+    await db.delete(providerCredentials).where(eq(providerCredentials.id, id));
     return true;
   }
   

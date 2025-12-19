@@ -8946,6 +8946,194 @@ export async function registerRoutes(
     res.json({ success: true, providers });
   });
 
+  // Provider Credentials Management
+  app.post("/api/owner/infrastructure/providers/:id/credentials", requireOwner, async (req, res) => {
+    try {
+      const { id: providerId } = req.params;
+      const { apiToken } = req.body;
+      
+      if (!apiToken || typeof apiToken !== 'string') {
+        return res.status(400).json({ success: false, error: "API token is required" });
+      }
+
+      const provider = await storage.getInfrastructureProvider(providerId);
+      if (!provider) {
+        return res.status(404).json({ success: false, error: "Provider not found" });
+      }
+
+      const { encryptToken } = await import('./crypto-service');
+      const encrypted = encryptToken(apiToken);
+
+      const credential = await storage.createProviderCredential({
+        providerId,
+        credentialType: 'api_token',
+        encryptedToken: encrypted.encryptedToken,
+        tokenIv: encrypted.tokenIv,
+        tokenAuthTag: encrypted.tokenAuthTag,
+        lastFourChars: encrypted.lastFourChars,
+        tokenHash: encrypted.tokenHash,
+        isActive: true,
+        createdBy: req.user?.id,
+      });
+
+      await storage.updateInfrastructureProvider(providerId, {
+        connectionStatus: 'connected',
+        credentialsRef: credential.id
+      });
+
+      res.json({ 
+        success: true, 
+        credential: {
+          id: credential.id,
+          providerId: credential.providerId,
+          maskedToken: `****${encrypted.lastFourChars}`,
+          isActive: credential.isActive,
+          createdAt: credential.createdAt
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to save credentials" });
+    }
+  });
+
+  app.get("/api/owner/infrastructure/providers/:id/credentials", requireOwner, async (req, res) => {
+    try {
+      const { id: providerId } = req.params;
+      const credential = await storage.getProviderCredentialByProviderId(providerId);
+      
+      if (!credential) {
+        return res.json({ success: true, hasCredentials: false });
+      }
+
+      const { maskToken } = await import('./crypto-service');
+      
+      res.json({ 
+        success: true, 
+        hasCredentials: true,
+        credential: {
+          id: credential.id,
+          maskedToken: maskToken(credential.lastFourChars),
+          isActive: credential.isActive,
+          lastUsedAt: credential.lastUsedAt,
+          createdAt: credential.createdAt,
+          updatedAt: credential.updatedAt
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch credentials" });
+    }
+  });
+
+  app.delete("/api/owner/infrastructure/providers/:id/credentials", requireOwner, async (req, res) => {
+    try {
+      const { id: providerId } = req.params;
+      const credential = await storage.getProviderCredentialByProviderId(providerId);
+      
+      if (!credential) {
+        return res.status(404).json({ success: false, error: "Credentials not found" });
+      }
+
+      await storage.deleteProviderCredential(credential.id);
+      await storage.updateInfrastructureProvider(providerId, {
+        connectionStatus: 'disconnected',
+        credentialsRef: null
+      });
+
+      res.json({ success: true, message: "Credentials deleted" });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to delete credentials" });
+    }
+  });
+
+  // Connect provider with custom API token
+  app.post("/api/owner/infrastructure/providers/connect-with-token", requireOwner, async (req, res) => {
+    try {
+      const { providerName, displayName, apiToken } = req.body;
+      
+      if (!apiToken || !providerName) {
+        return res.status(400).json({ success: false, error: "Provider name and API token are required" });
+      }
+
+      // Test connection with provided token
+      let testUrl = "";
+      let authHeader = "";
+      
+      if (providerName === 'hetzner') {
+        testUrl = "https://api.hetzner.cloud/v1/servers";
+        authHeader = `Bearer ${apiToken}`;
+      } else {
+        return res.status(400).json({ success: false, error: "Unsupported provider" });
+      }
+
+      const testResponse = await fetch(testUrl, {
+        headers: {
+          "Authorization": authHeader,
+          "Content-Type": "application/json"
+        }
+      });
+
+      if (!testResponse.ok) {
+        return res.status(400).json({ success: false, error: "Invalid API token" });
+      }
+
+      const serverData = await testResponse.json();
+
+      // Create or update provider
+      const existingProviders = await storage.getInfrastructureProviders();
+      let provider = existingProviders.find(p => p.name === providerName);
+      
+      if (provider) {
+        provider = await storage.updateInfrastructureProvider(provider.id, {
+          connectionStatus: 'connected',
+          activeServers: serverData.servers?.length || 0,
+          healthScore: 100
+        }) as any;
+      } else {
+        provider = await storage.createInfrastructureProvider({
+          name: providerName,
+          displayName: displayName || providerName,
+          connectionStatus: 'connected',
+          isPrimary: true,
+          activeServers: serverData.servers?.length || 0,
+          healthScore: 100
+        });
+      }
+
+      // Save encrypted credentials
+      const { encryptToken } = await import('./crypto-service');
+      const encrypted = encryptToken(apiToken);
+
+      const existingCredential = await storage.getProviderCredentialByProviderId(provider!.id);
+      if (existingCredential) {
+        await storage.deleteProviderCredential(existingCredential.id);
+      }
+
+      const credential = await storage.createProviderCredential({
+        providerId: provider!.id,
+        credentialType: 'api_token',
+        encryptedToken: encrypted.encryptedToken,
+        tokenIv: encrypted.tokenIv,
+        tokenAuthTag: encrypted.tokenAuthTag,
+        lastFourChars: encrypted.lastFourChars,
+        tokenHash: encrypted.tokenHash,
+        isActive: true,
+        createdBy: req.user?.id,
+      });
+
+      await storage.updateInfrastructureProvider(provider!.id, {
+        credentialsRef: credential.id
+      });
+
+      res.json({ 
+        success: true, 
+        provider,
+        maskedToken: `****${encrypted.lastFourChars}`
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to connect provider" });
+    }
+  });
+
   // Infrastructure Servers
   app.get("/api/owner/infrastructure/servers", requireOwner, async (req, res) => {
     try {
