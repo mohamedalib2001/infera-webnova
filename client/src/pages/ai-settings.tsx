@@ -167,6 +167,132 @@ const statusInfo = {
   disabled: { label: "Disabled", labelAr: "معطل", color: "bg-gray-500", icon: XCircle },
 };
 
+interface UsageStats {
+  period: string;
+  totalRequests: number;
+  totalTokens: number;
+  totalCost: number;
+  successRate: number;
+  byProvider: Record<string, { requests: number; tokens: number; cost: number; successRate: number }>;
+}
+
+function UsageStatsSection({ language }: { language: string }) {
+  const { data: stats, isLoading } = useQuery<UsageStats>({
+    queryKey: ["/api/owner/ai-usage/stats"],
+  });
+
+  if (isLoading) {
+    return (
+      <Card className="mt-6">
+        <CardContent className="py-8 text-center">
+          <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!stats) return null;
+
+  const hasUsage = stats.totalRequests > 0;
+
+  return (
+    <Card className="mt-6" data-testid="card-usage-stats">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <DollarSign className="h-5 w-5" />
+          {language === "ar" ? "إحصائيات الاستخدام المقدرة" : "Estimated Usage Statistics"}
+        </CardTitle>
+        <CardDescription>
+          {language === "ar" 
+            ? "تتبع استخدام الذكاء الاصطناعي والتكلفة التقديرية (آخر 30 يوم)"
+            : "Track AI usage and estimated costs (last 30 days)"}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {!hasUsage ? (
+          <div className="text-center py-6 text-muted-foreground">
+            <Bot className="h-10 w-10 mx-auto mb-2 opacity-50" />
+            <p>{language === "ar" ? "لا توجد بيانات استخدام بعد" : "No usage data yet"}</p>
+            <p className="text-sm mt-1">
+              {language === "ar" 
+                ? "سيتم تتبع الاستخدام عند استخدام ميزات الذكاء الاصطناعي"
+                : "Usage will be tracked when AI features are used"}
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div className="p-3 rounded-lg bg-muted/50">
+                <div className="text-2xl font-bold">{stats.totalRequests.toLocaleString()}</div>
+                <div className="text-sm text-muted-foreground">
+                  {language === "ar" ? "إجمالي الطلبات" : "Total Requests"}
+                </div>
+              </div>
+              <div className="p-3 rounded-lg bg-muted/50">
+                <div className="text-2xl font-bold">{(stats.totalTokens / 1000).toFixed(1)}K</div>
+                <div className="text-sm text-muted-foreground">
+                  {language === "ar" ? "الرموز المستخدمة" : "Tokens Used"}
+                </div>
+              </div>
+              <div className="p-3 rounded-lg bg-muted/50">
+                <div className="text-2xl font-bold text-green-600">${stats.totalCost.toFixed(4)}</div>
+                <div className="text-sm text-muted-foreground">
+                  {language === "ar" ? "التكلفة التقديرية" : "Est. Cost"}
+                </div>
+              </div>
+              <div className="p-3 rounded-lg bg-muted/50">
+                <div className="text-2xl font-bold">{stats.successRate}%</div>
+                <div className="text-sm text-muted-foreground">
+                  {language === "ar" ? "معدل النجاح" : "Success Rate"}
+                </div>
+              </div>
+            </div>
+
+            {Object.keys(stats.byProvider).length > 0 && (
+              <>
+                <Separator className="my-4" />
+                <h4 className="font-medium mb-3">
+                  {language === "ar" ? "حسب المزود" : "By Provider"}
+                </h4>
+                <div className="space-y-2">
+                  {Object.entries(stats.byProvider).map(([provider, data]) => (
+                    <div 
+                      key={provider} 
+                      className="flex items-center justify-between p-2 rounded-md bg-muted/30"
+                      data-testid={`usage-provider-${provider}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium capitalize">{provider}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {data.requests} {language === "ar" ? "طلب" : "requests"}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm">
+                        <span className="text-muted-foreground">
+                          {(data.tokens / 1000).toFixed(1)}K tokens
+                        </span>
+                        <span className="font-medium text-green-600">
+                          ${data.cost.toFixed(4)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            <p className="text-xs text-muted-foreground mt-4">
+              {language === "ar" 
+                ? "ملاحظة: التكاليف تقديرية بناءً على أسعار API المعلنة. راجع لوحة فوترة كل مزود للتكاليف الفعلية."
+                : "Note: Costs are estimates based on published API pricing. Check each provider's billing dashboard for actual costs."}
+            </p>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AISettingsPage() {
   const { language } = useLanguage();
   const t = translations[language as keyof typeof translations] || translations.en;
@@ -657,6 +783,9 @@ export default function AISettingsPage() {
             })}
           </div>
         )}
+
+        {/* AI Usage Statistics */}
+        <UsageStatsSection language={language} />
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent className="max-w-md">
