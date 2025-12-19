@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Key, Plus, Eye, EyeOff, RefreshCw, Trash2, Shield, CheckCircle, XCircle, Loader2, Bot, Sparkles, AlertTriangle, DollarSign } from "lucide-react";
+import { Key, Plus, Eye, EyeOff, RefreshCw, Trash2, Shield, CheckCircle, XCircle, Loader2, Bot, Sparkles, AlertTriangle, DollarSign, ExternalLink, CreditCard } from "lucide-react";
 import { SiOpenai, SiGooglecloud } from "react-icons/si";
 
 const translations = {
@@ -99,24 +99,28 @@ const providerInfo = {
     color: "bg-orange-500",
     models: ["claude-sonnet-4-5", "claude-opus-4-5", "claude-haiku-4-5", "claude-opus-4-1"],
     placeholder: "sk-ant-api03-...",
+    billingUrl: "https://console.anthropic.com/settings/billing",
   },
   openai: {
     icon: SiOpenai,
     color: "bg-green-600",
     models: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"],
     placeholder: "sk-...",
+    billingUrl: "https://platform.openai.com/account/billing",
   },
   google: {
     icon: SiGooglecloud,
     color: "bg-blue-500",
     models: ["gemini-pro", "gemini-ultra", "palm-2"],
     placeholder: "AIza...",
+    billingUrl: "https://console.cloud.google.com/billing",
   },
   meta: {
     icon: Sparkles,
     color: "bg-purple-600",
     models: ["llama-2-70b", "llama-2-13b"],
     placeholder: "...",
+    billingUrl: "https://ai.meta.com/",
   },
 };
 
@@ -455,19 +459,39 @@ export default function AISettingsPage() {
                           )}
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => balanceMutation.mutate(config.provider)}
-                        disabled={!config.hasApiKey || checkingBalance === config.provider}
-                        data-testid={`button-balance-${config.provider}`}
-                      >
-                        {checkingBalance === config.provider ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <RefreshCw className="h-4 w-4" />
-                        )}
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => balanceMutation.mutate(config.provider)}
+                          disabled={!config.hasApiKey || checkingBalance === config.provider}
+                          data-testid={`button-balance-${config.provider}`}
+                        >
+                          {checkingBalance === config.provider ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const info = providerInfo[config.provider as ProviderType];
+                            if (info?.billingUrl) {
+                              window.open(info.billingUrl, '_blank', 'noopener,noreferrer');
+                            }
+                          }}
+                          data-testid={`button-recharge-${config.provider}`}
+                          className="gap-1"
+                        >
+                          <CreditCard className="h-4 w-4" />
+                          <span className="hidden sm:inline">
+                            {language === "ar" ? "شحن الرصيد" : "Recharge"}
+                          </span>
+                          <ExternalLink className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                     {config.currentBalance !== null && config.currentBalance < (config.lowBalanceThreshold || 10) && (
                       <div className="flex items-center gap-2 text-sm text-orange-600 dark:text-orange-400">
