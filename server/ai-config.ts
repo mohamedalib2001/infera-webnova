@@ -43,14 +43,17 @@ async function getStoredAnthropicKey(): Promise<{ apiKey: string | null; baseUrl
 export async function getAnthropicClientAsync(): Promise<Anthropic | null> {
   const stored = await getStoredAnthropicKey();
   
-  const directApiKey = stored.apiKey || process.env.ANTHROPIC_API_KEY;
+  // Priority: 1. Environment ANTHROPIC_API_KEY, 2. Stored key from DB, 3. Replit integrations
+  const envApiKey = process.env.ANTHROPIC_API_KEY;
   const replitApiKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
   const replitBaseURL = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
   
-  const useStoredKey = !!stored.apiKey;
-  const useDirectEnv = !useStoredKey && !!process.env.ANTHROPIC_API_KEY;
-  const currentApiKey = stored.apiKey || process.env.ANTHROPIC_API_KEY || replitApiKey;
-  const currentBaseURL = stored.baseUrl || ((!useStoredKey && !useDirectEnv) ? replitBaseURL : null);
+  const useDirectEnv = !!envApiKey;
+  const useStoredKey = !useDirectEnv && !!stored.apiKey;
+  const useReplitIntegrations = !useDirectEnv && !useStoredKey && !!replitApiKey;
+  
+  const currentApiKey = envApiKey || stored.apiKey || replitApiKey;
+  const currentBaseURL = useStoredKey ? stored.baseUrl : (useReplitIntegrations ? replitBaseURL : null);
   
   if (anthropicInstance && cachedApiKey === currentApiKey && cachedBaseURL === currentBaseURL) {
     return anthropicInstance;
@@ -73,10 +76,10 @@ export async function getAnthropicClientAsync(): Promise<Anthropic | null> {
     cachedApiKey = currentApiKey;
     cachedBaseURL = currentBaseURL || null;
     
-    if (useStoredKey) {
+    if (useDirectEnv) {
+      console.log("[AI-Config] Using DIRECT Anthropic API (environment variable)");
+    } else if (useStoredKey) {
       console.log("[AI-Config] Using STORED API key from database (encrypted)");
-    } else if (useDirectEnv) {
-      console.log("[AI-Config] Using DIRECT Anthropic API (Claude Console)");
     } else {
       console.log("[AI-Config] Using Replit AI Integrations");
     }
