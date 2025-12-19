@@ -31,6 +31,7 @@ import OwnerInfrastructure from "@/pages/owner-infrastructure";
 import OwnerIntegrations from "@/pages/owner-integrations";
 import OwnerAISovereignty from "@/pages/owner-ai-sovereignty";
 import OwnerEmailSettings from "@/pages/owner-email-settings";
+import AISettings from "@/pages/ai-settings";
 import AiAppBuilder from "@/pages/ai-app-builder";
 import IDEProjects from "@/pages/ide-projects";
 import CloudIDE from "@/pages/cloud-ide";
@@ -80,6 +81,7 @@ function Router() {
       <Route path="/owner/integrations" component={OwnerIntegrations} />
       <Route path="/owner/ai-sovereignty" component={OwnerAISovereignty} />
       <Route path="/owner/email-settings" component={OwnerEmailSettings} />
+      <Route path="/owner/ai-settings" component={AISettings} />
       <Route path="/ai-builder" component={AiAppBuilder} />
       <Route path="/ide" component={IDEProjects} />
       <Route path="/ide/:id" component={CloudIDE} />

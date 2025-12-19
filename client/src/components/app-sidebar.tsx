@@ -371,6 +371,14 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                       <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/owner/ai-settings"}>
+                          <Link href="/owner/ai-settings" data-testid="nav-owner-ai-settings">
+                            <Key className="h-4 w-4 text-amber-500" />
+                            <span>{language === "ar" ? "مفاتيح AI" : "AI Keys"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
                         <SidebarMenuButton asChild isActive={location === "/owner/email-settings"}>
                           <Link href="/owner/email-settings" data-testid="nav-owner-email-settings">
                             <Mail className="h-4 w-4 text-teal-500" />
