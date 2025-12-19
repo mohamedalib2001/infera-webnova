@@ -11,7 +11,14 @@ import { ComponentLibrary } from "@/components/component-library";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowRight, ArrowLeft, Save, Loader2, Sparkles } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { 
+  ArrowRight, ArrowLeft, Save, Loader2, Sparkles, 
+  Globe, Terminal, FolderTree, LayoutGrid, Monitor, 
+  Play, Square, ExternalLink, Rocket, Eye, Check,
+  Copy, RefreshCw, Settings, ChevronDown, X
+} from "lucide-react";
 import { ThinkingIndicator } from "@/components/thinking-indicator";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/use-language";
@@ -47,6 +54,19 @@ export default function Builder() {
   const [pendingMessages, setPendingMessages] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  
+  const [activeBottomTool, setActiveBottomTool] = useState<string | null>(null);
+  const [workflowStatus, setWorkflowStatus] = useState<'running' | 'stopped' | 'error'>('stopped');
+  const [workflowLogs, setWorkflowLogs] = useState<string[]>([]);
+  const [previewUrl, setPreviewUrl] = useState<string>("");
+  
+  const bottomTools = [
+    { id: 'stop', icon: Square, label: 'Stop', labelAr: 'إيقاف' },
+    { id: 'preview', icon: Monitor, label: 'Preview', labelAr: 'معاينة' },
+    { id: 'files', icon: LayoutGrid, label: 'Files', labelAr: 'ملفات' },
+    { id: 'browser', icon: Globe, label: 'Browser', labelAr: 'متصفح' },
+    { id: 'terminal', icon: Terminal, label: 'Terminal', labelAr: 'طرفية' },
+  ];
 
   useEffect(() => {
     if (!isGenerating && pendingMessages.length > 0) {
@@ -270,10 +290,29 @@ export default function Builder() {
 
   const BackIcon = isRtl ? ArrowRight : ArrowLeft;
 
+  const handlePublish = () => {
+    toast({
+      title: isRtl ? "جاري النشر..." : "Publishing...",
+      description: isRtl ? "سيتم نشر المنصة قريباً" : "Your platform will be published soon",
+    });
+    setWorkflowStatus('running');
+    setWorkflowLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Starting publish workflow...`]);
+  };
+
+  const handlePreview = () => {
+    setActiveBottomTool('preview');
+    const blob = new Blob([`
+<!DOCTYPE html>
+<html><head><style>${css}</style></head>
+<body>${html}<script>${js}</script></body>
+</html>`], { type: 'text/html' });
+    setPreviewUrl(URL.createObjectURL(blob));
+  };
+
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <header className="flex items-center gap-4 p-3 border-b bg-background/95 backdrop-blur-sm">
+      {/* Top Toolbar - Mobile Responsive */}
+      <div className="flex flex-wrap items-center gap-1 sm:gap-2 px-2 py-2 border-b bg-background">
         <Button
           variant="ghost"
           size="icon"
@@ -283,15 +322,37 @@ export default function Builder() {
           <BackIcon className="h-5 w-5" />
         </Button>
         
+        <Button
+          variant="default"
+          size="sm"
+          onClick={handlePublish}
+          className="gap-1"
+          data-testid="button-publish"
+        >
+          <Rocket className="h-4 w-4" />
+          <span className="hidden sm:inline">{isRtl ? "نشر" : "Publish"}</span>
+        </Button>
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handlePreview}
+          className="gap-1"
+          data-testid="button-preview"
+        >
+          <Eye className="h-4 w-4" />
+          <span className="hidden sm:inline">{isRtl ? "معاينة" : "Preview"}</span>
+        </Button>
+        
         <Input
           value={projectName}
           onChange={(e) => setProjectName(e.target.value)}
-          className="max-w-xs font-semibold"
+          className="w-24 sm:w-32 md:w-40 h-8 text-sm"
           data-testid="input-project-name"
         />
         
         <div className="flex-1" />
-
+        
         <ComponentLibrary
           onInsertComponent={(newHtml, newCss, newJs) => {
             setHtml((prev: string) => prev + "\n" + newHtml);
@@ -302,12 +363,11 @@ export default function Builder() {
         
         {projectId && <VersionHistory projectId={projectId} onRestore={(h, c, j) => { setHtml(h); setCss(c); setJs(j); }} />}
         
-        {projectId && <ShareDialog projectId={projectId} />}
-        
         <Button
           onClick={handleSave}
           disabled={saveMutation.isPending}
-          className="gap-2"
+          size="sm"
+          className="gap-1"
           data-testid="button-save"
         >
           {saveMutation.isPending ? (
@@ -315,14 +375,42 @@ export default function Builder() {
           ) : (
             <Save className="h-4 w-4" />
           )}
-          {t("builder.save")}
+          <span className="hidden sm:inline">{t("builder.save")}</span>
         </Button>
-      </header>
+      </div>
+      
+      {/* Workflow Status Bar */}
+      {(isGenerating || workflowStatus === 'running') && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-muted/50 border-b">
+          <div className="flex items-center gap-2">
+            {workflowStatus === 'running' ? (
+              <div className="flex items-center gap-2">
+                <Check className="h-4 w-4 text-green-500" />
+                <span className="text-sm font-medium text-green-600">{isRtl ? "نشر المنصة وتفعيل المراقبة" : "Publishing platform"}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <span className="text-sm">{isRtl ? "جاري العمل..." : "Working..."}</span>
+              </div>
+            )}
+          </div>
+          <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-cyan-400 to-purple-500 transition-all duration-300"
+              style={{ width: isGenerating ? '60%' : '100%' }}
+            />
+          </div>
+          <Badge variant="secondary" className="text-xs">
+            {messages.length}/{messages.length}
+          </Badge>
+        </div>
+      )}
       
       {/* Main content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Preview Panel */}
-        <div className="flex-1 p-4 bg-muted/30">
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+        {/* Preview Panel - Hidden on mobile when chat is focused */}
+        <div className="flex-1 p-2 md:p-4 bg-muted/30 min-h-[200px] md:min-h-0">
           <CodePreview
             html={html}
             css={css}
@@ -331,8 +419,8 @@ export default function Builder() {
           />
         </div>
         
-        {/* Chat Panel */}
-        <div className="w-[380px] flex flex-col border-s bg-background">
+        {/* Chat Panel - Full width on mobile */}
+        <div className="w-full md:w-[340px] flex flex-col border-t md:border-t-0 md:border-s bg-background max-h-[50vh] md:max-h-none">
           <ScrollArea className="flex-1 p-4">
             {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center py-12">
@@ -377,6 +465,97 @@ export default function Builder() {
             />
           </div>
         </div>
+      </div>
+      
+      {/* Bottom Tool Panel - When a tool is active */}
+      {activeBottomTool && (
+        <div className="h-48 border-t bg-background">
+          <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/30">
+            <span className="text-sm font-medium">
+              {activeBottomTool === 'terminal' && (isRtl ? 'طرفية' : 'Terminal')}
+              {activeBottomTool === 'preview' && (isRtl ? 'معاينة' : 'Preview')}
+              {activeBottomTool === 'browser' && (isRtl ? 'متصفح' : 'Browser')}
+              {activeBottomTool === 'files' && (isRtl ? 'ملفات' : 'Files')}
+            </span>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-6 w-6"
+              onClick={() => setActiveBottomTool(null)}
+              data-testid="button-close-tool"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <ScrollArea className="h-36 p-3">
+            {activeBottomTool === 'terminal' && (
+              <div className="font-mono text-xs space-y-1 text-green-400 bg-black/90 p-2 rounded">
+                <div>$ npm run dev</div>
+                <div className="text-muted-foreground">[express] serving on port 5000</div>
+                {workflowLogs.map((log, i) => (
+                  <div key={i} className="text-muted-foreground">{log}</div>
+                ))}
+              </div>
+            )}
+            {activeBottomTool === 'preview' && (
+              <iframe 
+                src={previewUrl || 'about:blank'} 
+                className="w-full h-full bg-white rounded border"
+                title="Preview"
+              />
+            )}
+            {activeBottomTool === 'browser' && (
+              <div className="text-center text-muted-foreground py-8">
+                {isRtl ? 'اضغط على معاينة لعرض المشروع' : 'Click Preview to view the project'}
+              </div>
+            )}
+            {activeBottomTool === 'files' && (
+              <div className="space-y-1 text-sm">
+                <div className="flex items-center gap-2 p-1 hover-elevate rounded">
+                  <FolderTree className="h-4 w-4 text-muted-foreground" />
+                  <span>index.html</span>
+                </div>
+                <div className="flex items-center gap-2 p-1 hover-elevate rounded">
+                  <FolderTree className="h-4 w-4 text-muted-foreground" />
+                  <span>styles.css</span>
+                </div>
+                <div className="flex items-center gap-2 p-1 hover-elevate rounded">
+                  <FolderTree className="h-4 w-4 text-muted-foreground" />
+                  <span>script.js</span>
+                </div>
+              </div>
+            )}
+          </ScrollArea>
+        </div>
+      )}
+      
+      {/* Bottom Toolbar - Like Replit Agent */}
+      <div className="flex items-center justify-center gap-1 px-2 py-2 border-t bg-background">
+        {bottomTools.map((tool) => (
+          <Tooltip key={tool.id}>
+            <TooltipTrigger asChild>
+              <Button
+                variant={activeBottomTool === tool.id ? "default" : "ghost"}
+                size="icon"
+                onClick={() => {
+                  if (tool.id === 'stop') {
+                    setWorkflowStatus('stopped');
+                    setActiveBottomTool(null);
+                  } else {
+                    setActiveBottomTool(activeBottomTool === tool.id ? null : tool.id);
+                  }
+                }}
+                className={tool.id === 'stop' && workflowStatus === 'running' ? 'bg-red-500 hover:bg-red-600 text-white' : ''}
+                data-testid={`button-tool-${tool.id}`}
+              >
+                <tool.icon className="h-5 w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{isRtl ? tool.labelAr : tool.label}</p>
+            </TooltipContent>
+          </Tooltip>
+        ))}
       </div>
     </div>
   );
