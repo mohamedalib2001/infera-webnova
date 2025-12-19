@@ -4312,6 +4312,48 @@ export const insertInfrastructureProviderSchema = createInsertSchema(infrastruct
 export type InsertInfrastructureProvider = z.infer<typeof insertInfrastructureProviderSchema>;
 export type InfrastructureProvider = typeof infrastructureProviders.$inferSelect;
 
+// بيانات اعتماد المزودين (مشفرة)
+export const providerCredentials = pgTable("provider_credentials", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // ربط بالمزود
+  providerId: varchar("provider_id").notNull(),
+  
+  // نوع الاعتماد
+  credentialType: text("credential_type").notNull().default("api_token"), // api_token, api_key, oauth
+  
+  // البيانات المشفرة
+  encryptedToken: text("encrypted_token").notNull(),
+  tokenIv: text("token_iv").notNull(), // Initialization Vector
+  tokenAuthTag: text("token_auth_tag"), // Authentication Tag for GCM
+  
+  // معلومات للعرض (غير حساسة)
+  lastFourChars: text("last_four_chars"), // آخر 4 أحرف للعرض
+  tokenHash: text("token_hash"), // Hash للتحقق من التكرار
+  
+  // الحالة
+  isActive: boolean("is_active").notNull().default(true),
+  lastUsedAt: timestamp("last_used_at"),
+  lastVerifiedAt: timestamp("last_verified_at"),
+  
+  // التدقيق
+  createdBy: varchar("created_by"),
+  updatedBy: varchar("updated_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_provider_credentials_provider").on(table.providerId),
+]);
+
+export const insertProviderCredentialSchema = createInsertSchema(providerCredentials).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertProviderCredential = z.infer<typeof insertProviderCredentialSchema>;
+export type ProviderCredential = typeof providerCredentials.$inferSelect;
+
 // السيرفرات
 export const infrastructureServers = pgTable("infrastructure_servers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
