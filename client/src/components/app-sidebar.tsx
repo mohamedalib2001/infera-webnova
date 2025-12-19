@@ -379,6 +379,14 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                       <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/owner/ai-model-registry"}>
+                          <Link href="/owner/ai-model-registry" data-testid="nav-owner-ai-model-registry">
+                            <Bot className="h-4 w-4 text-violet-500" />
+                            <span>{language === "ar" ? "سجل النماذج" : "Model Registry"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
                         <SidebarMenuButton asChild isActive={location === "/owner/email-settings"}>
                           <Link href="/owner/email-settings" data-testid="nav-owner-email-settings">
                             <Mail className="h-4 w-4 text-teal-500" />
