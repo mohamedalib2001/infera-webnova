@@ -131,10 +131,10 @@ export default function GitControl() {
   const [commitMessage, setCommitMessage] = useState("");
   const [showBranchDialog, setShowBranchDialog] = useState(false);
 
-  const { data: projectsData } = useQuery<{ success: boolean; projects: any[] }>({
+  const { data: projectsData, isLoading: projectsLoading } = useQuery<any[]>({
     queryKey: ["/api/projects"],
   });
-  const projects = projectsData?.projects || [];
+  const projects = Array.isArray(projectsData) ? projectsData : [];
 
   const { data: gitData, isLoading } = useQuery<{
     success: boolean;
@@ -263,7 +263,23 @@ export default function GitControl() {
         )}
       </div>
 
-      {!selectedProject ? (
+      {projectsLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : projects.length === 0 ? (
+        <Card className="py-12">
+          <CardContent className="text-center">
+            <GitBranch className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+            <p className="text-muted-foreground mb-2">
+              {language === "ar" ? "لا توجد مشاريع متاحة" : "No projects available"}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {language === "ar" ? "قم بإنشاء مشروع أولاً من بيئة التطوير" : "Create a project first from the Development Environment"}
+            </p>
+          </CardContent>
+        </Card>
+      ) : !selectedProject ? (
         <Card className="py-12">
           <CardContent className="text-center">
             <GitBranch className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
