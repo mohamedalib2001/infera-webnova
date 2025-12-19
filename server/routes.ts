@@ -1599,6 +1599,228 @@ export async function registerRoutes(
     }
   });
 
+  // ============ Full-Stack Platform Generator ============
+  
+  // Generate complete full-stack platform
+  app.post("/api/generate-fullstack", requireAuth, async (req, res) => {
+    try {
+      const { fullStackGenerator, FullStackProjectSpec } = await import("./full-stack-generator");
+      
+      const specSchema = z.object({
+        name: z.string().min(1),
+        nameAr: z.string().optional(),
+        description: z.string().min(1),
+        descriptionAr: z.string().optional(),
+        industry: z.enum(["government", "commercial", "healthcare", "education", "financial", "hr", "ecommerce", "other"]),
+        features: z.array(z.string()),
+        hasAuth: z.boolean().default(true),
+        hasPayments: z.boolean().default(false),
+        language: z.enum(["ar", "en", "bilingual"]).default("bilingual"),
+      });
+
+      const spec = specSchema.parse(req.body);
+      
+      console.log(`[FullStack] Starting generation for: ${spec.name}`);
+      
+      const result = await fullStackGenerator.generateProject({
+        ...spec,
+        nameAr: spec.nameAr || spec.name,
+        descriptionAr: spec.descriptionAr || spec.description,
+      }, (step, progress) => {
+        console.log(`[FullStack] ${step}: ${progress}%`);
+      });
+      
+      res.json({
+        success: true,
+        projectId: result.projectId,
+        files: result.files, // Return actual generated files
+        filesCount: result.files.length,
+        endpointsCount: result.apiEndpoints.length,
+        apiEndpoints: result.apiEndpoints,
+        documentation: result.documentation,
+        deploymentConfig: result.deploymentConfig,
+      });
+    } catch (error) {
+      console.error("[FullStack] Generation error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: error.errors });
+      }
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to generate platform" 
+      });
+    }
+  });
+
+  // Get generated full-stack project files
+  app.get("/api/projects/:projectId/fullstack-files", requireAuth, async (req, res) => {
+    try {
+      const { projectId } = req.params;
+      const userId = (req as any).userId;
+      
+      const { allowed, project } = await checkProjectAccess(projectId, userId);
+      if (!allowed || !project) {
+        return res.status(403).json({ success: false, error: "Not authorized" });
+      }
+      
+      // Get all generated files for this project from projectFiles table
+      const projectFiles = await storage.getProjectFiles(projectId);
+      
+      // Format files for response
+      const files = projectFiles.map(f => ({
+        path: f.filePath,
+        name: f.fileName,
+        content: f.content,
+        type: f.fileType,
+        createdAt: f.createdAt,
+      }));
+      
+      res.json({ success: true, files, totalFiles: files.length });
+    } catch (error) {
+      res.status(500).json({ success: false, error: "Failed to fetch files" });
+    }
+  });
+
+  // Export project as downloadable ZIP (returns file list for client-side ZIP creation)
+  app.get("/api/projects/:projectId/export", requireAuth, async (req, res) => {
+    try {
+      const { projectId } = req.params;
+      const userId = (req as any).userId;
+      
+      const { allowed, project } = await checkProjectAccess(projectId, userId);
+      if (!allowed || !project) {
+        return res.status(403).json({ success: false, error: "Not authorized" });
+      }
+      
+      // Get all generated files for export
+      const projectFiles = await storage.getProjectFiles(projectId);
+      
+      // Get backend code if available
+      const backend = await storage.getProjectBackend(projectId);
+      
+      // Get database schema if available
+      const database = await storage.getProjectDatabase(projectId);
+      
+      // Compile all files for export
+      const exportFiles: Array<{ path: string; content: string }> = [];
+      
+      // Add project files
+      for (const file of projectFiles) {
+        exportFiles.push({
+          path: file.filePath,
+          content: file.content,
+        });
+      }
+      
+      // Add HTML/CSS/JS if present
+      if (project.htmlCode) {
+        exportFiles.push({ path: "client/index.html", content: project.htmlCode });
+      }
+      if (project.cssCode) {
+        exportFiles.push({ path: "client/styles.css", content: project.cssCode });
+      }
+      if (project.jsCode) {
+        exportFiles.push({ path: "client/script.js", content: project.jsCode });
+      }
+      
+      // Add backend code if available
+      if (backend?.generatedCode) {
+        const backendCode = backend.generatedCode as any;
+        if (backendCode.files) {
+          for (const file of backendCode.files) {
+            exportFiles.push({
+              path: file.path,
+              content: file.content,
+            });
+          }
+        }
+      }
+      
+      // Add database schema if available
+      if (database?.generatedSchema) {
+        exportFiles.push({
+          path: "shared/schema.ts",
+          content: database.generatedSchema,
+        });
+      }
+      
+      // Generate package.json
+      const packageJson = {
+        name: project.name.toLowerCase().replace(/\s+/g, "-"),
+        version: "1.0.0",
+        description: project.description || "",
+        scripts: {
+          dev: "tsx watch server/index.ts",
+          build: "tsc && vite build",
+          start: "node dist/server/index.js",
+          "db:push": "drizzle-kit push",
+        },
+        dependencies: {
+          express: "^4.18.2",
+          "drizzle-orm": "^0.29.0",
+          pg: "^8.11.3",
+          zod: "^3.22.4",
+          "express-session": "^1.17.3",
+        },
+        devDependencies: {
+          typescript: "^5.3.0",
+          "@types/express": "^4.17.21",
+          "@types/node": "^20.10.0",
+          "drizzle-kit": "^0.20.0",
+          tsx: "^4.7.0",
+        },
+      };
+      
+      exportFiles.push({
+        path: "package.json",
+        content: JSON.stringify(packageJson, null, 2),
+      });
+      
+      // Add README
+      const readme = `# ${project.name}
+
+${project.description || ""}
+
+## Getting Started
+
+1. Install dependencies:
+   \`\`\`bash
+   npm install
+   \`\`\`
+
+2. Set up environment variables:
+   \`\`\`bash
+   cp .env.example .env
+   # Edit .env with your database credentials
+   \`\`\`
+
+3. Push database schema:
+   \`\`\`bash
+   npm run db:push
+   \`\`\`
+
+4. Start development server:
+   \`\`\`bash
+   npm run dev
+   \`\`\`
+
+## Generated by INFERA WebNova
+`;
+      
+      exportFiles.push({ path: "README.md", content: readme });
+      
+      res.json({
+        success: true,
+        projectName: project.name,
+        files: exportFiles,
+        totalFiles: exportFiles.length,
+      });
+    } catch (error) {
+      console.error("[Export] Error:", error);
+      res.status(500).json({ success: false, error: "Failed to export project" });
+    }
+  });
+
   // ============ Templates Routes ============
   
   // Get all templates
