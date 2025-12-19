@@ -9248,13 +9248,13 @@ export async function registerRoutes(
             externalId: String(hServer.id),
             providerId: providerId,
             status: hServer.status === 'running' ? 'running' as const : 'stopped' as const,
-            publicIp: hServer.public_net?.ipv4?.ip || null,
-            privateIp: hServer.private_net?.[0]?.ip || null,
+            ipv4: hServer.public_net?.ipv4?.ip || null,
+            ipv6: hServer.public_net?.ipv6?.ip || null,
             region: hServer.datacenter?.location?.name || 'unknown',
             serverType: hServer.server_type?.name || 'unknown',
-            cpuCores: hServer.server_type?.cores || 0,
-            ramGb: Math.round((hServer.server_type?.memory || 0)),
-            storageGb: hServer.server_type?.disk || 0,
+            cpu: hServer.server_type?.cores || 1,
+            ram: Math.round((hServer.server_type?.memory || 1)),
+            storage: hServer.server_type?.disk || 10,
             monthlyCost: hServer.server_type?.prices?.[0]?.price_monthly?.gross ? parseFloat(hServer.server_type.prices[0].price_monthly.gross) : 0,
           };
 
