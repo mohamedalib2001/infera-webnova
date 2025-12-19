@@ -36,8 +36,27 @@ const translations = {
     title: "AI Model Registry",
     subtitle: "Dynamic AI model management and service configuration",
     modelsTab: "Models",
-    servicesTab: "Service Mapping",
+    servicesTab: "Dynamic Services",
     settingsTab: "Global Settings",
+    serviceRegistryDesc: "Configure how each page, chat, and module uses AI",
+    aiModeAuto: "Auto",
+    aiModeManual: "Manual",
+    aiModeDisabled: "Disabled",
+    autoModeDesc: "System automatically selects the best model",
+    manualModeDesc: "You explicitly select the model",
+    disabledModeDesc: "AI is disabled for this service",
+    serviceType: "Service Type",
+    aiMode: "AI Mode",
+    sidebarPath: "Sidebar Path",
+    performanceMode: "Performance",
+    costSensitivity: "Cost Sensitivity",
+    initializeServices: "Initialize Default Services",
+    speed: "Speed",
+    balanced: "Balanced",
+    quality: "Quality",
+    low: "Low",
+    medium: "Medium",
+    high: "High",
     addModel: "Add Model",
     editModel: "Edit Model",
     modelId: "Model ID",
@@ -86,8 +105,27 @@ const translations = {
     title: "سجل نماذج الذكاء الاصطناعي",
     subtitle: "إدارة النماذج وتكوين الخدمات بشكل ديناميكي",
     modelsTab: "النماذج",
-    servicesTab: "ربط الخدمات",
+    servicesTab: "الخدمات الديناميكية",
     settingsTab: "الإعدادات العامة",
+    serviceRegistryDesc: "تكوين كيفية استخدام كل صفحة ومحادثة ووحدة للذكاء الاصطناعي",
+    aiModeAuto: "تلقائي",
+    aiModeManual: "يدوي",
+    aiModeDisabled: "معطل",
+    autoModeDesc: "النظام يختار أفضل نموذج تلقائياً",
+    manualModeDesc: "أنت تختار النموذج بشكل صريح",
+    disabledModeDesc: "الذكاء الاصطناعي معطل لهذه الخدمة",
+    serviceType: "نوع الخدمة",
+    aiMode: "وضع الذكاء الاصطناعي",
+    sidebarPath: "مسار الشريط الجانبي",
+    performanceMode: "الأداء",
+    costSensitivity: "حساسية التكلفة",
+    initializeServices: "تهيئة الخدمات الافتراضية",
+    speed: "سرعة",
+    balanced: "متوازن",
+    quality: "جودة",
+    low: "منخفض",
+    medium: "متوسط",
+    high: "عالي",
     addModel: "إضافة نموذج",
     editModel: "تعديل النموذج",
     modelId: "معرف النموذج",
@@ -158,12 +196,24 @@ interface AiServiceConfig {
   displayName: string;
   displayNameAr: string | null;
   description: string | null;
+  descriptionAr: string | null;
+  serviceType: 'chat' | 'assistant' | 'analysis' | 'automation' | 'system';
+  aiMode: 'auto' | 'manual' | 'disabled';
+  sidebarPath: string | null;
+  icon: string | null;
+  sortOrder: number | null;
   primaryModelId: string | null;
   fallbackModelId: string | null;
+  preferredCapabilities: string[];
   requiredCapabilities: string[];
+  performanceMode: string;
+  costSensitivity: string;
   maxInputTokens: number;
   maxOutputTokens: number;
+  systemPrompt: string | null;
+  temperature: number;
   isEnabled: boolean;
+  isVisible: boolean;
 }
 
 interface AiGlobalSettings {
@@ -318,6 +368,31 @@ export default function AIModelRegistry() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/owner/ai-global-settings"] });
       toast({ title: language === "ar" ? "تم حفظ الإعدادات" : "Settings saved" });
+    },
+  });
+
+  const initializeServicesMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/owner/ai-execution/initialize"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/owner/ai-services"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/owner/ai-execution/services"] });
+      toast({ title: language === "ar" ? "تم تهيئة الخدمات بنجاح" : "Services initialized successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: error.message || "Failed to initialize", variant: "destructive" });
+    },
+  });
+
+  const toggleServiceModeMutation = useMutation({
+    mutationFn: ({ serviceName, aiMode }: { serviceName: string; aiMode: 'auto' | 'manual' | 'disabled' }) =>
+      apiRequest("PATCH", `/api/owner/ai-execution/services/${serviceName}/mode`, { aiMode }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/owner/ai-services"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/owner/ai-execution/services"] });
+      toast({ title: language === "ar" ? "تم تحديث وضع الخدمة" : "Service mode updated" });
+    },
+    onError: (error: any) => {
+      toast({ title: error.message || "Failed to update", variant: "destructive" });
     },
   });
 
@@ -602,14 +677,35 @@ export default function AIModelRegistry() {
         </TabsContent>
 
         <TabsContent value="services" className="space-y-4">
-          <div className="flex justify-between items-center gap-4">
+          <Card className="bg-muted/30">
+            <CardContent className="py-4">
+              <p className="text-sm text-muted-foreground">{t.serviceRegistryDesc}</p>
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-between items-center gap-4 flex-wrap">
             <div className="text-sm text-muted-foreground">
               {services.length} {language === "ar" ? "خدمة مُهيأة" : "services configured"}
             </div>
-            <Button onClick={handleAddService} data-testid="button-add-service">
-              <Plus className="h-4 w-4" />
-              {t.addService}
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => initializeServicesMutation.mutate()}
+                disabled={initializeServicesMutation.isPending}
+                data-testid="button-initialize-services"
+              >
+                {initializeServicesMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                {t.initializeServices}
+              </Button>
+              <Button onClick={handleAddService} data-testid="button-add-service">
+                <Plus className="h-4 w-4" />
+                {t.addService}
+              </Button>
+            </div>
           </div>
 
           {servicesLoading ? (
@@ -624,73 +720,112 @@ export default function AIModelRegistry() {
                 <Settings className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
                 <h3 className="font-medium mb-1">{t.noServices}</h3>
                 <p className="text-sm text-muted-foreground">{t.noServicesDesc}</p>
-                <div className="mt-4 flex flex-wrap justify-center gap-2">
-                  {defaultServices.map((svc) => (
-                    <Badge 
-                      key={svc.serviceName} 
-                      variant="outline" 
-                      className="cursor-pointer hover-elevate"
-                      onClick={() => {
-                        setServiceForm({
-                          serviceName: svc.serviceName,
-                          displayName: svc.displayName,
-                          displayNameAr: svc.displayNameAr,
-                          primaryModelId: "",
-                          fallbackModelId: "",
-                          isEnabled: true,
-                        });
-                        setServiceDialogOpen(true);
-                      }}
-                    >
-                      <Plus className="h-3 w-3" />
-                      {isRTL ? svc.displayNameAr : svc.displayName}
-                    </Badge>
-                  ))}
+                <div className="mt-4">
+                  <Button 
+                    onClick={() => initializeServicesMutation.mutate()}
+                    disabled={initializeServicesMutation.isPending}
+                    data-testid="button-initialize-services-empty"
+                  >
+                    {initializeServicesMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Zap className="h-4 w-4" />
+                    )}
+                    {t.initializeServices}
+                  </Button>
                 </div>
               </CardContent>
             </Card>
           ) : (
             <div className="space-y-3">
-              {services.map((service) => (
-                <Card key={service.id} data-testid={`card-service-${service.serviceName}`}>
-                  <CardContent className="py-4">
-                    <div className="flex items-center justify-between gap-4 flex-wrap">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-2 h-10 rounded-full ${service.isEnabled ? "bg-green-500" : "bg-gray-300"}`} />
-                        <div>
-                          <h4 className="font-medium">
-                            {isRTL ? service.displayNameAr || service.displayName : service.displayName}
-                          </h4>
-                          <p className="text-xs text-muted-foreground font-mono">{service.serviceName}</p>
+              {services.map((service) => {
+                const aiModeColor = service.aiMode === 'auto' ? 'bg-green-500' : service.aiMode === 'manual' ? 'bg-blue-500' : 'bg-gray-400';
+                const aiModeLabel = service.aiMode === 'auto' ? t.aiModeAuto : service.aiMode === 'manual' ? t.aiModeManual : t.aiModeDisabled;
+                const serviceTypeLabels: Record<string, string> = {
+                  chat: isRTL ? 'دردشة' : 'Chat',
+                  assistant: isRTL ? 'مساعد' : 'Assistant',
+                  analysis: isRTL ? 'تحليل' : 'Analysis',
+                  automation: isRTL ? 'أتمتة' : 'Automation',
+                  system: isRTL ? 'نظام' : 'System',
+                };
+                
+                return (
+                  <Card key={service.id} data-testid={`card-service-${service.serviceName}`}>
+                    <CardContent className="py-4">
+                      <div className="flex items-center justify-between gap-4 flex-wrap">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-2 h-10 rounded-full ${service.isEnabled ? aiModeColor : "bg-gray-300"}`} />
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-medium">
+                                {isRTL ? service.displayNameAr || service.displayName : service.displayName}
+                              </h4>
+                              <Badge variant={service.aiMode === 'auto' ? 'default' : service.aiMode === 'manual' ? 'secondary' : 'outline'}>
+                                {service.aiMode === 'auto' && <Zap className="h-3 w-3" />}
+                                {service.aiMode === 'manual' && <Settings className="h-3 w-3" />}
+                                {aiModeLabel}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs">
+                                {serviceTypeLabels[service.serviceType] || service.serviceType}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              <span className="font-mono">{service.serviceName}</span>
+                              {service.sidebarPath && (
+                                <span className="ml-2 opacity-70">→ {service.sidebarPath}</span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-4 flex-wrap">
+                          {service.aiMode !== 'disabled' && (
+                            <>
+                              <div className="text-sm">
+                                <span className="text-muted-foreground">{t.primaryModel}: </span>
+                                <Badge variant="outline">
+                                  {service.aiMode === 'auto' 
+                                    ? (language === "ar" ? "ذكي" : "Smart") 
+                                    : (service.primaryModelId || (language === "ar" ? "غير محدد" : "Not set"))}
+                                </Badge>
+                              </div>
+                              <div className="text-sm">
+                                <span className="text-muted-foreground">{t.fallbackModel}: </span>
+                                <Badge variant="outline">
+                                  {service.fallbackModelId || (language === "ar" ? "تلقائي" : "Auto")}
+                                </Badge>
+                              </div>
+                            </>
+                          )}
+                          <Select
+                            value={service.aiMode}
+                            onValueChange={(value: 'auto' | 'manual' | 'disabled') => 
+                              toggleServiceModeMutation.mutate({ serviceName: service.serviceName, aiMode: value })
+                            }
+                          >
+                            <SelectTrigger className="w-24" data-testid={`select-mode-${service.serviceName}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="auto">{t.aiModeAuto}</SelectItem>
+                              <SelectItem value="manual">{t.aiModeManual}</SelectItem>
+                              <SelectItem value="disabled">{t.aiModeDisabled}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleEditService(service)}
+                            data-testid={`button-edit-service-${service.serviceName}`}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
-                      
-                      <div className="flex items-center gap-4 flex-wrap">
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">{t.primaryModel}: </span>
-                          <Badge variant="outline">
-                            {service.primaryModelId || (language === "ar" ? "تلقائي" : "Auto")}
-                          </Badge>
-                        </div>
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">{t.fallbackModel}: </span>
-                          <Badge variant="outline">
-                            {service.fallbackModelId || (language === "ar" ? "تلقائي" : "Auto")}
-                          </Badge>
-                        </div>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handleEditService(service)}
-                          data-testid={`button-edit-service-${service.serviceName}`}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </TabsContent>
@@ -1027,14 +1162,14 @@ export default function AIModelRegistry() {
             <div className="space-y-2">
               <Label>{t.primaryModel}</Label>
               <Select
-                value={serviceForm.primaryModelId}
-                onValueChange={(value) => setServiceForm({ ...serviceForm, primaryModelId: value })}
+                value={serviceForm.primaryModelId || "__auto__"}
+                onValueChange={(value) => setServiceForm({ ...serviceForm, primaryModelId: value === "__auto__" ? "" : value })}
               >
                 <SelectTrigger data-testid="select-primary-model">
                   <SelectValue placeholder={language === "ar" ? "اختر النموذج الأساسي" : "Select primary model"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">{language === "ar" ? "تلقائي (استخدام الافتراضي)" : "Auto (use default)"}</SelectItem>
+                  <SelectItem value="__auto__">{language === "ar" ? "تلقائي (استخدام الافتراضي)" : "Auto (use default)"}</SelectItem>
                   {models.filter(m => m.isActive).map((model) => (
                     <SelectItem key={model.modelId} value={model.modelId}>
                       {model.name} ({model.provider})
@@ -1047,14 +1182,14 @@ export default function AIModelRegistry() {
             <div className="space-y-2">
               <Label>{t.fallbackModel}</Label>
               <Select
-                value={serviceForm.fallbackModelId}
-                onValueChange={(value) => setServiceForm({ ...serviceForm, fallbackModelId: value })}
+                value={serviceForm.fallbackModelId || "__auto__"}
+                onValueChange={(value) => setServiceForm({ ...serviceForm, fallbackModelId: value === "__auto__" ? "" : value })}
               >
                 <SelectTrigger data-testid="select-fallback-model">
                   <SelectValue placeholder={language === "ar" ? "اختر النموذج البديل" : "Select fallback model"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">{language === "ar" ? "تلقائي" : "Auto"}</SelectItem>
+                  <SelectItem value="__auto__">{language === "ar" ? "تلقائي" : "Auto"}</SelectItem>
                   {models.filter(m => m.isActive && m.modelId !== serviceForm.primaryModelId).map((model) => (
                     <SelectItem key={model.modelId} value={model.modelId}>
                       {model.name} ({model.provider})

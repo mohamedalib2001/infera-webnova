@@ -544,6 +544,120 @@ class AIExecutionLayer {
     return true;
   }
 
+  async updateServiceMode(serviceName: string, aiMode: AIMode): Promise<AiServiceConfig | null> {
+    return this.updateService(serviceName, { aiMode });
+  }
+
+  async initializeDefaultServices(): Promise<AiServiceConfig[]> {
+    const defaultServices = [
+      {
+        serviceName: 'chat',
+        displayName: 'AI Chat',
+        displayNameAr: 'محادثة الذكاء الاصطناعي',
+        description: 'Main chat interface for AI interactions',
+        descriptionAr: 'واجهة المحادثة الرئيسية للتفاعل مع الذكاء الاصطناعي',
+        serviceType: 'chat' as ServiceType,
+        aiMode: 'auto' as AIMode,
+        sidebarPath: '/chat',
+        icon: 'MessageSquare',
+        preferredCapabilities: ['chat', 'reasoning'],
+        requiredCapabilities: ['chat'],
+        performanceMode: 'balanced' as PerformanceMode,
+        costSensitivity: 'medium' as CostSensitivity,
+        isEnabled: true,
+        isVisible: true,
+      },
+      {
+        serviceName: 'code_assistant',
+        displayName: 'Code Assistant',
+        displayNameAr: 'مساعد البرمجة',
+        description: 'AI-powered code generation and assistance',
+        descriptionAr: 'مساعدة وإنشاء الكود بالذكاء الاصطناعي',
+        serviceType: 'assistant' as ServiceType,
+        aiMode: 'auto' as AIMode,
+        sidebarPath: '/builder',
+        icon: 'Code',
+        preferredCapabilities: ['code', 'reasoning'],
+        requiredCapabilities: ['code'],
+        performanceMode: 'quality' as PerformanceMode,
+        costSensitivity: 'low' as CostSensitivity,
+        isEnabled: true,
+        isVisible: true,
+      },
+      {
+        serviceName: 'platform_generator',
+        displayName: 'Platform Generator',
+        displayNameAr: 'مولد المنصات',
+        description: 'Generate complete digital platforms',
+        descriptionAr: 'إنشاء منصات رقمية كاملة',
+        serviceType: 'automation' as ServiceType,
+        aiMode: 'auto' as AIMode,
+        sidebarPath: '/generator',
+        icon: 'Layers',
+        preferredCapabilities: ['code', 'reasoning', 'json_mode'],
+        requiredCapabilities: ['code'],
+        performanceMode: 'quality' as PerformanceMode,
+        costSensitivity: 'low' as CostSensitivity,
+        isEnabled: true,
+        isVisible: true,
+      },
+      {
+        serviceName: 'analytics_assistant',
+        displayName: 'Analytics Assistant',
+        displayNameAr: 'مساعد التحليلات',
+        description: 'AI-powered data analysis and insights',
+        descriptionAr: 'تحليل البيانات والرؤى بالذكاء الاصطناعي',
+        serviceType: 'analysis' as ServiceType,
+        aiMode: 'auto' as AIMode,
+        sidebarPath: '/analytics',
+        icon: 'BarChart',
+        preferredCapabilities: ['reasoning', 'chat'],
+        requiredCapabilities: ['chat'],
+        performanceMode: 'balanced' as PerformanceMode,
+        costSensitivity: 'medium' as CostSensitivity,
+        isEnabled: true,
+        isVisible: true,
+      },
+      {
+        serviceName: 'system_ai',
+        displayName: 'System AI',
+        displayNameAr: 'ذكاء النظام',
+        description: 'Background AI for system automation',
+        descriptionAr: 'الذكاء الاصطناعي للأتمتة في الخلفية',
+        serviceType: 'system' as ServiceType,
+        aiMode: 'auto' as AIMode,
+        sidebarPath: null,
+        icon: 'Settings',
+        preferredCapabilities: ['chat', 'json_mode'],
+        requiredCapabilities: ['chat'],
+        performanceMode: 'speed' as PerformanceMode,
+        costSensitivity: 'high' as CostSensitivity,
+        isEnabled: true,
+        isVisible: false,
+      },
+    ];
+
+    const createdServices: AiServiceConfig[] = [];
+
+    for (const service of defaultServices) {
+      // Check if service already exists
+      const existing = await db.query.aiServiceConfigs.findFirst({
+        where: eq(aiServiceConfigs.serviceName, service.serviceName),
+      });
+
+      if (!existing) {
+        const created = await this.createService(service as any);
+        createdServices.push(created);
+      }
+    }
+
+    // Refresh cache
+    this.clearCache();
+    await this.refreshCacheIfNeeded();
+
+    return createdServices;
+  }
+
   // ==================== VALIDATION ====================
 
   async validateSystem(): Promise<{ ready: boolean; errors: string[] }> {

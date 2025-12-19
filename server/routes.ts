@@ -3468,6 +3468,240 @@ export async function registerRoutes(
     }
   });
 
+  // ============ Dynamic AI Execution Layer APIs ============
+  // These routes provide AI status and execution for any page/service
+
+  // Get AI status for a service (public for UI display)
+  app.get("/api/ai/status/:serviceId", async (req, res) => {
+    try {
+      const { aiExecutionLayer } = await import("./ai-execution-layer");
+      const { serviceId } = req.params;
+      const language = (req.query.language as 'en' | 'ar') || 'en';
+      
+      const status = await aiExecutionLayer.getAIStatusInfo(serviceId, language);
+      
+      if (!status) {
+        return res.json({
+          serviceId,
+          displayName: serviceId,
+          displayNameAr: serviceId,
+          aiMode: 'disabled',
+          modelName: 'No Model',
+          modelNameAr: 'لا يوجد نموذج',
+          modelType: 'None',
+          provider: '',
+          providerIcon: 'Bot',
+          isFallbackActive: false,
+          isEnabled: false,
+          statusLabel: 'Service not configured',
+          statusLabelAr: 'الخدمة غير مُعدة',
+        });
+      }
+      
+      res.json(status);
+    } catch (error: any) {
+      console.error("Get AI status error:", error);
+      res.status(500).json({ error: error.message || "فشل في الحصول على حالة الذكاء الاصطناعي" });
+    }
+  });
+
+  // Get all AI services (for sidebar/navigation)
+  app.get("/api/ai/services", async (req, res) => {
+    try {
+      const { aiExecutionLayer } = await import("./ai-execution-layer");
+      const services = await aiExecutionLayer.getAllServices();
+      res.json(services);
+    } catch (error: any) {
+      console.error("Get AI services error:", error);
+      res.status(500).json({ error: error.message || "فشل في الحصول على الخدمات" });
+    }
+  });
+
+  // Get execution context for a service (authenticated)
+  app.get("/api/ai/context/:serviceId", requireAuth, async (req, res) => {
+    try {
+      const { aiExecutionLayer } = await import("./ai-execution-layer");
+      const { serviceId } = req.params;
+      
+      const context = await aiExecutionLayer.resolveExecutionContext(serviceId);
+      
+      if (!context) {
+        return res.status(404).json({ error: "الخدمة غير موجودة / Service not found" });
+      }
+      
+      res.json({
+        serviceId: context.serviceId,
+        serviceName: context.serviceName,
+        serviceType: context.serviceType,
+        aiMode: context.aiMode,
+        isEnabled: context.isEnabled,
+        activeModel: context.activeModel ? {
+          modelId: context.activeModel.modelId,
+          name: context.activeModel.name,
+          nameAr: context.activeModel.nameAr,
+          provider: context.activeModel.provider,
+        } : null,
+        fallbackModel: context.fallbackModel ? {
+          modelId: context.fallbackModel.modelId,
+          name: context.fallbackModel.name,
+        } : null,
+        provider: context.provider,
+        providerDisplayName: context.providerDisplayName,
+        maxTokens: context.maxTokens,
+        temperature: context.temperature,
+      });
+    } catch (error: any) {
+      console.error("Get execution context error:", error);
+      res.status(500).json({ error: error.message || "فشل في الحصول على سياق التنفيذ" });
+    }
+  });
+
+  // Execute AI for a service (authenticated)
+  app.post("/api/ai/execute/:serviceId", requireAuth, async (req, res) => {
+    try {
+      const { aiExecutionLayer } = await import("./ai-execution-layer");
+      const { serviceId } = req.params;
+      const { messages, systemPrompt, maxTokens, temperature } = req.body;
+      
+      if (!messages || !Array.isArray(messages) || messages.length === 0) {
+        return res.status(400).json({ error: "الرسائل مطلوبة / Messages required" });
+      }
+      
+      const response = await aiExecutionLayer.executeAI(serviceId, messages, {
+        overrideSystemPrompt: systemPrompt,
+        maxTokens,
+        temperature,
+      });
+      
+      res.json(response);
+    } catch (error: any) {
+      console.error("Execute AI error:", error);
+      res.status(500).json({ 
+        success: false,
+        error: error.message || "فشل في تنفيذ الذكاء الاصطناعي" 
+      });
+    }
+  });
+
+  // Owner: Get all services for management
+  app.get("/api/owner/ai-execution/services", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { aiServiceConfigs } = await import("@shared/schema");
+      const services = await db.select().from(aiServiceConfigs).orderBy(aiServiceConfigs.sortOrder);
+      res.json(services);
+    } catch (error: any) {
+      console.error("Get all services error:", error);
+      res.status(500).json({ error: error.message || "فشل في الحصول على الخدمات" });
+    }
+  });
+
+  // Owner: Create/Update service configuration
+  app.post("/api/owner/ai-execution/services", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { aiExecutionLayer } = await import("./ai-execution-layer");
+      const service = await aiExecutionLayer.createService({
+        ...req.body,
+        updatedBy: req.session.userId,
+      });
+      res.json(service);
+    } catch (error: any) {
+      console.error("Create service error:", error);
+      res.status(500).json({ error: error.message || "فشل في إنشاء الخدمة" });
+    }
+  });
+
+  // Owner: Update service configuration
+  app.put("/api/owner/ai-execution/services/:serviceName", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { aiExecutionLayer } = await import("./ai-execution-layer");
+      const { serviceName } = req.params;
+      
+      const service = await aiExecutionLayer.updateService(serviceName, {
+        ...req.body,
+        updatedBy: req.session.userId,
+      });
+      
+      if (!service) {
+        return res.status(404).json({ error: "الخدمة غير موجودة / Service not found" });
+      }
+      
+      res.json(service);
+    } catch (error: any) {
+      console.error("Update service error:", error);
+      res.status(500).json({ error: error.message || "فشل في تحديث الخدمة" });
+    }
+  });
+
+  // Owner: Toggle service AI mode
+  app.patch("/api/owner/ai-execution/services/:serviceName/mode", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { aiExecutionLayer } = await import("./ai-execution-layer");
+      const { serviceName } = req.params;
+      const { aiMode } = req.body;
+      
+      if (!['auto', 'manual', 'disabled'].includes(aiMode)) {
+        return res.status(400).json({ error: "وضع غير صالح / Invalid mode" });
+      }
+      
+      const service = await aiExecutionLayer.updateService(serviceName, {
+        aiMode,
+        updatedBy: req.session.userId,
+      });
+      
+      if (!service) {
+        return res.status(404).json({ error: "الخدمة غير موجودة / Service not found" });
+      }
+      
+      res.json(service);
+    } catch (error: any) {
+      console.error("Toggle service mode error:", error);
+      res.status(500).json({ error: error.message || "فشل في تبديل وضع الخدمة" });
+    }
+  });
+
+  // Owner: Delete service
+  app.delete("/api/owner/ai-execution/services/:serviceName", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { aiExecutionLayer } = await import("./ai-execution-layer");
+      const { serviceName } = req.params;
+      
+      await aiExecutionLayer.deleteService(serviceName);
+      res.json({ success: true, message: "تم حذف الخدمة بنجاح" });
+    } catch (error: any) {
+      console.error("Delete service error:", error);
+      res.status(500).json({ error: error.message || "فشل في حذف الخدمة" });
+    }
+  });
+
+  // Owner: Validate AI system
+  app.get("/api/owner/ai-execution/validate", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { aiExecutionLayer } = await import("./ai-execution-layer");
+      const validation = await aiExecutionLayer.validateSystem();
+      res.json(validation);
+    } catch (error: any) {
+      console.error("Validate AI execution layer error:", error);
+      res.status(500).json({ error: error.message || "فشل في التحقق من النظام" });
+    }
+  });
+
+  // Owner: Initialize default services
+  app.post("/api/owner/ai-execution/initialize", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { aiExecutionLayer } = await import("./ai-execution-layer");
+      const created = await aiExecutionLayer.initializeDefaultServices();
+      
+      res.json({ 
+        success: true, 
+        message: `تم إنشاء ${created.length} خدمة / Created ${created.length} services`,
+        services: created 
+      });
+    } catch (error: any) {
+      console.error("Initialize services error:", error);
+      res.status(500).json({ error: error.message || "فشل في تهيئة الخدمات" });
+    }
+  });
+
   // ============ Owner User Management APIs ============
 
   // Get all users (owner only)
