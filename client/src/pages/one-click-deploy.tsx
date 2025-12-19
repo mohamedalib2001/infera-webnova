@@ -52,6 +52,7 @@ const translations = {
     rollback: "التراجع",
     stop: "إيقاف",
     platforms: {
+      webnova: "INFERA WebNova",
       web: "الويب",
       mobile: "الجوال",
       desktop: "سطح المكتب",
@@ -100,6 +101,7 @@ const translations = {
     rollback: "Rollback",
     stop: "Stop",
     platforms: {
+      webnova: "INFERA WebNova",
       web: "Web",
       mobile: "Mobile",
       desktop: "Desktop",
@@ -169,7 +171,7 @@ export default function OneClickDeploy() {
   const { toast } = useToast();
   
   const [selectedProject, setSelectedProject] = useState<string>("");
-  const [targetPlatform, setTargetPlatform] = useState<string>("web");
+  const [targetPlatform, setTargetPlatform] = useState<string>("webnova");
   const [environment, setEnvironment] = useState<string>("production");
   const [customDomain, setCustomDomain] = useState<string>("");
   const [autoScale, setAutoScale] = useState(true);
@@ -311,6 +313,12 @@ export default function OneClickDeploy() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="webnova">
+                        <div className="flex items-center gap-2">
+                          <Rocket className="h-4 w-4 text-primary" />
+                          {t.platforms.webnova}
+                        </div>
+                      </SelectItem>
                       <SelectItem value="web">
                         <div className="flex items-center gap-2">
                           <Globe className="h-4 w-4" />
