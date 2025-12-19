@@ -11883,6 +11883,564 @@ describe('Generated Tests', () => {
     }
   });
 
+  // ==================== INTELLIGENT SUPPORT SYSTEM API ====================
+  // نظام الدعم الذكي - AI-Powered Support Operations Command Center
+
+  // Import support system modules
+  const { supportAI, supportSessions$, routingEngine, knowledgeBase, agentManager } = await import("./support-system");
+
+  // --- Support Sessions ---
+
+  // Create a new support session (AI-first engagement)
+  app.post("/api/support/sessions", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const user = req.session.user;
+      const { subject, channel, category, message, platformContext } = req.body;
+
+      if (!subject || typeof subject !== "string") {
+        return res.status(400).json({ error: "Subject is required" });
+      }
+
+      // Create support session
+      const session = await supportSessions$.createSession({
+        userId,
+        userEmail: user?.email || undefined,
+        userName: user?.fullName || user?.firstName || undefined,
+        subject,
+        channel: channel || "ai_chat",
+        category: category || "general",
+        platformContext: platformContext || {},
+      });
+
+      // Add initial user message
+      if (message && typeof message === "string") {
+        await supportSessions$.addMessage({
+          sessionId: session.id,
+          senderType: "user",
+          senderId: userId,
+          senderName: user?.fullName || user?.firstName || "User",
+          content: message,
+        });
+
+        // AI-first engagement (for ai_chat channel)
+        if (channel === "ai_chat" || !channel) {
+          const aiResponse = await supportAI.analyzeAndRespond(session.id, message, {
+            category: category || "general",
+            platformContext,
+          });
+
+          // Store AI response
+          await supportSessions$.addMessage({
+            sessionId: session.id,
+            senderType: "ai",
+            senderName: "AI Assistant",
+            content: aiResponse.content,
+            contentAr: aiResponse.contentAr,
+            isAiGenerated: true,
+            aiConfidence: aiResponse.confidence,
+          });
+
+          // Update session with AI analysis
+          await supportSessions$.updateSession(session.id, {
+            aiConfidence: aiResponse.confidence,
+            aiResolutionAttempted: true,
+            category: aiResponse.suggestedCategory || category || "general",
+            priority: aiResponse.suggestedPriority || "medium",
+          });
+
+          // Check if escalation needed
+          if (aiResponse.shouldEscalate) {
+            const routing = await routingEngine.getRoutingRecommendation(session);
+            
+            await supportSessions$.updateSession(session.id, {
+              status: "escalated",
+              aiEscalationReason: aiResponse.escalationReason,
+            });
+
+            // Auto-assign if agent available
+            if (routing.agentId) {
+              await supportSessions$.assignAgent(session.id, routing.agentId);
+            }
+          }
+        }
+      }
+
+      const updatedSession = await supportSessions$.getSession(session.id);
+      const messages = await supportSessions$.getMessages(session.id);
+
+      res.json({ 
+        success: true, 
+        session: updatedSession,
+        messages,
+      });
+    } catch (error) {
+      console.error("Support session creation error:", error);
+      res.status(500).json({ error: "Failed to create support session" });
+    }
+  });
+
+  // Get user's support sessions
+  app.get("/api/support/sessions", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const sessions = await supportSessions$.getUserSessions(userId);
+      res.json({ success: true, sessions });
+    } catch (error) {
+      console.error("Get sessions error:", error);
+      res.status(500).json({ error: "Failed to get sessions" });
+    }
+  });
+
+  // Get single support session with messages
+  app.get("/api/support/sessions/:sessionId", requireAuth, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const userId = req.session.userId!;
+      
+      const session = await supportSessions$.getSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      // Check access - user can only see their own sessions (unless agent/owner)
+      const isAgent = await agentManager.getAgent(userId);
+      const isOwner = req.session.user?.role === "owner";
+      
+      if (session.userId !== userId && !isAgent && !isOwner) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const messages = await supportSessions$.getMessages(sessionId, isAgent !== null || isOwner);
+      
+      res.json({ success: true, session, messages });
+    } catch (error) {
+      console.error("Get session error:", error);
+      res.status(500).json({ error: "Failed to get session" });
+    }
+  });
+
+  // Send message in a session
+  app.post("/api/support/sessions/:sessionId/messages", requireAuth, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const userId = req.session.userId!;
+      const user = req.session.user;
+      const { content, isInternal } = req.body;
+
+      if (!content || typeof content !== "string") {
+        return res.status(400).json({ error: "Message content is required" });
+      }
+
+      const session = await supportSessions$.getSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      const isAgent = await agentManager.getAgent(userId);
+      const isSessionUser = session.userId === userId;
+
+      if (!isSessionUser && !isAgent) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      // Add user/agent message
+      const senderType = isAgent ? "agent" : "user";
+      const message = await supportSessions$.addMessage({
+        sessionId,
+        senderType,
+        senderId: userId,
+        senderName: user?.fullName || user?.firstName || "User",
+        content,
+        isInternal: isAgent && isInternal === true,
+      });
+
+      // If user message in ai_chat channel, get AI response
+      if (senderType === "user" && session.channel === "ai_chat" && !session.assignedAgentId) {
+        const previousMessages = await supportSessions$.getMessages(sessionId);
+        const conversationHistory = previousMessages.map(m => ({
+          role: m.senderType === "user" ? "user" : "assistant",
+          content: m.content,
+        }));
+
+        const aiResponse = await supportAI.analyzeAndRespond(sessionId, content, {
+          category: session.category,
+          previousMessages: conversationHistory,
+        });
+
+        await supportSessions$.addMessage({
+          sessionId,
+          senderType: "ai",
+          senderName: "AI Assistant",
+          content: aiResponse.content,
+          contentAr: aiResponse.contentAr,
+          isAiGenerated: true,
+          aiConfidence: aiResponse.confidence,
+        });
+
+        if (aiResponse.shouldEscalate && session.status !== "escalated") {
+          await supportSessions$.updateSession(sessionId, {
+            status: "escalated",
+            aiEscalationReason: aiResponse.escalationReason,
+          });
+        }
+      }
+
+      const allMessages = await supportSessions$.getMessages(sessionId, isAgent !== null);
+      res.json({ success: true, messages: allMessages });
+    } catch (error) {
+      console.error("Send message error:", error);
+      res.status(500).json({ error: "Failed to send message" });
+    }
+  });
+
+  // Resolve/close session
+  app.post("/api/support/sessions/:sessionId/resolve", requireAuth, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const userId = req.session.userId!;
+      const { resolutionType, notes, rating, feedback } = req.body;
+
+      const session = await supportSessions$.getSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      const isAgent = await agentManager.getAgent(userId);
+      const isOwner = req.session.user?.role === "owner";
+      const isSessionUser = session.userId === userId;
+
+      if (!isSessionUser && !isAgent && !isOwner) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const resolveType = isAgent || isOwner ? (resolutionType || "agent_resolved") : "user_closed";
+      
+      const updatedSession = await supportSessions$.resolveSession(
+        sessionId,
+        userId,
+        resolveType,
+        notes
+      );
+
+      // Update satisfaction if provided
+      if (rating && typeof rating === "number" && rating >= 1 && rating <= 5) {
+        await supportSessions$.updateSession(sessionId, {
+          satisfactionRating: rating,
+          satisfactionFeedback: feedback,
+        });
+      }
+
+      res.json({ success: true, session: updatedSession });
+    } catch (error) {
+      console.error("Resolve session error:", error);
+      res.status(500).json({ error: "Failed to resolve session" });
+    }
+  });
+
+  // --- Agent Dashboard APIs ---
+
+  // Get agent queue (sessions waiting for assignment)
+  app.get("/api/support/agent/queue", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const agent = await agentManager.getAgent(userId);
+      
+      if (!agent && req.session.user?.role !== "owner") {
+        return res.status(403).json({ error: "Not a support agent" });
+      }
+
+      const openSessions = await supportSessions$.getOpenSessions({
+        status: "escalated",
+        limit: 50,
+      });
+
+      const pendingSessions = await supportSessions$.getOpenSessions({
+        status: "open",
+        limit: 50,
+      });
+
+      res.json({ 
+        success: true, 
+        queue: [...openSessions, ...pendingSessions],
+      });
+    } catch (error) {
+      console.error("Get agent queue error:", error);
+      res.status(500).json({ error: "Failed to get queue" });
+    }
+  });
+
+  // Get agent's assigned sessions
+  app.get("/api/support/agent/sessions", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const agent = await agentManager.getAgent(userId);
+      
+      if (!agent && req.session.user?.role !== "owner") {
+        return res.status(403).json({ error: "Not a support agent" });
+      }
+
+      const mySessions = await supportSessions$.getOpenSessions({
+        agentId: userId,
+        limit: 50,
+      });
+
+      res.json({ success: true, sessions: mySessions });
+    } catch (error) {
+      console.error("Get agent sessions error:", error);
+      res.status(500).json({ error: "Failed to get sessions" });
+    }
+  });
+
+  // Agent claims/takes a session
+  app.post("/api/support/agent/claim/:sessionId", requireAuth, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const userId = req.session.userId!;
+      
+      const agent = await agentManager.getAgent(userId);
+      if (!agent && req.session.user?.role !== "owner") {
+        return res.status(403).json({ error: "Not a support agent" });
+      }
+
+      const session = await supportSessions$.assignAgent(sessionId, userId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      res.json({ success: true, session });
+    } catch (error) {
+      console.error("Claim session error:", error);
+      res.status(500).json({ error: "Failed to claim session" });
+    }
+  });
+
+  // Get AI suggestion for agent response
+  app.get("/api/support/agent/suggest/:sessionId", requireAuth, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const userId = req.session.userId!;
+      
+      const agent = await agentManager.getAgent(userId);
+      if (!agent && req.session.user?.role !== "owner") {
+        return res.status(403).json({ error: "Not a support agent" });
+      }
+
+      const suggestion = await supportAI.suggestAgentResponse(sessionId, userId);
+      res.json({ success: true, ...suggestion });
+    } catch (error) {
+      console.error("Get suggestion error:", error);
+      res.status(500).json({ error: "Failed to get suggestion" });
+    }
+  });
+
+  // Update agent status
+  app.post("/api/support/agent/status", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const { status } = req.body;
+
+      if (!status || !["available", "busy", "away", "offline"].includes(status)) {
+        return res.status(400).json({ error: "Invalid status" });
+      }
+
+      const agent = await agentManager.updateStatus(userId, status);
+      if (!agent) {
+        return res.status(404).json({ error: "Agent not found" });
+      }
+
+      res.json({ success: true, agent });
+    } catch (error) {
+      console.error("Update agent status error:", error);
+      res.status(500).json({ error: "Failed to update status" });
+    }
+  });
+
+  // Get agent stats
+  app.get("/api/support/agent/stats", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const stats = await agentManager.getAgentStats(userId);
+      res.json({ success: true, stats });
+    } catch (error) {
+      console.error("Get agent stats error:", error);
+      res.status(500).json({ error: "Failed to get stats" });
+    }
+  });
+
+  // --- Knowledge Base APIs ---
+
+  // Search knowledge base
+  app.get("/api/support/knowledge", async (req, res) => {
+    try {
+      const { q, limit } = req.query;
+      const articles = await knowledgeBase.searchArticles(
+        typeof q === "string" ? q : "",
+        typeof limit === "string" ? parseInt(limit) : 10
+      );
+      res.json({ success: true, articles });
+    } catch (error) {
+      console.error("Search knowledge base error:", error);
+      res.status(500).json({ error: "Failed to search knowledge base" });
+    }
+  });
+
+  // Get single knowledge base article
+  app.get("/api/support/knowledge/:slug", async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const article = await knowledgeBase.getArticle(slug);
+      
+      if (!article) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+
+      res.json({ success: true, article });
+    } catch (error) {
+      console.error("Get article error:", error);
+      res.status(500).json({ error: "Failed to get article" });
+    }
+  });
+
+  // Create knowledge base article (agent/owner only)
+  app.post("/api/support/knowledge", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const agent = await agentManager.getAgent(userId);
+      
+      if (!agent && req.session.user?.role !== "owner") {
+        return res.status(403).json({ error: "Only agents can create articles" });
+      }
+
+      const { slug, title, titleAr, content, contentAr, category, subcategory, tags, isPublished, isInternal } = req.body;
+
+      if (!slug || !title || !content || !category) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const article = await knowledgeBase.createArticle({
+        slug,
+        title,
+        titleAr,
+        content,
+        contentAr,
+        category,
+        subcategory,
+        tags: tags || [],
+        isPublished: isPublished || false,
+        isInternal: isInternal || false,
+        createdBy: userId,
+      });
+
+      res.json({ success: true, article });
+    } catch (error) {
+      console.error("Create article error:", error);
+      res.status(500).json({ error: "Failed to create article" });
+    }
+  });
+
+  // Mark article as helpful
+  app.post("/api/support/knowledge/:id/feedback", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { helpful } = req.body;
+
+      if (typeof helpful !== "boolean") {
+        return res.status(400).json({ error: "Helpful must be boolean" });
+      }
+
+      await knowledgeBase.markHelpful(id, helpful);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Mark helpful error:", error);
+      res.status(500).json({ error: "Failed to record feedback" });
+    }
+  });
+
+  // --- Support Analytics (Owner/Supervisor only) ---
+
+  app.get("/api/support/analytics", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (user?.role !== "owner") {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      // Get basic analytics
+      const { supportSessions: sessionsTable, supportMessages: messagesTable } = await import("@shared/schema");
+      
+      const totalSessions = await db.select({ count: sql<number>`count(*)` }).from(sessionsTable);
+      const resolvedSessions = await db.select({ count: sql<number>`count(*)` }).from(sessionsTable).where(eq(sessionsTable.status, "resolved"));
+      const aiResolvedSessions = await db.select({ count: sql<number>`count(*)` }).from(sessionsTable).where(and(eq(sessionsTable.status, "resolved"), eq(sessionsTable.resolutionType, "ai_resolved")));
+      
+      const avgRating = await db.select({ avg: sql<number>`avg(satisfaction_rating)` }).from(sessionsTable).where(sql`satisfaction_rating IS NOT NULL`);
+
+      res.json({
+        success: true,
+        analytics: {
+          totalSessions: totalSessions[0]?.count || 0,
+          resolvedSessions: resolvedSessions[0]?.count || 0,
+          aiResolvedSessions: aiResolvedSessions[0]?.count || 0,
+          resolutionRate: totalSessions[0]?.count ? (resolvedSessions[0]?.count / totalSessions[0]?.count * 100).toFixed(1) : 0,
+          aiResolutionRate: resolvedSessions[0]?.count ? (aiResolvedSessions[0]?.count / resolvedSessions[0]?.count * 100).toFixed(1) : 0,
+          averageSatisfaction: avgRating[0]?.avg?.toFixed(1) || "N/A",
+        },
+      });
+    } catch (error) {
+      console.error("Get analytics error:", error);
+      res.status(500).json({ error: "Failed to get analytics" });
+    }
+  });
+
+  // --- Agent Management (Owner only) ---
+
+  // List all agents
+  app.get("/api/support/agents", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (user?.role !== "owner") {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const { supportAgents: agentsTable } = await import("@shared/schema");
+      const agents = await db.select().from(agentsTable);
+
+      res.json({ success: true, agents });
+    } catch (error) {
+      console.error("List agents error:", error);
+      res.status(500).json({ error: "Failed to list agents" });
+    }
+  });
+
+  // Create/register an agent
+  app.post("/api/support/agents", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (user?.role !== "owner") {
+        return res.status(403).json({ error: "Only owner can create agents" });
+      }
+
+      const { userId, displayName, displayNameAr, skills, languages } = req.body;
+
+      if (!userId || !displayName) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const agent = await agentManager.createAgent({
+        userId,
+        displayName,
+        displayNameAr,
+        skills: skills || [],
+        languages: languages || ["en", "ar"],
+      });
+
+      res.json({ success: true, agent });
+    } catch (error) {
+      console.error("Create agent error:", error);
+      res.status(500).json({ error: "Failed to create agent" });
+    }
+  });
+
   return httpServer;
 }
 
