@@ -54,6 +54,7 @@ import AICopilot from "@/pages/ai-copilot";
 import TestingGenerator from "@/pages/testing-generator";
 import Marketplace from "@/pages/marketplace";
 import Collaboration from "@/pages/collaboration";
+import SSLCertificates from "@/pages/ssl-certificates";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -94,6 +95,7 @@ function Router() {
       <Route path="/integrations" component={Integrations} />
       <Route path="/smart-suggestions" component={SmartSuggestions} />
       <Route path="/deploy" component={OneClickDeploy} />
+      <Route path="/ssl" component={SSLCertificates} />
       <Route path="/backend-generator" component={BackendGenerator} />
       <Route path="/git" component={GitControl} />
       <Route path="/ai-copilot" component={AICopilot} />

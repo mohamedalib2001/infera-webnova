@@ -37,6 +37,7 @@ import {
   TestTube2,
   Store,
   Users,
+  ShieldCheck,
 } from "lucide-react";
 import {
   Sidebar,
@@ -78,6 +79,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     { title: language === "ar" ? "منشئ التطبيقات" : "AI App Builder", url: "/ai-builder", icon: Sparkles, testId: "nav-ai-builder" },
     { title: language === "ar" ? "الاقتراحات الذكية" : "Smart Suggestions", url: "/smart-suggestions", icon: Lightbulb, testId: "nav-smart-suggestions" },
     { title: language === "ar" ? "النشر بنقرة" : "One-Click Deploy", url: "/deploy", icon: Rocket, testId: "nav-deploy" },
+    { title: language === "ar" ? "شهادات SSL" : "SSL Certificates", url: "/ssl", icon: ShieldCheck, testId: "nav-ssl" },
     { title: language === "ar" ? "مولّد الباك إند" : "Backend Generator", url: "/backend-generator", icon: ServerCog, testId: "nav-backend-generator" },
     { title: language === "ar" ? "التحكم بالإصدارات" : "Version Control", url: "/git", icon: GitBranch, testId: "nav-git" },
     { title: language === "ar" ? "مساعد AI Copilot" : "AI Copilot", url: "/ai-copilot", icon: Brain, testId: "nav-copilot" },
