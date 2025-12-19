@@ -6,13 +6,17 @@ const IV_LENGTH = 16;
 const SALT_LENGTH = 16;
 
 function getEncryptionKey(salt: Buffer): Buffer {
-  const secretKey = process.env.INFRA_CREDENTIALS_SECRET;
+  const secretKey = process.env.INFRA_CREDENTIALS_SECRET || process.env.SESSION_SECRET;
   
   if (!secretKey) {
-    throw new Error('INFRA_CREDENTIALS_SECRET environment variable is required for credential encryption');
+    throw new Error('INFRA_CREDENTIALS_SECRET or SESSION_SECRET environment variable is required for credential encryption');
   }
   
   return crypto.scryptSync(secretKey, salt, KEY_LENGTH);
+}
+
+export function isCustomEncryptionEnabled(): boolean {
+  return !!process.env.INFRA_CREDENTIALS_SECRET;
 }
 
 export interface EncryptedData {

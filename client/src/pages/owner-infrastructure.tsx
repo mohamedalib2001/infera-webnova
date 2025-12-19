@@ -233,6 +233,10 @@ export default function OwnerInfrastructure() {
     queryKey: ['/api/owner/infrastructure/available-providers']
   });
 
+  const { data: encryptionStatusData } = useQuery<{ customEncryptionEnabled: boolean; encryptionActive: boolean }>({
+    queryKey: ['/api/owner/infrastructure/encryption-status']
+  });
+
   const connectHetznerMutation = useMutation({
     mutationFn: () => apiRequest('POST', '/api/owner/infrastructure/providers/connect-hetzner'),
     onSuccess: () => {
@@ -428,6 +432,10 @@ export default function OwnerInfrastructure() {
           <TabsTrigger value="costs" className="gap-2" data-testid="tab-costs">
             <DollarSign className="w-4 h-4" />
             {t.tabs.costs}
+          </TabsTrigger>
+          <TabsTrigger value="security" className="gap-2" data-testid="tab-security">
+            <Shield className="w-4 h-4" />
+            {language === 'ar' ? 'الأمان' : 'Security'}
           </TabsTrigger>
         </TabsList>
 
@@ -995,6 +1003,109 @@ export default function OwnerInfrastructure() {
                       <div key={i} className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
                         <AlertTriangle className="w-4 h-4 text-yellow-500" />
                         <span className="text-sm">{alert.message}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="security">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="w-5 h-5" />
+                  {language === 'ar' ? 'إعدادات التشفير' : 'Encryption Settings'}
+                </CardTitle>
+                <CardDescription>
+                  {language === 'ar' 
+                    ? 'إدارة تشفير بيانات اعتماد مزودي البنية التحتية' 
+                    : 'Manage infrastructure provider credential encryption'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full ${encryptionStatusData?.encryptionActive ? 'bg-green-500' : 'bg-red-500'}`} />
+                    <div>
+                      <p className="font-medium">{language === 'ar' ? 'حالة التشفير' : 'Encryption Status'}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {encryptionStatusData?.encryptionActive 
+                          ? (language === 'ar' ? 'نشط' : 'Active')
+                          : (language === 'ar' ? 'غير نشط' : 'Inactive')}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge className={encryptionStatusData?.encryptionActive ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}>
+                    {encryptionStatusData?.encryptionActive 
+                      ? (language === 'ar' ? 'مفعّل' : 'Enabled')
+                      : (language === 'ar' ? 'معطّل' : 'Disabled')}
+                  </Badge>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full ${encryptionStatusData?.customEncryptionEnabled ? 'bg-green-500' : 'bg-yellow-500'}`} />
+                    <div>
+                      <p className="font-medium">{language === 'ar' ? 'مفتاح تشفير مخصص' : 'Custom Encryption Key'}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {encryptionStatusData?.customEncryptionEnabled 
+                          ? (language === 'ar' ? 'تم تكوين INFRA_CREDENTIALS_SECRET' : 'INFRA_CREDENTIALS_SECRET configured')
+                          : (language === 'ar' ? 'يستخدم مفتاح الجلسة الافتراضي' : 'Using default session key')}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge className={encryptionStatusData?.customEncryptionEnabled ? 'bg-green-600 text-white' : 'bg-yellow-600 text-white'}>
+                    {encryptionStatusData?.customEncryptionEnabled 
+                      ? (language === 'ar' ? 'مخصص' : 'Custom')
+                      : (language === 'ar' ? 'افتراضي' : 'Default')}
+                  </Badge>
+                </div>
+
+                <div className="border-t pt-4">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    {language === 'ar' 
+                      ? 'لتفعيل مفتاح تشفير مخصص، أضف متغير البيئة INFRA_CREDENTIALS_SECRET في إعدادات المشروع.' 
+                      : 'To enable a custom encryption key, add the INFRA_CREDENTIALS_SECRET environment variable in project settings.'}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="w-5 h-5" />
+                  {language === 'ar' ? 'بيانات الاعتماد المحفوظة' : 'Saved Credentials'}
+                </CardTitle>
+                <CardDescription>
+                  {language === 'ar' 
+                    ? 'عرض بيانات اعتماد المزودين المحفوظة' 
+                    : 'View saved provider credentials'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {providers.filter(p => p.connectionStatus === 'connected').length === 0 ? (
+                  <div className="text-center py-4">
+                    <Shield className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-muted-foreground">
+                      {language === 'ar' ? 'لا توجد بيانات اعتماد محفوظة' : 'No saved credentials'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {providers.filter(p => p.connectionStatus === 'connected').map((provider) => (
+                      <div key={provider.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
+                        <div className="flex items-center gap-2">
+                          {getProviderIcon(provider.name)}
+                          <span className="font-medium">{provider.displayName}</span>
+                        </div>
+                        <Badge className="bg-green-600 text-white">
+                          {language === 'ar' ? 'متصل' : 'Connected'}
+                        </Badge>
                       </div>
                     ))}
                   </div>

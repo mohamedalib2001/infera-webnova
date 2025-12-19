@@ -8926,6 +8926,16 @@ export async function registerRoutes(
     }
   });
 
+  // Check encryption status
+  app.get("/api/owner/infrastructure/encryption-status", requireOwner, async (req, res) => {
+    const { isCustomEncryptionEnabled } = await import('./crypto-service');
+    res.json({
+      success: true,
+      customEncryptionEnabled: isCustomEncryptionEnabled(),
+      encryptionActive: true
+    });
+  });
+
   // Check available providers from environment
   app.get("/api/owner/infrastructure/available-providers", requireOwner, async (req, res) => {
     const providers = [];
