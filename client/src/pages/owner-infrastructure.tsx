@@ -267,8 +267,6 @@ export default function OwnerInfrastructure() {
   });
 
   const availableProviders = availableProvidersData?.providers || [];
-  const hetznerConfigured = availableProviders.some(p => p.name === 'hetzner');
-  const hetznerConnected = providers.some(p => p.name === 'hetzner' && p.connectionStatus === 'connected');
 
   const createProviderMutation = useMutation({
     mutationFn: (data: any) => apiRequest('POST', '/api/owner/infrastructure/providers', data),
@@ -302,6 +300,9 @@ export default function OwnerInfrastructure() {
   const backups = backupsData?.backups || [];
   const costAlerts = costAlertsData?.alerts || [];
   const budgets = budgetsData?.budgets || [];
+
+  const hetznerConfigured = availableProviders.some(p => p.name === 'hetzner');
+  const hetznerConnected = providers.some(p => p.name === 'hetzner' && p.connectionStatus === 'connected');
 
   const totalMonthlyCost = servers.reduce((sum, s) => sum + (s.costPerMonth || 0), 0);
   const activeServers = servers.filter(s => s.status === 'running').length;
