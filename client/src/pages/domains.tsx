@@ -556,15 +556,27 @@ export default function DomainsPage() {
   });
 
   const renewDomainMutation = useMutation({
-    mutationFn: async ({ domainId, years }: { domainId: number; years: number }) => {
-      return apiRequest('POST', `/api/domains/${domainId}/renew`, { years });
+    mutationFn: async ({ domainId, years }: { domainId: string; years: number }) => {
+      const response = await apiRequest('POST', `/api/domains/${domainId}/renew`, { years });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(language === 'ar' ? errorData.errorAr : errorData.error);
+      }
+      return response.json();
     },
     onSuccess: () => {
       toast({ title: t.success.renewed });
       queryClient.invalidateQueries({ queryKey: ['/api/domains'] });
     },
-    onError: () => {
-      toast({ title: t.errors.renewFailed, variant: 'destructive' });
+    onError: (error: Error) => {
+      const errorMessage = error.message.includes('INSUFFICIENTFUNDS') 
+        ? (language === 'ar' ? 'رصيد حساب Namecheap غير كافٍ للتجديد' : 'Insufficient Namecheap account balance for renewal')
+        : error.message;
+      toast({ 
+        title: t.errors.renewFailed, 
+        description: errorMessage,
+        variant: 'destructive' 
+      });
     },
   });
 
