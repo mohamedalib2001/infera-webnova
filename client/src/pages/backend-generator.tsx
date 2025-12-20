@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useLanguage } from "@/hooks/use-language";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { 
@@ -32,20 +33,26 @@ import {
   FileText,
   FolderTree,
   Lightbulb,
-  Search,
-  CreditCard,
-  Bell,
-  BarChart3,
-  Globe,
-  Plus
+  AlertTriangle,
+  AlertCircle,
+  Info,
+  ChevronRight,
+  ChevronDown,
+  Folder,
+  File,
+  Check,
+  X,
+  Play,
+  Clock
 } from "lucide-react";
 
 const translations = {
   ar: {
-    title: "مولّد الباك إند",
-    subtitle: "أنشئ باك إند كامل بضغطة زر باستخدام الذكاء الاصطناعي",
+    title: "مولّد الباك إند الذكي",
+    subtitle: "محرك توليد باك إند ذكي يفهم احتياجاتك ويبني أنظمة كاملة",
     projectName: "اسم المشروع",
     description: "وصف المشروع",
+    descriptionPlaceholder: "صف نظامك بالتفصيل... مثال: نظام إدارة مدرسة يشمل الطلاب والمعلمين والحضور والدرجات",
     framework: "إطار العمل",
     database: "قاعدة البيانات",
     language: "لغة البرمجة",
@@ -73,16 +80,31 @@ const translations = {
       fileUpload: "رفع الملفات",
       email: "إرسال البريد"
     },
-    smartSuggestions: "اقتراحات ذكية",
-    addFeature: "إضافة",
-    added: "تمت الإضافة",
-    suggestionsDesc: "ميزات إضافية يمكنك إضافتها لتحسين مشروعك"
+    preview: "معاينة مباشرة",
+    architecture: "الهيكلية",
+    folderStructure: "بنية الملفات",
+    securityScore: "نقاط الأمان",
+    productionReadiness: "جاهزية الإنتاج",
+    enabledModules: "الوحدات المفعّلة",
+    warnings: "تحذيرات",
+    suggestions: "اقتراحات",
+    generationLog: "سجل التوليد",
+    readinessChecklist: "قائمة التحقق",
+    notReady: "غير جاهز",
+    development: "تطوير",
+    staging: "اختبار",
+    production: "إنتاج",
+    cleanArchitecture: "Clean Architecture",
+    modularMonolith: "Modular Monolith",
+    microservices: "Microservices",
+    addSuggestion: "إضافة",
   },
   en: {
-    title: "Backend Generator",
-    subtitle: "Generate a complete backend with one click using AI",
+    title: "Intelligent Backend Generator",
+    subtitle: "Smart backend engine that understands your needs and builds complete systems",
     projectName: "Project Name",
     description: "Project Description",
+    descriptionPlaceholder: "Describe your system in detail... Example: School management system with students, teachers, attendance, and grades",
     framework: "Framework",
     database: "Database",
     language: "Language",
@@ -110,70 +132,67 @@ const translations = {
       fileUpload: "File Upload",
       email: "Email Sending"
     },
-    smartSuggestions: "Smart Suggestions",
-    addFeature: "Add",
-    added: "Added",
-    suggestionsDesc: "Additional features you can add to enhance your project"
+    preview: "Live Preview",
+    architecture: "Architecture",
+    folderStructure: "Folder Structure",
+    securityScore: "Security Score",
+    productionReadiness: "Production Readiness",
+    enabledModules: "Enabled Modules",
+    warnings: "Warnings",
+    suggestions: "Suggestions",
+    generationLog: "Generation Log",
+    readinessChecklist: "Readiness Checklist",
+    notReady: "Not Ready",
+    development: "Development",
+    staging: "Staging",
+    production: "Production",
+    cleanArchitecture: "Clean Architecture",
+    modularMonolith: "Modular Monolith",
+    microservices: "Microservices",
+    addSuggestion: "Add",
   }
 };
 
-interface SmartSuggestion {
-  id: string;
-  title: { ar: string; en: string };
-  description: { ar: string; en: string };
-  features: string[];
-  icon: string;
+interface FolderNode {
+  name: string;
+  type: "file" | "folder";
+  children?: FolderNode[];
+  description?: string;
 }
 
-const suggestionCatalog: SmartSuggestion[] = [
-  {
-    id: "realtime",
-    title: { ar: "الاتصال في الوقت الفعلي", en: "Real-time Communication" },
-    description: { ar: "أضف WebSocket للتحديثات الفورية والإشعارات", en: "Add WebSocket for instant updates and notifications" },
-    features: ["websocket", "realtime"],
-    icon: "zap"
-  },
-  {
-    id: "search",
-    title: { ar: "البحث المتقدم", en: "Advanced Search" },
-    description: { ar: "محرك بحث نصي كامل مع فلترة وترتيب", en: "Full-text search engine with filtering and sorting" },
-    features: ["search", "elasticsearch"],
-    icon: "search"
-  },
-  {
-    id: "payments",
-    title: { ar: "بوابة الدفع", en: "Payment Gateway" },
-    description: { ar: "تكامل مع Stripe للمدفوعات الآمنة", en: "Stripe integration for secure payments" },
-    features: ["payments", "stripe"],
-    icon: "creditCard"
-  },
-  {
-    id: "notifications",
-    title: { ar: "نظام الإشعارات", en: "Notification System" },
-    description: { ar: "إشعارات Push وSMS والبريد الإلكتروني", en: "Push, SMS, and Email notifications" },
-    features: ["notifications", "push"],
-    icon: "bell"
-  },
-  {
-    id: "analytics",
-    title: { ar: "التحليلات والإحصائيات", en: "Analytics & Statistics" },
-    description: { ar: "لوحة تحكم لتتبع المستخدمين والأحداث", en: "Dashboard for tracking users and events" },
-    features: ["analytics", "tracking"],
-    icon: "chart"
-  },
-  {
-    id: "i18n",
-    title: { ar: "تعدد اللغات", en: "Internationalization" },
-    description: { ar: "دعم لغات متعددة مع ترجمة تلقائية", en: "Multi-language support with auto-translation" },
-    features: ["i18n", "localization"],
-    icon: "globe"
-  }
-];
+interface ArchitecturePreview {
+  folderStructure: FolderNode[];
+  architecture: {
+    pattern: string;
+    reason: string;
+    recommendedModules: string[];
+    securityLevel: string;
+    scalabilityNeeds: string;
+  };
+  inferredEntities: { name: string }[];
+  enabledModules: string[];
+  securityScore: number;
+  productionReadiness: {
+    score: number;
+    status: string;
+    checklist: { item: string; passed: boolean }[];
+  };
+  warnings: { type: string; message: string; messageAr: string }[];
+  suggestions: { feature: string; reason: string; reasonAr: string }[];
+}
 
 interface GeneratedFile {
   path: string;
   content: string;
   type: string;
+  description: string;
+}
+
+interface GenerationLog {
+  step: string;
+  status: "pending" | "running" | "completed" | "error";
+  message: string;
+  timestamp: number;
 }
 
 interface GenerationResult {
@@ -184,6 +203,37 @@ interface GenerationResult {
   setupCommands: string[];
   envVariables: Record<string, string>;
   documentation: { ar: string; en: string };
+  preview: ArchitecturePreview;
+  generationLog: GenerationLog[];
+}
+
+function FolderTreeNode({ node, level = 0 }: { node: FolderNode; level?: number }) {
+  const [isOpen, setIsOpen] = useState(level < 2);
+  const hasChildren = node.type === "folder" && node.children && node.children.length > 0;
+
+  return (
+    <div style={{ marginLeft: level * 12 }}>
+      <div 
+        className="flex items-center gap-1 py-0.5 hover-elevate rounded px-1 cursor-pointer text-sm"
+        onClick={() => hasChildren && setIsOpen(!isOpen)}
+      >
+        {hasChildren ? (
+          isOpen ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />
+        ) : (
+          <span className="w-3" />
+        )}
+        {node.type === "folder" ? (
+          <Folder className="h-4 w-4 text-amber-500" />
+        ) : (
+          <File className="h-4 w-4 text-blue-500" />
+        )}
+        <span className="truncate">{node.name}</span>
+      </div>
+      {isOpen && hasChildren && node.children?.map((child, idx) => (
+        <FolderTreeNode key={idx} node={child} level={level + 1} />
+      ))}
+    </div>
+  );
 }
 
 export default function BackendGenerator() {
@@ -201,40 +251,46 @@ export default function BackendGenerator() {
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>(["crud", "validation", "errorHandling"]);
   const [result, setResult] = useState<GenerationResult | null>(null);
   const [selectedFile, setSelectedFile] = useState<GeneratedFile | null>(null);
-  const [appliedSuggestions, setAppliedSuggestions] = useState<string[]>([]);
-  const [applyingSuggestion, setApplyingSuggestion] = useState<string | null>(null);
+  const [preview, setPreview] = useState<ArchitecturePreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const features = ["crud", "validation", "errorHandling", "logging", "rateLimit", "caching", "fileUpload", "email"];
 
-  const getEligibleSuggestions = () => {
-    return suggestionCatalog.filter(s => !appliedSuggestions.includes(s.id));
-  };
+  const getConfig = useCallback(() => ({
+    projectName: projectName || "my-api",
+    description,
+    framework,
+    database,
+    language: lang,
+    apiStyle,
+    authentication,
+    features: selectedFeatures,
+  }), [projectName, description, framework, database, lang, apiStyle, authentication, selectedFeatures]);
 
-  const applySuggestion = async (suggestion: SmartSuggestion) => {
-    setApplyingSuggestion(suggestion.id);
-    setSelectedFeatures(prev => [...prev, ...suggestion.features]);
-    setAppliedSuggestions(prev => [...prev, suggestion.id]);
-    toast({ 
-      title: language === "ar" ? `تمت إضافة ${suggestion.title.ar}` : `Added ${suggestion.title.en}` 
-    });
-    setTimeout(() => {
-      setApplyingSuggestion(null);
-      generateMutation.mutate();
+  const fetchPreview = useCallback(async () => {
+    setPreviewLoading(true);
+    try {
+      const response = await apiRequest("POST", "/api/backend/preview", getConfig());
+      if (response?.success && response.preview) {
+        setPreview(response.preview);
+      }
+    } catch (error) {
+      console.error("Preview error:", error);
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [getConfig]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchPreview();
     }, 500);
-  };
+    return () => clearTimeout(timer);
+  }, [fetchPreview]);
 
   const generateMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/backend/generate", {
-        projectName,
-        description,
-        framework,
-        database,
-        language: lang,
-        apiStyle,
-        authentication,
-        features: selectedFeatures,
-      });
+      const response = await apiRequest("POST", "/api/backend/generate", getConfig());
       if (!response || !response.success) {
         throw new Error(response?.error || "Generation failed");
       }
@@ -244,6 +300,7 @@ export default function BackendGenerator() {
       if (data && data.files && data.files.length > 0) {
         setResult(data);
         setSelectedFile(data.files[0]);
+        setPreview(data.preview);
         toast({ title: t.success });
       } else {
         toast({ title: language === "ar" ? "لم يتم توليد ملفات" : "No files generated", variant: "destructive" });
@@ -265,6 +322,32 @@ export default function BackendGenerator() {
         ? prev.filter(f => f !== feature) 
         : [...prev, feature]
     );
+  };
+
+  const addSuggestion = (feature: string) => {
+    if (!selectedFeatures.includes(feature)) {
+      setSelectedFeatures(prev => [...prev, feature]);
+      toast({ title: language === "ar" ? "تمت الإضافة" : "Added" });
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, { en: string; ar: string }> = {
+      "not-ready": { en: t.notReady, ar: t.notReady },
+      "development": { en: t.development, ar: t.development },
+      "staging": { en: t.staging, ar: t.staging },
+      "production": { en: t.production, ar: t.production },
+    };
+    return labels[status]?.[language as "en" | "ar"] || status;
+  };
+
+  const getArchitectureLabel = (pattern: string) => {
+    const labels: Record<string, string> = {
+      "clean-architecture": t.cleanArchitecture,
+      "modular-monolith": t.modularMonolith,
+      "microservices": t.microservices,
+    };
+    return labels[pattern] || pattern;
   };
 
   return (
@@ -300,10 +383,10 @@ export default function BackendGenerator() {
               <div className="space-y-2">
                 <Label>{t.description}</Label>
                 <Textarea
-                  placeholder={language === "ar" ? "صف التطبيق الذي تريد بناءه..." : "Describe the application you want to build..."}
+                  placeholder={t.descriptionPlaceholder}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  rows={3}
+                  rows={4}
                   data-testid="textarea-description"
                 />
               </div>
@@ -423,11 +506,142 @@ export default function BackendGenerator() {
         </div>
 
         <div className="space-y-6">
-          {result ? (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <CardTitle className="flex items-center gap-2">
+                  <Code2 className="h-5 w-5" />
+                  {t.preview}
+                </CardTitle>
+                {previewLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {preview ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <p className="text-xs text-muted-foreground mb-1">{t.architecture}</p>
+                      <p className="font-medium text-sm">{getArchitectureLabel(preview.architecture.pattern)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <p className="text-xs text-muted-foreground mb-1">{t.securityScore}</p>
+                      <div className="flex items-center gap-2">
+                        <Progress value={preview.securityScore} className="h-2 flex-1" />
+                        <span className="font-medium text-sm">{preview.securityScore}%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-muted/50">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs text-muted-foreground">{t.productionReadiness}</p>
+                      <Badge 
+                        variant={preview.productionReadiness.status === "production" ? "default" : "secondary"}
+                        className={preview.productionReadiness.status === "production" ? "bg-green-500" : ""}
+                      >
+                        {getStatusLabel(preview.productionReadiness.status)}
+                      </Badge>
+                    </div>
+                    <Progress value={preview.productionReadiness.score} className="h-2" />
+                    <div className="mt-2 grid grid-cols-2 gap-1">
+                      {preview.productionReadiness.checklist.slice(0, 6).map((item, idx) => (
+                        <div key={idx} className="flex items-center gap-1 text-xs">
+                          {item.passed ? (
+                            <Check className="h-3 w-3 text-green-500" />
+                          ) : (
+                            <X className="h-3 w-3 text-red-500" />
+                          )}
+                          <span className={item.passed ? "text-muted-foreground" : "text-red-500"}>
+                            {item.item}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-2">{t.folderStructure}</p>
+                    <ScrollArea className="h-40 border rounded-lg p-2 bg-muted/30">
+                      {preview.folderStructure.map((node, idx) => (
+                        <FolderTreeNode key={idx} node={node} />
+                      ))}
+                    </ScrollArea>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1">
+                    {preview.enabledModules.slice(0, 8).map((mod, idx) => (
+                      <Badge key={idx} variant="outline" className="text-xs">
+                        {mod}
+                      </Badge>
+                    ))}
+                    {preview.enabledModules.length > 8 && (
+                      <Badge variant="outline" className="text-xs">
+                        +{preview.enabledModules.length - 8}
+                      </Badge>
+                    )}
+                  </div>
+
+                  {preview.warnings.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">{t.warnings}</p>
+                      {preview.warnings.map((warn, idx) => (
+                        <div 
+                          key={idx} 
+                          className={`flex items-start gap-2 p-2 rounded text-sm ${
+                            warn.type === "critical" ? "bg-red-500/10 text-red-600 dark:text-red-400" : 
+                            warn.type === "warning" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : 
+                            "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                          }`}
+                        >
+                          {warn.type === "critical" ? <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" /> :
+                           warn.type === "warning" ? <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" /> :
+                           <Info className="h-4 w-4 shrink-0 mt-0.5" />}
+                          <span>{language === "ar" ? warn.messageAr : warn.message}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {preview.suggestions.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">{t.suggestions}</p>
+                      {preview.suggestions.map((sug, idx) => (
+                        <div key={idx} className="flex items-center justify-between gap-2 p-2 rounded bg-primary/5">
+                          <div className="flex items-center gap-2">
+                            <Lightbulb className="h-4 w-4 text-primary shrink-0" />
+                            <span className="text-sm">{language === "ar" ? sug.reasonAr : sug.reason}</span>
+                          </div>
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            onClick={() => addSuggestion(sug.feature)}
+                            disabled={selectedFeatures.includes(sug.feature)}
+                            data-testid={`button-add-suggestion-${sug.feature}`}
+                          >
+                            {selectedFeatures.includes(sug.feature) ? <Check className="h-4 w-4" /> : t.addSuggestion}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="h-64 flex items-center justify-center text-muted-foreground">
+                  <div className="text-center">
+                    <Code2 className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>{language === "ar" ? "ابدأ بتعبئة الإعدادات لرؤية المعاينة" : "Fill in settings to see preview"}</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {result && (
             <>
               <Card>
                 <CardHeader>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
                     <CardTitle className="flex items-center gap-2">
                       <FolderTree className="h-5 w-5" />
                       {t.files}
@@ -462,7 +676,7 @@ export default function BackendGenerator() {
                         </pre>
                       </ScrollArea>
                       <Button
-                        size="sm"
+                        size="icon"
                         variant="ghost"
                         className="absolute top-2 right-2"
                         onClick={() => selectedFile && copyToClipboard(selectedFile.content)}
@@ -475,62 +689,31 @@ export default function BackendGenerator() {
                 </CardContent>
               </Card>
 
-              {getEligibleSuggestions().length > 0 && (
-                <Card className="border-dashed border-2 border-primary/30 bg-primary/5">
+              {result.generationLog && result.generationLog.length > 0 && (
+                <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-primary">
-                      <Lightbulb className="h-5 w-5" />
-                      {t.smartSuggestions}
+                    <CardTitle className="flex items-center gap-2">
+                      <Terminal className="h-5 w-5" />
+                      {t.generationLog}
                     </CardTitle>
-                    <CardDescription>{t.suggestionsDesc}</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid gap-3">
-                      {getEligibleSuggestions().map((suggestion) => {
-                        const IconComponent = suggestion.icon === "zap" ? Zap 
-                          : suggestion.icon === "search" ? Search
-                          : suggestion.icon === "creditCard" ? CreditCard
-                          : suggestion.icon === "bell" ? Bell
-                          : suggestion.icon === "chart" ? BarChart3
-                          : Globe;
-                        const isApplying = applyingSuggestion === suggestion.id;
-                        return (
-                          <div 
-                            key={suggestion.id}
-                            className="flex items-center justify-between p-3 border rounded-lg hover-elevate"
-                            data-testid={`suggestion-${suggestion.id}`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                <IconComponent className="h-5 w-5 text-primary" />
-                              </div>
-                              <div>
-                                <p className="font-medium">
-                                  {suggestion.title[language as keyof typeof suggestion.title] || suggestion.title.en}
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  {suggestion.description[language as keyof typeof suggestion.description] || suggestion.description.en}
-                                </p>
-                              </div>
-                            </div>
-                            <Button
-                              size="sm"
-                              onClick={() => applySuggestion(suggestion)}
-                              disabled={isApplying || generateMutation.isPending}
-                              data-testid={`button-add-${suggestion.id}`}
-                            >
-                              {isApplying ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <>
-                                  <Plus className="h-4 w-4 mr-1" />
-                                  {t.addFeature}
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                        );
-                      })}
+                    <div className="space-y-2">
+                      {result.generationLog.map((log, idx) => (
+                        <div key={idx} className="flex items-center gap-3 text-sm">
+                          {log.status === "completed" ? (
+                            <CheckCircle className="h-4 w-4 text-green-500" />
+                          ) : log.status === "error" ? (
+                            <AlertCircle className="h-4 w-4 text-red-500" />
+                          ) : log.status === "running" ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                          ) : (
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          <span className="font-medium capitalize">{log.step}</span>
+                          <span className="text-muted-foreground flex-1">{log.message}</span>
+                        </div>
+                      ))}
                     </div>
                   </CardContent>
                 </Card>
@@ -554,7 +737,7 @@ export default function BackendGenerator() {
                           </Badge>
                         ))}
                       </div>
-                      {result.devDependencies.length > 0 && (
+                      {result.devDependencies && result.devDependencies.length > 0 && (
                         <>
                           <Separator className="my-3" />
                           <p className="text-sm text-muted-foreground mb-2">Dev Dependencies:</p>
@@ -577,7 +760,7 @@ export default function BackendGenerator() {
                         <div key={idx} className="flex items-center gap-2 p-2 bg-muted rounded">
                           <Terminal className="h-4 w-4" />
                           <code className="text-sm flex-1">{cmd}</code>
-                          <Button size="sm" variant="ghost" onClick={() => copyToClipboard(cmd)}>
+                          <Button size="icon" variant="ghost" onClick={() => copyToClipboard(cmd)}>
                             <Copy className="h-3 w-3" />
                           </Button>
                         </div>
@@ -590,7 +773,9 @@ export default function BackendGenerator() {
                     <CardContent className="pt-4 space-y-2">
                       {Object.entries(result.envVariables).map(([key, value], idx) => (
                         <div key={idx} className="flex items-center gap-2 p-2 bg-muted rounded">
-                          <code className="text-sm">{key}={value}</code>
+                          <code className="text-sm font-medium text-primary">{key}</code>
+                          <span className="text-muted-foreground">=</span>
+                          <code className="text-sm flex-1 truncate">{value}</code>
                         </div>
                       ))}
                     </CardContent>
@@ -599,29 +784,16 @@ export default function BackendGenerator() {
                 <TabsContent value="docs">
                   <Card>
                     <CardContent className="pt-4">
-                      <ScrollArea className="h-48">
-                        <div className="prose prose-sm dark:prose-invert max-w-none">
-                          <pre className="whitespace-pre-wrap text-sm">
-                            {result.documentation[language as keyof typeof result.documentation] || result.documentation.en}
-                          </pre>
-                        </div>
+                      <ScrollArea className="h-64">
+                        <pre className="text-sm whitespace-pre-wrap">
+                          {result.documentation[language as keyof typeof result.documentation] || result.documentation.en}
+                        </pre>
                       </ScrollArea>
                     </CardContent>
                   </Card>
                 </TabsContent>
               </Tabs>
             </>
-          ) : (
-            <Card className="h-full flex items-center justify-center">
-              <CardContent className="text-center py-12">
-                <Code2 className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">
-                  {language === "ar" 
-                    ? "قم بتعبئة الإعدادات واضغط 'توليد الباك إند'" 
-                    : "Fill in the settings and click 'Generate Backend'"}
-                </p>
-              </CardContent>
-            </Card>
           )}
         </div>
       </div>

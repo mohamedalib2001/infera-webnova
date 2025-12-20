@@ -12359,16 +12359,39 @@ describe('Generated Tests', () => {
   // ==================== BACKEND GENERATOR API ====================
   // مولّد الباك إند
   
+  app.post("/api/backend/preview", requireAuth, async (req, res) => {
+    try {
+      const { generateArchitecturePreview } = await import("./intelligent-backend-engine");
+      const { projectName, description, framework, database, language, features, authentication, apiStyle } = req.body;
+      
+      const preview = await generateArchitecturePreview({
+        projectName: projectName || "my-api",
+        description: description || "",
+        framework: framework || "express",
+        database: database || "postgresql",
+        language: language || "typescript",
+        features: features || ["crud"],
+        authentication: authentication !== false,
+        apiStyle: apiStyle || "rest",
+      });
+      
+      res.json({ success: true, preview });
+    } catch (error) {
+      console.error("Backend preview error:", error);
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to generate preview" });
+    }
+  });
+
   app.post("/api/backend/generate", requireAuth, async (req, res) => {
     try {
-      const { generateBackend } = await import("./backend-generator-service");
+      const { generateFullBackend } = await import("./intelligent-backend-engine");
       const { projectName, description, framework, database, language, features, authentication, apiStyle } = req.body;
       
       if (!projectName || typeof projectName !== "string") {
         return res.status(400).json({ success: false, error: "Project name is required" });
       }
       
-      const result = await generateBackend({
+      const result = await generateFullBackend({
         projectName,
         description: description || "",
         framework: framework || "express",
