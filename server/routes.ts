@@ -4548,6 +4548,42 @@ ${project.description || ""}
     }
   });
 
+  // Check user's AI usage limit
+  app.get("/api/user/ai-usage/check", requireAuth, async (req, res) => {
+    try {
+      const { aiUsageEnforcer } = await import("./ai-usage-enforcer");
+      const userId = req.session?.userId || req.session?.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const result = await aiUsageEnforcer.checkUsageLimit({ userId });
+      res.json(result);
+    } catch (error: any) {
+      console.error("Check AI usage limit error:", error);
+      res.status(500).json({ error: error.message || "فشل في فحص حدود الاستخدام" });
+    }
+  });
+
+  // Get user's AI usage analytics
+  app.get("/api/user/ai-usage/analytics", requireAuth, async (req, res) => {
+    try {
+      const { aiUsageEnforcer } = await import("./ai-usage-enforcer");
+      const userId = req.session?.userId || req.session?.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const analytics = await aiUsageEnforcer.getUsageAnalytics(userId);
+      res.json(analytics);
+    } catch (error: any) {
+      console.error("Get AI usage analytics error:", error);
+      res.status(500).json({ error: error.message || "فشل في جلب تحليلات الاستخدام" });
+    }
+  });
+
   // ============ AI Model Registry APIs (Owner Only) ============
   
   // Get all AI models
