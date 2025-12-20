@@ -1,5 +1,5 @@
 import { storage } from "./storage";
-import { cryptoService } from "./crypto-service";
+import { decryptToken } from "./crypto-service";
 import type { InsertInfrastructureAuditLog, InsertProviderErrorLog } from "@shared/schema";
 
 interface HetznerServer {
@@ -391,7 +391,12 @@ export async function createHetznerClient(
     return null;
   }
 
-  const decryptedToken = cryptoService.decrypt(credential.encryptedToken, credential.salt);
+  const decryptedToken = decryptToken({
+    encryptedToken: credential.encryptedToken,
+    tokenIv: credential.tokenIv || '',
+    tokenAuthTag: credential.tokenAuthTag,
+    tokenSalt: credential.tokenSalt,
+  });
   if (!decryptedToken) {
     return null;
   }

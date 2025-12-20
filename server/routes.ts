@@ -6,6 +6,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { generateWebsiteCode, refineWebsiteCode } from "./anthropic";
+import { decryptToken } from "./crypto-service";
 import apiKeysRoutes from "./api-keys-routes";
 import { registerDomainRoutes } from "./domain-routes";
 import { registerISDSRoutes } from "./isds-routes";
@@ -12102,8 +12103,13 @@ ${project.description || ""}
         return res.status(400).json({ success: false, error: "No credentials found for provider" });
       }
       
-      const decryptedToken = cryptoService.decrypt(credential.encryptedToken, credential.salt);
-      if (!decryptedToken) {
+      const decryptedTokenValue = decryptToken({
+        encryptedToken: credential.encryptedToken,
+        tokenIv: credential.tokenIv || '',
+        tokenAuthTag: credential.tokenAuthTag,
+        tokenSalt: credential.tokenSalt,
+      });
+      if (!decryptedTokenValue) {
         return res.status(500).json({ success: false, error: "Failed to decrypt credentials" });
       }
       
@@ -12216,6 +12222,88 @@ ${project.description || ""}
       res.json({ success: true, log });
     } catch (error) {
       res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to resolve error log" });
+    }
+  });
+
+  // Health Check for All Providers
+  app.get("/api/owner/infrastructure/health", requireOwner, async (req, res) => {
+    try {
+      const providers = await storage.getInfrastructureProviders();
+      const healthResults: any[] = [];
+      
+      for (const provider of providers) {
+        if (provider.name === 'hetzner' && provider.connectionStatus === 'connected') {
+          try {
+            const apiToken = process.env.HETZNER_API_TOKEN;
+            if (apiToken) {
+              const startTime = Date.now();
+              const response = await fetch("https://api.hetzner.cloud/v1/servers", {
+                headers: {
+                  "Authorization": `Bearer ${apiToken}`,
+                  "Content-Type": "application/json"
+                }
+              });
+              
+              const latency = Date.now() - startTime;
+              const isHealthy = response.ok;
+              
+              healthResults.push({
+                providerId: provider.id,
+                name: provider.name,
+                displayName: provider.displayName,
+                status: isHealthy ? 'healthy' : 'unhealthy',
+                latencyMs: latency,
+                lastCheck: new Date().toISOString(),
+                activeServers: provider.activeServers,
+              });
+              
+              await storage.updateInfrastructureProvider(provider.id, {
+                healthScore: isHealthy ? 100 : 0,
+                connectionStatus: isHealthy ? 'connected' : 'error',
+              });
+            } else {
+              healthResults.push({
+                providerId: provider.id,
+                name: provider.name,
+                displayName: provider.displayName,
+                status: 'unconfigured',
+                lastCheck: new Date().toISOString(),
+              });
+            }
+          } catch (error) {
+            healthResults.push({
+              providerId: provider.id,
+              name: provider.name,
+              displayName: provider.displayName,
+              status: 'error',
+              error: error instanceof Error ? error.message : 'Connection failed',
+              lastCheck: new Date().toISOString(),
+            });
+          }
+        } else {
+          healthResults.push({
+            providerId: provider.id,
+            name: provider.name,
+            displayName: provider.displayName,
+            status: provider.connectionStatus || 'unknown',
+            activeServers: provider.activeServers,
+          });
+        }
+      }
+      
+      const overallHealthy = healthResults.every(r => r.status === 'healthy' || r.status === 'connected');
+      
+      res.json({
+        success: true,
+        overallStatus: overallHealthy ? 'healthy' : 'degraded',
+        providers: healthResults,
+        checkedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Health check failed" 
+      });
     }
   });
 
