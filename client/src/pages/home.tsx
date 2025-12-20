@@ -7,6 +7,7 @@ import { GradientBackground } from "@/components/gradient-background";
 import { ChatInput } from "@/components/chat-input";
 import { ProjectCard } from "@/components/project-card";
 import { TemplateCard } from "@/components/template-card";
+import { TemplateDetailDialog } from "@/components/template-detail-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { SecureDeletionDialog } from "@/components/secure-deletion-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -87,6 +88,8 @@ export default function Home() {
   const { toast } = useToast();
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
+  const [showTemplateDetail, setShowTemplateDetail] = useState(false);
 
   const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -133,7 +136,8 @@ export default function Home() {
   };
 
   const handleUseTemplate = (template: Template) => {
-    setLocation(`/builder?template=${template.id}`);
+    setSelectedTemplate(template);
+    setShowTemplateDetail(true);
   };
 
   const suggestions = [
@@ -405,6 +409,12 @@ export default function Home() {
         entityType="project"
         onSuccess={handleDeleteSuccess}
         onCancel={handleDeleteCancel}
+      />
+
+      <TemplateDetailDialog
+        template={selectedTemplate}
+        open={showTemplateDetail}
+        onOpenChange={setShowTemplateDetail}
       />
     </GradientBackground>
   );
