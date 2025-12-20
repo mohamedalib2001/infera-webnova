@@ -1,0 +1,215 @@
+# 🔥 Ultimate Comparison Prompt (Replit Platform vs Infra Web Nova)
+
+أريد منك تنفيذ مقارنة تقنية شاملة وعملية (Hands-on) بين منصتين:
+1) Replit Platform (بيئة التطوير والاستضافة وبناء التطبيقات)
+2) Infra Web Nova Platform (منصتنا الداخلية لبناء التطبيقات والمنصات الرقمية)
+
+⚠️ المقارنة يجب أن تكون:
+- عملية قدر الإمكان (قياسات + اختبارات + أدلة)
+- منظمة في جداول واضحة
+- مبنية على مخرجات فعلية (Screenshots/Logs/Network traces/Benchmarks) عند توفرها
+- بدون كلام تسويقي أو انطباعات عامة
+- مع استنتاج نهائي وتوصيات قرار (Decision + Roadmap)
+
+---
+
+## 0) قواعد وإعدادات قبل البدء
+- إن لم تكن تملك وصولًا مباشرًا لمنصة Infra Web Nova داخل بيئتك، اطلب مني ما يلزم فقط (رابط نسخة تجريبية/بيانات دخول/Repo/بيئة تشغيل).
+- استخدم نفس السيناريوهات الاختبارية على المنصتين لضمان عدالة القياس.
+- أخرج النتائج بوحدة قياس واضحة (ms/sec/MB/req/s).
+- أي معلومة غير مؤكدة: ضعها كـ (Unknown) ولا تخمّن.
+
+---
+
+## 1) تعريف إطار المقارنة (Scope & Methodology)
+أريد منك:
+- تحديد أبعاد المقارنة (Features / Architecture / Dev Experience / Security / Performance / Cost / Scalability).
+- تحديد منهجية قياس عادلة (Same app, same load, same environment).
+- إنشاء Test Plan موحد يطبق على المنصتين (Functional + Non-functional).
+
+---
+
+## 2) مقارنة الهدف والرسالة (Product Goal Fit)
+- ما الذي تبرع به Replit في بناء التطبيقات؟
+- ما الذي تبرع به Infra Web Nova في بناء منصات المجموعة؟
+- أين تتداخل الأهداف؟ وأين تختلف جوهريًا؟
+
+---
+
+## 3) مقارنة الخدمات والصفحات (Features & Pages Coverage)
+أريد جدول تفصيلي (Feature-by-Feature / Page-by-Page) يوضح:
+- اسم الخدمة/الصفحة/الوحدة
+- موجودة في Replit؟ (Yes/No/Partial)
+- موجودة في Infra Web Nova؟ (Yes/No/Partial)
+- مستوى النضج (MVP/Production-ready)
+- هل هي حقيقية أم محاكاة؟ (Real/Mock)
+- الملاحظات + الدليل (Path / Screenshot / URL / Log)
+
+### الأقسام المطلوبة للمقارنة (لا تسقط أي قسم):
+A) واجهة المستخدم / تجربة الاستخدام:
+- Dashboard
+- Project / Workspace management
+- Templates / Starters
+- Collaboration & Realtime editing
+- Roles & Permissions
+- Settings / Config panel
+- Billing / Plans (إن وجد في Nova)
+
+B) وحدات البناء (Build Modules):
+- Code editor / IDE
+- File system & project structure tools
+- Dependency management
+- Build pipelines (CI-like)
+- Environment management
+- Secrets manager
+- One-click deploy / preview environments
+- Version control integration (Git)
+
+C) الخدمات الخلفية (Backend Services):
+- API layer support
+- Database provisioning/connection (Postgres/Redis/SQLite/etc)
+- Auth modules (local/OAuth/OIDC/SSO)
+- Storage (files/blobs)
+- Background jobs / queues / cron
+- Webhooks & integrations
+
+D) التشغيل والاستضافة (Runtime & Hosting):
+- Domains / SSL
+- Containers / sandboxes
+- Scaling options
+- Networking capabilities
+- Observability (logs/metrics/traces)
+- Rollbacks
+
+---
+
+## 4) مقارنة الأوامر والمخرجات (Commands & Outputs)
+أريد مقارنة مباشرة بين:
+- أوامر البناء والتشغيل (dev/build/start/test)
+- مخرجات النشر (URLs, artifacts, preview links)
+- Logs output structure
+- Error handling output
+- Configuration outputs (env/secrets)
+
+أخرجها في جدول:
+- Task
+- Replit command/flow
+- Nova command/flow
+- Output artifact
+- Reliability score (1-10) مع سبب واضح
+
+---
+
+## 5) مقارنة الأداء والسرعة (Performance Benchmarks)
+أريد اختبارات حقيقية قدر الإمكان على نفس التطبيق التجريبي (Reference App):
+- Time to First Preview (TTP): من إنشاء مشروع حتى أول تشغيل ناجح
+- Cold start time
+- Hot reload time
+- Build time
+- Deploy time
+- API latency (p50/p95)
+- Throughput (req/s)
+- Resource usage (CPU/RAM) إن أمكن
+
+### أدوات مسموحة (اختر المناسب حسب البيئة):
+- Lighthouse (للواجهة)
+- k6 أو autocannon أو wrk (للتحميل)
+- WebPageTest أو Chrome DevTools
+- Node/Runtime built-in metrics
+- Network tab traces
+
+مطلوب:
+- النتائج بالأرقام
+- ظروف الاختبار (المتصفح/المنطقة/نوع الجهاز/الخطة إن وجدت)
+- أدلة (صور/Logs) عند الإمكان
+
+---
+
+## 6) مقارنة الكفاءة وجودة التنظيم (Quality & Maintainability)
+أريد تقييم:
+- Structure & modularity
+- Dependency hygiene
+- Config management cleanliness
+- Error boundaries & fallback states
+- Test coverage readiness
+- Documentation quality
+- Reusability of modules
+
+أخرج:
+- “Strengths / Weaknesses” لكل منصة
+- “Risk list” قبل الاعتماد عليها كمنصة أساسية
+
+---
+
+## 7) مقارنة الديناميكية وإدارة المفاتيح (Secrets & Dynamic Config)
+مهم جدًا:
+- هل يمكن تغيير مفاتيح التكاملات، endpoints، limits، feature flags دون تعديل كود؟
+- هل هناك UI / Owner account لإدارة ذلك؟
+- هل هناك Vault/Secrets Manager؟
+- هل يوجد Audit logs لتغييرات الإعدادات؟
+- هل يوجد Validation + Rollback لإعدادات خاطئة؟
+
+أخرج جدول:
+- Capability
+- Replit
+- Nova
+- Notes + Evidence
+
+---
+
+## 8) مقارنة الأمن والصلاحيات (Security & Compliance)
+- Auth models
+- RBAC / ABAC
+- Multi-tenant isolation
+- Secure storage of secrets
+- OWASP considerations
+- Logging sensitive data policies
+- Compliance readiness (على الأقل: auditability)
+
+---
+
+## 9) مقارنة قابلية التوسع وربط منصات المجموعة (Scalability & Federation)
+لأن هدف Nova أن تكون “العقل المنفذ” لمنظومة Infra Engine:
+- هل تدعم Nova مفهوم الحسابات السيادية Sovereign Accounts؟
+- كيف سيتم ربط منصات المجموعة مستقبلاً (SSO/OIDC, API Gateway, Event bus)؟
+- هل يوجد معيار IDs / namespaces / org structure؟
+- هل هناك Central audit logs عبر كل منصة؟
+- ما الذي ينقص Nova لتتفوق على Replit في هذا البُعد؟
+
+أخرج:
+- Architecture proposal مختصرة (Target Architecture)
+- Gap analysis (Nova vs needed future)
+- Roadmap: 0-30 يوم، 30-90 يوم، 90-180 يوم
+
+---
+
+## 10) Decision Matrix + Recommendation
+أريد في النهاية:
+1) Decision Matrix (جدول نقاط موزونة) مع أوزان:
+- Feature completeness (20%)
+- Performance (15%)
+- Security (15%)
+- Dev Experience (15%)
+- Scalability/Federation (20%)
+- Maintainability (10%)
+- Cost/Operational overhead (5%)
+
+2) توصية نهائية واضحة:
+- متى نستخدم Replit؟
+- متى نستخدم Infra Web Nova؟
+- هل Nova جاهزة الآن؟ وإذا لا، ما هي شروط “Go-Live”؟
+
+3) قائمة “No-Go” تمنع اعتماد أي منصة حتى تُحل.
+
+---
+
+## 11) مخرجات إلزامية (Deliverables)
+أريد منك تسليم:
+A) تقرير مقارنة نهائي (PDF أو Markdown) + جداول منظمة
+B) Benchmark sheet بالأرقام (p50/p95/avg) لكل اختبار
+C) قائمة gaps في Nova مرتبة بالأولوية (Critical/High/Medium/Low)
+D) خطة تحسين Nova لتصبح المنصة الأساسية للمجموعة
+E) أدلة: Logs / Network traces / Screenshots / file references (حسب المتاح)
+
+⚠️ ممنوع كلام عام أو انطباعات.
+أريد مقارنة يمكن اتخاذ قرار بناءً عليها.

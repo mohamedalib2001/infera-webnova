@@ -818,6 +818,7 @@ export const aiUsage = pgTable("ai_usage", {
   userId: varchar("user_id").notNull(),
   generationType: text("generation_type").notNull(), // website, content, chatbot
   tokensUsed: integer("tokens_used").notNull().default(0),
+  requestCount: integer("request_count").notNull().default(1),
   month: text("month").notNull(), // YYYY-MM format
   createdAt: timestamp("created_at").defaultNow(),
 });

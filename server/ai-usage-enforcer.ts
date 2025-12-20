@@ -113,12 +113,14 @@ export class AIUsageEnforcer {
       await db.update(aiUsage)
         .set({
           tokensUsed: sql`${aiUsage.tokensUsed} + ${tokensUsed}`,
+          requestCount: sql`${aiUsage.requestCount} + 1`,
         } as any)
         .where(eq(aiUsage.id, existingUsage[0].id));
     } else {
       await db.insert(aiUsage).values({
         userId,
         tokensUsed,
+        requestCount: 1,
         generationType: operation,
         month: currentMonth,
       } as any);
@@ -132,7 +134,7 @@ export class AIUsageEnforcer {
     
     const usage = await db.select({
       totalTokens: sql<number>`COALESCE(SUM(${aiUsage.tokensUsed}), 0)`,
-      generationCount: sql<number>`COUNT(*)`,
+      generationCount: sql<number>`COALESCE(SUM(${aiUsage.requestCount}), 0)`,
     })
     .from(aiUsage)
     .where(
@@ -195,7 +197,7 @@ export class AIUsageEnforcer {
     
     const lastMonthUsage = await db.select({
       totalTokens: sql<number>`COALESCE(SUM(${aiUsage.tokensUsed}), 0)`,
-      generationCount: sql<number>`COUNT(*)`,
+      generationCount: sql<number>`COALESCE(SUM(${aiUsage.requestCount}), 0)`,
     })
     .from(aiUsage)
     .where(
