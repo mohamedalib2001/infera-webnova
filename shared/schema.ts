@@ -8807,3 +8807,123 @@ export const devDeployRuns = pgTable("dev_deploy_runs", {
   index("IDX_deploy_run_number").on(table.projectId, table.deployNumber),
   index("IDX_deploy_run_build").on(table.buildRunId),
 ]);
+
+
+// ==================== SPOM - Sensitive Sessions ====================
+
+export const spomSessionStatuses = ['pending', 'password_verified', 'otp_sent', 'active', 'expired', 'cancelled'] as const;
+export type SpomSessionStatus = typeof spomSessionStatuses[number];
+
+export const sensitiveOperationTypes = [
+  'system_maintenance', 'debug_fix', 'refactor_restructure', 'read_access',
+  'edit_modify', 'save_changes', 'rollback_undo', 'restore_version',
+  'restart_services', 'live_tests', 'delete_data', 'config_change', 'security_update'
+] as const;
+export type SensitiveOperationType = typeof sensitiveOperationTypes[number];
+
+export const sovereignSensitiveSessions = pgTable("sovereign_sensitive_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ownerId: varchar("owner_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  status: text("status").notNull().default("pending"),
+  operationType: text("operation_type").notNull(),
+  operationDescription: text("operation_description"),
+  targetResource: text("target_resource"),
+  passwordVerifiedAt: timestamp("password_verified_at"),
+  otpCode: varchar("otp_code", { length: 6 }),
+  otpSentAt: timestamp("otp_sent_at"),
+  otpSentTo: text("otp_sent_to"),
+  otpVerifiedAt: timestamp("otp_verified_at"),
+  otpAttempts: integer("otp_attempts").notNull().default(0),
+  activatedAt: timestamp("activated_at"),
+  expiresAt: timestamp("expires_at"),
+  lastActivityAt: timestamp("last_activity_at"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  deviceInfo: jsonb("device_info"),
+  completedAt: timestamp("completed_at"),
+  result: text("result"),
+  resultMessage: text("result_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_spom_sess_owner").on(table.ownerId),
+  index("IDX_spom_sess_status").on(table.status),
+]);
+
+export const insertSovereignSensitiveSessionSchema = createInsertSchema(sovereignSensitiveSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSovereignSensitiveSession = z.infer<typeof insertSovereignSensitiveSessionSchema>;
+export type SovereignSensitiveSession = typeof sovereignSensitiveSessions.$inferSelect;
+
+// SPOM Operations Configuration
+export const spomOperations = pgTable("spom_operations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: varchar("code", { length: 50 }).unique().notNull(),
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  category: text("category").notNull(),
+  riskLevel: text("risk_level").notNull().default("medium"),
+  requiresPassword: boolean("requires_password").notNull().default(true),
+  requiresOtp: boolean("requires_otp").notNull().default(true),
+  sessionDurationMinutes: integer("session_duration_minutes").notNull().default(15),
+  warningMessage: text("warning_message"),
+  warningMessageAr: text("warning_message_ar"),
+  potentialRisks: jsonb("potential_risks").$type<string[]>().default([]),
+  potentialRisksAr: jsonb("potential_risks_ar").$type<string[]>().default([]),
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_spom_op_code").on(table.code),
+  index("IDX_spom_op_category").on(table.category),
+]);
+
+export type SpomOperation = typeof spomOperations.$inferSelect;
+
+// SPOM Immutable Audit Log - Extended version for sensitive operations
+export const spomAuditLog = pgTable("spom_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ownerId: varchar("owner_id").references(() => users.id).notNull(),
+  ownerEmail: text("owner_email").notNull(),
+  ownerName: text("owner_name"),
+  sessionId: varchar("session_id").references(() => sovereignSensitiveSessions.id),
+  operationType: text("operation_type").notNull(),
+  operationCategory: text("operation_category").notNull(),
+  actionTaken: text("action_taken").notNull(),
+  targetResource: text("target_resource"),
+  targetPath: text("target_path"),
+  affectedPage: text("affected_page"),
+  result: text("result").notNull(),
+  resultDetails: text("result_details"),
+  errorMessage: text("error_message"),
+  previousState: jsonb("previous_state"),
+  newState: jsonb("new_state"),
+  canRollback: boolean("can_rollback").notNull().default(false),
+  rollbackData: jsonb("rollback_data"),
+  ipAddress: text("ip_address").notNull(),
+  userAgent: text("user_agent"),
+  browserName: text("browser_name"),
+  osName: text("os_name"),
+  deviceType: text("device_type"),
+  executedAt: timestamp("executed_at").defaultNow().notNull(),
+  integrityHash: text("integrity_hash"),
+  previousLogId: varchar("previous_log_id"),
+}, (table) => [
+  index("IDX_spom_audit_owner").on(table.ownerId),
+  index("IDX_spom_audit_session").on(table.sessionId),
+  index("IDX_spom_audit_operation").on(table.operationType),
+  index("IDX_spom_audit_executed").on(table.executedAt),
+]);
+
+export const insertSpomAuditLogSchema = createInsertSchema(spomAuditLog).omit({
+  id: true,
+});
+
+export type InsertSpomAuditLog = z.infer<typeof insertSpomAuditLogSchema>;
+export type SpomAuditLogRecord = typeof spomAuditLog.$inferSelect;
