@@ -47,6 +47,7 @@ import {
   Landmark,
   Package,
   Trash2,
+  Code,
 } from "lucide-react";
 import {
   Sidebar,
@@ -449,6 +450,14 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location === "/owner/isds"}>
+                      <Link href="/owner/isds" data-testid="nav-owner-isds">
+                        <Code className="h-4 w-4 text-emerald-500" />
+                        <span>{language === "ar" ? "استوديو التطوير" : "Dev Studio (ISDS)"}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild isActive={location === "/sovereign/command-center"}>
                       <Link href="/sovereign/command-center" data-testid="nav-sovereign-command">

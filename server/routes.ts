@@ -5,6 +5,7 @@ import { db } from "./db";
 import { generateWebsiteCode, refineWebsiteCode } from "./anthropic";
 import apiKeysRoutes from "./api-keys-routes";
 import { registerDomainRoutes } from "./domain-routes";
+import { registerISDSRoutes } from "./isds-routes";
 import marketplaceRoutes from "./marketplace-routes";
 import sslRoutes from "./ssl-routes";
 import { eq } from "drizzle-orm";
@@ -10922,6 +10923,10 @@ ${project.description || ""}
   // ==================== NAMECHEAP DOMAIN MANAGEMENT ====================
   // Must be registered BEFORE Custom Domains API to avoid route conflicts
   registerDomainRoutes(app);
+
+  // ==================== ISDS - SOVEREIGN DEV STUDIO ====================
+  registerISDSRoutes(app);
+  console.log("ISDS routes registered | تم تسجيل مسارات ISDS");
 
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 

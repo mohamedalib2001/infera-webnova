@@ -70,6 +70,7 @@ import SupportAgentDashboard from "@/pages/support-agent-dashboard";
 import AgentCommandCenter from "@/pages/agent-command-center";
 import AdminSubscriptions from "@/pages/admin-subscriptions";
 import DeletionManagement from "@/pages/deletion-management";
+import ISDSPage from "@/pages/isds";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -133,6 +134,7 @@ function Router() {
       <Route path="/support/command-center" component={AgentCommandCenter} />
       <Route path="/admin/subscriptions" component={AdminSubscriptions} />
       <Route path="/owner/deletion-management" component={DeletionManagement} />
+      <Route path="/owner/isds" component={ISDSPage} />
       <Route path="/preview/:shareCode" component={Preview} />
       <Route component={NotFound} />
     </Switch>
