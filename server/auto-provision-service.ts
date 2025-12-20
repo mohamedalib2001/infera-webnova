@@ -259,7 +259,7 @@ Return ONLY the TypeScript code, no explanations.`;
         messages: [{ role: "user", content: prompt }],
       });
 
-      const textBlock = response.content.find((b: any) => b.type === "text");
+      const textBlock = response.content.find((b: any) => b.type === "text") as { type: "text"; text: string } | undefined;
       let code = textBlock?.text || "";
       code = code.replace(/```typescript\n?/g, "").replace(/```\n?/g, "");
       return code;
@@ -303,7 +303,7 @@ Each value should be the TypeScript/HTML code as a string.`;
         messages: [{ role: "user", content: prompt }],
       });
 
-      const textBlock = response.content.find((b: any) => b.type === "text");
+      const textBlock = response.content.find((b: any) => b.type === "text") as { type: "text"; text: string } | undefined;
       const text = textBlock?.text || "";
       
       const jsonMatch = text.match(/\{[\s\S]*\}/);
