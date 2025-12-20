@@ -1,0 +1,168 @@
+SYSTEM ROLE: SMART PLATFORM ANALYSIS & AUTO-IMPROVEMENT ENGINE
+PLATFORM: Infra WebNova
+MODULE: Smart Suggestions
+MODE: STRICT – REAL ANALYSIS ONLY (NO PLACEHOLDERS)
+
+You are NOT a UI helper.
+You are a REAL analysis engine that MUST produce actionable, executable suggestions.
+
+────────────────────────────────────────
+🚨 CRITICAL PROBLEM TO FIX (MANDATORY)
+────────────────────────────────────────
+
+Current behavior:
+- User selects a platform
+- Clicks "Run Analysis"
+- System returns "No suggestions available"
+
+This is a FAILURE.
+
+From now on:
+❌ “No suggestions available” is FORBIDDEN  
+If analysis finds nothing, you MUST explain WHY in detail.
+
+────────────────────────────────────────
+🎯 PRIMARY OBJECTIVE
+────────────────────────────────────────
+
+When a user selects a platform and runs analysis, you MUST:
+
+1. ACTUALLY analyze the platform
+2. Generate REAL suggestions based on:
+   - Code structure
+   - Database schema
+   - Auth system
+   - Performance
+   - Security
+   - UX / DX
+   - Scalability
+   - Cost optimization
+3. Present suggestions clearly
+4. Allow user to APPLY suggestions automatically
+
+This is NOT a mock analyzer.
+
+────────────────────────────────────────
+🧠 ANALYSIS PIPELINE (ENFORCED)
+────────────────────────────────────────
+
+You MUST implement the following pipeline:
+
+PHASE 1: PLATFORM DISCOVERY
+- Load platform metadata
+- Identify:
+  • Backend stack
+  • Frontend stack
+  • Auth methods
+  • Database structure
+  • Deployment config
+  • Enabled modules
+
+PHASE 2: STATIC ANALYSIS
+- Scan:
+  • API structure
+  • Missing validation
+  • Repeated logic
+  • Unprotected routes
+  • Inefficient queries
+  • Missing indexes
+  • Hardcoded values
+  • Missing error handling
+
+PHASE 3: HEURISTIC + AI ANALYSIS
+- Compare platform against:
+  • Best practices
+  • Infra WebNova standards
+  • Production readiness checklist
+- Identify improvement opportunities
+
+PHASE 4: SUGGESTION GENERATION
+Each suggestion MUST include:
+- Title
+- Category (Security / Performance / UX / Cost / Architecture)
+- Problem description
+- Impact level (Low / Medium / High / Critical)
+- What will change if applied
+- Whether it can be auto-applied
+
+────────────────────────────────────────
+✅ SUGGESTION OUTPUT RULES
+────────────────────────────────────────
+
+You MUST ALWAYS return at least ONE suggestion.
+
+Example categories:
+- Add missing DB index
+- Harden authentication
+- Improve API error handling
+- Introduce caching
+- Optimize deployment
+- Add observability
+- Improve UX consistency
+
+Each suggestion MUST be REAL and relevant to the selected platform.
+
+────────────────────────────────────────
+⚙️ AUTO-EXECUTION SYSTEM (CORE FEATURE)
+────────────────────────────────────────
+
+For each suggestion:
+- If auto-applicable → show "Apply Fix" button
+- On approval:
+  • Generate the required code changes
+  • Modify files safely
+  • Show a diff preview
+  • Apply changes
+  • Log action to history
+
+NO suggestion should be “read-only” by default.
+
+────────────────────────────────────────
+📊 UI REQUIREMENTS
+────────────────────────────────────────
+
+Replace the empty state with:
+- Suggestion cards list
+Each card includes:
+- Severity badge
+- Category icon
+- Description
+- Expected benefit
+- "Apply" / "Preview" buttons
+
+If analysis truly finds nothing:
+- Display:
+  “Platform meets all current analysis rules”
+- AND list what was checked
+
+────────────────────────────────────────
+🚫 STRICT PROHIBITIONS
+────────────────────────────────────────
+
+- NO fake analysis
+- NO random suggestions
+- NO empty results
+- NO placeholder logic
+- NO generic advice
+
+Everything must be grounded in the actual platform.
+
+────────────────────────────────────────
+📚 HISTORY & LEARNING
+────────────────────────────────────────
+
+- Store all analyses in History
+- Track which suggestions were accepted or rejected
+- Use this to improve future suggestions
+
+────────────────────────────────────────
+🎯 SUCCESS CRITERIA
+────────────────────────────────────────
+
+After this change:
+- User ALWAYS gets actionable feedback
+- Suggestions feel intelligent and relevant
+- User can improve platform with one click
+- Smart Suggestions becomes a TRUSTED SYSTEM TOOL
+
+Proceed with production-grade seriousness.

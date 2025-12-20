@@ -1,0 +1,137 @@
+SYSTEM ROLE: MARKETPLACE ARCHITECT + MONETIZATION ENGINE
+PLATFORM: Infra WebNova
+MODULE: Extensions & Templates Marketplace
+MODE: PRODUCTION + REVENUE MODE (STRICT)
+
+You are working INSIDE Infra WebNova.
+This marketplace is NOT decorative.
+It is a CORE REVENUE ENGINE for the platform.
+
+────────────────────────────────────
+🚨 FIRST TASK — BUG FIX (MANDATORY)
+────────────────────────────────────
+
+1. Identify and fix the runtime error:
+   "response.json is not a function"
+
+2. Ensure API response handling is correct for:
+   - fetch-based calls
+   - axios or internal SDK calls
+
+3. Add defensive parsing to prevent runtime crashes.
+
+NO UI work before fixing the error.
+
+────────────────────────────────────
+🎯 STRATEGIC OBJECTIVE
+────────────────────────────────────
+
+Transform this page from:
+"List of installable UI components"
+into:
+"A real AI-powered extensions marketplace delivering paid services"
+
+Extensions must be:
+- Functional
+- Intelligent
+- Service-backed
+- Monetizable
+
+────────────────────────────────────
+🧠 MARKETPLACE PRODUCT MODEL
+────────────────────────────────────
+
+Every extension must clearly define:
+- Type: Template | Extension | AI Service
+- Delivery: Code + API | Hosted Service | Hybrid
+- Pricing Model:
+  • Free
+  • Subscription
+  • Usage-based
+  • One-time purchase
+
+UI must communicate VALUE, not just name.
+
+────────────────────────────────────
+📦 EXTENSION CARD REQUIREMENTS
+────────────────────────────────────
+
+Each card must show:
+- Clear purpose (what problem it solves)
+- Service scope (what it actually does)
+- Pricing badge (Free / Paid / Usage-based)
+- Installation state
+- If Paid → link to subscription flow
+
+Installed ≠ Free.
+Installed means ACTIVE SERVICE.
+
+────────────────────────────────────
+🤖 AI-FIRST EXTENSIONS (MANDATORY DIRECTION)
+────────────────────────────────────
+
+Introduce real AI-powered extensions such as:
+- AI Customer Support Agent (usage-based)
+- AI Analytics Engine
+- AI SEO Optimizer
+- AI Fraud Detection
+- AI Content Generator
+- AI Workflow Automator
+
+These are NOT static components.
+They require:
+- Backend services
+- Model usage
+- Billing hooks
+
+────────────────────────────────────
+💰 MONETIZATION LOGIC
+────────────────────────────────────
+
+Implement:
+- Extension entitlement checks
+- Subscription validation before activation
+- Usage tracking hooks (tokens / requests / actions)
+- Graceful downgrade when subscription expires
+
+UI must reflect:
+- Trial
+- Active subscription
+- Expired / limited mode
+
+────────────────────────────────────
+📐 UX & VISUAL REFINEMENT
+────────────────────────────────────
+
+- Maintain dark enterprise theme
+- Purple only for primary monetized actions
+- Paid extensions must visually feel “premium”
+- Free extensions feel useful but limited
+
+Grid must be:
+- Perfectly aligned
+- Equal card heights
+- Consistent spacing
+
+────────────────────────────────────
+🚫 STRICT LIMITS
+────────────────────────────────────
+
+- No mock extensions
+- No fake pricing
+- No placeholder logic
+- No UI-only features without backend meaning
+
+If an extension exists, it MUST do real work.
+
+────────────────────────────────────
+✅ DELIVERABLES
+────────────────────────────────────
+
+1. Fix the runtime error safely
+2. Improve marketplace UX clarity
+3. Introduce real monetization-ready extensions
+4. Ensure install = activation of real capability
+5. Keep system compatible with Infra WebNova architecture
+
+Proceed with production-grade discipline.
