@@ -7628,3 +7628,219 @@ export const insertActiveContributorSchema = createInsertSchema(activeContributo
 
 export type InsertActiveContributor = z.infer<typeof insertActiveContributorSchema>;
 export type ActiveContributor = typeof activeContributors.$inferSelect;
+
+// ==================== SOVEREIGN AUDIT SYSTEM (نظام الفحص السيادي) ====================
+
+// Audit run status
+export const auditRunStatuses = ['pending', 'running', 'completed', 'failed', 'cancelled'] as const;
+export type AuditRunStatus = typeof auditRunStatuses[number];
+
+// Audit target types
+export const auditTargetTypes = ['page', 'service', 'button', 'icon', 'form', 'table', 'card', 'widget', 'toggle', 'modal', 'api', 'cell'] as const;
+export type AuditTargetType = typeof auditTargetTypes[number];
+
+// Audit finding classifications
+export const auditClassifications = ['FULLY_OPERATIONAL', 'PARTIALLY_OPERATIONAL', 'NON_OPERATIONAL'] as const;
+export type AuditClassification = typeof auditClassifications[number];
+
+// Audit test types
+export const auditTestTypes = ['ui_presence', 'functional_action', 'backend_binding', 'business_logic', 'data_integrity', 'error_handling'] as const;
+export type AuditTestType = typeof auditTestTypes[number];
+
+// Audit Runs - جولات الفحص
+export const auditRuns = pgTable("audit_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Run metadata
+  runNumber: integer("run_number").notNull(),
+  runType: text("run_type").notNull().default("full"), // full, page, service, quick
+  scope: text("scope"), // specific page/service if not full
+  
+  // Status
+  status: text("status").notNull().default("pending"),
+  
+  // Initiator (owner only)
+  initiatedBy: varchar("initiated_by").references(() => users.id),
+  
+  // Timing
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  durationMs: integer("duration_ms"),
+  
+  // Results summary
+  totalTargets: integer("total_targets").notNull().default(0),
+  testedTargets: integer("tested_targets").notNull().default(0),
+  passedTargets: integer("passed_targets").notNull().default(0),
+  failedTargets: integer("failed_targets").notNull().default(0),
+  partialTargets: integer("partial_targets").notNull().default(0),
+  
+  // Readiness score
+  readinessScore: real("readiness_score").notNull().default(0), // 0-100%
+  
+  // Breakdown by type
+  breakdown: jsonb("breakdown").$type<{
+    pages: { total: number; passed: number; failed: number; partial: number };
+    services: { total: number; passed: number; failed: number; partial: number };
+    buttons: { total: number; passed: number; failed: number; partial: number };
+    icons: { total: number; passed: number; failed: number; partial: number };
+    apis: { total: number; passed: number; failed: number; partial: number };
+    forms: { total: number; passed: number; failed: number; partial: number };
+  }>(),
+  
+  // Error info
+  errorMessage: text("error_message"),
+  
+  // Comparison data
+  previousRunId: varchar("previous_run_id"),
+  changeFromPrevious: real("change_from_previous"), // +/- percentage
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_audit_run_status").on(table.status),
+  index("IDX_audit_run_initiated").on(table.initiatedBy),
+  index("IDX_audit_run_created").on(table.createdAt),
+]);
+
+export const insertAuditRunSchema = createInsertSchema(auditRuns).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAuditRun = z.infer<typeof insertAuditRunSchema>;
+export type AuditRun = typeof auditRuns.$inferSelect;
+
+// Audit Targets - الأهداف المفحوصة
+export const auditTargets = pgTable("audit_targets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Target identification
+  testId: text("test_id").notNull(), // Unique test ID like "page-dashboard" or "btn-submit-login"
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  
+  // Target details
+  type: text("type").notNull(), // page, service, button, icon, etc.
+  path: text("path"), // Route path or file path
+  selector: text("selector"), // CSS selector or data-testid
+  parentId: varchar("parent_id"), // Parent target for hierarchy
+  
+  // API binding info (if applicable)
+  apiEndpoint: text("api_endpoint"),
+  apiMethod: text("api_method"), // GET, POST, PUT, DELETE
+  
+  // Discovery metadata
+  discoveredAt: timestamp("discovered_at").defaultNow(),
+  lastTestedAt: timestamp("last_tested_at"),
+  
+  // Current status (from last run)
+  currentClassification: text("current_classification").default("NON_OPERATIONAL"),
+  currentScore: real("current_score").default(0),
+  
+  // History
+  testHistory: jsonb("test_history").$type<Array<{
+    runId: string;
+    classification: string;
+    score: number;
+    timestamp: string;
+  }>>().default([]),
+  
+  isActive: boolean("is_active").notNull().default(true),
+}, (table) => [
+  index("IDX_audit_target_testid").on(table.testId),
+  index("IDX_audit_target_type").on(table.type),
+  index("IDX_audit_target_path").on(table.path),
+]);
+
+export const insertAuditTargetSchema = createInsertSchema(auditTargets).omit({
+  id: true,
+  discoveredAt: true,
+});
+
+export type InsertAuditTarget = z.infer<typeof insertAuditTargetSchema>;
+export type AuditTarget = typeof auditTargets.$inferSelect;
+
+// Audit Findings - نتائج الفحص التفصيلية
+export const auditFindings = pgTable("audit_findings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Relationships
+  runId: varchar("run_id").references(() => auditRuns.id, { onDelete: "cascade" }).notNull(),
+  targetId: varchar("target_id").references(() => auditTargets.id, { onDelete: "cascade" }).notNull(),
+  
+  // Classification
+  classification: text("classification").notNull(), // FULLY_OPERATIONAL, PARTIALLY_OPERATIONAL, NON_OPERATIONAL
+  score: real("score").notNull().default(0), // 0-100
+  
+  // Test results by type
+  testResults: jsonb("test_results").$type<{
+    uiPresence: { passed: boolean; details: string };
+    functionalAction: { passed: boolean; details: string };
+    backendBinding: { passed: boolean; details: string; apiStatus?: number };
+    businessLogic: { passed: boolean; details: string };
+    dataIntegrity: { passed: boolean; details: string };
+    errorHandling: { passed: boolean; details: string };
+  }>(),
+  
+  // Failure details
+  failureReason: text("failure_reason"),
+  failureReasonAr: text("failure_reason_ar"),
+  
+  // Recommendations
+  recommendation: text("recommendation"),
+  recommendationAr: text("recommendation_ar"),
+  recommendationType: text("recommendation_type"), // fix, bind, remove, improve
+  
+  // Priority
+  priority: text("priority").notNull().default("medium"), // critical, high, medium, low
+  
+  // Fix status
+  fixStatus: text("fix_status").default("pending"), // pending, in_progress, fixed, wont_fix
+  fixedAt: timestamp("fixed_at"),
+  fixedBy: varchar("fixed_by"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_audit_finding_run").on(table.runId),
+  index("IDX_audit_finding_target").on(table.targetId),
+  index("IDX_audit_finding_classification").on(table.classification),
+  index("IDX_audit_finding_priority").on(table.priority),
+]);
+
+export const insertAuditFindingSchema = createInsertSchema(auditFindings).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAuditFinding = z.infer<typeof insertAuditFindingSchema>;
+export type AuditFinding = typeof auditFindings.$inferSelect;
+
+// Audit Report type for exports
+export interface AuditReportSummary {
+  runId: string;
+  runNumber: number;
+  timestamp: string;
+  readinessScore: number;
+  totalTargets: number;
+  passed: number;
+  failed: number;
+  partial: number;
+  breakdown: {
+    pages: { total: number; passed: number; failed: number; partial: number };
+    services: { total: number; passed: number; failed: number; partial: number };
+    buttons: { total: number; passed: number; failed: number; partial: number };
+    icons: { total: number; passed: number; failed: number; partial: number };
+    apis: { total: number; passed: number; failed: number; partial: number };
+    forms: { total: number; passed: number; failed: number; partial: number };
+  };
+  findings: Array<{
+    testId: string;
+    name: string;
+    type: string;
+    path: string;
+    classification: string;
+    score: number;
+    failureReason?: string;
+    recommendation?: string;
+    priority: string;
+  }>;
+}

@@ -409,6 +409,15 @@ import {
   paymentRetryQueue,
   type PaymentRetry,
   type InsertPaymentRetry,
+  auditRuns,
+  auditTargets,
+  auditFindings,
+  type AuditRun,
+  type InsertAuditRun,
+  type AuditTarget,
+  type InsertAuditTarget,
+  type AuditFinding,
+  type InsertAuditFinding,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt, gte, lte } from "drizzle-orm";
@@ -1058,6 +1067,25 @@ export interface IStorage {
   getAiBillingInsightsByUser(userId: string): Promise<AiBillingInsight[]>;
   getAiBillingInsights(limit?: number): Promise<AiBillingInsight[]>;
   updateAiBillingInsight(id: string, data: Partial<InsertAiBillingInsight>): Promise<AiBillingInsight>;
+
+  // ==================== SOVEREIGN AUDIT SYSTEM ====================
+  // Audit Runs
+  getLatestAuditRun(): Promise<AuditRun | undefined>;
+  getAuditRun(id: string): Promise<AuditRun | undefined>;
+  getAuditRuns(limit?: number): Promise<AuditRun[]>;
+  createAuditRun(data: InsertAuditRun): Promise<AuditRun>;
+  updateAuditRun(id: string, data: Partial<InsertAuditRun>): Promise<AuditRun | undefined>;
+  
+  // Audit Targets
+  getAllAuditTargets(): Promise<AuditTarget[]>;
+  getAuditTargetByTestId(testId: string): Promise<AuditTarget | undefined>;
+  createAuditTarget(data: InsertAuditTarget): Promise<AuditTarget>;
+  updateAuditTarget(id: string, data: Partial<InsertAuditTarget>): Promise<AuditTarget | undefined>;
+  
+  // Audit Findings
+  getAuditFindingsByRun(runId: string): Promise<AuditFinding[]>;
+  createAuditFinding(data: InsertAuditFinding): Promise<AuditFinding>;
+  updateAuditFinding(id: string, data: Partial<InsertAuditFinding>): Promise<AuditFinding | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6548,6 +6576,87 @@ body { font-family: 'Tajawal', sans-serif; }
     const [updated] = await db.update(aiBillingInsights)
       .set(data)
       .where(eq(aiBillingInsights.id, id))
+      .returning();
+    return updated;
+  }
+
+  // ==================== SOVEREIGN AUDIT SYSTEM ====================
+  
+  // Audit Runs
+  async getLatestAuditRun(): Promise<AuditRun | undefined> {
+    const [run] = await db.select().from(auditRuns)
+      .orderBy(desc(auditRuns.createdAt))
+      .limit(1);
+    return run;
+  }
+
+  async getAuditRun(id: string): Promise<AuditRun | undefined> {
+    const [run] = await db.select().from(auditRuns)
+      .where(eq(auditRuns.id, id));
+    return run;
+  }
+
+  async getAuditRuns(limit = 20): Promise<AuditRun[]> {
+    return db.select().from(auditRuns)
+      .orderBy(desc(auditRuns.createdAt))
+      .limit(limit);
+  }
+
+  async createAuditRun(data: InsertAuditRun): Promise<AuditRun> {
+    const [created] = await db.insert(auditRuns).values(data).returning();
+    return created;
+  }
+
+  async updateAuditRun(id: string, data: Partial<InsertAuditRun>): Promise<AuditRun | undefined> {
+    const [updated] = await db.update(auditRuns)
+      .set(data)
+      .where(eq(auditRuns.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Audit Targets
+  async getAllAuditTargets(): Promise<AuditTarget[]> {
+    return db.select().from(auditTargets)
+      .where(eq(auditTargets.isActive, true))
+      .orderBy(auditTargets.type, auditTargets.name);
+  }
+
+  async getAuditTargetByTestId(testId: string): Promise<AuditTarget | undefined> {
+    const [target] = await db.select().from(auditTargets)
+      .where(eq(auditTargets.testId, testId));
+    return target;
+  }
+
+  async createAuditTarget(data: InsertAuditTarget): Promise<AuditTarget> {
+    const [created] = await db.insert(auditTargets).values(data).returning();
+    return created;
+  }
+
+  async updateAuditTarget(id: string, data: Partial<InsertAuditTarget>): Promise<AuditTarget | undefined> {
+    const [updated] = await db.update(auditTargets)
+      .set(data)
+      .where(eq(auditTargets.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Audit Findings
+  async getAuditFindingsByRun(runId: string): Promise<AuditFinding[]> {
+    return db.select().from(auditFindings)
+      .where(eq(auditFindings.runId, runId))
+      .orderBy(auditFindings.priority, auditFindings.classification);
+  }
+
+  async createAuditFinding(data: InsertAuditFinding): Promise<AuditFinding> {
+    const [created] = await db.insert(auditFindings).values(data).returning();
+    return created;
+  }
+
+  async updateAuditFinding(id: string, data: Partial<InsertAuditFinding>): Promise<AuditFinding | undefined> {
+    const [updated] = await db.update(auditFindings)
+      .set(data)
+      .where(eq(auditFindings.id, id))
       .returning();
     return updated;
   }
