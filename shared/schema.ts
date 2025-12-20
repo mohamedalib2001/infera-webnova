@@ -108,21 +108,126 @@ export type OtpToken = typeof otpTokens.$inferSelect;
 
 // ==================== SUBSCRIPTION PLANS ====================
 
-// Subscription plans table
+// AI Operation Modes - defines how AI functions in each plan
+export const aiModes = ['sandbox', 'assistant', 'copilot', 'operator', 'sovereign'] as const;
+export type AIMode = typeof aiModes[number];
+
+// Plan tier identifiers
+export const planTiers = ['discovery', 'builder', 'professional', 'organizational', 'sovereign'] as const;
+export type PlanTier = typeof planTiers[number];
+
+// Plan operational capabilities type
+export interface PlanCapabilities {
+  // AI Capabilities
+  aiMode: AIMode;
+  aiAutonomy: number; // 0-100
+  smartSuggestions: boolean;
+  aiCodeGeneration: boolean;
+  aiCopilot: boolean;
+  aiOperator: boolean;
+  aiGovernance: boolean;
+  
+  // Builder Capabilities
+  backendGenerator: boolean;
+  frontendGenerator: boolean;
+  fullStackGenerator: boolean;
+  chatbotBuilder: boolean;
+  
+  // Deployment & Infrastructure
+  activeDeployments: number;
+  customDomains: number;
+  cdnAccess: boolean;
+  sslCertificates: boolean;
+  
+  // Automation & CI/CD
+  automationPipelines: boolean;
+  cicdIntegration: boolean;
+  webhooks: boolean;
+  scheduledTasks: boolean;
+  
+  // Version Control
+  versionControl: boolean;
+  branchManagement: boolean;
+  rollbackEnabled: boolean;
+  
+  // Analytics & Monitoring
+  basicAnalytics: boolean;
+  advancedAnalytics: boolean;
+  performanceMonitoring: boolean;
+  slaMonitoring: boolean;
+  
+  // Team & Access
+  teamRoles: boolean;
+  customPermissions: boolean;
+  apiGateway: boolean;
+  externalIntegrations: boolean;
+  
+  // Enterprise Features
+  whiteLabel: boolean;
+  multiTenant: boolean;
+  complianceModes: boolean;
+  auditLogs: boolean;
+  
+  // Sovereign Features
+  sovereignDashboard: boolean;
+  dataResidencyControl: boolean;
+  policyEnforcement: boolean;
+  emergencyKillSwitch: boolean;
+  isolatedInfrastructure: boolean;
+  strategicSimulation: boolean;
+}
+
+// Plan limits type
+export interface PlanLimits {
+  maxProjects: number; // -1 = unlimited
+  maxPagesPerProject: number;
+  aiGenerationsPerMonth: number;
+  storageGB: number;
+  bandwidthGB: number;
+  apiRequestsPerMonth: number;
+  teamMembers: number;
+  activeDeployments: number;
+  customDomains: number;
+}
+
+// Plan restrictions type
+export interface PlanRestrictions {
+  watermark: boolean;
+  noRealDeployment: boolean;
+  limitedTemplates: boolean;
+  exportCodeDisabled: boolean;
+  sandboxMode: boolean;
+}
+
+// Subscription plans table - Extended with operational capabilities
 export const subscriptionPlans = pgTable("subscription_plans", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(), // Free, Basic, Pro, Enterprise, Sovereign
   nameAr: text("name_ar").notNull(), // الاسم بالعربي
   description: text("description"),
   descriptionAr: text("description_ar"),
+  tagline: text("tagline"), // Short marketing tagline
+  taglineAr: text("tagline_ar"),
   role: text("role").notNull(), // maps to user role
+  tier: text("tier").notNull().default("discovery"), // discovery, builder, professional, organizational, sovereign
+  
+  // Pricing
   priceMonthly: integer("price_monthly").notNull().default(0), // in cents/smallest unit
   priceQuarterly: integer("price_quarterly").notNull().default(0),
   priceSemiAnnual: integer("price_semi_annual").notNull().default(0),
   priceYearly: integer("price_yearly").notNull().default(0),
   currency: text("currency").notNull().default("USD"),
+  
+  // Features display
   features: jsonb("features").$type<string[]>().notNull().default([]),
   featuresAr: jsonb("features_ar").$type<string[]>().notNull().default([]),
+  
+  // Operational Capabilities (JSON for flexibility)
+  capabilities: jsonb("capabilities").$type<PlanCapabilities>(),
+  limits: jsonb("limits").$type<PlanLimits>(),
+  restrictions: jsonb("restrictions").$type<PlanRestrictions>(),
+  
+  // Legacy fields (kept for backward compatibility)
   maxProjects: integer("max_projects").notNull().default(1),
   maxPagesPerProject: integer("max_pages_per_project").notNull().default(5),
   aiGenerationsPerMonth: integer("ai_generations_per_month").notNull().default(10),
@@ -132,6 +237,16 @@ export const subscriptionPlans = pgTable("subscription_plans", {
   analyticsAccess: boolean("analytics_access").notNull().default(false),
   chatbotBuilder: boolean("chatbot_builder").notNull().default(false),
   teamMembers: integer("team_members").notNull().default(1),
+  
+  // UI/Display
+  iconName: text("icon_name").default("Zap"),
+  accentColor: text("accent_color").default("#6366f1"),
+  gradientFrom: text("gradient_from").default("#6366f1"),
+  gradientTo: text("gradient_to").default("#8b5cf6"),
+  isPopular: boolean("is_popular").notNull().default(false),
+  isContactSales: boolean("is_contact_sales").notNull().default(false),
+  
+  // Status
   isActive: boolean("is_active").notNull().default(true),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow(),
