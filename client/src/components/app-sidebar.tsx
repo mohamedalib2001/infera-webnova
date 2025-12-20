@@ -45,6 +45,7 @@ import {
   Gavel,
   LineChart,
   Landmark,
+  Package,
 } from "lucide-react";
 import {
   Sidebar,
@@ -389,6 +390,14 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                           <Link href="/owner/ai-model-registry" data-testid="nav-owner-ai-model-registry">
                             <Bot className="h-4 w-4 text-violet-500" />
                             <span>{language === "ar" ? "سجل النماذج" : "Model Registry"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/admin/subscriptions"}>
+                          <Link href="/admin/subscriptions" data-testid="nav-admin-subscriptions">
+                            <Package className="h-4 w-4 text-blue-500" />
+                            <span>{language === "ar" ? "إدارة الاشتراكات" : "Subscriptions Manager"}</span>
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>

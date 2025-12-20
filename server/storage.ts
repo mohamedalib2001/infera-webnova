@@ -396,6 +396,7 @@ export interface IStorage {
   getSubscriptionPlans(): Promise<SubscriptionPlan[]>;
   getSubscriptionPlan(id: string): Promise<SubscriptionPlan | undefined>;
   getSubscriptionPlanByRole(role: string): Promise<SubscriptionPlan | undefined>;
+  updateSubscriptionPlan(id: string, updates: Partial<SubscriptionPlan>): Promise<SubscriptionPlan | undefined>;
   createSubscriptionPlan(plan: InsertSubscriptionPlan): Promise<SubscriptionPlan>;
   
   // User Subscriptions
@@ -2215,6 +2216,15 @@ body { font-family: 'Tajawal', sans-serif; }
   async createSubscriptionPlan(plan: InsertSubscriptionPlan): Promise<SubscriptionPlan> {
     const [created] = await db.insert(subscriptionPlans).values(plan as any).returning();
     return created;
+  }
+
+  async updateSubscriptionPlan(id: string, updates: Partial<SubscriptionPlan>): Promise<SubscriptionPlan | undefined> {
+    const [updated] = await db
+      .update(subscriptionPlans)
+      .set({ ...updates, updatedAt: new Date() } as any)
+      .where(eq(subscriptionPlans.id, id))
+      .returning();
+    return updated || undefined;
   }
 
   // User Subscriptions methods

@@ -68,6 +68,7 @@ import ConsolePage from "@/pages/console";
 import Support from "@/pages/support";
 import SupportAgentDashboard from "@/pages/support-agent-dashboard";
 import AgentCommandCenter from "@/pages/agent-command-center";
+import AdminSubscriptions from "@/pages/admin-subscriptions";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -129,6 +130,7 @@ function Router() {
       <Route path="/support" component={Support} />
       <Route path="/support/agent" component={SupportAgentDashboard} />
       <Route path="/support/command-center" component={AgentCommandCenter} />
+      <Route path="/admin/subscriptions" component={AdminSubscriptions} />
       <Route path="/preview/:shareCode" component={Preview} />
       <Route component={NotFound} />
     </Switch>

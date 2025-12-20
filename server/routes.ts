@@ -535,6 +535,57 @@ export async function registerRoutes(
     }
   });
 
+  // Update subscription plan (admin only)
+  app.patch("/api/plans/:planId", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      
+      // Check if user is admin/owner
+      if (!user || (user.role !== "admin" && user.role !== "owner")) {
+        return res.status(403).json({ 
+          error: "لا توجد صلاحية كافية / Insufficient permissions" 
+        });
+      }
+
+      const { planId } = req.params;
+      const updates = req.body;
+
+      // Validate that we're not trying to update immutable fields
+      const allowedFields = [
+        'name', 'nameAr', 'description', 'descriptionAr',
+        'priceMonthly', 'priceYearly', 
+        'isPopular', 'isContactSales',
+        'features', 'featuresAr', 'tagline', 'taglineAr',
+        'capabilities', 'limits', 'restrictions'
+      ];
+
+      const updateKeys = Object.keys(updates);
+      const hasInvalidFields = updateKeys.some(key => !allowedFields.includes(key));
+      
+      if (hasInvalidFields) {
+        return res.status(400).json({ 
+          error: "محاولة تحديث حقول غير مسموحة / Invalid fields" 
+        });
+      }
+
+      // Update the plan in storage
+      const updatedPlan = await storage.updateSubscriptionPlan(planId, updates);
+      
+      if (!updatedPlan) {
+        return res.status(404).json({ 
+          error: "الخطة غير موجودة / Plan not found" 
+        });
+      }
+
+      res.json(updatedPlan);
+    } catch (error) {
+      console.error("Plan update error:", error);
+      res.status(500).json({ 
+        error: "فشل في تحديث الخطة / Failed to update plan" 
+      });
+    }
+  });
+
   // Get current user subscription
   app.get("/api/subscription", requireAuth, async (req, res) => {
     try {
