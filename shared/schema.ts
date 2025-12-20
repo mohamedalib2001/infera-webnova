@@ -492,7 +492,27 @@ export type Message = typeof messages.$inferSelect;
 
 // ==================== TEMPLATES ====================
 
-// Templates table
+// Intelligence levels for templates
+export const templateIntelligenceLevels = ["basic", "smart", "ai-native"] as const;
+export type TemplateIntelligenceLevel = typeof templateIntelligenceLevels[number];
+
+// Monetization types
+export const templateMonetizationTypes = ["free", "paid", "enterprise"] as const;
+export type TemplateMonetizationType = typeof templateMonetizationTypes[number];
+
+// Target audience types
+export const templateTargetAudiences = ["individual", "startup", "enterprise", "government"] as const;
+export type TemplateTargetAudience = typeof templateTargetAudiences[number];
+
+// Platform types
+export const templatePlatformTypes = ["marketing", "saas", "e-commerce", "internal", "ai-service", "fintech", "government"] as const;
+export type TemplatePlatformType = typeof templatePlatformTypes[number];
+
+// Template categories
+export const templateCategories = ["business-saas", "government-enterprise", "ai-native", "e-commerce-fintech", "internal-tools"] as const;
+export type TemplateCategory = typeof templateCategories[number];
+
+// Templates table with rich metadata
 export const templates = pgTable("templates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
@@ -500,17 +520,52 @@ export const templates = pgTable("templates", {
   description: text("description"),
   descriptionAr: text("description_ar"),
   category: text("category").notNull(),
-  industry: text("industry"), // e-commerce, services, education, legal, etc.
+  industry: text("industry"),
+  
+  // Intelligence & Classification
+  intelligenceLevel: text("intelligence_level").notNull().default("basic"), // basic, smart, ai-native
+  monetizationType: text("monetization_type").notNull().default("free"), // free, paid, enterprise
+  targetAudience: text("target_audience").notNull().default("startup"), // individual, startup, enterprise, government
+  platformType: text("platform_type").notNull().default("marketing"), // marketing, saas, e-commerce, internal, ai-service
+  
+  // Setup & Capabilities
+  setupTimeMinutes: integer("setup_time_minutes").notNull().default(15),
+  frontendCapabilities: jsonb("frontend_capabilities").$type<string[]>().default([]),
+  businessLogicModules: jsonb("business_logic_modules").$type<string[]>().default([]),
+  extensibilityHooks: jsonb("extensibility_hooks").$type<string[]>().default([]),
+  supportedIntegrations: jsonb("supported_integrations").$type<string[]>().default([]),
+  
+  // Visual & Branding
+  accentColor: text("accent_color").default("#6366f1"),
+  iconName: text("icon_name").default("Sparkles"),
+  previewImages: jsonb("preview_images").$type<string[]>().default([]),
+  
+  // Code
   htmlCode: text("html_code").notNull(),
   cssCode: text("css_code").notNull(),
   jsCode: text("js_code").notNull(),
   thumbnail: text("thumbnail"),
+  
+  // Monetization
   isPremium: boolean("is_premium").notNull().default(false),
   requiredPlan: text("required_plan").notNull().default("free"),
+  freeFeatures: jsonb("free_features").$type<string[]>().default([]),
+  paidFeatures: jsonb("paid_features").$type<string[]>().default([]),
+  
+  // Metadata
+  usageCount: integer("usage_count").notNull().default(0),
+  rating: real("rating").default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const insertTemplateSchema = createInsertSchema(templates).omit({
   id: true,
+  usageCount: true,
+  rating: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 export type InsertTemplate = z.infer<typeof insertTemplateSchema>;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
@@ -12,6 +12,7 @@ import { SecureDeletionDialog } from "@/components/secure-deletion-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   Sparkles, 
@@ -22,10 +23,33 @@ import {
   Globe,
   HeartPulse,
   GraduationCap,
-  Landmark
+  Landmark,
+  Bot,
+  CreditCard,
+  Settings,
+  Brain,
+  Zap,
+  Filter,
+  LayoutGrid,
 } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 import type { Project, Template } from "@shared/schema";
+
+const templateCategories = [
+  { id: "all", label: { en: "All Templates", ar: "جميع القوالب" }, icon: LayoutGrid },
+  { id: "business-saas", label: { en: "Business & SaaS", ar: "أعمال و SaaS" }, icon: Building2 },
+  { id: "government-enterprise", label: { en: "Government", ar: "حكومي" }, icon: Landmark },
+  { id: "ai-native", label: { en: "AI-Native", ar: "ذكاء اصطناعي" }, icon: Bot },
+  { id: "e-commerce-fintech", label: { en: "E-Commerce", ar: "تجارة إلكترونية" }, icon: CreditCard },
+  { id: "internal-tools", label: { en: "Internal Tools", ar: "أدوات داخلية" }, icon: Settings },
+];
+
+const intelligenceLevels = [
+  { id: "all", label: { en: "All Levels", ar: "جميع المستويات" }, icon: Filter },
+  { id: "basic", label: { en: "Basic", ar: "أساسي" }, icon: Zap },
+  { id: "smart", label: { en: "Smart", ar: "ذكي" }, icon: Sparkles },
+  { id: "ai-native", label: { en: "AI-Native", ar: "ذكاء اصطناعي" }, icon: Brain },
+];
 
 const sovereignDomains = [
   { 
@@ -57,6 +81,8 @@ const sovereignDomains = [
 export default function Home() {
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("platforms");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedIntelligence, setSelectedIntelligence] = useState("all");
   const { t, isRtl, language } = useLanguage();
   const { toast } = useToast();
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
@@ -69,6 +95,15 @@ export default function Home() {
   const { data: templates, isLoading: templatesLoading } = useQuery<Template[]>({
     queryKey: ["/api/templates"],
   });
+
+  const filteredTemplates = useMemo(() => {
+    if (!templates) return [];
+    return templates.filter((tpl) => {
+      const categoryMatch = selectedCategory === "all" || tpl.category === selectedCategory;
+      const intelligenceMatch = selectedIntelligence === "all" || tpl.intelligenceLevel === selectedIntelligence;
+      return categoryMatch && intelligenceMatch;
+    });
+  }, [templates, selectedCategory, selectedIntelligence]);
 
   const handleChatSubmit = async (message: string) => {
     setLocation(`/builder?prompt=${encodeURIComponent(message)}`);
@@ -255,27 +290,103 @@ export default function Home() {
             </TabsContent>
             
             <TabsContent value="templates">
-              {templatesLoading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {[1, 2, 3].map((i) => (
-                    <Skeleton key={i} className="aspect-video rounded-lg" />
-                  ))}
+              <div className="space-y-6">
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-wrap gap-2">
+                    {templateCategories.map((cat) => {
+                      const Icon = cat.icon;
+                      return (
+                        <Button
+                          key={cat.id}
+                          variant={selectedCategory === cat.id ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setSelectedCategory(cat.id)}
+                          className="gap-2"
+                          data-testid={`filter-category-${cat.id}`}
+                        >
+                          <Icon className="h-4 w-4" />
+                          {cat.label[language as "en" | "ar"]}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-2">
+                    {intelligenceLevels.map((level) => {
+                      const Icon = level.icon;
+                      return (
+                        <Badge
+                          key={level.id}
+                          variant={selectedIntelligence === level.id ? "default" : "outline"}
+                          className={`cursor-pointer gap-1.5 px-3 py-1.5 ${
+                            selectedIntelligence === level.id 
+                              ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white border-0" 
+                              : "hover-elevate"
+                          }`}
+                          onClick={() => setSelectedIntelligence(level.id)}
+                          data-testid={`filter-intelligence-${level.id}`}
+                        >
+                          <Icon className="h-3 w-3" />
+                          {level.label[language as "en" | "ar"]}
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                  
+                  {(selectedCategory !== "all" || selectedIntelligence !== "all") && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span>
+                        {language === "ar" 
+                          ? `${filteredTemplates.length} قالب مطابق`
+                          : `${filteredTemplates.length} matching templates`
+                        }
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedCategory("all");
+                          setSelectedIntelligence("all");
+                        }}
+                        className="text-xs h-7"
+                        data-testid="button-clear-filters"
+                      >
+                        {language === "ar" ? "مسح الفلاتر" : "Clear filters"}
+                      </Button>
+                    </div>
+                  )}
                 </div>
-              ) : templates && templates.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {templates.map((template) => (
-                    <TemplateCard
-                      key={template.id}
-                      template={template}
-                      onUse={handleUseTemplate}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12 text-muted-foreground">
-                  {t("home.noTemplates")}
-                </div>
-              )}
+
+                {templatesLoading ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
+                      <Skeleton key={i} className="aspect-[16/14] rounded-lg" />
+                    ))}
+                  </div>
+                ) : filteredTemplates.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {filteredTemplates.map((template) => (
+                      <TemplateCard
+                        key={template.id}
+                        template={template}
+                        onUse={handleUseTemplate}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
+                      <Filter className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                    <p className="text-muted-foreground">
+                      {language === "ar" 
+                        ? "لا توجد قوالب تطابق الفلاتر المحددة"
+                        : "No templates match the selected filters"
+                      }
+                    </p>
+                  </div>
+                )}
+              </div>
             </TabsContent>
           </Tabs>
         </div>

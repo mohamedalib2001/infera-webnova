@@ -1,0 +1,176 @@
+SYSTEM ROLE: SOVEREIGN AI SUPPORT AGENT COMMAND CENTER
+
+You are not building a dashboard.
+You are architecting the most advanced SUPPORT OPERATIONS SYSTEM on Earth.
+
+This system operates inside the INFRA WebNova platform
+and is designed to AUGMENT, NOT REPLACE, human support agents
+with absolute AI intelligence.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 CORE OBJECTIVE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Transform the Support Agent Dashboard into a:
+• Real-time command center
+• AI-augmented decision cockpit
+• Contextual intelligence hub
+• High-speed resolution engine
+
+Support agents must feel:
+"I am operating a system smarter than me."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧠 AGENT-FIRST INTELLIGENCE DESIGN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The dashboard MUST THINK WITH THE AGENT.
+
+For every conversation, the system MUST automatically provide:
+- User profile & role
+- Platform & project context
+- Subscription tier & SLA
+- Recent actions & errors
+- AI-detected intent
+- AI confidence score
+- Emotional sentiment analysis
+- Risk level (low / medium / critical)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🤖 AI CO-PILOT FOR SUPPORT AGENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Every agent session MUST include an AI Copilot that:
+
+1. Reads the entire conversation history
+2. Summarizes the issue in 1–2 lines
+3. Suggests best response options
+4. Generates ready-to-send replies
+5. Recommends actions (restart, rollback, config fix)
+6. Warns about risky actions
+7. Learns from agent decisions
+
+The agent NEVER types blindly.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧩 INTELLIGENT CASE FLOW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Each ticket must move through intelligent states:
+
+- New (AI pre-analysis completed)
+- Diagnosing (AI + agent)
+- Action Taken (with audit trail)
+- Awaiting User
+- Resolved (AI-verified)
+- Escalated (only if necessary)
+
+State transitions must be:
+✔ Visible
+✔ Explainable
+✔ Logged
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 REAL-TIME OPERATION METRICS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Dashboard MUST show live metrics:
+
+- Active tickets
+- Average resolution time
+- AI resolution rate
+- Human intervention rate
+- SLA breach risk
+- Agent performance index
+- User satisfaction prediction
+
+Metrics must update in real time.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚙️ ACTION EXECUTION PANEL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Agents must be able to:
+- Apply AI-suggested fixes
+- Trigger platform actions
+- Re-run deployments
+- Reset configs
+- Rollback changes
+- Request AI deep analysis
+
+ALL actions must require confirmation
+and be logged with timestamps.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧠 KNOWLEDGE & MEMORY ENGINE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The system MUST:
+- Auto-suggest similar past cases
+- Link resolved tickets
+- Build an internal AI knowledge graph
+- Learn from resolutions
+- Reduce repetitive tickets over time
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧑‍💼 HUMAN ESCALATION INTELLIGENCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Escalation rules:
+- AI confidence < threshold
+- Security risk detected
+- Enterprise SLA risk
+
+When escalating:
+- Auto-generate technical summary
+- Include logs, configs, timelines
+- Zero re-explanation required
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎨 UI / UX SUPREMACY REQUIREMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Design MUST:
+- Be calm under pressure
+- Reduce cognitive load
+- Highlight urgency visually
+- Use color only when meaningful
+- Support dark-first design
+- Be RTL/LTR native
+
+No clutter. No noise. Pure signal.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧠 PROACTIVE & PREDICTIVE SUPPORT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The system SHOULD:
+- Predict upcoming failures
+- Warn agents before users complain
+- Suggest proactive outreach
+- Detect abuse or misuse patterns
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔐 SECURITY & COMPLIANCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- Full audit trail
+- Role-based permissions
+- Action replay history
+- GDPR-safe conversation handling
+- Enterprise compliance ready
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FINAL DIRECTIVE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You are NOT designing a helpdesk.
+You are building a SUPPORT WAR ROOM.
+
+This dashboard must:
+✔ Make agents faster
+✔ Make decisions smarter
+✔ Make users feel protected
+✔ Make competitors irrelevant
+
+Begin transforming the Support Agent Dashboard now.
