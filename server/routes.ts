@@ -11852,40 +11852,54 @@ ${project.description || ""}
         status: "analyzing",
       });
       
-      const { analyzeCodeWithAI } = await import("./ai-suggestions-service");
-      const result = await analyzeCodeWithAI(code, type);
+      const { analyzePlatformComprehensively } = await import("./platform-analysis-engine");
+      const result = await analyzePlatformComprehensively(code, type);
+      
+      const suggestionValidTypes = ['performance', 'security', 'accessibility', 'seo', 'best_practice', 'code_quality', 'ux', 'optimization'];
+      const suggestionValidPriorities = ['critical', 'high', 'medium', 'low', 'info'];
+      
+      let insertedCount = 0;
+      let failedCount = 0;
       
       for (const suggestion of result.suggestions) {
-        await storage.createSmartSuggestion({
-          sessionId: session.id,
-          projectId,
-          userId,
-          type: suggestion.type,
-          priority: suggestion.priority,
-          title: suggestion.title,
-          titleAr: suggestion.titleAr || suggestion.title,
-          description: suggestion.description,
-          descriptionAr: suggestion.descriptionAr || suggestion.description,
-          affectedFile: suggestion.affectedFile,
-          affectedCode: suggestion.affectedCode,
-          lineNumber: suggestion.lineNumber,
-          suggestedFix: suggestion.suggestedFix,
-          suggestedFixAr: suggestion.suggestedFixAr || suggestion.suggestedFix,
-          codeBeforefix: suggestion.codeBeforeFix,
-          codeAfterFix: suggestion.codeAfterFix,
-          canAutoApply: suggestion.canAutoApply || false,
-          expectedImpact: suggestion.expectedImpact,
-          expectedImpactAr: suggestion.expectedImpactAr || suggestion.expectedImpact,
-          estimatedEffort: suggestion.estimatedEffort,
-          status: "pending",
-        });
+        try {
+          const sanitizedSuggestion = {
+            sessionId: session.id,
+            projectId,
+            userId,
+            type: suggestionValidTypes.includes(suggestion.type) ? suggestion.type : 'best_practice',
+            priority: suggestionValidPriorities.includes(suggestion.priority) ? suggestion.priority : 'info',
+            title: (typeof suggestion.title === 'string' && suggestion.title) ? suggestion.title : 'Suggestion',
+            titleAr: (typeof suggestion.titleAr === 'string' && suggestion.titleAr) ? suggestion.titleAr : suggestion.title || 'اقتراح',
+            description: (typeof suggestion.description === 'string' && suggestion.description) ? suggestion.description : 'No description available',
+            descriptionAr: (typeof suggestion.descriptionAr === 'string' && suggestion.descriptionAr) ? suggestion.descriptionAr : suggestion.description || 'لا يوجد وصف',
+            affectedFile: (typeof suggestion.affectedFile === 'string' && suggestion.affectedFile) ? suggestion.affectedFile : 'general',
+            affectedCode: typeof suggestion.affectedCode === 'string' ? suggestion.affectedCode : undefined,
+            lineNumber: typeof suggestion.lineNumber === 'number' ? suggestion.lineNumber : undefined,
+            suggestedFix: (typeof suggestion.suggestedFix === 'string' && suggestion.suggestedFix) ? suggestion.suggestedFix : 'Review and apply manually',
+            suggestedFixAr: (typeof suggestion.suggestedFixAr === 'string' && suggestion.suggestedFixAr) ? suggestion.suggestedFixAr : suggestion.suggestedFix || 'راجع وطبق يدوياً',
+            codeBeforeFix: typeof suggestion.codeBeforeFix === 'string' ? suggestion.codeBeforeFix : undefined,
+            codeAfterFix: typeof suggestion.codeAfterFix === 'string' ? suggestion.codeAfterFix : undefined,
+            canAutoApply: suggestion.canAutoApply === true,
+            expectedImpact: (typeof suggestion.expectedImpact === 'string' && suggestion.expectedImpact) ? suggestion.expectedImpact : 'Improves platform quality',
+            expectedImpactAr: (typeof suggestion.expectedImpactAr === 'string' && suggestion.expectedImpactAr) ? suggestion.expectedImpactAr : suggestion.expectedImpact || 'يحسن جودة المنصة',
+            estimatedEffort: (typeof suggestion.estimatedEffort === 'string' && suggestion.estimatedEffort) ? suggestion.estimatedEffort : '15 minutes',
+            status: "pending",
+          };
+          await storage.createSmartSuggestion(sanitizedSuggestion);
+          insertedCount++;
+        } catch (suggestionError) {
+          console.error("Failed to store suggestion:", suggestionError);
+          failedCount++;
+        }
       }
 
       const criticalCount = result.suggestions.filter(s => s.priority === "critical").length;
+      const sessionStatus = insertedCount > 0 || result.suggestions.length === 0 ? "completed" : "failed";
       
       const updatedSession = await storage.updateCodeAnalysisSession(session.id, {
-        status: "completed",
-        totalSuggestions: result.suggestions.length,
+        status: sessionStatus,
+        totalSuggestions: insertedCount,
         criticalIssues: criticalCount,
         overallScore: result.overallScore,
         performanceScore: result.performanceScore,
@@ -11895,7 +11909,12 @@ ${project.description || ""}
         codeQualityScore: result.codeQualityScore,
       });
       
-      res.json({ success: true, session: updatedSession });
+      res.json({ 
+        success: true, 
+        session: updatedSession,
+        analysisReport: result.analysisReport,
+        stats: { inserted: insertedCount, failed: failedCount, total: result.suggestions.length }
+      });
     } catch (error) {
       res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to analyze code" });
     }

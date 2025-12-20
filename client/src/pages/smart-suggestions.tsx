@@ -196,10 +196,10 @@ export default function SmartSuggestions() {
   const [rating, setRating] = useState(0);
   const [feedback, setFeedback] = useState("");
 
-  const { data: projectsData } = useQuery<any[]>({
+  const { data: projectsData } = useQuery<any>({
     queryKey: ["/api/projects"],
   });
-  const projects = Array.isArray(projectsData) ? projectsData : (projectsData?.projects || []);
+  const projects: Array<{ id: string; name: string }> = Array.isArray(projectsData) ? projectsData : (projectsData?.projects || []);
 
   const { data: suggestionsData, isLoading: suggestionsLoading } = useQuery<{ success: boolean; suggestions: SmartSuggestion[] }>({
     queryKey: ["/api/suggestions", selectedProject],
@@ -433,12 +433,69 @@ export default function SmartSuggestions() {
             </div>
           ) : pendingSuggestions.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center">
-                <CheckCircle className="h-12 w-12 mx-auto text-green-500 mb-4" />
-                <p className="text-muted-foreground">{t.noSuggestions}</p>
-                <Button className="mt-4" onClick={() => analyzeMutation.mutate()}>
-                  {t.runAnalysis}
-                </Button>
+              <CardContent className="py-8">
+                <div className="text-center mb-6">
+                  <CheckCircle className="h-12 w-12 mx-auto text-green-500 mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">
+                    {language === 'ar' ? 'المنصة تلبي معايير التحليل الحالية' : 'Platform Meets Current Analysis Standards'}
+                  </h3>
+                  <p className="text-muted-foreground text-sm max-w-md mx-auto">
+                    {language === 'ar' 
+                      ? 'لم يتم العثور على مشاكل حرجة. يمكنك تشغيل تحليل جديد للتحقق من التحديثات.' 
+                      : 'No critical issues found. You can run a new analysis to check for updates.'}
+                  </p>
+                </div>
+                
+                {latestSession && (
+                  <div className="bg-muted/50 rounded-lg p-4 mb-6">
+                    <h4 className="font-medium mb-3 flex items-center gap-2">
+                      <Search className="h-4 w-4" />
+                      {language === 'ar' ? 'الفحوصات التي تم إجراؤها' : 'Checks Performed'}
+                    </h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <span>{language === 'ar' ? 'فحص الأمان' : 'Security Check'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <span>{language === 'ar' ? 'فحص الأداء' : 'Performance Check'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <span>{language === 'ar' ? 'فحص إمكانية الوصول' : 'Accessibility Check'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <span>{language === 'ar' ? 'فحص SEO' : 'SEO Check'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <span>{language === 'ar' ? 'جودة الكود' : 'Code Quality'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <span>{language === 'ar' ? 'أفضل الممارسات' : 'Best Practices'}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="text-center">
+                  <Button onClick={() => analyzeMutation.mutate()} disabled={analyzeMutation.isPending}>
+                    {analyzeMutation.isPending ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                        {t.analyzing}
+                      </>
+                    ) : (
+                      <>
+                        <Play className="h-4 w-4 mr-2" />
+                        {t.runAnalysis}
+                      </>
+                    )}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ) : (
