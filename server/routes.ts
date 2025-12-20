@@ -13876,7 +13876,315 @@ describe('Generated Tests', () => {
     }
   });
 
+  // ==================== AGENT COMMAND CENTER APIs ====================
+
+  // Get all sessions for agent command center with AI intelligence
+  app.get("/api/agent/sessions", requireAuth, async (req, res) => {
+    try {
+      const { status, priority } = req.query;
+      const { supportSessions: sessionsTable, users: usersTable } = await import("@shared/schema");
+      
+      let query = db.select().from(sessionsTable);
+      
+      // Filter by status if provided
+      if (status && status !== "all") {
+        query = query.where(eq(sessionsTable.status, status as string));
+      }
+      
+      // Filter by priority if provided
+      if (priority && priority !== "all") {
+        query = query.where(eq(sessionsTable.priority, priority as string));
+      }
+      
+      const sessions = await query.orderBy(sql`created_at DESC`).limit(50);
+      
+      // Enhance sessions with AI copilot data
+      const enhancedSessions = sessions.map(session => ({
+        ...session,
+        aiCopilotSummary: session.summary || generateAISummary(session.subject),
+        aiCopilotSummaryAr: session.summaryAr || generateAISummaryAr(session.subject),
+        aiSuggestedResponses: generateAISuggestedResponses(session),
+        aiRecommendedActions: generateAIRecommendedActions(session),
+        aiIntent: detectIntent(session.subject, session.category),
+        aiSentiment: session.priority === 'critical' ? 'frustrated' : 
+                     session.priority === 'urgent' ? 'urgent' :
+                     session.priority === 'high' ? 'negative' : 'neutral',
+        riskLevel: calculateRiskLevel(session),
+      }));
+      
+      res.json({ sessions: enhancedSessions });
+    } catch (error) {
+      console.error("Get agent sessions error:", error);
+      res.status(500).json({ error: "Failed to fetch sessions" });
+    }
+  });
+
+  // Get messages for a specific session (agent view)
+  app.get("/api/agent/sessions/:sessionId/messages", requireAuth, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const { supportMessages: messagesTable } = await import("@shared/schema");
+      
+      const messages = await db.select()
+        .from(messagesTable)
+        .where(eq(messagesTable.sessionId, sessionId))
+        .orderBy(sql`created_at ASC`);
+      
+      res.json({ messages });
+    } catch (error) {
+      console.error("Get session messages error:", error);
+      res.status(500).json({ error: "Failed to fetch messages" });
+    }
+  });
+
+  // Send message as agent
+  app.post("/api/agent/sessions/:sessionId/messages", requireAuth, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const { content, senderType = "agent", usedAiSuggestion, suggestionId } = req.body;
+      const userId = req.session.userId!;
+      const user = req.session.user;
+      
+      const { supportMessages: messagesTable, supportSessions: sessionsTable } = await import("@shared/schema");
+      
+      const [message] = await db.insert(messagesTable).values({
+        sessionId,
+        senderType,
+        senderId: userId,
+        senderName: user?.fullName || user?.username || "Support Agent",
+        content,
+        isAiGenerated: false,
+        aiSuggested: usedAiSuggestion || false,
+        usedAsSuggestion: usedAiSuggestion || false,
+      }).returning();
+      
+      // Update session last activity
+      await db.update(sessionsTable)
+        .set({ 
+          updatedAt: new Date(),
+          lastAgentActivity: new Date(),
+        })
+        .where(eq(sessionsTable.id, sessionId));
+      
+      res.json({ success: true, message });
+    } catch (error) {
+      console.error("Send agent message error:", error);
+      res.status(500).json({ error: "Failed to send message" });
+    }
+  });
+
+  // Update session status
+  app.patch("/api/agent/sessions/:sessionId/status", requireAuth, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const { status, reason } = req.body;
+      const userId = req.session.userId!;
+      
+      const { supportSessions: sessionsTable } = await import("@shared/schema");
+      
+      const [session] = await db.update(sessionsTable)
+        .set({ 
+          status,
+          updatedAt: new Date(),
+          ...(status === "resolved" && { 
+            resolvedAt: new Date(),
+            resolvedBy: userId,
+            resolutionType: "agent_resolved",
+            resolutionNotes: reason,
+          }),
+        })
+        .where(eq(sessionsTable.id, sessionId))
+        .returning();
+      
+      res.json({ success: true, session });
+    } catch (error) {
+      console.error("Update session status error:", error);
+      res.status(500).json({ error: "Failed to update status" });
+    }
+  });
+
+  // Execute action on session
+  app.post("/api/agent/sessions/:sessionId/actions", requireAuth, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const { action } = req.body;
+      const userId = req.session.userId!;
+      
+      // Log the action
+      console.log(`Agent ${userId} executed action ${action.type} on session ${sessionId}`);
+      
+      // Here you would implement actual action execution
+      // For now, we'll just log it and return success
+      
+      res.json({ 
+        success: true, 
+        action: {
+          ...action,
+          executedAt: new Date().toISOString(),
+          executedBy: userId,
+        }
+      });
+    } catch (error) {
+      console.error("Execute action error:", error);
+      res.status(500).json({ error: "Failed to execute action" });
+    }
+  });
+
+  // Get agent command center metrics
+  app.get("/api/agent/metrics", requireAuth, async (req, res) => {
+    try {
+      const { supportSessions: sessionsTable } = await import("@shared/schema");
+      
+      const activeTickets = await db.select({ count: sql<number>`count(*)` })
+        .from(sessionsTable)
+        .where(sql`status NOT IN ('resolved', 'closed')`);
+      
+      const resolvedToday = await db.select({ count: sql<number>`count(*)` })
+        .from(sessionsTable)
+        .where(sql`status = 'resolved' AND resolved_at >= CURRENT_DATE`);
+      
+      const aiResolved = await db.select({ count: sql<number>`count(*)` })
+        .from(sessionsTable)
+        .where(eq(sessionsTable.resolutionType, "ai_resolved"));
+      
+      const totalResolved = await db.select({ count: sql<number>`count(*)` })
+        .from(sessionsTable)
+        .where(eq(sessionsTable.status, "resolved"));
+      
+      const escalated = await db.select({ count: sql<number>`count(*)` })
+        .from(sessionsTable)
+        .where(eq(sessionsTable.status, "escalated"));
+      
+      const avgRating = await db.select({ avg: sql<number>`avg(satisfaction_rating)` })
+        .from(sessionsTable)
+        .where(sql`satisfaction_rating IS NOT NULL`);
+      
+      const aiRate = totalResolved[0]?.count > 0 
+        ? Math.round((aiResolved[0]?.count / totalResolved[0]?.count) * 100) 
+        : 0;
+      
+      res.json({
+        activeTickets: activeTickets[0]?.count || 0,
+        avgResolutionTime: 12, // Would calculate from actual data
+        aiResolutionRate: aiRate,
+        humanInterventionRate: 100 - aiRate,
+        slaBreachRisk: escalated[0]?.count || 0,
+        agentPerformanceIndex: 92, // Would calculate from actual data
+        satisfactionPrediction: Math.round((avgRating[0]?.avg || 4.5) * 20),
+        ticketsToday: resolvedToday[0]?.count || 0,
+        escalatedTickets: escalated[0]?.count || 0,
+      });
+    } catch (error) {
+      console.error("Get agent metrics error:", error);
+      res.status(500).json({ error: "Failed to fetch metrics" });
+    }
+  });
+
   return httpServer;
+}
+
+// AI Helper functions for Command Center
+function generateAISummary(subject: string): string {
+  const summaries: Record<string, string> = {
+    "billing": "User has a billing inquiry that requires attention.",
+    "ai": "User needs assistance with AI features or configuration.",
+    "api": "User is experiencing API integration issues.",
+    "security": "Security-related concern requiring immediate review.",
+    "bug_report": "User reported a bug that needs investigation.",
+    "feature_request": "User is requesting a new feature.",
+  };
+  return summaries[subject.toLowerCase()] || "User needs general assistance with the platform.";
+}
+
+function generateAISummaryAr(subject: string): string {
+  const summaries: Record<string, string> = {
+    "billing": "المستخدم لديه استفسار بخصوص الفواتير يتطلب المتابعة.",
+    "ai": "المستخدم يحتاج مساعدة في ميزات الذكاء الاصطناعي.",
+    "api": "المستخدم يواجه مشاكل في تكامل واجهة البرمجة.",
+    "security": "مخاوف أمنية تتطلب مراجعة فورية.",
+    "bug_report": "المستخدم أبلغ عن خطأ يحتاج تحقيق.",
+    "feature_request": "المستخدم يطلب ميزة جديدة.",
+  };
+  return summaries[subject.toLowerCase()] || "المستخدم يحتاج مساعدة عامة في المنصة.";
+}
+
+function generateAISuggestedResponses(session: any): any[] {
+  return [
+    {
+      id: "1",
+      content: `Thank you for contacting us about "${session.subject}". I'm reviewing your case now and will provide assistance shortly.`,
+      contentAr: `شكراً لتواصلك معنا بخصوص "${session.subject}". أنا أراجع حالتك الآن وسأقدم المساعدة قريباً.`,
+      confidence: 0.95,
+      type: "quick_reply",
+    },
+    {
+      id: "2",
+      content: `I understand your concern. Let me look into this issue and provide you with a detailed solution.`,
+      contentAr: `أتفهم قلقك. دعني أبحث في هذه المشكلة وأقدم لك حلاً مفصلاً.`,
+      confidence: 0.85,
+      type: "detailed",
+    },
+  ];
+}
+
+function generateAIRecommendedActions(session: any): any[] {
+  const actions = [];
+  
+  if (session.category === "bug_report" || session.priority === "critical") {
+    actions.push({
+      id: "1",
+      action: "Request AI Deep Analysis of the reported issue",
+      actionAr: "طلب تحليل عميق بالذكاء الاصطناعي للمشكلة المُبلغ عنها",
+      type: "deep_analysis",
+      risk: "safe",
+      requiresConfirmation: false,
+    });
+  }
+  
+  if (session.priority === "critical" || session.priority === "urgent") {
+    actions.push({
+      id: "2",
+      action: "Escalate to senior support team",
+      actionAr: "تصعيد لفريق الدعم المتقدم",
+      type: "escalate",
+      risk: "safe",
+      requiresConfirmation: true,
+    });
+  }
+  
+  if (session.category === "configuration") {
+    actions.push({
+      id: "3",
+      action: "Apply configuration fix",
+      actionAr: "تطبيق إصلاح الإعدادات",
+      type: "config_fix",
+      risk: "moderate",
+      requiresConfirmation: true,
+    });
+  }
+  
+  return actions;
+}
+
+function detectIntent(subject: string, category: string): string {
+  const intents: Record<string, string> = {
+    "billing": "Billing Inquiry",
+    "ai": "AI Feature Support",
+    "api": "Technical Integration",
+    "security": "Security Concern",
+    "bug_report": "Bug Report",
+    "feature_request": "Feature Request",
+    "performance": "Performance Issue",
+    "configuration": "Configuration Help",
+  };
+  return intents[category] || "General Support";
+}
+
+function calculateRiskLevel(session: any): string {
+  if (session.priority === "critical") return "critical";
+  if (session.priority === "urgent" || session.status === "escalated") return "high";
+  if (session.priority === "high") return "medium";
+  return "low";
 }
 
 // Helper function to escape HTML

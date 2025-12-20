@@ -404,6 +404,14 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/support/command-center"}>
+                          <Link href="/support/command-center" data-testid="nav-command-center">
+                            <Headphones className="h-4 w-4 text-cyan-500" />
+                            <span>{language === "ar" ? "مركز القيادة" : "Command Center"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
                     </>
                   )}
                 </SidebarMenu>

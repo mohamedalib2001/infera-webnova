@@ -6308,6 +6308,52 @@ export const supportSessions = pgTable("support_sessions", {
     platformVersion?: string;
   }>().default({}),
   
+  // AI Agent Intelligence (Command Center fields)
+  aiIntent: text("ai_intent"), // Detected intent from AI
+  aiSentiment: text("ai_sentiment"), // positive, neutral, negative, frustrated, urgent
+  riskLevel: text("risk_level").default("low"), // low, medium, high, critical
+  
+  // User context for agent
+  userContext: jsonb("user_context").$type<{
+    subscriptionTier?: string;
+    accountAge?: number;
+    totalTickets?: number;
+    lastLogin?: string;
+    recentActions?: string[];
+    lifetimeValue?: number;
+  }>().default({}),
+  
+  // AI Copilot data
+  aiCopilotSummary: text("ai_copilot_summary"), // 1-2 line issue summary
+  aiCopilotSummaryAr: text("ai_copilot_summary_ar"),
+  aiSuggestedResponses: jsonb("ai_suggested_responses").$type<Array<{
+    id: string;
+    content: string;
+    contentAr?: string;
+    confidence: number;
+    type: 'quick_reply' | 'detailed' | 'escalation';
+  }>>().default([]),
+  aiRecommendedActions: jsonb("ai_recommended_actions").$type<Array<{
+    id: string;
+    action: string;
+    actionAr?: string;
+    type: 'restart' | 'rollback' | 'config_fix' | 'deep_analysis' | 'escalate';
+    risk: 'safe' | 'moderate' | 'risky';
+    requiresConfirmation: boolean;
+  }>>().default([]),
+  
+  // Similar cases for knowledge engine
+  similarCaseIds: jsonb("similar_case_ids").$type<string[]>().default([]),
+  linkedArticleIds: jsonb("linked_article_ids").$type<string[]>().default([]),
+  
+  // State flow tracking
+  stateHistory: jsonb("state_history").$type<Array<{
+    state: string;
+    timestamp: string;
+    changedBy?: string;
+    reason?: string;
+  }>>().default([]),
+  
   // Resolution
   resolvedAt: timestamp("resolved_at"),
   resolvedBy: varchar("resolved_by").references(() => users.id),
