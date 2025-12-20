@@ -3411,6 +3411,205 @@ export const insertApiConfigurationSchema = createInsertSchema(apiConfiguration)
 export type InsertApiConfiguration = z.infer<typeof insertApiConfigurationSchema>;
 export type ApiConfiguration = typeof apiConfiguration.$inferSelect;
 
+// ==================== WEBHOOK LOGS ====================
+
+export const webhookLogs = pgTable("webhook_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: text("event_id").notNull().unique(), // Stripe event ID for idempotency
+  eventType: text("event_type").notNull(), // checkout.session.completed, invoice.paid, etc.
+  provider: text("provider").notNull().default("stripe"), // stripe, paypal, etc.
+  payloadHash: text("payload_hash").notNull(), // For deduplication
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+  processed: boolean("processed").notNull().default(false),
+  processedAt: timestamp("processed_at"),
+  attempts: integer("attempts").notNull().default(0),
+  lastAttemptAt: timestamp("last_attempt_at"),
+  errorMessage: text("error_message"),
+  relatedUserId: varchar("related_user_id"),
+  relatedSubscriptionId: varchar("related_subscription_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_webhook_logs_event_id").on(table.eventId),
+  index("IDX_webhook_logs_event_type").on(table.eventType),
+  index("IDX_webhook_logs_processed").on(table.processed),
+  index("IDX_webhook_logs_created").on(table.createdAt),
+]);
+
+export const insertWebhookLogSchema = createInsertSchema(webhookLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertWebhookLog = z.infer<typeof insertWebhookLogSchema>;
+export type WebhookLog = typeof webhookLogs.$inferSelect;
+
+// ==================== BILLING PROFILES ====================
+
+export const billingProfiles = pgTable("billing_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  profileName: text("profile_name").notNull().default("Default"),
+  isDefault: boolean("is_default").notNull().default(true),
+  // Business Information
+  companyName: text("company_name"),
+  companyNameAr: text("company_name_ar"),
+  taxId: text("tax_id"), // VAT number, Commercial Registration, etc.
+  taxIdType: text("tax_id_type"), // vat, cr, tin, etc.
+  // Contact Information
+  billingEmail: text("billing_email"),
+  billingPhone: text("billing_phone"),
+  // Address
+  addressLine1: text("address_line1"),
+  addressLine2: text("address_line2"),
+  city: text("city"),
+  state: text("state"),
+  postalCode: text("postal_code"),
+  country: text("country").notNull().default("SA"),
+  // Payment Preferences
+  preferredCurrency: text("preferred_currency").notNull().default("SAR"),
+  preferredPaymentMethod: text("preferred_payment_method"), // stripe, paypal, bank_transfer
+  defaultPaymentMethodId: varchar("default_payment_method_id"),
+  // Settings
+  autoPayEnabled: boolean("auto_pay_enabled").notNull().default(true),
+  invoiceNotes: text("invoice_notes"),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_billing_profiles_user").on(table.userId),
+  index("IDX_billing_profiles_default").on(table.isDefault),
+]);
+
+export const insertBillingProfileSchema = createInsertSchema(billingProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertBillingProfile = z.infer<typeof insertBillingProfileSchema>;
+export type BillingProfile = typeof billingProfiles.$inferSelect;
+
+// ==================== AI BILLING INSIGHTS ====================
+
+export const aiBillingInsights = pgTable("ai_billing_insights", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  subscriptionId: varchar("subscription_id"),
+  insightType: text("insight_type").notNull(), // churn_risk, upgrade_suggestion, fraud_alert, payment_recovery
+  severity: text("severity").notNull().default("info"), // info, warning, critical
+  // Scores and Predictions
+  churnProbability: integer("churn_probability"), // 0-100
+  upgradeRecommendation: text("upgrade_recommendation"), // suggested plan
+  fraudScore: integer("fraud_score"), // 0-100
+  // Messages (Bilingual)
+  title: text("title").notNull(),
+  titleAr: text("title_ar"),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  recommendedAction: text("recommended_action"),
+  recommendedActionAr: text("recommended_action_ar"),
+  // Status
+  status: text("status").notNull().default("active"), // active, dismissed, resolved
+  acknowledgedAt: timestamp("acknowledged_at"),
+  acknowledgedBy: varchar("acknowledged_by"),
+  // Analysis Data
+  analysisFactors: jsonb("analysis_factors").$type<{
+    factor: string;
+    weight: number;
+    value: string;
+  }[]>(),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_ai_billing_insights_user").on(table.userId),
+  index("IDX_ai_billing_insights_type").on(table.insightType),
+  index("IDX_ai_billing_insights_status").on(table.status),
+  index("IDX_ai_billing_insights_severity").on(table.severity),
+]);
+
+export const insertAiBillingInsightSchema = createInsertSchema(aiBillingInsights).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAiBillingInsight = z.infer<typeof insertAiBillingInsightSchema>;
+export type AiBillingInsight = typeof aiBillingInsights.$inferSelect;
+
+// ==================== REFUNDS ====================
+
+export const refunds = pgTable("refunds", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  paymentId: varchar("payment_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  amount: integer("amount").notNull(), // in cents
+  currency: text("currency").notNull().default("USD"),
+  reason: text("reason").notNull(), // duplicate, fraudulent, requested_by_customer, other
+  reasonDetails: text("reason_details"),
+  status: text("status").notNull().default("pending"), // pending, processing, succeeded, failed
+  stripeRefundId: text("stripe_refund_id"),
+  processedAt: timestamp("processed_at"),
+  processedBy: varchar("processed_by"), // admin who processed
+  failureReason: text("failure_reason"),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_refunds_payment").on(table.paymentId),
+  index("IDX_refunds_user").on(table.userId),
+  index("IDX_refunds_status").on(table.status),
+]);
+
+export const insertRefundSchema = createInsertSchema(refunds).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertRefund = z.infer<typeof insertRefundSchema>;
+export type Refund = typeof refunds.$inferSelect;
+
+// ==================== PAYMENT RETRY QUEUE ====================
+
+export const paymentRetryQueue = pgTable("payment_retry_queue", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  subscriptionId: varchar("subscription_id").notNull(),
+  originalPaymentId: varchar("original_payment_id"),
+  stripeInvoiceId: text("stripe_invoice_id"),
+  amount: integer("amount").notNull(),
+  currency: text("currency").notNull().default("USD"),
+  attemptNumber: integer("attempt_number").notNull().default(1),
+  maxAttempts: integer("max_attempts").notNull().default(4),
+  nextRetryAt: timestamp("next_retry_at").notNull(),
+  lastAttemptAt: timestamp("last_attempt_at"),
+  lastFailureReason: text("last_failure_reason"),
+  status: text("status").notNull().default("pending"), // pending, processing, succeeded, failed_final, cancelled
+  gracePeriodEnd: timestamp("grace_period_end"),
+  notificationsSent: jsonb("notifications_sent").$type<{
+    type: string;
+    sentAt: string;
+  }[]>().default([]),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_payment_retry_user").on(table.userId),
+  index("IDX_payment_retry_subscription").on(table.subscriptionId),
+  index("IDX_payment_retry_status").on(table.status),
+  index("IDX_payment_retry_next").on(table.nextRetryAt),
+]);
+
+export const insertPaymentRetrySchema = createInsertSchema(paymentRetryQueue).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertPaymentRetry = z.infer<typeof insertPaymentRetrySchema>;
+export type PaymentRetry = typeof paymentRetryQueue.$inferSelect;
+
 // ==================== INVOICES ====================
 
 export const invoices = pgTable("invoices", {

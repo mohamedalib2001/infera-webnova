@@ -17,8 +17,14 @@ import {
   Building,
   Wallet,
   ShieldAlert,
-  LogIn
+  LogIn,
+  Webhook,
+  RotateCcw,
+  CheckCircle,
+  AlertTriangle,
+  Clock,
 } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import { apiRequest, queryClient } from '@/lib/queryClient';
@@ -32,6 +38,8 @@ const translations = {
     providers: 'Providers',
     subscriptions: 'Subscriptions',
     transactions: 'Transactions',
+    webhooks: 'Webhooks',
+    retryQueue: 'Retry Queue',
     stats: {
       totalRevenue: 'Total Revenue',
       activeSubscriptions: 'Active Subscriptions',
@@ -71,6 +79,8 @@ const translations = {
     providers: 'المزودين',
     subscriptions: 'الاشتراكات',
     transactions: 'المعاملات',
+    webhooks: 'ويب هوك',
+    retryQueue: 'قائمة إعادة المحاولة',
     stats: {
       totalRevenue: 'إجمالي الإيرادات',
       activeSubscriptions: 'الاشتراكات النشطة',
@@ -133,10 +143,28 @@ export default function PaymentsDashboard() {
     enabled: isOwner,
   });
 
+  const { data: webhookLogsData, isLoading: webhookLoading } = useQuery<any>({
+    queryKey: ['/api/payments/webhook-logs'],
+    enabled: isOwner,
+  });
+
+  const { data: retryQueueData, isLoading: retryLoading } = useQuery<any>({
+    queryKey: ['/api/payments/retry-queue'],
+    enabled: isOwner,
+  });
+
+  const { data: analyticsData } = useQuery<any>({
+    queryKey: ['/api/payments/revenue-analytics'],
+    enabled: isOwner,
+  });
+
   const stats = statsData?.stats;
   const providers = providersData?.providers || [];
   const allSubscriptions = subscriptionsData?.subscriptions || [];
   const transactions = transactionsData?.transactions || [];
+  const webhookLogs = webhookLogsData?.logs || [];
+  const retryQueue = retryQueueData?.queue || [];
+  const analytics = analyticsData?.analytics || {};
 
   if (!isAuthenticated) {
     return (
@@ -227,6 +255,14 @@ export default function PaymentsDashboard() {
           <TabsTrigger value="transactions" data-testid="tab-transactions">
             <DollarSign className="h-4 w-4 mr-2" />
             {t.transactions}
+          </TabsTrigger>
+          <TabsTrigger value="webhooks" data-testid="tab-webhooks">
+            <Webhook className="h-4 w-4 mr-2" />
+            {t.webhooks}
+          </TabsTrigger>
+          <TabsTrigger value="retry-queue" data-testid="tab-retry-queue">
+            <RotateCcw className="h-4 w-4 mr-2" />
+            {t.retryQueue}
           </TabsTrigger>
         </TabsList>
 
@@ -478,6 +514,114 @@ export default function PaymentsDashboard() {
                   ))}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="webhooks" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>{language === 'ar' ? 'سجلات Webhook' : 'Webhook Logs'}</CardTitle>
+              <CardDescription>{language === 'ar' ? 'أحداث Stripe المستلمة والمعالجة' : 'Received and processed Stripe events'}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {webhookLoading ? (
+                <p className="text-center py-4">{t.loading}</p>
+              ) : webhookLogs.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Webhook className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>{t.noData}</p>
+                </div>
+              ) : (
+                <ScrollArea className="h-[400px]">
+                  <div className="space-y-3">
+                    {webhookLogs.map((log: any) => (
+                      <div key={log.id} className="flex items-center justify-between p-4 border rounded-lg gap-4" data-testid={`webhook-log-${log.id}`}>
+                        <div className="flex items-center gap-3">
+                          <Webhook className="h-5 w-5 text-muted-foreground" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium font-mono text-sm">{log.eventType}</p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {log.eventId} • {new Date(log.receivedAt).toLocaleString(language === 'ar' ? 'ar-SA' : 'en-US')}
+                            </p>
+                          </div>
+                        </div>
+                        <Badge className={log.status === 'processed' ? 'bg-green-500/10 text-green-600' : log.status === 'failed' ? 'bg-red-500/10 text-red-600' : 'bg-yellow-500/10 text-yellow-600'}>
+                          {log.status === 'processed' ? <CheckCircle className="h-3 w-3 mr-1" /> : log.status === 'failed' ? <AlertTriangle className="h-3 w-3 mr-1" /> : <Clock className="h-3 w-3 mr-1" />}
+                          {log.status}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="retry-queue" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>{language === 'ar' ? 'قائمة إعادة المحاولة' : 'Payment Retry Queue'}</CardTitle>
+              <CardDescription>{language === 'ar' ? 'المدفوعات الفاشلة المجدولة لإعادة المحاولة' : 'Failed payments scheduled for retry'}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {retryLoading ? (
+                <p className="text-center py-4">{t.loading}</p>
+              ) : retryQueue.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
+                  <p className="font-medium text-green-600">{language === 'ar' ? 'لا توجد مدفوعات في قائمة الانتظار' : 'No payments in retry queue'}</p>
+                  <p className="text-sm mt-1">{language === 'ar' ? 'جميع المدفوعات تمت بنجاح' : 'All payments processed successfully'}</p>
+                </div>
+              ) : (
+                <ScrollArea className="h-[300px]">
+                  <div className="space-y-3">
+                    {retryQueue.map((item: any) => (
+                      <div key={item.id} className="flex items-center justify-between p-4 border border-destructive/50 bg-destructive/5 rounded-lg gap-4" data-testid={`retry-item-${item.id}`}>
+                        <div className="flex items-center gap-3">
+                          <AlertTriangle className="h-5 w-5 text-destructive" />
+                          <div>
+                            <p className="font-medium">{language === 'ar' ? 'محاولة' : 'Attempt'} {item.retryCount}/{item.maxRetries}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {language === 'ar' ? 'المحاولة التالية:' : 'Next retry:'}{' '}
+                              {new Date(item.nextRetryAt).toLocaleString(language === 'ar' ? 'ar-SA' : 'en-US')}
+                            </p>
+                            {item.lastError && (
+                              <p className="text-xs text-destructive mt-1 truncate max-w-xs">{item.lastError}</p>
+                            )}
+                          </div>
+                        </div>
+                        <Badge variant="destructive">{item.status}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Revenue Analytics Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>{language === 'ar' ? 'تحليلات الإيرادات من Stripe' : 'Stripe Revenue Analytics'}</CardTitle>
+              <CardDescription>{language === 'ar' ? 'بيانات مباشرة من Stripe' : 'Live data from Stripe'}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground">{language === 'ar' ? 'إجمالي الإيرادات' : 'Total Revenue'}</p>
+                  <p className="text-2xl font-bold">${((analytics.totalRevenue || 0) / 100).toFixed(2)}</p>
+                </div>
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground">{language === 'ar' ? 'الإيرادات الشهرية' : 'Monthly Revenue'}</p>
+                  <p className="text-2xl font-bold">${((analytics.monthlyRevenue || 0) / 100).toFixed(2)}</p>
+                </div>
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground">{language === 'ar' ? 'متوسط الإيراد لكل مستخدم' : 'Avg Revenue Per User'}</p>
+                  <p className="text-2xl font-bold">${((analytics.avgRevenuePerUser || 0) / 100).toFixed(2)}</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

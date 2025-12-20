@@ -393,6 +393,22 @@ import {
   activeContributors,
   type ActiveContributor,
   type InsertActiveContributor,
+  // Payment System Types
+  webhookLogs,
+  type WebhookLog,
+  type InsertWebhookLog,
+  billingProfiles,
+  type BillingProfile,
+  type InsertBillingProfile,
+  aiBillingInsights,
+  type AiBillingInsight,
+  type InsertAiBillingInsight,
+  refunds,
+  type Refund,
+  type InsertRefund,
+  paymentRetryQueue,
+  type PaymentRetry,
+  type InsertPaymentRetry,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt, gte, lte } from "drizzle-orm";
@@ -1015,6 +1031,33 @@ export interface IStorage {
   getActiveContributors(contextId?: string): Promise<ActiveContributor[]>;
   upsertActiveContributor(contributor: InsertActiveContributor): Promise<ActiveContributor>;
   removeActiveContributor(contributorId: string): Promise<boolean>;
+
+  // ==================== PAYMENT SYSTEM ====================
+  // Webhook Logs
+  getWebhookLogByEventId(eventId: string): Promise<WebhookLog | null>;
+  createWebhookLog(data: InsertWebhookLog): Promise<WebhookLog>;
+  updateWebhookLog(id: string, data: Partial<InsertWebhookLog>): Promise<WebhookLog>;
+
+  // Payment Retries
+  createPaymentRetry(data: InsertPaymentRetry): Promise<PaymentRetry>;
+  updatePaymentRetry(id: string, data: Partial<InsertPaymentRetry>): Promise<PaymentRetry>;
+  getPaymentRetriesBySubscription(subscriptionId: string): Promise<PaymentRetry[]>;
+  getPendingPaymentRetries(): Promise<PaymentRetry[]>;
+
+  // Refunds
+  createRefund(data: InsertRefund): Promise<Refund>;
+  getRefundsByPayment(paymentId: string): Promise<Refund[]>;
+
+  // Billing Profiles
+  createBillingProfile(data: InsertBillingProfile): Promise<BillingProfile>;
+  getBillingProfilesByUser(userId: string): Promise<BillingProfile[]>;
+  updateBillingProfile(id: string, data: Partial<InsertBillingProfile>): Promise<BillingProfile>;
+
+  // AI Billing Insights
+  createAiBillingInsight(data: InsertAiBillingInsight): Promise<AiBillingInsight>;
+  getAiBillingInsightsByUser(userId: string): Promise<AiBillingInsight[]>;
+  getAiBillingInsights(limit?: number): Promise<AiBillingInsight[]>;
+  updateAiBillingInsight(id: string, data: Partial<InsertAiBillingInsight>): Promise<AiBillingInsight>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6401,6 +6444,112 @@ body { font-family: 'Tajawal', sans-serif; }
       .where(eq(activeContributors.contributorId, contributorId))
       .returning();
     return result.length > 0;
+  }
+
+  // ==================== PAYMENT SYSTEM IMPLEMENTATIONS ====================
+
+  // Webhook Logs
+  async getWebhookLogByEventId(eventId: string): Promise<WebhookLog | null> {
+    const [log] = await db.select().from(webhookLogs)
+      .where(eq(webhookLogs.eventId, eventId));
+    return log || null;
+  }
+
+  async createWebhookLog(data: InsertWebhookLog): Promise<WebhookLog> {
+    const [created] = await db.insert(webhookLogs).values(data).returning();
+    return created;
+  }
+
+  async updateWebhookLog(id: string, data: Partial<InsertWebhookLog>): Promise<WebhookLog> {
+    const [updated] = await db.update(webhookLogs)
+      .set(data)
+      .where(eq(webhookLogs.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Payment Retries
+  async createPaymentRetry(data: InsertPaymentRetry): Promise<PaymentRetry> {
+    const [created] = await db.insert(paymentRetryQueue).values(data).returning();
+    return created;
+  }
+
+  async updatePaymentRetry(id: string, data: Partial<InsertPaymentRetry>): Promise<PaymentRetry> {
+    const [updated] = await db.update(paymentRetryQueue)
+      .set(data)
+      .where(eq(paymentRetryQueue.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getPaymentRetriesBySubscription(subscriptionId: string): Promise<PaymentRetry[]> {
+    return db.select().from(paymentRetryQueue)
+      .where(eq(paymentRetryQueue.subscriptionId, subscriptionId))
+      .orderBy(desc(paymentRetryQueue.createdAt));
+  }
+
+  async getPendingPaymentRetries(): Promise<PaymentRetry[]> {
+    return db.select().from(paymentRetryQueue)
+      .where(eq(paymentRetryQueue.status, 'pending'))
+      .orderBy(paymentRetryQueue.scheduledAt);
+  }
+
+  // Refunds
+  async createRefund(data: InsertRefund): Promise<Refund> {
+    const [created] = await db.insert(refunds).values(data).returning();
+    return created;
+  }
+
+  async getRefundsByPayment(paymentId: string): Promise<Refund[]> {
+    return db.select().from(refunds)
+      .where(eq(refunds.paymentId, paymentId))
+      .orderBy(desc(refunds.createdAt));
+  }
+
+  // Billing Profiles
+  async createBillingProfile(data: InsertBillingProfile): Promise<BillingProfile> {
+    const [created] = await db.insert(billingProfiles).values(data).returning();
+    return created;
+  }
+
+  async getBillingProfilesByUser(userId: string): Promise<BillingProfile[]> {
+    return db.select().from(billingProfiles)
+      .where(eq(billingProfiles.userId, userId))
+      .orderBy(desc(billingProfiles.createdAt));
+  }
+
+  async updateBillingProfile(id: string, data: Partial<InsertBillingProfile>): Promise<BillingProfile> {
+    const [updated] = await db.update(billingProfiles)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(billingProfiles.id, id))
+      .returning();
+    return updated;
+  }
+
+  // AI Billing Insights
+  async createAiBillingInsight(data: InsertAiBillingInsight): Promise<AiBillingInsight> {
+    const [created] = await db.insert(aiBillingInsights).values(data).returning();
+    return created;
+  }
+
+  async getAiBillingInsightsByUser(userId: string): Promise<AiBillingInsight[]> {
+    return db.select().from(aiBillingInsights)
+      .where(eq(aiBillingInsights.userId, userId))
+      .orderBy(desc(aiBillingInsights.generatedAt));
+  }
+
+  async getAiBillingInsights(limit = 20): Promise<AiBillingInsight[]> {
+    return db.select().from(aiBillingInsights)
+      .orderBy(desc(aiBillingInsights.generatedAt))
+      .limit(limit);
+  }
+
+  async updateAiBillingInsight(id: string, data: Partial<InsertAiBillingInsight>): Promise<AiBillingInsight> {
+    const [updated] = await db.update(aiBillingInsights)
+      .set(data)
+      .where(eq(aiBillingInsights.id, id))
+      .returning();
+    return updated;
   }
 }
 
