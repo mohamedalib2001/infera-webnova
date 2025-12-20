@@ -87,7 +87,7 @@ export default function AdminSubscriptions() {
     areYouSure: language === "ar" ? "هل أنت متأكد من الحذف؟" : "Are you sure?",
   };
 
-  if (!user || user.role !== "admin") {
+  if (!user || (user.role !== "admin" && user.role !== "owner")) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card className="w-full max-w-md">
