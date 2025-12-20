@@ -625,3 +625,113 @@ export async function sendTestEmail(
     };
   }
 }
+
+// Notification Email Template
+function getNotificationEmailContent(
+  title: string,
+  message: string,
+  priority: 'EMERGENCY' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW',
+  isRTL: boolean
+): string {
+  const priorityColors = {
+    EMERGENCY: '#DC2626',
+    CRITICAL: '#EA580C',
+    HIGH: '#D97706',
+    MEDIUM: '#2563EB',
+    LOW: '#6B7280',
+  };
+  
+  const priorityLabels = {
+    EMERGENCY: isRTL ? 'طارئ' : 'Emergency',
+    CRITICAL: isRTL ? 'حرج' : 'Critical',
+    HIGH: isRTL ? 'عالي' : 'High',
+    MEDIUM: isRTL ? 'متوسط' : 'Medium',
+    LOW: isRTL ? 'منخفض' : 'Low',
+  };
+
+  return `
+    <tr>
+      <td style="padding: 40px 40px 20px 40px;" align="center">
+        <table role="presentation" cellpadding="0" cellspacing="0">
+          <tr>
+            <td style="background-color: ${priorityColors[priority]}20; padding: 8px 16px; border-radius: 20px; border: 1px solid ${priorityColors[priority]}40;">
+              <span style="color: ${priorityColors[priority]}; font-size: 12px; font-weight: 600; text-transform: uppercase;">${priorityLabels[priority]}</span>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 0 40px;" align="center">
+        <h1 style="font-size: 24px; color: ${BRAND.dark}; margin: 0 0 16px 0; font-weight: 600;">${title}</h1>
+        <p style="font-size: 16px; color: ${BRAND.gray}; line-height: 1.6; margin: 0;">${message}</p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 32px 40px;" align="center">
+        <a href="#" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, ${BRAND.primary} 0%, ${BRAND.primaryDark} 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
+          ${isRTL ? 'عرض التفاصيل' : 'View Details'}
+        </a>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 0 40px 32px 40px;" align="center">
+        <p style="font-size: 12px; color: ${BRAND.lightGray}; margin: 0;">
+          ${isRTL ? 'تم إرسال هذا الإشعار من نظام INFERA WebNova' : 'This notification was sent from INFERA WebNova system'}
+        </p>
+      </td>
+    </tr>
+  `;
+}
+
+// Send notification email
+export async function sendNotificationEmail(
+  to: string,
+  title: string,
+  message: string,
+  priority: 'EMERGENCY' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' = 'MEDIUM',
+  language: "ar" | "en" = "ar",
+  storage?: any
+): Promise<boolean> {
+  const config = await getEmailConfig(storage);
+  
+  if (!config) {
+    console.log(`[SRINS] Email notification (no SMTP): ${title}`);
+    return true;
+  }
+  
+  const isRTL = language === "ar";
+  const subject = `[${priority}] ${title}`;
+  const html = getEmailWrapper(getNotificationEmailContent(title, message, priority, isRTL), isRTL);
+  
+  try {
+    const nodemailer = await import("nodemailer");
+    
+    const transporter = nodemailer.createTransport({
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      auth: {
+        user: config.user,
+        pass: config.pass,
+      },
+    });
+    
+    const fromAddress = config.from && config.from.includes('@') 
+      ? config.from 
+      : `${config.from || 'INFERA WebNova'} <${config.user}>`;
+    
+    await transporter.sendMail({
+      from: fromAddress,
+      to,
+      subject,
+      html,
+    });
+    
+    console.log(`[SRINS] Email notification sent: ${title} -> ${to}`);
+    return true;
+  } catch (error) {
+    console.error("Failed to send notification email:", error);
+    return false;
+  }
+}

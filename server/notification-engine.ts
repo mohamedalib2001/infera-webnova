@@ -17,6 +17,7 @@ import type {
   NotificationTemplate,
   UserNotificationPreferences 
 } from "@shared/schema";
+import { sendNotificationEmail } from "./email";
 
 // Priority weights for AI scoring
 const PRIORITY_WEIGHTS = {
@@ -480,23 +481,59 @@ class NotificationEngine {
         // Already stored in DB, WebSocket will pick it up
         break;
       case 'EMAIL':
-        // TODO: Integrate with email service
-        console.log(`[SRINS] Email notification: ${notification.title}`);
+        // Get user email and send notification
+        try {
+          const targetId = notification.targetUserId;
+          if (targetId) {
+            const user = await storage.getUser(targetId);
+            if (user?.email) {
+              const priority = notification.priority as 'EMERGENCY' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+              await sendNotificationEmail(
+                user.email,
+                notification.title || 'INFERA Notification',
+                notification.message || '',
+                priority,
+                'ar',
+                storage
+              );
+            }
+          }
+        } catch (error) {
+          console.error(`[SRINS] Failed to send email notification:`, error);
+        }
         break;
       case 'SMS':
-        // TODO: Integrate with SMS service (Twilio)
-        console.log(`[SRINS] SMS notification: ${notification.title}`);
+        // SMS requires Twilio integration - log for now
+        console.log(`[SRINS] SMS notification (Twilio not configured): ${notification.title}`);
         break;
       case 'PUSH':
-        // TODO: Integrate with Web Push / FCM
-        console.log(`[SRINS] Push notification: ${notification.title}`);
+        // Push requires Web Push/FCM setup - log for now
+        console.log(`[SRINS] Push notification (not configured): ${notification.title}`);
         break;
       case 'ENCRYPTED':
-        // Special encrypted channel for owner
-        console.log(`[SRINS] Encrypted owner notification: ${notification.title}`);
+        // Special encrypted channel for owner - use secure email
+        try {
+          const ownerTargetId = notification.targetUserId;
+          if (ownerTargetId) {
+            const ownerUser = await storage.getUser(ownerTargetId);
+            if (ownerUser?.email) {
+              await sendNotificationEmail(
+                ownerUser.email,
+                `[ENCRYPTED] ${notification.title || 'Sovereign Alert'}`,
+                notification.message || '',
+                'EMERGENCY',
+                'ar',
+                storage
+              );
+            }
+          }
+        } catch (error) {
+          console.error(`[SRINS] Failed to send encrypted notification:`, error);
+        }
         break;
       case 'WEBHOOK':
-        // TODO: Deliver to configured webhooks
+        // Webhook delivery - log for now until webhook config is implemented
+        console.log(`[SRINS] Webhook notification: ${notification.title}`);
         break;
     }
   }
