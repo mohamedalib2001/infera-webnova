@@ -284,11 +284,11 @@ export default function Support() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <Card className="bg-gradient-to-br from-emerald-500/5 to-transparent border-emerald-500/20">
+          <Card className="bg-gradient-to-br from-emerald-500/5 to-transparent border-emerald-500/20" data-testid="stat-ai-resolved">
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
                 <Zap className="w-5 h-5 text-emerald-600" />
-                <span className="text-2xl font-bold text-emerald-600">
+                <span className="text-2xl font-bold text-emerald-600" data-testid="value-ai-resolved">
                   {analyticsData?.resolvedByAI || 0}%
                 </span>
               </div>
@@ -298,12 +298,12 @@ export default function Support() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-blue-500/5 to-transparent border-blue-500/20">
+          <Card className="bg-gradient-to-br from-blue-500/5 to-transparent border-blue-500/20" data-testid="stat-avg-resolution">
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
                 <Timer className="w-5 h-5 text-blue-600" />
-                <span className="text-2xl font-bold text-blue-600">
-                  {analyticsData?.avgResolutionTime || 0}m
+                <span className="text-2xl font-bold text-blue-600" data-testid="value-avg-resolution">
+                  {analyticsData?.avgResolutionTime || 0}{language === "ar" ? "د" : "m"}
                 </span>
               </div>
               <p className="text-sm text-muted-foreground">
@@ -312,11 +312,11 @@ export default function Support() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-amber-500/5 to-transparent border-amber-500/20">
+          <Card className="bg-gradient-to-br from-amber-500/5 to-transparent border-amber-500/20" data-testid="stat-satisfaction">
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
                 <Star className="w-5 h-5 text-amber-600" />
-                <span className="text-2xl font-bold text-amber-600">
+                <span className="text-2xl font-bold text-amber-600" data-testid="value-satisfaction">
                   {analyticsData?.satisfaction?.toFixed(1) || "4.8"}
                 </span>
               </div>
@@ -326,11 +326,11 @@ export default function Support() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-purple-500/5 to-transparent border-purple-500/20">
+          <Card className="bg-gradient-to-br from-purple-500/5 to-transparent border-purple-500/20" data-testid="stat-total-requests">
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
                 <Activity className="w-5 h-5 text-purple-600" />
-                <span className="text-2xl font-bold text-purple-600">
+                <span className="text-2xl font-bold text-purple-600" data-testid="value-total-requests">
                   {analyticsData?.totalSessions || sessions.length}
                 </span>
               </div>
@@ -695,6 +695,7 @@ export default function Support() {
                                             variant="outline"
                                             size="sm"
                                             className="text-xs h-7"
+                                            data-testid={`button-action-${message.id}-${idx}`}
                                           >
                                             {action}
                                           </Button>
@@ -905,7 +906,7 @@ export default function Support() {
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowFeedbackDialog(false)}>
+            <Button variant="outline" onClick={() => setShowFeedbackDialog(false)} data-testid="button-cancel-feedback">
               {language === "ar" ? "إلغاء" : "Cancel"}
             </Button>
             <Button 
