@@ -52,3 +52,23 @@ The platform features an AI Chat Interface, a live preview with responsive viewp
 *   **Media**: Cloudinary
 *   **Maps**: Google Maps
 *   **Development Tools**: Replit, GitHub Copilot
+
+## Integration Status (Updated: Dec 20, 2025)
+
+### Active Integrations (Configured)
+| Integration | Status | Secret Key |
+|-------------|--------|------------|
+| Anthropic Claude | ✅ Active | ANTHROPIC_API_KEY |
+| Hetzner Cloud | ✅ Active | HETZNER_API_TOKEN |
+| PostgreSQL | ✅ Active | DATABASE_URL |
+| Session Management | ✅ Active | SESSION_SECRET |
+| Stripe | ✅ Added (Replit Integration) | Via Replit Connector |
+
+### Pending Configuration (Features Inactive)
+| Integration | Status | Required Secrets | Affected Features |
+|-------------|--------|------------------|-------------------|
+| SMTP Email | ⚠️ Not Configured | SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM_EMAIL | OTP/2FA, Email Notifications |
+| Namecheap | ⚠️ Not Configured | NAMECHEAP_API_USER, NAMECHEAP_API_KEY, NAMECHEAP_USERNAME | Domain Registration |
+| OpenAI | ⚠️ Optional | OPENAI_API_KEY | Some AI features (Anthropic available) |
+
+**Note:** User declined SendGrid integration (Dec 20, 2025). To enable email features later, configure SMTP secrets manually.
