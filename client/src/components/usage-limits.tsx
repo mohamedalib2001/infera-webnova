@@ -24,15 +24,17 @@ interface UsageItemProps {
   current: number;
   limit: number;
   unlimited: boolean;
+  unlimitedLabel: string;
+  testId: string;
 }
 
-function UsageItem({ icon, label, current, limit, unlimited }: UsageItemProps) {
+function UsageItem({ icon, label, current, limit, unlimited, unlimitedLabel, testId }: UsageItemProps) {
   const percentage = unlimited ? 0 : Math.min((current / limit) * 100, 100);
   const isWarning = percentage >= 80;
   const isCritical = percentage >= 95;
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" data-testid={`usage-item-${testId}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm">
           {icon}
@@ -40,9 +42,9 @@ function UsageItem({ icon, label, current, limit, unlimited }: UsageItemProps) {
         </div>
         <span className={`text-sm font-medium ${isCritical ? "text-red-500" : isWarning ? "text-amber-500" : ""}`}>
           {unlimited ? (
-            <Badge variant="secondary" className="text-xs">Unlimited</Badge>
+            <Badge variant="secondary" className="text-xs" data-testid={`badge-unlimited-${testId}`}>{unlimitedLabel}</Badge>
           ) : (
-            `${current.toLocaleString()} / ${limit.toLocaleString()}`
+            <span data-testid={`text-usage-${testId}`}>{`${current.toLocaleString()} / ${limit.toLocaleString()}`}</span>
           )}
         </span>
       </div>
@@ -84,6 +86,7 @@ export function UsageLimitsCard() {
     bandwidth: language === "ar" ? "عرض النطاق" : "Bandwidth",
     domains: language === "ar" ? "النطاقات المخصصة" : "Custom Domains",
     upgrade: language === "ar" ? "ترقية الخطة" : "Upgrade Plan",
+    unlimited: language === "ar" ? "غير محدود" : "Unlimited",
     sandboxWarning: language === "ar" 
       ? "أنت في وضع Sandbox - قم بالترقية للنشر الحقيقي"
       : "You're in Sandbox mode - Upgrade for real deployment",
@@ -133,28 +136,30 @@ export function UsageLimitsCard() {
         )}
 
         {/* AI Mode Display */}
-        <div className="space-y-2 pb-3 border-b">
+        <div className="space-y-2 pb-3 border-b" data-testid="ai-mode-section">
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">{tr.aiMode}</span>
-            <Badge>{language === "ar" ? modeLabel.ar : modeLabel.en}</Badge>
+            <Badge data-testid="badge-ai-mode">{language === "ar" ? modeLabel.ar : modeLabel.en}</Badge>
           </div>
           <div className="space-y-1">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>{tr.autonomy}</span>
-              <span>{autonomyLevel}%</span>
+              <span data-testid="text-autonomy-level">{autonomyLevel}%</span>
             </div>
             <Progress value={autonomyLevel} className="h-1.5" />
           </div>
         </div>
 
         {/* Usage Items */}
-        <div className="space-y-3">
+        <div className="space-y-3" data-testid="usage-items-container">
           <UsageItem
             icon={<Code className="h-4 w-4" />}
             label={tr.projects}
             current={0}
             limit={limits.maxProjects}
             unlimited={limits.maxProjects === -1}
+            unlimitedLabel={tr.unlimited}
+            testId="projects"
           />
           <UsageItem
             icon={<Sparkles className="h-4 w-4" />}
@@ -162,6 +167,8 @@ export function UsageLimitsCard() {
             current={0}
             limit={limits.aiGenerationsPerMonth}
             unlimited={limits.aiGenerationsPerMonth === -1}
+            unlimitedLabel={tr.unlimited}
+            testId="ai-generations"
           />
           <UsageItem
             icon={<Server className="h-4 w-4" />}
@@ -169,6 +176,8 @@ export function UsageLimitsCard() {
             current={0}
             limit={limits.activeDeployments}
             unlimited={limits.activeDeployments === -1}
+            unlimitedLabel={tr.unlimited}
+            testId="deployments"
           />
           <UsageItem
             icon={<Users className="h-4 w-4" />}
@@ -176,6 +185,8 @@ export function UsageLimitsCard() {
             current={1}
             limit={limits.teamMembers}
             unlimited={limits.teamMembers === -1}
+            unlimitedLabel={tr.unlimited}
+            testId="team-members"
           />
           <UsageItem
             icon={<HardDrive className="h-4 w-4" />}
@@ -183,6 +194,8 @@ export function UsageLimitsCard() {
             current={0}
             limit={limits.storageGB}
             unlimited={limits.storageGB === -1}
+            unlimitedLabel={tr.unlimited}
+            testId="storage"
           />
           <UsageItem
             icon={<Globe className="h-4 w-4" />}
@@ -190,12 +203,14 @@ export function UsageLimitsCard() {
             current={0}
             limit={limits.customDomains}
             unlimited={limits.customDomains === -1}
+            unlimitedLabel={tr.unlimited}
+            testId="domains"
           />
         </div>
 
         {/* Upgrade Button */}
         {userPlan.role !== "sovereign" && (
-          <Button variant="outline" className="w-full mt-4" asChild>
+          <Button variant="outline" className="w-full mt-4" asChild data-testid="button-upgrade-plan">
             <Link href="/pricing">
               <ArrowUp className="h-4 w-4 me-2" />
               {tr.upgrade}
@@ -225,16 +240,16 @@ export function UpgradePrompt({
   };
 
   return (
-    <Card className="border-amber-500/30 bg-amber-500/5">
+    <Card className="border-amber-500/30 bg-amber-500/5" data-testid="card-upgrade-prompt">
       <CardContent className="p-6 text-center space-y-4">
         <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto">
           <AlertCircle className="h-6 w-6 text-amber-500" />
         </div>
         <div>
-          <h3 className="font-semibold mb-1">{tr.title}</h3>
-          <p className="text-sm text-muted-foreground">{tr.message}</p>
+          <h3 className="font-semibold mb-1" data-testid="text-upgrade-title">{tr.title}</h3>
+          <p className="text-sm text-muted-foreground" data-testid="text-upgrade-message">{tr.message}</p>
         </div>
-        <Button asChild>
+        <Button asChild data-testid="button-view-plans">
           <Link href="/pricing">
             <ArrowUp className="h-4 w-4 me-2" />
             {tr.upgrade}
