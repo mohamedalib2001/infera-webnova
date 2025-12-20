@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -58,6 +58,16 @@ export default function Auth() {
     defaultValues: { email: "", username: "", password: "", fullName: "" },
   });
 
+  // Fetch visible auth methods to show/hide social login buttons
+  const { data: authMethods = [] } = useQuery<{ key: string; name: string; nameAr: string; icon: string }[]>({
+    queryKey: ["/api/auth/methods"],
+  });
+
+  // Check if a specific auth method is enabled
+  const isAuthMethodEnabled = (key: string) => {
+    return authMethods.some(m => m.key.toLowerCase() === key.toLowerCase());
+  };
+
   const handleApiError = (error: unknown): string => {
     if (error instanceof Error) {
       try {
@@ -77,7 +87,15 @@ export default function Auth() {
     mutationFn: async (data: LoginFormData) => {
       return await apiRequest("POST", "/api/auth/login", data);
     },
-    onSuccess: () => {
+    onSuccess: (response: any) => {
+      // Check if OTP is required
+      if (response.requiresOtp) {
+        setPendingEmail(response.email || loginForm.getValues("email"));
+        setShowOtp(true);
+        toast({ title: language === "ar" ? "تم إرسال رمز التحقق" : "OTP sent to your email" });
+        return;
+      }
+      
       toast({ title: t("auth.loginSuccess") });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       setLocation("/projects");
@@ -239,11 +257,20 @@ export default function Auth() {
               </div>
             ) : (
               <>
-                <div className="flex gap-2 mb-6">
-                  <SocialButton provider="Google" icon={SiGoogle} label={t("auth.google")} />
-                  <SocialButton provider="GitHub" icon={SiGithub} label={t("auth.github")} />
-                  <SocialButton provider="Apple" icon={SiApple} label={t("auth.apple")} />
-                </div>
+                {/* Only show social login buttons if at least one is enabled */}
+                {(isAuthMethodEnabled("google") || isAuthMethodEnabled("github") || isAuthMethodEnabled("apple")) && (
+                  <div className="flex gap-2 mb-6">
+                    {isAuthMethodEnabled("google") && (
+                      <SocialButton provider="Google" icon={SiGoogle} label={t("auth.google")} />
+                    )}
+                    {isAuthMethodEnabled("github") && (
+                      <SocialButton provider="GitHub" icon={SiGithub} label={t("auth.github")} />
+                    )}
+                    {isAuthMethodEnabled("apple") && (
+                      <SocialButton provider="Apple" icon={SiApple} label={t("auth.apple")} />
+                    )}
+                  </div>
+                )}
 
                 <div className="relative mb-6">
                   <Separator />

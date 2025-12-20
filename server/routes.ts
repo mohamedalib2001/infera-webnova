@@ -243,7 +243,41 @@ export async function registerRoutes(
         return res.status(401).json({ error: "بيانات الدخول غير صحيحة / Invalid credentials" });
       }
       
-      // Set session
+      // Check if OTP is enabled for email method
+      const otpMethod = await storage.getAuthMethodByKey("otp_email");
+      const otpEnabled = otpMethod?.isActive === true;
+      
+      if (otpEnabled) {
+        // Store pending login in session
+        const { password: _, ...userWithoutPassword } = user;
+        req.session.pendingLogin = {
+          userId: user.id,
+          user: userWithoutPassword,
+          email: user.email,
+        };
+        
+        // Generate and send OTP
+        const { generateOTP, sendOTPEmail } = await import("./email");
+        const code = generateOTP();
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+        
+        await storage.createOtpCode({
+          userId: user.id,
+          email: user.email,
+          code,
+          type: "email",
+          expiresAt,
+        });
+        
+        await sendOTPEmail(user.email, code, user.language || "ar", storage);
+        
+        return res.json({ 
+          requiresOtp: true,
+          message: "يرجى إدخال رمز التحقق المرسل / Please enter the OTP sent to your email",
+        });
+      }
+      
+      // Set session (no OTP required)
       const { password: _, ...userWithoutPassword } = user;
       req.session.userId = user.id;
       req.session.user = userWithoutPassword;
@@ -257,6 +291,7 @@ export async function registerRoutes(
         const messages = error.errors.map(e => e.message).join(", ");
         return res.status(400).json({ error: messages });
       }
+      console.error("Login error:", error);
       res.status(500).json({ error: "فشل في تسجيل الدخول / Login failed" });
     }
   });
@@ -328,19 +363,48 @@ export async function registerRoutes(
   });
 
   // Verify OTP - التحقق من الرمز
-  app.post("/api/auth/verify-otp", requireAuth, async (req, res) => {
+  app.post("/api/auth/verify-otp", async (req, res) => {
     try {
       const { code } = req.body;
       
       if (!code || code.length !== 6) {
-        return res.status(400).json({ error: "رمز التحقق غير صحيح" });
+        return res.status(400).json({ error: "رمز التحقق غير صحيح / Invalid OTP code" });
+      }
+      
+      // Check for pending login (2FA during login)
+      const pendingLogin = req.session.pendingLogin;
+      if (pendingLogin) {
+        const otpCode = await storage.getValidOtpCode(pendingLogin.userId, code);
+        
+        if (!otpCode) {
+          return res.status(400).json({ error: "رمز التحقق غير صحيح أو منتهي الصلاحية / Invalid or expired OTP" });
+        }
+        
+        // Mark OTP as used
+        await storage.markOtpUsed(otpCode.id);
+        
+        // Complete login
+        req.session.userId = pendingLogin.userId;
+        req.session.user = pendingLogin.user;
+        delete req.session.pendingLogin;
+        
+        return res.json({ 
+          success: true,
+          message: "تم تسجيل الدخول بنجاح / Login successful",
+          user: pendingLogin.user,
+        });
+      }
+      
+      // Regular OTP verification (email verification for logged-in user)
+      if (!req.session?.userId) {
+        return res.status(401).json({ error: "غير مسجل الدخول / Not logged in" });
       }
       
       const user = req.session.user!;
       const otpCode = await storage.getValidOtpCode(user.id, code);
       
       if (!otpCode) {
-        return res.status(400).json({ error: "رمز التحقق غير صحيح أو منتهي الصلاحية" });
+        return res.status(400).json({ error: "رمز التحقق غير صحيح أو منتهي الصلاحية / Invalid or expired OTP" });
       }
       
       // Mark OTP as used
@@ -354,11 +418,11 @@ export async function registerRoutes(
       
       res.json({ 
         success: true,
-        message: "تم التحقق بنجاح",
+        message: "تم التحقق بنجاح / Verified successfully",
       });
     } catch (error) {
       console.error("OTP verification error:", error);
-      res.status(500).json({ error: "فشل في التحقق" });
+      res.status(500).json({ error: "فشل في التحقق / Verification failed" });
     }
   });
 
