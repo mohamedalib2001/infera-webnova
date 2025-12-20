@@ -4644,8 +4644,8 @@ export const infrastructureRolePermissions = {
 
 // Check infrastructure permission
 export function hasInfraPermission(role: InfrastructureRole, permission: string): boolean {
-  const perms = infrastructureRolePermissions[role];
-  return perms.includes('*') || perms.includes(permission as any);
+  const perms = infrastructureRolePermissions[role] as readonly string[];
+  return perms.includes('*') || perms.includes(permission);
 }
 
 // Immutable Audit Log for Infrastructure Actions

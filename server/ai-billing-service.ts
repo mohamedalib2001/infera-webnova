@@ -215,13 +215,14 @@ Respond with this exact JSON structure:
     for (const insight of insights) {
       try {
         await storage.createAiBillingInsight({
+          userId: 'system',
           insightType: insight.type,
           title: insight.title,
           titleAr: insight.titleAr,
           description: insight.description,
           descriptionAr: insight.descriptionAr,
-          actionRequired: insight.actionRequired,
-          metadata: insight.metadata,
+          severity: insight.priority === 'critical' ? 'critical' : insight.priority === 'high' ? 'warning' : 'info',
+          recommendedAction: insight.actionRequired ? 'Action required' : undefined,
         });
       } catch (err) {
         console.error('[AI Billing] Error saving insight:', err);

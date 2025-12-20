@@ -1044,6 +1044,7 @@ export interface IStorage {
   // ==================== PAYMENT SYSTEM ====================
   // Webhook Logs
   getWebhookLogByEventId(eventId: string): Promise<WebhookLog | null>;
+  getWebhookLogs(limit?: number): Promise<WebhookLog[]>;
   createWebhookLog(data: InsertWebhookLog): Promise<WebhookLog>;
   updateWebhookLog(id: string, data: Partial<InsertWebhookLog>): Promise<WebhookLog>;
 
@@ -1056,6 +1057,7 @@ export interface IStorage {
   // Refunds
   createRefund(data: InsertRefund): Promise<Refund>;
   getRefundsByPayment(paymentId: string): Promise<Refund[]>;
+  getAllRefunds(limit?: number): Promise<Refund[]>;
 
   // Billing Profiles
   createBillingProfile(data: InsertBillingProfile): Promise<BillingProfile>;
@@ -6496,6 +6498,12 @@ body { font-family: 'Tajawal', sans-serif; }
     return updated;
   }
 
+  async getWebhookLogs(limit = 50): Promise<WebhookLog[]> {
+    return db.select().from(webhookLogs)
+      .orderBy(desc(webhookLogs.createdAt))
+      .limit(limit);
+  }
+
   // Payment Retries
   async createPaymentRetry(data: InsertPaymentRetry): Promise<PaymentRetry> {
     const [created] = await db.insert(paymentRetryQueue).values(data).returning();
@@ -6532,6 +6540,12 @@ body { font-family: 'Tajawal', sans-serif; }
     return db.select().from(refunds)
       .where(eq(refunds.paymentId, paymentId))
       .orderBy(desc(refunds.createdAt));
+  }
+
+  async getAllRefunds(limit = 50): Promise<Refund[]> {
+    return db.select().from(refunds)
+      .orderBy(desc(refunds.createdAt))
+      .limit(limit);
   }
 
   // Billing Profiles
