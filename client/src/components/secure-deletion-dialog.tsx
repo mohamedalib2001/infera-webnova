@@ -297,6 +297,7 @@ export function SecureDeletionDialog({
                           size="icon"
                           className="absolute end-0 top-0"
                           onClick={() => setShowPassword(!showPassword)}
+                          data-testid="button-toggle-password-visibility"
                         >
                           {showPassword ? (
                             <EyeOff className="h-4 w-4" />
