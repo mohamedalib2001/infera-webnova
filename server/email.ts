@@ -415,7 +415,8 @@ export function clearEmailConfigCache(): void {
 function getEmailConfigFromEnv(): EmailConfig | null {
   const host = process.env.SMTP_HOST;
   const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
+  // Support both SMTP_PASS and SMTP_PASSWORD variable names
+  const pass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS;
   
   if (!host || !user || !pass) {
     return null;
@@ -427,7 +428,7 @@ function getEmailConfigFromEnv(): EmailConfig | null {
     secure: process.env.SMTP_SECURE === "true",
     user,
     pass,
-    from: process.env.SMTP_FROM || user,
+    from: process.env.SMTP_FROM_EMAIL || process.env.SMTP_FROM || user,
   };
 }
 
