@@ -367,6 +367,32 @@ import {
   projectProvisioningJobs,
   type ProjectProvisioningJob,
   type InsertProjectProvisioningJob,
+  // Deletion & Recycle Bin System
+  deletedItems,
+  type DeletedItem,
+  type InsertDeletedItem,
+  recycleBin,
+  type RecycleBinItem,
+  type InsertRecycleBin,
+  deletionAuditLogs,
+  type DeletionAuditLog,
+  type InsertDeletionAuditLog,
+  // Collaboration Engine
+  collaborationContexts,
+  type CollaborationContext,
+  type InsertCollaborationContext,
+  collaborationMessages,
+  type CollaborationMessage,
+  type InsertCollaborationMessage,
+  collaborationDecisions,
+  type CollaborationDecision,
+  type InsertCollaborationDecision,
+  aiCollaborators,
+  type AICollaborator,
+  type InsertAICollaborator,
+  activeContributors,
+  type ActiveContributor,
+  type InsertActiveContributor,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt, gte, lte } from "drizzle-orm";
@@ -961,6 +987,34 @@ export interface IStorage {
   getInfrastructureBudget(id: string): Promise<InfrastructureBudget | undefined>;
   createInfrastructureBudget(budget: InsertInfrastructureBudget): Promise<InfrastructureBudget>;
   updateInfrastructureBudget(id: string, data: Partial<InsertInfrastructureBudget>): Promise<InfrastructureBudget | undefined>;
+
+  // ==================== COLLABORATION ENGINE ====================
+  // Collaboration Contexts
+  getCollaborationContexts(projectId?: string): Promise<CollaborationContext[]>;
+  getCollaborationContext(id: string): Promise<CollaborationContext | undefined>;
+  createCollaborationContext(ctx: InsertCollaborationContext): Promise<CollaborationContext>;
+  updateCollaborationContext(id: string, updates: Partial<InsertCollaborationContext>): Promise<CollaborationContext | undefined>;
+  
+  // Collaboration Messages
+  getContextMessages(contextId: string): Promise<CollaborationMessage[]>;
+  createCollaborationMessage(msg: InsertCollaborationMessage): Promise<CollaborationMessage>;
+  updateMessageAction(id: string, actionExecuted: boolean, actionResult: any): Promise<CollaborationMessage | undefined>;
+  
+  // Collaboration Decisions
+  getCollaborationDecisions(contextId: string): Promise<CollaborationDecision[]>;
+  createCollaborationDecision(dec: InsertCollaborationDecision): Promise<CollaborationDecision>;
+  updateDecisionStatus(id: string, status: string, executedBy?: string, executionResult?: any): Promise<CollaborationDecision | undefined>;
+  
+  // AI Collaborators
+  getAICollaborators(): Promise<AICollaborator[]>;
+  getAICollaborator(id: string): Promise<AICollaborator | undefined>;
+  createAICollaborator(ai: InsertAICollaborator): Promise<AICollaborator>;
+  updateAICollaboratorStats(id: string, stats: Partial<InsertAICollaborator>): Promise<AICollaborator | undefined>;
+  
+  // Active Contributors
+  getActiveContributors(contextId?: string): Promise<ActiveContributor[]>;
+  upsertActiveContributor(contributor: InsertActiveContributor): Promise<ActiveContributor>;
+  removeActiveContributor(contributorId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6072,6 +6126,281 @@ body { font-family: 'Tajawal', sans-serif; }
       .where(eq(projectImprovementHistory.projectId, projectId))
       .orderBy(desc(projectImprovementHistory.createdAt))
       .limit(limit);
+  }
+
+  // ==================== DELETION & RECYCLE BIN SYSTEM ====================
+
+  async getDeletedItems(filters?: {
+    entityType?: string;
+    status?: string;
+    deletedBy?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<DeletedItem[]> {
+    let query = db.select().from(deletedItems);
+    const conditions: any[] = [];
+
+    if (filters?.entityType) {
+      conditions.push(eq(deletedItems.entityType, filters.entityType));
+    }
+    if (filters?.status) {
+      conditions.push(eq(deletedItems.status, filters.status));
+    }
+    if (filters?.deletedBy) {
+      conditions.push(eq(deletedItems.deletedBy, filters.deletedBy));
+    }
+    if (filters?.startDate) {
+      conditions.push(gte(deletedItems.deletedAt, filters.startDate));
+    }
+    if (filters?.endDate) {
+      conditions.push(lte(deletedItems.deletedAt, filters.endDate));
+    }
+
+    if (conditions.length > 0) {
+      return db.select().from(deletedItems)
+        .where(and(...conditions))
+        .orderBy(desc(deletedItems.deletedAt));
+    }
+    return db.select().from(deletedItems).orderBy(desc(deletedItems.deletedAt));
+  }
+
+  async getDeletedItem(id: string): Promise<DeletedItem | undefined> {
+    const [item] = await db.select().from(deletedItems)
+      .where(eq(deletedItems.id, id));
+    return item || undefined;
+  }
+
+  async createDeletedItem(item: InsertDeletedItem): Promise<DeletedItem> {
+    const [created] = await db.insert(deletedItems).values(item).returning();
+    return created;
+  }
+
+  async updateDeletedItem(id: string, updates: Partial<InsertDeletedItem>): Promise<DeletedItem | undefined> {
+    const [updated] = await db.update(deletedItems)
+      .set(updates)
+      .where(eq(deletedItems.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async permanentlyDeleteItem(id: string): Promise<boolean> {
+    const result = await db.delete(deletedItems)
+      .where(eq(deletedItems.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getRecycleBinItems(ownerId: string): Promise<RecycleBinItem[]> {
+    return db.select().from(recycleBin)
+      .where(eq(recycleBin.ownerId, ownerId))
+      .orderBy(desc(recycleBin.movedToRecycleAt));
+  }
+
+  async addToRecycleBin(item: InsertRecycleBin): Promise<RecycleBinItem> {
+    const [created] = await db.insert(recycleBin).values(item).returning();
+    return created;
+  }
+
+  async removeFromRecycleBin(id: string): Promise<boolean> {
+    const result = await db.delete(recycleBin)
+      .where(eq(recycleBin.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getRecycleBinItem(id: string): Promise<RecycleBinItem | undefined> {
+    const [item] = await db.select().from(recycleBin)
+      .where(eq(recycleBin.id, id));
+    return item || undefined;
+  }
+
+  async updateRecycleBinItem(id: string, updates: Partial<InsertRecycleBin>): Promise<RecycleBinItem | undefined> {
+    const [updated] = await db.update(recycleBin)
+      .set(updates)
+      .where(eq(recycleBin.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async getDeletionStats(ownerId?: string): Promise<{
+    total: number;
+    recoverable: number;
+    expired: number;
+    byType: Record<string, number>;
+  }> {
+    let items: DeletedItem[];
+    
+    if (ownerId) {
+      items = await db.select().from(deletedItems)
+        .where(eq(deletedItems.deletedBy, ownerId));
+    } else {
+      items = await db.select().from(deletedItems);
+    }
+
+    const stats = {
+      total: items.length,
+      recoverable: items.filter(i => i.status === 'recoverable').length,
+      expired: items.filter(i => i.status === 'expired').length,
+      byType: {} as Record<string, number>,
+    };
+
+    for (const item of items) {
+      const type = item.entityType;
+      stats.byType[type] = (stats.byType[type] || 0) + 1;
+    }
+
+    return stats;
+  }
+
+  async createDeletionAuditLog(log: InsertDeletionAuditLog): Promise<DeletionAuditLog> {
+    const [created] = await db.insert(deletionAuditLogs).values(log).returning();
+    return created;
+  }
+
+  async getDeletionAuditLogs(targetId: string): Promise<DeletionAuditLog[]> {
+    return db.select().from(deletionAuditLogs)
+      .where(eq(deletionAuditLogs.targetId, targetId))
+      .orderBy(desc(deletionAuditLogs.createdAt));
+  }
+
+  // ==================== COLLABORATION ENGINE ====================
+
+  async getCollaborationContexts(projectId?: string): Promise<CollaborationContext[]> {
+    if (projectId) {
+      return db.select().from(collaborationContexts)
+        .where(eq(collaborationContexts.projectId, projectId))
+        .orderBy(desc(collaborationContexts.lastActivityAt));
+    }
+    return db.select().from(collaborationContexts)
+      .orderBy(desc(collaborationContexts.lastActivityAt));
+  }
+
+  async getCollaborationContext(id: string): Promise<CollaborationContext | undefined> {
+    const [context] = await db.select().from(collaborationContexts)
+      .where(eq(collaborationContexts.id, id));
+    return context || undefined;
+  }
+
+  async createCollaborationContext(ctx: InsertCollaborationContext): Promise<CollaborationContext> {
+    const [created] = await db.insert(collaborationContexts).values(ctx).returning();
+    return created;
+  }
+
+  async updateCollaborationContext(id: string, updates: Partial<InsertCollaborationContext>): Promise<CollaborationContext | undefined> {
+    const [updated] = await db.update(collaborationContexts)
+      .set({ ...updates, lastActivityAt: new Date() })
+      .where(eq(collaborationContexts.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async getContextMessages(contextId: string): Promise<CollaborationMessage[]> {
+    return db.select().from(collaborationMessages)
+      .where(eq(collaborationMessages.contextId, contextId))
+      .orderBy(asc(collaborationMessages.createdAt));
+  }
+
+  async createCollaborationMessage(msg: InsertCollaborationMessage): Promise<CollaborationMessage> {
+    const [created] = await db.insert(collaborationMessages).values(msg).returning();
+    await db.update(collaborationContexts)
+      .set({ 
+        messageCount: sql`${collaborationContexts.messageCount} + 1`,
+        lastActivityAt: new Date()
+      })
+      .where(eq(collaborationContexts.id, msg.contextId));
+    return created;
+  }
+
+  async updateMessageAction(id: string, actionExecuted: boolean, actionResult: any): Promise<CollaborationMessage | undefined> {
+    const [updated] = await db.update(collaborationMessages)
+      .set({ actionExecuted, actionResult })
+      .where(eq(collaborationMessages.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async getCollaborationDecisions(contextId: string): Promise<CollaborationDecision[]> {
+    return db.select().from(collaborationDecisions)
+      .where(eq(collaborationDecisions.contextId, contextId))
+      .orderBy(desc(collaborationDecisions.proposedAt));
+  }
+
+  async createCollaborationDecision(dec: InsertCollaborationDecision): Promise<CollaborationDecision> {
+    const [created] = await db.insert(collaborationDecisions).values(dec).returning();
+    return created;
+  }
+
+  async updateDecisionStatus(id: string, status: string, executedBy?: string, executionResult?: any): Promise<CollaborationDecision | undefined> {
+    const updates: any = { status };
+    if (executedBy) {
+      updates.executedAt = new Date();
+      updates.executedBy = executedBy;
+    }
+    if (executionResult) {
+      updates.executionResult = executionResult;
+    }
+    const [updated] = await db.update(collaborationDecisions)
+      .set(updates)
+      .where(eq(collaborationDecisions.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async getAICollaborators(): Promise<AICollaborator[]> {
+    return db.select().from(aiCollaborators)
+      .orderBy(desc(aiCollaborators.lastActiveAt));
+  }
+
+  async getAICollaborator(id: string): Promise<AICollaborator | undefined> {
+    const [collaborator] = await db.select().from(aiCollaborators)
+      .where(eq(aiCollaborators.id, id));
+    return collaborator || undefined;
+  }
+
+  async createAICollaborator(ai: InsertAICollaborator): Promise<AICollaborator> {
+    const [created] = await db.insert(aiCollaborators).values(ai).returning();
+    return created;
+  }
+
+  async updateAICollaboratorStats(id: string, stats: Partial<InsertAICollaborator>): Promise<AICollaborator | undefined> {
+    const [updated] = await db.update(aiCollaborators)
+      .set({ ...stats, lastActiveAt: new Date() })
+      .where(eq(aiCollaborators.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async getActiveContributors(contextId?: string): Promise<ActiveContributor[]> {
+    if (contextId) {
+      return db.select().from(activeContributors)
+        .where(eq(activeContributors.contextId, contextId))
+        .orderBy(desc(activeContributors.lastActiveAt));
+    }
+    return db.select().from(activeContributors)
+      .orderBy(desc(activeContributors.lastActiveAt));
+  }
+
+  async upsertActiveContributor(contributor: InsertActiveContributor): Promise<ActiveContributor> {
+    const existing = await db.select().from(activeContributors)
+      .where(eq(activeContributors.contributorId, contributor.contributorId));
+    
+    if (existing.length > 0) {
+      const [updated] = await db.update(activeContributors)
+        .set({ ...contributor, lastActiveAt: new Date() })
+        .where(eq(activeContributors.contributorId, contributor.contributorId))
+        .returning();
+      return updated;
+    }
+    
+    const [created] = await db.insert(activeContributors).values(contributor).returning();
+    return created;
+  }
+
+  async removeActiveContributor(contributorId: string): Promise<boolean> {
+    const result = await db.delete(activeContributors)
+      .where(eq(activeContributors.contributorId, contributorId))
+      .returning();
+    return result.length > 0;
   }
 }
 

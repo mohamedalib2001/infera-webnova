@@ -6949,3 +6949,483 @@ export const insertDeletionAttemptSchema = createInsertSchema(deletionAttempts).
 
 export type InsertDeletionAttempt = z.infer<typeof insertDeletionAttemptSchema>;
 export type DeletionAttempt = typeof deletionAttempts.$inferSelect;
+
+// ==================== DELETED ITEMS MODULE (وحدة المحذوفات) ====================
+// Complete deletion lifecycle management with full audit trail
+
+export const deletionTypes = ['manual', 'automatic', 'ai', 'policy', 'system'] as const;
+export type DeletionType = typeof deletionTypes[number];
+
+export const deletedItemStatuses = ['recoverable', 'expired', 'locked', 'permanently_deleted'] as const;
+export type DeletedItemStatus = typeof deletedItemStatuses[number];
+
+export const deletedItems = pgTable("deleted_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Original Entity Data
+  entityType: text("entity_type").notNull(), // platform, project, user, file, etc.
+  entityId: varchar("entity_id").notNull(),
+  entityName: text("entity_name").notNull(),
+  entityData: jsonb("entity_data").$type<Record<string, unknown>>().default({}), // Complete backup
+  
+  // User who deleted
+  deletedBy: varchar("deleted_by").notNull().references(() => users.id),
+  deletedByRole: text("deleted_by_role").notNull(), // Owner, Admin, Moderator, User
+  deletedByEmail: text("deleted_by_email"),
+  deletedByFullName: text("deleted_by_full_name"),
+  deletedByAccountStatus: text("deleted_by_account_status"),
+  
+  // Deletion Details
+  deletedAt: timestamp("deleted_at").defaultNow(),
+  deletedAtLocal: text("deleted_at_local"), // Local timezone string
+  deletionType: text("deletion_type").notNull().default("manual"), // manual, automatic, ai, policy, system
+  deletionReason: text("deletion_reason"),
+  retentionDays: integer("retention_days").notNull().default(30), // Days before permanent deletion
+  expiresAt: timestamp("expires_at"), // Auto-calculated expiry
+  
+  // Device Information
+  deviceType: text("device_type"), // Desktop, Mobile, Tablet
+  operatingSystem: text("operating_system"),
+  browser: text("browser"),
+  appVersion: text("app_version"),
+  ipAddress: text("ip_address"),
+  country: text("country"),
+  region: text("region"),
+  sessionId: varchar("session_id"),
+  
+  // Platform/Entity Metadata
+  platformType: text("platform_type"), // SaaS, Government, Healthcare, Custom
+  platformDomain: text("platform_domain"),
+  dataSize: text("data_size"), // Size in bytes/KB/MB
+  userCount: integer("user_count"), // Number of users (for platforms)
+  deploymentStatus: text("deployment_status"), // Status before deletion
+  
+  // Recovery Status
+  status: text("status").notNull().default("recoverable"), // recoverable, expired, locked, permanently_deleted
+  recoveredAt: timestamp("recovered_at"),
+  recoveredBy: varchar("recovered_by").references(() => users.id),
+  recoveryType: text("recovery_type"), // same_user, different_user, partial, recycle_only
+  
+  // Audit
+  auditTrail: jsonb("audit_trail").$type<Array<{
+    action: string;
+    timestamp: string;
+    userId: string;
+    details?: string;
+  }>>().default([]),
+}, (table) => [
+  index("IDX_deleted_entity").on(table.entityType, table.entityId),
+  index("IDX_deleted_by").on(table.deletedBy),
+  index("IDX_deleted_at").on(table.deletedAt),
+  index("IDX_deleted_status").on(table.status),
+  index("IDX_deleted_expires").on(table.expiresAt),
+]);
+
+export const insertDeletedItemSchema = createInsertSchema(deletedItems).omit({
+  id: true,
+  deletedAt: true,
+});
+
+export type InsertDeletedItem = z.infer<typeof insertDeletedItemSchema>;
+export type DeletedItem = typeof deletedItems.$inferSelect;
+
+// ==================== RECYCLE BIN (سلة إعادة التدوير) ====================
+
+export const recycleBin = pgTable("recycle_bin", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Reference to deleted item
+  deletedItemId: varchar("deleted_item_id").notNull().references(() => deletedItems.id, { onDelete: "cascade" }),
+  
+  // Owner of the item
+  ownerId: varchar("owner_id").notNull().references(() => users.id),
+  
+  // Quick access fields (denormalized for performance)
+  entityType: text("entity_type").notNull(),
+  entityName: text("entity_name").notNull(),
+  
+  // Recycle bin specific
+  movedToRecycleAt: timestamp("moved_to_recycle_at").defaultNow(),
+  scheduledPurgeAt: timestamp("scheduled_purge_at"),
+  
+  // Priority and flags
+  priority: text("priority").notNull().default("normal"), // critical, high, normal, low
+  isProtected: boolean("is_protected").notNull().default(false), // Cannot be auto-purged
+  protectionReason: text("protection_reason"),
+  
+  // Quick stats
+  estimatedRecoveryTime: integer("estimated_recovery_time"), // seconds
+  dependenciesCount: integer("dependencies_count").default(0),
+  
+  // Metadata
+  tags: jsonb("tags").$type<string[]>().default([]),
+}, (table) => [
+  index("IDX_recycle_owner").on(table.ownerId),
+  index("IDX_recycle_deleted_item").on(table.deletedItemId),
+  index("IDX_recycle_purge").on(table.scheduledPurgeAt),
+]);
+
+export const insertRecycleBinSchema = createInsertSchema(recycleBin).omit({
+  id: true,
+  movedToRecycleAt: true,
+});
+
+export type InsertRecycleBin = z.infer<typeof insertRecycleBinSchema>;
+export type RecycleBinItem = typeof recycleBin.$inferSelect;
+
+// ==================== DELETION AUDIT LOGS (سجلات تدقيق الحذف) ====================
+
+export const deletionAuditLogs = pgTable("deletion_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Action details
+  action: text("action").notNull(), // delete, restore, purge, protect, unprotect, transfer
+  actionBy: varchar("action_by").notNull().references(() => users.id),
+  actionByRole: text("action_by_role").notNull(),
+  
+  // Target
+  targetType: text("target_type").notNull(), // deleted_item, recycle_bin
+  targetId: varchar("target_id").notNull(),
+  targetName: text("target_name"),
+  
+  // Before/After state
+  previousState: jsonb("previous_state").$type<Record<string, unknown>>().default({}),
+  newState: jsonb("new_state").$type<Record<string, unknown>>().default({}),
+  
+  // Context
+  reason: text("reason"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  sessionId: varchar("session_id"),
+  
+  // Compliance
+  isGdprRelated: boolean("is_gdpr_related").notNull().default(false),
+  complianceNotes: text("compliance_notes"),
+  
+  // Immutable timestamp
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_audit_action").on(table.action),
+  index("IDX_audit_by").on(table.actionBy),
+  index("IDX_audit_target").on(table.targetType, table.targetId),
+  index("IDX_audit_time").on(table.createdAt),
+]);
+
+export const insertDeletionAuditLogSchema = createInsertSchema(deletionAuditLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertDeletionAuditLog = z.infer<typeof insertDeletionAuditLogSchema>;
+export type DeletionAuditLog = typeof deletionAuditLogs.$inferSelect;
+
+// ==================== COLLABORATION CONTEXTS (سياقات التعاون) ====================
+// Every collaboration must be bound to a specific context
+
+export const contextTypes = ['file', 'module', 'task', 'decision', 'issue', 'feature', 'review'] as const;
+export type ContextType = typeof contextTypes[number];
+
+export const collaborationContexts = pgTable("collaboration_contexts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Context binding
+  contextType: text("context_type").notNull(), // file, module, task, decision, issue
+  contextPath: text("context_path"), // File path or module path
+  contextTitle: text("context_title").notNull(),
+  contextDescription: text("context_description"),
+  
+  // Project binding
+  projectId: varchar("project_id"),
+  
+  // Owner
+  createdBy: varchar("created_by").notNull().references(() => users.id),
+  
+  // Status
+  status: text("status").notNull().default("active"), // active, resolved, archived
+  priority: text("priority").notNull().default("normal"), // critical, high, normal, low
+  
+  // Metrics
+  messageCount: integer("message_count").notNull().default(0),
+  participantCount: integer("participant_count").notNull().default(0),
+  actionsTaken: integer("actions_taken").notNull().default(0),
+  
+  // AI involvement
+  aiInterventionsActive: integer("ai_interventions_active").notNull().default(0),
+  
+  // Real-time state
+  lastActivityAt: timestamp("last_activity_at").defaultNow(),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+}, (table) => [
+  index("IDX_context_type").on(table.contextType),
+  index("IDX_context_project").on(table.projectId),
+  index("IDX_context_status").on(table.status),
+  index("IDX_context_activity").on(table.lastActivityAt),
+]);
+
+export const insertCollaborationContextSchema = createInsertSchema(collaborationContexts).omit({
+  id: true,
+  createdAt: true,
+  lastActivityAt: true,
+});
+
+export type InsertCollaborationContext = z.infer<typeof insertCollaborationContextSchema>;
+export type CollaborationContext = typeof collaborationContexts.$inferSelect;
+
+// ==================== COLLABORATION MESSAGES (رسائل التعاون) ====================
+// Every message must be context-bound and action-oriented
+
+export const messageActionTypes = ['create_task', 'create_fix', 'apply_patch', 'open_pr', 'assign_ai', 'rollback', 'approve', 'reject', 'comment'] as const;
+export type MessageActionType = typeof messageActionTypes[number];
+
+export const collaborationMessages = pgTable("collaboration_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Context binding (mandatory)
+  contextId: varchar("context_id").notNull().references(() => collaborationContexts.id, { onDelete: "cascade" }),
+  
+  // Sender (user or AI)
+  senderId: varchar("sender_id").notNull(), // User ID or AI collaborator ID
+  senderType: text("sender_type").notNull().default("user"), // user, ai
+  senderName: text("sender_name").notNull(),
+  senderAvatar: text("sender_avatar"),
+  
+  // Message content
+  content: text("content").notNull(),
+  contentType: text("content_type").notNull().default("text"), // text, code, diff, suggestion
+  
+  // Code reference (optional)
+  codeReference: jsonb("code_reference").$type<{
+    filePath?: string;
+    startLine?: number;
+    endLine?: number;
+    language?: string;
+    snippet?: string;
+  }>(),
+  
+  // Action pipeline
+  actionType: text("action_type"), // create_task, create_fix, apply_patch, etc.
+  actionExecuted: boolean("action_executed").notNull().default(false),
+  actionResult: jsonb("action_result").$type<{
+    success: boolean;
+    output?: string;
+    error?: string;
+    entityCreated?: string;
+  }>(),
+  
+  // Reply chain
+  replyToId: varchar("reply_to_id"),
+  
+  // Reactions/Approvals
+  approvals: jsonb("approvals").$type<Array<{ userId: string; timestamp: string }>>().default([]),
+  rejections: jsonb("rejections").$type<Array<{ userId: string; reason: string; timestamp: string }>>().default([]),
+  
+  // Metrics
+  aiConfidenceScore: real("ai_confidence_score"), // For AI messages
+  executionTimeMs: integer("execution_time_ms"), // Time to execute action
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  editedAt: timestamp("edited_at"),
+}, (table) => [
+  index("IDX_message_context").on(table.contextId),
+  index("IDX_message_sender").on(table.senderId),
+  index("IDX_message_action").on(table.actionType),
+  index("IDX_message_time").on(table.createdAt),
+]);
+
+export const insertCollaborationMessageSchema = createInsertSchema(collaborationMessages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCollaborationMessage = z.infer<typeof insertCollaborationMessageSchema>;
+export type CollaborationMessage = typeof collaborationMessages.$inferSelect;
+
+// ==================== AI COLLABORATORS (المتعاونون AI) ====================
+// AI as first-class collaborators with accountability
+
+export const aiCollaboratorRoles = ['code_generator', 'reviewer', 'fixer', 'optimizer', 'mediator', 'resolver'] as const;
+export type AICollaboratorRole = typeof aiCollaboratorRoles[number];
+
+export const aiCollaborators = pgTable("ai_collaborators", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Identity
+  name: text("name").notNull(), // e.g., "Code Generator", "Conflict Resolver"
+  nameAr: text("name_ar").notNull(),
+  role: text("role").notNull(), // code_generator, reviewer, fixer, optimizer, mediator, resolver
+  avatar: text("avatar"),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  
+  // Capabilities
+  capabilities: jsonb("capabilities").$type<string[]>().default([]),
+  modelId: text("model_id").notNull().default("claude-sonnet-4-20250514"), // AI model used
+  
+  // Permissions
+  canExecuteCode: boolean("can_execute_code").notNull().default(false),
+  canModifyFiles: boolean("can_modify_files").notNull().default(false),
+  canCreateTasks: boolean("can_create_tasks").notNull().default(true),
+  canApproveChanges: boolean("can_approve_changes").notNull().default(false),
+  maxAutonomyLevel: integer("max_autonomy_level").notNull().default(50), // 0-100
+  
+  // Performance metrics
+  tasksCompleted: integer("tasks_completed").notNull().default(0),
+  changesApplied: integer("changes_applied").notNull().default(0),
+  bugsFixed: integer("bugs_fixed").notNull().default(0),
+  decisionsExecuted: integer("decisions_executed").notNull().default(0),
+  timeSavedMinutes: integer("time_saved_minutes").notNull().default(0),
+  
+  // Comparison with humans
+  averageResponseTimeMs: integer("average_response_time_ms").notNull().default(0),
+  successRate: real("success_rate").notNull().default(0), // 0-100%
+  
+  // Status
+  isActive: boolean("is_active").notNull().default(true),
+  lastActiveAt: timestamp("last_active_at").defaultNow(),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_ai_role").on(table.role),
+  index("IDX_ai_active").on(table.isActive),
+]);
+
+export const insertAICollaboratorSchema = createInsertSchema(aiCollaborators).omit({
+  id: true,
+  createdAt: true,
+  lastActiveAt: true,
+});
+
+export type InsertAICollaborator = z.infer<typeof insertAICollaboratorSchema>;
+export type AICollaborator = typeof aiCollaborators.$inferSelect;
+
+// ==================== COLLABORATION DECISIONS (سجل القرارات) ====================
+// Decision ledger - every decision tracked with full audit
+
+export const collaborationDecisions = pgTable("collaboration_decisions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Context
+  contextId: varchar("context_id").notNull().references(() => collaborationContexts.id, { onDelete: "cascade" }),
+  
+  // Decision details
+  title: text("title").notNull(),
+  description: text("description"),
+  decisionType: text("decision_type").notNull(), // code_change, architecture, feature, security, deployment
+  
+  // Proposal
+  proposedBy: varchar("proposed_by").notNull(), // User or AI ID
+  proposedByType: text("proposed_by_type").notNull().default("user"), // user, ai
+  proposedAt: timestamp("proposed_at").defaultNow(),
+  
+  // Voting
+  approvers: jsonb("approvers").$type<Array<{
+    id: string;
+    name: string;
+    type: 'user' | 'ai';
+    timestamp: string;
+    comment?: string;
+  }>>().default([]),
+  rejectors: jsonb("rejectors").$type<Array<{
+    id: string;
+    name: string;
+    type: 'user' | 'ai';
+    timestamp: string;
+    reason?: string;
+  }>>().default([]),
+  
+  // Status
+  status: text("status").notNull().default("pending"), // pending, approved, rejected, executed, reverted
+  
+  // Execution
+  executedAt: timestamp("executed_at"),
+  executedBy: varchar("executed_by"),
+  executionResult: jsonb("execution_result").$type<{
+    success: boolean;
+    changesApplied?: string[];
+    output?: string;
+    error?: string;
+  }>(),
+  
+  // Impact tracking
+  impactScore: integer("impact_score"), // 1-10
+  impactDescription: text("impact_description"),
+  affectedFiles: jsonb("affected_files").$type<string[]>().default([]),
+  
+  // Audit
+  auditTrail: jsonb("audit_trail").$type<Array<{
+    action: string;
+    timestamp: string;
+    actorId: string;
+    actorType: string;
+    details?: string;
+  }>>().default([]),
+}, (table) => [
+  index("IDX_decision_context").on(table.contextId),
+  index("IDX_decision_status").on(table.status),
+  index("IDX_decision_proposed").on(table.proposedAt),
+]);
+
+export const insertCollaborationDecisionSchema = createInsertSchema(collaborationDecisions).omit({
+  id: true,
+  proposedAt: true,
+});
+
+export type InsertCollaborationDecision = z.infer<typeof insertCollaborationDecisionSchema>;
+export type CollaborationDecision = typeof collaborationDecisions.$inferSelect;
+
+// ==================== ACTIVE CONTRIBUTORS (المساهمون النشطون) ====================
+// Real-time tracking of who is working on what
+
+export const activeContributors = pgTable("active_contributors", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Contributor (user or AI)
+  contributorId: varchar("contributor_id").notNull(),
+  contributorType: text("contributor_type").notNull().default("user"), // user, ai
+  contributorName: text("contributor_name").notNull(),
+  contributorAvatar: text("contributor_avatar"),
+  contributorRole: text("contributor_role"),
+  
+  // What they're working on
+  contextId: varchar("context_id").references(() => collaborationContexts.id, { onDelete: "set null" }),
+  currentTask: text("current_task"),
+  currentFile: text("current_file"),
+  
+  // Status
+  status: text("status").notNull().default("active"), // active, idle, waiting, blocked
+  statusReason: text("status_reason"),
+  
+  // Performance metrics (real-time)
+  changesApplied: integer("changes_applied").notNull().default(0),
+  tasksCompleted: integer("tasks_completed").notNull().default(0),
+  pendingActions: integer("pending_actions").notNull().default(0),
+  failedActions: integer("failed_actions").notNull().default(0),
+  averageResponseTimeMs: integer("average_response_time_ms").notNull().default(0),
+  
+  // Impact
+  projectImpactScore: real("project_impact_score").notNull().default(0), // 0-100
+  
+  // Timing
+  joinedAt: timestamp("joined_at").defaultNow(),
+  lastActiveAt: timestamp("last_active_at").defaultNow(),
+  sessionDurationMinutes: integer("session_duration_minutes").notNull().default(0),
+}, (table) => [
+  index("IDX_contributor_id").on(table.contributorId),
+  index("IDX_contributor_context").on(table.contextId),
+  index("IDX_contributor_status").on(table.status),
+  index("IDX_contributor_active").on(table.lastActiveAt),
+]);
+
+export const insertActiveContributorSchema = createInsertSchema(activeContributors).omit({
+  id: true,
+  joinedAt: true,
+  lastActiveAt: true,
+});
+
+export type InsertActiveContributor = z.infer<typeof insertActiveContributorSchema>;
+export type ActiveContributor = typeof activeContributors.$inferSelect;

@@ -46,6 +46,7 @@ import {
   LineChart,
   Landmark,
   Package,
+  Trash2,
 } from "lucide-react";
 import {
   Sidebar,
@@ -406,6 +407,14 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                           <Link href="/owner/email-settings" data-testid="nav-owner-email-settings">
                             <Mail className="h-4 w-4 text-teal-500" />
                             <span>{language === "ar" ? "إعدادات البريد" : "Email Settings"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/owner/deletion-management"}>
+                          <Link href="/owner/deletion-management" data-testid="nav-owner-deletion-management">
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                            <span>{language === "ar" ? "إدارة المحذوفات" : "Deletion Management"}</span>
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>

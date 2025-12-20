@@ -14252,6 +14252,683 @@ describe('Generated Tests', () => {
     }
   });
 
+  // ============ Deletion & Recycle Bin System Routes - نظام الحذف وسلة المهملات ============
+
+  // Get deleted items with filters
+  app.get("/api/deleted-items", requireAuth, async (req, res) => {
+    try {
+      const { entityType, status, deletedBy, startDate, endDate } = req.query;
+      const filters: {
+        entityType?: string;
+        status?: string;
+        deletedBy?: string;
+        startDate?: Date;
+        endDate?: Date;
+      } = {};
+
+      if (entityType) filters.entityType = entityType as string;
+      if (status) filters.status = status as string;
+      if (deletedBy) filters.deletedBy = deletedBy as string;
+      if (startDate) filters.startDate = new Date(startDate as string);
+      if (endDate) filters.endDate = new Date(endDate as string);
+
+      const items = await storage.getDeletedItems(filters);
+      res.json(items);
+    } catch (error) {
+      console.error("Get deleted items error:", error);
+      res.status(500).json({ error: "فشل في جلب العناصر المحذوفة / Failed to fetch deleted items" });
+    }
+  });
+
+  // Get single deleted item
+  app.get("/api/deleted-items/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const item = await storage.getDeletedItem(id);
+      if (!item) {
+        return res.status(404).json({ error: "العنصر المحذوف غير موجود / Deleted item not found" });
+      }
+      res.json(item);
+    } catch (error) {
+      console.error("Get deleted item error:", error);
+      res.status(500).json({ error: "فشل في جلب العنصر المحذوف / Failed to fetch deleted item" });
+    }
+  });
+
+  // Soft delete an entity
+  app.post("/api/deleted-items/soft-delete", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const user = req.session.user!;
+      const { entityType, entityId, entityName, entityData, deletionReason, retentionDays } = req.body;
+
+      if (!entityType || !entityId || !entityName) {
+        return res.status(400).json({ error: "بيانات غير مكتملة / Missing required fields" });
+      }
+
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + (retentionDays || 30));
+
+      const deletedItem = await storage.createDeletedItem({
+        entityType,
+        entityId,
+        entityName,
+        entityData: entityData || {},
+        deletedBy: userId,
+        deletedByRole: user.role,
+        deletedByEmail: user.email,
+        deletedByFullName: user.fullName,
+        deletedByAccountStatus: user.status,
+        deletionType: "manual",
+        deletionReason,
+        retentionDays: retentionDays || 30,
+        expiresAt,
+        status: "recoverable",
+        ipAddress: req.ip,
+      });
+
+      // Add to recycle bin
+      await storage.addToRecycleBin({
+        deletedItemId: deletedItem.id,
+        ownerId: userId,
+        entityType,
+        entityName,
+        scheduledPurgeAt: expiresAt,
+        priority: "normal",
+      });
+
+      // Create audit log
+      await storage.createDeletionAuditLog({
+        action: "delete",
+        actionBy: userId,
+        actionByRole: user.role,
+        targetType: "deleted_item",
+        targetId: deletedItem.id,
+        targetName: entityName,
+        previousState: entityData || {},
+        newState: { status: "recoverable" },
+        reason: deletionReason,
+        ipAddress: req.ip,
+        userAgent: req.headers["user-agent"],
+      });
+
+      res.status(201).json({
+        message: "تم حذف العنصر بنجاح / Item deleted successfully",
+        deletedItem,
+      });
+    } catch (error) {
+      console.error("Soft delete error:", error);
+      res.status(500).json({ error: "فشل في حذف العنصر / Failed to delete item" });
+    }
+  });
+
+  // Restore deleted item
+  app.post("/api/deleted-items/:id/restore", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session.userId!;
+      const user = req.session.user!;
+      const { recoveryType } = req.body;
+
+      const deletedItem = await storage.getDeletedItem(id);
+      if (!deletedItem) {
+        return res.status(404).json({ error: "العنصر المحذوف غير موجود / Deleted item not found" });
+      }
+
+      if (deletedItem.status !== "recoverable") {
+        return res.status(400).json({ error: "العنصر لا يمكن استرجاعه / Item cannot be recovered" });
+      }
+
+      const previousState = { status: deletedItem.status };
+      const updatedItem = await storage.updateDeletedItem(id, {
+        status: "permanently_deleted",
+        recoveredAt: new Date(),
+        recoveredBy: userId,
+        recoveryType: recoveryType || "same_user",
+        auditTrail: [
+          ...(deletedItem.auditTrail || []),
+          {
+            action: "restore",
+            timestamp: new Date().toISOString(),
+            userId,
+            details: `Restored by ${user.email}`,
+          },
+        ],
+      });
+
+      // Remove from recycle bin (use deletedItemId to find it)
+      const recycleBinItems = await storage.getRecycleBinItems(deletedItem.deletedBy);
+      const recycleBinItem = recycleBinItems.find(item => item.deletedItemId === id);
+      if (recycleBinItem) {
+        await storage.removeFromRecycleBin(recycleBinItem.id);
+      }
+
+      // Create audit log
+      await storage.createDeletionAuditLog({
+        action: "restore",
+        actionBy: userId,
+        actionByRole: user.role,
+        targetType: "deleted_item",
+        targetId: id,
+        targetName: deletedItem.entityName,
+        previousState,
+        newState: { status: "restored", recoveryType },
+        reason: `Restored by ${user.email}`,
+        ipAddress: req.ip,
+        userAgent: req.headers["user-agent"],
+      });
+
+      res.json({
+        message: "تم استرجاع العنصر بنجاح / Item restored successfully",
+        item: updatedItem,
+        entityData: deletedItem.entityData,
+      });
+    } catch (error) {
+      console.error("Restore error:", error);
+      res.status(500).json({ error: "فشل في استرجاع العنصر / Failed to restore item" });
+    }
+  });
+
+  // Permanent delete (owner only)
+  app.delete("/api/deleted-items/:id/permanent", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session.userId!;
+      const user = req.session.user!;
+
+      const deletedItem = await storage.getDeletedItem(id);
+      if (!deletedItem) {
+        return res.status(404).json({ error: "العنصر المحذوف غير موجود / Deleted item not found" });
+      }
+
+      // Create audit log before deletion
+      await storage.createDeletionAuditLog({
+        action: "purge",
+        actionBy: userId,
+        actionByRole: user.role,
+        targetType: "deleted_item",
+        targetId: id,
+        targetName: deletedItem.entityName,
+        previousState: { status: deletedItem.status, entityData: deletedItem.entityData },
+        newState: { status: "permanently_deleted" },
+        reason: "Permanent deletion by owner",
+        ipAddress: req.ip,
+        userAgent: req.headers["user-agent"],
+      });
+
+      const success = await storage.permanentlyDeleteItem(id);
+      if (!success) {
+        return res.status(500).json({ error: "فشل في الحذف النهائي / Failed to permanently delete" });
+      }
+
+      res.json({ message: "تم الحذف النهائي بنجاح / Item permanently deleted" });
+    } catch (error) {
+      console.error("Permanent delete error:", error);
+      res.status(500).json({ error: "فشل في الحذف النهائي / Failed to permanently delete" });
+    }
+  });
+
+  // Get user's recycle bin
+  app.get("/api/recycle-bin", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const items = await storage.getRecycleBinItems(userId);
+      res.json(items);
+    } catch (error) {
+      console.error("Get recycle bin error:", error);
+      res.status(500).json({ error: "فشل في جلب سلة المهملات / Failed to fetch recycle bin" });
+    }
+  });
+
+  // Protect recycle bin item
+  app.post("/api/recycle-bin/:id/protect", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session.userId!;
+      const user = req.session.user!;
+      const { protectionReason } = req.body;
+
+      const recycleBinItem = await storage.getRecycleBinItem(id);
+      if (!recycleBinItem) {
+        return res.status(404).json({ error: "العنصر غير موجود في سلة المهملات / Item not found in recycle bin" });
+      }
+
+      if (recycleBinItem.ownerId !== userId && !isRootOwner(user.role)) {
+        return res.status(403).json({ error: "ليس لديك صلاحية / Access denied" });
+      }
+
+      const updatedItem = await storage.updateRecycleBinItem(id, {
+        isProtected: true,
+        protectionReason: protectionReason || "Protected by user",
+      });
+
+      // Create audit log
+      await storage.createDeletionAuditLog({
+        action: "protect",
+        actionBy: userId,
+        actionByRole: user.role,
+        targetType: "recycle_bin",
+        targetId: id,
+        targetName: recycleBinItem.entityName,
+        previousState: { isProtected: false },
+        newState: { isProtected: true, protectionReason },
+        reason: protectionReason,
+        ipAddress: req.ip,
+        userAgent: req.headers["user-agent"],
+      });
+
+      res.json({
+        message: "تم حماية العنصر بنجاح / Item protected successfully",
+        item: updatedItem,
+      });
+    } catch (error) {
+      console.error("Protect item error:", error);
+      res.status(500).json({ error: "فشل في حماية العنصر / Failed to protect item" });
+    }
+  });
+
+  // Get deletion statistics
+  app.get("/api/deletion-stats", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      const userId = req.session.userId!;
+      
+      // Owners and sovereigns can see all stats, others only their own
+      const ownerId = isRootOwner(user.role) || user.role === "sovereign" ? undefined : userId;
+      const stats = await storage.getDeletionStats(ownerId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Get deletion stats error:", error);
+      res.status(500).json({ error: "فشل في جلب إحصائيات الحذف / Failed to fetch deletion stats" });
+    }
+  });
+
+  // Get deletion audit logs
+  app.get("/api/deletion-audit/:targetId", requireAuth, async (req, res) => {
+    try {
+      const { targetId } = req.params;
+      const logs = await storage.getDeletionAuditLogs(targetId);
+      res.json(logs);
+    } catch (error) {
+      console.error("Get deletion audit logs error:", error);
+      res.status(500).json({ error: "فشل في جلب سجلات التدقيق / Failed to fetch audit logs" });
+    }
+  });
+
+  // ==================== COLLABORATION ENGINE ROUTES ====================
+
+  // Get collaboration contexts
+  app.get("/api/collaboration/contexts", requireAuth, async (req, res) => {
+    try {
+      const projectId = req.query.projectId as string | undefined;
+      const status = req.query.status as string | undefined;
+      const contextType = req.query.contextType as string | undefined;
+      
+      let contexts = await storage.getCollaborationContexts(projectId);
+      
+      if (status) {
+        contexts = contexts.filter(c => c.status === status);
+      }
+      if (contextType) {
+        contexts = contexts.filter(c => c.contextType === contextType);
+      }
+      
+      res.json(contexts);
+    } catch (error) {
+      console.error("Get collaboration contexts error:", error);
+      res.status(500).json({ error: "فشل في جلب سياقات التعاون / Failed to fetch collaboration contexts" });
+    }
+  });
+
+  // Get single collaboration context with messages
+  app.get("/api/collaboration/contexts/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const context = await storage.getCollaborationContext(id);
+      
+      if (!context) {
+        return res.status(404).json({ error: "السياق غير موجود / Context not found" });
+      }
+      
+      const messages = await storage.getContextMessages(id);
+      const decisions = await storage.getCollaborationDecisions(id);
+      const contributors = await storage.getActiveContributors(id);
+      
+      res.json({ context, messages, decisions, contributors });
+    } catch (error) {
+      console.error("Get collaboration context error:", error);
+      res.status(500).json({ error: "فشل في جلب السياق / Failed to fetch context" });
+    }
+  });
+
+  // Create collaboration context
+  app.post("/api/collaboration/contexts", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const { contextType, contextPath, contextTitle, contextDescription, projectId, priority } = req.body;
+      
+      if (!contextType || !contextTitle) {
+        return res.status(400).json({ error: "نوع السياق والعنوان مطلوبان / Context type and title are required" });
+      }
+      
+      const context = await storage.createCollaborationContext({
+        contextType,
+        contextPath,
+        contextTitle,
+        contextDescription,
+        projectId,
+        priority: priority || "normal",
+        createdBy: userId,
+        status: "active",
+        messageCount: 0,
+        participantCount: 1,
+        actionsTaken: 0,
+        aiInterventionsActive: 0,
+      });
+      
+      res.status(201).json(context);
+    } catch (error) {
+      console.error("Create collaboration context error:", error);
+      res.status(500).json({ error: "فشل في إنشاء السياق / Failed to create context" });
+    }
+  });
+
+  // Update collaboration context
+  app.put("/api/collaboration/contexts/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      const context = await storage.updateCollaborationContext(id, updates);
+      if (!context) {
+        return res.status(404).json({ error: "السياق غير موجود / Context not found" });
+      }
+      
+      res.json(context);
+    } catch (error) {
+      console.error("Update collaboration context error:", error);
+      res.status(500).json({ error: "فشل في تحديث السياق / Failed to update context" });
+    }
+  });
+
+  // Resolve collaboration context
+  app.post("/api/collaboration/contexts/:id/resolve", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      const context = await storage.updateCollaborationContext(id, {
+        status: "resolved",
+        resolvedAt: new Date(),
+      });
+      
+      if (!context) {
+        return res.status(404).json({ error: "السياق غير موجود / Context not found" });
+      }
+      
+      res.json({ message: "تم حل السياق بنجاح / Context resolved successfully", context });
+    } catch (error) {
+      console.error("Resolve context error:", error);
+      res.status(500).json({ error: "فشل في حل السياق / Failed to resolve context" });
+    }
+  });
+
+  // Get context messages
+  app.get("/api/collaboration/contexts/:contextId/messages", requireAuth, async (req, res) => {
+    try {
+      const { contextId } = req.params;
+      const messages = await storage.getContextMessages(contextId);
+      res.json(messages);
+    } catch (error) {
+      console.error("Get context messages error:", error);
+      res.status(500).json({ error: "فشل في جلب الرسائل / Failed to fetch messages" });
+    }
+  });
+
+  // Send message to context
+  app.post("/api/collaboration/contexts/:contextId/messages", requireAuth, async (req, res) => {
+    try {
+      const { contextId } = req.params;
+      const userId = req.session.userId!;
+      const user = req.session.user!;
+      const { content, contentType, codeReference, actionType, replyToId } = req.body;
+      
+      if (!content) {
+        return res.status(400).json({ error: "محتوى الرسالة مطلوب / Message content is required" });
+      }
+      
+      const message = await storage.createCollaborationMessage({
+        contextId,
+        senderId: userId,
+        senderType: "user",
+        senderName: user.fullName || user.username || user.email || "Unknown",
+        senderAvatar: user.avatar || user.profileImageUrl,
+        content,
+        contentType: contentType || "text",
+        codeReference,
+        actionType,
+        replyToId,
+        actionExecuted: false,
+      });
+      
+      res.status(201).json(message);
+    } catch (error) {
+      console.error("Send message error:", error);
+      res.status(500).json({ error: "فشل في إرسال الرسالة / Failed to send message" });
+    }
+  });
+
+  // Execute action from message
+  app.post("/api/collaboration/messages/:id/execute", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session.userId!;
+      
+      const message = await storage.updateMessageAction(id, true, {
+        success: true,
+        executedBy: userId,
+        executedAt: new Date().toISOString(),
+      });
+      
+      if (!message) {
+        return res.status(404).json({ error: "الرسالة غير موجودة / Message not found" });
+      }
+      
+      res.json({ message: "تم تنفيذ الإجراء بنجاح / Action executed successfully", result: message });
+    } catch (error) {
+      console.error("Execute message action error:", error);
+      res.status(500).json({ error: "فشل في تنفيذ الإجراء / Failed to execute action" });
+    }
+  });
+
+  // Get collaboration decisions
+  app.get("/api/collaboration/decisions", requireAuth, async (req, res) => {
+    try {
+      const contextId = req.query.contextId as string;
+      
+      if (!contextId) {
+        return res.status(400).json({ error: "معرف السياق مطلوب / Context ID is required" });
+      }
+      
+      const decisions = await storage.getCollaborationDecisions(contextId);
+      res.json(decisions);
+    } catch (error) {
+      console.error("Get decisions error:", error);
+      res.status(500).json({ error: "فشل في جلب القرارات / Failed to fetch decisions" });
+    }
+  });
+
+  // Create collaboration decision
+  app.post("/api/collaboration/decisions", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const { contextId, title, description, decisionType, impactScore, impactDescription, affectedFiles } = req.body;
+      
+      if (!contextId || !title || !decisionType) {
+        return res.status(400).json({ error: "معرف السياق والعنوان ونوع القرار مطلوبة / Context ID, title, and decision type are required" });
+      }
+      
+      const decision = await storage.createCollaborationDecision({
+        contextId,
+        title,
+        description,
+        decisionType,
+        proposedBy: userId,
+        proposedByType: "user",
+        status: "pending",
+        impactScore,
+        impactDescription,
+        affectedFiles: affectedFiles || [],
+        approvers: [],
+        rejectors: [],
+        auditTrail: [{
+          action: "created",
+          timestamp: new Date().toISOString(),
+          actorId: userId,
+          actorType: "user",
+        }],
+      });
+      
+      res.status(201).json(decision);
+    } catch (error) {
+      console.error("Create decision error:", error);
+      res.status(500).json({ error: "فشل في إنشاء القرار / Failed to create decision" });
+    }
+  });
+
+  // Vote on decision (approve/reject)
+  app.post("/api/collaboration/decisions/:id/vote", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session.userId!;
+      const user = req.session.user!;
+      const { vote, comment } = req.body;
+      
+      if (!vote || !["approve", "reject"].includes(vote)) {
+        return res.status(400).json({ error: "التصويت يجب أن يكون approve أو reject / Vote must be approve or reject" });
+      }
+      
+      const decisions = await storage.getCollaborationDecisions("");
+      const existingDecision = decisions.find(d => d.id === id);
+      
+      if (!existingDecision) {
+        return res.status(404).json({ error: "القرار غير موجود / Decision not found" });
+      }
+      
+      const voteEntry = {
+        id: userId,
+        name: user.fullName || user.username || "Unknown",
+        type: "user" as const,
+        timestamp: new Date().toISOString(),
+        ...(vote === "approve" ? { comment } : { reason: comment }),
+      };
+      
+      const updatedApprovers = vote === "approve" 
+        ? [...(existingDecision.approvers || []), voteEntry]
+        : existingDecision.approvers || [];
+      
+      const updatedRejectors = vote === "reject"
+        ? [...(existingDecision.rejectors || []), voteEntry]
+        : existingDecision.rejectors || [];
+      
+      const auditEntry = {
+        action: vote === "approve" ? "approved" : "rejected",
+        timestamp: new Date().toISOString(),
+        actorId: userId,
+        actorType: "user",
+        details: comment,
+      };
+      
+      const decision = await storage.updateDecisionStatus(id, existingDecision.status, undefined, {
+        approvers: updatedApprovers,
+        rejectors: updatedRejectors,
+        auditTrail: [...(existingDecision.auditTrail || []), auditEntry],
+      });
+      
+      res.json({ message: `تم التصويت بنجاح / Vote recorded successfully`, decision });
+    } catch (error) {
+      console.error("Vote on decision error:", error);
+      res.status(500).json({ error: "فشل في التصويت / Failed to vote" });
+    }
+  });
+
+  // Execute decision
+  app.post("/api/collaboration/decisions/:id/execute", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session.userId!;
+      
+      const decision = await storage.updateDecisionStatus(id, "executed", userId, {
+        success: true,
+        executedAt: new Date().toISOString(),
+      });
+      
+      if (!decision) {
+        return res.status(404).json({ error: "القرار غير موجود / Decision not found" });
+      }
+      
+      res.json({ message: "تم تنفيذ القرار بنجاح / Decision executed successfully", decision });
+    } catch (error) {
+      console.error("Execute decision error:", error);
+      res.status(500).json({ error: "فشل في تنفيذ القرار / Failed to execute decision" });
+    }
+  });
+
+  // Get AI collaborators
+  app.get("/api/collaboration/ai-collaborators", requireAuth, async (req, res) => {
+    try {
+      const collaborators = await storage.getAICollaborators();
+      res.json(collaborators);
+    } catch (error) {
+      console.error("Get AI collaborators error:", error);
+      res.status(500).json({ error: "فشل في جلب متعاوني الذكاء الاصطناعي / Failed to fetch AI collaborators" });
+    }
+  });
+
+  // Get active contributors
+  app.get("/api/collaboration/contributors", requireAuth, async (req, res) => {
+    try {
+      const contextId = req.query.contextId as string | undefined;
+      const contributors = await storage.getActiveContributors(contextId);
+      res.json(contributors);
+    } catch (error) {
+      console.error("Get contributors error:", error);
+      res.status(500).json({ error: "فشل في جلب المساهمين / Failed to fetch contributors" });
+    }
+  });
+
+  // Update contributor heartbeat
+  app.post("/api/collaboration/contributors/heartbeat", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const user = req.session.user!;
+      const { contextId, currentTask, currentFile, status } = req.body;
+      
+      const contributor = await storage.upsertActiveContributor({
+        contributorId: userId,
+        contributorType: "user",
+        contributorName: user.fullName || user.username || user.email || "Unknown",
+        contributorAvatar: user.avatar || user.profileImageUrl,
+        contributorRole: user.role,
+        contextId,
+        currentTask,
+        currentFile,
+        status: status || "active",
+        changesApplied: 0,
+        tasksCompleted: 0,
+        pendingActions: 0,
+        failedActions: 0,
+        averageResponseTimeMs: 0,
+        projectImpactScore: 0,
+        sessionDurationMinutes: 0,
+      });
+      
+      res.json(contributor);
+    } catch (error) {
+      console.error("Update heartbeat error:", error);
+      res.status(500).json({ error: "فشل في تحديث الحالة / Failed to update status" });
+    }
+  });
+
   return httpServer;
 }
 
