@@ -669,7 +669,7 @@ export default function AgentCommandCenter() {
                                   <p className="text-xs text-muted-foreground line-clamp-3">
                                     {language === "ar" ? suggestion.contentAr || suggestion.content : suggestion.content}
                                   </p>
-                                  <Button variant="ghost" size="sm" className="w-full mt-2 h-7 text-xs">
+                                  <Button variant="ghost" size="sm" className="w-full mt-2 h-7 text-xs" data-testid={`button-use-suggestion-${suggestion.id}`}>
                                     <Send className="w-3 h-3 mr-1" />
                                     {language === "ar" ? "استخدام" : "Use"}
                                   </Button>
