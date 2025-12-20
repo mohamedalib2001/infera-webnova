@@ -2678,8 +2678,12 @@ ${project.description || ""}
     try {
       let templates = await storage.getTemplates();
       
-      // Seed templates if empty
-      if (templates.length === 0) {
+      // Seed smart templates if none with smart/ai-native intelligence exist
+      const hasSmartTemplates = templates.some((t: any) => 
+        t.intelligenceLevel === 'smart' || t.intelligenceLevel === 'ai-native'
+      );
+      
+      if (!hasSmartTemplates) {
         const { db } = await import("./db");
         const { templates: templatesTable } = await import("@shared/schema");
         
