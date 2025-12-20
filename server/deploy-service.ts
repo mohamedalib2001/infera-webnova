@@ -70,19 +70,19 @@ export class DeployService {
     try {
       await this.initializeDeploymentDirectory();
 
-      const project = await storage.getDevProject(config.projectId);
+      const project = await storage.getDevProject(config.projectId.toString());
       if (!project) {
         throw new Error("Project not found");
       }
 
-      const files = await storage.getProjectFiles(config.projectId);
+      const files = await storage.getProjectFiles(config.projectId.toString());
       
       const deployPath = path.join(this.deploymentDir, deploymentId);
       await fs.mkdir(deployPath, { recursive: true });
 
       for (const file of files) {
-        if (file.type === "file" && file.content) {
-          const filePath = path.join(deployPath, file.path.replace(/^\//, ""));
+        if (!file.isDirectory && file.content) {
+          const filePath = path.join(deployPath, file.filePath.replace(/^\//, ""));
           await fs.mkdir(path.dirname(filePath), { recursive: true });
           await fs.writeFile(filePath, file.content, "utf-8");
         }
@@ -90,10 +90,8 @@ export class DeployService {
 
       const deployedUrl = `https://${project.name.toLowerCase().replace(/\s+/g, "-")}-${deploymentId.slice(-6)}.infera.app`;
 
-      await storage.updateDevProject(config.projectId, {
-        isPublished: true,
-        publishedUrl: deployedUrl,
-        updatedAt: new Date(),
+      await storage.updateDevProject(config.projectId.toString(), {
+        status: "deployed",
       });
 
       return {
@@ -116,15 +114,15 @@ export class DeployService {
   }
 
   async generateMobileApp(projectId: number): Promise<GeneratedPlatformCode["mobileCode"]> {
-    const project = await storage.getDevProject(projectId);
+    const project = await storage.getDevProject(projectId.toString());
     if (!project) {
       throw new Error("Project not found");
     }
 
-    const files = await storage.getProjectFiles(projectId);
-    const htmlFile = files.find(f => f.path.endsWith(".html") || f.path.endsWith("index.html"));
-    const cssFile = files.find(f => f.path.endsWith(".css"));
-    const jsFile = files.find(f => f.path.endsWith(".js") && !f.path.includes("node_modules"));
+    const files = await storage.getProjectFiles(projectId.toString());
+    const htmlFile = files.find(f => f.filePath.endsWith(".html") || f.filePath.endsWith("index.html"));
+    const cssFile = files.find(f => f.filePath.endsWith(".css"));
+    const jsFile = files.find(f => f.filePath.endsWith(".js") && !f.filePath.includes("node_modules"));
 
     const webCode = {
       html: htmlFile?.content || "",
@@ -209,15 +207,15 @@ Return JSON format:
   }
 
   async generateDesktopApp(projectId: number): Promise<GeneratedPlatformCode["desktopCode"]> {
-    const project = await storage.getDevProject(projectId);
+    const project = await storage.getDevProject(projectId.toString());
     if (!project) {
       throw new Error("Project not found");
     }
 
-    const files = await storage.getProjectFiles(projectId);
-    const htmlFile = files.find(f => f.path.endsWith(".html") || f.path.endsWith("index.html"));
-    const cssFile = files.find(f => f.path.endsWith(".css"));
-    const jsFile = files.find(f => f.path.endsWith(".js") && !f.path.includes("node_modules"));
+    const files = await storage.getProjectFiles(projectId.toString());
+    const htmlFile = files.find(f => f.filePath.endsWith(".html") || f.filePath.endsWith("index.html"));
+    const cssFile = files.find(f => f.filePath.endsWith(".css"));
+    const jsFile = files.find(f => f.filePath.endsWith(".js") && !f.filePath.includes("node_modules"));
 
     const webCode = {
       html: htmlFile?.content || "",
@@ -309,19 +307,19 @@ Return JSON format:
       this.generateDesktopApp(projectId),
     ]);
 
-    const files = await storage.getProjectFiles(projectId);
-    const htmlFile = files.find(f => f.path.endsWith(".html"));
-    const cssFile = files.find(f => f.path.endsWith(".css"));
-    const jsFile = files.find(f => f.path.endsWith(".js") && !f.path.includes("node_modules"));
+    const files = await storage.getProjectFiles(projectId.toString());
+    const htmlFile = files.find(f => f.filePath.endsWith(".html"));
+    const cssFile = files.find(f => f.filePath.endsWith(".css"));
+    const jsFile = files.find(f => f.filePath.endsWith(".js") && !f.filePath.includes("node_modules"));
 
     return {
       webCode: {
         html: htmlFile?.content || "",
         css: cssFile?.content || "",
         js: jsFile?.content || "",
-        assets: files.filter(f => f.type === "file" && 
-          (f.path.endsWith(".png") || f.path.endsWith(".jpg") || f.path.endsWith(".svg"))
-        ).map(f => f.path),
+        assets: files.filter(f => !f.isDirectory && 
+          (f.filePath.endsWith(".png") || f.filePath.endsWith(".jpg") || f.filePath.endsWith(".svg"))
+        ).map(f => f.filePath),
       },
       mobileCode,
       desktopCode,
@@ -330,7 +328,7 @@ Return JSON format:
 
   async downloadMobileBundle(projectId: number): Promise<{ zipPath: string; fileName: string }> {
     const mobileCode = await this.generateMobileApp(projectId);
-    const project = await storage.getDevProject(projectId);
+    const project = await storage.getDevProject(projectId.toString());
     
     const bundleDir = path.join(this.deploymentDir, `mobile_${projectId}_${Date.now()}`);
     await fs.mkdir(bundleDir, { recursive: true });
@@ -353,7 +351,7 @@ Return JSON format:
 
   async downloadDesktopBundle(projectId: number): Promise<{ zipPath: string; fileName: string }> {
     const desktopCode = await this.generateDesktopApp(projectId);
-    const project = await storage.getDevProject(projectId);
+    const project = await storage.getDevProject(projectId.toString());
     
     const bundleDir = path.join(this.deploymentDir, `desktop_${projectId}_${Date.now()}`);
     await fs.mkdir(bundleDir, { recursive: true });

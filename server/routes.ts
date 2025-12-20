@@ -2,6 +2,9 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
+import * as fs from "fs";
+import * as path from "path";
+import * as os from "os";
 import { generateWebsiteCode, refineWebsiteCode } from "./anthropic";
 import apiKeysRoutes from "./api-keys-routes";
 import { registerDomainRoutes } from "./domain-routes";
@@ -46,6 +49,11 @@ declare module 'express-session' {
   interface SessionData {
     userId?: string;
     user?: Omit<User, 'password'>;
+    pendingLogin?: {
+      userId: string;
+      user: Omit<User, 'password'>;
+      email: string | null;
+    };
   }
 }
 
@@ -240,6 +248,9 @@ export async function registerRoutes(
         return res.status(403).json({ error: "الحساب معطل / Account is disabled" });
       }
       
+      if (!user.password) {
+        return res.status(401).json({ error: "بيانات الدخول غير صحيحة / Invalid credentials" });
+      }
       const isValidPassword = await bcrypt.compare(password, user.password);
       if (!isValidPassword) {
         return res.status(401).json({ error: "بيانات الدخول غير صحيحة / Invalid credentials" });
@@ -265,13 +276,13 @@ export async function registerRoutes(
         
         await storage.createOtpCode({
           userId: user.id,
-          email: user.email,
+          email: user.email || "",
           code,
           type: "email",
           expiresAt,
         });
         
-        await sendOTPEmail(user.email, code, user.language || "ar", storage);
+        await sendOTPEmail(user.email || "", code, (user.language || "ar") as "ar" | "en", storage);
         
         return res.json({ 
           requiresOtp: true,
@@ -344,7 +355,7 @@ export async function registerRoutes(
       // Save OTP to database
       await storage.createOtpCode({
         userId: user.id,
-        email: user.email,
+        email: user.email || "",
         code,
         type: "email",
         isUsed: false,
@@ -352,7 +363,7 @@ export async function registerRoutes(
       });
       
       // Send email
-      const emailSent = await sendOTPEmail(user.email, code, user.language as "ar" | "en");
+      const emailSent = await sendOTPEmail(user.email || "", code, user.language as "ar" | "en");
       
       res.json({ 
         success: true,
@@ -1633,7 +1644,7 @@ export async function registerRoutes(
       }));
 
       // Get collaborators count
-      const collaborators = await storage.getProjectCollaborators(projectId);
+      const collaborators = await storage.getCollaborators(projectId);
       
       // Get database/backend info
       const database = await storage.getProjectDatabase(projectId);
@@ -1869,7 +1880,7 @@ export async function registerRoutes(
         return;
       }
 
-      const transporter = nodemailer.createTransporter({
+      const transporter = nodemailer.createTransport({
         host: smtpHost,
         port: smtpPort,
         secure: smtpPort === 465,
@@ -2151,7 +2162,7 @@ export async function registerRoutes(
         language: project.language || "ar",
       });
       
-      res.json({ success: true, ...result });
+      res.json({ ...result });
     } catch (error) {
       res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to provision" });
     }
@@ -2162,7 +2173,7 @@ export async function registerRoutes(
   // Generate complete full-stack platform
   app.post("/api/generate-fullstack", requireAuth, async (req, res) => {
     try {
-      const { fullStackGenerator, FullStackProjectSpec } = await import("./full-stack-generator");
+      const { fullStackGenerator } = await import("./full-stack-generator");
       
       const specSchema = z.object({
         name: z.string().min(1),
@@ -3283,22 +3294,12 @@ ${project.description || ""}
       const chatbot = await storage.createChatbot({
         userId: req.session.userId!,
         name: name.trim(),
-        description: description || "",
+        nameAr: name.trim(),
         systemPrompt: systemPrompt || "You are a helpful assistant.",
         model: model || "claude-sonnet-4-5",
         temperature: typeof temperature === 'number' ? Math.round(temperature * 100) : 70,
         maxTokens: maxTokens || 1000,
-        greeting: greeting || "",
-        language: language || "en",
-        primaryColor: primaryColor || "#8B5CF6",
-        secondaryColor: secondaryColor || "#EC4899",
-        borderRadius: borderRadius || "12",
-        position: position || "bottom-right",
-        widgetWidth: widgetWidth || "380",
-        widgetHeight: widgetHeight || "520",
-        showOnMobile: showOnMobile ?? true,
-        autoOpen: autoOpen ?? false,
-        autoOpenDelay: autoOpenDelay || 5,
+        welcomeMessage: greeting || "",
         isActive: true,
       });
       res.status(201).json(chatbot);
@@ -5667,7 +5668,7 @@ ${project.description || ""}
     try {
       const incident = await storage.createSecurityIncident({
         ...req.body,
-        reportedBy: req.user!.id,
+        reportedBy: req.session.userId!,
         status: 'OPEN',
       });
       res.json(incident);
@@ -5681,7 +5682,7 @@ ${project.description || ""}
     try {
       const { id } = req.params;
       const { resolution } = req.body;
-      const incident = await storage.resolveSecurityIncident(id, resolution, req.user!.id);
+      const incident = await storage.resolveSecurityIncident(id, resolution, req.session.userId!);
       res.json(incident);
     } catch (error) {
       res.status(500).json({ error: "Failed to resolve security incident" });
@@ -5728,7 +5729,7 @@ ${project.description || ""}
     try {
       const policy = await storage.createAIPolicy({
         ...req.body,
-        createdBy: req.user!.id,
+        createdBy: req.session.userId!,
       });
       res.json(policy);
     } catch (error) {
@@ -5773,7 +5774,7 @@ ${project.description || ""}
     try {
       const config = await storage.createMarginGuardConfig({
         ...req.body,
-        createdBy: req.user!.id,
+        createdBy: req.session.userId!,
         isActive: true,
       });
       res.json(config);
@@ -7851,14 +7852,13 @@ ${project.description || ""}
       const startTime = Date.now();
       const selectedModel = mode === "MANUAL" && model ? model : assistant.model || "claude-sonnet-4-5";
       
-      const result = await aiAgentExecutor.executeCommand({
+      const result = await aiAgentExecutor.executeTask({
+        instructionId: id,
         assistantId: id,
-        assistantName: assistant.name,
-        command,
-        model: selectedModel,
-        systemPrompt: assistant.systemPrompt || "",
-        maxTokens: assistant.maxTokens || 4000,
-        temperature: (assistant.temperature || 70) / 100,
+        userId: req.session.userId!,
+        prompt: command,
+        executionMode: mode || "AUTO",
+        preferredModel: selectedModel,
       });
       
       const executionTime = Date.now() - startTime;
@@ -7866,13 +7866,9 @@ ${project.description || ""}
       // Log the command execution
       await storage.createSovereignCommand({
         assistantId: id,
-        command,
-        response: result.response,
+        issuedBy: req.session.userId!,
+        directive: command,
         status: result.success ? "completed" : "failed",
-        executionTimeMs: executionTime,
-        tokenCount: result.tokensUsed || 0,
-        cost: result.cost?.toString() || "0",
-        initiatedBy: req.session.userId!,
       });
       
       // Create audit log
@@ -7889,8 +7885,8 @@ ${project.description || ""}
         response: result.response,
         model: selectedModel,
         executionTime,
-        tokensUsed: result.tokensUsed,
-        cost: result.cost,
+        tokensUsed: (result as any).tokensUsed,
+        cost: (result as any).cost,
       });
     } catch (error: any) {
       console.error("Sovereign assistant execution error:", error);
@@ -8981,15 +8977,14 @@ ${project.description || ""}
   // Create dev project
   app.post("/api/dev-projects", async (req, res) => {
     try {
-      const { name, nameAr, description, projectType, language } = req.body;
+      const { name, description, projectType, language } = req.body;
       const userId = req.session?.userId;
       
       const project = await storage.createDevProject({
-        userId,
+        workspaceId: userId || "default",
         name: name || "New Project",
-        nameAr,
+        slug: (name || "new-project").toLowerCase().replace(/\s+/g, "-"),
         description,
-        projectType: projectType || "nodejs",
         language: language || "ar",
       });
 
@@ -9413,7 +9408,7 @@ ${project.description || ""}
       
       // Verify user owns this project (or is admin)
       const userId = req.session.userId!;
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -9436,7 +9431,7 @@ ${project.description || ""}
       
       // Verify user owns this project (or is admin)
       const userId = req.session.userId!;
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -9468,7 +9463,7 @@ ${project.description || ""}
       
       // Verify user owns this project (or is admin)
       const userId = req.session.userId!;
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -9498,7 +9493,7 @@ ${project.description || ""}
       }
       
       const userId = req.session.userId!;
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -9537,7 +9532,7 @@ ${project.description || ""}
       }
       
       const userId = req.session.userId!;
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -9595,7 +9590,7 @@ ${project.description || ""}
       }
       
       const userId = req.session.userId!;
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -9645,7 +9640,7 @@ ${project.description || ""}
         return res.status(404).json({ error: "Project not found" });
       }
       
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
 
@@ -9680,7 +9675,7 @@ ${project.description || ""}
         return res.status(404).json({ error: "Project not found" });
       }
       
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
 
@@ -9752,7 +9747,7 @@ ${project.description || ""}
         return res.status(404).json({ error: "Project not found" });
       }
       
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
 
@@ -9813,7 +9808,7 @@ ${project.description || ""}
         return res.status(404).json({ error: "Project not found" });
       }
       
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
 
@@ -9861,7 +9856,7 @@ ${project.description || ""}
         return res.status(404).json({ error: "Project not found" });
       }
       
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
 
@@ -9915,7 +9910,7 @@ ${project.description || ""}
         return res.status(404).json({ error: "Project not found" });
       }
       
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
 
@@ -9980,7 +9975,7 @@ ${project.description || ""}
         return res.status(404).json({ error: "Project not found" });
       }
       
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
 
@@ -10086,7 +10081,7 @@ ${project.description || ""}
         return res.status(404).json({ error: "Project not found" });
       }
       
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
 
@@ -10202,7 +10197,7 @@ ${project.description || ""}
         return res.status(404).json({ error: "Project not found" });
       }
       
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
 
@@ -10253,7 +10248,7 @@ ${project.description || ""}
         return res.status(404).json({ error: "Project not found" });
       }
       
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
 
@@ -10334,7 +10329,7 @@ ${project.description || ""}
         return res.status(404).json({ error: "Project not found" });
       }
       
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
 
@@ -10372,7 +10367,7 @@ ${project.description || ""}
         return res.status(404).json({ error: "Project not found" });
       }
       
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -10410,7 +10405,7 @@ ${project.description || ""}
         return res.status(404).json({ error: "Project not found" });
       }
       
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -10432,7 +10427,7 @@ ${project.description || ""}
         return res.status(404).json({ error: "Project not found" });
       }
       
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -10475,7 +10470,7 @@ ${project.description || ""}
         return res.status(404).json({ error: "Project not found" });
       }
       
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -10501,7 +10496,7 @@ ${project.description || ""}
         return res.status(404).json({ error: "Project not found" });
       }
       
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -10528,7 +10523,7 @@ ${project.description || ""}
         return res.status(404).json({ error: "Project not found" });
       }
       
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -10555,7 +10550,7 @@ ${project.description || ""}
         return res.status(404).json({ error: "Project not found" });
       }
       
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -10577,7 +10572,7 @@ ${project.description || ""}
         return res.status(404).json({ error: "Project not found" });
       }
       
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -10625,7 +10620,7 @@ ${project.description || ""}
         return res.status(404).json({ error: "Project not found" });
       }
       
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -10647,7 +10642,7 @@ ${project.description || ""}
         return res.status(404).json({ error: "Project not found" });
       }
       
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -10669,7 +10664,7 @@ ${project.description || ""}
         return res.status(404).json({ error: "Project not found" });
       }
       
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -10691,7 +10686,7 @@ ${project.description || ""}
         return res.status(404).json({ error: "Project not found" });
       }
       
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -10738,7 +10733,7 @@ ${project.description || ""}
         return res.status(404).json({ error: "Project not found" });
       }
       
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -10760,7 +10755,7 @@ ${project.description || ""}
         return res.status(404).json({ error: "Project not found" });
       }
       
-      if (project.userId && project.userId !== userId && req.session.user?.role !== 'owner') {
+      if (project.workspaceId && project.workspaceId !== userId && req.session.user?.role !== 'owner') {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -11014,13 +11009,14 @@ ${project.description || ""}
       }
 
       const verificationToken = generateVerificationToken();
+      const hostname = req.body.hostname as string;
+      const rootDomain = hostname.split('.').slice(-2).join('.');
       const domain = await storage.createCustomDomain({
         tenantId,
-        hostname: req.body.hostname,
+        hostname,
+        rootDomain,
         status: 'pending_verification',
-        verificationMethod: req.body.verificationMethod || 'dns_txt',
         verificationToken,
-        isPrimary: req.body.isPrimary || false,
         createdBy: user?.id || 'system',
       });
 
@@ -11032,6 +11028,7 @@ ${project.description || ""}
         domainId: domain.id,
         method: req.body.verificationMethod || 'dns_txt',
         token: verificationToken,
+        expectedValue: `infera-verify=${verificationToken}`,
         status: 'pending',
         expiresAt: new Date(Date.now() + 72 * 60 * 60 * 1000), // 72 hours
       });
@@ -11041,7 +11038,7 @@ ${project.description || ""}
         domainId: domain.id,
         tenantId,
         action: 'domain_created',
-        actorId: user?.id || 'system',
+        performedBy: user?.id || 'system',
         details: { hostname: req.body.hostname },
       });
 
@@ -11066,7 +11063,7 @@ ${project.description || ""}
         domainId: req.params.id,
         tenantId: domain.tenantId,
         action: 'domain_updated',
-        actorId: req.session?.user?.id || 'system',
+        performedBy: req.session?.user?.id || 'system',
         details: req.body,
       });
 
@@ -11091,7 +11088,7 @@ ${project.description || ""}
         domainId: req.params.id,
         tenantId: domain.tenantId,
         action: 'domain_deleted',
-        actorId: req.session?.user?.id || 'system',
+        performedBy: req.session?.user?.id || 'system',
         details: { hostname: domain.hostname },
       });
 
@@ -11130,7 +11127,7 @@ ${project.description || ""}
         domainId: domain.id,
         tenantId: domain.tenantId,
         action: 'domain_verified',
-        actorId: req.session?.user?.id || 'system',
+        performedBy: req.session?.user?.id || 'system',
         details: { method: verification.method },
       });
 
@@ -12693,9 +12690,9 @@ ${project.description || ""}
       }
       
       const code = {
-        html: project.html || "",
-        css: project.css || "",
-        js: project.js || "",
+        html: project.htmlCode || "",
+        css: project.cssCode || "",
+        js: project.jsCode || "",
       };
       
       const session = await storage.createCodeAnalysisSession({

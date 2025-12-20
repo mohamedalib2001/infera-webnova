@@ -420,7 +420,7 @@ import {
   type InsertAuditFinding,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, asc, and, gt, gte, lte, sql } from "drizzle-orm";
+import { eq, desc, asc, and, gt, gte, lte } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -1921,7 +1921,7 @@ body { font-family: 'Tajawal', sans-serif; }
     ];
 
     for (const template of sampleTemplates) {
-      await db.insert(templates).values(template as any);
+      await db.insert(templates).values(template);
     }
   }
 
@@ -2174,14 +2174,14 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(insertUser as any).returning();
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
 
   async updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined> {
     const [user] = await db
       .update(users)
-      .set({ ...updates, updatedAt: new Date() } as any)
+      .set({ ...updates, updatedAt: new Date() })
       .where(eq(users.id, id))
       .returning();
     return user || undefined;
@@ -2369,14 +2369,14 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createUserSubscription(subscription: InsertUserSubscription): Promise<UserSubscription> {
-    const [created] = await db.insert(userSubscriptions).values(subscription as any).returning();
+    const [created] = await db.insert(userSubscriptions).values(subscription).returning();
     return created;
   }
 
   async updateUserSubscription(id: string, updates: Partial<InsertUserSubscription>): Promise<UserSubscription | undefined> {
     const [subscription] = await db
       .update(userSubscriptions)
-      .set({ ...updates, updatedAt: new Date() } as any)
+      .set({ ...updates, updatedAt: new Date() })
       .where(eq(userSubscriptions.id, id))
       .returning();
     return subscription || undefined;
@@ -2388,7 +2388,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createPayment(payment: InsertPayment): Promise<Payment> {
-    const [created] = await db.insert(payments).values(payment as any).returning();
+    const [created] = await db.insert(payments).values(payment).returning();
     return created;
   }
 
@@ -2411,7 +2411,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createAiUsage(usage: InsertAiUsage): Promise<AiUsage> {
-    const [created] = await db.insert(aiUsage).values(usage as any).returning();
+    const [created] = await db.insert(aiUsage).values(usage).returning();
     return created;
   }
 
@@ -2439,14 +2439,14 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createProject(insertProject: InsertProject): Promise<Project> {
-    const [project] = await db.insert(projects).values(insertProject as any).returning();
+    const [project] = await db.insert(projects).values(insertProject).returning();
     return project;
   }
 
   async updateProject(id: string, updates: Partial<InsertProject>): Promise<Project | undefined> {
     const [project] = await db
       .update(projects)
-      .set({ ...updates, updatedAt: new Date() } as any)
+      .set({ ...updates, updatedAt: new Date() })
       .where(eq(projects.id, id))
       .returning();
     return project || undefined;
@@ -2496,7 +2496,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createMessage(insertMessage: InsertMessage): Promise<Message> {
-    const [message] = await db.insert(messages).values(insertMessage as any).returning();
+    const [message] = await db.insert(messages).values(insertMessage).returning();
     return message;
   }
 
@@ -2511,7 +2511,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createTemplate(insertTemplate: InsertTemplate): Promise<Template> {
-    const [template] = await db.insert(templates).values(insertTemplate as any).returning();
+    const [template] = await db.insert(templates).values(insertTemplate).returning();
     return template;
   }
 
@@ -2530,7 +2530,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createProjectVersion(insertVersion: InsertProjectVersion): Promise<ProjectVersion> {
-    const [version] = await db.insert(projectVersions).values(insertVersion as any).returning();
+    const [version] = await db.insert(projectVersions).values(insertVersion).returning();
     return version;
   }
 
@@ -2545,7 +2545,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createShareLink(insertLink: InsertShareLink): Promise<ShareLink> {
-    const [link] = await db.insert(shareLinks).values(insertLink as any).returning();
+    const [link] = await db.insert(shareLinks).values(insertLink).returning();
     return link;
   }
 
@@ -2575,7 +2575,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createNotification(insertNotification: InsertNotification): Promise<Notification> {
-    const [notification] = await db.insert(notifications).values(insertNotification as any).returning();
+    const [notification] = await db.insert(notifications).values(insertNotification).returning();
     return notification;
   }
 
@@ -2620,7 +2620,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createCollaborator(insertCollaborator: InsertCollaborator): Promise<Collaborator> {
-    const [collaborator] = await db.insert(collaborators).values(insertCollaborator as any).returning();
+    const [collaborator] = await db.insert(collaborators).values(insertCollaborator).returning();
     return collaborator;
   }
 
@@ -2656,13 +2656,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createComponent(insertComponent: InsertComponent): Promise<Component> {
-    const [component] = await db.insert(components).values(insertComponent as any).returning();
+    const [component] = await db.insert(components).values(insertComponent).returning();
     return component;
   }
 
   // OTP methods
   async createOtpCode(insertOtp: InsertOtpCode): Promise<OtpCode> {
-    const [otp] = await db.insert(otpCodes).values(insertOtp as any).returning();
+    const [otp] = await db.insert(otpCodes).values(insertOtp).returning();
     return otp;
   }
 
@@ -2689,7 +2689,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async markOtpUsed(id: string): Promise<void> {
-    await db.update(otpCodes).set({ isUsed: true } as any).where(eq(otpCodes.id, id));
+    await db.update(otpCodes).set({ isUsed: true }).where(eq(otpCodes.id, id));
   }
 
   // Chatbot methods
@@ -2703,12 +2703,12 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createChatbot(insertChatbot: InsertChatbot): Promise<Chatbot> {
-    const [chatbot] = await db.insert(chatbots).values(insertChatbot as any).returning();
+    const [chatbot] = await db.insert(chatbots).values(insertChatbot).returning();
     return chatbot;
   }
 
   async updateChatbot(id: string, updateData: Partial<InsertChatbot>): Promise<Chatbot | undefined> {
-    const [chatbot] = await db.update(chatbots).set(updateData as any).where(eq(chatbots.id, id)).returning();
+    const [chatbot] = await db.update(chatbots).set(updateData).where(eq(chatbots.id, id)).returning();
     return chatbot || undefined;
   }
 
@@ -2728,12 +2728,12 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createAiAssistant(assistant: InsertAiAssistant): Promise<AiAssistant> {
-    const [created] = await db.insert(aiAssistants).values(assistant as any).returning();
+    const [created] = await db.insert(aiAssistants).values(assistant).returning();
     return created;
   }
 
   async updateAiAssistant(id: string, updateData: Partial<InsertAiAssistant>): Promise<AiAssistant | undefined> {
-    const [updated] = await db.update(aiAssistants).set(updateData as any).where(eq(aiAssistants.id, id)).returning();
+    const [updated] = await db.update(aiAssistants).set(updateData).where(eq(aiAssistants.id, id)).returning();
     return updated || undefined;
   }
 
@@ -2749,12 +2749,12 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createInstruction(instruction: InsertAssistantInstruction): Promise<AssistantInstruction> {
-    const [created] = await db.insert(assistantInstructions).values(instruction as any).returning();
+    const [created] = await db.insert(assistantInstructions).values(instruction).returning();
     return created;
   }
 
   async updateInstruction(id: string, updateData: Partial<InsertAssistantInstruction>): Promise<AssistantInstruction | undefined> {
-    const [updated] = await db.update(assistantInstructions).set(updateData as any).where(eq(assistantInstructions.id, id)).returning();
+    const [updated] = await db.update(assistantInstructions).set(updateData).where(eq(assistantInstructions.id, id)).returning();
     return updated || undefined;
   }
 
@@ -2765,12 +2765,12 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createOwnerSettings(settings: InsertOwnerSettings): Promise<OwnerSettings> {
-    const [created] = await db.insert(ownerSettings).values(settings as any).returning();
+    const [created] = await db.insert(ownerSettings).values(settings).returning();
     return created;
   }
 
   async updateOwnerSettings(userId: string, updateData: Partial<InsertOwnerSettings>): Promise<OwnerSettings | undefined> {
-    const [updated] = await db.update(ownerSettings).set(updateData as any).where(eq(ownerSettings.userId, userId)).returning();
+    const [updated] = await db.update(ownerSettings).set(updateData).where(eq(ownerSettings.userId, userId)).returning();
     return updated || undefined;
   }
 
@@ -2780,7 +2780,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createAuditLog(log: InsertAuditLog): Promise<AuditLog> {
-    const [created] = await db.insert(auditLogs).values(log as any).returning();
+    const [created] = await db.insert(auditLogs).values(log).returning();
     return created;
   }
 
@@ -2801,13 +2801,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createPaymentMethod(method: InsertPaymentMethod): Promise<PaymentMethod> {
-    const [created] = await db.insert(paymentMethods).values(method as any).returning();
+    const [created] = await db.insert(paymentMethods).values(method).returning();
     return created;
   }
 
   async updatePaymentMethod(id: string, updateData: Partial<InsertPaymentMethod>): Promise<PaymentMethod | undefined> {
     const [updated] = await db.update(paymentMethods)
-      .set({ ...updateData, updatedAt: new Date() } as any)
+      .set({ ...updateData, updatedAt: new Date() })
       .where(eq(paymentMethods.id, id))
       .returning();
     return updated || undefined;
@@ -2843,7 +2843,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createPaymentTransaction(transaction: InsertPaymentTransaction): Promise<PaymentTransaction> {
-    const [created] = await db.insert(paymentTransactions).values(transaction as any).returning();
+    const [created] = await db.insert(paymentTransactions).values(transaction).returning();
     return created;
   }
 
@@ -2883,13 +2883,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createAuthMethod(method: InsertAuthMethod): Promise<AuthMethod> {
-    const [created] = await db.insert(authMethods).values(method as any).returning();
+    const [created] = await db.insert(authMethods).values(method).returning();
     return created;
   }
 
   async updateAuthMethod(id: string, updateData: Partial<InsertAuthMethod>): Promise<AuthMethod | undefined> {
     const [updated] = await db.update(authMethods)
-      .set({ ...updateData, updatedAt: new Date() } as any)
+      .set({ ...updateData, updatedAt: new Date() })
       .where(eq(authMethods.id, id))
       .returning();
     return updated || undefined;
@@ -2954,13 +2954,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createAiModel(model: InsertAiModel): Promise<AiModel> {
-    const [created] = await db.insert(aiModels).values(model as any).returning();
+    const [created] = await db.insert(aiModels).values(model).returning();
     return created;
   }
 
   async updateAiModel(id: string, updateData: Partial<InsertAiModel>): Promise<AiModel | undefined> {
     const [updated] = await db.update(aiModels)
-      .set({ ...updateData, updatedAt: new Date() } as any)
+      .set({ ...updateData, updatedAt: new Date() })
       .where(eq(aiModels.id, id))
       .returning();
     return updated || undefined;
@@ -3014,13 +3014,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createAiUsagePolicy(policy: InsertAiUsagePolicy): Promise<AiUsagePolicy> {
-    const [created] = await db.insert(aiUsagePolicies).values(policy as any).returning();
+    const [created] = await db.insert(aiUsagePolicies).values(policy).returning();
     return created;
   }
 
   async updateAiUsagePolicy(id: string, updateData: Partial<InsertAiUsagePolicy>): Promise<AiUsagePolicy | undefined> {
     const [updated] = await db.update(aiUsagePolicies)
-      .set({ ...updateData, updatedAt: new Date() } as any)
+      .set({ ...updateData, updatedAt: new Date() })
       .where(eq(aiUsagePolicies.id, id))
       .returning();
     return updated || undefined;
@@ -3037,7 +3037,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createAiCostTracking(tracking: InsertAiCostTracking): Promise<AiCostTracking> {
-    const [created] = await db.insert(aiCostTracking).values(tracking as any).returning();
+    const [created] = await db.insert(aiCostTracking).values(tracking).returning();
     return created;
   }
 
@@ -3073,7 +3073,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createEmergencyControl(control: InsertEmergencyControl): Promise<EmergencyControl> {
-    const [created] = await db.insert(emergencyControls).values(control as any).returning();
+    const [created] = await db.insert(emergencyControls).values(control).returning();
     return created;
   }
 
@@ -3101,13 +3101,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createFeatureFlag(flag: InsertFeatureFlag): Promise<FeatureFlag> {
-    const [created] = await db.insert(featureFlags).values(flag as any).returning();
+    const [created] = await db.insert(featureFlags).values(flag).returning();
     return created;
   }
 
   async updateFeatureFlag(id: string, updateData: Partial<InsertFeatureFlag>): Promise<FeatureFlag | undefined> {
     const [updated] = await db.update(featureFlags)
-      .set({ ...updateData, updatedAt: new Date() } as any)
+      .set({ ...updateData, updatedAt: new Date() })
       .where(eq(featureFlags.id, id))
       .returning();
     return updated || undefined;
@@ -3143,13 +3143,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createSystemAnnouncement(announcement: InsertSystemAnnouncement): Promise<SystemAnnouncement> {
-    const [created] = await db.insert(systemAnnouncements).values(announcement as any).returning();
+    const [created] = await db.insert(systemAnnouncements).values(announcement).returning();
     return created;
   }
 
   async updateSystemAnnouncement(id: string, updateData: Partial<InsertSystemAnnouncement>): Promise<SystemAnnouncement | undefined> {
     const [updated] = await db.update(systemAnnouncements)
-      .set({ ...updateData, updatedAt: new Date() } as any)
+      .set({ ...updateData, updatedAt: new Date() })
       .where(eq(systemAnnouncements.id, id))
       .returning();
     return updated || undefined;
@@ -3176,7 +3176,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createAdminRole(role: InsertAdminRole): Promise<AdminRole> {
-    const [created] = await db.insert(adminRoles).values(role as any).returning();
+    const [created] = await db.insert(adminRoles).values(role).returning();
     return created;
   }
 
@@ -3187,7 +3187,7 @@ body { font-family: 'Tajawal', sans-serif; }
       throw new Error("Cannot modify system roles");
     }
     const [updated] = await db.update(adminRoles)
-      .set({ ...updateData, updatedAt: new Date() } as any)
+      .set({ ...updateData, updatedAt: new Date() })
       .where(eq(adminRoles.id, id))
       .returning();
     return updated || undefined;
@@ -3210,7 +3210,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async assignAdminRole(assignment: InsertUserAdminRole): Promise<UserAdminRole> {
-    const [created] = await db.insert(userAdminRoles).values(assignment as any).returning();
+    const [created] = await db.insert(userAdminRoles).values(assignment).returning();
     return created;
   }
 
@@ -3235,7 +3235,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createPlatformMetrics(metrics: InsertPlatformMetrics): Promise<PlatformMetrics> {
-    const [created] = await db.insert(platformMetrics).values(metrics as any).returning();
+    const [created] = await db.insert(platformMetrics).values(metrics).returning();
     return created;
   }
 
@@ -3259,7 +3259,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createSubscriptionEvent(event: InsertSubscriptionEvent): Promise<SubscriptionEvent> {
-    const [created] = await db.insert(subscriptionEvents).values(event as any).returning();
+    const [created] = await db.insert(subscriptionEvents).values(event).returning();
     return created;
   }
 
@@ -3280,13 +3280,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createSovereignAssistant(assistant: InsertSovereignAssistant): Promise<SovereignAssistant> {
-    const [created] = await db.insert(sovereignAssistants).values(assistant as any).returning();
+    const [created] = await db.insert(sovereignAssistants).values(assistant).returning();
     return created;
   }
 
   async updateSovereignAssistant(id: string, data: Partial<InsertSovereignAssistant>): Promise<SovereignAssistant | undefined> {
     const [updated] = await db.update(sovereignAssistants)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(sovereignAssistants.id, id))
       .returning();
     return updated || undefined;
@@ -3326,13 +3326,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createSovereignCommand(command: InsertSovereignCommand): Promise<SovereignCommand> {
-    const [created] = await db.insert(sovereignCommands).values(command as any).returning();
+    const [created] = await db.insert(sovereignCommands).values(command).returning();
     return created;
   }
 
   async updateSovereignCommand(id: string, data: Partial<InsertSovereignCommand>): Promise<SovereignCommand | undefined> {
     const [updated] = await db.update(sovereignCommands)
-      .set(data as any)
+      .set(data)
       .where(eq(sovereignCommands.id, id))
       .returning();
     return updated || undefined;
@@ -3385,7 +3385,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createSovereignAction(action: InsertSovereignAction): Promise<SovereignAction> {
-    const [created] = await db.insert(sovereignActions).values(action as any).returning();
+    const [created] = await db.insert(sovereignActions).values(action).returning();
     return created;
   }
 
@@ -3417,7 +3417,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createSovereignActionLog(log: InsertSovereignActionLog): Promise<SovereignActionLog> {
-    const [created] = await db.insert(sovereignActionLogs).values(log as any).returning();
+    const [created] = await db.insert(sovereignActionLogs).values(log).returning();
     return created;
   }
 
@@ -3438,13 +3438,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createSovereignPolicy(policy: InsertSovereignPolicy): Promise<SovereignPolicy> {
-    const [created] = await db.insert(sovereignPolicies).values(policy as any).returning();
+    const [created] = await db.insert(sovereignPolicies).values(policy).returning();
     return created;
   }
 
   async updateSovereignPolicy(id: string, data: Partial<InsertSovereignPolicy>): Promise<SovereignPolicy | undefined> {
     const [updated] = await db.update(sovereignPolicies)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(sovereignPolicies.id, id))
       .returning();
     return updated || undefined;
@@ -3480,13 +3480,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createAiBuildSession(session: InsertAiBuildSession): Promise<AiBuildSession> {
-    const [created] = await db.insert(aiBuildSessions).values(session as any).returning();
+    const [created] = await db.insert(aiBuildSessions).values(session).returning();
     return created;
   }
 
   async updateAiBuildSession(id: string, data: Partial<InsertAiBuildSession>): Promise<AiBuildSession | undefined> {
     const [updated] = await db.update(aiBuildSessions)
-      .set(data as any)
+      .set(data)
       .where(eq(aiBuildSessions.id, id))
       .returning();
     return updated || undefined;
@@ -3511,7 +3511,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createAiBuildTask(task: InsertAiBuildTask): Promise<AiBuildTask> {
-    const [created] = await db.insert(aiBuildTasks).values(task as any).returning();
+    const [created] = await db.insert(aiBuildTasks).values(task).returning();
     return created;
   }
 
@@ -3538,13 +3538,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createAiBuildArtifact(artifact: InsertAiBuildArtifact): Promise<AiBuildArtifact> {
-    const [created] = await db.insert(aiBuildArtifacts).values(artifact as any).returning();
+    const [created] = await db.insert(aiBuildArtifacts).values(artifact).returning();
     return created;
   }
 
   async updateAiBuildArtifact(id: string, data: Partial<InsertAiBuildArtifact>): Promise<AiBuildArtifact | undefined> {
     const [updated] = await db.update(aiBuildArtifacts)
-      .set(data as any)
+      .set(data)
       .where(eq(aiBuildArtifacts.id, id))
       .returning();
     return updated || undefined;
@@ -3555,7 +3555,7 @@ body { font-family: 'Tajawal', sans-serif; }
   async getDevProjects(userId?: string): Promise<DevProject[]> {
     if (userId) {
       return db.select().from(devProjects)
-        .where(eq((devProjects as any).userId, userId))
+        .where(eq(devProjects.userId, userId))
         .orderBy(desc(devProjects.updatedAt));
     }
     return db.select().from(devProjects).orderBy(desc(devProjects.updatedAt));
@@ -3567,13 +3567,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createDevProject(project: InsertDevProject): Promise<DevProject> {
-    const [created] = await db.insert(devProjects).values(project as any).returning();
+    const [created] = await db.insert(devProjects).values(project).returning();
     return created;
   }
 
   async updateDevProject(id: string, data: Partial<InsertDevProject>): Promise<DevProject | undefined> {
     const [updated] = await db.update(devProjects)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(devProjects.id, id))
       .returning();
     return updated || undefined;
@@ -3604,13 +3604,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createProjectFile(file: InsertProjectFile): Promise<ProjectFile> {
-    const [created] = await db.insert(projectFiles).values(file as any).returning();
+    const [created] = await db.insert(projectFiles).values(file).returning();
     return created;
   }
 
   async updateProjectFile(id: string, data: Partial<InsertProjectFile>): Promise<ProjectFile | undefined> {
     const [updated] = await db.update(projectFiles)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(projectFiles.id, id))
       .returning();
     return updated || undefined;
@@ -3630,7 +3630,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createRuntimeInstance(instance: InsertRuntimeInstance): Promise<RuntimeInstance> {
-    const [created] = await db.insert(runtimeInstances).values(instance as any).returning();
+    const [created] = await db.insert(runtimeInstances).values(instance).returning();
     return created;
   }
 
@@ -3652,7 +3652,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createConsoleLog(log: InsertConsoleLog): Promise<ConsoleLog> {
-    const [created] = await db.insert(consoleLogs).values(log as any).returning();
+    const [created] = await db.insert(consoleLogs).values(log).returning();
     return created;
   }
 
@@ -3675,13 +3675,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createDevDatabaseTable(table: InsertDevDatabaseTable): Promise<DevDatabaseTable> {
-    const [created] = await db.insert(devDatabaseTables).values(table as any).returning();
+    const [created] = await db.insert(devDatabaseTables).values(table).returning();
     return created;
   }
 
   async updateDevDatabaseTable(id: string, data: Partial<InsertDevDatabaseTable>): Promise<DevDatabaseTable | undefined> {
     const [updated] = await db.update(devDatabaseTables)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(devDatabaseTables.id, id))
       .returning();
     return updated || undefined;
@@ -3717,7 +3717,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createDevDatabaseColumn(column: InsertDevDatabaseColumn): Promise<DevDatabaseColumn> {
-    const [created] = await db.insert(devDatabaseColumns).values(column as any).returning();
+    const [created] = await db.insert(devDatabaseColumns).values(column).returning();
     return created;
   }
 
@@ -3748,7 +3748,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createDevDatabaseRelationship(rel: InsertDevDatabaseRelationship): Promise<DevDatabaseRelationship> {
-    const [created] = await db.insert(devDatabaseRelationships).values(rel as any).returning();
+    const [created] = await db.insert(devDatabaseRelationships).values(rel).returning();
     return created;
   }
 
@@ -3774,7 +3774,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createSovereignAuditLog(log: InsertSovereignAuditLog): Promise<SovereignAuditLog> {
-    const [created] = await db.insert(sovereignAuditLogs).values(log as any).returning();
+    const [created] = await db.insert(sovereignAuditLogs).values(log).returning();
     return created;
   }
 
@@ -3798,13 +3798,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createSovereignPlatform(platform: InsertSovereignPlatform): Promise<SovereignPlatformRecord> {
-    const [created] = await db.insert(sovereignPlatforms).values(platform as any).returning();
+    const [created] = await db.insert(sovereignPlatforms).values(platform).returning();
     return created;
   }
 
   async updateSovereignPlatform(id: string, data: Partial<InsertSovereignPlatform>): Promise<SovereignPlatformRecord | undefined> {
     const [updated] = await db.update(sovereignPlatforms)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(sovereignPlatforms.id, id))
       .returning();
     return updated || undefined;
@@ -3835,7 +3835,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createSystemSetting(setting: InsertSystemSetting): Promise<SystemSettingRecord> {
-    const [created] = await db.insert(systemSettings).values(setting as any).returning();
+    const [created] = await db.insert(systemSettings).values(setting).returning();
     return created;
   }
 
@@ -3868,13 +3868,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createAILayer(layer: InsertAILayer): Promise<AILayerRecord> {
-    const [created] = await db.insert(aiLayers).values(layer as any).returning();
+    const [created] = await db.insert(aiLayers).values(layer).returning();
     return created;
   }
 
   async updateAILayer(id: string, data: Partial<InsertAILayer>): Promise<AILayerRecord | undefined> {
     const [updated] = await db.update(aiLayers)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(aiLayers.id, id))
       .returning();
     return updated || undefined;
@@ -3896,13 +3896,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createAIPowerConfig(config: InsertAIPowerConfig): Promise<AIPowerConfigRecord> {
-    const [created] = await db.insert(aiPowerConfigs).values(config as any).returning();
+    const [created] = await db.insert(aiPowerConfigs).values(config).returning();
     return created;
   }
 
   async updateAIPowerConfig(layerId: string, data: Partial<InsertAIPowerConfig>): Promise<AIPowerConfigRecord | undefined> {
     const [updated] = await db.update(aiPowerConfigs)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(aiPowerConfigs.layerId, layerId))
       .returning();
     return updated || undefined;
@@ -3923,13 +3923,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createExternalAIProvider(provider: InsertExternalAIProvider): Promise<ExternalAIProviderRecord> {
-    const [created] = await db.insert(externalAIProviders).values(provider as any).returning();
+    const [created] = await db.insert(externalAIProviders).values(provider).returning();
     return created;
   }
 
   async updateExternalAIProvider(id: string, data: Partial<InsertExternalAIProvider>): Promise<ExternalAIProviderRecord | undefined> {
     const [updated] = await db.update(externalAIProviders)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(externalAIProviders.id, id))
       .returning();
     return updated || undefined;
@@ -3951,13 +3951,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createSubscriberAILimit(limit: InsertSubscriberAILimit): Promise<SubscriberAILimitRecord> {
-    const [created] = await db.insert(subscriberAILimits).values(limit as any).returning();
+    const [created] = await db.insert(subscriberAILimits).values(limit).returning();
     return created;
   }
 
   async updateSubscriberAILimit(role: string, data: Partial<InsertSubscriberAILimit>): Promise<SubscriberAILimitRecord | undefined> {
     const [updated] = await db.update(subscriberAILimits)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(subscriberAILimits.role, role))
       .returning();
     return updated || undefined;
@@ -3978,13 +3978,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createSovereignAIAgent(agent: InsertSovereignAIAgent): Promise<SovereignAIAgentRecord> {
-    const [created] = await db.insert(sovereignAIAgents).values(agent as any).returning();
+    const [created] = await db.insert(sovereignAIAgents).values(agent).returning();
     return created;
   }
 
   async updateSovereignAIAgent(id: string, data: Partial<InsertSovereignAIAgent>): Promise<SovereignAIAgentRecord | undefined> {
     const [updated] = await db.update(sovereignAIAgents)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(sovereignAIAgents.id, id))
       .returning();
     return updated || undefined;
@@ -4010,13 +4010,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createAIKillSwitchState(state: InsertAIKillSwitchState): Promise<AIKillSwitchStateRecord> {
-    const [created] = await db.insert(aiKillSwitchState).values(state as any).returning();
+    const [created] = await db.insert(aiKillSwitchState).values(state).returning();
     return created;
   }
 
   async updateAIKillSwitchState(id: string, data: Partial<InsertAIKillSwitchState>): Promise<AIKillSwitchStateRecord | undefined> {
     const [updated] = await db.update(aiKillSwitchState)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(aiKillSwitchState.id, id))
       .returning();
     return updated || undefined;
@@ -4107,7 +4107,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createAISovereigntyAuditLog(log: InsertAISovereigntyAuditLog): Promise<AISovereigntyAuditLogRecord> {
-    const [created] = await db.insert(aiSovereigntyAuditLogs).values(log as any).returning();
+    const [created] = await db.insert(aiSovereigntyAuditLogs).values(log).returning();
     return created;
   }
 
@@ -4118,13 +4118,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createAIConstitution(constitution: InsertAIConstitution): Promise<AIConstitutionRecord> {
-    const [created] = await db.insert(aiConstitution).values(constitution as any).returning();
+    const [created] = await db.insert(aiConstitution).values(constitution).returning();
     return created;
   }
 
   async updateAIConstitution(id: string, data: Partial<InsertAIConstitution>): Promise<AIConstitutionRecord | undefined> {
     const [updated] = await db.update(aiConstitution)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(aiConstitution.id, id))
       .returning();
     return updated || undefined;
@@ -4158,13 +4158,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createCustomDomain(domain: InsertCustomDomain): Promise<CustomDomainRecord> {
-    const [created] = await db.insert(customDomains).values(domain as any).returning();
+    const [created] = await db.insert(customDomains).values(domain).returning();
     return created;
   }
 
   async updateCustomDomain(id: string, data: Partial<InsertCustomDomain>): Promise<CustomDomainRecord | undefined> {
     const [updated] = await db.update(customDomains)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(customDomains.id, id))
       .returning();
     return updated || undefined;
@@ -4191,7 +4191,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createDomainVerification(verification: InsertDomainVerification): Promise<DomainVerificationRecord> {
-    const [created] = await db.insert(domainVerifications).values(verification as any).returning();
+    const [created] = await db.insert(domainVerifications).values(verification).returning();
     return created;
   }
 
@@ -4215,13 +4215,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createSSLCertificate(cert: InsertSSLCertificate): Promise<SSLCertificateRecord> {
-    const [created] = await db.insert(sslCertificates).values(cert as any).returning();
+    const [created] = await db.insert(sslCertificates).values(cert).returning();
     return created;
   }
 
   async updateSSLCertificate(domainId: string, data: Partial<InsertSSLCertificate>): Promise<SSLCertificateRecord | undefined> {
     const [updated] = await db.update(sslCertificates)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(sslCertificates.domainId, domainId))
       .returning();
     return updated || undefined;
@@ -4242,7 +4242,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createDomainAuditLog(log: InsertDomainAuditLog): Promise<DomainAuditLogRecord> {
-    const [created] = await db.insert(domainAuditLogs).values(log as any).returning();
+    const [created] = await db.insert(domainAuditLogs).values(log).returning();
     return created;
   }
 
@@ -4253,13 +4253,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createTenantDomainQuota(quota: InsertTenantDomainQuota): Promise<TenantDomainQuotaRecord> {
-    const [created] = await db.insert(tenantDomainQuotas).values(quota as any).returning();
+    const [created] = await db.insert(tenantDomainQuotas).values(quota).returning();
     return created;
   }
 
   async updateTenantDomainQuota(tenantId: string, data: Partial<InsertTenantDomainQuota>): Promise<TenantDomainQuotaRecord | undefined> {
     const [updated] = await db.update(tenantDomainQuotas)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(tenantDomainQuotas.tenantId, tenantId))
       .returning();
     return updated || undefined;
@@ -4307,13 +4307,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createApiKey(key: InsertApiKey): Promise<ApiKey> {
-    const [created] = await db.insert(apiKeys).values(key as any).returning();
+    const [created] = await db.insert(apiKeys).values(key).returning();
     return created;
   }
 
   async updateApiKey(id: string, data: Partial<InsertApiKey>): Promise<ApiKey | undefined> {
     const [updated] = await db.update(apiKeys)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(apiKeys.id, id))
       .returning();
     return updated || undefined;
@@ -4346,7 +4346,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createApiKeyUsageLog(log: InsertApiKeyUsageLog): Promise<ApiKeyUsageLog> {
-    const [created] = await db.insert(apiKeyUsageLogs).values(log as any).returning();
+    const [created] = await db.insert(apiKeyUsageLogs).values(log).returning();
     return created;
   }
 
@@ -4361,13 +4361,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createRateLimitPolicy(policy: InsertRateLimitPolicy): Promise<RateLimitPolicy> {
-    const [created] = await db.insert(rateLimitPolicies).values(policy as any).returning();
+    const [created] = await db.insert(rateLimitPolicies).values(policy).returning();
     return created;
   }
 
   async updateRateLimitPolicy(tier: string, data: Partial<InsertRateLimitPolicy>): Promise<RateLimitPolicy | undefined> {
     const [updated] = await db.update(rateLimitPolicies)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(rateLimitPolicies.tier, tier))
       .returning();
     return updated || undefined;
@@ -4386,13 +4386,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createWebhookEndpoint(endpoint: InsertWebhookEndpoint): Promise<WebhookEndpoint> {
-    const [created] = await db.insert(webhookEndpoints).values(endpoint as any).returning();
+    const [created] = await db.insert(webhookEndpoints).values(endpoint).returning();
     return created;
   }
 
   async updateWebhookEndpoint(id: string, data: Partial<InsertWebhookEndpoint>): Promise<WebhookEndpoint | undefined> {
     const [updated] = await db.update(webhookEndpoints)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(webhookEndpoints.id, id))
       .returning();
     return updated || undefined;
@@ -4417,7 +4417,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createWebhookDelivery(delivery: InsertWebhookDelivery): Promise<WebhookDelivery> {
-    const [created] = await db.insert(webhookDeliveries).values(delivery as any).returning();
+    const [created] = await db.insert(webhookDeliveries).values(delivery).returning();
     return created;
   }
 
@@ -4445,7 +4445,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createApiAuditLog(log: InsertApiAuditLog): Promise<ApiAuditLog> {
-    const [created] = await db.insert(apiAuditLogs).values(log as any).returning();
+    const [created] = await db.insert(apiAuditLogs).values(log).returning();
     return created;
   }
 
@@ -4456,13 +4456,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createApiConfiguration(config: InsertApiConfiguration): Promise<ApiConfiguration> {
-    const [created] = await db.insert(apiConfiguration).values(config as any).returning();
+    const [created] = await db.insert(apiConfiguration).values(config).returning();
     return created;
   }
 
   async updateApiConfiguration(tenantId: string, data: Partial<InsertApiConfiguration>): Promise<ApiConfiguration | undefined> {
     const [updated] = await db.update(apiConfiguration)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(apiConfiguration.tenantId, tenantId))
       .returning();
     return updated || undefined;
@@ -4489,13 +4489,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createInvoice(invoice: InsertInvoice): Promise<Invoice> {
-    const [created] = await db.insert(invoices).values(invoice as any).returning();
+    const [created] = await db.insert(invoices).values(invoice).returning();
     return created;
   }
 
   async updateInvoice(id: string, data: Partial<InsertInvoice>): Promise<Invoice | undefined> {
     const [updated] = await db.update(invoices)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(invoices.id, id))
       .returning();
     return updated || undefined;
@@ -4526,13 +4526,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createCampaign(campaign: InsertMarketingCampaign): Promise<MarketingCampaign> {
-    const [created] = await db.insert(marketingCampaigns).values(campaign as any).returning();
+    const [created] = await db.insert(marketingCampaigns).values(campaign).returning();
     return created;
   }
 
   async updateCampaign(id: string, data: Partial<InsertMarketingCampaign>): Promise<MarketingCampaign | undefined> {
     const [updated] = await db.update(marketingCampaigns)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(marketingCampaigns.id, id))
       .returning();
     return updated || undefined;
@@ -4553,7 +4553,7 @@ body { font-family: 'Tajawal', sans-serif; }
 
   // ==================== ANALYTICS EVENTS ====================
   async createAnalyticsEvent(event: InsertAnalyticsEvent): Promise<AnalyticsEvent> {
-    const [created] = await db.insert(analyticsEvents).values(event as any).returning();
+    const [created] = await db.insert(analyticsEvents).values(event).returning();
     return created;
   }
 
@@ -4635,13 +4635,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createServiceProvider(provider: InsertServiceProvider): Promise<ServiceProvider> {
-    const [created] = await db.insert(serviceProviders).values(provider as any).returning();
+    const [created] = await db.insert(serviceProviders).values(provider).returning();
     return created;
   }
 
   async updateServiceProvider(id: string, data: Partial<InsertServiceProvider>): Promise<ServiceProvider | undefined> {
     const [updated] = await db.update(serviceProviders)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(serviceProviders.id, id))
       .returning();
     return updated || undefined;
@@ -4671,13 +4671,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createProviderApiKey(key: InsertProviderApiKey): Promise<ProviderApiKey> {
-    const [created] = await db.insert(providerApiKeys).values(key as any).returning();
+    const [created] = await db.insert(providerApiKeys).values(key).returning();
     return created;
   }
 
   async updateProviderApiKey(id: string, data: Partial<InsertProviderApiKey>): Promise<ProviderApiKey | undefined> {
     const [updated] = await db.update(providerApiKeys)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(providerApiKeys.id, id))
       .returning();
     return updated || undefined;
@@ -4714,7 +4714,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createProviderService(service: InsertProviderService): Promise<ProviderService> {
-    const [created] = await db.insert(providerServices).values(service as any).returning();
+    const [created] = await db.insert(providerServices).values(service).returning();
     return created;
   }
 
@@ -4742,7 +4742,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createProviderUsage(usage: InsertProviderUsage): Promise<ProviderUsage> {
-    const [created] = await db.insert(providerUsage).values(usage as any).returning();
+    const [created] = await db.insert(providerUsage).values(usage).returning();
     return created;
   }
 
@@ -4777,7 +4777,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createProviderAlert(alert: InsertProviderAlert): Promise<ProviderAlert> {
-    const [created] = await db.insert(providerAlerts).values(alert as any).returning();
+    const [created] = await db.insert(providerAlerts).values(alert).returning();
     return created;
   }
 
@@ -4813,13 +4813,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createFailoverGroup(group: InsertFailoverGroup): Promise<FailoverGroup> {
-    const [created] = await db.insert(failoverGroups).values(group as any).returning();
+    const [created] = await db.insert(failoverGroups).values(group).returning();
     return created;
   }
 
   async updateFailoverGroup(id: string, data: Partial<InsertFailoverGroup>): Promise<FailoverGroup | undefined> {
     const [updated] = await db.update(failoverGroups)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(failoverGroups.id, id))
       .returning();
     return updated || undefined;
@@ -4858,7 +4858,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createIntegrationAuditLog(log: InsertIntegrationAuditLog): Promise<IntegrationAuditLog> {
-    const [created] = await db.insert(integrationAuditLogs).values(log as any).returning();
+    const [created] = await db.insert(integrationAuditLogs).values(log).returning();
     return created;
   }
 
@@ -4875,12 +4875,12 @@ body { font-family: 'Tajawal', sans-serif; }
     const existing = await this.getUserLocation(userId);
     if (existing) {
       const [updated] = await db.update(userLocations)
-        .set({ ...location, lastUpdated: new Date() } as any)
+        .set({ ...location, lastUpdated: new Date() })
         .where(eq(userLocations.userId, userId))
         .returning();
       return updated;
     }
-    const [created] = await db.insert(userLocations).values(location as any).returning();
+    const [created] = await db.insert(userLocations).values(location).returning();
     return created;
   }
 
@@ -4891,7 +4891,7 @@ body { font-family: 'Tajawal', sans-serif; }
 
   // Resource Usage Tracking
   async trackResourceUsage(usage: InsertResourceUsage): Promise<ResourceUsage> {
-    const [created] = await db.insert(resourceUsage).values(usage as any).returning();
+    const [created] = await db.insert(resourceUsage).values(usage).returning();
     return created;
   }
 
@@ -4936,13 +4936,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createUserUsageLimit(limit: InsertUserUsageLimit): Promise<UserUsageLimit> {
-    const [created] = await db.insert(userUsageLimits).values(limit as any).returning();
+    const [created] = await db.insert(userUsageLimits).values(limit).returning();
     return created;
   }
 
   async updateUserUsageLimit(userId: string, data: Partial<InsertUserUsageLimit>): Promise<UserUsageLimit | undefined> {
     const [updated] = await db.update(userUsageLimits)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(userUsageLimits.userId, userId))
       .returning();
     return updated || undefined;
@@ -4989,13 +4989,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createPricingConfig(config: InsertPricingConfig): Promise<PricingConfig> {
-    const [created] = await db.insert(pricingConfig).values(config as any).returning();
+    const [created] = await db.insert(pricingConfig).values(config).returning();
     return created;
   }
 
   async updatePricingConfig(id: string, data: Partial<InsertPricingConfig>): Promise<PricingConfig | undefined> {
     const [updated] = await db.update(pricingConfig)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(pricingConfig.id, id))
       .returning();
     return updated || undefined;
@@ -5018,7 +5018,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createUsageAlert(alert: InsertUsageAlert): Promise<UsageAlert> {
-    const [created] = await db.insert(usageAlerts).values(alert as any).returning();
+    const [created] = await db.insert(usageAlerts).values(alert).returning();
     return created;
   }
 
@@ -5053,7 +5053,7 @@ body { font-family: 'Tajawal', sans-serif; }
     
     if (existing.length > 0) {
       const [updated] = await db.update(dailyUsageAggregates)
-        .set({ ...data, updatedAt: new Date() } as any)
+        .set({ ...data, updatedAt: new Date() })
         .where(eq(dailyUsageAggregates.id, existing[0].id))
         .returning();
       return updated;
@@ -5087,7 +5087,7 @@ body { font-family: 'Tajawal', sans-serif; }
 
   async updateMonthlyUsageSummary(id: string, data: Partial<InsertMonthlyUsageSummary>): Promise<MonthlyUsageSummary | undefined> {
     const [updated] = await db.update(monthlyUsageSummary)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(monthlyUsageSummary.id, id))
       .returning();
     return updated || undefined;
@@ -5177,13 +5177,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
   
   async createSovereignOwnerProfile(profile: InsertSovereignOwnerProfile): Promise<SovereignOwnerProfile> {
-    const [created] = await db.insert(sovereignOwnerProfile).values(profile as any).returning();
+    const [created] = await db.insert(sovereignOwnerProfile).values(profile).returning();
     return created;
   }
   
   async updateSovereignOwnerProfile(userId: string, data: Partial<InsertSovereignOwnerProfile>): Promise<SovereignOwnerProfile | undefined> {
     const [updated] = await db.update(sovereignOwnerProfile)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(sovereignOwnerProfile.userId, userId))
       .returning();
     return updated || undefined;
@@ -5201,13 +5201,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
   
   async createOwnershipTransfer(transfer: InsertOwnershipTransfer): Promise<OwnershipTransfer> {
-    const [created] = await db.insert(ownershipTransfers).values(transfer as any).returning();
+    const [created] = await db.insert(ownershipTransfers).values(transfer).returning();
     return created;
   }
   
   async updateOwnershipTransfer(id: string, data: Partial<InsertOwnershipTransfer>): Promise<OwnershipTransfer | undefined> {
     const [updated] = await db.update(ownershipTransfers)
-      .set(data as any)
+      .set(data)
       .where(eq(ownershipTransfers.id, id))
       .returning();
     return updated || undefined;
@@ -5225,13 +5225,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
   
   async createAIPolicy(policy: InsertAIPolicy): Promise<AIPolicy> {
-    const [created] = await db.insert(aiPolicies).values(policy as any).returning();
+    const [created] = await db.insert(aiPolicies).values(policy).returning();
     return created;
   }
   
   async updateAIPolicy(id: string, data: Partial<InsertAIPolicy>): Promise<AIPolicy | undefined> {
     const [updated] = await db.update(aiPolicies)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(aiPolicies.id, id))
       .returning();
     return updated || undefined;
@@ -5262,7 +5262,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
   
   async createCostAttribution(attribution: InsertCostAttribution): Promise<CostAttribution> {
-    const [created] = await db.insert(costAttributions).values(attribution as any).returning();
+    const [created] = await db.insert(costAttributions).values(attribution).returning();
     return created;
   }
   
@@ -5275,13 +5275,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
   
   async createMarginGuardConfig(config: InsertMarginGuardConfig): Promise<MarginGuardConfig> {
-    const [created] = await db.insert(marginGuardConfigs).values(config as any).returning();
+    const [created] = await db.insert(marginGuardConfigs).values(config).returning();
     return created;
   }
   
   async updateMarginGuardConfig(id: string, data: Partial<InsertMarginGuardConfig>): Promise<MarginGuardConfig | undefined> {
     const [updated] = await db.update(marginGuardConfigs)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(marginGuardConfigs.id, id))
       .returning();
     return updated || undefined;
@@ -5295,7 +5295,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
   
   async createImmutableAuditEntry(entry: InsertImmutableAuditTrail): Promise<ImmutableAuditTrail> {
-    const [created] = await db.insert(immutableAuditTrail).values(entry as any).returning();
+    const [created] = await db.insert(immutableAuditTrail).values(entry).returning();
     return created;
   }
   
@@ -5317,13 +5317,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
   
   async createPostMortemReport(report: InsertPostMortemReport): Promise<PostMortemReport> {
-    const [created] = await db.insert(postMortemReports).values(report as any).returning();
+    const [created] = await db.insert(postMortemReports).values(report).returning();
     return created;
   }
   
   async updatePostMortemReport(id: string, data: Partial<InsertPostMortemReport>): Promise<PostMortemReport | undefined> {
     const [updated] = await db.update(postMortemReports)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(postMortemReports.id, id))
       .returning();
     return updated || undefined;
@@ -5354,13 +5354,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
   
   async createSecurityIncident(incident: InsertSecurityIncident): Promise<SecurityIncident> {
-    const [created] = await db.insert(securityIncidents).values(incident as any).returning();
+    const [created] = await db.insert(securityIncidents).values(incident).returning();
     return created;
   }
   
   async updateSecurityIncident(id: string, data: Partial<InsertSecurityIncident>): Promise<SecurityIncident | undefined> {
     const [updated] = await db.update(securityIncidents)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(securityIncidents.id, id))
       .returning();
     return updated || undefined;
@@ -5426,7 +5426,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
   
   async createInfrastructureAuditLog(log: InsertInfrastructureAuditLog): Promise<InfrastructureAuditLog> {
-    const [created] = await db.insert(infrastructureAuditLogs).values(log as any).returning();
+    const [created] = await db.insert(infrastructureAuditLogs).values(log).returning();
     return created;
   }
   
@@ -5444,7 +5444,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
   
   async createProviderErrorLog(log: InsertProviderErrorLog): Promise<ProviderErrorLog> {
-    const [created] = await db.insert(providerErrorLogs).values(log as any).returning();
+    const [created] = await db.insert(providerErrorLogs).values(log).returning();
     return created;
   }
   
@@ -5478,13 +5478,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
   
   async createInfrastructureProvider(provider: InsertInfrastructureProvider): Promise<InfrastructureProvider> {
-    const [created] = await db.insert(infrastructureProviders).values(provider as any).returning();
+    const [created] = await db.insert(infrastructureProviders).values(provider).returning();
     return created;
   }
   
   async updateInfrastructureProvider(id: string, data: Partial<InsertInfrastructureProvider>): Promise<InfrastructureProvider | undefined> {
     const [updated] = await db.update(infrastructureProviders)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(infrastructureProviders.id, id))
       .returning();
     return updated || undefined;
@@ -5503,7 +5503,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
   
   async createProviderCredential(credential: InsertProviderCredential): Promise<ProviderCredential> {
-    const [created] = await db.insert(providerCredentials).values(credential as any).returning();
+    const [created] = await db.insert(providerCredentials).values(credential).returning();
     return created;
   }
   
@@ -5530,13 +5530,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
   
   async createInfrastructureServer(server: InsertInfrastructureServer): Promise<InfrastructureServer> {
-    const [created] = await db.insert(infrastructureServers).values(server as any).returning();
+    const [created] = await db.insert(infrastructureServers).values(server).returning();
     return created;
   }
   
   async updateInfrastructureServer(id: string, data: Partial<InsertInfrastructureServer>): Promise<InfrastructureServer | undefined> {
     const [updated] = await db.update(infrastructureServers)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(infrastructureServers.id, id))
       .returning();
     return updated || undefined;
@@ -5559,13 +5559,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
   
   async createDeploymentTemplate(template: InsertDeploymentTemplate): Promise<DeploymentTemplate> {
-    const [created] = await db.insert(deploymentTemplates).values(template as any).returning();
+    const [created] = await db.insert(deploymentTemplates).values(template).returning();
     return created;
   }
   
   async updateDeploymentTemplate(id: string, data: Partial<InsertDeploymentTemplate>): Promise<DeploymentTemplate | undefined> {
     const [updated] = await db.update(deploymentTemplates)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(deploymentTemplates.id, id))
       .returning();
     return updated || undefined;
@@ -5600,13 +5600,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
   
   async createDeploymentRun(run: InsertDeploymentRun): Promise<DeploymentRun> {
-    const [created] = await db.insert(deploymentRuns).values(run as any).returning();
+    const [created] = await db.insert(deploymentRuns).values(run).returning();
     return created;
   }
   
   async updateDeploymentRun(id: string, data: Partial<InsertDeploymentRun>): Promise<DeploymentRun | undefined> {
     const [updated] = await db.update(deploymentRuns)
-      .set(data as any)
+      .set(data)
       .where(eq(deploymentRuns.id, id))
       .returning();
     return updated || undefined;
@@ -5630,13 +5630,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
   
   async createInfrastructureBackup(backup: InsertInfrastructureBackup): Promise<InfrastructureBackup> {
-    const [created] = await db.insert(infrastructureBackups).values(backup as any).returning();
+    const [created] = await db.insert(infrastructureBackups).values(backup).returning();
     return created;
   }
   
   async updateInfrastructureBackup(id: string, data: Partial<InsertInfrastructureBackup>): Promise<InfrastructureBackup | undefined> {
     const [updated] = await db.update(infrastructureBackups)
-      .set(data as any)
+      .set(data)
       .where(eq(infrastructureBackups.id, id))
       .returning();
     return updated || undefined;
@@ -5670,13 +5670,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
   
   async createExternalIntegrationSession(session: InsertExternalIntegrationSession): Promise<ExternalIntegrationSession> {
-    const [created] = await db.insert(externalIntegrationSessions).values(session as any).returning();
+    const [created] = await db.insert(externalIntegrationSessions).values(session).returning();
     return created;
   }
   
   async updateExternalIntegrationSession(id: string, data: Partial<InsertExternalIntegrationSession>): Promise<ExternalIntegrationSession | undefined> {
     const [updated] = await db.update(externalIntegrationSessions)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(externalIntegrationSessions.id, id))
       .returning();
     return updated || undefined;
@@ -5718,7 +5718,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
   
   async createExternalIntegrationLog(log: InsertExternalIntegrationLog): Promise<ExternalIntegrationLog> {
-    const [created] = await db.insert(externalIntegrationLogs).values(log as any).returning();
+    const [created] = await db.insert(externalIntegrationLogs).values(log).returning();
     return created;
   }
   
@@ -5734,7 +5734,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
   
   async createInfrastructureCostAlert(alert: InsertInfrastructureCostAlert): Promise<InfrastructureCostAlert> {
-    const [created] = await db.insert(infrastructureCostAlerts).values(alert as any).returning();
+    const [created] = await db.insert(infrastructureCostAlerts).values(alert).returning();
     return created;
   }
   
@@ -5758,13 +5758,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
   
   async createInfrastructureBudget(budget: InsertInfrastructureBudget): Promise<InfrastructureBudget> {
-    const [created] = await db.insert(infrastructureBudgets).values(budget as any).returning();
+    const [created] = await db.insert(infrastructureBudgets).values(budget).returning();
     return created;
   }
   
   async updateInfrastructureBudget(id: string, data: Partial<InsertInfrastructureBudget>): Promise<InfrastructureBudget | undefined> {
     const [updated] = await db.update(infrastructureBudgets)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(infrastructureBudgets.id, id))
       .returning();
     return updated || undefined;
@@ -5816,13 +5816,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
   
   async createSovereignNotification(notification: InsertSovereignNotification): Promise<SovereignNotification> {
-    const [created] = await db.insert(sovereignNotifications).values(notification as any).returning();
+    const [created] = await db.insert(sovereignNotifications).values(notification).returning();
     return created;
   }
   
   async updateSovereignNotification(id: string, data: Partial<InsertSovereignNotification>): Promise<SovereignNotification | undefined> {
     const [updated] = await db.update(sovereignNotifications)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(sovereignNotifications.id, id))
       .returning();
     return updated || undefined;
@@ -5900,13 +5900,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
   
   async createNotificationTemplate(template: InsertNotificationTemplate): Promise<NotificationTemplate> {
-    const [created] = await db.insert(notificationTemplates).values(template as any).returning();
+    const [created] = await db.insert(notificationTemplates).values(template).returning();
     return created;
   }
   
   async updateNotificationTemplate(id: string, data: Partial<InsertNotificationTemplate>): Promise<NotificationTemplate | undefined> {
     const [updated] = await db.update(notificationTemplates)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(notificationTemplates.id, id))
       .returning();
     return updated || undefined;
@@ -5925,13 +5925,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
   
   async createUserNotificationPreferences(prefs: InsertUserNotificationPreferences): Promise<UserNotificationPreferences> {
-    const [created] = await db.insert(userNotificationPreferences).values(prefs as any).returning();
+    const [created] = await db.insert(userNotificationPreferences).values(prefs).returning();
     return created;
   }
   
   async updateUserNotificationPreferences(userId: string, data: Partial<InsertUserNotificationPreferences>): Promise<UserNotificationPreferences | undefined> {
     const [updated] = await db.update(userNotificationPreferences)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(userNotificationPreferences.userId, userId))
       .returning();
     return updated || undefined;
@@ -5945,7 +5945,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
   
   async createNotificationEscalation(escalation: InsertNotificationEscalation): Promise<NotificationEscalation> {
-    const [created] = await db.insert(notificationEscalations).values(escalation as any).returning();
+    const [created] = await db.insert(notificationEscalations).values(escalation).returning();
     return created;
   }
   
@@ -5966,7 +5966,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
   
   async createNotificationAnalytics(analytics: InsertNotificationAnalytics): Promise<NotificationAnalytics> {
-    const [created] = await db.insert(notificationAnalytics).values(analytics as any).returning();
+    const [created] = await db.insert(notificationAnalytics).values(analytics).returning();
     return created;
   }
   
@@ -5982,7 +5982,7 @@ body { font-family: 'Tajawal', sans-serif; }
   
   // Code Analysis Sessions
   async createCodeAnalysisSession(data: InsertCodeAnalysisSession): Promise<CodeAnalysisSession> {
-    const [created] = await db.insert(codeAnalysisSessions).values(data as any).returning();
+    const [created] = await db.insert(codeAnalysisSessions).values(data).returning();
     return created;
   }
 
@@ -6006,7 +6006,7 @@ body { font-family: 'Tajawal', sans-serif; }
 
   async updateCodeAnalysisSession(id: string, data: Partial<InsertCodeAnalysisSession>): Promise<CodeAnalysisSession | undefined> {
     const [updated] = await db.update(codeAnalysisSessions)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(codeAnalysisSessions.id, id))
       .returning();
     return updated || undefined;
@@ -6014,7 +6014,7 @@ body { font-family: 'Tajawal', sans-serif; }
 
   // Smart Suggestions
   async createSmartSuggestion(data: InsertSmartSuggestion): Promise<SmartSuggestion> {
-    const [created] = await db.insert(smartSuggestions).values(data as any).returning();
+    const [created] = await db.insert(smartSuggestions).values(data).returning();
     return created;
   }
 
@@ -6047,7 +6047,7 @@ body { font-family: 'Tajawal', sans-serif; }
 
   async updateSmartSuggestion(id: string, data: Partial<InsertSmartSuggestion>): Promise<SmartSuggestion | undefined> {
     const [updated] = await db.update(smartSuggestions)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(smartSuggestions.id, id))
       .returning();
     return updated || undefined;
@@ -6077,13 +6077,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createAnalysisRule(data: InsertAnalysisRule): Promise<AnalysisRule> {
-    const [created] = await db.insert(analysisRules).values(data as any).returning();
+    const [created] = await db.insert(analysisRules).values(data).returning();
     return created;
   }
 
   async updateAnalysisRule(id: string, data: Partial<InsertAnalysisRule>): Promise<AnalysisRule | undefined> {
     const [updated] = await db.update(analysisRules)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(analysisRules.id, id))
       .returning();
     return updated || undefined;
@@ -6096,7 +6096,7 @@ body { font-family: 'Tajawal', sans-serif; }
 
   // Project Improvement History
   async createProjectImprovementHistory(data: InsertProjectImprovementHistory): Promise<ProjectImprovementHistory> {
-    const [created] = await db.insert(projectImprovementHistory).values(data as any).returning();
+    const [created] = await db.insert(projectImprovementHistory).values(data).returning();
     return created;
   }
 
@@ -6116,13 +6116,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createProjectBackend(data: InsertProjectBackend): Promise<ProjectBackend> {
-    const [backend] = await db.insert(projectBackends).values(data as any).returning();
+    const [backend] = await db.insert(projectBackends).values(data).returning();
     return backend;
   }
 
   async updateProjectBackend(id: string, data: Partial<InsertProjectBackend>): Promise<ProjectBackend | undefined> {
     const [backend] = await db.update(projectBackends)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(projectBackends.id, id))
       .returning();
     return backend || undefined;
@@ -6136,13 +6136,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createProjectDatabase(data: InsertProjectDatabase): Promise<ProjectDatabase> {
-    const [database] = await db.insert(projectDatabases).values(data as any).returning();
+    const [database] = await db.insert(projectDatabases).values(data).returning();
     return database;
   }
 
   async updateProjectDatabase(id: string, data: Partial<InsertProjectDatabase>): Promise<ProjectDatabase | undefined> {
     const [database] = await db.update(projectDatabases)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(projectDatabases.id, id))
       .returning();
     return database || undefined;
@@ -6156,13 +6156,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createProjectAuthConfig(data: InsertProjectAuthConfig): Promise<ProjectAuthConfig> {
-    const [config] = await db.insert(projectAuthConfigs).values(data as any).returning();
+    const [config] = await db.insert(projectAuthConfigs).values(data).returning();
     return config;
   }
 
   async updateProjectAuthConfig(id: string, data: Partial<InsertProjectAuthConfig>): Promise<ProjectAuthConfig | undefined> {
     const [config] = await db.update(projectAuthConfigs)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(projectAuthConfigs.id, id))
       .returning();
     return config || undefined;
@@ -6182,13 +6182,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createProjectProvisioningJob(data: InsertProjectProvisioningJob): Promise<ProjectProvisioningJob> {
-    const [job] = await db.insert(projectProvisioningJobs).values(data as any).returning();
+    const [job] = await db.insert(projectProvisioningJobs).values(data).returning();
     return job;
   }
 
   async updateProjectProvisioningJob(id: string, data: Partial<InsertProjectProvisioningJob>): Promise<ProjectProvisioningJob | undefined> {
     const [job] = await db.update(projectProvisioningJobs)
-      .set(data as any)
+      .set(data)
       .where(eq(projectProvisioningJobs.id, id))
       .returning();
     return job || undefined;
@@ -6244,13 +6244,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createDeletedItem(item: InsertDeletedItem): Promise<DeletedItem> {
-    const [created] = await db.insert(deletedItems).values(item as any).returning();
+    const [created] = await db.insert(deletedItems).values(item).returning();
     return created;
   }
 
   async updateDeletedItem(id: string, updates: Partial<InsertDeletedItem>): Promise<DeletedItem | undefined> {
     const [updated] = await db.update(deletedItems)
-      .set(updates as any)
+      .set(updates)
       .where(eq(deletedItems.id, id))
       .returning();
     return updated || undefined;
@@ -6270,7 +6270,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async addToRecycleBin(item: InsertRecycleBin): Promise<RecycleBinItem> {
-    const [created] = await db.insert(recycleBin).values(item as any).returning();
+    const [created] = await db.insert(recycleBin).values(item).returning();
     return created;
   }
 
@@ -6289,7 +6289,7 @@ body { font-family: 'Tajawal', sans-serif; }
 
   async updateRecycleBinItem(id: string, updates: Partial<InsertRecycleBin>): Promise<RecycleBinItem | undefined> {
     const [updated] = await db.update(recycleBin)
-      .set(updates as any)
+      .set(updates)
       .where(eq(recycleBin.id, id))
       .returning();
     return updated || undefined;
@@ -6326,7 +6326,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createDeletionAuditLog(log: InsertDeletionAuditLog): Promise<DeletionAuditLog> {
-    const [created] = await db.insert(deletionAuditLogs).values(log as any).returning();
+    const [created] = await db.insert(deletionAuditLogs).values(log).returning();
     return created;
   }
 
@@ -6355,13 +6355,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createCollaborationContext(ctx: InsertCollaborationContext): Promise<CollaborationContext> {
-    const [created] = await db.insert(collaborationContexts).values(ctx as any).returning();
+    const [created] = await db.insert(collaborationContexts).values(ctx).returning();
     return created;
   }
 
   async updateCollaborationContext(id: string, updates: Partial<InsertCollaborationContext>): Promise<CollaborationContext | undefined> {
     const [updated] = await db.update(collaborationContexts)
-      .set({ ...updates, lastActivityAt: new Date() } as any)
+      .set({ ...updates, lastActivityAt: new Date() })
       .where(eq(collaborationContexts.id, id))
       .returning();
     return updated || undefined;
@@ -6374,7 +6374,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createCollaborationMessage(msg: InsertCollaborationMessage): Promise<CollaborationMessage> {
-    const [created] = await db.insert(collaborationMessages).values(msg as any).returning();
+    const [created] = await db.insert(collaborationMessages).values(msg).returning();
     await db.update(collaborationContexts)
       .set({ 
         messageCount: sql`${collaborationContexts.messageCount} + 1`,
@@ -6399,7 +6399,7 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createCollaborationDecision(dec: InsertCollaborationDecision): Promise<CollaborationDecision> {
-    const [created] = await db.insert(collaborationDecisions).values(dec as any).returning();
+    const [created] = await db.insert(collaborationDecisions).values(dec).returning();
     return created;
   }
 
@@ -6431,13 +6431,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createAICollaborator(ai: InsertAICollaborator): Promise<AICollaborator> {
-    const [created] = await db.insert(aiCollaborators).values(ai as any).returning();
+    const [created] = await db.insert(aiCollaborators).values(ai).returning();
     return created;
   }
 
   async updateAICollaboratorStats(id: string, stats: Partial<InsertAICollaborator>): Promise<AICollaborator | undefined> {
     const [updated] = await db.update(aiCollaborators)
-      .set({ ...stats, lastActiveAt: new Date() } as any)
+      .set({ ...stats, lastActiveAt: new Date() })
       .where(eq(aiCollaborators.id, id))
       .returning();
     return updated || undefined;
@@ -6459,13 +6459,13 @@ body { font-family: 'Tajawal', sans-serif; }
     
     if (existing.length > 0) {
       const [updated] = await db.update(activeContributors)
-        .set({ ...contributor, lastActiveAt: new Date() } as any)
+        .set({ ...contributor, lastActiveAt: new Date() })
         .where(eq(activeContributors.contributorId, contributor.contributorId))
         .returning();
       return updated;
     }
     
-    const [created] = await db.insert(activeContributors).values(contributor as any).returning();
+    const [created] = await db.insert(activeContributors).values(contributor).returning();
     return created;
   }
 
@@ -6486,13 +6486,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createWebhookLog(data: InsertWebhookLog): Promise<WebhookLog> {
-    const [created] = await db.insert(webhookLogs).values(data as any).returning();
+    const [created] = await db.insert(webhookLogs).values(data).returning();
     return created;
   }
 
   async updateWebhookLog(id: string, data: Partial<InsertWebhookLog>): Promise<WebhookLog> {
     const [updated] = await db.update(webhookLogs)
-      .set(data as any)
+      .set(data)
       .where(eq(webhookLogs.id, id))
       .returning();
     return updated;
@@ -6506,13 +6506,13 @@ body { font-family: 'Tajawal', sans-serif; }
 
   // Payment Retries
   async createPaymentRetry(data: InsertPaymentRetry): Promise<PaymentRetry> {
-    const [created] = await db.insert(paymentRetryQueue).values(data as any).returning();
+    const [created] = await db.insert(paymentRetryQueue).values(data).returning();
     return created;
   }
 
   async updatePaymentRetry(id: string, data: Partial<InsertPaymentRetry>): Promise<PaymentRetry> {
     const [updated] = await db.update(paymentRetryQueue)
-      .set(data as any)
+      .set(data)
       .where(eq(paymentRetryQueue.id, id))
       .returning();
     return updated;
@@ -6527,12 +6527,12 @@ body { font-family: 'Tajawal', sans-serif; }
   async getPendingPaymentRetries(): Promise<PaymentRetry[]> {
     return db.select().from(paymentRetryQueue)
       .where(eq(paymentRetryQueue.status, 'pending'))
-      .orderBy(paymentRetryQueue.nextRetryAt);
+      .orderBy(paymentRetryQueue.scheduledAt);
   }
 
   // Refunds
   async createRefund(data: InsertRefund): Promise<Refund> {
-    const [created] = await db.insert(refunds).values(data as any).returning();
+    const [created] = await db.insert(refunds).values(data).returning();
     return created;
   }
 
@@ -6550,7 +6550,7 @@ body { font-family: 'Tajawal', sans-serif; }
 
   // Billing Profiles
   async createBillingProfile(data: InsertBillingProfile): Promise<BillingProfile> {
-    const [created] = await db.insert(billingProfiles).values(data as any).returning();
+    const [created] = await db.insert(billingProfiles).values(data).returning();
     return created;
   }
 
@@ -6562,7 +6562,7 @@ body { font-family: 'Tajawal', sans-serif; }
 
   async updateBillingProfile(id: string, data: Partial<InsertBillingProfile>): Promise<BillingProfile> {
     const [updated] = await db.update(billingProfiles)
-      .set({ ...data, updatedAt: new Date() } as any)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(billingProfiles.id, id))
       .returning();
     return updated;
@@ -6570,25 +6570,25 @@ body { font-family: 'Tajawal', sans-serif; }
 
   // AI Billing Insights
   async createAiBillingInsight(data: InsertAiBillingInsight): Promise<AiBillingInsight> {
-    const [created] = await db.insert(aiBillingInsights).values(data as any).returning();
+    const [created] = await db.insert(aiBillingInsights).values(data).returning();
     return created;
   }
 
   async getAiBillingInsightsByUser(userId: string): Promise<AiBillingInsight[]> {
     return db.select().from(aiBillingInsights)
       .where(eq(aiBillingInsights.userId, userId))
-      .orderBy(desc(aiBillingInsights.createdAt));
+      .orderBy(desc(aiBillingInsights.generatedAt));
   }
 
   async getAiBillingInsights(limit = 20): Promise<AiBillingInsight[]> {
     return db.select().from(aiBillingInsights)
-      .orderBy(desc(aiBillingInsights.createdAt))
+      .orderBy(desc(aiBillingInsights.generatedAt))
       .limit(limit);
   }
 
   async updateAiBillingInsight(id: string, data: Partial<InsertAiBillingInsight>): Promise<AiBillingInsight> {
     const [updated] = await db.update(aiBillingInsights)
-      .set(data as any)
+      .set(data)
       .where(eq(aiBillingInsights.id, id))
       .returning();
     return updated;
@@ -6617,13 +6617,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createAuditRun(data: InsertAuditRun): Promise<AuditRun> {
-    const [created] = await db.insert(auditRuns).values(data as any).returning();
+    const [created] = await db.insert(auditRuns).values(data).returning();
     return created;
   }
 
   async updateAuditRun(id: string, data: Partial<InsertAuditRun>): Promise<AuditRun | undefined> {
     const [updated] = await db.update(auditRuns)
-      .set(data as any)
+      .set(data)
       .where(eq(auditRuns.id, id))
       .returning();
     return updated;
@@ -6643,13 +6643,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createAuditTarget(data: InsertAuditTarget): Promise<AuditTarget> {
-    const [created] = await db.insert(auditTargets).values(data as any).returning();
+    const [created] = await db.insert(auditTargets).values(data).returning();
     return created;
   }
 
   async updateAuditTarget(id: string, data: Partial<InsertAuditTarget>): Promise<AuditTarget | undefined> {
     const [updated] = await db.update(auditTargets)
-      .set(data as any)
+      .set(data)
       .where(eq(auditTargets.id, id))
       .returning();
     return updated;
@@ -6663,13 +6663,13 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async createAuditFinding(data: InsertAuditFinding): Promise<AuditFinding> {
-    const [created] = await db.insert(auditFindings).values(data as any).returning();
+    const [created] = await db.insert(auditFindings).values(data).returning();
     return created;
   }
 
   async updateAuditFinding(id: string, data: Partial<InsertAuditFinding>): Promise<AuditFinding | undefined> {
     const [updated] = await db.update(auditFindings)
-      .set(data as any)
+      .set(data)
       .where(eq(auditFindings.id, id))
       .returning();
     return updated;
