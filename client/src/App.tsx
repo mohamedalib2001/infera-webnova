@@ -37,6 +37,12 @@ import AiAppBuilder from "@/pages/ai-app-builder";
 import IDEProjects from "@/pages/ide-projects";
 import CloudIDE from "@/pages/cloud-ide";
 import SovereignControlCenter from "@/pages/sovereign-control-center";
+import SovereignCommandCenter from "@/pages/sovereign-command-center";
+import AIGovernanceEngine from "@/pages/ai-governance-engine";
+import DigitalBorders from "@/pages/digital-borders";
+import PolicyEngine from "@/pages/policy-engine";
+import TrustCompliance from "@/pages/trust-compliance";
+import StrategicForecast from "@/pages/strategic-forecast";
 import Domains from "@/pages/domains";
 import Settings from "@/pages/settings";
 import PlatformGenerator from "@/pages/platform-generator";
@@ -91,6 +97,12 @@ function Router() {
       <Route path="/ide" component={IDEProjects} />
       <Route path="/ide/:id" component={CloudIDE} />
       <Route path="/sovereign-control" component={SovereignControlCenter} />
+      <Route path="/sovereign/command-center" component={SovereignCommandCenter} />
+      <Route path="/sovereign/ai-governance" component={AIGovernanceEngine} />
+      <Route path="/sovereign/digital-borders" component={DigitalBorders} />
+      <Route path="/sovereign/policy-engine" component={PolicyEngine} />
+      <Route path="/sovereign/trust-compliance" component={TrustCompliance} />
+      <Route path="/sovereign/strategic-forecast" component={StrategicForecast} />
       <Route path="/domains" component={Domains} />
       <Route path="/settings" component={Settings} />
       <Route path="/platform-generator" component={PlatformGenerator} />

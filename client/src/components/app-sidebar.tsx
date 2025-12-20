@@ -41,6 +41,10 @@ import {
   Mail,
   SquareTerminal,
   Headphones,
+  Scale,
+  Gavel,
+  LineChart,
+  Landmark,
 } from "lucide-react";
 import {
   Sidebar,
@@ -414,6 +418,67 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                       </SidebarMenuItem>
                     </>
                   )}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
+
+          {(isOwner || isSovereign) && (
+            <SidebarGroup>
+              <SidebarGroupLabel className="text-cyan-600 dark:text-cyan-400 flex items-center gap-1">
+                <Crown className="h-3 w-3" />
+                {language === "ar" ? "القيادة السيادية" : "Sovereign Command"}
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location === "/sovereign/command-center"}>
+                      <Link href="/sovereign/command-center" data-testid="nav-sovereign-command">
+                        <Crown className="h-4 w-4 text-amber-500" />
+                        <span>{language === "ar" ? "مركز القيادة" : "Command Center"}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location === "/sovereign/ai-governance"}>
+                      <Link href="/sovereign/ai-governance" data-testid="nav-ai-governance">
+                        <Brain className="h-4 w-4 text-violet-500" />
+                        <span>{language === "ar" ? "حوكمة AI" : "AI Governance"}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location === "/sovereign/digital-borders"}>
+                      <Link href="/sovereign/digital-borders" data-testid="nav-digital-borders">
+                        <Globe className="h-4 w-4 text-cyan-500" />
+                        <span>{language === "ar" ? "الحدود الرقمية" : "Digital Borders"}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location === "/sovereign/policy-engine"}>
+                      <Link href="/sovereign/policy-engine" data-testid="nav-policy-engine">
+                        <Gavel className="h-4 w-4 text-amber-500" />
+                        <span>{language === "ar" ? "محرك السياسات" : "Policy Engine"}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location === "/sovereign/trust-compliance"}>
+                      <Link href="/sovereign/trust-compliance" data-testid="nav-trust-compliance">
+                        <Scale className="h-4 w-4 text-emerald-500" />
+                        <span>{language === "ar" ? "الثقة والامتثال" : "Trust & Compliance"}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location === "/sovereign/strategic-forecast"}>
+                      <Link href="/sovereign/strategic-forecast" data-testid="nav-strategic-forecast">
+                        <LineChart className="h-4 w-4 text-purple-500" />
+                        <span>{language === "ar" ? "التنبؤ الاستراتيجي" : "Strategic Forecast"}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>

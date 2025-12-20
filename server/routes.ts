@@ -658,6 +658,127 @@ export async function registerRoutes(
     }
   });
 
+  // ============ Sovereign Command Center Routes ============
+  
+  // Get sovereign platform metrics
+  app.get("/api/sovereign/metrics", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      const projects = await storage.getProjects();
+      
+      res.json({
+        platformHealth: 94,
+        riskIndex: 12,
+        aiAutonomyLevel: 78,
+        complianceDrift: 3,
+        sovereigntyScore: 96,
+        activeUsers: users.filter(u => u.isActive).length,
+        activeProjects: projects.length,
+        activePolicies: 42,
+        pendingApprovals: 7,
+        enforcementActions: 3,
+        dataResidencyCompliance: 98,
+        securityPosture: 91,
+        costEfficiency: 87,
+        systemUptime: 99.97,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch sovereign metrics" });
+    }
+  });
+
+  // Get sovereign alerts
+  app.get("/api/sovereign/alerts", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      res.json({
+        alerts: [
+          { id: "1", type: "critical", title: "Data Residency Violation Detected", titleAr: "تم اكتشاف انتهاك إقامة البيانات", description: "User data detected in non-compliant region", descriptionAr: "تم اكتشاف بيانات مستخدم في منطقة غير متوافقة", timestamp: new Date().toISOString(), acknowledged: false, category: "compliance" },
+          { id: "2", type: "warning", title: "API Rate Limit Policy Breach", titleAr: "تجاوز سياسة حد معدل API", description: "3 tenants exceeding allocated limits", descriptionAr: "3 مستأجرين يتجاوزون الحدود المخصصة", timestamp: new Date().toISOString(), acknowledged: false, category: "resource" },
+          { id: "3", type: "info", title: "AI Governance Update Available", titleAr: "تحديث حوكمة الذكاء الاصطناعي متاح", description: "New AI policy recommendations ready", descriptionAr: "توصيات سياسة AI جديدة جاهزة", timestamp: new Date().toISOString(), acknowledged: true, category: "ai" },
+        ]
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch alerts" });
+    }
+  });
+
+  // Get sovereign decisions
+  app.get("/api/sovereign/decisions", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      res.json({
+        decisions: [
+          { id: "1", title: "Enforce Data Encryption at Rest", titleAr: "فرض تشفير البيانات في حالة السكون", status: "pending", impact: "high", aiRecommendation: "Strongly recommended. Will affect 45 projects.", aiRecommendationAr: "موصى به بشدة. سيؤثر على 45 مشروعًا.", affectedSystems: ["database", "storage", "backups"], createdAt: new Date().toISOString() },
+          { id: "2", title: "Update API Authentication Policy", titleAr: "تحديث سياسة مصادقة API", status: "approved", impact: "medium", aiRecommendation: "Recommended for security enhancement.", aiRecommendationAr: "موصى به لتعزيز الأمان.", affectedSystems: ["api-gateway", "auth-service"], createdAt: new Date().toISOString() },
+          { id: "3", title: "Enable Geographic Access Restrictions", titleAr: "تفعيل قيود الوصول الجغرافي", status: "enforced", impact: "critical", aiRecommendation: "Critical for data sovereignty compliance.", aiRecommendationAr: "حيوي للامتثال لسيادة البيانات.", affectedSystems: ["cdn", "api-gateway", "frontend"], createdAt: new Date().toISOString() },
+        ]
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch decisions" });
+    }
+  });
+
+  // Get AI governance policies
+  app.get("/api/sovereign/ai-policies", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      res.json({
+        policies: [
+          { id: "1", name: "API Rate Limiting", nameAr: "تحديد معدل API", description: "Automatically enforce rate limits based on traffic patterns", descriptionAr: "فرض حدود المعدل تلقائياً بناءً على أنماط الحركة", category: "security", status: "active", autonomyLevel: 85, enforcementCount: 1247, affectedResources: 156 },
+          { id: "2", name: "Data Encryption Policy", nameAr: "سياسة تشفير البيانات", description: "Enforce encryption at rest and in transit", descriptionAr: "فرض التشفير في حالة السكون والنقل", category: "security", status: "enforcing", autonomyLevel: 95, enforcementCount: 89, affectedResources: 45 },
+          { id: "3", name: "Resource Scaling", nameAr: "تحجيم الموارد", description: "Auto-scale resources based on demand predictions", descriptionAr: "تحجيم الموارد تلقائياً بناءً على توقعات الطلب", category: "infrastructure", status: "active", autonomyLevel: 70, enforcementCount: 567, affectedResources: 23 },
+        ]
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch AI policies" });
+    }
+  });
+
+  // Get data regions
+  app.get("/api/sovereign/data-regions", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      res.json({
+        regions: [
+          { id: "1", name: "Saudi Arabia", nameAr: "المملكة العربية السعودية", code: "SA", status: "active", compliance: ["PDPL", "NCA"], dataStorageAllowed: true, dataProcessingAllowed: true, dataTransferAllowed: false, activeUsers: 12500, dataVolume: "2.4 TB" },
+          { id: "2", name: "United Arab Emirates", nameAr: "الإمارات العربية المتحدة", code: "AE", status: "active", compliance: ["PDPL-UAE"], dataStorageAllowed: true, dataProcessingAllowed: true, dataTransferAllowed: true, activeUsers: 8200, dataVolume: "1.8 TB" },
+          { id: "3", name: "European Union", nameAr: "الاتحاد الأوروبي", code: "EU", status: "active", compliance: ["GDPR", "ePrivacy"], dataStorageAllowed: true, dataProcessingAllowed: true, dataTransferAllowed: true, activeUsers: 5600, dataVolume: "3.2 TB" },
+        ]
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch data regions" });
+    }
+  });
+
+  // Get compliance frameworks
+  app.get("/api/sovereign/compliance", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      res.json({
+        frameworks: [
+          { id: "1", name: "Saudi PDPL", nameAr: "نظام حماية البيانات السعودي", score: 96, status: "compliant", requirements: 45, passed: 43, failed: 2 },
+          { id: "2", name: "GDPR", nameAr: "اللائحة العامة لحماية البيانات", score: 89, status: "partial", requirements: 99, passed: 88, failed: 11 },
+          { id: "3", name: "NCA ECC", nameAr: "ضوابط الأمن السيبراني", score: 94, status: "compliant", requirements: 114, passed: 107, failed: 7 },
+          { id: "4", name: "ISO 27001", nameAr: "آيزو 27001", score: 91, status: "compliant", requirements: 114, passed: 104, failed: 10 },
+        ]
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch compliance data" });
+    }
+  });
+
+  // Get strategic forecasts
+  app.get("/api/sovereign/forecasts", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      res.json({
+        forecasts: [
+          { id: "1", metric: "Active Users", metricAr: "المستخدمون النشطون", current: 28470, predicted: 34500, change: 21, confidence: 87, timeframe: "3 months" },
+          { id: "2", metric: "Platform Revenue", metricAr: "إيرادات المنصة", current: 125000, predicted: 158000, change: 26, confidence: 82, timeframe: "3 months" },
+          { id: "3", metric: "API Requests", metricAr: "طلبات API", current: 2400000, predicted: 3100000, change: 29, confidence: 91, timeframe: "3 months" },
+          { id: "4", metric: "Compliance Score", metricAr: "درجة الامتثال", current: 92, predicted: 96, change: 4, confidence: 78, timeframe: "3 months" },
+        ]
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch forecasts" });
+    }
+  });
+
   // ============ Notifications Routes - نظام الإشعارات ============
   
   // Get user notifications
