@@ -476,24 +476,61 @@ class NotificationEngine {
   }
   
   private async deliverToChannel(notification: SovereignNotification, channel: string) {
+    // Helper to safely detect user language preference with normalization
+    const getLocalizedContent = (user: any) => {
+      let userLang: 'ar' | 'en' = 'ar'; // Default to Arabic
+      
+      // Safely extract language preference with validation
+      try {
+        const prefs = user?.preferences;
+        if (prefs && typeof prefs === 'object') {
+          const rawLang = (prefs as Record<string, unknown>).language;
+          if (typeof rawLang === 'string') {
+            const normalized = rawLang.toLowerCase().trim();
+            // Whitelist: only accept explicit 'en' variants, otherwise default to Arabic
+            userLang = normalized.startsWith('en') ? 'en' : 'ar';
+          }
+        }
+      } catch {
+        // On any parse/access error, default to Arabic
+        userLang = 'ar';
+      }
+      
+      const isArabic = userLang === 'ar';
+      const defaultTitle = 'INFERA Notification';
+      const defaultMessage = '';
+      
+      // Language-aware fallback: prefer requested language, then fallback to other
+      return {
+        language: userLang,
+        title: isArabic 
+          ? (notification.titleAr || notification.title || defaultTitle)
+          : (notification.title || notification.titleAr || defaultTitle),
+        message: isArabic
+          ? (notification.messageAr || notification.message || defaultMessage)
+          : (notification.message || notification.messageAr || defaultMessage)
+      };
+    };
+
     switch (channel) {
       case 'DASHBOARD':
         // Already stored in DB, WebSocket will pick it up
         break;
       case 'EMAIL':
-        // Get user email and send notification
+        // Get user email and send notification with localized content
         try {
           const targetId = notification.targetUserId;
           if (targetId) {
             const user = await storage.getUser(targetId);
             if (user?.email) {
+              const { language, title, message } = getLocalizedContent(user);
               const priority = notification.priority as 'EMERGENCY' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
               await sendNotificationEmail(
                 user.email,
-                notification.title || 'INFERA Notification',
-                notification.message || '',
+                title,
+                message,
                 priority,
-                'ar',
+                language,
                 storage
               );
             }
@@ -511,18 +548,19 @@ class NotificationEngine {
         console.log(`[SRINS] Push notification (not configured): ${notification.title}`);
         break;
       case 'ENCRYPTED':
-        // Special encrypted channel for owner - use secure email
+        // Special encrypted channel for owner - use secure email with localized content
         try {
           const ownerTargetId = notification.targetUserId;
           if (ownerTargetId) {
             const ownerUser = await storage.getUser(ownerTargetId);
             if (ownerUser?.email) {
+              const { language, title, message } = getLocalizedContent(ownerUser);
               await sendNotificationEmail(
                 ownerUser.email,
-                `[ENCRYPTED] ${notification.title || 'Sovereign Alert'}`,
-                notification.message || '',
+                `[ENCRYPTED] ${title}`,
+                message,
                 'EMERGENCY',
-                'ar',
+                language,
                 storage
               );
             }
