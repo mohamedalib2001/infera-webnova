@@ -6619,7 +6619,7 @@ export const supportAnalytics = pgTable("support_analytics", {
   // Timestamps
   calculatedAt: timestamp("calculated_at").defaultNow(),
 }, (table) => [
-  index("IDX_analytics_period").on(table.periodType, table.periodStart),
+  index("IDX_support_analytics_period").on(table.periodType, table.periodStart),
 ]);
 
 export const insertSupportAnalyticsSchema = createInsertSchema(supportAnalytics).omit({
@@ -6677,3 +6677,59 @@ export const insertSupportDiagnosticsSchema = createInsertSchema(supportDiagnost
 
 export type InsertSupportDiagnostics = z.infer<typeof insertSupportDiagnosticsSchema>;
 export type SupportDiagnostics = typeof supportDiagnostics.$inferSelect;
+
+// ==================== DELETION ATTEMPTS (Security Audit) ====================
+// Tracks all deletion attempts for security and audit purposes
+
+export const deletionAttempts = pgTable("deletion_attempts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User who attempted deletion
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Entity being deleted
+  entityType: text("entity_type").notNull(), // project, platform, user, etc.
+  entityId: varchar("entity_id").notNull(),
+  entityName: text("entity_name"),
+  entityDetails: jsonb("entity_details").$type<{
+    name?: string;
+    description?: string;
+    createdAt?: string;
+    type?: string;
+    status?: string;
+  }>().default({}),
+  
+  // Attempt details
+  attemptedAt: timestamp("attempted_at").defaultNow(),
+  outcome: text("outcome").notNull(), // success, failed_password, failed_auth, cancelled
+  failureReason: text("failure_reason"),
+  
+  // Security context
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  browser: text("browser"),
+  operatingSystem: text("operating_system"),
+  device: text("device"),
+  location: jsonb("location").$type<{
+    country?: string;
+    city?: string;
+    region?: string;
+    timezone?: string;
+  }>().default({}),
+  
+  // Email notification
+  emailSent: boolean("email_sent").notNull().default(false),
+  emailSentAt: timestamp("email_sent_at"),
+}, (table) => [
+  index("IDX_deletion_user").on(table.userId),
+  index("IDX_deletion_entity").on(table.entityType, table.entityId),
+  index("IDX_deletion_time").on(table.attemptedAt),
+]);
+
+export const insertDeletionAttemptSchema = createInsertSchema(deletionAttempts).omit({
+  id: true,
+  attemptedAt: true,
+});
+
+export type InsertDeletionAttempt = z.infer<typeof insertDeletionAttemptSchema>;
+export type DeletionAttempt = typeof deletionAttempts.$inferSelect;

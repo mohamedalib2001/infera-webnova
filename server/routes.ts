@@ -21,7 +21,8 @@ import {
   insertExternalIntegrationSessionSchema,
   domainPlatformLinks,
   aiProviderConfigs,
-  aiUsageLogs
+  aiUsageLogs,
+  deletionAttempts
 } from "@shared/schema";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
@@ -1457,6 +1458,325 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to delete project" });
     }
   });
+
+  // ==================== SECURE DELETION SYSTEM ====================
+  // نظام الحذف الآمن مع التحقق من كلمة المرور والإشعارات
+
+  app.post("/api/secure-delete", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Authentication required" });
+      }
+
+      const { entityType, entityId, password, entityDetails } = req.body;
+
+      if (!entityType || !entityId || !password) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Missing required fields | الحقول المطلوبة مفقودة" 
+        });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ success: false, error: "User not found" });
+      }
+
+      const ipAddress = req.headers["x-forwarded-for"]?.toString().split(",")[0] || 
+                        req.headers["x-real-ip"]?.toString() || 
+                        req.socket?.remoteAddress || "unknown";
+      const userAgent = req.headers["user-agent"] || "unknown";
+
+      const browserInfo = parseUserAgent(userAgent);
+
+      const attemptRecord: any = {
+        userId,
+        entityType,
+        entityId,
+        entityName: entityDetails?.name,
+        entityDetails,
+        ipAddress,
+        userAgent,
+        browser: browserInfo.browser,
+        operatingSystem: browserInfo.os,
+        device: browserInfo.device,
+        location: {},
+        outcome: "pending",
+        emailSent: false,
+      };
+
+      let passwordValid = false;
+
+      if (user.password) {
+        const bcrypt = await import("bcryptjs");
+        passwordValid = await bcrypt.compare(password, user.password);
+      } else if (user.authProvider === "replit") {
+        passwordValid = true;
+      }
+
+      if (!passwordValid) {
+        attemptRecord.outcome = "failed_password";
+        attemptRecord.failureReason = "Incorrect password provided";
+        
+        await logDeletionAttempt(attemptRecord);
+        
+        await sendDeletionAttemptEmail(user, entityDetails, attemptRecord, false);
+
+        return res.status(403).json({ 
+          success: false, 
+          error: "Incorrect password | كلمة المرور غير صحيحة" 
+        });
+      }
+
+      let entity = null;
+      let deleteSuccess = false;
+
+      if (entityType === "project") {
+        entity = await storage.getProject(entityId);
+        if (!entity) {
+          return res.status(404).json({ success: false, error: "Project not found" });
+        }
+        
+        if (entity.userId !== userId && user.role !== "owner") {
+          attemptRecord.outcome = "failed_auth";
+          attemptRecord.failureReason = "Not authorized to delete this project";
+          await logDeletionAttempt(attemptRecord);
+          return res.status(403).json({ success: false, error: "Not authorized" });
+        }
+
+        deleteSuccess = await storage.deleteProject(entityId);
+      }
+
+      if (deleteSuccess) {
+        attemptRecord.outcome = "success";
+        await logDeletionAttempt(attemptRecord);
+        
+        await sendDeletionAttemptEmail(user, entityDetails, attemptRecord, true);
+
+        return res.json({ 
+          success: true, 
+          message: "Entity deleted successfully | تم الحذف بنجاح" 
+        });
+      } else {
+        attemptRecord.outcome = "failed_auth";
+        attemptRecord.failureReason = "Deletion operation failed";
+        await logDeletionAttempt(attemptRecord);
+        
+        return res.status(500).json({ 
+          success: false, 
+          error: "Deletion failed | فشل الحذف" 
+        });
+      }
+
+    } catch (error) {
+      console.error("Secure deletion error:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: "An error occurred during deletion | حدث خطأ أثناء الحذف" 
+      });
+    }
+  });
+
+  function parseUserAgent(userAgent: string): { browser: string; os: string; device: string } {
+    let browser = "Unknown";
+    let os = "Unknown";
+    let device = "Desktop";
+
+    if (userAgent.includes("Firefox")) browser = "Firefox";
+    else if (userAgent.includes("Edg")) browser = "Microsoft Edge";
+    else if (userAgent.includes("Chrome")) browser = "Chrome";
+    else if (userAgent.includes("Safari")) browser = "Safari";
+    else if (userAgent.includes("Opera") || userAgent.includes("OPR")) browser = "Opera";
+
+    if (userAgent.includes("Windows")) os = "Windows";
+    else if (userAgent.includes("Mac OS")) os = "macOS";
+    else if (userAgent.includes("Linux")) os = "Linux";
+    else if (userAgent.includes("Android")) { os = "Android"; device = "Mobile"; }
+    else if (userAgent.includes("iPhone") || userAgent.includes("iPad")) { os = "iOS"; device = "Mobile"; }
+
+    if (userAgent.includes("Mobile")) device = "Mobile";
+    else if (userAgent.includes("Tablet")) device = "Tablet";
+
+    return { browser, os, device };
+  }
+
+  async function logDeletionAttempt(attemptData: any): Promise<void> {
+    try {
+      await db.insert(deletionAttempts).values(attemptData);
+    } catch (error) {
+      console.error("Failed to log deletion attempt:", error);
+    }
+  }
+
+  async function sendDeletionAttemptEmail(
+    user: any, 
+    entityDetails: any, 
+    attemptData: any, 
+    wasSuccessful: boolean
+  ): Promise<void> {
+    if (!user.email) return;
+
+    try {
+      const nodemailer = await import("nodemailer");
+      
+      const smtpHost = process.env.SMTP_HOST;
+      const smtpPort = parseInt(process.env.SMTP_PORT || "587");
+      const smtpUser = process.env.SMTP_USER;
+      const smtpPass = process.env.SMTP_PASSWORD;
+      const fromEmail = process.env.SMTP_FROM_EMAIL;
+
+      if (!smtpHost || !smtpUser || !smtpPass) {
+        console.log("SMTP not configured - skipping deletion email notification");
+        return;
+      }
+
+      const transporter = nodemailer.createTransporter({
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpPort === 465,
+        auth: { user: smtpUser, pass: smtpPass },
+      });
+
+      const attemptTime = new Date().toLocaleString("ar-SA", { 
+        timeZone: "Asia/Riyadh",
+        dateStyle: "full",
+        timeStyle: "long"
+      });
+
+      const htmlContent = `
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${wasSuccessful ? "تم حذف العنصر" : "محاولة حذف فاشلة"}</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+    <tr>
+      <td style="padding: 30px 40px; background: linear-gradient(135deg, ${wasSuccessful ? "#dc2626" : "#f59e0b"} 0%, ${wasSuccessful ? "#991b1b" : "#d97706"} 100%);">
+        <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: bold;">
+          ${wasSuccessful ? "🗑️ إشعار حذف" : "⚠️ محاولة حذف فاشلة"}
+        </h1>
+        <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 14px;">
+          INFERA WebNova Security Alert
+        </p>
+      </td>
+    </tr>
+    
+    <tr>
+      <td style="padding: 30px 40px;">
+        <p style="font-size: 16px; color: #333; margin: 0 0 20px;">
+          مرحباً <strong>${user.fullName || user.username || "المستخدم"}</strong>،
+        </p>
+        
+        <div style="background-color: ${wasSuccessful ? "#fef2f2" : "#fffbeb"}; border-right: 4px solid ${wasSuccessful ? "#dc2626" : "#f59e0b"}; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+          <p style="margin: 0; color: ${wasSuccessful ? "#991b1b" : "#92400e"}; font-weight: bold;">
+            ${wasSuccessful 
+              ? "تم حذف العنصر التالي من حسابك بنجاح:" 
+              : "تم رصد محاولة حذف فاشلة في حسابك:"}
+          </p>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px;">
+          <tr>
+            <td style="padding: 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-weight: bold; width: 35%;">اسم العنصر</td>
+            <td style="padding: 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;">${entityDetails?.name || "غير محدد"}</td>
+          </tr>
+          <tr>
+            <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; font-weight: bold;">النوع</td>
+            <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${attemptData.entityType === "project" ? "مشروع" : "منصة"}</td>
+          </tr>
+          <tr>
+            <td style="padding: 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-weight: bold;">تاريخ الإنشاء</td>
+            <td style="padding: 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;">${entityDetails?.createdAt || "غير محدد"}</td>
+          </tr>
+          <tr>
+            <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; font-weight: bold;">الحالة</td>
+            <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
+              <span style="background: ${wasSuccessful ? "#dc2626" : "#f59e0b"}; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px;">
+                ${wasSuccessful ? "تم الحذف" : "محاولة فاشلة"}
+              </span>
+            </td>
+          </tr>
+        </table>
+
+        <h3 style="color: #1e293b; margin: 25px 0 15px; font-size: 16px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+          🔒 تفاصيل الأمان
+        </h3>
+        
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px;">
+          <tr>
+            <td style="padding: 10px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-weight: bold; width: 35%;">تاريخ ووقت المحاولة</td>
+            <td style="padding: 10px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;">${attemptTime}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; font-weight: bold;">عنوان IP</td>
+            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; font-family: monospace;">${attemptData.ipAddress || "غير معروف"}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-weight: bold;">المتصفح</td>
+            <td style="padding: 10px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;">${attemptData.browser || "غير معروف"}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; font-weight: bold;">نظام التشغيل</td>
+            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${attemptData.operatingSystem || "غير معروف"}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-weight: bold;">نوع الجهاز</td>
+            <td style="padding: 10px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;">${attemptData.device || "غير معروف"}</td>
+          </tr>
+          ${!wasSuccessful ? `
+          <tr>
+            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; font-weight: bold;">سبب الفشل</td>
+            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; color: #dc2626;">${attemptData.failureReason || "كلمة مرور خاطئة"}</td>
+          </tr>
+          ` : ""}
+        </table>
+
+        ${!wasSuccessful ? `
+        <div style="background-color: #fef2f2; border: 1px solid #fecaca; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+          <p style="margin: 0; color: #991b1b; font-size: 14px;">
+            <strong>⚠️ تنبيه أمني:</strong> إذا لم تكن أنت من قام بهذه المحاولة، يرجى تغيير كلمة المرور فوراً والتواصل مع فريق الدعم.
+          </p>
+        </div>
+        ` : ""}
+
+        <p style="font-size: 14px; color: #64748b; margin: 20px 0;">
+          هذا البريد الإلكتروني تم إرساله تلقائياً من نظام INFERA WebNova للأمان والمراقبة.
+        </p>
+      </td>
+    </tr>
+    
+    <tr>
+      <td style="padding: 20px 40px; background-color: #1e293b; text-align: center;">
+        <p style="color: #94a3b8; font-size: 12px; margin: 0;">
+          © 2025 INFERA WebNova. جميع الحقوق محفوظة.
+        </p>
+        <p style="color: #64748b; font-size: 11px; margin: 10px 0 0;">
+          هذا البريد الإلكتروني أُرسل من نظام آمن. لا ترد على هذا البريد.
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+      await transporter.sendMail({
+        from: fromEmail || smtpUser,
+        to: user.email,
+        subject: wasSuccessful 
+          ? `🗑️ تم حذف ${entityDetails?.name || "عنصر"} من حسابك - INFERA WebNova`
+          : `⚠️ محاولة حذف فاشلة في حسابك - INFERA WebNova`,
+        html: htmlContent,
+      });
+
+      console.log(`Deletion notification email sent to ${user.email}`);
+    } catch (error) {
+      console.error("Failed to send deletion email:", error);
+    }
+  }
 
   // ============ Project Infrastructure Routes ============
 
