@@ -19,8 +19,17 @@ export const sessions = pgTable(
 // ==================== USERS & AUTH ====================
 
 // User roles enum - owner is platform owner (highest level)
-export const userRoles = ['free', 'basic', 'pro', 'enterprise', 'sovereign', 'owner'] as const;
+// Added: finance_admin, finance_manager, accountant for financial management
+// Added: admin for platform administration
+export const userRoles = [
+  'free', 'basic', 'pro', 'enterprise', 'sovereign', 'owner',
+  'admin', 'finance_admin', 'finance_manager', 'accountant', 'support_agent'
+] as const;
 export type UserRole = typeof userRoles[number];
+
+// Financial employee types
+export const financeRoles = ['finance_admin', 'finance_manager', 'accountant'] as const;
+export type FinanceRole = typeof financeRoles[number];
 
 // User status enum for governance
 export const userStatuses = ['ACTIVE', 'SUSPENDED', 'BANNED', 'PENDING', 'DEACTIVATED'] as const;
@@ -2033,48 +2042,7 @@ export type InsertAiBuildArtifact = z.infer<typeof insertAiBuildArtifactSchema>;
 export type AiBuildArtifact = typeof aiBuildArtifacts.$inferSelect;
 
 // ==================== CLOUD DEVELOPMENT ENVIRONMENT ====================
-
-// Development Project Types
-export const devProjectTypes = ['nodejs', 'python', 'html', 'react', 'fullstack'] as const;
-export type DevProjectType = typeof devProjectTypes[number];
-
-// Development Projects - Cloud IDE projects with multi-file support
-export const devProjects = pgTable("dev_projects", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id"),
-  // Project info
-  name: text("name").notNull(),
-  nameAr: text("name_ar"),
-  description: text("description"),
-  descriptionAr: text("description_ar"),
-  projectType: text("project_type").notNull().default("nodejs"), // nodejs, python, html, react, fullstack
-  language: text("language").notNull().default("ar"), // UI language
-  // Runtime config
-  entryFile: text("entry_file").default("index.js"),
-  port: integer("port").default(3000),
-  envVariables: jsonb("env_variables").$type<Record<string, string>>().default({}),
-  // Status
-  status: text("status").notNull().default("stopped"), // stopped, starting, running, error
-  lastRunAt: timestamp("last_run_at"),
-  // Deployment
-  isPublished: boolean("is_published").notNull().default(false),
-  publishedUrl: text("published_url"),
-  subdomain: text("subdomain"),
-  // Metadata
-  thumbnail: text("thumbnail"),
-  tags: jsonb("tags").$type<string[]>().default([]),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-export const insertDevProjectSchema = createInsertSchema(devProjects).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export type InsertDevProject = z.infer<typeof insertDevProjectSchema>;
-export type DevProject = typeof devProjects.$inferSelect;
+// Note: devProjects and related tables are defined in ISDS section below
 
 // Project Files - Multi-file storage for development projects
 export const projectFiles = pgTable("project_files", {
@@ -7844,3 +7812,998 @@ export interface AuditReportSummary {
     priority: string;
   }>;
 }
+
+// ==================== FINANCIAL MANAGEMENT SYSTEM ====================
+
+// Finance team statuses
+export const financeTeamStatuses = ['active', 'inactive', 'suspended'] as const;
+export type FinanceTeamStatus = typeof financeTeamStatuses[number];
+
+// Finance Teams - Finance department teams
+export const financeTeams = pgTable("finance_teams", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Team identity
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  code: varchar("code", { length: 20 }).unique().notNull(),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  
+  // Team structure
+  departmentId: varchar("department_id"),
+  parentTeamId: varchar("parent_team_id"),
+  managerId: varchar("manager_id").references(() => users.id),
+  
+  // Team configuration
+  permissions: jsonb("permissions").$type<string[]>().default([]),
+  budgetLimit: integer("budget_limit"), // Monthly budget limit in cents
+  approvalThreshold: integer("approval_threshold"), // Amount above which requires higher approval
+  
+  // Status
+  status: text("status").notNull().default("active"),
+  
+  // Metadata
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_finance_team_code").on(table.code),
+  index("IDX_finance_team_manager").on(table.managerId),
+  index("IDX_finance_team_status").on(table.status),
+]);
+
+export const insertFinanceTeamSchema = createInsertSchema(financeTeams).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertFinanceTeam = z.infer<typeof insertFinanceTeamSchema>;
+export type FinanceTeam = typeof financeTeams.$inferSelect;
+
+// Ledger entry types
+export const ledgerEntryTypes = ['income', 'expense', 'transfer', 'adjustment', 'refund'] as const;
+export type LedgerEntryType = typeof ledgerEntryTypes[number];
+
+// Ledger entry statuses
+export const ledgerStatuses = ['pending', 'approved', 'rejected', 'posted', 'voided'] as const;
+export type LedgerStatus = typeof ledgerStatuses[number];
+
+// Finance Ledger - Financial ledger entries (income/expense tracking)
+export const financeLedger = pgTable("finance_ledger", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Entry identification
+  entryNumber: varchar("entry_number", { length: 50 }).unique().notNull(),
+  referenceNumber: varchar("reference_number", { length: 100 }),
+  
+  // Entry classification
+  entryType: text("entry_type").notNull(), // income, expense, transfer, adjustment, refund
+  category: text("category").notNull(),
+  subcategory: text("subcategory"),
+  
+  // Financial data
+  amount: integer("amount").notNull(), // Amount in cents
+  currency: varchar("currency", { length: 3 }).notNull().default("USD"),
+  exchangeRate: real("exchange_rate").default(1),
+  amountInBaseCurrency: integer("amount_in_base_currency"),
+  
+  // Account references
+  debitAccountId: varchar("debit_account_id"),
+  creditAccountId: varchar("credit_account_id"),
+  
+  // Associated entities
+  userId: varchar("user_id").references(() => users.id),
+  teamId: varchar("team_id").references(() => financeTeams.id),
+  projectId: varchar("project_id").references(() => projects.id),
+  invoiceId: varchar("invoice_id"),
+  
+  // Description
+  description: text("description").notNull(),
+  descriptionAr: text("description_ar"),
+  notes: text("notes"),
+  
+  // Approval workflow
+  status: text("status").notNull().default("pending"),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  // Transaction date (can differ from created date)
+  transactionDate: timestamp("transaction_date").notNull().defaultNow(),
+  postingDate: timestamp("posting_date"),
+  
+  // Reconciliation
+  isReconciled: boolean("is_reconciled").notNull().default(false),
+  reconciledAt: timestamp("reconciled_at"),
+  reconciledBy: varchar("reconciled_by").references(() => users.id),
+  
+  // Attachments and metadata
+  attachments: jsonb("attachments").$type<Array<{
+    id: string;
+    name: string;
+    url: string;
+    type: string;
+    size: number;
+  }>>().default([]),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  
+  // Audit trail
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_ledger_entry_number").on(table.entryNumber),
+  index("IDX_ledger_entry_type").on(table.entryType),
+  index("IDX_ledger_status").on(table.status),
+  index("IDX_ledger_user").on(table.userId),
+  index("IDX_ledger_team").on(table.teamId),
+  index("IDX_ledger_transaction_date").on(table.transactionDate),
+  index("IDX_ledger_reconciled").on(table.isReconciled),
+]);
+
+export const insertFinanceLedgerSchema = createInsertSchema(financeLedger).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertFinanceLedger = z.infer<typeof insertFinanceLedgerSchema>;
+export type FinanceLedger = typeof financeLedger.$inferSelect;
+
+// Invoice statuses
+export const invoiceStatuses = ['draft', 'sent', 'viewed', 'partial', 'paid', 'overdue', 'cancelled', 'refunded'] as const;
+export type InvoiceStatus = typeof invoiceStatuses[number];
+
+// Invoice types
+export const invoiceTypes = ['invoice', 'credit_note', 'debit_note', 'proforma', 'recurring'] as const;
+export type InvoiceType = typeof invoiceTypes[number];
+
+// Finance Invoices - Invoice management
+export const financeInvoices = pgTable("finance_invoices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Invoice identification
+  invoiceNumber: varchar("invoice_number", { length: 50 }).unique().notNull(),
+  invoiceType: text("invoice_type").notNull().default("invoice"),
+  
+  // Client/Customer
+  customerId: varchar("customer_id").references(() => users.id),
+  customerName: text("customer_name").notNull(),
+  customerEmail: text("customer_email"),
+  customerAddress: text("customer_address"),
+  customerTaxId: varchar("customer_tax_id", { length: 50 }),
+  
+  // Billing details
+  billingAddress: jsonb("billing_address").$type<{
+    line1: string;
+    line2?: string;
+    city: string;
+    state?: string;
+    postalCode: string;
+    country: string;
+  }>(),
+  
+  // Line items
+  lineItems: jsonb("line_items").$type<Array<{
+    id: string;
+    description: string;
+    descriptionAr?: string;
+    quantity: number;
+    unitPrice: number;
+    discount?: number;
+    discountType?: 'percentage' | 'fixed';
+    taxRate?: number;
+    total: number;
+  }>>().notNull().default([]),
+  
+  // Amounts
+  subtotal: integer("subtotal").notNull().default(0), // in cents
+  discountTotal: integer("discount_total").default(0),
+  taxTotal: integer("tax_total").default(0),
+  total: integer("total").notNull().default(0),
+  amountPaid: integer("amount_paid").default(0),
+  amountDue: integer("amount_due").notNull().default(0),
+  currency: varchar("currency", { length: 3 }).notNull().default("USD"),
+  
+  // Dates
+  issueDate: timestamp("issue_date").notNull().defaultNow(),
+  dueDate: timestamp("due_date").notNull(),
+  paidDate: timestamp("paid_date"),
+  
+  // Status and workflow
+  status: text("status").notNull().default("draft"),
+  sentAt: timestamp("sent_at"),
+  viewedAt: timestamp("viewed_at"),
+  
+  // Payment terms
+  paymentTerms: text("payment_terms"), // Net 30, Net 60, etc.
+  paymentInstructions: text("payment_instructions"),
+  
+  // Notes
+  notes: text("notes"),
+  notesAr: text("notes_ar"),
+  internalNotes: text("internal_notes"),
+  
+  // Associated data
+  projectId: varchar("project_id").references(() => projects.id),
+  subscriptionId: varchar("subscription_id").references(() => userSubscriptions.id),
+  
+  // Recurring settings
+  isRecurring: boolean("is_recurring").notNull().default(false),
+  recurringInterval: text("recurring_interval"), // monthly, quarterly, yearly
+  nextRecurringDate: timestamp("next_recurring_date"),
+  
+  // Attachments and metadata
+  attachments: jsonb("attachments").$type<Array<{
+    id: string;
+    name: string;
+    url: string;
+    type: string;
+  }>>().default([]),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  
+  // Audit
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_invoice_number").on(table.invoiceNumber),
+  index("IDX_invoice_customer").on(table.customerId),
+  index("IDX_invoice_status").on(table.status),
+  index("IDX_invoice_issue_date").on(table.issueDate),
+  index("IDX_invoice_due_date").on(table.dueDate),
+  index("IDX_invoice_recurring").on(table.isRecurring),
+]);
+
+export const insertFinanceInvoiceSchema = createInsertSchema(financeInvoices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertFinanceInvoice = z.infer<typeof insertFinanceInvoiceSchema>;
+export type FinanceInvoice = typeof financeInvoices.$inferSelect;
+
+// Budget statuses
+export const budgetStatuses = ['draft', 'active', 'frozen', 'closed', 'exceeded'] as const;
+export type BudgetStatus = typeof budgetStatuses[number];
+
+// Budget period types
+export const budgetPeriods = ['monthly', 'quarterly', 'semi_annual', 'annual', 'custom'] as const;
+export type BudgetPeriod = typeof budgetPeriods[number];
+
+// Finance Budgets - Budget allocation and tracking
+export const financeBudgets = pgTable("finance_budgets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Budget identification
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  code: varchar("code", { length: 30 }).unique().notNull(),
+  description: text("description"),
+  
+  // Period
+  periodType: text("period_type").notNull().default("monthly"),
+  fiscalYear: integer("fiscal_year").notNull(),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  
+  // Allocation
+  category: text("category").notNull(),
+  subcategory: text("subcategory"),
+  
+  // Amounts
+  allocatedAmount: integer("allocated_amount").notNull(), // in cents
+  spentAmount: integer("spent_amount").notNull().default(0),
+  committedAmount: integer("committed_amount").notNull().default(0), // Reserved but not spent
+  remainingAmount: integer("remaining_amount").notNull(),
+  currency: varchar("currency", { length: 3 }).notNull().default("USD"),
+  
+  // Thresholds
+  warningThreshold: integer("warning_threshold").default(80), // Percentage
+  criticalThreshold: integer("critical_threshold").default(95),
+  
+  // Ownership
+  ownerId: varchar("owner_id").references(() => users.id),
+  teamId: varchar("team_id").references(() => financeTeams.id),
+  projectId: varchar("project_id").references(() => projects.id),
+  
+  // Status
+  status: text("status").notNull().default("draft"),
+  
+  // Carryover settings
+  allowCarryover: boolean("allow_carryover").notNull().default(false),
+  carryoverAmount: integer("carryover_amount").default(0),
+  carryoverFromId: varchar("carryover_from_id"),
+  
+  // Approval
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  
+  // Notes
+  notes: text("notes"),
+  
+  // Metadata
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_budget_code").on(table.code),
+  index("IDX_budget_fiscal_year").on(table.fiscalYear),
+  index("IDX_budget_category").on(table.category),
+  index("IDX_budget_status").on(table.status),
+  index("IDX_budget_team").on(table.teamId),
+  index("IDX_budget_owner").on(table.ownerId),
+  index("IDX_budget_period").on(table.startDate, table.endDate),
+]);
+
+export const insertFinanceBudgetSchema = createInsertSchema(financeBudgets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertFinanceBudget = z.infer<typeof insertFinanceBudgetSchema>;
+export type FinanceBudget = typeof financeBudgets.$inferSelect;
+
+// Reconciliation statuses
+export const reconciliationStatuses = ['pending', 'in_progress', 'matched', 'unmatched', 'disputed', 'resolved'] as const;
+export type ReconciliationStatus = typeof reconciliationStatuses[number];
+
+// Reconciliation types
+export const reconciliationTypes = ['bank', 'payment_gateway', 'inter_account', 'vendor', 'customer'] as const;
+export type ReconciliationType = typeof reconciliationTypes[number];
+
+// Finance Reconciliations - Payment reconciliation records
+export const financeReconciliations = pgTable("finance_reconciliations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Reconciliation identification
+  reconciliationNumber: varchar("reconciliation_number", { length: 50 }).unique().notNull(),
+  reconciliationType: text("reconciliation_type").notNull(),
+  
+  // Period
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  
+  // Source and target
+  sourceType: text("source_type").notNull(), // bank_statement, payment_gateway, ledger
+  sourceReference: varchar("source_reference", { length: 100 }),
+  targetType: text("target_type").notNull(), // ledger, invoice, payment
+  targetReference: varchar("target_reference", { length: 100 }),
+  
+  // Amounts
+  expectedAmount: integer("expected_amount").notNull(),
+  actualAmount: integer("actual_amount").notNull(),
+  differenceAmount: integer("difference_amount").notNull().default(0),
+  currency: varchar("currency", { length: 3 }).notNull().default("USD"),
+  
+  // Matching details
+  matchedItems: jsonb("matched_items").$type<Array<{
+    sourceId: string;
+    targetId: string;
+    amount: number;
+    matchedAt: string;
+    matchType: string; // exact, partial, manual
+  }>>().default([]),
+  
+  unmatchedItems: jsonb("unmatched_items").$type<Array<{
+    id: string;
+    type: string;
+    amount: number;
+    date: string;
+    description: string;
+  }>>().default([]),
+  
+  // Status
+  status: text("status").notNull().default("pending"),
+  
+  // Workflow
+  assignedTo: varchar("assigned_to").references(() => users.id),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  
+  // Resolution
+  resolutionNotes: text("resolution_notes"),
+  adjustmentLedgerId: varchar("adjustment_ledger_id").references(() => financeLedger.id),
+  
+  // Notes and attachments
+  notes: text("notes"),
+  attachments: jsonb("attachments").$type<Array<{
+    id: string;
+    name: string;
+    url: string;
+    type: string;
+  }>>().default([]),
+  
+  // Metadata
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_reconciliation_number").on(table.reconciliationNumber),
+  index("IDX_reconciliation_type").on(table.reconciliationType),
+  index("IDX_reconciliation_status").on(table.status),
+  index("IDX_reconciliation_period").on(table.periodStart, table.periodEnd),
+  index("IDX_reconciliation_assigned").on(table.assignedTo),
+]);
+
+export const insertFinanceReconciliationSchema = createInsertSchema(financeReconciliations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertFinanceReconciliation = z.infer<typeof insertFinanceReconciliationSchema>;
+export type FinanceReconciliation = typeof financeReconciliations.$inferSelect;
+
+// ==================== ISDS - INFRA SOVEREIGN DEV STUDIO ====================
+
+// Workspace visibility types
+export const workspaceVisibilities = ['private', 'team', 'organization', 'public'] as const;
+export type WorkspaceVisibility = typeof workspaceVisibilities[number];
+
+// Workspace statuses
+export const workspaceStatuses = ['active', 'archived', 'suspended', 'deleted'] as const;
+export type WorkspaceStatus = typeof workspaceStatuses[number];
+
+// Dev Workspaces - Development workspaces for owner
+export const devWorkspaces = pgTable("dev_workspaces", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Workspace identity
+  name: text("name").notNull(),
+  slug: varchar("slug", { length: 100 }).unique().notNull(),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  
+  // Ownership
+  ownerId: varchar("owner_id").references(() => users.id).notNull(),
+  organizationId: varchar("organization_id"),
+  
+  // Configuration
+  visibility: text("visibility").notNull().default("private"),
+  status: text("status").notNull().default("active"),
+  
+  // Settings
+  settings: jsonb("settings").$type<{
+    defaultBranch: string;
+    autoSave: boolean;
+    autoFormat: boolean;
+    theme: string;
+    fontSize: number;
+    tabSize: number;
+    enableAI: boolean;
+    aiModel: string;
+  }>().default({
+    defaultBranch: "main",
+    autoSave: true,
+    autoFormat: true,
+    theme: "dark",
+    fontSize: 14,
+    tabSize: 2,
+    enableAI: true,
+    aiModel: "claude-3-5-sonnet",
+  }),
+  
+  // Resource limits
+  limits: jsonb("limits").$type<{
+    maxProjects: number;
+    maxStorageGB: number;
+    maxBuildMinutes: number;
+    maxDeployments: number;
+  }>(),
+  
+  // Usage tracking
+  usage: jsonb("usage").$type<{
+    projectCount: number;
+    storageUsedMB: number;
+    buildMinutesUsed: number;
+    deploymentCount: number;
+  }>().default({
+    projectCount: 0,
+    storageUsedMB: 0,
+    buildMinutesUsed: 0,
+    deploymentCount: 0,
+  }),
+  
+  // Metadata
+  icon: text("icon"),
+  color: varchar("color", { length: 7 }),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  
+  // Timestamps
+  lastAccessedAt: timestamp("last_accessed_at"),
+  archivedAt: timestamp("archived_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_workspace_slug").on(table.slug),
+  index("IDX_workspace_owner").on(table.ownerId),
+  index("IDX_workspace_status").on(table.status),
+  index("IDX_workspace_visibility").on(table.visibility),
+]);
+
+export const insertDevWorkspaceSchema = createInsertSchema(devWorkspaces).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertDevWorkspace = z.infer<typeof insertDevWorkspaceSchema>;
+export type DevWorkspace = typeof devWorkspaces.$inferSelect;
+
+// Project types
+export const devProjectTypes = ['web', 'api', 'mobile', 'library', 'fullstack', 'microservice'] as const;
+export type DevProjectType = typeof devProjectTypes[number];
+
+// Project statuses
+export const devProjectStatuses = ['initializing', 'active', 'building', 'deploying', 'error', 'archived'] as const;
+export type DevProjectStatus = typeof devProjectStatuses[number];
+
+// ISDS Projects - Projects within workspaces (different from legacy dev_projects)
+export const isdsProjects = pgTable("isds_projects", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Project identity
+  name: text("name").notNull(),
+  slug: varchar("slug", { length: 100 }).notNull(),
+  description: text("description"),
+  
+  // Relationships
+  workspaceId: varchar("workspace_id").references(() => devWorkspaces.id, { onDelete: "cascade" }).notNull(),
+  templateId: varchar("template_id").references(() => templates.id),
+  
+  // Project type and framework
+  projectType: text("project_type").notNull().default("web"),
+  framework: text("framework"), // react, vue, nextjs, express, etc.
+  language: text("language").notNull().default("typescript"),
+  
+  // Status
+  status: text("status").notNull().default("initializing"),
+  
+  // Git configuration
+  gitConfig: jsonb("git_config").$type<{
+    repository?: string;
+    branch: string;
+    remoteUrl?: string;
+    lastCommitHash?: string;
+    lastCommitMessage?: string;
+    lastCommitAt?: string;
+  }>().default({
+    branch: "main",
+  }),
+  
+  // Build configuration
+  buildConfig: jsonb("build_config").$type<{
+    buildCommand: string;
+    outputDirectory: string;
+    installCommand: string;
+    devCommand: string;
+    envVars: Record<string, string>;
+  }>(),
+  
+  // Deploy configuration
+  deployConfig: jsonb("deploy_config").$type<{
+    provider: string;
+    region: string;
+    domain?: string;
+    customDomains?: string[];
+    ssl: boolean;
+    autoDeployBranch?: string;
+  }>(),
+  
+  // Dependencies
+  dependencies: jsonb("dependencies").$type<{
+    production: Record<string, string>;
+    development: Record<string, string>;
+  }>().default({
+    production: {},
+    development: {},
+  }),
+  
+  // Metrics
+  metrics: jsonb("metrics").$type<{
+    fileCount: number;
+    totalSizeKB: number;
+    lastBuildDurationMs: number;
+    lastDeployDurationMs: number;
+  }>(),
+  
+  // Metadata
+  icon: text("icon"),
+  color: varchar("color", { length: 7 }),
+  tags: jsonb("tags").$type<string[]>().default([]),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  
+  // Activity tracking
+  lastActivityAt: timestamp("last_activity_at"),
+  lastBuildAt: timestamp("last_build_at"),
+  lastDeployAt: timestamp("last_deploy_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_dev_project_workspace").on(table.workspaceId),
+  index("IDX_dev_project_slug").on(table.workspaceId, table.slug),
+  index("IDX_dev_project_status").on(table.status),
+  index("IDX_dev_project_type").on(table.projectType),
+]);
+
+export const insertIsdsProjectSchema = createInsertSchema(isdsProjects).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertIsdsProject = z.infer<typeof insertIsdsProjectSchema>;
+export type IsdsProject = typeof isdsProjects.$inferSelect;
+
+// Backward compatibility aliases for legacy code
+export const devProjects = isdsProjects;
+export const insertDevProjectSchema = insertIsdsProjectSchema;
+export type InsertDevProject = InsertIsdsProject;
+export type DevProject = IsdsProject;
+
+// File types
+export const devFileTypes = ['file', 'directory', 'symlink'] as const;
+export type DevFileType = typeof devFileTypes[number];
+
+// Dev Files - File storage for projects
+export const devFiles = pgTable("dev_files", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // File identity
+  name: text("name").notNull(),
+  path: text("path").notNull(), // Full path from project root
+  
+  // Relationships
+  projectId: varchar("project_id").references(() => isdsProjects.id, { onDelete: "cascade" }).notNull(),
+  parentId: varchar("parent_id"), // For directory structure
+  
+  // File type and content
+  fileType: text("file_type").notNull().default("file"),
+  mimeType: varchar("mime_type", { length: 100 }),
+  content: text("content"), // For text files
+  binaryUrl: text("binary_url"), // For binary files stored externally
+  
+  // File metadata
+  sizeBytes: integer("size_bytes").notNull().default(0),
+  encoding: varchar("encoding", { length: 20 }).default("utf-8"),
+  lineCount: integer("line_count"),
+  
+  // Git tracking
+  gitStatus: text("git_status"), // modified, added, deleted, untracked
+  lastCommitHash: varchar("last_commit_hash", { length: 40 }),
+  
+  // Versioning
+  version: integer("version").notNull().default(1),
+  checksum: varchar("checksum", { length: 64 }), // SHA-256
+  
+  // Permissions
+  isReadOnly: boolean("is_read_only").notNull().default(false),
+  isHidden: boolean("is_hidden").notNull().default(false),
+  
+  // Metadata
+  metadata: jsonb("metadata").$type<{
+    language?: string;
+    generatedBy?: string;
+    lastEditor?: string;
+  }>(),
+  
+  // Timestamps
+  lastModifiedBy: varchar("last_modified_by").references(() => users.id),
+  lastModifiedAt: timestamp("last_modified_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_dev_file_project").on(table.projectId),
+  index("IDX_dev_file_path").on(table.projectId, table.path),
+  index("IDX_dev_file_parent").on(table.parentId),
+  index("IDX_dev_file_type").on(table.fileType),
+]);
+
+export const insertDevFileSchema = createInsertSchema(devFiles).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertDevFile = z.infer<typeof insertDevFileSchema>;
+export type DevFile = typeof devFiles.$inferSelect;
+
+// Command types
+export const devCommandTypes = ['terminal', 'build', 'deploy', 'ai', 'git', 'system'] as const;
+export type DevCommandType = typeof devCommandTypes[number];
+
+// Command statuses
+export const devCommandStatuses = ['pending', 'running', 'completed', 'failed', 'cancelled', 'timeout'] as const;
+export type DevCommandStatus = typeof devCommandStatuses[number];
+
+// Dev Commands - Sovereign command execution logs (immutable)
+export const devCommands = pgTable("dev_commands", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Command identification
+  commandNumber: integer("command_number").notNull(),
+  
+  // Relationships
+  projectId: varchar("project_id").references(() => isdsProjects.id, { onDelete: "cascade" }).notNull(),
+  workspaceId: varchar("workspace_id").references(() => devWorkspaces.id).notNull(),
+  executedBy: varchar("executed_by").references(() => users.id).notNull(),
+  
+  // Command details
+  commandType: text("command_type").notNull(),
+  command: text("command").notNull(),
+  arguments: jsonb("arguments").$type<string[]>().default([]),
+  workingDirectory: text("working_directory").notNull().default("/"),
+  
+  // Environment
+  environment: jsonb("environment").$type<Record<string, string>>().default({}),
+  
+  // Execution details
+  status: text("status").notNull().default("pending"),
+  exitCode: integer("exit_code"),
+  
+  // Output
+  stdout: text("stdout"),
+  stderr: text("stderr"),
+  combinedOutput: text("combined_output"),
+  outputTruncated: boolean("output_truncated").notNull().default(false),
+  
+  // Timing
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  durationMs: integer("duration_ms"),
+  
+  // Resource usage
+  resourceUsage: jsonb("resource_usage").$type<{
+    cpuPercent?: number;
+    memoryMB?: number;
+    diskReadMB?: number;
+    diskWriteMB?: number;
+  }>(),
+  
+  // Error details
+  errorMessage: text("error_message"),
+  errorStack: text("error_stack"),
+  
+  // Immutability hash (for audit trail)
+  integrityHash: varchar("integrity_hash", { length: 64 }).notNull(),
+  previousCommandHash: varchar("previous_command_hash", { length: 64 }),
+  
+  // Metadata
+  metadata: jsonb("metadata").$type<{
+    triggeredBy?: string; // manual, webhook, schedule, ai
+    correlationId?: string;
+    tags?: string[];
+  }>(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_dev_command_project").on(table.projectId),
+  index("IDX_dev_command_workspace").on(table.workspaceId),
+  index("IDX_dev_command_user").on(table.executedBy),
+  index("IDX_dev_command_type").on(table.commandType),
+  index("IDX_dev_command_status").on(table.status),
+  index("IDX_dev_command_created").on(table.createdAt),
+]);
+
+export const insertDevCommandSchema = createInsertSchema(devCommands).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertDevCommand = z.infer<typeof insertDevCommandSchema>;
+export type DevCommand = typeof devCommands.$inferSelect;
+
+// Build statuses
+export const buildStatuses = ['queued', 'running', 'success', 'failed', 'cancelled'] as const;
+export type BuildStatus = typeof buildStatuses[number];
+
+// Build trigger types
+export const buildTriggers = ['manual', 'push', 'pull_request', 'schedule', 'api', 'webhook'] as const;
+export type BuildTrigger = typeof buildTriggers[number];
+
+// Dev Build Runs - Build execution history
+export const devBuildRuns = pgTable("dev_build_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Build identification
+  buildNumber: integer("build_number").notNull(),
+  
+  // Relationships
+  projectId: varchar("project_id").references(() => isdsProjects.id, { onDelete: "cascade" }).notNull(),
+  workspaceId: varchar("workspace_id").references(() => devWorkspaces.id).notNull(),
+  triggeredBy: varchar("triggered_by").references(() => users.id),
+  
+  // Trigger information
+  trigger: text("trigger").notNull().default("manual"),
+  triggerRef: varchar("trigger_ref", { length: 255 }), // Branch, tag, or commit
+  commitHash: varchar("commit_hash", { length: 40 }),
+  commitMessage: text("commit_message"),
+  
+  // Build configuration
+  buildCommand: text("build_command").notNull(),
+  outputDirectory: text("output_directory"),
+  nodeVersion: varchar("node_version", { length: 20 }),
+  
+  // Status
+  status: text("status").notNull().default("queued"),
+  
+  // Steps
+  steps: jsonb("steps").$type<Array<{
+    name: string;
+    status: string;
+    startedAt?: string;
+    completedAt?: string;
+    durationMs?: number;
+    output?: string;
+    error?: string;
+  }>>().default([]),
+  
+  // Output
+  logs: text("logs"),
+  logUrl: text("log_url"), // For large logs stored externally
+  
+  // Artifacts
+  artifacts: jsonb("artifacts").$type<Array<{
+    name: string;
+    path: string;
+    sizeBytes: number;
+    url: string;
+    checksum: string;
+  }>>().default([]),
+  
+  // Metrics
+  metrics: jsonb("metrics").$type<{
+    bundleSizeKB?: number;
+    bundleSizeGzipKB?: number;
+    assetCount?: number;
+    warningCount?: number;
+    errorCount?: number;
+  }>(),
+  
+  // Timing
+  queuedAt: timestamp("queued_at").defaultNow(),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  durationMs: integer("duration_ms"),
+  
+  // Error handling
+  errorMessage: text("error_message"),
+  errorStep: text("error_step"),
+  
+  // Environment
+  environment: jsonb("environment").$type<Record<string, string>>().default({}),
+  
+  // Metadata
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_build_run_project").on(table.projectId),
+  index("IDX_build_run_workspace").on(table.workspaceId),
+  index("IDX_build_run_status").on(table.status),
+  index("IDX_build_run_trigger").on(table.trigger),
+  index("IDX_build_run_created").on(table.createdAt),
+  index("IDX_build_run_number").on(table.projectId, table.buildNumber),
+]);
+
+export const insertDevBuildRunSchema = createInsertSchema(devBuildRuns).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertDevBuildRun = z.infer<typeof insertDevBuildRunSchema>;
+export type DevBuildRun = typeof devBuildRuns.$inferSelect;
+
+// Deploy statuses
+export const deployStatuses = ['queued', 'building', 'deploying', 'success', 'failed', 'cancelled', 'rolled_back'] as const;
+export type DeployStatus = typeof deployStatuses[number];
+
+// Deploy environments
+export const deployEnvironments = ['development', 'staging', 'preview', 'production'] as const;
+export type DeployEnvironment = typeof deployEnvironments[number];
+
+// Dev Deploy Runs - Deployment history
+export const devDeployRuns = pgTable("dev_deploy_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Deploy identification
+  deployNumber: integer("deploy_number").notNull(),
+  
+  // Relationships
+  projectId: varchar("project_id").references(() => isdsProjects.id, { onDelete: "cascade" }).notNull(),
+  workspaceId: varchar("workspace_id").references(() => devWorkspaces.id).notNull(),
+  buildRunId: varchar("build_run_id").references(() => devBuildRuns.id),
+  triggeredBy: varchar("triggered_by").references(() => users.id),
+  
+  // Environment
+  environment: text("environment").notNull().default("production"),
+  
+  // Source information
+  commitHash: varchar("commit_hash", { length: 40 }),
+  commitMessage: text("commit_message"),
+  branch: varchar("branch", { length: 255 }),
+  
+  // Status
+  status: text("status").notNull().default("queued"),
+  
+  // Deployment target
+  provider: text("provider").notNull(), // vercel, netlify, cloudflare, custom
+  region: varchar("region", { length: 50 }),
+  
+  // URLs
+  url: text("url"), // Primary URL
+  previewUrl: text("preview_url"),
+  aliasUrls: jsonb("alias_urls").$type<string[]>().default([]),
+  
+  // Domain configuration
+  domains: jsonb("domains").$type<Array<{
+    domain: string;
+    type: string; // primary, alias, preview
+    ssl: boolean;
+    verified: boolean;
+  }>>().default([]),
+  
+  // Deployment details
+  deploymentId: varchar("deployment_id", { length: 255 }), // Provider's deployment ID
+  
+  // Steps
+  steps: jsonb("steps").$type<Array<{
+    name: string;
+    status: string;
+    startedAt?: string;
+    completedAt?: string;
+    durationMs?: number;
+    details?: string;
+  }>>().default([]),
+  
+  // Logs
+  logs: text("logs"),
+  logUrl: text("log_url"),
+  
+  // Metrics
+  metrics: jsonb("metrics").$type<{
+    deployedFileCount?: number;
+    totalSizeKB?: number;
+    firstByteTimeMs?: number;
+    coldStartTimeMs?: number;
+  }>(),
+  
+  // Timing
+  queuedAt: timestamp("queued_at").defaultNow(),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  durationMs: integer("duration_ms"),
+  
+  // Rollback information
+  isRollback: boolean("is_rollback").notNull().default(false),
+  rolledBackFromId: varchar("rolled_back_from_id"),
+  rolledBackAt: timestamp("rolled_back_at"),
+  rolledBackBy: varchar("rolled_back_by").references(() => users.id),
+  
+  // Error handling
+  errorMessage: text("error_message"),
+  errorCode: varchar("error_code", { length: 50 }),
+  
+  // Metadata
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_deploy_run_project").on(table.projectId),
+  index("IDX_deploy_run_workspace").on(table.workspaceId),
+  index("IDX_deploy_run_status").on(table.status),
+  index("IDX_deploy_run_environment").on(table.environment),
+  index("IDX_deploy_run_created").on(table.createdAt),
+  index("IDX_deploy_run_number").on(table.projectId, table.deployNumber),
+  index("IDX_deploy_run_build").on(table.buildRunId),
+]);
