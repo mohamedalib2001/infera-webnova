@@ -459,6 +459,14 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location === "/owner/spom"}>
+                      <Link href="/owner/spom" data-testid="nav-owner-spom">
+                        <Shield className="h-4 w-4 text-red-500" />
+                        <span>{language === "ar" ? "العمليات السيادية" : "SPOM Control"}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
                     <SidebarMenuButton asChild isActive={location === "/sovereign/command-center"}>
                       <Link href="/sovereign/command-center" data-testid="nav-sovereign-command">
                         <Crown className="h-4 w-4 text-amber-500" />

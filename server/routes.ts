@@ -6,6 +6,7 @@ import { generateWebsiteCode, refineWebsiteCode } from "./anthropic";
 import apiKeysRoutes from "./api-keys-routes";
 import { registerDomainRoutes } from "./domain-routes";
 import { registerISDSRoutes } from "./isds-routes";
+import { registerSpomRoutes } from "./spom-routes";
 import marketplaceRoutes from "./marketplace-routes";
 import sslRoutes from "./ssl-routes";
 import { eq } from "drizzle-orm";
@@ -10927,6 +10928,10 @@ ${project.description || ""}
   // ==================== ISDS - SOVEREIGN DEV STUDIO ====================
   registerISDSRoutes(app);
   console.log("ISDS routes registered | تم تسجيل مسارات ISDS");
+
+  // ==================== SPOM - SOVEREIGN PRIVILEGED OPERATIONS ====================
+  registerSpomRoutes(app);
+  console.log("SPOM routes registered | تم تسجيل مسارات العمليات السيادية");
 
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
