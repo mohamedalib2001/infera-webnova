@@ -12,7 +12,7 @@
 | **الهدف** | بيئة تطوير سحابية للمطورين | نظام تشغيل سيادي لبناء المنصات | مختلف |
 | **النضج** | Production (10+ سنوات) | MVP+ (قيد التطوير) | Replit |
 | **قابلية التوسع السيادي** | محدودة | مصممة أصلاً | Nova |
-| **التكاملات الحقيقية** | 50+ | 6 (Anthropic, Stripe, Hetzner, Namecheap, OpenAI, Nodemailer) | Replit |
+| **التكاملات الفعّالة** | 50+ | 2 فعّالة (Anthropic, Hetzner) + 4 تحتاج تهيئة | Replit |
 | **التخصيص للمجموعة** | صعب | مدمج | Nova |
 
 **التوصية السريعة:**
@@ -127,11 +127,11 @@
 | Postgres DB | ✅ Yes | ✅ Yes | Production | Real | Drizzle ORM |
 | Auth (Local) | ✅ Yes | ✅ Yes | Production | Real | bcrypt + sessions |
 | Auth (OAuth/SSO) | ✅ Yes | ✅ Partial | MVP | Partial | auth.tsx |
-| OTP Verification | ❌ No | ✅ Yes | Production | Real | SPOM system |
+| OTP Verification | ❌ No | ⚠️ Yes | Inactive (SMTP needed) | Real code, no delivery | SPOM system |
 | File Storage | ✅ Yes | ✅ Yes | MVP | Real | storage.ts |
 | Background Jobs | ❌ External | ✅ Yes | MVP | Real | async handlers |
 | Webhooks | ✅ Yes | ✅ Yes | Production | Real | webhookHandlers.ts |
-| Email Service | ❌ External | ✅ Yes | Config Needed | Real | nodemailer |
+| Email Service | ❌ External | ⚠️ Yes | **Inactive** (SMTP not configured) | Real code | nodemailer |
 
 ### 3.5 التشغيل والاستضافة (Runtime & Hosting)
 
@@ -139,12 +139,12 @@
 |--------|--------|------|--------------|--------------|--------|
 | Custom Domains | ✅ Yes | ✅ Yes | Production | Real | domains.tsx |
 | SSL Certificates | ✅ Auto | ✅ Yes | Production | Real | ssl-routes.ts |
-| Domain Registration | ❌ No | ✅ Yes | Config Needed | Real | namecheap-client.ts |
+| Domain Registration | ❌ No | ⚠️ Yes | **Inactive** (Namecheap not configured) | Real code | namecheap-client.ts |
 | Container/Sandbox | ✅ Yes | ❌ Partial | MVP | Partial | Uses Replit env |
 | Scaling Options | ✅ Yes | ✅ Yes | MVP | Real | Hetzner API |
 | Observability | ✅ Yes | ✅ Yes | Production | Real | audit-orchestrator.ts |
 | Rollbacks | ✅ Yes | ✅ Yes | MVP | Real | Version control |
-| Infrastructure Mgmt | ❌ No | ✅ Yes | Production | Real | hetzner-client.ts |
+| Infrastructure Mgmt | ❌ No | ✅ Yes | **Active** (HETZNER_API_TOKEN configured) | Real | hetzner-client.ts |
 
 ---
 
@@ -233,7 +233,7 @@
 |--------|--------|------|-------|--------|
 | **Password Hashing** | ✅ bcrypt | ✅ bcrypt | Production | auth routes |
 | **Session Management** | ✅ Yes | ✅ Yes | Production | connect-pg-simple |
-| **OTP/2FA** | ❌ No | ✅ Yes | Production | SPOM system |
+| **OTP/2FA** | ❌ No | ⚠️ Code Ready | **Inactive** (needs SMTP) | SPOM system |
 | **RBAC** | ✅ Basic | ✅ Advanced | Production | requireOwner, requireAdmin |
 | **Multi-tenant Isolation** | ❌ No | ✅ Yes | Production | tenantId in all tables |
 | **Encryption at Rest** | ✅ Yes | ✅ Yes | Production | crypto-service.ts |
@@ -291,16 +291,20 @@
 
 ### 10.1 مصفوفة القرار (Decision Matrix)
 
-| المعيار | الوزن | Replit | Nova | Replit (موزون) | Nova (موزون) |
-|---------|-------|--------|------|----------------|--------------|
-| Feature Completeness | 20% | 9 | 8 | 1.80 | 1.60 |
-| Performance | 15% | 9 | 7 | 1.35 | 1.05 |
-| Security | 15% | 7 | 9 | 1.05 | 1.35 |
-| Dev Experience | 15% | 9 | 7 | 1.35 | 1.05 |
-| Scalability/Federation | 20% | 5 | 9 | 1.00 | 1.80 |
-| Maintainability | 10% | 9 | 7 | 0.90 | 0.70 |
-| Cost/Operational | 5% | 7 | 8 | 0.35 | 0.40 |
-| **المجموع** | **100%** | - | - | **7.80** | **7.95** |
+| المعيار | الوزن | Replit | Nova | ملاحظات Nova | Replit (موزون) | Nova (موزون) |
+|---------|-------|--------|------|-------------|----------------|--------------|
+| Feature Completeness | 20% | 9 | 7 | 4 ميزات تحتاج تهيئة | 1.80 | 1.40 |
+| Performance | 15% | 9 | 7 | [E] تقديري | 1.35 | 1.05 |
+| Security | 15% | 7 | 8.5 | OTP معطل (SMTP) | 1.05 | 1.28 |
+| Dev Experience | 15% | 9 | 7 | توثيق محدود | 1.35 | 1.05 |
+| Scalability/Federation | 20% | 5 | 9 | مصمم للسيادة | 1.00 | 1.80 |
+| Maintainability | 10% | 9 | 7 | اختبارات محدودة | 0.90 | 0.70 |
+| Cost/Operational | 5% | 7 | 8 | تكلفة أقل | 0.35 | 0.40 |
+| **المجموع** | **100%** | - | - | - | **7.80** | **7.68** |
+
+**ملاحظة:** تم تخفيض نقاط Nova بسبب:
+- الميزات المعطلة (SMTP, Namecheap, Stripe, OpenAI)
+- القياسات التقديرية وليست فعلية
 
 ### 10.2 التوصيات النهائية
 
@@ -353,7 +357,12 @@
 | المنصة | النقاط | التقييم |
 |--------|--------|---------|
 | Replit | 7.80/10 | ممتاز للتطوير الفردي |
-| Nova | 7.95/10 | ممتاز للمنصات السيادية |
+| Nova | 7.68/10 | واعد للمنصات السيادية (بعد التهيئة) |
+
+**ملاحظة:** Nova ستتفوق على Replit (8.0+) بعد:
+1. تهيئة SMTP/Stripe/Namecheap
+2. إجراء قياسات أداء فعلية
+3. إضافة اختبارات E2E
 
 ### 11.2 التوصية النهائية
 

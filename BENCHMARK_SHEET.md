@@ -4,19 +4,27 @@
 
 ---
 
+## ⚠️ تنبيه مهم
+**جميع قيم Nova في هذا التقرير هي تقديرات (Estimates) وليست قياسات فعلية.**
+- [M] = Measured (مقاس فعلياً)
+- [D] = Documented (موثق من المصدر)
+- [E] = Estimated (مُقدَّر)
+
+---
+
 ## 1. Performance Metrics
 
-| Metric | Replit (Measured/Documented) | Nova (Estimated) | Unit | Notes |
-|--------|------------------------------|------------------|------|-------|
-| **Time to First Preview** | 3-5 | 6-10 | seconds | Replit optimized |
-| **Cold Start** | 2-5 | 3-6 | seconds | Similar |
-| **Hot Reload** | 0.3-0.5 | 0.8-1.5 | seconds | Vite-based |
-| **Build Time (Vite)** | 8-12 | 8-12 | seconds | Same tooling |
-| **Deploy Time** | 20-40 | Unknown | seconds | Needs testing |
-| **API Latency (p50)** | 40-60 | 80-120 | ms | Network dependent |
-| **API Latency (p95)** | 150-250 | 250-400 | ms | Needs optimization |
-| **API Latency (p99)** | 300-500 | 500-800 | ms | Needs optimization |
-| **Throughput** | 500-1000 | 300-600 | req/s | Estimated |
+| Metric | Replit | Type | Nova | Type | Unit | Notes |
+|--------|--------|------|------|------|------|-------|
+| **Time to First Preview** | 3-5 | [D] | 6-10 | [E] | seconds | Replit optimized |
+| **Cold Start** | 2-5 | [D] | 3-6 | [E] | seconds | Similar |
+| **Hot Reload** | 0.3-0.5 | [D] | 0.8-1.5 | [E] | seconds | Vite-based |
+| **Build Time (Vite)** | 8-12 | [D] | 8-12 | [E] | seconds | Same tooling |
+| **Deploy Time** | 20-40 | [D] | Unknown | - | seconds | Needs testing |
+| **API Latency (p50)** | 40-60 | [D] | 80-120 | [E] | ms | Network dependent |
+| **API Latency (p95)** | 150-250 | [D] | 250-400 | [E] | ms | Needs optimization |
+| **API Latency (p99)** | 300-500 | [D] | 500-800 | [E] | ms | Needs optimization |
+| **Throughput** | 500-1000 | [E] | 300-600 | [E] | req/s | Both estimated |
 
 ---
 
@@ -47,17 +55,19 @@
 
 ## 4. Security Score
 
-| Security Feature | Replit | Nova | Weight | Replit Score | Nova Score |
-|------------------|--------|------|--------|--------------|------------|
-| Password Hashing (bcrypt) | Yes | Yes | 15% | 10 | 10 |
-| Session Management | Yes | Yes | 10% | 9 | 9 |
-| OTP/2FA | No | Yes | 15% | 0 | 10 |
-| RBAC | Basic | Advanced | 15% | 6 | 9 |
-| Multi-tenant Isolation | No | Yes | 15% | 0 | 10 |
-| Encryption at Rest | Yes | Yes | 10% | 9 | 9 |
-| Audit Logging | Limited | Immutable | 10% | 5 | 10 |
-| Input Validation (Zod) | Yes | Yes | 10% | 9 | 9 |
-| **Weighted Total** | - | - | **100%** | **5.95** | **9.45** |
+| Security Feature | Replit | Nova | Status | Weight | Replit Score | Nova Score |
+|------------------|--------|------|--------|--------|--------------|------------|
+| Password Hashing (bcrypt) | Yes | Yes | ✅ Active | 15% | 10 | 10 |
+| Session Management | Yes | Yes | ✅ Active | 10% | 9 | 9 |
+| OTP/2FA | No | Code Ready | ⚠️ SMTP needed | 15% | 0 | 5 |
+| RBAC | Basic | Advanced | ✅ Active | 15% | 6 | 9 |
+| Multi-tenant Isolation | No | Yes | ✅ Active | 15% | 0 | 10 |
+| Encryption at Rest | Yes | Yes | ✅ Active | 10% | 9 | 9 |
+| Audit Logging | Limited | Immutable | ✅ Active | 10% | 5 | 10 |
+| Input Validation (Zod) | Yes | Yes | ✅ Active | 10% | 9 | 9 |
+| **Weighted Total** | - | - | - | **100%** | **5.95** | **8.70** |
+
+**ملاحظة:** تم تخفيض نقاط OTP/2FA لـ Nova من 10 إلى 5 لأن الميزة تحتاج SMTP لتعمل.
 
 ---
 
