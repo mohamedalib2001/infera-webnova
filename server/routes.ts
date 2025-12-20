@@ -13,7 +13,7 @@ import { registerISDSRoutes } from "./isds-routes";
 import { registerSpomRoutes } from "./spom-routes";
 import marketplaceRoutes from "./marketplace-routes";
 import sslRoutes from "./ssl-routes";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { 
   insertProjectSchema, insertMessageSchema, insertProjectVersionSchema, 
   insertShareLinkSchema, insertUserSchema, insertAiModelSchema, 
@@ -776,11 +776,17 @@ export async function registerRoutes(
       const users = await storage.getAllUsers();
       const projects = await storage.getProjects();
       
+      // Get total AI generations count from usage logs
+      const aiGenerationsResult = await db.select({ 
+        count: sql<number>`COALESCE(count(*), 0)` 
+      }).from(aiUsageLogs);
+      const totalAiGenerations = aiGenerationsResult[0]?.count || 0;
+      
       res.json({
         totalUsers: users.length,
         activeUsers: users.filter(u => u.isActive).length,
         totalProjects: projects.length,
-        aiGenerations: 0, // TODO: Track AI generations
+        aiGenerations: totalAiGenerations,
       });
     } catch (error) {
       res.status(500).json({ error: "فشل في جلب الإحصائيات" });

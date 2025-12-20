@@ -9,7 +9,7 @@
 |---|--------|-------|---------------|--------------|-------|
 | 1 | **SMTP غير مهيأ** | لا يمكن إرسال إيميلات (OTP, notifications) - يعطل 2FA | server/email.ts | تهيئة SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM_EMAIL | 1 ساعة |
 | 2 | **Namecheap غير مهيأ** | لا يمكن تسجيل domains تلقائياً | server/namecheap-client.ts | تهيئة NAMECHEAP_API_USER, NAMECHEAP_API_KEY, NAMECHEAP_USERNAME | 1 ساعة |
-| 3 | **Stripe غير مهيأ** | لا يمكن معالجة المدفوعات | server/stripeClient.ts | تهيئة STRIPE_SECRET_KEY | 30 دقيقة |
+| ~~3~~ | ~~**Stripe غير مهيأ**~~ | ✅ **مُهيأ عبر Replit Integration** | - | - | ✅ تم |
 | 4 | **OpenAI غير مهيأ** | بعض ميزات AI لن تعمل | server/openai.ts | تهيئة OPENAI_API_KEY (اختياري - Anthropic متوفر) | 30 دقيقة |
 
 **ملاحظة:** التكاملات الفعّالة حالياً:
@@ -17,6 +17,7 @@
 - ✅ HETZNER_API_TOKEN (مهيأ)
 - ✅ DATABASE_URL (مهيأ)
 - ✅ SESSION_SECRET (مهيأ)
+- ✅ **Stripe (مُهيأ عبر Replit Integration - 20 ديسمبر 2025)**
 
 ---
 
