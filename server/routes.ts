@@ -3532,6 +3532,40 @@ ${project.description || ""}
 
   // ============ White Label Routes ============
 
+  // Get user's own white label settings (for editing)
+  app.get("/api/white-label/my-settings", requireAuth, async (req, res) => {
+    try {
+      const user = req.session?.user;
+      if (!user) {
+        return res.status(401).json({ error: "غير مصرح / Unauthorized" });
+      }
+      
+      // Get settings from database
+      const settings = await storage.getOwnerWhiteLabelSettings();
+      
+      if (settings) {
+        res.json(settings);
+      } else {
+        // Return defaults
+        res.json({
+          brandName: 'INFERA WebNova',
+          brandNameAr: 'إنفيرا ويب نوفا',
+          logoUrl: '/assets/generated_images/infera_webnova_professional_logo.png',
+          faviconUrl: '/assets/generated_images/infera_webnova_professional_logo.png',
+          primaryColor: '#8B5CF6',
+          secondaryColor: '#EC4899',
+          customDomain: '',
+          customCss: '',
+          hideWatermark: false,
+          isActive: false,
+        });
+      }
+    } catch (error) {
+      console.error("Get my white label settings error:", error);
+      res.status(500).json({ error: "فشل في جلب الإعدادات / Failed to get settings" });
+    }
+  });
+
   // Middleware to check white label access (Owner, Enterprise, Sovereign)
   const requireWhiteLabelAccess = async (req: Request, res: Response, next: NextFunction) => {
     const user = req.session?.user;

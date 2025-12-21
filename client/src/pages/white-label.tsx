@@ -54,12 +54,41 @@ export default function WhiteLabel() {
 
   const hasAccess = user?.role === "enterprise" || user?.role === "sovereign" || user?.role === "owner";
 
+  // Load saved settings from the user's settings endpoint
+  const { data: savedSettings, isLoading: settingsLoading } = useQuery<any>({
+    queryKey: ["/api/white-label/my-settings"],
+    enabled: isAuthenticated && hasAccess,
+  });
+
+  // Track if we've loaded settings
+  const [hasLoadedSettings, setHasLoadedSettings] = useState(false);
+
+  // Effect to update config when savedSettings changes (only once on initial load)
+  if (savedSettings && !hasLoadedSettings) {
+    setHasLoadedSettings(true);
+    setConfig({
+      brandName: savedSettings.brandName || "",
+      brandNameAr: savedSettings.brandNameAr || "",
+      logoUrl: savedSettings.logoUrl || "",
+      faviconUrl: savedSettings.faviconUrl || "",
+      primaryColor: savedSettings.primaryColor || "#8B5CF6",
+      secondaryColor: savedSettings.secondaryColor || "#EC4899",
+      customDomain: savedSettings.customDomain || "",
+      customCss: savedSettings.customCss || "",
+      hideWatermark: savedSettings.hideWatermark || false,
+      isActive: savedSettings.isActive || false,
+    });
+  }
+
   const saveMutation = useMutation({
     mutationFn: async (data: WhiteLabelConfig) => {
       return apiRequest("POST", "/api/white-label", data);
     },
     onSuccess: () => {
       toast({ title: tr("تم حفظ الإعدادات بنجاح", "Settings saved successfully") });
+      // Invalidate branding cache to apply changes
+      queryClient.invalidateQueries({ queryKey: ["/api/platform/branding"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/white-label/my-settings"] });
     },
     onError: () => {
       toast({ title: tr("فشل في حفظ الإعدادات", "Failed to save settings"), variant: "destructive" });
