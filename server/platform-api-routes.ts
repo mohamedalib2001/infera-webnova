@@ -848,11 +848,198 @@ router.get('/runtime/active', requireAuth, async (req: Request, res: Response) =
   }
 });
 
+// ==================== AI COPILOT ROUTES ====================
+
+/**
+ * POST /api/platform/copilot/analyze
+ * Analyze code and provide suggestions
+ */
+router.post('/copilot/analyze', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { aiCopilot } = await import('@shared/core/kernel/ai-copilot');
+    const { code, language, filename, projectContext } = req.body;
+    
+    if (!code || !language) {
+      return res.status(400).json({ error: 'Code and language are required' });
+    }
+    
+    const analysis = await aiCopilot.analyzeCode({ code, language, filename, projectContext });
+    res.json(analysis);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/copilot/explain
+ * Explain code in detail
+ */
+router.post('/copilot/explain', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { aiCopilot } = await import('@shared/core/kernel/ai-copilot');
+    const { code, language, selectedCode } = req.body;
+    
+    if (!code || !language) {
+      return res.status(400).json({ error: 'Code and language are required' });
+    }
+    
+    const explanation = await aiCopilot.explainCode({ code, language, selectedCode });
+    res.json(explanation);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/copilot/fix
+ * Fix code errors
+ */
+router.post('/copilot/fix', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { aiCopilot } = await import('@shared/core/kernel/ai-copilot');
+    const { code, language, errorMessage } = req.body;
+    
+    if (!code || !language) {
+      return res.status(400).json({ error: 'Code and language are required' });
+    }
+    
+    const fix = await aiCopilot.fixCode({ code, language }, errorMessage);
+    res.json(fix);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/copilot/autocomplete
+ * Get intelligent autocomplete suggestions
+ */
+router.post('/copilot/autocomplete', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { aiCopilot } = await import('@shared/core/kernel/ai-copilot');
+    const { code, language, cursorPosition } = req.body;
+    
+    if (!code || !language) {
+      return res.status(400).json({ error: 'Code and language are required' });
+    }
+    
+    const completions = await aiCopilot.getAutocomplete({ code, language, cursorPosition });
+    res.json(completions);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/copilot/generate
+ * Generate code from description
+ */
+router.post('/copilot/generate', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { aiCopilot } = await import('@shared/core/kernel/ai-copilot');
+    const { description, language, context } = req.body;
+    
+    if (!description || !language) {
+      return res.status(400).json({ error: 'Description and language are required' });
+    }
+    
+    const generated = await aiCopilot.generateCode(description, language, context);
+    res.json(generated);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/copilot/refactor
+ * Refactor code for better quality
+ */
+router.post('/copilot/refactor', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { aiCopilot } = await import('@shared/core/kernel/ai-copilot');
+    const { code, language, goal } = req.body;
+    
+    if (!code || !language) {
+      return res.status(400).json({ error: 'Code and language are required' });
+    }
+    
+    const refactored = await aiCopilot.refactorCode(
+      { code, language }, 
+      goal || 'all'
+    );
+    res.json(refactored);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/copilot/security
+ * Scan code for security vulnerabilities
+ */
+router.post('/copilot/security', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { aiCopilot } = await import('@shared/core/kernel/ai-copilot');
+    const { code, language } = req.body;
+    
+    if (!code || !language) {
+      return res.status(400).json({ error: 'Code and language are required' });
+    }
+    
+    const scan = await aiCopilot.scanSecurity({ code, language });
+    res.json(scan);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/copilot/tests
+ * Generate unit tests for code
+ */
+router.post('/copilot/tests', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { aiCopilot } = await import('@shared/core/kernel/ai-copilot');
+    const { code, language, framework } = req.body;
+    
+    if (!code || !language) {
+      return res.status(400).json({ error: 'Code and language are required' });
+    }
+    
+    const tests = await aiCopilot.generateTests({ code, language }, framework || 'jest');
+    res.json(tests);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/copilot/chat
+ * Chat with AI about code
+ */
+router.post('/copilot/chat', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { aiCopilot } = await import('@shared/core/kernel/ai-copilot');
+    const { message, code, language, history } = req.body;
+    
+    if (!message) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+    
+    const context = code && language ? { code, language } : undefined;
+    const response = await aiCopilot.chat(message, context, history || []);
+    res.json(response);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ==================== EXPORT ROUTER ====================
 export function registerPlatformApiRoutes(app: any) {
   app.use('/api/platform', router);
   console.log('[Platform API] Routes registered at /api/platform');
   console.log('[AI Orchestrator] AI endpoints ready at /api/platform/ai/*');
+  console.log('[AI Copilot] Copilot endpoints ready at /api/platform/copilot/*');
   console.log('[Project Runtime] Runtime endpoints ready at /api/platform/runtime/*');
 }
 
