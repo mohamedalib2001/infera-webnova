@@ -36,6 +36,17 @@ export { default as aiRolesEngine } from './ai-roles-engine';
 export * from './deployment-adapters';
 export { default as deploymentOrchestrator } from './deployment-adapters';
 
+// Layer 6B: Cloud Deployment Adapters (Vercel, Netlify, Railway, etc.)
+export * from './cloud-deploy-adapters';
+
+// Layer 6C: Full-Stack Project Generator
+export * from './fullstack-generator';
+export { default as fullStackGenerator } from './fullstack-generator';
+
+// Layer 6D: Sandbox Code Executor
+export * from './sandbox-executor';
+export { sandboxExecutor } from './sandbox-executor';
+
 // Layer 7: Zero Trust + Vault
 export * from './zero-trust';
 

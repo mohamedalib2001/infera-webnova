@@ -72,3 +72,85 @@ The platform features an AI Chat Interface, a live preview with responsive viewp
 | OpenAI | ⚠️ Optional | OPENAI_API_KEY | Some AI features (Anthropic available) |
 
 **Note:** User declined SendGrid integration (Dec 20, 2025). To enable email features later, configure SMTP secrets manually.
+
+## Platform Development System (Updated: Dec 21, 2025)
+
+### Full-Stack Project Generator
+Located at: `shared/core/kernel/fullstack-generator.ts`
+
+**Supported Templates (12 total):**
+1. **react-express** - React + Express + PostgreSQL
+2. **nextjs-fullstack** - Next.js App Router + PostgreSQL
+3. **vue-fastify** - Vue 3 + Fastify + PostgreSQL
+4. **svelte-express** - SvelteKit + Express + PostgreSQL
+5. **static-site** - Static site with TailwindCSS
+6. **api-only** - Pure REST/GraphQL API
+7. **mobile-pwa** - Progressive Web App
+8. **ecommerce** - Full eCommerce platform (products, cart, orders)
+9. **saas-starter** - SaaS with auth, billing, dashboard
+10. **blog-cms** - Blog/CMS with posts, categories, tags
+11. **dashboard** - Admin dashboard with analytics
+12. **landing-page** - Marketing landing page
+
+**Generated Files:**
+- `package.json` with appropriate dependencies
+- `tsconfig.json` for TypeScript
+- Database schema (`src/db/schema.ts`)
+- API routes (Express or Next.js API routes)
+- Frontend pages and components
+- `.env.example` with required variables
+- `README.md` (bilingual support)
+
+### Cloud Deployment Adapters
+Located at: `shared/core/kernel/cloud-deploy-adapters.ts`
+
+**Supported Providers:**
+| Provider | Status | Features |
+|----------|--------|----------|
+| Vercel | Interface Ready | Edge functions, Static hosting |
+| Netlify | Interface Ready | Serverless functions, Forms |
+| Railway | Interface Ready | Full-stack hosting, PostgreSQL |
+| Render | Interface Ready | Docker, Static, Web services |
+| Fly.io | Interface Ready | Global edge deployment |
+| Hetzner | Interface Ready | VPS, Docker, Kubernetes |
+
+**Unified Deployment Service:**
+- Provider-agnostic deployment API
+- Automatic rollback support
+- Status monitoring
+- Environment variable management
+
+### Sandbox Code Executor
+Located at: `shared/core/kernel/sandbox-executor.ts`
+
+**Supported Languages:**
+- Node.js, TypeScript
+- Python
+- PHP
+- Bash
+- Go
+- Rust
+
+**Security Features:**
+- Malicious code detection (system commands, network calls, file operations)
+- Resource limits (CPU, memory, disk, timeout)
+- Blocked command filtering
+- Execution isolation
+
+### Platform API Endpoints
+Registered at: `/api/platform/*`
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/templates` | GET | List all available templates |
+| `/templates/:id` | GET | Get template details |
+| `/generate` | POST | Generate full project from spec |
+| `/generate/prompt` | POST | AI-powered generation from description |
+| `/deployment/deploy` | POST | Deploy project to cloud provider |
+| `/deployment/status` | GET | Get deployment status |
+| `/deployment/rollback` | POST | Rollback to previous deployment |
+| `/execution/run` | POST | Execute code in sandbox |
+| `/execution/command` | POST | Run shell command |
+| `/execution/install-package` | POST | Install package |
+| `/projects` | GET | List user's projects |
+| `/projects/:id` | GET | Get project details |

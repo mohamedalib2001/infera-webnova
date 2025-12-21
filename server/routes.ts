@@ -11,6 +11,7 @@ import apiKeysRoutes from "./api-keys-routes";
 import { registerDomainRoutes } from "./domain-routes";
 import { registerISDSRoutes } from "./isds-routes";
 import { registerSpomRoutes } from "./spom-routes";
+import { registerPlatformApiRoutes } from "./platform-api-routes";
 import marketplaceRoutes from "./marketplace-routes";
 import sslRoutes from "./ssl-routes";
 import { eq, and } from "drizzle-orm";
@@ -11072,6 +11073,10 @@ ${project.description || ""}
   // ==================== SPOM - SOVEREIGN PRIVILEGED OPERATIONS ====================
   registerSpomRoutes(app);
   console.log("SPOM routes registered | تم تسجيل مسارات العمليات السيادية");
+
+  // ==================== PLATFORM API - GENERATION, DEPLOYMENT, EXECUTION ====================
+  registerPlatformApiRoutes(app);
+  console.log("Platform API routes registered | تم تسجيل مسارات منصة التطوير");
 
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
