@@ -137,6 +137,31 @@ Located at: `shared/core/kernel/sandbox-executor.ts`
 - Blocked command filtering
 - Execution isolation
 
+### Secure Terminal System (Updated: Dec 21, 2025)
+Located at: `server/isds-routes.ts`
+
+**Security Model:**
+- Strict whitelist-based command execution
+- Project/workspace ownership verification before token issuance
+- Shell injection protection (blocking `;|&\`$(){}`)
+- Timeout and buffer limits
+
+**Allowed Command Prefixes:**
+```
+ls, pwd, cat, head, tail, echo, grep, find, wc,
+npm, npx, node, yarn, pnpm,
+python, python3, pip, pip3,
+git status, git log, git branch, git diff, git show,
+clear, help, mkdir, touch, cp, mv,
+date, whoami, which
+```
+
+**Terminal API Endpoints:**
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/owner/isds/terminal/token` | POST | Generate secure WebSocket token (with ownership check) |
+| `/api/owner/isds/terminal/execute` | POST | Execute command (REST fallback) |
+
 ### Platform API Endpoints
 Registered at: `/api/platform/*`
 
