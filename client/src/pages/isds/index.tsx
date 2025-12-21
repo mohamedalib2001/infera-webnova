@@ -136,27 +136,6 @@ export default function ISDSPage() {
   const [showDeployDialog, setShowDeployDialog] = useState(false);
   const [selectedDeployProvider, setSelectedDeployProvider] = useState<string>("vercel");
 
-  if (!user || (user.role !== "owner" && user.role !== "sovereign")) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-background">
-        <Card className="p-8 text-center max-w-md">
-          <Shield className="w-16 h-16 mx-auto mb-4 text-destructive" />
-          <h1 className="text-2xl font-bold mb-2">
-            {isRTL ? "الوصول مرفوض" : "Access Denied"}
-          </h1>
-          <p className="text-muted-foreground mb-4">
-            {isRTL 
-              ? "ISDS متاح فقط للحساب السيادي"
-              : "ISDS is only available for sovereign accounts"}
-          </p>
-          <Button onClick={() => setLocation("/owner")} data-testid="button-go-back">
-            {isRTL ? "العودة للوحة التحكم" : "Go to Dashboard"}
-          </Button>
-        </Card>
-      </div>
-    );
-  }
-
   const { data: workspaces, isLoading: workspacesLoading } = useQuery<WorkspaceData[]>({
     queryKey: ["/api/owner/isds/workspaces"],
     enabled: !!user,
@@ -300,6 +279,29 @@ export default function ISDSPage() {
       });
     },
   });
+
+  const isAuthorized = user && (user.role === "owner" || user.role === "sovereign");
+
+  if (!isAuthorized) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-background">
+        <Card className="p-8 text-center max-w-md">
+          <Shield className="w-16 h-16 mx-auto mb-4 text-destructive" />
+          <h1 className="text-2xl font-bold mb-2">
+            {isRTL ? "الوصول مرفوض" : "Access Denied"}
+          </h1>
+          <p className="text-muted-foreground mb-4">
+            {isRTL 
+              ? "ISDS متاح فقط للحساب السيادي"
+              : "ISDS is only available for sovereign accounts"}
+          </p>
+          <Button onClick={() => setLocation("/owner")} data-testid="button-go-back">
+            {isRTL ? "العودة للوحة التحكم" : "Go to Dashboard"}
+          </Button>
+        </Card>
+      </div>
+    );
+  }
 
   const templateIcons: Record<string, typeof Layout> = {
     "react-express": Layout,
