@@ -3532,13 +3532,14 @@ ${project.description || ""}
 
   // ============ White Label Routes ============
 
-  // Middleware to check white label access (Enterprise, Sovereign)
+  // Middleware to check white label access (Owner, Enterprise, Sovereign)
   const requireWhiteLabelAccess = async (req: Request, res: Response, next: NextFunction) => {
     const user = req.session?.user;
     if (!user) {
       return res.status(401).json({ error: "غير مصرح / Unauthorized" });
     }
-    const allowedRoles = ['enterprise', 'sovereign'];
+    // Owner has full access to all features
+    const allowedRoles = ['owner', 'enterprise', 'sovereign'];
     if (!allowedRoles.includes(user.role)) {
       return res.status(403).json({ 
         error: "هذه الميزة متاحة لخطط Enterprise وأعلى فقط / This feature requires Enterprise plan or higher" 
@@ -3550,6 +3551,11 @@ ${project.description || ""}
   // Save white label config
   app.post("/api/white-label", requireAuth, requireWhiteLabelAccess, async (req, res) => {
     try {
+      const user = req.session?.user;
+      if (!user) {
+        return res.status(401).json({ error: "غير مصرح / Unauthorized" });
+      }
+
       const { brandName, brandNameAr, logoUrl, faviconUrl, primaryColor, secondaryColor, customDomain, customCss, hideWatermark, isActive } = req.body;
       
       // Validate required fields
@@ -3557,14 +3563,28 @@ ${project.description || ""}
         return res.status(400).json({ error: "اسم العلامة غير صالح / Invalid brand name" });
       }
       
-      // For now just acknowledge - would store in user settings table
-      // In a full implementation, this would save to a user_settings or white_label_config table
+      // Save to database
+      const savedSettings = await storage.saveWhiteLabelSettings(user.id, {
+        userId: user.id,
+        brandName: brandName || 'INFERA WebNova',
+        brandNameAr: brandNameAr || 'إنفيرا ويب نوفا',
+        logoUrl: logoUrl || '',
+        faviconUrl: faviconUrl || '',
+        primaryColor: primaryColor || '#8B5CF6',
+        secondaryColor: secondaryColor || '#EC4899',
+        customDomain: customDomain || '',
+        customCss: customCss || '',
+        hideWatermark: hideWatermark || false,
+        isActive: isActive || false,
+      });
+      
       res.json({ 
         success: true, 
         message: "تم حفظ الإعدادات / Settings saved",
-        config: { brandName, brandNameAr, logoUrl, faviconUrl, primaryColor, secondaryColor, customDomain, hideWatermark, isActive }
+        config: savedSettings
       });
     } catch (error) {
+      console.error("Save white label error:", error);
       res.status(500).json({ error: "فشل في حفظ الإعدادات / Failed to save settings" });
     }
   });
