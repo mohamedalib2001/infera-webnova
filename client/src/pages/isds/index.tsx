@@ -69,6 +69,14 @@ import {
   HardDrive,
   Activity,
   Clock,
+  Layout,
+  ShoppingCart,
+  FileText,
+  BarChart3,
+  Globe,
+  Smartphone,
+  Database,
+  Cloud,
 } from "lucide-react";
 import Editor from "@monaco-editor/react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -102,7 +110,8 @@ interface WorkspaceData {
 
 export default function ISDSPage() {
   const { user } = useAuth();
-  const { t, isRTL, language } = useLanguage();
+  const { t, isRtl, language } = useLanguage();
+  const isRTL = isRtl;
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -120,6 +129,12 @@ export default function ISDSPage() {
   const [selectedWorkspace, setSelectedWorkspace] = useState<string | null>(null);
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
   const [showAiPanel, setShowAiPanel] = useState(false);
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectDescription, setNewProjectDescription] = useState("");
+  const [showDeployDialog, setShowDeployDialog] = useState(false);
+  const [selectedDeployProvider, setSelectedDeployProvider] = useState<string>("vercel");
 
   if (!user || (user.role !== "owner" && user.role !== "sovereign")) {
     return (
@@ -154,10 +169,7 @@ export default function ISDSPage() {
 
   const createWorkspaceMutation = useMutation({
     mutationFn: async (data: { name: string; slug: string }) => {
-      return apiRequest("/api/owner/isds/workspaces", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("POST", "/api/owner/isds/workspaces", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/owner/isds/workspaces"] });
@@ -170,10 +182,7 @@ export default function ISDSPage() {
 
   const executeCommandMutation = useMutation({
     mutationFn: async (command: string) => {
-      return apiRequest("/api/owner/isds/execute", {
-        method: "POST",
-        body: JSON.stringify({ command, workspaceId: selectedWorkspace }),
-      });
+      return apiRequest("POST", "/api/owner/isds/execute", { command, workspaceId: selectedWorkspace });
     },
     onSuccess: (data: { output: string; exitCode: number }) => {
       const result: CommandResult = {
@@ -200,10 +209,7 @@ export default function ISDSPage() {
 
   const saveFileMutation = useMutation({
     mutationFn: async (data: { fileId: string; content: string }) => {
-      return apiRequest(`/api/owner/isds/files/${data.fileId}`, {
-        method: "PATCH",
-        body: JSON.stringify({ content: data.content }),
-      });
+      return apiRequest("PATCH", `/api/owner/isds/files/${data.fileId}`, { content: data.content });
     },
     onSuccess: () => {
       toast({
@@ -215,16 +221,100 @@ export default function ISDSPage() {
 
   const aiAnalyzeMutation = useMutation({
     mutationFn: async (code: string) => {
-      return apiRequest("/api/owner/isds/ai/analyze", {
-        method: "POST",
-        body: JSON.stringify({ code, language: activeFile?.language || "typescript" }),
-      });
+      return apiRequest("POST", "/api/owner/isds/ai/analyze", { code, language: activeFile?.language || "typescript" });
     },
     onSuccess: (data: { suggestions: string[] }) => {
       setAiSuggestions(data.suggestions);
       setShowAiPanel(true);
     },
   });
+
+  const { data: templatesResponse, isLoading: templatesLoading } = useQuery<{
+    templates: Array<{
+      id: string;
+      name: string;
+      nameAr: string;
+      description: string;
+      descriptionAr: string;
+      category: string;
+      icon: string;
+      features: string[];
+    }>;
+  }>({
+    queryKey: ["/api/platform/templates"],
+  });
+  const templates = templatesResponse?.templates;
+
+  const generateProjectMutation = useMutation({
+    mutationFn: async (data: { templateId: string; name: string; description: string }) => {
+      return apiRequest("POST", "/api/platform/generate", {
+        templateId: data.templateId,
+        name: data.name,
+        description: data.description,
+        language: isRTL ? "ar" : "en",
+      });
+    },
+    onSuccess: (data: { projectId: string; filesGenerated: number }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/owner/isds/workspaces"] });
+      setShowTemplateDialog(false);
+      setNewProjectName("");
+      setNewProjectDescription("");
+      setSelectedTemplate(null);
+      setSelectedWorkspace(data.projectId);
+      toast({
+        title: isRTL ? "تم إنشاء المشروع" : "Project Created",
+        description: isRTL 
+          ? `تم توليد ${data.filesGenerated} ملف بنجاح`
+          : `Successfully generated ${data.filesGenerated} files`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: isRTL ? "فشل في إنشاء المشروع" : "Failed to Create Project",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deployProjectMutation = useMutation({
+    mutationFn: async (data: { projectId: string; provider: string }) => {
+      return apiRequest("POST", "/api/platform/deployment/deploy", {
+        projectId: data.projectId,
+        provider: data.provider,
+        environment: "production",
+      });
+    },
+    onSuccess: (data: { url: string; deploymentId: string }) => {
+      setShowDeployDialog(false);
+      toast({
+        title: isRTL ? "تم النشر بنجاح" : "Deployed Successfully",
+        description: data.url,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: isRTL ? "فشل في النشر" : "Deployment Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const templateIcons: Record<string, typeof Layout> = {
+    "react-express": Layout,
+    "nextjs-fullstack": Globe,
+    "ecommerce": ShoppingCart,
+    "blog-cms": FileText,
+    "dashboard": BarChart3,
+    "saas-starter": Rocket,
+    "mobile-pwa": Smartphone,
+    "api-only": Database,
+    "landing-page": Globe,
+    "static-site": FileText,
+    "vue-fastify": Layout,
+    "svelte-express": Layout,
+  };
 
   const handleFileClick = (file: FileNode) => {
     if (file.type === "directory") {
@@ -463,6 +553,26 @@ export default function ISDSPage() {
           >
             <Bot className="w-4 h-4 mr-1" />
             {isRTL ? "تحليل AI" : "AI Analyze"}
+          </Button>
+          <Separator orientation="vertical" className="h-6" />
+          <Button 
+            variant="default" 
+            size="sm"
+            onClick={() => setShowTemplateDialog(true)}
+            data-testid="button-new-project"
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            {isRTL ? "مشروع جديد" : "New Project"}
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setShowDeployDialog(true)}
+            disabled={!selectedWorkspace}
+            data-testid="button-deploy"
+          >
+            <Cloud className="w-4 h-4 mr-1" />
+            {isRTL ? "نشر" : "Deploy"}
           </Button>
           <Separator orientation="vertical" className="h-6" />
           <Button variant="ghost" size="icon" data-testid="button-git">
@@ -758,6 +868,238 @@ export default function ISDSPage() {
               setNewFileName("");
             }} data-testid="button-create-file">
               {isRTL ? "إنشاء" : "Create"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Rocket className="w-5 h-5 text-primary" />
+              {isRTL ? "إنشاء مشروع جديد" : "Create New Project"}
+            </DialogTitle>
+            <DialogDescription>
+              {isRTL 
+                ? "اختر قالباً لبدء مشروعك الجديد" 
+                : "Choose a template to start your new project"}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-y-auto py-4">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium">
+                    {isRTL ? "اسم المشروع" : "Project Name"}
+                  </label>
+                  <Input
+                    value={newProjectName}
+                    onChange={(e) => setNewProjectName(e.target.value)}
+                    placeholder={isRTL ? "مشروعي الجديد" : "my-new-project"}
+                    className="mt-1"
+                    data-testid="input-project-name"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">
+                    {isRTL ? "الوصف" : "Description"}
+                  </label>
+                  <Input
+                    value={newProjectDescription}
+                    onChange={(e) => setNewProjectDescription(e.target.value)}
+                    placeholder={isRTL ? "وصف المشروع..." : "Project description..."}
+                    className="mt-1"
+                    data-testid="input-project-description"
+                  />
+                </div>
+              </div>
+              
+              <Separator />
+              
+              <div>
+                <h4 className="text-sm font-medium mb-3">
+                  {isRTL ? "اختر قالباً" : "Select a Template"}
+                </h4>
+                {templatesLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-muted-foreground">
+                      {isRTL ? "جاري تحميل القوالب..." : "Loading templates..."}
+                    </span>
+                  </div>
+                ) : !templates || templates.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    {isRTL ? "لا توجد قوالب متاحة" : "No templates available"}
+                  </div>
+                ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {templates.map((template) => {
+                    const IconComponent = templateIcons[template.id] || Layout;
+                    return (
+                      <Card
+                        key={template.id}
+                        className={`p-3 cursor-pointer hover-elevate transition-all ${
+                          selectedTemplate === template.id 
+                            ? "ring-2 ring-primary bg-primary/5" 
+                            : ""
+                        }`}
+                        onClick={() => setSelectedTemplate(template.id)}
+                        data-testid={`template-card-${template.id}`}
+                      >
+                        <div className="flex flex-col items-center text-center gap-2">
+                          <div className={`p-2 rounded-md ${
+                            selectedTemplate === template.id 
+                              ? "bg-primary text-primary-foreground" 
+                              : "bg-muted"
+                          }`}>
+                            <IconComponent className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <h5 className="font-medium text-sm">
+                              {isRTL ? template.nameAr : template.name}
+                            </h5>
+                            <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
+                              {isRTL ? template.descriptionAr : template.description}
+                            </p>
+                          </div>
+                          {selectedTemplate === template.id && (
+                            <Badge variant="default" className="text-xs">
+                              <Check className="w-3 h-3 mr-1" />
+                              {isRTL ? "محدد" : "Selected"}
+                            </Badge>
+                          )}
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="border-t pt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowTemplateDialog(false);
+                setSelectedTemplate(null);
+                setNewProjectName("");
+                setNewProjectDescription("");
+              }}
+            >
+              {isRTL ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button 
+              onClick={() => {
+                if (selectedTemplate && newProjectName) {
+                  generateProjectMutation.mutate({
+                    templateId: selectedTemplate,
+                    name: newProjectName,
+                    description: newProjectDescription,
+                  });
+                }
+              }}
+              disabled={!selectedTemplate || !newProjectName || generateProjectMutation.isPending}
+              data-testid="button-generate-project"
+            >
+              {generateProjectMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {isRTL ? "جاري التوليد..." : "Generating..."}
+                </>
+              ) : (
+                <>
+                  <Rocket className="w-4 h-4 mr-2" />
+                  {isRTL ? "إنشاء المشروع" : "Create Project"}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeployDialog} onOpenChange={setShowDeployDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Cloud className="w-5 h-5 text-primary" />
+              {isRTL ? "نشر المشروع" : "Deploy Project"}
+            </DialogTitle>
+            <DialogDescription>
+              {isRTL 
+                ? "اختر مزود السحابة للنشر" 
+                : "Choose a cloud provider for deployment"}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { id: "vercel", name: "Vercel", icon: Globe },
+                { id: "netlify", name: "Netlify", icon: Globe },
+                { id: "railway", name: "Railway", icon: Server },
+                { id: "render", name: "Render", icon: Cloud },
+                { id: "flyio", name: "Fly.io", icon: Rocket },
+                { id: "hetzner", name: "Hetzner", icon: Database },
+              ].map((provider) => {
+                const IconComponent = provider.icon;
+                return (
+                  <Card
+                    key={provider.id}
+                    className={`p-3 cursor-pointer hover-elevate ${
+                      selectedDeployProvider === provider.id 
+                        ? "ring-2 ring-primary bg-primary/5" 
+                        : ""
+                    }`}
+                    onClick={() => setSelectedDeployProvider(provider.id)}
+                    data-testid={`provider-card-${provider.id}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-md ${
+                        selectedDeployProvider === provider.id 
+                          ? "bg-primary text-primary-foreground" 
+                          : "bg-muted"
+                      }`}>
+                        <IconComponent className="w-4 h-4" />
+                      </div>
+                      <span className="font-medium">{provider.name}</span>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeployDialog(false)}>
+              {isRTL ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button 
+              onClick={() => {
+                if (selectedWorkspace && selectedDeployProvider) {
+                  deployProjectMutation.mutate({
+                    projectId: selectedWorkspace,
+                    provider: selectedDeployProvider,
+                  });
+                }
+              }}
+              disabled={!selectedDeployProvider || deployProjectMutation.isPending}
+              data-testid="button-start-deploy"
+            >
+              {deployProjectMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {isRTL ? "جاري النشر..." : "Deploying..."}
+                </>
+              ) : (
+                <>
+                  <Rocket className="w-4 h-4 mr-2" />
+                  {isRTL ? "بدء النشر" : "Start Deploy"}
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
