@@ -185,19 +185,39 @@ Respond in JSON format only.
         }],
       });
 
-      const content = response.content[0];
-      if (content.type === "text") {
-        const jsonMatch = content.text.match(/\{[\s\S]*\}/);
+      // Handle multiple content blocks
+      const textContent = response.content
+        .filter(c => c.type === "text")
+        .map(c => (c as { type: "text"; text: string }).text)
+        .join("\n");
+      
+      if (textContent) {
+        // Try multiple JSON extraction patterns
+        const jsonMatch = textContent.match(/```json\s*([\s\S]*?)\s*```/) 
+          || textContent.match(/\{[\s\S]*\}/);
+        
         if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          return IntentAnalysisSchema.parse({
-            ...this.getDefaultIntentAnalysis(prompt, language),
-            ...parsed,
-          });
+          const jsonStr = jsonMatch[1] || jsonMatch[0];
+          try {
+            const parsed = JSON.parse(jsonStr);
+            return IntentAnalysisSchema.parse({
+              ...this.getDefaultIntentAnalysis(prompt, language),
+              ...parsed,
+            });
+          } catch (parseError) {
+            console.warn("JSON parse error, using defaults:", parseError);
+          }
         }
       }
-    } catch (error) {
-      console.error("Intent analysis error:", error);
+    } catch (error: any) {
+      // Handle specific API errors
+      if (error?.status === 429) {
+        console.warn("Rate limited, using default analysis");
+      } else if (error?.status === 401) {
+        console.error("Invalid API key");
+      } else {
+        console.error("Intent analysis error:", error?.message || error);
+      }
     }
 
     return this.getDefaultIntentAnalysis(prompt, language);

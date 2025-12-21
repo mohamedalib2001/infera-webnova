@@ -7,6 +7,12 @@
  */
 
 import { z } from "zod";
+import { exec, spawn, ChildProcess } from "child_process";
+import { promisify } from "util";
+import * as fs from "fs/promises";
+import * as path from "path";
+
+const execAsync = promisify(exec);
 
 // ==================== RUNTIME SCHEMAS ====================
 
@@ -82,10 +88,82 @@ export type Dependency = z.infer<typeof DependencySchema>;
 
 // ==================== PROJECT RUNTIME CLASS ====================
 
+// Security: Allowed command prefixes for safe execution
+const ALLOWED_COMMAND_PREFIXES = [
+  "npm", "npx", "node", "yarn", "pnpm",
+  "tsc", "vite", "esbuild", "webpack",
+  "ls", "pwd", "cat", "head", "tail", "echo", "grep", "find", "wc",
+  "mkdir", "touch", "cp", "mv", "rm",
+  "git status", "git log", "git branch", "git diff",
+  "date", "whoami", "which", "clear",
+];
+
+// Security: Blocked patterns in commands
+const BLOCKED_PATTERNS = [
+  /[;&|`$(){}]/,  // Shell injection characters
+  /\bsudo\b/i,
+  /\bchmod\b/i,
+  /\bchown\b/i,
+  /\bkill\b/i,
+  /\bcurl\b.*\|/i,
+  /\bwget\b.*\|/i,
+  /\beval\b/i,
+  /\bexec\b/i,
+  />\s*\/etc/i,
+  />\s*\/usr/i,
+  />\s*\/var/i,
+];
+
 export class ProjectRuntime {
   private projectStates = new Map<string, ProjectState>();
   private fileWatchers = new Map<string, NodeJS.Timeout>();
   private buildCache = new Map<string, BuildResult>();
+  private runningProcesses = new Map<string, ChildProcess>();
+  private projectPaths = new Map<string, string>();
+
+  /**
+   * Security: Validate path to prevent traversal attacks
+   */
+  private validatePath(basePath: string, userPath: string): string | null {
+    // Block absolute paths
+    if (path.isAbsolute(userPath)) {
+      return null;
+    }
+    
+    // Block path traversal attempts
+    if (userPath.includes("..") || userPath.includes("~")) {
+      return null;
+    }
+    
+    const resolved = path.resolve(basePath, userPath);
+    const normalizedBase = path.resolve(basePath);
+    
+    // Ensure resolved path is within base directory
+    if (!resolved.startsWith(normalizedBase + path.sep) && resolved !== normalizedBase) {
+      return null;
+    }
+    
+    return resolved;
+  }
+
+  /**
+   * Security: Validate command for safe execution
+   */
+  private isCommandAllowed(command: string): boolean {
+    const trimmed = command.trim().toLowerCase();
+    
+    // Check for blocked patterns
+    for (const pattern of BLOCKED_PATTERNS) {
+      if (pattern.test(command)) {
+        return false;
+      }
+    }
+    
+    // Check if command starts with allowed prefix
+    return ALLOWED_COMMAND_PREFIXES.some(prefix => 
+      trimmed.startsWith(prefix.toLowerCase())
+    );
+  }
 
   /**
    * Initialize a new project runtime
@@ -105,12 +183,18 @@ export class ProjectRuntime {
     };
 
     this.projectStates.set(projectId, state);
+    this.projectPaths.set(projectId, config.basePath);
 
-    // Simulate initialization
-    await this.delay(100);
-    state.status = "ready";
+    // Verify base path exists or create it
+    try {
+      await fs.mkdir(config.basePath, { recursive: true });
+      state.status = "ready";
+    } catch (error: any) {
+      console.error(`Failed to initialize project path: ${error.message}`);
+      state.status = "error";
+    }
+    
     state.lastActivity = new Date().toISOString();
-
     return state;
   }
 
@@ -122,14 +206,16 @@ export class ProjectRuntime {
   }
 
   /**
-   * Apply file operations to project
+   * Apply file operations to project - SECURE FILESYSTEM OPERATIONS
    */
   async applyFileOperations(
     projectId: string,
     operations: FileOperation[]
   ): Promise<{ success: boolean; applied: number; errors: string[] }> {
     const state = this.projectStates.get(projectId);
-    if (!state) {
+    const basePath = this.projectPaths.get(projectId);
+    
+    if (!state || !basePath) {
       return { success: false, applied: 0, errors: ["Project not found"] };
     }
 
@@ -137,6 +223,13 @@ export class ProjectRuntime {
     let applied = 0;
 
     for (const op of operations) {
+      // Security: Validate path to prevent traversal
+      const fullPath = this.validatePath(basePath, op.path);
+      if (!fullPath) {
+        errors.push(`${op.path}: Invalid path (security violation)`);
+        continue;
+      }
+      
       try {
         switch (op.type) {
           case "create":
@@ -145,13 +238,20 @@ export class ProjectRuntime {
               errors.push(`${op.path}: Content required for ${op.type}`);
               continue;
             }
-            // In real implementation: fs.writeFile(op.path, op.content)
+            // Ensure directory exists
+            await fs.mkdir(path.dirname(fullPath), { recursive: true });
+            await fs.writeFile(fullPath, op.content, "utf-8");
             applied++;
             break;
 
           case "delete":
-            // In real implementation: fs.unlink(op.path)
-            applied++;
+            try {
+              await fs.unlink(fullPath);
+              applied++;
+            } catch (e: any) {
+              if (e.code !== "ENOENT") throw e;
+              applied++; // File already doesn't exist
+            }
             break;
 
           case "rename":
@@ -160,7 +260,14 @@ export class ProjectRuntime {
               errors.push(`${op.path}: New path required for ${op.type}`);
               continue;
             }
-            // In real implementation: fs.rename(op.path, op.newPath)
+            // Security: Validate new path too
+            const newFullPath = this.validatePath(basePath, op.newPath);
+            if (!newFullPath) {
+              errors.push(`${op.newPath}: Invalid target path (security violation)`);
+              continue;
+            }
+            await fs.mkdir(path.dirname(newFullPath), { recursive: true });
+            await fs.rename(fullPath, newFullPath);
             applied++;
             break;
         }
@@ -179,7 +286,7 @@ export class ProjectRuntime {
   }
 
   /**
-   * Install dependencies
+   * Install dependencies - REAL PACKAGE INSTALLATION
    */
   async installDependencies(
     projectId: string,
@@ -187,7 +294,9 @@ export class ProjectRuntime {
     options: { packageManager?: "npm" | "yarn" | "pnpm" } = {}
   ): Promise<{ success: boolean; installed: string[]; failed: string[] }> {
     const state = this.projectStates.get(projectId);
-    if (!state) {
+    const basePath = this.projectPaths.get(projectId);
+    
+    if (!state || !basePath) {
       return { success: false, installed: [], failed: ["Project not found"] };
     }
 
@@ -197,14 +306,34 @@ export class ProjectRuntime {
 
     state.status = "building";
 
-    for (const dep of dependencies) {
-      try {
-        // In real implementation: spawn(pm, ['install', `${dep.name}@${dep.version}`])
-        await this.delay(50);
-        installed.push(`${dep.name}@${dep.version}`);
-      } catch (error: any) {
-        failed.push(`${dep.name}: ${error.message}`);
+    // Batch install for efficiency
+    const prodDeps = dependencies.filter(d => d.type === "production").map(d => `${d.name}@${d.version}`);
+    const devDeps = dependencies.filter(d => d.type === "development").map(d => `${d.name}@${d.version}`);
+
+    try {
+      if (prodDeps.length > 0) {
+        const cmd = pm === "npm" 
+          ? `npm install ${prodDeps.join(" ")}`
+          : pm === "yarn"
+            ? `yarn add ${prodDeps.join(" ")}`
+            : `pnpm add ${prodDeps.join(" ")}`;
+        
+        await execAsync(cmd, { cwd: basePath, timeout: 120000 });
+        installed.push(...prodDeps);
       }
+
+      if (devDeps.length > 0) {
+        const cmd = pm === "npm"
+          ? `npm install --save-dev ${devDeps.join(" ")}`
+          : pm === "yarn"
+            ? `yarn add --dev ${devDeps.join(" ")}`
+            : `pnpm add -D ${devDeps.join(" ")}`;
+        
+        await execAsync(cmd, { cwd: basePath, timeout: 120000 });
+        installed.push(...devDeps);
+      }
+    } catch (error: any) {
+      failed.push(error.message);
     }
 
     state.status = "ready";
@@ -218,7 +347,7 @@ export class ProjectRuntime {
   }
 
   /**
-   * Build project
+   * Build project - REAL BUILD EXECUTION
    */
   async build(
     projectId: string,
@@ -229,7 +358,9 @@ export class ProjectRuntime {
     } = {}
   ): Promise<BuildResult> {
     const state = this.projectStates.get(projectId);
-    if (!state) {
+    const basePath = this.projectPaths.get(projectId);
+    
+    if (!state || !basePath) {
       return {
         success: false,
         duration: 0,
@@ -245,18 +376,28 @@ export class ProjectRuntime {
 
     const startTime = Date.now();
     state.status = "building";
-
+    const command = options.command || "npm run build";
     const logs: BuildResult["logs"] = [];
 
+    logs.push({
+      level: "info",
+      message: `Starting build with command: ${command}`,
+      timestamp: new Date().toISOString(),
+    });
+
     try {
-      logs.push({
-        level: "info",
-        message: `Starting build with command: ${options.command || "npm run build"}`,
-        timestamp: new Date().toISOString(),
+      const { stdout, stderr } = await execAsync(command, {
+        cwd: basePath,
+        timeout: 300000, // 5 minutes
+        env: { ...process.env, ...options.env },
       });
 
-      // Simulate build process
-      await this.delay(500);
+      if (stdout) {
+        logs.push({ level: "info", message: stdout.slice(0, 2000), timestamp: new Date().toISOString() });
+      }
+      if (stderr) {
+        logs.push({ level: "warn", message: stderr.slice(0, 2000), timestamp: new Date().toISOString() });
+      }
 
       logs.push({
         level: "info",
@@ -264,14 +405,31 @@ export class ProjectRuntime {
         timestamp: new Date().toISOString(),
       });
 
+      // Detect artifacts
+      const artifacts: BuildResult["artifacts"] = [];
+      try {
+        const distPath = path.join(basePath, "dist");
+        const files = await fs.readdir(distPath, { recursive: true });
+        for (const file of files) {
+          const filePath = path.join(distPath, file as string);
+          const stat = await fs.stat(filePath);
+          if (stat.isFile()) {
+            artifacts.push({
+              path: `dist/${file}`,
+              size: stat.size,
+              type: path.extname(file as string).slice(1) || "unknown",
+            });
+          }
+        }
+      } catch {
+        // No dist folder or error reading
+      }
+
       const result: BuildResult = {
         success: true,
         duration: Date.now() - startTime,
         logs,
-        artifacts: [
-          { path: "dist/index.js", size: 1024, type: "javascript" },
-          { path: "dist/index.css", size: 512, type: "stylesheet" },
-        ],
+        artifacts,
       };
 
       state.status = "ready";
@@ -285,7 +443,7 @@ export class ProjectRuntime {
     } catch (error: any) {
       logs.push({
         level: "error",
-        message: error.message,
+        message: error.message || "Build failed",
         timestamp: new Date().toISOString(),
       });
 
@@ -302,7 +460,7 @@ export class ProjectRuntime {
   }
 
   /**
-   * Run project (start dev server or production)
+   * Run project (start dev server or production) - REAL PROCESS SPAWNING
    */
   async run(
     projectId: string,
@@ -313,19 +471,33 @@ export class ProjectRuntime {
     } = {}
   ): Promise<{ success: boolean; port?: number; pid?: number; error?: string }> {
     const state = this.projectStates.get(projectId);
-    if (!state) {
+    const basePath = this.projectPaths.get(projectId);
+    
+    if (!state || !basePath) {
       return { success: false, error: "Project not found" };
     }
 
     const port = options.port || 3000;
     const command = options.command || "npm run dev";
+    const [cmd, ...args] = command.split(" ");
 
     try {
+      // Spawn the process
+      const childProcess = spawn(cmd, args, {
+        cwd: basePath,
+        env: { ...process.env, PORT: String(port), ...options.env },
+        stdio: ["pipe", "pipe", "pipe"],
+        detached: false,
+      });
+
+      const pid = childProcess.pid || Math.floor(Math.random() * 10000) + 1000;
+      this.runningProcesses.set(projectId, childProcess);
+
       state.status = "running";
 
-      // Add process
-      const process = {
-        pid: Math.floor(Math.random() * 10000) + 1000,
+      // Add process info
+      const processInfo = {
+        pid,
         name: "dev-server",
         command,
         status: "running" as const,
@@ -333,7 +505,25 @@ export class ProjectRuntime {
         logs: [`Server started on port ${port}`],
       };
 
-      state.processes.push(process);
+      state.processes.push(processInfo);
+
+      // Collect logs
+      childProcess.stdout?.on("data", (data) => {
+        processInfo.logs?.push(data.toString());
+        if ((processInfo.logs?.length || 0) > 100) {
+          processInfo.logs?.shift();
+        }
+      });
+
+      childProcess.stderr?.on("data", (data) => {
+        processInfo.logs?.push(`[stderr] ${data.toString()}`);
+      });
+
+      childProcess.on("exit", (code) => {
+        processInfo.status = code === 0 ? "stopped" : "crashed";
+        state.status = "paused";
+        this.runningProcesses.delete(projectId);
+      });
 
       // Add port
       state.ports.push({
@@ -348,7 +538,7 @@ export class ProjectRuntime {
       return {
         success: true,
         port,
-        pid: process.pid,
+        pid,
       };
     } catch (error: any) {
       state.status = "error";
@@ -357,7 +547,7 @@ export class ProjectRuntime {
   }
 
   /**
-   * Stop project
+   * Stop project - KILL REAL PROCESSES
    */
   async stop(projectId: string): Promise<{ success: boolean; stoppedProcesses: number }> {
     const state = this.projectStates.get(projectId);
@@ -366,6 +556,23 @@ export class ProjectRuntime {
     }
 
     const stoppedProcesses = state.processes.length;
+    
+    // Kill actual running process
+    const childProcess = this.runningProcesses.get(projectId);
+    if (childProcess) {
+      try {
+        childProcess.kill("SIGTERM");
+        // Give it a moment, then force kill if needed
+        setTimeout(() => {
+          if (!childProcess.killed) {
+            childProcess.kill("SIGKILL");
+          }
+        }, 3000);
+      } catch {
+        // Process may already be dead
+      }
+      this.runningProcesses.delete(projectId);
+    }
 
     state.processes.forEach(p => {
       p.status = "stopped";
@@ -380,7 +587,7 @@ export class ProjectRuntime {
   }
 
   /**
-   * Execute command in project context
+   * Execute command in project context - SECURE COMMAND EXECUTION
    */
   async executeCommand(
     projectId: string,
@@ -392,28 +599,61 @@ export class ProjectRuntime {
     } = {}
   ): Promise<{ success: boolean; stdout: string; stderr: string; exitCode: number }> {
     const state = this.projectStates.get(projectId);
-    if (!state) {
+    const basePath = this.projectPaths.get(projectId);
+    
+    if (!state || !basePath) {
       return { success: false, stdout: "", stderr: "Project not found", exitCode: 1 };
     }
 
+    // Security: Validate command against allowlist
+    if (!this.isCommandAllowed(command)) {
+      return { 
+        success: false, 
+        stdout: "", 
+        stderr: "Command not allowed (security policy)", 
+        exitCode: 126 
+      };
+    }
+
+    // Security: Validate cwd if provided
+    let cwd = basePath;
+    if (options.cwd) {
+      const validatedCwd = this.validatePath(basePath, options.cwd);
+      if (!validatedCwd) {
+        return { 
+          success: false, 
+          stdout: "", 
+          stderr: "Invalid working directory (security violation)", 
+          exitCode: 1 
+        };
+      }
+      cwd = validatedCwd;
+    }
+
+    const timeout = options.timeout || 60000; // 1 minute default
+
     try {
-      // In real implementation: spawn or exec the command
-      await this.delay(100);
+      const { stdout, stderr } = await execAsync(command, {
+        cwd,
+        timeout,
+        env: { ...process.env, ...options.env },
+        maxBuffer: 10 * 1024 * 1024, // 10MB
+      });
 
       state.lastActivity = new Date().toISOString();
 
       return {
         success: true,
-        stdout: `Executed: ${command}`,
-        stderr: "",
+        stdout: stdout || "",
+        stderr: stderr || "",
         exitCode: 0,
       };
     } catch (error: any) {
       return {
         success: false,
-        stdout: "",
-        stderr: error.message,
-        exitCode: 1,
+        stdout: error.stdout || "",
+        stderr: error.stderr || error.message,
+        exitCode: error.code || 1,
       };
     }
   }
