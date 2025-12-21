@@ -15,7 +15,8 @@ export function generateWsToken(projectId: string, userId: string): string {
   wsTokenStore.set(token, { projectId, userId, expiresAt });
   
   // Cleanup expired tokens
-  for (const [key, value] of wsTokenStore.entries()) {
+  const entries = Array.from(wsTokenStore.entries());
+  for (const [key, value] of entries) {
     if (value.expiresAt < Date.now()) {
       wsTokenStore.delete(key);
     }

@@ -465,7 +465,8 @@ class SandboxExecutorImpl implements ISandboxExecutor {
     return this.execute({
       language,
       code,
-      ...options,
+      args: options.args || [],
+      env: options.env || {},
       timeout: options.timeout || 30000,
       resources: options.resources || {
         maxCpu: 50,
@@ -473,6 +474,8 @@ class SandboxExecutorImpl implements ISandboxExecutor {
         maxDisk: 100,
         networkEnabled: true,
       },
+      entryPoint: options.entryPoint,
+      stdin: options.stdin,
     });
   }
 

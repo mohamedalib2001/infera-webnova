@@ -182,13 +182,13 @@ export default function ISDSPage() {
 
   const executeCommandMutation = useMutation({
     mutationFn: async (command: string) => {
-      return apiRequest("POST", "/api/owner/isds/execute", { command, workspaceId: selectedWorkspace });
+      return apiRequest("POST", "/api/owner/isds/terminal/execute", { command, workspaceId: selectedWorkspace });
     },
-    onSuccess: (data: { output: string; exitCode: number }) => {
+    onSuccess: (data: { output: string; exitCode: number; error?: string }) => {
       const result: CommandResult = {
         id: Date.now().toString(),
         command: commandInput,
-        output: data.output,
+        output: data.error ? `${data.output}\n${data.error}` : data.output,
         exitCode: data.exitCode,
         timestamp: new Date(),
       };

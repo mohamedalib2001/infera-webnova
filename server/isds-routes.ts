@@ -899,5 +899,162 @@ Be concise and actionable. Format as a list of specific suggestions.`;
     }
   });
 
+  // Terminal WebSocket Token Endpoint
+  // SECURITY: Verify project ownership before issuing token
+  app.post("/api/owner/isds/terminal/token", requireOwner, async (req, res) => {
+    try {
+      const ownerId = (req as any).ownerId;
+      const { projectId, workspaceId } = req.body;
+      
+      if (!projectId && !workspaceId) {
+        return res.status(400).json({ error: "Project ID or Workspace ID required" });
+      }
+
+      // SECURITY: Verify ownership before issuing token
+      if (workspaceId) {
+        const isOwner = await verifyWorkspaceOwnership(workspaceId, ownerId);
+        if (!isOwner) {
+          console.warn(`[Terminal Security] Unauthorized token request: user ${ownerId} tried to access workspace ${workspaceId}`);
+          return res.status(403).json({ error: "Workspace access denied" });
+        }
+      }
+
+      if (projectId) {
+        // Verify project belongs to owner's workspace
+        const project = await db
+          .select()
+          .from(isdsProjects)
+          .where(eq(isdsProjects.id, projectId))
+          .limit(1);
+        
+        if (project.length === 0) {
+          return res.status(404).json({ error: "Project not found" });
+        }
+
+        // Verify workspace ownership
+        const isOwner = await verifyWorkspaceOwnership(project[0].workspaceId, ownerId);
+        if (!isOwner) {
+          console.warn(`[Terminal Security] Unauthorized token request: user ${ownerId} tried to access project ${projectId}`);
+          return res.status(403).json({ error: "Project access denied" });
+        }
+      }
+
+      // Generate secure token for WebSocket connection
+      const { generateWsToken } = await import("./terminal-service");
+      const targetId = projectId || workspaceId;
+      const wsToken = generateWsToken(targetId, ownerId);
+      const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
+
+      res.json({ token: wsToken, expiresAt });
+    } catch (error: any) {
+      console.error("Terminal token error:", error);
+      res.status(500).json({ error: "Failed to generate terminal token" });
+    }
+  });
+
+  // Execute command endpoint (REST fallback for WebSocket)
+  // SECURITY: Strict whitelist-based command execution
+  const ALLOWED_COMMAND_PREFIXES = [
+    "ls", "pwd", "cat", "head", "tail", "echo", "grep", "find", "wc",
+    "npm", "npx", "node", "yarn", "pnpm",
+    "python", "python3", "pip", "pip3",
+    "git status", "git log", "git branch", "git diff", "git show",
+    "clear", "help", "mkdir", "touch", "cp", "mv",
+    "date", "whoami", "which",
+  ];
+
+  const isCommandAllowed = (cmd: string): boolean => {
+    const trimmed = cmd.trim().toLowerCase();
+    return ALLOWED_COMMAND_PREFIXES.some(prefix => 
+      trimmed === prefix || trimmed.startsWith(prefix + " ")
+    );
+  };
+
+  app.post("/api/owner/isds/terminal/execute", requireOwner, async (req, res) => {
+    try {
+      const ownerId = (req as any).ownerId;
+      const { command, workspaceId } = req.body;
+
+      if (!command || typeof command !== "string") {
+        return res.status(400).json({ error: "Command required" });
+      }
+
+      // Verify ownership
+      if (workspaceId && !(await verifyWorkspaceOwnership(workspaceId, ownerId))) {
+        return res.status(403).json({ error: "Workspace access denied" });
+      }
+
+      // SECURITY: Strict whitelist validation
+      if (!isCommandAllowed(command)) {
+        return res.status(403).json({
+          id: generateId(),
+          command,
+          output: "",
+          exitCode: 1,
+          error: `Command not allowed. Allowed: ${ALLOWED_COMMAND_PREFIXES.slice(0, 10).join(", ")}...`,
+          timestamp: new Date(),
+        });
+      }
+
+      // Additional security: Block shell injection patterns
+      const dangerousChars = /[;&|`$(){}]/;
+      if (dangerousChars.test(command)) {
+        return res.status(403).json({
+          id: generateId(),
+          command,
+          output: "",
+          exitCode: 1,
+          error: "Command contains blocked characters",
+          timestamp: new Date(),
+        });
+      }
+
+      const safeWorkspaceId = workspaceId?.replace(/[^a-zA-Z0-9-]/g, "") || "default";
+      const workspacePath = path.join(ISDS_WORKSPACE_PATH, safeWorkspaceId);
+      await ensureWorkspaceDir();
+      await fs.mkdir(workspacePath, { recursive: true }).catch(() => {});
+
+      // Execute command with strict limits
+      const { stdout, stderr } = await execAsync(command, {
+        cwd: workspacePath,
+        timeout: 30000, // 30 second timeout
+        maxBuffer: 5 * 1024 * 1024, // 5MB max output
+        uid: process.getuid?.(), // Run as current user
+        gid: process.getgid?.(),
+      });
+
+      const result = {
+        id: generateId(),
+        command,
+        output: stdout + (stderr ? `\n${stderr}` : ""),
+        exitCode: 0,
+        timestamp: new Date(),
+      };
+
+      commandsHistory.push({
+        ...result,
+        executedBy: ownerId,
+      });
+
+      // Limit history size
+      if (commandsHistory.length > 100) {
+        commandsHistory.splice(0, commandsHistory.length - 100);
+      }
+
+      res.json(result);
+    } catch (error: any) {
+      const result = {
+        id: generateId(),
+        command: req.body.command,
+        output: error.stdout || "",
+        exitCode: error.code || 1,
+        error: error.stderr || error.message,
+        timestamp: new Date(),
+      };
+
+      res.json(result);
+    }
+  });
+
   console.log("ISDS Routes initialized - Sovereign Dev Studio ready");
 }
