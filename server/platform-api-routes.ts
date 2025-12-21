@@ -1034,6 +1034,701 @@ router.post('/copilot/chat', requireAuth, async (req: Request, res: Response) =>
   }
 });
 
+// ==================== HETZNER DEPLOYMENT ROUTES ====================
+
+// Helper to sanitize Hetzner errors - never expose internal API details
+function sanitizeHetznerError(error: any): string {
+  const msg = (typeof error === 'string' ? error : error?.message || '').toLowerCase();
+  if (msg.includes('token') || msg.includes('auth')) return 'Cloud API authentication error';
+  if (msg.includes('not found') || msg.includes('404')) return 'Resource not found';
+  if (msg.includes('rate') || msg.includes('limit')) return 'Rate limit exceeded. Try again later.';
+  if (msg.includes('timeout')) return 'Request timed out. Try again.';
+  return 'Cloud operation failed. Please try again.';
+}
+
+// Helper to sanitize ALL Hetzner responses - not just errors
+function sanitizeHetznerResponse(result: any): any {
+  if (!result) return result;
+  // If result contains an error field, sanitize it
+  if (result.error && typeof result.error === 'string') {
+    return { ...result, error: sanitizeHetznerError(result.error) };
+  }
+  // Remove any sensitive fields that might leak
+  if (result.rootPassword) {
+    const { rootPassword, ...safe } = result;
+    return safe;
+  }
+  return result;
+}
+
+// In-memory cache for deployment registry (backed by database)
+// Maps serverId → { projectId, ownerId } for fast ownership verification
+interface DeploymentOwnership {
+  serverId: number;
+  projectId: string;
+  ownerId: string;
+}
+const deploymentCache = new Map<number, DeploymentOwnership>();
+
+// Load deployment ownership from database into cache
+async function loadDeploymentOwnershipFromDB(serverId: number): Promise<DeploymentOwnership | null> {
+  try {
+    const { db } = await import('./db');
+    const { hetznerDeployments } = await import('@shared/schema');
+    const { eq } = await import('drizzle-orm');
+    
+    const deployment = await db.select()
+      .from(hetznerDeployments)
+      .where(eq(hetznerDeployments.serverId, serverId))
+      .limit(1);
+    
+    if (deployment.length === 0) {
+      return null;
+    }
+    
+    const ownership: DeploymentOwnership = {
+      serverId: deployment[0].serverId,
+      projectId: deployment[0].projectId,
+      ownerId: deployment[0].ownerId,
+    };
+    
+    // Cache for future lookups
+    deploymentCache.set(serverId, ownership);
+    return ownership;
+  } catch (error) {
+    console.error('[Hetzner] Failed to load deployment from DB:', error);
+    return null;
+  }
+}
+
+// Save deployment ownership to database
+async function saveDeploymentOwnershipToDB(serverId: number, projectId: string, ownerId: string, serverName?: string, serverType?: string, location?: string): Promise<boolean> {
+  try {
+    const { db } = await import('./db');
+    const { hetznerDeployments } = await import('@shared/schema');
+    
+    await db.insert(hetznerDeployments).values({
+      serverId,
+      projectId,
+      ownerId,
+      serverName,
+      serverType,
+      location,
+      status: 'active',
+    });
+    
+    // Also cache locally
+    deploymentCache.set(serverId, { serverId, projectId, ownerId });
+    return true;
+  } catch (error) {
+    console.error('[Hetzner] Failed to save deployment to DB:', error);
+    return false;
+  }
+}
+
+// Delete deployment ownership from database
+async function deleteDeploymentOwnershipFromDB(serverId: number): Promise<boolean> {
+  try {
+    const { db } = await import('./db');
+    const { hetznerDeployments } = await import('@shared/schema');
+    const { eq } = await import('drizzle-orm');
+    
+    await db.delete(hetznerDeployments).where(eq(hetznerDeployments.serverId, serverId));
+    deploymentCache.delete(serverId);
+    return true;
+  } catch (error) {
+    console.error('[Hetzner] Failed to delete deployment from DB:', error);
+    return false;
+  }
+}
+
+// Verify project ownership via database (isdsProjects + devWorkspaces)
+async function verifyProjectOwnershipFromDB(projectId: string, userId: string): Promise<boolean> {
+  try {
+    const { db } = await import('./db');
+    const { isdsProjects, devWorkspaces } = await import('@shared/schema');
+    const { eq } = await import('drizzle-orm');
+    
+    // Find project and its workspace
+    const project = await db.select()
+      .from(isdsProjects)
+      .where(eq(isdsProjects.id, projectId))
+      .limit(1);
+    
+    if (project.length === 0) {
+      // Project doesn't exist in database
+      return false;
+    }
+    
+    // Get workspace to check ownership
+    const workspace = await db.select()
+      .from(devWorkspaces)
+      .where(eq(devWorkspaces.id, project[0].workspaceId))
+      .limit(1);
+    
+    if (workspace.length === 0) {
+      return false;
+    }
+    
+    // Check if user owns the workspace
+    return workspace[0].ownerId === userId;
+  } catch (error) {
+    console.error('[Hetzner] Database ownership check failed:', error);
+    return false;
+  }
+}
+
+// Check if user can deploy to this project (database-backed)
+async function canDeployToProject(projectId: string, userId: string): Promise<boolean> {
+  // Always verify against authoritative source (database)
+  return await verifyProjectOwnershipFromDB(projectId, userId);
+}
+
+// Helper to get authenticated user ID from request
+function getAuthenticatedUserId(req: Request): string | null {
+  // Try session first, then passport user claims
+  const sessionUserId = (req.session as any)?.userId;
+  if (sessionUserId) return String(sessionUserId);
+  
+  const passportUser = (req as any).user;
+  if (passportUser?.id) return String(passportUser.id);
+  if (passportUser?.claims?.sub) return String(passportUser.claims.sub);
+  
+  return null;
+}
+
+
+// Verify server ownership - checks cache then database
+async function verifyServerOwnership(serverId: number, userId: string): Promise<boolean> {
+  // Check cache first
+  let ownership = deploymentCache.get(serverId);
+  
+  // If not in cache, load from database
+  if (!ownership) {
+    ownership = await loadDeploymentOwnershipFromDB(serverId) || undefined;
+  }
+  
+  if (!ownership) {
+    // Not found in cache or database - deny access
+    return false;
+  }
+  
+  return ownership.ownerId === userId;
+}
+
+// Verify project ownership - async version using database
+async function verifyProjectOwnership(projectId: string, userId: string): Promise<boolean> {
+  // Always verify against authoritative source (database)
+  return await verifyProjectOwnershipFromDB(projectId, userId);
+}
+
+/**
+ * GET /api/platform/hetzner/status
+ * Check if Hetzner API is configured
+ */
+router.get('/hetzner/status', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { hetznerDeployment } = await import('@shared/core/kernel/hetzner-deployment');
+    res.json({ 
+      configured: hetznerDeployment.isConfigured(),
+      serverTypes: hetznerDeployment.getServerTypes(),
+      locations: hetznerDeployment.getLocations()
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: sanitizeHetznerError(error) });
+  }
+});
+
+/**
+ * POST /api/platform/hetzner/deploy
+ * Deploy a project to Hetzner Cloud
+ */
+router.post('/hetzner/deploy', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { hetznerDeployment } = await import('@shared/core/kernel/hetzner-deployment');
+    const { projectId, projectName, serverType, location, image } = req.body;
+    
+    if (!projectId || !projectName) {
+      return res.status(400).json({ error: 'Project ID and name are required' });
+    }
+    
+    // Get authenticated user for ownership
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    // Validate serverType
+    const validServerTypes = ['cx11', 'cx21', 'cx31', 'cx41', 'cx51', 'cpx11', 'cpx21', 'cpx31', 'cpx41', 'cpx51'];
+    if (serverType && !validServerTypes.includes(serverType)) {
+      return res.status(400).json({ error: 'Invalid server type' });
+    }
+    
+    // Validate location
+    const validLocations = ['fsn1', 'nbg1', 'hel1', 'ash', 'hil'];
+    if (location && !validLocations.includes(location)) {
+      return res.status(400).json({ error: 'Invalid location' });
+    }
+    
+    // Validate image
+    const validImages = ['ubuntu-22.04', 'ubuntu-20.04', 'debian-12', 'debian-11', 'rocky-9', 'fedora-39'];
+    if (image && !validImages.includes(image)) {
+      return res.status(400).json({ error: 'Invalid image' });
+    }
+    
+    // CRITICAL: Verify user can deploy to this project BEFORE making API call
+    if (!(await canDeployToProject(projectId, userId))) {
+      return res.status(403).json({ error: 'Access denied - project belongs to another user' });
+    }
+    
+    const result = await hetznerDeployment.deploy(projectId, projectName, {
+      serverType,
+      location,
+      image
+    });
+    
+    // Persist deployment ownership to database for tenant isolation
+    if (result.success && result.serverId) {
+      await saveDeploymentOwnershipToDB(result.serverId, projectId, userId, projectName, serverType, location);
+    }
+    
+    res.json(sanitizeHetznerResponse(result));
+  } catch (error: any) {
+    res.status(500).json({ error: 'Deployment failed. Please try again.' });
+  }
+});
+
+/**
+ * GET /api/platform/hetzner/deployments/:projectId
+ * List all deployments for a project
+ */
+router.get('/hetzner/deployments/:projectId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    // Verify project ownership
+    if (!(await verifyProjectOwnership(req.params.projectId, userId))) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const { hetznerDeployment } = await import('@shared/core/kernel/hetzner-deployment');
+    const servers = await hetznerDeployment.listDeployments(req.params.projectId);
+    res.json(sanitizeHetznerResponse({ servers }));
+  } catch (error: any) {
+    res.status(500).json({ error: sanitizeHetznerError(error) });
+  }
+});
+
+/**
+ * GET /api/platform/hetzner/server/:serverId
+ * Get server status
+ */
+router.get('/hetzner/server/:serverId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    const serverId = parseInt(req.params.serverId);
+    // Verify server ownership
+    if (!(await verifyServerOwnership(serverId, userId))) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const { hetznerDeployment } = await import('@shared/core/kernel/hetzner-deployment');
+    const status = await hetznerDeployment.getStatus(serverId);
+    res.json(sanitizeHetznerResponse(status));
+  } catch (error: any) {
+    res.status(500).json({ error: sanitizeHetznerError(error) });
+  }
+});
+
+/**
+ * POST /api/platform/hetzner/server/:serverId/restart
+ * Restart a server
+ */
+router.post('/hetzner/server/:serverId/restart', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    const serverId = parseInt(req.params.serverId);
+    if (!(await verifyServerOwnership(serverId, userId))) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const { hetznerDeployment } = await import('@shared/core/kernel/hetzner-deployment');
+    const result = await hetznerDeployment.restartDeployment(serverId);
+    res.json(sanitizeHetznerResponse(result));
+  } catch (error: any) {
+    res.status(500).json({ error: sanitizeHetznerError(error) });
+  }
+});
+
+/**
+ * POST /api/platform/hetzner/server/:serverId/stop
+ * Stop a server
+ */
+router.post('/hetzner/server/:serverId/stop', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    const serverId = parseInt(req.params.serverId);
+    if (!(await verifyServerOwnership(serverId, userId))) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const { hetznerDeployment } = await import('@shared/core/kernel/hetzner-deployment');
+    const result = await hetznerDeployment.stopDeployment(serverId);
+    res.json(sanitizeHetznerResponse(result));
+  } catch (error: any) {
+    res.status(500).json({ error: sanitizeHetznerError(error) });
+  }
+});
+
+/**
+ * POST /api/platform/hetzner/server/:serverId/start
+ * Start a server
+ */
+router.post('/hetzner/server/:serverId/start', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    const serverId = parseInt(req.params.serverId);
+    if (!(await verifyServerOwnership(serverId, userId))) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const { hetznerDeployment } = await import('@shared/core/kernel/hetzner-deployment');
+    const result = await hetznerDeployment.startDeployment(serverId);
+    res.json(sanitizeHetznerResponse(result));
+  } catch (error: any) {
+    res.status(500).json({ error: sanitizeHetznerError(error) });
+  }
+});
+
+/**
+ * DELETE /api/platform/hetzner/server/:serverId
+ * Delete a server
+ */
+router.delete('/hetzner/server/:serverId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    const serverId = parseInt(req.params.serverId);
+    if (!(await verifyServerOwnership(serverId, userId))) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const { hetznerDeployment } = await import('@shared/core/kernel/hetzner-deployment');
+    const result = await hetznerDeployment.deleteDeployment(serverId);
+    
+    // Delete from ownership database on successful deletion
+    if (result.success) {
+      await deleteDeploymentOwnershipFromDB(serverId);
+    }
+    
+    res.json(sanitizeHetznerResponse(result));
+  } catch (error: any) {
+    res.status(500).json({ error: sanitizeHetznerError(error) });
+  }
+});
+
+/**
+ * GET /api/platform/hetzner/cost/:serverType
+ * Get cost estimate for a server type
+ */
+router.get('/hetzner/cost/:serverType', async (req: Request, res: Response) => {
+  try {
+    const { hetznerDeployment } = await import('@shared/core/kernel/hetzner-deployment');
+    const cost = hetznerDeployment.getCostEstimate(req.params.serverType);
+    res.json(cost);
+  } catch (error: any) {
+    res.status(500).json({ error: sanitizeHetznerError(error) });
+  }
+});
+
+// ==================== MONITORING ROUTES ====================
+
+/**
+ * GET /api/platform/monitoring/dashboard
+ * Get monitoring dashboard data
+ */
+router.get('/monitoring/dashboard', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { monitoringSystem } = await import('@shared/core/kernel/monitoring-system');
+    const dashboard = monitoringSystem.getDashboard();
+    res.json(dashboard);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/platform/monitoring/system
+ * Get system metrics
+ */
+router.get('/monitoring/system', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { monitoringSystem } = await import('@shared/core/kernel/monitoring-system');
+    const metrics = monitoringSystem.metrics.getSystemMetrics();
+    res.json(metrics);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/platform/monitoring/application
+ * Get application metrics
+ */
+router.get('/monitoring/application', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { monitoringSystem } = await import('@shared/core/kernel/monitoring-system');
+    const metrics = monitoringSystem.metrics.getApplicationMetrics();
+    res.json(metrics);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/platform/monitoring/health
+ * Get health check results
+ */
+router.get('/monitoring/health', async (req: Request, res: Response) => {
+  try {
+    const { monitoringSystem } = await import('@shared/core/kernel/monitoring-system');
+    const health = await monitoringSystem.health.runAll();
+    const overall = monitoringSystem.health.getOverallStatus();
+    res.json({ status: overall, checks: health });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/platform/monitoring/alerts
+ * Get alerts
+ */
+router.get('/monitoring/alerts', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { monitoringSystem } = await import('@shared/core/kernel/monitoring-system');
+    const unacknowledgedOnly = req.query.unacknowledged === 'true';
+    const severity = req.query.severity as any;
+    const alerts = monitoringSystem.alerts.getAlerts({ unacknowledgedOnly, severity });
+    res.json({ alerts });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/monitoring/alerts/:id/acknowledge
+ * Acknowledge an alert
+ */
+router.post('/monitoring/alerts/:id/acknowledge', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { monitoringSystem } = await import('@shared/core/kernel/monitoring-system');
+    const success = monitoringSystem.alerts.acknowledge(req.params.id);
+    res.json({ success });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/monitoring/record
+ * Record a request metric
+ */
+router.post('/monitoring/record', async (req: Request, res: Response) => {
+  try {
+    const { monitoringSystem } = await import('@shared/core/kernel/monitoring-system');
+    const { latency, isError } = req.body;
+    monitoringSystem.metrics.recordRequest(latency || 0, isError || false);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== SECURE TERMINAL ROUTES ====================
+
+/**
+ * POST /api/platform/terminal/token
+ * Generate a secure terminal token
+ */
+router.post('/terminal/token', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { secureTerminal } = await import('@shared/core/kernel/secure-terminal');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    const { workspaceId, projectId } = req.body;
+    
+    const token = secureTerminal.generateToken(userId, { workspaceId, projectId });
+    res.json(token);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/terminal/session
+ * Create a new terminal session
+ */
+router.post('/terminal/session', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { secureTerminal } = await import('@shared/core/kernel/secure-terminal');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    const { workspaceId, projectId, cwd } = req.body;
+    
+    const session = secureTerminal.createSession(userId, { workspaceId, projectId, cwd });
+    res.json({ 
+      id: session.id,
+      cwd: session.cwd,
+      created: session.created 
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/terminal/:sessionId/execute
+ * Execute a command in a terminal session
+ */
+router.post('/terminal/:sessionId/execute', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { secureTerminal } = await import('@shared/core/kernel/secure-terminal');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    const { command } = req.body;
+    
+    if (!command) {
+      return res.status(400).json({ error: 'Command is required' });
+    }
+    
+    // Pass userId for ownership verification
+    const result = await secureTerminal.executeCommand(req.params.sessionId, command, userId);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Command execution failed' });
+  }
+});
+
+/**
+ * POST /api/platform/terminal/:sessionId/cd
+ * Change directory in a terminal session
+ */
+router.post('/terminal/:sessionId/cd', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { secureTerminal } = await import('@shared/core/kernel/secure-terminal');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    const { path } = req.body;
+    
+    if (!path) {
+      return res.status(400).json({ error: 'Path is required' });
+    }
+    
+    // Verify session ownership
+    const session = secureTerminal.getSession(req.params.sessionId);
+    if (!session || session.userId !== userId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const result = secureTerminal.changeDirectory(req.params.sessionId, path);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Operation failed' });
+  }
+});
+
+/**
+ * GET /api/platform/terminal/:sessionId/history
+ * Get command history for a session
+ */
+router.get('/terminal/:sessionId/history', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { secureTerminal } = await import('@shared/core/kernel/secure-terminal');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    
+    // Verify session ownership
+    const session = secureTerminal.getSession(req.params.sessionId);
+    if (!session || session.userId !== userId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const history = secureTerminal.getHistory(req.params.sessionId);
+    res.json({ history });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve history' });
+  }
+});
+
+/**
+ * DELETE /api/platform/terminal/:sessionId
+ * Destroy a terminal session
+ */
+router.delete('/terminal/:sessionId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { secureTerminal } = await import('@shared/core/kernel/secure-terminal');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    
+    // Verify session ownership before deletion
+    const session = secureTerminal.getSession(req.params.sessionId);
+    if (!session || session.userId !== userId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    secureTerminal.destroySession(req.params.sessionId);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to destroy session' });
+  }
+});
+
+/**
+ * GET /api/platform/terminal/sessions
+ * List all sessions for the current user
+ */
+router.get('/terminal/sessions', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { secureTerminal } = await import('@shared/core/kernel/secure-terminal');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    const sessions = secureTerminal.listUserSessions(userId);
+    res.json({ sessions });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/platform/terminal/stats
+ * Get terminal statistics
+ */
+router.get('/terminal/stats', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { secureTerminal } = await import('@shared/core/kernel/secure-terminal');
+    const stats = secureTerminal.getStats();
+    res.json(stats);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ==================== EXPORT ROUTER ====================
 export function registerPlatformApiRoutes(app: any) {
   app.use('/api/platform', router);
@@ -1041,6 +1736,9 @@ export function registerPlatformApiRoutes(app: any) {
   console.log('[AI Orchestrator] AI endpoints ready at /api/platform/ai/*');
   console.log('[AI Copilot] Copilot endpoints ready at /api/platform/copilot/*');
   console.log('[Project Runtime] Runtime endpoints ready at /api/platform/runtime/*');
+  console.log('[Hetzner Deployment] Cloud endpoints ready at /api/platform/hetzner/*');
+  console.log('[Monitoring] Metrics endpoints ready at /api/platform/monitoring/*');
+  console.log('[Secure Terminal] Terminal endpoints ready at /api/platform/terminal/*');
 }
 
 export default router;

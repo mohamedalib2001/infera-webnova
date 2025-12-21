@@ -300,7 +300,8 @@ export class HetznerDeploymentEngine {
     const userData = options.setupScript || this.getDefaultSetupScript(projectName);
 
     try {
-      const { server, rootPassword } = await this.client.createServer({
+      // Note: rootPassword is intentionally not returned for security
+      const { server } = await this.client.createServer({
         name: serverName,
         serverType,
         image: options.image || 'ubuntu-22.04',
@@ -329,7 +330,11 @@ export class HetznerDeploymentEngine {
         },
       };
     } catch (error: any) {
-      return { success: false, error: error.message, deploymentId };
+      // Sanitize error - don't expose internal API details
+      const safeError = error.message?.includes('HETZNER') 
+        ? 'Cloud API configuration error'
+        : 'Deployment failed. Please try again.';
+      return { success: false, error: safeError, deploymentId };
     }
   }
 

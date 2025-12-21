@@ -8928,3 +8928,34 @@ export const insertSpomAuditLogSchema = createInsertSchema(spomAuditLog).omit({
 
 export type InsertSpomAuditLog = z.infer<typeof insertSpomAuditLogSchema>;
 export type SpomAuditLogRecord = typeof spomAuditLog.$inferSelect;
+
+// ==================== HETZNER DEPLOYMENTS (Tenant Isolation) ====================
+
+// Persistent storage for Hetzner deployment ownership
+// Used to verify tenant isolation after server restarts
+export const hetznerDeployments = pgTable("hetzner_deployments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  serverId: integer("server_id").notNull().unique(), // Hetzner server ID
+  projectId: varchar("project_id").references(() => isdsProjects.id, { onDelete: "cascade" }).notNull(),
+  ownerId: varchar("owner_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  serverName: text("server_name"),
+  serverType: varchar("server_type", { length: 20 }),
+  location: varchar("location", { length: 20 }),
+  status: text("status").notNull().default("active"), // active, stopped, deleted
+  ipAddress: text("ip_address"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_hetzner_server_id").on(table.serverId),
+  index("IDX_hetzner_project_id").on(table.projectId),
+  index("IDX_hetzner_owner_id").on(table.ownerId),
+]);
+
+export const insertHetznerDeploymentSchema = createInsertSchema(hetznerDeployments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertHetznerDeployment = z.infer<typeof insertHetznerDeploymentSchema>;
+export type HetznerDeployment = typeof hetznerDeployments.$inferSelect;
