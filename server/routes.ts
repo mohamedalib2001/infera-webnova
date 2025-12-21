@@ -3482,6 +3482,54 @@ ${project.description || ""}
     }
   });
 
+  // ============ Platform Branding Routes (Public) ============
+
+  // Get public platform branding (no auth required)
+  app.get("/api/platform/branding", async (req, res) => {
+    try {
+      // Get owner's white label settings if active
+      const ownerSettings = await storage.getOwnerWhiteLabelSettings();
+      
+      if (ownerSettings && ownerSettings.isActive) {
+        res.json({
+          brandName: ownerSettings.brandName || 'INFERA WebNova',
+          brandNameAr: ownerSettings.brandNameAr || 'إنفيرا ويب نوفا',
+          logoUrl: ownerSettings.logoUrl || '/assets/generated_images/infera_webnova_professional_logo.png',
+          faviconUrl: ownerSettings.faviconUrl || '/assets/generated_images/infera_webnova_professional_logo.png',
+          primaryColor: ownerSettings.primaryColor || '#8B5CF6',
+          secondaryColor: ownerSettings.secondaryColor || '#EC4899',
+          customCss: ownerSettings.customCss || '',
+          isActive: true,
+        });
+      } else {
+        // Return default branding
+        res.json({
+          brandName: 'INFERA WebNova',
+          brandNameAr: 'إنفيرا ويب نوفا',
+          logoUrl: '/assets/generated_images/infera_webnova_professional_logo.png',
+          faviconUrl: '/assets/generated_images/infera_webnova_professional_logo.png',
+          primaryColor: '#8B5CF6',
+          secondaryColor: '#EC4899',
+          customCss: '',
+          isActive: false,
+        });
+      }
+    } catch (error) {
+      console.error("Get platform branding error:", error);
+      // Return defaults on error
+      res.json({
+        brandName: 'INFERA WebNova',
+        brandNameAr: 'إنفيرا ويب نوفا',
+        logoUrl: '/assets/generated_images/infera_webnova_professional_logo.png',
+        faviconUrl: '/assets/generated_images/infera_webnova_professional_logo.png',
+        primaryColor: '#8B5CF6',
+        secondaryColor: '#EC4899',
+        customCss: '',
+        isActive: false,
+      });
+    }
+  });
+
   // ============ White Label Routes ============
 
   // Middleware to check white label access (Enterprise, Sovereign)

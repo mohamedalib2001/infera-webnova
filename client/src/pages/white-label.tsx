@@ -171,22 +171,114 @@ export default function WhiteLabel() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>{tr("رابط الشعار", "Logo URL")}</Label>
-                  <Input
-                    value={config.logoUrl}
-                    onChange={(e) => setConfig(prev => ({ ...prev, logoUrl: e.target.value }))}
-                    placeholder="https://example.com/logo.png"
-                    data-testid="input-logo-url"
-                  />
+                  <Label>{tr("الشعار", "Logo")}</Label>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30">
+                      {config.logoUrl ? (
+                        <img 
+                          src={config.logoUrl} 
+                          alt="Logo" 
+                          className="w-12 h-12 object-contain rounded"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-12 h-12 bg-muted rounded flex items-center justify-center">
+                          <Upload className="w-5 h-5 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="flex-1">
+                        <Input
+                          value={config.logoUrl}
+                          onChange={(e) => setConfig(prev => ({ ...prev, logoUrl: e.target.value }))}
+                          placeholder={tr("رابط الشعار أو ارفع صورة", "Logo URL or upload image")}
+                          data-testid="input-logo-url"
+                        />
+                      </div>
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      id="logo-upload"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            setConfig(prev => ({ ...prev, logoUrl: event.target?.result as string }));
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => document.getElementById('logo-upload')?.click()}
+                      data-testid="button-upload-logo"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      {tr("رفع شعار", "Upload Logo")}
+                    </Button>
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>{tr("رابط الأيقونة", "Favicon URL")}</Label>
-                  <Input
-                    value={config.faviconUrl}
-                    onChange={(e) => setConfig(prev => ({ ...prev, faviconUrl: e.target.value }))}
-                    placeholder="https://example.com/favicon.ico"
-                    data-testid="input-favicon-url"
-                  />
+                  <Label>{tr("الأيقونة (Favicon)", "Favicon")}</Label>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30">
+                      {config.faviconUrl ? (
+                        <img 
+                          src={config.faviconUrl} 
+                          alt="Favicon" 
+                          className="w-12 h-12 object-contain rounded"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-12 h-12 bg-muted rounded flex items-center justify-center">
+                          <Upload className="w-5 h-5 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="flex-1">
+                        <Input
+                          value={config.faviconUrl}
+                          onChange={(e) => setConfig(prev => ({ ...prev, faviconUrl: e.target.value }))}
+                          placeholder={tr("رابط الأيقونة أو ارفع صورة", "Favicon URL or upload image")}
+                          data-testid="input-favicon-url"
+                        />
+                      </div>
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      id="favicon-upload"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            setConfig(prev => ({ ...prev, faviconUrl: event.target?.result as string }));
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => document.getElementById('favicon-upload')?.click()}
+                      data-testid="button-upload-favicon"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      {tr("رفع أيقونة", "Upload Favicon")}
+                    </Button>
+                  </div>
                 </div>
               </div>
             </CardContent>

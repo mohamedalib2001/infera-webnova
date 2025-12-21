@@ -418,6 +418,9 @@ import {
   type InsertAuditTarget,
   type AuditFinding,
   type InsertAuditFinding,
+  type WhiteLabelSettings,
+  type InsertWhiteLabelSettings,
+  whiteLabelSettings,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt, gte, lte, sql } from "drizzle-orm";
@@ -1088,6 +1091,10 @@ export interface IStorage {
   getAuditFindingsByRun(runId: string): Promise<AuditFinding[]>;
   createAuditFinding(data: InsertAuditFinding): Promise<AuditFinding>;
   updateAuditFinding(id: string, data: Partial<InsertAuditFinding>): Promise<AuditFinding | undefined>;
+
+  // White Label / Platform Branding
+  getOwnerWhiteLabelSettings(): Promise<WhiteLabelSettings | undefined>;
+  saveWhiteLabelSettings(userId: string, settings: InsertWhiteLabelSettings): Promise<WhiteLabelSettings>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6673,6 +6680,50 @@ body { font-family: 'Tajawal', sans-serif; }
       .where(eq(auditFindings.id, id))
       .returning();
     return updated;
+  }
+
+  // ==================== WHITE LABEL / PLATFORM BRANDING ====================
+  
+  async getOwnerWhiteLabelSettings(): Promise<WhiteLabelSettings | undefined> {
+    // Get the owner's white label settings (owner role user)
+    const ownerUser = await db.select().from(users).where(eq(users.role, 'owner')).limit(1);
+    if (!ownerUser.length) return undefined;
+
+    const [settings] = await db.select()
+      .from(whiteLabelSettings)
+      .where(eq(whiteLabelSettings.userId, ownerUser[0].id))
+      .limit(1);
+    
+    return settings;
+  }
+
+  async saveWhiteLabelSettings(userId: string, settings: InsertWhiteLabelSettings): Promise<WhiteLabelSettings> {
+    // Check if settings exist for this user
+    const [existing] = await db.select()
+      .from(whiteLabelSettings)
+      .where(eq(whiteLabelSettings.userId, userId))
+      .limit(1);
+
+    if (existing) {
+      // Update existing
+      const [updated] = await db.update(whiteLabelSettings)
+        .set({
+          ...settings,
+          updatedAt: new Date(),
+        } as any)
+        .where(eq(whiteLabelSettings.userId, userId))
+        .returning();
+      return updated;
+    } else {
+      // Create new
+      const [created] = await db.insert(whiteLabelSettings)
+        .values({
+          ...settings,
+          userId,
+        } as any)
+        .returning();
+      return created;
+    }
   }
 }
 

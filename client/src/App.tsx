@@ -73,6 +73,7 @@ import DeletionManagement from "@/pages/deletion-management";
 import ISDSPage from "@/pages/isds";
 import SpomPage from "@/pages/owner/spom";
 import NotFound from "@/pages/not-found";
+import { usePlatformBranding } from "@/hooks/use-platform-branding";
 
 function Router() {
   return (
@@ -180,6 +181,9 @@ function NotificationBell() {
 
 function AppContent() {
   const { isRtl } = useLanguage();
+  
+  // Load and apply platform branding dynamically
+  usePlatformBranding();
   
   const style = {
     "--sidebar-width": "16rem",
