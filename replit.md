@@ -162,6 +162,44 @@ date, whoami, which
 | `/api/owner/isds/terminal/token` | POST | Generate secure WebSocket token (with ownership check) |
 | `/api/owner/isds/terminal/execute` | POST | Execute command (REST fallback) |
 
+### AI Orchestrator (Updated: Dec 21, 2025)
+Located at: `shared/core/kernel/ai-orchestrator.ts`
+
+**Capabilities:**
+- Natural language to application transformation
+- Intent analysis and project type detection
+- Blueprint synthesis with architecture planning
+- Intelligent code generation with Claude AI
+- Iterative refinement and validation
+
+**AI API Endpoints:**
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/platform/ai/orchestrate` | POST | Full pipeline: prompt to complete project |
+| `/api/platform/ai/analyze-intent` | POST | Analyze user intent from description |
+| `/api/platform/ai/generate-blueprint` | POST | Create architecture blueprint |
+| `/api/platform/ai/generate-code` | POST | Generate code from blueprint |
+
+### Project Runtime Engine (Updated: Dec 21, 2025)
+Located at: `shared/core/kernel/project-runtime.ts`
+
+**Features:**
+- Project lifecycle management (initialize, build, run, stop)
+- Real-time state synchronization
+- Process management and logging
+- Resource monitoring
+
+**Runtime API Endpoints:**
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/platform/runtime/initialize` | POST | Initialize project runtime |
+| `/api/platform/runtime/:id/state` | GET | Get runtime state |
+| `/api/platform/runtime/:id/build` | POST | Build project |
+| `/api/platform/runtime/:id/run` | POST | Run project |
+| `/api/platform/runtime/:id/stop` | POST | Stop project |
+| `/api/platform/runtime/:id/execute` | POST | Execute command |
+| `/api/platform/runtime/active` | GET | List active runtimes |
+
 ### Platform API Endpoints
 Registered at: `/api/platform/*`
 

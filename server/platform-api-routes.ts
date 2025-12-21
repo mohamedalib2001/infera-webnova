@@ -628,10 +628,232 @@ router.get('/projects/:id/builds', requireAuth, async (req: Request, res: Respon
   }
 });
 
+// ==================== AI ORCHESTRATOR ROUTES ====================
+// Import AI Orchestrator
+const getAIOrchestrator = async () => {
+  const { aiOrchestrator } = await import('@shared/core/kernel/ai-orchestrator');
+  return aiOrchestrator;
+};
+
+/**
+ * POST /api/platform/ai/orchestrate
+ * Full AI orchestration pipeline - from natural language to complete project
+ */
+router.post('/ai/orchestrate', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { prompt, language = 'ar', customStack, validateCode = true, generateTests = false } = req.body;
+    
+    if (!prompt || typeof prompt !== 'string' || prompt.length < 10) {
+      return res.status(400).json({ 
+        error: language === 'ar' ? 'يرجى تقديم وصف كافٍ للمشروع' : 'Please provide a sufficient project description' 
+      });
+    }
+    
+    console.log(`[AI Orchestrator] Starting orchestration for: ${prompt.substring(0, 50)}...`);
+    
+    const orchestrator = await getAIOrchestrator();
+    const result = await orchestrator.orchestrate(prompt, {
+      language,
+      customStack,
+      validateCode,
+      generateTests,
+    });
+    
+    console.log(`[AI Orchestrator] Result: ${result.success ? 'Success' : 'Failed'}, Files: ${result.files.length}`);
+    
+    res.json(result);
+  } catch (error: any) {
+    console.error('[AI Orchestrator] Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/ai/analyze-intent
+ * Analyze user intent from natural language
+ */
+router.post('/ai/analyze-intent', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { prompt, language = 'ar' } = req.body;
+    
+    if (!prompt) {
+      return res.status(400).json({ error: 'Prompt required' });
+    }
+    
+    const orchestrator = await getAIOrchestrator();
+    const intent = await orchestrator.analyzeIntent(prompt, language);
+    res.json({ intent });
+  } catch (error: any) {
+    console.error('[AI Orchestrator] Intent analysis error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/ai/generate-blueprint
+ * Generate architecture blueprint from intent
+ */
+router.post('/ai/generate-blueprint', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { intent, customization } = req.body;
+    
+    if (!intent) {
+      return res.status(400).json({ error: 'Intent required' });
+    }
+    
+    const orchestrator = await getAIOrchestrator();
+    const blueprint = await orchestrator.generateBlueprint(intent, customization);
+    res.json({ blueprint });
+  } catch (error: any) {
+    console.error('[AI Orchestrator] Blueprint generation error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/ai/generate-code
+ * Generate code files from blueprint
+ */
+router.post('/ai/generate-code', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { blueprint, intent } = req.body;
+    
+    if (!blueprint || !intent) {
+      return res.status(400).json({ error: 'Blueprint and intent required' });
+    }
+    
+    const orchestrator = await getAIOrchestrator();
+    const files = await orchestrator.generateCode(blueprint, intent);
+    res.json({ files });
+  } catch (error: any) {
+    console.error('[AI Orchestrator] Code generation error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== PROJECT RUNTIME ROUTES ====================
+const getProjectRuntime = async () => {
+  const { projectRuntime } = await import('@shared/core/kernel/project-runtime');
+  return projectRuntime;
+};
+
+/**
+ * POST /api/platform/runtime/initialize
+ * Initialize a project runtime
+ */
+router.post('/runtime/initialize', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { projectId, basePath, environment } = req.body;
+    if (!projectId || !basePath) {
+      return res.status(400).json({ error: 'projectId and basePath required' });
+    }
+    
+    const runtime = await getProjectRuntime();
+    const state = await runtime.initialize(projectId, { basePath, environment });
+    res.json({ state });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/platform/runtime/:projectId/state
+ * Get project runtime state
+ */
+router.get('/runtime/:projectId/state', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const runtime = await getProjectRuntime();
+    const state = runtime.getState(req.params.projectId);
+    if (!state) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+    res.json({ state });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/runtime/:projectId/build
+ * Build project
+ */
+router.post('/runtime/:projectId/build', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const runtime = await getProjectRuntime();
+    const result = await runtime.build(req.params.projectId, req.body);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/runtime/:projectId/run
+ * Run project
+ */
+router.post('/runtime/:projectId/run', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const runtime = await getProjectRuntime();
+    const result = await runtime.run(req.params.projectId, req.body);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/runtime/:projectId/stop
+ * Stop project
+ */
+router.post('/runtime/:projectId/stop', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const runtime = await getProjectRuntime();
+    const result = await runtime.stop(req.params.projectId);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/runtime/:projectId/execute
+ * Execute command in project context
+ */
+router.post('/runtime/:projectId/execute', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { command, cwd, timeout, env } = req.body;
+    if (!command) {
+      return res.status(400).json({ error: 'Command required' });
+    }
+    
+    const runtime = await getProjectRuntime();
+    const result = await runtime.executeCommand(req.params.projectId, command, { cwd, timeout, env });
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/platform/runtime/active
+ * Get all active project runtimes
+ */
+router.get('/runtime/active', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const runtime = await getProjectRuntime();
+    const projects = runtime.getActiveProjects();
+    res.json({ projects });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ==================== EXPORT ROUTER ====================
 export function registerPlatformApiRoutes(app: any) {
   app.use('/api/platform', router);
   console.log('[Platform API] Routes registered at /api/platform');
+  console.log('[AI Orchestrator] AI endpoints ready at /api/platform/ai/*');
+  console.log('[Project Runtime] Runtime endpoints ready at /api/platform/runtime/*');
 }
 
 export default router;
