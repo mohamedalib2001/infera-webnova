@@ -1,1111 +1,633 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { useLocation } from "wouter";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
 import { 
-  ResizableHandle, 
-  ResizablePanel, 
-  ResizablePanelGroup 
-} from "@/components/ui/resizable";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { 
-  Folder, 
-  File, 
-  Plus, 
-  Play, 
-  Square, 
-  Terminal as TerminalIcon,
-  Code2,
-  GitBranch,
+  Bot, 
+  Send, 
+  Sparkles, 
+  Shield, 
+  Zap, 
+  Code2, 
+  Database, 
+  Globe, 
+  Rocket, 
+  FileCode, 
+  Terminal,
   Settings,
-  Save,
+  CheckCircle2,
+  Loader2,
+  AlertCircle,
+  Play,
   RefreshCw,
-  Trash2,
-  FolderPlus,
-  FilePlus,
-  ChevronRight,
-  ChevronDown,
-  Bot,
-  Zap,
-  Shield,
-  Server,
-  Rocket,
-  Bug,
-  Search,
-  MoreVertical,
   Copy,
   Download,
-  Upload,
-  Eye,
-  Edit,
-  X,
-  Check,
-  AlertTriangle,
-  Loader2,
-  Command,
+  Folder,
+  Plus,
+  MessageSquare,
   Cpu,
-  HardDrive,
   Activity,
+  HardDrive,
   Clock,
-  Layout,
-  ShoppingCart,
-  FileText,
-  BarChart3,
-  Globe,
-  Smartphone,
-  Database,
-  Cloud,
+  ArrowRight,
+  Wand2,
+  Brain,
+  Command,
+  ChevronRight,
+  History,
+  Trash2,
+  User,
+  X,
 } from "lucide-react";
-import Editor from "@monaco-editor/react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
-interface FileNode {
+interface AIMessage {
   id: string;
-  name: string;
-  path: string;
-  type: "file" | "directory";
-  children?: FileNode[];
-  content?: string;
-  language?: string;
-}
-
-interface CommandResult {
-  id: string;
-  command: string;
-  output: string;
-  exitCode: number;
+  role: "user" | "assistant" | "system";
+  content: string;
   timestamp: Date;
+  executionPlan?: ExecutionStep[];
+  status?: "pending" | "executing" | "completed" | "error";
 }
 
-interface WorkspaceData {
+interface ExecutionStep {
   id: string;
-  name: string;
-  slug: string;
-  status: string;
-  settings: Record<string, unknown>;
+  title: string;
+  titleAr: string;
+  description: string;
+  descriptionAr: string;
+  status: "pending" | "in_progress" | "completed" | "error";
+  progress?: number;
+  output?: string;
 }
+
+interface QuickCommand {
+  id: string;
+  icon: typeof Code2;
+  label: string;
+  labelAr: string;
+  command: string;
+  category: string;
+}
+
+const quickCommands: QuickCommand[] = [
+  { id: "create-api", icon: Code2, label: "Create API", labelAr: "إنشاء API", command: "أنشئ API جديد للمستخدمين مع CRUD كامل", category: "backend" },
+  { id: "add-page", icon: Globe, label: "Add Page", labelAr: "إضافة صفحة", command: "أضف صفحة تسجيل دخول مع نموذج", category: "frontend" },
+  { id: "create-component", icon: FileCode, label: "Create Component", labelAr: "إنشاء مكون", command: "أنشئ مكون جدول بيانات قابل للتصفية", category: "frontend" },
+  { id: "analyze-code", icon: Brain, label: "Analyze Code", labelAr: "تحليل الكود", command: "حلل الكود الحالي واقترح تحسينات", category: "analysis" },
+  { id: "fix-errors", icon: AlertCircle, label: "Fix Errors", labelAr: "إصلاح الأخطاء", command: "ابحث عن الأخطاء في المشروع وأصلحها", category: "debug" },
+  { id: "create-database", icon: Database, label: "Create Database", labelAr: "إنشاء قاعدة بيانات", command: "أنشئ جدول قاعدة بيانات للمنتجات", category: "database" },
+  { id: "deploy-project", icon: Rocket, label: "Deploy Project", labelAr: "نشر المشروع", command: "انشر المشروع على السحابة", category: "deployment" },
+];
+
+const translations = {
+  ar: {
+    title: "مساعد الذكاء الاصطناعي التنفيذي",
+    subtitle: "وجّه أوامرك وسأنفذها فوراً",
+    placeholder: "اكتب أمرك هنا... مثال: أنشئ API للمستخدمين",
+    send: "إرسال",
+    quickCommands: "أوامر سريعة",
+    executionLog: "سجل التنفيذ",
+    projectContext: "سياق المشروع",
+    noMessages: "ابدأ بإرسال أمر أو اختر من الأوامر السريعة",
+    thinking: "جاري التحليل...",
+    executing: "جاري التنفيذ...",
+    completed: "اكتمل",
+    error: "خطأ",
+    pending: "قيد الانتظار",
+    inProgress: "قيد التنفيذ",
+    files: "ملفات",
+    apis: "واجهات برمجية",
+    components: "مكونات",
+    newConversation: "محادثة جديدة",
+    history: "السجل",
+    suggestions: "اقتراحات",
+    clear: "مسح",
+    copy: "نسخ",
+    retry: "إعادة المحاولة",
+    welcome: "مرحباً! أنا مساعدك الذكي. أخبرني ماذا تريد أن أنفذ لك.",
+    cpuUsage: "المعالج",
+    memoryUsage: "الذاكرة",
+    uptime: "وقت التشغيل",
+    accessDenied: "الوصول مرفوض",
+    accessDeniedDesc: "هذه الخدمة متاحة فقط للحسابات السيادية",
+    goBack: "العودة للوحة التحكم",
+    categories: {
+      backend: "الخلفية",
+      frontend: "الواجهة",
+      database: "قاعدة البيانات",
+      deployment: "النشر",
+      analysis: "التحليل",
+      debug: "التصحيح",
+    },
+  },
+  en: {
+    title: "AI Executive Assistant",
+    subtitle: "Give your commands and I'll execute them instantly",
+    placeholder: "Type your command... Example: Create a users API",
+    send: "Send",
+    quickCommands: "Quick Commands",
+    executionLog: "Execution Log",
+    projectContext: "Project Context",
+    noMessages: "Start by sending a command or choose from quick commands",
+    thinking: "Analyzing...",
+    executing: "Executing...",
+    completed: "Completed",
+    error: "Error",
+    pending: "Pending",
+    inProgress: "In Progress",
+    files: "Files",
+    apis: "APIs",
+    components: "Components",
+    newConversation: "New Conversation",
+    history: "History",
+    suggestions: "Suggestions",
+    clear: "Clear",
+    copy: "Copy",
+    retry: "Retry",
+    welcome: "Hello! I'm your AI assistant. Tell me what you want me to execute.",
+    cpuUsage: "CPU",
+    memoryUsage: "Memory",
+    uptime: "Uptime",
+    accessDenied: "Access Denied",
+    accessDeniedDesc: "This service is only available for sovereign accounts",
+    goBack: "Go to Dashboard",
+    categories: {
+      backend: "Backend",
+      frontend: "Frontend",
+      database: "Database",
+      deployment: "Deployment",
+      analysis: "Analysis",
+      debug: "Debug",
+    },
+  },
+};
 
 export default function ISDSPage() {
   const { user } = useAuth();
-  const { t, isRtl, language } = useLanguage();
-  const isRTL = isRtl;
+  const { isRtl, language } = useLanguage();
+  const isRTL = isRtl || language === "ar";
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  
+  const t = translations[isRTL ? "ar" : "en"];
 
-  const [activeFile, setActiveFile] = useState<FileNode | null>(null);
-  const [openFiles, setOpenFiles] = useState<FileNode[]>([]);
-  const [editorContent, setEditorContent] = useState("");
-  const [terminalOutput, setTerminalOutput] = useState<CommandResult[]>([]);
-  const [commandInput, setCommandInput] = useState("");
-  const [isRunning, setIsRunning] = useState(false);
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(["root"]));
-  const [showNewFileDialog, setShowNewFileDialog] = useState(false);
-  const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
-  const [newFileName, setNewFileName] = useState("");
-  const [newFolderName, setNewFolderName] = useState("");
-  const [selectedWorkspace, setSelectedWorkspace] = useState<string | null>(null);
-  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
-  const [showAiPanel, setShowAiPanel] = useState(false);
-  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
-  const [newProjectName, setNewProjectName] = useState("");
-  const [newProjectDescription, setNewProjectDescription] = useState("");
-  const [showDeployDialog, setShowDeployDialog] = useState(false);
-  const [selectedDeployProvider, setSelectedDeployProvider] = useState<string>("vercel");
-
-  const { data: workspaces, isLoading: workspacesLoading } = useQuery<WorkspaceData[]>({
-    queryKey: ["/api/owner/isds/workspaces"],
-    enabled: !!user,
-  });
-
-  const { data: files, isLoading: filesLoading, refetch: refetchFiles } = useQuery<FileNode[]>({
-    queryKey: ["/api/owner/isds/files", selectedWorkspace],
-    enabled: !!selectedWorkspace,
-  });
-
-  const createWorkspaceMutation = useMutation({
-    mutationFn: async (data: { name: string; slug: string }) => {
-      return apiRequest("POST", "/api/owner/isds/workspaces", data);
+  const [messages, setMessages] = useState<AIMessage[]>([
+    {
+      id: "welcome",
+      role: "assistant",
+      content: t.welcome,
+      timestamp: new Date(),
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/owner/isds/workspaces"] });
-      toast({
-        title: isRTL ? "تم إنشاء مساحة العمل" : "Workspace Created",
-        description: isRTL ? "تم إنشاء مساحة العمل بنجاح" : "Workspace created successfully",
-      });
-    },
-  });
+  ]);
+  const [inputValue, setInputValue] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [currentExecution, setCurrentExecution] = useState<ExecutionStep[] | null>(null);
+
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
 
   const executeCommandMutation = useMutation({
     mutationFn: async (command: string) => {
-      return apiRequest("POST", "/api/owner/isds/terminal/execute", { command, workspaceId: selectedWorkspace });
-    },
-    onSuccess: (data: { output: string; exitCode: number; error?: string }) => {
-      const result: CommandResult = {
-        id: Date.now().toString(),
-        command: commandInput,
-        output: data.error ? `${data.output}\n${data.error}` : data.output,
-        exitCode: data.exitCode,
-        timestamp: new Date(),
-      };
-      setTerminalOutput(prev => [...prev, result]);
-      setCommandInput("");
-    },
-    onError: (error: Error) => {
-      const result: CommandResult = {
-        id: Date.now().toString(),
-        command: commandInput,
-        output: `Error: ${error.message}`,
-        exitCode: 1,
-        timestamp: new Date(),
-      };
-      setTerminalOutput(prev => [...prev, result]);
-    },
-  });
-
-  const saveFileMutation = useMutation({
-    mutationFn: async (data: { fileId: string; content: string }) => {
-      return apiRequest("PATCH", `/api/owner/isds/files/${data.fileId}`, { content: data.content });
-    },
-    onSuccess: () => {
-      toast({
-        title: isRTL ? "تم الحفظ" : "Saved",
-        description: isRTL ? "تم حفظ الملف بنجاح" : "File saved successfully",
-      });
-    },
-  });
-
-  const aiAnalyzeMutation = useMutation({
-    mutationFn: async (code: string) => {
-      return apiRequest("POST", "/api/owner/isds/ai/analyze", { code, language: activeFile?.language || "typescript" });
-    },
-    onSuccess: (data: { suggestions: string[] }) => {
-      setAiSuggestions(data.suggestions);
-      setShowAiPanel(true);
-    },
-  });
-
-  const { data: templatesResponse, isLoading: templatesLoading } = useQuery<{
-    templates: Array<{
-      id: string;
-      name: string;
-      nameAr: string;
-      description: string;
-      descriptionAr: string;
-      category: string;
-      icon: string;
-      features: string[];
-    }>;
-  }>({
-    queryKey: ["/api/platform/templates"],
-  });
-  const templates = templatesResponse?.templates;
-
-  const generateProjectMutation = useMutation({
-    mutationFn: async (data: { templateId: string; name: string; description: string }) => {
-      return apiRequest("POST", "/api/platform/generate", {
-        templateId: data.templateId,
-        name: data.name,
-        description: data.description,
+      return apiRequest("POST", "/api/platform/ai/execute-command", { 
+        command, 
         language: isRTL ? "ar" : "en",
+        context: {
+          projectType: "fullstack",
+          framework: "react-express",
+        }
       });
     },
-    onSuccess: (data: { projectId: string; filesGenerated: number }) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/owner/isds/workspaces"] });
-      setShowTemplateDialog(false);
-      setNewProjectName("");
-      setNewProjectDescription("");
-      setSelectedTemplate(null);
-      setSelectedWorkspace(data.projectId);
-      toast({
-        title: isRTL ? "تم إنشاء المشروع" : "Project Created",
-        description: isRTL 
-          ? `تم توليد ${data.filesGenerated} ملف بنجاح`
-          : `Successfully generated ${data.filesGenerated} files`,
-      });
+    onSuccess: (data: { 
+      response: string; 
+      executionPlan?: ExecutionStep[];
+      generatedFiles?: string[];
+      status: "success" | "partial" | "error";
+    }) => {
+      const assistantMessage: AIMessage = {
+        id: Date.now().toString(),
+        role: "assistant",
+        content: data.response,
+        timestamp: new Date(),
+        executionPlan: data.executionPlan,
+        status: data.status === "success" ? "completed" : data.status === "error" ? "error" : "executing",
+      };
+      setMessages(prev => [...prev, assistantMessage]);
+      setIsProcessing(false);
+      
+      if (data.executionPlan) {
+        setCurrentExecution(data.executionPlan);
+      }
     },
     onError: (error: Error) => {
-      toast({
-        title: isRTL ? "فشل في إنشاء المشروع" : "Failed to Create Project",
-        description: error.message,
-        variant: "destructive",
-      });
+      const errorMessage: AIMessage = {
+        id: Date.now().toString(),
+        role: "assistant",
+        content: isRTL 
+          ? `حدث خطأ: ${error.message}. سأحاول مرة أخرى أو يمكنك تعديل الأمر.`
+          : `Error occurred: ${error.message}. I'll try again or you can modify the command.`,
+        timestamp: new Date(),
+        status: "error",
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      setIsProcessing(false);
     },
   });
 
-  const deployProjectMutation = useMutation({
-    mutationFn: async (data: { projectId: string; provider: string }) => {
-      return apiRequest("POST", "/api/platform/deployment/deploy", {
-        projectId: data.projectId,
-        provider: data.provider,
-        environment: "production",
-      });
-    },
-    onSuccess: (data: { url: string; deploymentId: string }) => {
-      setShowDeployDialog(false);
-      toast({
-        title: isRTL ? "تم النشر بنجاح" : "Deployed Successfully",
-        description: data.url,
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: isRTL ? "فشل في النشر" : "Deployment Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
+  const handleSendMessage = () => {
+    if (!inputValue.trim() || isProcessing) return;
+
+    const userMessage: AIMessage = {
+      id: Date.now().toString(),
+      role: "user",
+      content: inputValue,
+      timestamp: new Date(),
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    setInputValue("");
+    setIsProcessing(true);
+    
+    executeCommandMutation.mutate(inputValue);
+  };
+
+  const handleQuickCommand = (command: QuickCommand) => {
+    setInputValue(command.command);
+    inputRef.current?.focus();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  const handleNewConversation = () => {
+    setMessages([{
+      id: "welcome",
+      role: "assistant",
+      content: t.welcome,
+      timestamp: new Date(),
+    }]);
+    setCurrentExecution(null);
+  };
 
   const isAuthorized = user && (user.role === "owner" || user.role === "sovereign");
 
   if (!isAuthorized) {
     return (
-      <div className="flex items-center justify-center h-screen bg-background">
+      <div className="flex items-center justify-center h-screen bg-background" dir={isRTL ? "rtl" : "ltr"}>
         <Card className="p-8 text-center max-w-md">
           <Shield className="w-16 h-16 mx-auto mb-4 text-destructive" />
-          <h1 className="text-2xl font-bold mb-2">
-            {isRTL ? "الوصول مرفوض" : "Access Denied"}
-          </h1>
-          <p className="text-muted-foreground mb-4">
-            {isRTL 
-              ? "ISDS متاح فقط للحساب السيادي"
-              : "ISDS is only available for sovereign accounts"}
-          </p>
+          <h1 className="text-2xl font-bold mb-2">{t.accessDenied}</h1>
+          <p className="text-muted-foreground mb-4">{t.accessDeniedDesc}</p>
           <Button onClick={() => setLocation("/owner")} data-testid="button-go-back">
-            {isRTL ? "العودة للوحة التحكم" : "Go to Dashboard"}
+            {t.goBack}
           </Button>
         </Card>
       </div>
     );
   }
 
-  const templateIcons: Record<string, typeof Layout> = {
-    "react-express": Layout,
-    "nextjs-fullstack": Globe,
-    "ecommerce": ShoppingCart,
-    "blog-cms": FileText,
-    "dashboard": BarChart3,
-    "saas-starter": Rocket,
-    "mobile-pwa": Smartphone,
-    "api-only": Database,
-    "landing-page": Globe,
-    "static-site": FileText,
-    "vue-fastify": Layout,
-    "svelte-express": Layout,
-  };
-
-  const handleFileClick = (file: FileNode) => {
-    if (file.type === "directory") {
-      setExpandedFolders(prev => {
-        const next = new Set(prev);
-        if (next.has(file.path)) {
-          next.delete(file.path);
-        } else {
-          next.add(file.path);
-        }
-        return next;
-      });
-    } else {
-      setActiveFile(file);
-      setEditorContent(file.content || "");
-      if (!openFiles.find(f => f.id === file.id)) {
-        setOpenFiles(prev => [...prev, file]);
-      }
-    }
-  };
-
-  const handleCloseFile = (fileId: string) => {
-    setOpenFiles(prev => prev.filter(f => f.id !== fileId));
-    if (activeFile?.id === fileId) {
-      const remaining = openFiles.filter(f => f.id !== fileId);
-      setActiveFile(remaining[remaining.length - 1] || null);
-      setEditorContent(remaining[remaining.length - 1]?.content || "");
-    }
-  };
-
-  const handleSaveFile = () => {
-    if (activeFile) {
-      saveFileMutation.mutate({ fileId: activeFile.id, content: editorContent });
-    }
-  };
-
-  const handleExecuteCommand = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (commandInput.trim()) {
-      executeCommandMutation.mutate(commandInput);
-    }
-  };
-
-  const handleRunCode = () => {
-    if (activeFile) {
-      setIsRunning(true);
-      const runCommand = getRunCommand(activeFile.name);
-      executeCommandMutation.mutate(runCommand);
-      setTimeout(() => setIsRunning(false), 2000);
-    }
-  };
-
-  const getRunCommand = (filename: string): string => {
-    const ext = filename.split(".").pop()?.toLowerCase();
-    switch (ext) {
-      case "js":
-      case "mjs":
-        return `node ${filename}`;
-      case "ts":
-        return `npx tsx ${filename}`;
-      case "py":
-        return `python3 ${filename}`;
-      case "go":
-        return `go run ${filename}`;
-      case "php":
-        return `php ${filename}`;
-      case "sh":
-        return `bash ${filename}`;
-      default:
-        return `echo "Unknown file type: ${ext}"`;
-    }
-  };
-
-  const getFileLanguage = (filename: string): string => {
-    const ext = filename.split(".").pop()?.toLowerCase();
-    const langMap: Record<string, string> = {
-      js: "javascript",
-      jsx: "javascript",
-      ts: "typescript",
-      tsx: "typescript",
-      py: "python",
-      go: "go",
-      php: "php",
-      sh: "shell",
-      bash: "shell",
-      json: "json",
-      html: "html",
-      css: "css",
-      scss: "scss",
-      md: "markdown",
-      sql: "sql",
-      yaml: "yaml",
-      yml: "yaml",
-      xml: "xml",
-      rs: "rust",
-    };
-    return langMap[ext || ""] || "plaintext";
-  };
-
-  const renderFileTree = (nodes: FileNode[], depth = 0) => {
-    return nodes.map(node => (
-      <div key={node.id}>
-        <div
-          className={`flex items-center gap-1 py-1 px-2 hover-elevate cursor-pointer rounded-md ${
-            activeFile?.id === node.id ? "bg-accent" : ""
-          }`}
-          style={{ paddingLeft: `${depth * 12 + 8}px` }}
-          onClick={() => handleFileClick(node)}
-          data-testid={`file-tree-item-${node.id}`}
-        >
-          {node.type === "directory" ? (
-            <>
-              {expandedFolders.has(node.path) ? (
-                <ChevronDown className="w-4 h-4 text-muted-foreground" />
-              ) : (
-                <ChevronRight className="w-4 h-4 text-muted-foreground" />
-              )}
-              <Folder className="w-4 h-4 text-yellow-500" />
-            </>
-          ) : (
-            <>
-              <span className="w-4" />
-              <File className="w-4 h-4 text-blue-500" />
-            </>
-          )}
-          <span className="text-sm truncate">{node.name}</span>
-        </div>
-        {node.type === "directory" && expandedFolders.has(node.path) && node.children && (
-          <div>{renderFileTree(node.children, depth + 1)}</div>
-        )}
-      </div>
-    ));
-  };
-
-  const defaultFiles: FileNode[] = [
-    {
-      id: "root",
-      name: "sovereign-workspace",
-      path: "root",
-      type: "directory",
-      children: [
-        {
-          id: "src",
-          name: "src",
-          path: "root/src",
-          type: "directory",
-          children: [
-            {
-              id: "index-ts",
-              name: "index.ts",
-              path: "root/src/index.ts",
-              type: "file",
-              content: `// INFRA Sovereign Dev Studio\n// Welcome to your sovereign development environment\n\nconsole.log("ISDS Active - Sovereign Mode");\n\nfunction main() {\n  console.log("Platform initialized");\n}\n\nmain();`,
-              language: "typescript",
-            },
-            {
-              id: "app-tsx",
-              name: "App.tsx",
-              path: "root/src/App.tsx",
-              type: "file",
-              content: `import { useState } from "react";\n\nexport default function App() {\n  const [count, setCount] = useState(0);\n  \n  return (\n    <div className="app">\n      <h1>INFRA Sovereign Platform</h1>\n      <button onClick={() => setCount(c => c + 1)}>\n        Count: {count}\n      </button>\n    </div>\n  );\n}`,
-              language: "typescript",
-            },
-          ],
-        },
-        {
-          id: "package-json",
-          name: "package.json",
-          path: "root/package.json",
-          type: "file",
-          content: `{\n  "name": "sovereign-workspace",\n  "version": "1.0.0",\n  "type": "module",\n  "scripts": {\n    "dev": "vite",\n    "build": "vite build",\n    "start": "node dist/index.js"\n  }\n}`,
-          language: "json",
-        },
-        {
-          id: "readme-md",
-          name: "README.md",
-          path: "root/README.md",
-          type: "file",
-          content: `# Sovereign Workspace\n\nThis is a sovereign development workspace.\n\n## Features\n- Full code editing\n- Real-time execution\n- AI assistance\n- Version control`,
-          language: "markdown",
-        },
-      ],
-    },
-  ];
-
-  const fileTree = files || defaultFiles;
-
   return (
-    <div className="h-screen flex flex-col bg-background" dir={isRTL ? "rtl" : "ltr"}>
-      <header className="flex items-center justify-between px-4 py-2 border-b bg-card">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Shield className="w-6 h-6 text-primary" />
-            <span className="font-bold text-lg">ISDS</span>
-            <Badge variant="outline" className="text-xs">
-              {isRTL ? "سيادي" : "Sovereign"}
-            </Badge>
+    <div className="h-screen bg-background flex flex-col" dir={isRTL ? "rtl" : "ltr"}>
+      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <div className="absolute -inset-1 bg-gradient-to-r from-primary/50 to-purple-500/50 rounded-lg blur opacity-75"></div>
+                <div className="relative p-2 rounded-lg bg-gradient-to-br from-primary to-purple-600">
+                  <Brain className="w-6 h-6 text-white" />
+                </div>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
+                  {t.title}
+                </h1>
+                <p className="text-sm text-muted-foreground">{t.subtitle}</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="gap-1">
+                <Activity className="w-3 h-3 text-emerald-500" />
+                <span className="text-emerald-500">{isRTL ? "نشط" : "Active"}</span>
+              </Badge>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleNewConversation}
+                data-testid="button-new-conversation"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">{t.newConversation}</span>
+              </Button>
+            </div>
           </div>
-          <Separator orientation="vertical" className="h-6" />
-          <span className="text-sm text-muted-foreground">
-            {isRTL ? "بيئة التطوير السيادية" : "Sovereign Dev Environment"}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={handleSaveFile}
-            disabled={!activeFile}
-            data-testid="button-save-file"
-          >
-            <Save className="w-4 h-4 mr-1" />
-            {isRTL ? "حفظ" : "Save"}
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={handleRunCode}
-            disabled={!activeFile || isRunning}
-            data-testid="button-run-code"
-          >
-            {isRunning ? (
-              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-            ) : (
-              <Play className="w-4 h-4 mr-1" />
-            )}
-            {isRTL ? "تشغيل" : "Run"}
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={() => aiAnalyzeMutation.mutate(editorContent)}
-            disabled={!editorContent}
-            data-testid="button-ai-analyze"
-          >
-            <Bot className="w-4 h-4 mr-1" />
-            {isRTL ? "تحليل AI" : "AI Analyze"}
-          </Button>
-          <Separator orientation="vertical" className="h-6" />
-          <Button 
-            variant="default" 
-            size="sm"
-            onClick={() => setShowTemplateDialog(true)}
-            data-testid="button-new-project"
-          >
-            <Plus className="w-4 h-4 mr-1" />
-            {isRTL ? "مشروع جديد" : "New Project"}
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => setShowDeployDialog(true)}
-            disabled={!selectedWorkspace}
-            data-testid="button-deploy"
-          >
-            <Cloud className="w-4 h-4 mr-1" />
-            {isRTL ? "نشر" : "Deploy"}
-          </Button>
-          <Separator orientation="vertical" className="h-6" />
-          <Button variant="ghost" size="icon" data-testid="button-git">
-            <GitBranch className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="icon" data-testid="button-settings">
-            <Settings className="w-4 h-4" />
-          </Button>
         </div>
       </header>
 
-      <ResizablePanelGroup direction="horizontal" className="flex-1">
-        <ResizablePanel defaultSize={20} minSize={15} maxSize={35}>
-          <div className="h-full flex flex-col bg-card border-r">
-            <div className="flex items-center justify-between p-2 border-b">
-              <span className="text-sm font-medium">
-                {isRTL ? "الملفات" : "Files"}
-              </span>
-              <div className="flex gap-1">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-6 w-6"
-                  onClick={() => setShowNewFileDialog(true)}
-                  data-testid="button-new-file"
+      <div className="flex-1 flex overflow-hidden">
+        <aside className={`w-64 border-${isRTL ? "l" : "r"} bg-card/30 hidden lg:flex flex-col`}>
+          <div className="p-4 border-b">
+            <h3 className="font-semibold flex items-center gap-2 mb-3">
+              <Command className="w-4 h-4" />
+              {t.quickCommands}
+            </h3>
+            <div className="space-y-1">
+              {quickCommands.map((cmd) => (
+                <Button
+                  key={cmd.id}
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start gap-2 text-sm"
+                  onClick={() => handleQuickCommand(cmd)}
+                  data-testid={`quick-command-${cmd.id}`}
                 >
-                  <FilePlus className="w-3 h-3" />
+                  <cmd.icon className="w-4 h-4 text-muted-foreground" />
+                  <span>{isRTL ? cmd.labelAr : cmd.label}</span>
                 </Button>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-6 w-6"
-                  onClick={() => setShowNewFolderDialog(true)}
-                  data-testid="button-new-folder"
-                >
-                  <FolderPlus className="w-3 h-3" />
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-6 w-6"
-                  onClick={() => refetchFiles()}
-                  data-testid="button-refresh-files"
-                >
-                  <RefreshCw className="w-3 h-3" />
-                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div className="p-4 flex-1">
+            <h3 className="font-semibold flex items-center gap-2 mb-3">
+              <History className="w-4 h-4" />
+              {t.history}
+            </h3>
+            <div className="space-y-1 text-sm text-muted-foreground">
+              <p className="italic">{isRTL ? "لا يوجد سجل" : "No history"}</p>
+            </div>
+          </div>
+
+          <div className="p-4 border-t bg-muted/30">
+            <h4 className="text-xs font-medium text-muted-foreground mb-2">{t.projectContext}</h4>
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1">
+                  <Folder className="w-3 h-3" />
+                  {t.files}
+                </span>
+                <Badge variant="secondary" className="text-xs">12</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1">
+                  <Code2 className="w-3 h-3" />
+                  {t.apis}
+                </span>
+                <Badge variant="secondary" className="text-xs">3</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1">
+                  <FileCode className="w-3 h-3" />
+                  {t.components}
+                </span>
+                <Badge variant="secondary" className="text-xs">8</Badge>
               </div>
             </div>
-            <ScrollArea className="flex-1 p-1">
-              {renderFileTree(fileTree)}
-            </ScrollArea>
           </div>
-        </ResizablePanel>
+        </aside>
 
-        <ResizableHandle withHandle />
-
-        <ResizablePanel defaultSize={60}>
-          <ResizablePanelGroup direction="vertical">
-            <ResizablePanel defaultSize={70}>
-              <div className="h-full flex flex-col">
-                {openFiles.length > 0 && (
-                  <div className="flex items-center border-b bg-muted/30 overflow-x-auto">
-                    {openFiles.map(file => (
-                      <div
-                        key={file.id}
-                        className={`flex items-center gap-2 px-3 py-1.5 border-r cursor-pointer hover-elevate ${
-                          activeFile?.id === file.id ? "bg-background" : ""
-                        }`}
-                        onClick={() => {
-                          setActiveFile(file);
-                          setEditorContent(file.content || "");
-                        }}
-                        data-testid={`tab-file-${file.id}`}
-                      >
-                        <File className="w-3 h-3" />
-                        <span className="text-xs">{file.name}</span>
-                        <button
-                          className="ml-1 hover:bg-destructive/20 rounded p-0.5"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCloseFile(file.id);
-                          }}
-                          data-testid={`button-close-tab-${file.id}`}
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div className="flex-1">
-                  {activeFile ? (
-                    <Editor
-                      height="100%"
-                      language={getFileLanguage(activeFile.name)}
-                      value={editorContent}
-                      onChange={(value) => setEditorContent(value || "")}
-                      theme="vs-dark"
-                      options={{
-                        minimap: { enabled: true },
-                        fontSize: 14,
-                        fontFamily: "JetBrains Mono, Fira Code, monospace",
-                        lineNumbers: "on",
-                        wordWrap: "on",
-                        automaticLayout: true,
-                        scrollBeyondLastLine: false,
-                        renderWhitespace: "selection",
-                        bracketPairColorization: { enabled: true },
-                        formatOnPaste: true,
-                        formatOnType: true,
-                        suggestOnTriggerCharacters: true,
-                        quickSuggestions: true,
-                        folding: true,
-                        foldingStrategy: "indentation",
-                      }}
-                    />
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-muted-foreground">
-                      <div className="text-center">
-                        <Code2 className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                        <p>{isRTL ? "اختر ملفًا للبدء" : "Select a file to start"}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </ResizablePanel>
-
-            <ResizableHandle withHandle />
-
-            <ResizablePanel defaultSize={30} minSize={10}>
-              <div className="h-full flex flex-col bg-zinc-900">
-                <div className="flex items-center gap-2 px-3 py-1.5 border-b border-zinc-700">
-                  <TerminalIcon className="w-4 h-4 text-green-500" />
-                  <span className="text-xs text-zinc-400">
-                    {isRTL ? "الطرفية السيادية" : "Sovereign Terminal"}
-                  </span>
-                  <Badge variant="outline" className="text-xs bg-green-500/10 text-green-500 border-green-500/30">
-                    {isRTL ? "متصل" : "Connected"}
-                  </Badge>
-                </div>
-                <ScrollArea className="flex-1 p-2 font-mono text-sm">
-                  {terminalOutput.map((result) => (
-                    <div key={result.id} className="mb-2">
-                      <div className="flex items-center gap-2 text-green-400">
-                        <span>$</span>
-                        <span>{result.command}</span>
-                      </div>
-                      <pre className={`whitespace-pre-wrap mt-1 ${
-                        result.exitCode === 0 ? "text-zinc-300" : "text-red-400"
-                      }`}>
-                        {result.output}
-                      </pre>
-                    </div>
-                  ))}
-                  <div className="text-zinc-500 text-xs">
-                    {isRTL 
-                      ? "اكتب أمرًا للتنفيذ السيادي..." 
-                      : "Type a command for sovereign execution..."}
-                  </div>
-                </ScrollArea>
-                <form onSubmit={handleExecuteCommand} className="flex items-center border-t border-zinc-700 p-2">
-                  <span className="text-green-400 mr-2">$</span>
-                  <Input
-                    value={commandInput}
-                    onChange={(e) => setCommandInput(e.target.value)}
-                    placeholder={isRTL ? "أدخل الأمر..." : "Enter command..."}
-                    className="flex-1 bg-transparent border-none text-zinc-100 focus-visible:ring-0"
-                    data-testid="input-terminal-command"
-                  />
-                  <Button 
-                    type="submit" 
-                    size="sm" 
-                    disabled={executeCommandMutation.isPending}
-                    data-testid="button-execute-command"
-                  >
-                    {executeCommandMutation.isPending ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+        <main className="flex-1 flex flex-col overflow-hidden">
+          <ScrollArea className="flex-1 p-4">
+            <div className="max-w-3xl mx-auto space-y-4">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex gap-3 ${message.role === "user" ? "flex-row-reverse" : ""}`}
+                >
+                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                    message.role === "user" 
+                      ? "bg-primary text-primary-foreground" 
+                      : "bg-gradient-to-br from-purple-500 to-primary"
+                  }`}>
+                    {message.role === "user" ? (
+                      <User className="w-4 h-4" />
                     ) : (
-                      <Play className="w-4 h-4" />
+                      <Bot className="w-4 h-4 text-white" />
                     )}
-                  </Button>
-                </form>
-              </div>
-            </ResizablePanel>
-          </ResizablePanelGroup>
-        </ResizablePanel>
-
-        <ResizableHandle withHandle />
-
-        <ResizablePanel defaultSize={20} minSize={0} collapsible>
-          <div className="h-full flex flex-col bg-card border-l">
-            <Tabs defaultValue="ai" className="flex-1 flex flex-col">
-              <TabsList className="w-full rounded-none border-b justify-start">
-                <TabsTrigger value="ai" className="text-xs">
-                  <Bot className="w-3 h-3 mr-1" />
-                  AI
-                </TabsTrigger>
-                <TabsTrigger value="status" className="text-xs">
-                  <Activity className="w-3 h-3 mr-1" />
-                  {isRTL ? "الحالة" : "Status"}
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="ai" className="flex-1 m-0 p-3">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Bot className="w-5 h-5 text-primary" />
-                    <span className="font-medium text-sm">
-                      {isRTL ? "مساعد التطوير" : "Dev Copilot"}
-                    </span>
                   </div>
-                  {aiSuggestions.length > 0 ? (
-                    <div className="space-y-2">
-                      {aiSuggestions.map((suggestion, i) => (
-                        <Card key={i} className="p-2 text-xs">
-                          <p>{suggestion}</p>
-                          <Button size="sm" variant="ghost" className="mt-2 w-full">
-                            <Zap className="w-3 h-3 mr-1" />
-                            {isRTL ? "تطبيق" : "Apply"}
-                          </Button>
-                        </Card>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      {isRTL 
-                        ? "اضغط 'تحليل AI' لتحليل الكود"
-                        : "Click 'AI Analyze' to analyze code"}
-                    </p>
-                  )}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="status" className="flex-1 m-0 p-3">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">
-                      {isRTL ? "الحالة" : "Status"}
-                    </span>
-                    <Badge variant="default" className="bg-green-500">
-                      {isRTL ? "نشط" : "Active"}
-                    </Badge>
-                  </div>
-                  <Separator />
-                  <div className="space-y-2 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-1">
-                        <Cpu className="w-3 h-3" /> CPU
-                      </span>
-                      <span>12%</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-1">
-                        <HardDrive className="w-3 h-3" /> RAM
-                      </span>
-                      <span>256MB</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" /> Uptime
-                      </span>
-                      <span>2h 34m</span>
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
-        </ResizablePanel>
-      </ResizablePanelGroup>
-
-      <Dialog open={showNewFileDialog} onOpenChange={setShowNewFileDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{isRTL ? "ملف جديد" : "New File"}</DialogTitle>
-            <DialogDescription>
-              {isRTL ? "أدخل اسم الملف الجديد" : "Enter the new file name"}
-            </DialogDescription>
-          </DialogHeader>
-          <Input
-            value={newFileName}
-            onChange={(e) => setNewFileName(e.target.value)}
-            placeholder={isRTL ? "اسم الملف..." : "File name..."}
-            data-testid="input-new-file-name"
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNewFileDialog(false)}>
-              {isRTL ? "إلغاء" : "Cancel"}
-            </Button>
-            <Button onClick={() => {
-              setShowNewFileDialog(false);
-              setNewFileName("");
-            }} data-testid="button-create-file">
-              {isRTL ? "إنشاء" : "Create"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Rocket className="w-5 h-5 text-primary" />
-              {isRTL ? "إنشاء مشروع جديد" : "Create New Project"}
-            </DialogTitle>
-            <DialogDescription>
-              {isRTL 
-                ? "اختر قالباً لبدء مشروعك الجديد" 
-                : "Choose a template to start your new project"}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="flex-1 overflow-y-auto py-4">
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm font-medium">
-                    {isRTL ? "اسم المشروع" : "Project Name"}
-                  </label>
-                  <Input
-                    value={newProjectName}
-                    onChange={(e) => setNewProjectName(e.target.value)}
-                    placeholder={isRTL ? "مشروعي الجديد" : "my-new-project"}
-                    className="mt-1"
-                    data-testid="input-project-name"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">
-                    {isRTL ? "الوصف" : "Description"}
-                  </label>
-                  <Input
-                    value={newProjectDescription}
-                    onChange={(e) => setNewProjectDescription(e.target.value)}
-                    placeholder={isRTL ? "وصف المشروع..." : "Project description..."}
-                    className="mt-1"
-                    data-testid="input-project-description"
-                  />
-                </div>
-              </div>
-              
-              <Separator />
-              
-              <div>
-                <h4 className="text-sm font-medium mb-3">
-                  {isRTL ? "اختر قالباً" : "Select a Template"}
-                </h4>
-                {templatesLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-                    <span className="ml-2 text-muted-foreground">
-                      {isRTL ? "جاري تحميل القوالب..." : "Loading templates..."}
-                    </span>
-                  </div>
-                ) : !templates || templates.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    {isRTL ? "لا توجد قوالب متاحة" : "No templates available"}
-                  </div>
-                ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {templates.map((template) => {
-                    const IconComponent = templateIcons[template.id] || Layout;
-                    return (
-                      <Card
-                        key={template.id}
-                        className={`p-3 cursor-pointer hover-elevate transition-all ${
-                          selectedTemplate === template.id 
-                            ? "ring-2 ring-primary bg-primary/5" 
-                            : ""
-                        }`}
-                        onClick={() => setSelectedTemplate(template.id)}
-                        data-testid={`template-card-${template.id}`}
-                      >
-                        <div className="flex flex-col items-center text-center gap-2">
-                          <div className={`p-2 rounded-md ${
-                            selectedTemplate === template.id 
-                              ? "bg-primary text-primary-foreground" 
-                              : "bg-muted"
-                          }`}>
-                            <IconComponent className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <h5 className="font-medium text-sm">
-                              {isRTL ? template.nameAr : template.name}
-                            </h5>
-                            <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                              {isRTL ? template.descriptionAr : template.description}
-                            </p>
-                          </div>
-                          {selectedTemplate === template.id && (
-                            <Badge variant="default" className="text-xs">
-                              <Check className="w-3 h-3 mr-1" />
-                              {isRTL ? "محدد" : "Selected"}
-                            </Badge>
-                          )}
+                  
+                  <div className={`flex-1 max-w-[80%] ${message.role === "user" ? "text-end" : ""}`}>
+                    <div className={`inline-block p-4 rounded-2xl ${
+                      message.role === "user"
+                        ? "bg-primary text-primary-foreground rounded-tr-sm"
+                        : "bg-muted rounded-tl-sm"
+                    }`}>
+                      <p className="whitespace-pre-wrap">{message.content}</p>
+                      
+                      {message.executionPlan && message.executionPlan.length > 0 && (
+                        <div className="mt-4 space-y-2">
+                          <Separator />
+                          <h4 className="text-sm font-medium flex items-center gap-2 mt-2">
+                            <Zap className="w-4 h-4" />
+                            {isRTL ? "خطة التنفيذ" : "Execution Plan"}
+                          </h4>
+                          {message.executionPlan.map((step, idx) => (
+                            <div key={step.id} className="flex items-start gap-2 text-sm">
+                              <div className="flex-shrink-0 mt-0.5">
+                                {step.status === "completed" ? (
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                ) : step.status === "in_progress" ? (
+                                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                                ) : step.status === "error" ? (
+                                  <AlertCircle className="w-4 h-4 text-destructive" />
+                                ) : (
+                                  <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30" />
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <p className="font-medium">{isRTL ? step.titleAr : step.title}</p>
+                                <p className="text-muted-foreground text-xs">
+                                  {isRTL ? step.descriptionAr : step.description}
+                                </p>
+                                {step.progress !== undefined && step.status === "in_progress" && (
+                                  <Progress value={step.progress} className="h-1 mt-1" />
+                                )}
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      </Card>
-                    );
-                  })}
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                      <span>{message.timestamp.toLocaleTimeString()}</span>
+                      {message.status === "executing" && (
+                        <Badge variant="outline" className="text-xs gap-1">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          {t.executing}
+                        </Badge>
+                      )}
+                      {message.status === "completed" && (
+                        <Badge variant="outline" className="text-xs gap-1 text-emerald-500 border-emerald-500/30">
+                          <CheckCircle2 className="w-3 h-3" />
+                          {t.completed}
+                        </Badge>
+                      )}
+                      {message.status === "error" && (
+                        <Badge variant="destructive" className="text-xs gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          {t.error}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                )}
+              ))}
+              
+              {isProcessing && (
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-primary flex items-center justify-center">
+                    <Bot className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="bg-muted p-4 rounded-2xl rounded-tl-sm">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span className="text-sm">{t.thinking}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div ref={messagesEndRef} />
+            </div>
+          </ScrollArea>
+
+          {messages.length === 1 && (
+            <div className="px-4 pb-4">
+              <div className="max-w-3xl mx-auto">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                  {quickCommands.slice(0, 4).map((cmd) => (
+                    <Button
+                      key={cmd.id}
+                      variant="outline"
+                      size="sm"
+                      className="justify-start gap-2 h-auto py-3 text-start"
+                      onClick={() => handleQuickCommand(cmd)}
+                      data-testid={`suggestion-${cmd.id}`}
+                    >
+                      <cmd.icon className="w-4 h-4 text-primary flex-shrink-0" />
+                      <span className="text-xs line-clamp-2">{isRTL ? cmd.labelAr : cmd.label}</span>
+                    </Button>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          <DialogFooter className="border-t pt-4">
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setShowTemplateDialog(false);
-                setSelectedTemplate(null);
-                setNewProjectName("");
-                setNewProjectDescription("");
-              }}
-            >
-              {isRTL ? "إلغاء" : "Cancel"}
-            </Button>
-            <Button 
-              onClick={() => {
-                if (selectedTemplate && newProjectName) {
-                  generateProjectMutation.mutate({
-                    templateId: selectedTemplate,
-                    name: newProjectName,
-                    description: newProjectDescription,
-                  });
-                }
-              }}
-              disabled={!selectedTemplate || !newProjectName || generateProjectMutation.isPending}
-              data-testid="button-generate-project"
-            >
-              {generateProjectMutation.isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  {isRTL ? "جاري التوليد..." : "Generating..."}
-                </>
-              ) : (
-                <>
-                  <Rocket className="w-4 h-4 mr-2" />
-                  {isRTL ? "إنشاء المشروع" : "Create Project"}
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showDeployDialog} onOpenChange={setShowDeployDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Cloud className="w-5 h-5 text-primary" />
-              {isRTL ? "نشر المشروع" : "Deploy Project"}
-            </DialogTitle>
-            <DialogDescription>
-              {isRTL 
-                ? "اختر مزود السحابة للنشر" 
-                : "Choose a cloud provider for deployment"}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { id: "vercel", name: "Vercel", icon: Globe },
-                { id: "netlify", name: "Netlify", icon: Globe },
-                { id: "railway", name: "Railway", icon: Server },
-                { id: "render", name: "Render", icon: Cloud },
-                { id: "flyio", name: "Fly.io", icon: Rocket },
-                { id: "hetzner", name: "Hetzner", icon: Database },
-              ].map((provider) => {
-                const IconComponent = provider.icon;
-                return (
-                  <Card
-                    key={provider.id}
-                    className={`p-3 cursor-pointer hover-elevate ${
-                      selectedDeployProvider === provider.id 
-                        ? "ring-2 ring-primary bg-primary/5" 
-                        : ""
-                    }`}
-                    onClick={() => setSelectedDeployProvider(provider.id)}
-                    data-testid={`provider-card-${provider.id}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-md ${
-                        selectedDeployProvider === provider.id 
-                          ? "bg-primary text-primary-foreground" 
-                          : "bg-muted"
-                      }`}>
-                        <IconComponent className="w-4 h-4" />
-                      </div>
-                      <span className="font-medium">{provider.name}</span>
-                    </div>
-                  </Card>
-                );
-              })}
+          <div className="border-t bg-card/50 backdrop-blur-sm p-4">
+            <div className="max-w-3xl mx-auto">
+              <div className="flex gap-2">
+                <Textarea
+                  ref={inputRef}
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={t.placeholder}
+                  className="min-h-[52px] max-h-32 resize-none"
+                  disabled={isProcessing}
+                  data-testid="input-ai-command"
+                />
+                <Button 
+                  onClick={handleSendMessage} 
+                  disabled={!inputValue.trim() || isProcessing}
+                  className="h-[52px] px-6"
+                  data-testid="button-send-command"
+                >
+                  {isProcessing ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Send className="w-5 h-5" />
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2 text-center">
+                {isRTL 
+                  ? "اكتب أمرك بالعربية أو الإنجليزية - سأفهم وأنفذ"
+                  : "Type your command in Arabic or English - I'll understand and execute"}
+              </p>
             </div>
           </div>
+        </main>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeployDialog(false)}>
-              {isRTL ? "إلغاء" : "Cancel"}
-            </Button>
-            <Button 
-              onClick={() => {
-                if (selectedWorkspace && selectedDeployProvider) {
-                  deployProjectMutation.mutate({
-                    projectId: selectedWorkspace,
-                    provider: selectedDeployProvider,
-                  });
-                }
-              }}
-              disabled={!selectedDeployProvider || deployProjectMutation.isPending}
-              data-testid="button-start-deploy"
-            >
-              {deployProjectMutation.isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  {isRTL ? "جاري النشر..." : "Deploying..."}
-                </>
-              ) : (
-                <>
-                  <Rocket className="w-4 h-4 mr-2" />
-                  {isRTL ? "بدء النشر" : "Start Deploy"}
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        {currentExecution && (
+          <aside className={`w-80 border-${isRTL ? "r" : "l"} bg-card/30 hidden xl:flex flex-col`}>
+            <div className="p-4 border-b">
+              <h3 className="font-semibold flex items-center gap-2">
+                <Terminal className="w-4 h-4" />
+                {t.executionLog}
+              </h3>
+            </div>
+            <ScrollArea className="flex-1 p-4">
+              <div className="space-y-3">
+                {currentExecution.map((step, idx) => (
+                  <div 
+                    key={step.id} 
+                    className={`p-3 rounded-lg border ${
+                      step.status === "completed" 
+                        ? "bg-emerald-500/5 border-emerald-500/20" 
+                        : step.status === "in_progress"
+                        ? "bg-primary/5 border-primary/20"
+                        : step.status === "error"
+                        ? "bg-destructive/5 border-destructive/20"
+                        : "bg-muted/50"
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className="flex-shrink-0 mt-0.5">
+                        {step.status === "completed" ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                        ) : step.status === "in_progress" ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                        ) : step.status === "error" ? (
+                          <AlertCircle className="w-4 h-4 text-destructive" />
+                        ) : (
+                          <Clock className="w-4 h-4 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm">{isRTL ? step.titleAr : step.title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {isRTL ? step.descriptionAr : step.description}
+                        </p>
+                        {step.progress !== undefined && step.status === "in_progress" && (
+                          <Progress value={step.progress} className="h-1 mt-2" />
+                        )}
+                        {step.output && (
+                          <pre className="mt-2 p-2 bg-background rounded text-xs overflow-x-auto">
+                            {step.output}
+                          </pre>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </aside>
+        )}
+      </div>
     </div>
   );
 }
