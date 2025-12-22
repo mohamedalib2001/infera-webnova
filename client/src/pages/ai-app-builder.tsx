@@ -572,31 +572,37 @@ Example: I want an HR platform with employee management, leave requests, attenda
                   <CardTitle className="text-lg">أمثلة للطلبات / Example Prompts</CardTitle>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="space-y-3">
                 {blueprintExamples.map((example) => {
                   const Icon = example.icon;
+                  const complexityIcon = {
+                    standard: <Layers className="w-3 h-3" />,
+                    advanced: <Zap className="w-3 h-3" />,
+                    enterprise: <Building2 className="w-3 h-3" />,
+                  }[example.complexity];
                   return (
                     <div
                       key={example.id}
-                      className="p-3 rounded-lg border border-border/60 cursor-pointer hover-elevate transition-colors"
+                      className="group p-4 rounded-xl border border-border/60 cursor-pointer hover-elevate transition-all duration-200"
                       onClick={() => setPrompt(example.prompt)}
                       data-testid={`button-example-${example.id}`}
                     >
-                      <div className="flex items-start gap-3">
-                        <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                          <Icon className="w-4 h-4 text-muted-foreground" />
+                      <div className="flex items-start gap-4">
+                        <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 transition-colors group-hover:bg-primary/15">
+                          <Icon className="w-5 h-5 text-primary" />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2 mb-1">
-                            <p className="text-sm font-medium">{example.titleAr}</p>
+                        <div className="flex-1 min-w-0 space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-semibold text-foreground">{example.titleAr}</p>
                             <Badge 
                               variant="secondary" 
-                              className={`text-[10px] ${complexityColors[example.complexity]}`}
+                              className={`text-[10px] gap-1 ${complexityColors[example.complexity]}`}
                             >
+                              {complexityIcon}
                               {example.complexity}
                             </Badge>
                           </div>
-                          <p className="text-xs text-muted-foreground">{example.descAr}</p>
+                          <p className="text-xs text-muted-foreground leading-relaxed">{example.descAr}</p>
                         </div>
                       </div>
                     </div>
@@ -624,7 +630,7 @@ function SessionCard({
   
   return (
     <div
-      className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+      className={`group p-4 rounded-xl border cursor-pointer transition-all duration-200 ${
         isActive 
           ? "border-primary bg-primary/5" 
           : "border-border/60 hover-elevate"
@@ -633,17 +639,17 @@ function SessionCard({
       data-testid={`card-session-${session.id}`}
     >
       <div className="flex items-center justify-between gap-2 mb-2">
-        <p className="font-medium text-sm truncate flex-1">
+        <p className="font-semibold text-sm truncate flex-1">
           {session.appName || "تطبيق جديد"}
         </p>
         <Badge 
           variant="secondary" 
-          className={`text-xs ${config.bg} ${config.text}`}
+          className={`text-[10px] ${config.bg} ${config.text}`}
         >
           {config.labelAr}
         </Badge>
       </div>
-      <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
+      <p className="text-xs text-muted-foreground line-clamp-2 mb-3 leading-relaxed">
         {session.prompt.substring(0, 80)}...
       </p>
       <div className="flex items-center gap-3">
