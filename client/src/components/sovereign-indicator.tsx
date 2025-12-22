@@ -595,7 +595,7 @@ export function SovereignIndicator() {
   }
   
   return (
-    <div className="fixed bottom-6 right-6 z-[9999]" dir={isRtl ? 'rtl' : 'ltr'}>
+    <div className="fixed bottom-20 right-6 z-[9999]" dir={isRtl ? 'rtl' : 'ltr'}>
       <Popover open={isOpen} onOpenChange={setIsOpen}>
         <PopoverTrigger asChild>
           <button
