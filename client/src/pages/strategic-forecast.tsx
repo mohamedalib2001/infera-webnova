@@ -1,71 +1,135 @@
 import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLanguage } from "@/hooks/use-language";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
-  TrendingUp, TrendingDown, BarChart3, LineChart, PieChart,
-  AreaChart, Target, Brain, Lightbulb, Sparkles, Activity,
-  Clock, Calendar, Timer, Play, Pause, RefreshCw, Settings,
-  AlertTriangle, CheckCircle2, XCircle, ArrowUpRight, ArrowDownRight,
-  Gauge, Scale, Shield, Crown, Radio, Eye, Cpu, Zap
+  TrendingUp, TrendingDown, BarChart3, LineChart, 
+  Target, Brain, Lightbulb, Sparkles, Activity,
+  Play, RefreshCw, AlertTriangle, CheckCircle2, 
+  ArrowUpRight, ArrowDownRight, Gauge, Shield, Cpu, Zap,
+  Eye, Loader2
 } from "lucide-react";
 
-interface Scenario {
-  id: string;
-  name: string;
-  nameAr: string;
-  description: string;
-  descriptionAr: string;
-  type: 'growth' | 'risk' | 'cost' | 'policy';
-  probability: number;
-  impact: 'low' | 'medium' | 'high' | 'critical';
-  timeline: string;
-  status: 'simulating' | 'completed' | 'pending';
+interface ForecastDashboard {
+  metrics: {
+    activeUsers: number;
+    totalRisks: number;
+    openRisks: number;
+    resolvedRisks: number;
+    complianceScore: number;
+    securityScore: number;
+    frameworks: number;
+  };
+  lastForecast: any;
+  hasForecasts: boolean;
 }
 
-interface Forecast {
-  id: string;
-  metric: string;
-  metricAr: string;
-  current: number;
-  predicted: number;
-  change: number;
-  confidence: number;
-  timeframe: string;
+interface ForecastRunResult {
+  success: boolean;
+  runId: string;
+  summary: string;
+  summaryAr: string;
+  predictions: Array<{
+    metric: string;
+    metricAr: string;
+    current: number;
+    predicted: number;
+    change: number;
+    confidence: number;
+    reasoning: string;
+    reasoningAr: string;
+    recommendations: string[];
+    recommendationsAr: string[];
+  }>;
+  scenarios: Array<{
+    name: string;
+    nameAr: string;
+    type: string;
+    probability: number;
+    impact: string;
+    description: string;
+    descriptionAr: string;
+    recommendations: string[];
+    recommendationsAr: string[];
+  }>;
+  risks: Array<{
+    type: string;
+    typeAr: string;
+    probability: number;
+    impact: string;
+    mitigation: string;
+    mitigationAr: string;
+  }>;
+  growthForecast: number;
+  riskLevel: string;
+  confidenceScore: number;
+  platformMetrics: any;
+  completedAt: string;
 }
 
 export default function StrategicForecast() {
   const { language } = useLanguage();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("forecasts");
   const [simulationParams, setSimulationParams] = useState({
     userGrowth: 15,
     resourceDemand: 20,
     policyStrictness: 75,
     aiAutonomy: 80,
+    timeframe: "3 months"
+  });
+  const [forecastResult, setForecastResult] = useState<ForecastRunResult | null>(null);
+
+  // Fetch real dashboard data
+  const { data: dashboardData, isLoading: isDashboardLoading, error: dashboardError } = useQuery<ForecastDashboard>({
+    queryKey: ['/api/forecasts/dashboard']
   });
 
-  const scenarios: Scenario[] = [
-    { id: "1", name: "High Growth Scenario", nameAr: "سيناريو النمو العالي", description: "50% user increase over 6 months", descriptionAr: "زيادة 50% في المستخدمين خلال 6 أشهر", type: "growth", probability: 35, impact: "high", timeline: "6 months", status: "completed" },
-    { id: "2", name: "Security Breach Response", nameAr: "الاستجابة لخرق أمني", description: "Simulate major security incident", descriptionAr: "محاكاة حادث أمني كبير", type: "risk", probability: 15, impact: "critical", timeline: "Immediate", status: "completed" },
-    { id: "3", name: "Cost Optimization", nameAr: "تحسين التكاليف", description: "30% infrastructure cost reduction", descriptionAr: "تخفيض 30% في تكلفة البنية التحتية", type: "cost", probability: 60, impact: "medium", timeline: "3 months", status: "simulating" },
-    { id: "4", name: "Strict Compliance Mode", nameAr: "وضع الامتثال الصارم", description: "Full PDPL/GDPR enforcement", descriptionAr: "تطبيق كامل لـ PDPL/GDPR", type: "policy", probability: 80, impact: "high", timeline: "1 month", status: "pending" },
-  ];
+  // Fetch forecast history
+  const { data: forecastHistory } = useQuery<{ forecasts: any[] }>({
+    queryKey: ['/api/forecasts']
+  });
 
-  const forecasts: Forecast[] = [
-    { id: "1", metric: "Active Users", metricAr: "المستخدمون النشطون", current: 28470, predicted: 34500, change: 21, confidence: 87, timeframe: "3 months" },
-    { id: "2", metric: "Platform Revenue", metricAr: "إيرادات المنصة", current: 125000, predicted: 158000, change: 26, confidence: 82, timeframe: "3 months" },
-    { id: "3", metric: "API Requests", metricAr: "طلبات API", current: 2400000, predicted: 3100000, change: 29, confidence: 91, timeframe: "3 months" },
-    { id: "4", metric: "Storage Usage", metricAr: "استخدام التخزين", current: 8.3, predicted: 11.2, change: 35, confidence: 94, timeframe: "3 months" },
-    { id: "5", metric: "Compliance Score", metricAr: "درجة الامتثال", current: 92, predicted: 96, change: 4, confidence: 78, timeframe: "3 months" },
-    { id: "6", metric: "Security Posture", metricAr: "الوضع الأمني", current: 91, predicted: 94, change: 3, confidence: 85, timeframe: "3 months" },
-  ];
+  // Fetch scenarios
+  const { data: scenariosData } = useQuery<{ scenarios: any[] }>({
+    queryKey: ['/api/scenarios']
+  });
+
+  // Run AI forecast mutation
+  const runForecastMutation = useMutation({
+    mutationFn: async (params: typeof simulationParams) => {
+      const response = await apiRequest('POST', '/api/forecasts/run', { parameters: params });
+      return response.json();
+    },
+    onSuccess: (data: ForecastRunResult) => {
+      setForecastResult(data);
+      queryClient.invalidateQueries({ queryKey: ['/api/forecasts'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/forecasts/dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/scenarios'] });
+      toast({
+        title: language === "ar" ? "اكتمل التحليل الذكي" : "AI Analysis Complete",
+        description: language === "ar" 
+          ? `تم تحليل ${data.predictions?.length || 0} مقياس وتحديد ${data.scenarios?.length || 0} سيناريو`
+          : `Analyzed ${data.predictions?.length || 0} metrics and identified ${data.scenarios?.length || 0} scenarios`
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: language === "ar" ? "فشل التحليل" : "Analysis Failed",
+        description: String(error),
+        variant: "destructive"
+      });
+    }
+  });
 
   const typeColors: Record<string, string> = {
     growth: "text-emerald-500 bg-emerald-500/10 border-emerald-500/30",
@@ -81,21 +145,63 @@ export default function StrategicForecast() {
     critical: "text-red-500 border-red-500/30",
   };
 
+  // Use real predictions from AI or fallback
+  const predictions = forecastResult?.predictions || [];
+  const scenarios = forecastResult?.scenarios || scenariosData?.scenarios || [];
+  const risks = forecastResult?.risks || [];
+
+  if (isDashboardLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6">
+        <div className="space-y-4">
+          <Skeleton className="h-12 w-64 bg-slate-800" />
+          <div className="grid grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24 bg-slate-800" />)}
+          </div>
+          <Skeleton className="h-96 bg-slate-800" />
+        </div>
+      </div>
+    );
+  }
+
+  if (dashboardError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6 flex items-center justify-center">
+        <Card className="bg-red-500/10 border-red-500/30">
+          <CardContent className="p-6 text-center">
+            <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <p className="text-red-500">{language === "ar" ? "فشل تحميل البيانات" : "Failed to load data"}</p>
+            <Button 
+              variant="outline" 
+              className="mt-4"
+              onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/forecasts/dashboard'] })}
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              {language === "ar" ? "إعادة المحاولة" : "Retry"}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const metrics = dashboardData?.metrics;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950" dir={language === "ar" ? "rtl" : "ltr"}>
       <div className="flex flex-col h-screen">
         <header className="px-6 py-4 border-b border-slate-800/50 bg-slate-900/80 backdrop-blur-xl sticky top-0 z-50">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/10 border border-purple-500/30">
                 <LineChart className="w-7 h-7 text-purple-500" />
               </div>
               <div>
                 <h1 className="text-xl font-bold text-white" data-testid="text-forecast-title">
-                  {language === "ar" ? "التنبؤ الاستراتيجي والمحاكاة" : "Strategic Forecast & Simulation"}
+                  {language === "ar" ? "التنبؤ الاستراتيجي الذكي" : "Intelligent Strategic Forecast"}
                 </h1>
                 <p className="text-sm text-slate-400">
-                  {language === "ar" ? "تحليل تنبؤي ومحاكاة السيناريوهات" : "Predictive Analysis & Scenario Modeling"}
+                  {language === "ar" ? "تحليل ذكي مدعوم بـ Claude AI" : "AI-Powered Analysis with Claude AI"}
                 </p>
               </div>
             </div>
@@ -103,8 +209,14 @@ export default function StrategicForecast() {
             <div className="flex items-center gap-3">
               <Badge variant="outline" className="text-purple-500 border-purple-500/30 bg-purple-500/5">
                 <Brain className="w-3 h-3 mr-1" />
-                {language === "ar" ? "مدعوم بـ AI" : "AI-POWERED"}
+                {language === "ar" ? "Claude AI" : "Claude AI"}
               </Badge>
+              {forecastResult && (
+                <Badge variant="outline" className="text-emerald-500 border-emerald-500/30 bg-emerald-500/5">
+                  <CheckCircle2 className="w-3 h-3 mr-1" />
+                  {language === "ar" ? `ثقة ${forecastResult.confidenceScore}%` : `${forecastResult.confidenceScore}% Confidence`}
+                </Badge>
+              )}
             </div>
           </div>
         </header>
@@ -113,14 +225,18 @@ export default function StrategicForecast() {
           <Card className="bg-gradient-to-br from-emerald-500/10 to-transparent border-emerald-500/20">
             <CardContent className="p-3 text-center">
               <TrendingUp className="w-5 h-5 text-emerald-500 mx-auto mb-1" />
-              <p className="text-2xl font-bold text-emerald-500">+21%</p>
+              <p className="text-2xl font-bold text-emerald-500">
+                {forecastResult ? `+${forecastResult.growthForecast}%` : `+${simulationParams.userGrowth}%`}
+              </p>
               <p className="text-[10px] text-slate-400">{language === "ar" ? "توقع النمو" : "Growth Forecast"}</p>
             </CardContent>
           </Card>
           <Card className="bg-gradient-to-br from-blue-500/10 to-transparent border-blue-500/20">
             <CardContent className="p-3 text-center">
               <Target className="w-5 h-5 text-blue-500 mx-auto mb-1" />
-              <p className="text-2xl font-bold text-blue-500">87%</p>
+              <p className="text-2xl font-bold text-blue-500">
+                {forecastResult?.confidenceScore || metrics?.complianceScore || 0}%
+              </p>
               <p className="text-[10px] text-slate-400">{language === "ar" ? "دقة التنبؤ" : "Prediction Accuracy"}</p>
             </CardContent>
           </Card>
@@ -133,9 +249,9 @@ export default function StrategicForecast() {
           </Card>
           <Card className="bg-gradient-to-br from-amber-500/10 to-transparent border-amber-500/20">
             <CardContent className="p-3 text-center">
-              <Zap className="w-5 h-5 text-amber-500 mx-auto mb-1" />
-              <p className="text-2xl font-bold text-amber-500">{scenarios.filter(s => s.status === 'simulating').length}</p>
-              <p className="text-[10px] text-slate-400">{language === "ar" ? "جاري المحاكاة" : "Simulating"}</p>
+              <Shield className="w-5 h-5 text-amber-500 mx-auto mb-1" />
+              <p className="text-2xl font-bold text-amber-500">{metrics?.securityScore || 0}%</p>
+              <p className="text-[10px] text-slate-400">{language === "ar" ? "درجة الأمان" : "Security Score"}</p>
             </CardContent>
           </Card>
         </div>
@@ -144,8 +260,22 @@ export default function StrategicForecast() {
           <div className="w-80 border-r border-slate-800/50 flex flex-col bg-slate-900/30">
             <div className="p-4 border-b border-slate-800/50">
               <h3 className="text-sm font-medium text-white mb-4">
-                {language === "ar" ? "معلمات المحاكاة" : "Simulation Parameters"}
+                {language === "ar" ? "معلمات التحليل الذكي" : "AI Analysis Parameters"}
               </h3>
+              
+              <div className="mb-4 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <Activity className="w-4 h-4 text-purple-500" />
+                  <span className="text-xs text-purple-400">{language === "ar" ? "بيانات حية" : "Live Data"}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-[10px]">
+                  <div className="text-slate-400">{language === "ar" ? "المستخدمون:" : "Users:"} <span className="text-white">{metrics?.activeUsers || 0}</span></div>
+                  <div className="text-slate-400">{language === "ar" ? "المخاطر:" : "Risks:"} <span className="text-white">{metrics?.openRisks || 0}</span></div>
+                  <div className="text-slate-400">{language === "ar" ? "الامتثال:" : "Compliance:"} <span className="text-white">{metrics?.complianceScore || 0}%</span></div>
+                  <div className="text-slate-400">{language === "ar" ? "الأمان:" : "Security:"} <span className="text-white">{metrics?.securityScore || 0}%</span></div>
+                </div>
+              </div>
+
               <div className="space-y-4">
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -200,11 +330,36 @@ export default function StrategicForecast() {
                   />
                 </div>
               </div>
-              <Button className="w-full mt-4 bg-purple-600 hover:bg-purple-700" data-testid="button-run-simulation">
-                <Play className="w-4 h-4 mr-2" />
-                {language === "ar" ? "تشغيل المحاكاة" : "Run Simulation"}
+              <Button 
+                className="w-full mt-4 bg-purple-600 hover:bg-purple-700" 
+                data-testid="button-run-forecast"
+                onClick={() => runForecastMutation.mutate(simulationParams)}
+                disabled={runForecastMutation.isPending}
+              >
+                {runForecastMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {language === "ar" ? "جاري التحليل بواسطة Claude..." : "Analyzing with Claude..."}
+                  </>
+                ) : (
+                  <>
+                    <Brain className="w-4 h-4 mr-2" />
+                    {language === "ar" ? "تشغيل التحليل الذكي" : "Run AI Analysis"}
+                  </>
+                )}
               </Button>
             </div>
+            
+            {forecastResult?.summary && (
+              <div className="p-4 border-b border-slate-800/50">
+                <h4 className="text-xs font-medium text-purple-400 mb-2">
+                  {language === "ar" ? "ملخص التحليل" : "Analysis Summary"}
+                </h4>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  {language === "ar" ? forecastResult.summaryAr : forecastResult.summary}
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="flex-1 p-6 overflow-auto">
@@ -218,6 +373,10 @@ export default function StrategicForecast() {
                   <Cpu className="w-3.5 h-3.5" />
                   {language === "ar" ? "السيناريوهات" : "Scenarios"}
                 </TabsTrigger>
+                <TabsTrigger value="risks" className="text-xs gap-1.5" data-testid="tab-risks">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  {language === "ar" ? "المخاطر" : "Risks"}
+                </TabsTrigger>
                 <TabsTrigger value="insights" className="text-xs gap-1.5" data-testid="tab-insights">
                   <Lightbulb className="w-3.5 h-3.5" />
                   {language === "ar" ? "الرؤى" : "Insights"}
@@ -225,91 +384,157 @@ export default function StrategicForecast() {
               </TabsList>
 
               <TabsContent value="forecasts" className="mt-0 space-y-6">
-                <div className="grid grid-cols-3 gap-4">
-                  {forecasts.map((forecast) => (
-                    <Card key={forecast.id} className="bg-slate-900/50 border-slate-800/50">
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-sm text-slate-400">
-                            {language === "ar" ? forecast.metricAr : forecast.metric}
-                          </span>
-                          <Badge variant="outline" className="text-[9px] text-purple-500 border-purple-500/30">
-                            {forecast.confidence}% {language === "ar" ? "ثقة" : "conf"}
-                          </Badge>
-                        </div>
-                        <div className="flex items-end gap-2 mb-2">
-                          <span className="text-2xl font-bold text-white">
-                            {typeof forecast.predicted === 'number' && forecast.predicted >= 1000 
-                              ? `${(forecast.predicted / 1000).toFixed(1)}K` 
-                              : forecast.predicted}
-                          </span>
-                          <div className={`flex items-center text-sm ${forecast.change > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                            {forecast.change > 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                            {Math.abs(forecast.change)}%
+                {predictions.length === 0 ? (
+                  <Card className="bg-slate-900/50 border-slate-800/50">
+                    <CardContent className="p-8 text-center">
+                      <Brain className="w-12 h-12 text-purple-500/50 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-white mb-2">
+                        {language === "ar" ? "لم يتم تشغيل التحليل بعد" : "No Analysis Run Yet"}
+                      </h3>
+                      <p className="text-sm text-slate-400 mb-4">
+                        {language === "ar" 
+                          ? "اضغط على 'تشغيل التحليل الذكي' للحصول على تنبؤات مدعومة بـ Claude AI"
+                          : "Click 'Run AI Analysis' to get Claude AI-powered predictions"}
+                      </p>
+                      <Button 
+                        className="bg-purple-600 hover:bg-purple-700"
+                        onClick={() => runForecastMutation.mutate(simulationParams)}
+                        disabled={runForecastMutation.isPending}
+                      >
+                        <Brain className="w-4 h-4 mr-2" />
+                        {language === "ar" ? "تشغيل التحليل" : "Run Analysis"}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="grid grid-cols-3 gap-4">
+                    {predictions.map((prediction, index) => (
+                      <Card key={index} className="bg-slate-900/50 border-slate-800/50">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-sm text-slate-400">
+                              {language === "ar" ? prediction.metricAr : prediction.metric}
+                            </span>
+                            <Badge variant="outline" className="text-[9px] text-purple-500 border-purple-500/30">
+                              {prediction.confidence}% {language === "ar" ? "ثقة" : "conf"}
+                            </Badge>
                           </div>
-                        </div>
-                        <p className="text-[10px] text-slate-500">
-                          {language === "ar" ? `الحالي: ${forecast.current}` : `Current: ${forecast.current}`} | {forecast.timeframe}
-                        </p>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                          <div className="flex items-end gap-2 mb-2">
+                            <span className="text-2xl font-bold text-white">
+                              {typeof prediction.predicted === 'number' && prediction.predicted >= 1000 
+                                ? `${(prediction.predicted / 1000).toFixed(1)}K` 
+                                : prediction.predicted}
+                            </span>
+                            <div className={`flex items-center text-sm ${prediction.change > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                              {prediction.change > 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                              {Math.abs(prediction.change)}%
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-slate-500 mb-2">
+                            {language === "ar" ? `الحالي: ${prediction.current}` : `Current: ${prediction.current}`}
+                          </p>
+                          <p className="text-[10px] text-slate-400 italic">
+                            {language === "ar" ? prediction.reasoningAr : prediction.reasoning}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="scenarios" className="mt-0">
-                <div className="grid grid-cols-2 gap-4">
-                  {scenarios.map((scenario) => (
-                    <Card key={scenario.id} className="bg-slate-900/50 border-slate-800/50">
-                      <CardHeader className="pb-2">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <CardTitle className="text-base text-white">
-                              {language === "ar" ? scenario.nameAr : scenario.name}
-                            </CardTitle>
-                            <CardDescription className="text-slate-400 text-xs mt-1">
-                              {language === "ar" ? scenario.descriptionAr : scenario.description}
-                            </CardDescription>
+                {scenarios.length === 0 ? (
+                  <Card className="bg-slate-900/50 border-slate-800/50">
+                    <CardContent className="p-8 text-center">
+                      <Cpu className="w-12 h-12 text-purple-500/50 mx-auto mb-4" />
+                      <p className="text-slate-400">
+                        {language === "ar" ? "سيتم إنشاء السيناريوهات بعد تشغيل التحليل" : "Scenarios will be generated after running analysis"}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4">
+                    {scenarios.map((scenario, index) => (
+                      <Card key={index} className="bg-slate-900/50 border-slate-800/50">
+                        <CardHeader className="pb-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <CardTitle className="text-base text-white">
+                                {language === "ar" ? scenario.nameAr : scenario.name}
+                              </CardTitle>
+                              <CardDescription className="text-slate-400 text-xs mt-1">
+                                {language === "ar" ? scenario.descriptionAr : scenario.description}
+                              </CardDescription>
+                            </div>
+                            <Badge className={`text-[9px] ${impactColors[scenario.impact] || 'bg-slate-600'}`}>
+                              {scenario.impact?.toUpperCase()}
+                            </Badge>
                           </div>
-                          <Badge className={`text-[9px] ${
-                            scenario.status === 'completed' ? 'bg-emerald-600' :
-                            scenario.status === 'simulating' ? 'bg-blue-600' : 'bg-slate-600'
-                          }`}>
-                            {scenario.status === 'completed' ? (language === "ar" ? "مكتمل" : "COMPLETED") :
-                             scenario.status === 'simulating' ? (language === "ar" ? "جاري" : "RUNNING") :
-                             (language === "ar" ? "معلق" : "PENDING")}
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center gap-3 mb-3">
-                          <Badge variant="outline" className={`text-[9px] ${typeColors[scenario.type]}`}>
-                            {scenario.type.toUpperCase()}
-                          </Badge>
-                          <Badge variant="outline" className={`text-[9px] ${impactColors[scenario.impact]}`}>
-                            {scenario.impact.toUpperCase()} IMPACT
-                          </Badge>
-                        </div>
-                        <div className="flex items-center justify-between text-xs text-slate-400 mb-3">
-                          <span>{language === "ar" ? "الاحتمالية" : "Probability"}: {scenario.probability}%</span>
-                          <span>{scenario.timeline}</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button size="sm" variant="outline" className="flex-1 h-8 text-xs border-slate-600" data-testid={`button-view-scenario-${scenario.id}`}>
-                            <Eye className="w-3 h-3 mr-1" />
-                            {language === "ar" ? "عرض" : "View"}
-                          </Button>
-                          {scenario.status !== 'simulating' && (
-                            <Button size="sm" className="flex-1 h-8 text-xs bg-purple-600 hover:bg-purple-700" data-testid={`button-run-scenario-${scenario.id}`}>
-                              <Play className="w-3 h-3 mr-1" />
-                              {language === "ar" ? "تشغيل" : "Run"}
-                            </Button>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex items-center gap-3 mb-3">
+                            <Badge variant="outline" className={`text-[9px] ${typeColors[scenario.type] || ''}`}>
+                              {scenario.type?.toUpperCase()}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-slate-400">
+                            <span>{language === "ar" ? "الاحتمالية" : "Probability"}: {scenario.probability}%</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="risks" className="mt-0">
+                {risks.length === 0 ? (
+                  <Card className="bg-slate-900/50 border-slate-800/50">
+                    <CardContent className="p-8 text-center">
+                      <Shield className="w-12 h-12 text-emerald-500/50 mx-auto mb-4" />
+                      <p className="text-slate-400">
+                        {language === "ar" ? "سيتم تحديد المخاطر بعد تشغيل التحليل" : "Risks will be identified after running analysis"}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="space-y-4">
+                    {risks.map((risk, index) => (
+                      <Card key={index} className={`border ${
+                        risk.impact === 'critical' ? 'bg-red-500/10 border-red-500/30' :
+                        risk.impact === 'high' ? 'bg-orange-500/10 border-orange-500/30' :
+                        risk.impact === 'medium' ? 'bg-amber-500/10 border-amber-500/30' :
+                        'bg-slate-900/50 border-slate-800/50'
+                      }`}>
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <AlertTriangle className={`w-4 h-4 ${
+                                risk.impact === 'critical' ? 'text-red-500' :
+                                risk.impact === 'high' ? 'text-orange-500' :
+                                risk.impact === 'medium' ? 'text-amber-500' :
+                                'text-slate-400'
+                              }`} />
+                              <span className="text-sm font-medium text-white">
+                                {language === "ar" ? risk.typeAr : risk.type}
+                              </span>
+                            </div>
+                            <Badge variant="outline" className={impactColors[risk.impact] || ''}>
+                              {risk.probability}% {language === "ar" ? "احتمال" : "probability"}
+                            </Badge>
+                          </div>
+                          <div className="mt-3 p-3 bg-slate-800/30 rounded-lg">
+                            <p className="text-xs text-slate-400 mb-1">{language === "ar" ? "التخفيف:" : "Mitigation:"}</p>
+                            <p className="text-sm text-white">
+                              {language === "ar" ? risk.mitigationAr : risk.mitigation}
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="insights" className="mt-0">
@@ -317,37 +542,52 @@ export default function StrategicForecast() {
                   <CardHeader>
                     <CardTitle className="text-base text-white flex items-center gap-2">
                       <Lightbulb className="w-4 h-4 text-amber-500" />
-                      {language === "ar" ? "رؤى AI الاستراتيجية" : "AI Strategic Insights"}
+                      {language === "ar" ? "رؤى Claude AI الاستراتيجية" : "Claude AI Strategic Insights"}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      {[
-                        { insight: "User growth trajectory suggests need for infrastructure scaling in Q2", insightAr: "مسار نمو المستخدمين يشير إلى الحاجة لتوسيع البنية التحتية في الربع الثاني", priority: "high" },
-                        { insight: "Current compliance score trajectory will achieve PDPL certification by March", insightAr: "مسار درجة الامتثال الحالي سيحقق شهادة PDPL بحلول مارس", priority: "medium" },
-                        { insight: "API request patterns indicate opportunity for caching optimization", insightAr: "أنماط طلبات API تشير إلى فرصة لتحسين التخزين المؤقت", priority: "low" },
-                        { insight: "Risk of resource exhaustion if current growth continues without scaling", insightAr: "خطر استنفاد الموارد إذا استمر النمو الحالي بدون توسيع", priority: "critical" },
-                      ].map((item, i) => (
-                        <div key={i} className={`p-4 rounded-lg border ${
-                          item.priority === 'critical' ? 'bg-red-500/10 border-red-500/20' :
-                          item.priority === 'high' ? 'bg-orange-500/10 border-orange-500/20' :
-                          item.priority === 'medium' ? 'bg-amber-500/10 border-amber-500/20' :
-                          'bg-slate-800/30 border-slate-700/30'
-                        }`}>
+                    {forecastResult ? (
+                      <div className="space-y-4">
+                        <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
                           <div className="flex items-start gap-3">
-                            <Sparkles className={`w-4 h-4 shrink-0 mt-0.5 ${
-                              item.priority === 'critical' ? 'text-red-500' :
-                              item.priority === 'high' ? 'text-orange-500' :
-                              item.priority === 'medium' ? 'text-amber-500' :
-                              'text-slate-400'
-                            }`} />
-                            <p className="text-sm text-white">
-                              {language === "ar" ? item.insightAr : item.insight}
-                            </p>
+                            <Brain className="w-5 h-5 text-purple-500 shrink-0 mt-0.5" />
+                            <div>
+                              <p className="text-sm font-medium text-purple-400 mb-2">
+                                {language === "ar" ? "تحليل Claude AI" : "Claude AI Analysis"}
+                              </p>
+                              <p className="text-sm text-white">
+                                {language === "ar" ? forecastResult.summaryAr : forecastResult.summary}
+                              </p>
+                            </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                        
+                        {predictions.map((pred, i) => pred.recommendations?.length > 0 && (
+                          <div key={i} className="p-4 rounded-lg border bg-slate-800/30 border-slate-700/30">
+                            <p className="text-xs text-slate-400 mb-2">
+                              {language === "ar" ? `توصيات لـ ${pred.metricAr}:` : `Recommendations for ${pred.metric}:`}
+                            </p>
+                            <ul className="space-y-1">
+                              {(language === "ar" ? pred.recommendationsAr : pred.recommendations)?.map((rec, j) => (
+                                <li key={j} className="flex items-start gap-2 text-sm text-white">
+                                  <Sparkles className="w-3 h-3 text-amber-500 shrink-0 mt-1" />
+                                  {rec}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <Sparkles className="w-12 h-12 text-amber-500/50 mx-auto mb-4" />
+                        <p className="text-slate-400">
+                          {language === "ar" 
+                            ? "قم بتشغيل التحليل الذكي للحصول على رؤى Claude AI"
+                            : "Run AI analysis to get Claude AI insights"}
+                        </p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>

@@ -8083,6 +8083,156 @@ export const insertRemediationActionSchema = createInsertSchema(remediationActio
 export type InsertRemediationAction = z.infer<typeof insertRemediationActionSchema>;
 export type RemediationAction = typeof remediationActions.$inferSelect;
 
+// ==================== INTELLIGENT FORECASTING SYSTEM (نظام التنبؤ الذكي) ====================
+
+// Forecast types
+export const forecastTypes = ['growth', 'risk', 'cost', 'compliance', 'security', 'performance'] as const;
+export type ForecastType = typeof forecastTypes[number];
+
+// Scenario statuses
+export const scenarioStatuses = ['pending', 'analyzing', 'completed', 'failed'] as const;
+export type ScenarioStatus = typeof scenarioStatuses[number];
+
+// AI Strategic Forecasts - التنبؤات الاستراتيجية الذكية
+export const aiForecastRuns = pgTable("ai_forecast_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Run metadata
+  runName: text("run_name").notNull(),
+  runNameAr: text("run_name_ar").notNull(),
+  status: text("status").notNull().default("pending"), // pending, analyzing, completed, failed
+  
+  // Input parameters (what user configured)
+  parameters: jsonb("parameters").$type<{
+    userGrowth: number;
+    resourceDemand: number;
+    policyStrictness: number;
+    aiAutonomy: number;
+    timeframe: string;
+  }>().notNull(),
+  
+  // Platform metrics snapshot at run time
+  platformMetrics: jsonb("platform_metrics").$type<{
+    activeUsers: number;
+    totalRevenue: number;
+    apiRequests: number;
+    storageUsage: number;
+    complianceScore: number;
+    securityScore: number;
+    riskCount: number;
+    resolvedRisks: number;
+  }>(),
+  
+  // AI Analysis Output
+  aiAnalysis: text("ai_analysis"), // Raw AI response
+  aiAnalysisAr: text("ai_analysis_ar"), // Arabic version
+  
+  // Structured predictions
+  predictions: jsonb("predictions").$type<Array<{
+    metric: string;
+    metricAr: string;
+    current: number;
+    predicted: number;
+    change: number;
+    confidence: number;
+    reasoning: string;
+    reasoningAr: string;
+    recommendations: string[];
+    recommendationsAr: string[];
+  }>>(),
+  
+  // Risk assessment
+  identifiedRisks: jsonb("identified_risks").$type<Array<{
+    type: string;
+    typeAr: string;
+    probability: number;
+    impact: string;
+    mitigation: string;
+    mitigationAr: string;
+  }>>(),
+  
+  // Overall scores
+  growthForecast: real("growth_forecast"),
+  riskLevel: text("risk_level"), // low, medium, high, critical
+  confidenceScore: real("confidence_score"),
+  
+  // User attribution
+  createdBy: varchar("created_by").references(() => users.id),
+  
+  // Timing
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_forecast_status").on(table.status),
+  index("IDX_forecast_created").on(table.createdAt),
+  index("IDX_forecast_user").on(table.createdBy),
+]);
+
+export const insertAiForecastRunSchema = createInsertSchema(aiForecastRuns).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAiForecastRun = z.infer<typeof insertAiForecastRunSchema>;
+export type AiForecastRun = typeof aiForecastRuns.$inferSelect;
+
+// AI Scenarios - السيناريوهات الذكية
+export const aiScenarios = pgTable("ai_scenarios", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Scenario details
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  
+  // Classification
+  type: text("type").notNull(), // growth, risk, cost, policy
+  status: text("status").notNull().default("pending"), // pending, analyzing, completed
+  
+  // AI-generated probability and impact
+  probability: real("probability").notNull().default(0), // 0-100
+  impact: text("impact").notNull().default("medium"), // low, medium, high, critical
+  timeline: text("timeline").notNull().default("3 months"),
+  
+  // AI analysis
+  aiAnalysis: text("ai_analysis"),
+  aiAnalysisAr: text("ai_analysis_ar"),
+  recommendations: jsonb("recommendations").$type<string[]>(),
+  recommendationsAr: jsonb("recommendations_ar").$type<string[]>(),
+  
+  // Predicted outcomes
+  predictedOutcomes: jsonb("predicted_outcomes").$type<{
+    bestCase: { description: string; descriptionAr: string; probability: number };
+    worstCase: { description: string; descriptionAr: string; probability: number };
+    mostLikely: { description: string; descriptionAr: string; probability: number };
+  }>(),
+  
+  // Link to forecast run
+  forecastRunId: varchar("forecast_run_id").references(() => aiForecastRuns.id),
+  
+  // User attribution
+  createdBy: varchar("created_by").references(() => users.id),
+  
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_scenario_type").on(table.type),
+  index("IDX_scenario_status").on(table.status),
+  index("IDX_scenario_forecast").on(table.forecastRunId),
+]);
+
+export const insertAiScenarioSchema = createInsertSchema(aiScenarios).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAiScenario = z.infer<typeof insertAiScenarioSchema>;
+export type AiScenario = typeof aiScenarios.$inferSelect;
+
 // ==================== SOVEREIGN AUDIT SYSTEM (نظام الفحص السيادي) ====================
 
 // Audit run status
