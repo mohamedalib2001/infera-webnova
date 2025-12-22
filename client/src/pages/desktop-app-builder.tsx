@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { AppCodeEditor } from "@/components/app-builder/AppCodeEditor";
 import { AppLivePreview } from "@/components/app-builder/AppLivePreview";
+import DragDropBuilder from "@/components/app-builder/DragDropBuilder";
 import { 
   Monitor, 
   Laptop,
@@ -99,6 +100,7 @@ const translations = {
     tabs: {
       overview: "نظرة عامة",
       design: "التصميم",
+      visual: "المحرر البصري",
       features: "الميزات",
       code: "الكود",
       preview: "المعاينة",
@@ -177,6 +179,7 @@ const translations = {
     tabs: {
       overview: "Overview",
       design: "Design",
+      visual: "Visual Editor",
       features: "Features",
       code: "Code",
       preview: "Preview",
@@ -456,9 +459,10 @@ export default function DesktopAppBuilder() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-6 max-w-2xl">
+          <TabsList className="grid w-full grid-cols-7 max-w-3xl">
             <TabsTrigger value="overview" data-testid="tab-overview">{t.tabs.overview}</TabsTrigger>
             <TabsTrigger value="design" data-testid="tab-design">{t.tabs.design}</TabsTrigger>
+            <TabsTrigger value="visual" data-testid="tab-visual">{t.tabs.visual}</TabsTrigger>
             <TabsTrigger value="features" data-testid="tab-features">{t.tabs.features}</TabsTrigger>
             <TabsTrigger value="code" data-testid="tab-code">{t.tabs.code}</TabsTrigger>
             <TabsTrigger value="preview" data-testid="tab-preview">{t.tabs.preview}</TabsTrigger>
@@ -865,6 +869,41 @@ export default function DesktopAppBuilder() {
                     </div>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="visual" className="h-[calc(100vh-200px)]">
+            <Card className="h-full">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2">
+                  <Layers className="h-5 w-5" />
+                  {language === "ar" ? "المحرر البصري" : "Visual Editor"}
+                </CardTitle>
+                <CardDescription>
+                  {language === "ar" 
+                    ? "صمم واجهة تطبيقك بالسحب والإفلات" 
+                    : "Design your app UI with drag and drop"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="h-[calc(100%-80px)] p-0">
+                <DragDropBuilder
+                  language={language}
+                  type="desktop"
+                  onSave={(components) => {
+                    toast({
+                      title: language === "ar" ? "تم الحفظ" : "Saved",
+                      description: language === "ar" ? "تم حفظ التصميم بنجاح" : "Design saved successfully",
+                    });
+                  }}
+                  onExport={(code) => {
+                    console.log("Generated code:", code);
+                    toast({
+                      title: language === "ar" ? "تم التصدير" : "Exported",
+                      description: language === "ar" ? "تم تصدير الكود بنجاح" : "Code exported successfully",
+                    });
+                  }}
+                />
               </CardContent>
             </Card>
           </TabsContent>

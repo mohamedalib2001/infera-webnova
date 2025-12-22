@@ -17,6 +17,7 @@ import marketplaceRoutes from "./marketplace-routes";
 import sslRoutes from "./ssl-routes";
 import sshVaultRoutes from "./ssh-vault-routes";
 import { registerAppBuilderRoutes } from "./app-builder-routes";
+import { buildRoutes } from "./build-routes";
 import {
   createLoginSession,
   endLoginSession,
@@ -13950,6 +13951,7 @@ ${project.description || ""}
 
   // ==================== APP BUILDER - MOBILE & DESKTOP ====================
   registerAppBuilderRoutes(app);
+  app.use('/api', buildRoutes);
   console.log("App Builder routes registered | تم تسجيل مسارات منشئ التطبيقات");
 
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
