@@ -50,6 +50,13 @@ The platform offers an AI Chat Interface, a live preview with responsive viewpor
 *   **Field Protection**: Protected fields (isSystemPlatform, code, id, platformId, isDefaultProvider) cannot be modified via API
 *   **Zod Validation**: All POST routes validated with Zod schemas, PATCH routes use explicit field allowlists
 *   **Certificate Hierarchy**: Root CA uniqueness enforced, subordinate certs require parent certificate
+*   **Domain Visibility & Ownership Separation**:
+    - System domains (INFERA Engine): Only visible to ROOT_OWNER/sovereign users
+    - User domains: Visible only to their owners
+    - Defensive `isSystemDomainCheck()` helper handles legacy and new schema fields
+    - Pattern matching on hostnames (infera, webnova, inferatrain, inferasmartdocs) as fallback
+    - `/api/domains` filters by role, `/api/domains/system` (ROOT_OWNER only), `/api/domains/my` (user's own domains)
+    - Domain registration open to all authenticated users, but system domains require sovereign role
 
 ## External Dependencies
 *   **Database**: PostgreSQL

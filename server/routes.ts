@@ -11715,22 +11715,106 @@ ${project.description || ""}
     return quotas[tier] || 1;
   };
 
-  // Get all domains (owner only)
-  app.get("/api/domains", requireAuth, requireOwner, async (req: Request, res: Response) => {
+  // Helper: Check if domain is a system domain (handles legacy records)
+  const isSystemDomainCheck = (domain: any): boolean => {
+    // Check new field first, then fallback to legacy domainType
+    if (domain.isSystemDomain === true) return true;
+    if (domain.domainType === 'system') return true;
+    // Check if hostname matches known INFERA Engine domains
+    const systemDomainPatterns = ['infera', 'webnova', 'inferatrain', 'inferasmartdocs'];
+    const hostname = domain.hostname || domain.domainName || '';
+    return systemDomainPatterns.some(p => hostname.toLowerCase().includes(p));
+  };
+
+  // Get all domains - filtered by role
+  // ROOT_OWNER/sovereign: sees all domains including system domains
+  // Regular users: only see their own non-system domains
+  app.get("/api/domains", requireAuth, async (req: Request, res: Response) => {
     try {
-      const domains = await storage.getCustomDomains();
-      res.json(domains);
+      const user = req.session?.user;
+      if (!user) {
+        return res.status(401).json({ error: "غير مصرح / Unauthorized" });
+      }
+
+      const allDomains = await storage.getCustomDomains();
+      
+      // Filter domains based on user role
+      const isRootOwner = user.role === 'owner' || user.role === 'sovereign';
+      
+      if (isRootOwner) {
+        // ROOT_OWNER sees all domains with isSystemDomain flag added
+        const domainsWithFlag = allDomains.map(d => ({
+          ...d,
+          isSystemDomain: isSystemDomainCheck(d)
+        }));
+        res.json(domainsWithFlag);
+      } else {
+        // Regular users only see their own non-system domains
+        const userDomains = allDomains.filter(d => {
+          if (isSystemDomainCheck(d)) return false;
+          return d.ownerUserId === user.id || d.tenantId === user.id || d.createdBy === user.id;
+        }).map(d => ({
+          ...d,
+          isSystemDomain: false
+        }));
+        res.json(userDomains);
+      }
     } catch (error) {
       res.status(500).json({ error: "فشل في جلب النطاقات / Failed to fetch domains" });
     }
   });
 
-  // Get domains by tenant
+  // Get system domains (ROOT_OWNER only) - دومينات INFERA Engine
+  app.get("/api/domains/system", requireAuth, requireOwner, async (req: Request, res: Response) => {
+    try {
+      const allDomains = await storage.getCustomDomains();
+      const systemDomains = allDomains.filter(d => isSystemDomainCheck(d)).map(d => ({
+        ...d,
+        isSystemDomain: true
+      }));
+      res.json(systemDomains);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب نطاقات النظام / Failed to fetch system domains" });
+    }
+  });
+
+  // Get user's own domains only (excludes system domains)
+  app.get("/api/domains/my", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.session?.user;
+      if (!user) {
+        return res.status(401).json({ error: "غير مصرح / Unauthorized" });
+      }
+
+      const allDomains = await storage.getCustomDomains();
+      const myDomains = allDomains.filter(d => {
+        if (isSystemDomainCheck(d)) return false;
+        return d.ownerUserId === user.id || d.tenantId === user.id || d.createdBy === user.id;
+      }).map(d => ({
+        ...d,
+        isSystemDomain: false
+      }));
+      res.json(myDomains);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب نطاقاتك / Failed to fetch your domains" });
+    }
+  });
+
+  // Get domains by tenant - protected, filters system domains for non-owners
   app.get("/api/domains/tenant/:tenantId", requireAuth, async (req: Request, res: Response) => {
     try {
       const { tenantId } = req.params;
+      const user = req.session?.user;
+      const isRootOwner = user?.role === 'owner' || user?.role === 'sovereign';
+      
       const domains = await storage.getCustomDomainsByTenant(tenantId);
-      res.json(domains);
+      
+      // Filter out system domains for non-owners, add isSystemDomain flag
+      const filteredDomains = isRootOwner 
+        ? domains.map(d => ({ ...d, isSystemDomain: isSystemDomainCheck(d) }))
+        : domains.filter(d => !isSystemDomainCheck(d)).map(d => ({ ...d, isSystemDomain: false }));
+      
+      res.json(filteredDomains);
     } catch (error) {
       res.status(500).json({ error: "فشل في جلب النطاقات / Failed to fetch domains" });
     }
@@ -11783,10 +11867,18 @@ ${project.description || ""}
       const verificationToken = generateVerificationToken();
       const hostname = req.body.hostname as string;
       const rootDomain = hostname.split('.').slice(-2).join('.');
+      
+      // Determine if this is a system domain (only ROOT_OWNER can create system domains)
+      const isRootOwner = user?.role === 'owner' || user?.role === 'sovereign';
+      const isSystemDomain = req.body.isSystemDomain === true && isRootOwner;
+      
       const domain = await storage.createCustomDomain({
         tenantId,
+        ownerUserId: user?.id || null,
         hostname,
         rootDomain,
+        isSystemDomain,
+        visibility: isSystemDomain ? 'system' : 'tenant',
         status: 'pending_verification',
         verificationToken,
         createdBy: user?.id || 'system',

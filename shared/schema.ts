@@ -2876,13 +2876,30 @@ export type VerificationMethod = typeof verificationMethods[number];
 export const sslChallengeTypes = ['dns-01', 'http-01'] as const;
 export type SSLChallengeType = typeof sslChallengeTypes[number];
 
+// Domain visibility enum - مستوى الرؤية
+export const domainVisibility = ['system', 'owner', 'tenant', 'public'] as const;
+export type DomainVisibility = typeof domainVisibility[number];
+
 // Custom Domains table - النطاقات المخصصة
 export const customDomains = pgTable("custom_domains", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").notNull(), // المستأجر/المشترك
+  ownerUserId: varchar("owner_user_id"), // المالك الفعلي للدومين
   projectId: varchar("project_id"), // المشروع المرتبط (اختياري)
   hostname: text("hostname").notNull().unique(), // النطاق الكامل مثل www.example.com
   rootDomain: text("root_domain").notNull(), // النطاق الجذر مثل example.com
+  
+  // Domain ownership and visibility - ملكية الدومين ورؤيته
+  isSystemDomain: boolean("is_system_domain").notNull().default(false), // دومين تابع لـ INFERA Engine
+  visibility: text("visibility").notNull().default("tenant"), // system, owner, tenant, public
+  registrarProvider: text("registrar_provider"), // namecheap, godaddy, etc.
+  purchasedAt: timestamp("purchased_at"), // تاريخ الشراء
+  purchasePrice: integer("purchase_price"), // سعر الشراء بالسنتات
+  purchaseCurrency: text("purchase_currency").default("USD"),
+  renewalPrice: integer("renewal_price"), // سعر التجديد
+  expiresAt: timestamp("expires_at"), // تاريخ انتهاء الصلاحية
+  autoRenew: boolean("auto_renew").notNull().default(true), // تجديد تلقائي
+  
   status: text("status").notNull().default("pending"), // pending, verifying, verified, ssl_pending, ssl_issued, active, error, suspended
   statusMessage: text("status_message"), // رسالة الحالة
   statusMessageAr: text("status_message_ar"), // رسالة الحالة بالعربي
@@ -2905,6 +2922,8 @@ export const customDomains = pgTable("custom_domains", {
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("IDX_custom_domains_tenant").on(table.tenantId),
+  index("IDX_custom_domains_owner").on(table.ownerUserId),
+  index("IDX_custom_domains_system").on(table.isSystemDomain),
   index("IDX_custom_domains_status").on(table.status),
 ]);
 

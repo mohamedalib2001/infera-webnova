@@ -908,14 +908,27 @@ export function registerDomainRoutes(app: Express) {
     }
   });
 
-  app.post("/api/domains/register", requireAuth, requireSovereign, async (req, res) => {
+  // Domain registration - available to all authenticated users
+  // Subscribers can register domains that will be linked to their account
+  app.post("/api/domains/register", requireAuth, async (req, res) => {
     try {
-      const { domainName, years, contact, nameservers, whoisGuard } = req.body;
+      const { domainName, years, contact, nameservers, whoisGuard, isSystemDomain } = req.body;
       
       if (!domainName) {
         return res.status(400).json({ 
           error: "Domain name required",
           errorAr: "اسم الدومين مطلوب"
+        });
+      }
+
+      const user = req.session.user!;
+      
+      // Only sovereign/owner can register system domains
+      const isSovereign = user.role === 'sovereign' || user.role === 'owner';
+      if (isSystemDomain && !isSovereign) {
+        return res.status(403).json({ 
+          error: "Only system administrators can register system domains",
+          errorAr: "فقط مديرو النظام يمكنهم تسجيل نطاقات النظام"
         });
       }
 
@@ -928,8 +941,6 @@ export function registerDomainRoutes(app: Express) {
       }
 
       const result = await client.registerDomain(domainName, years || 1, contact);
-
-      const user = req.session.user!;
       
       if (result.success && result.data) {
         const parts = domainName.split(".");

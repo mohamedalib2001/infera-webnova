@@ -291,6 +291,8 @@ interface NamecheapConfig {
 interface Domain {
   id: string;
   domainName: string;
+  hostname?: string;
+  rootDomain?: string;
   status: string;
   expirationDate?: string;
   isAutoRenew?: boolean;
@@ -298,6 +300,10 @@ interface Domain {
   isLocked?: boolean;
   nameservers?: string;
   registrationDate?: string;
+  isSystemDomain?: boolean;
+  visibility?: 'system' | 'owner' | 'tenant' | 'public';
+  ownerUserId?: string;
+  registrarProvider?: string;
 }
 
 interface DnsRecord {
@@ -312,10 +318,11 @@ interface DnsRecord {
 }
 
 interface PlatformLink {
-  id: number;
-  domainId: number;
-  platformId: number;
+  id: number | string;
+  domainId: number | string;
+  platformId: number | string;
   linkType: string;
+  targetType?: string;
   subdomain?: string;
   isActive: boolean;
 }
@@ -335,6 +342,7 @@ interface DomainProvider {
   nameAr: string;
   logo: string;
   website: string;
+  docsUrl?: string;
   status: 'active' | 'configured' | 'inactive' | 'coming_soon';
   tier: number;
   capabilities: {
@@ -346,6 +354,7 @@ interface DomainProvider {
     bulkOperations: boolean;
     apiAvailable: boolean;
   };
+  requiredCredentials?: string[];
   isConfigured: boolean;
   isAvailable: boolean;
 }
@@ -763,7 +772,7 @@ export default function DomainsPage() {
   const openProviderConfig = (provider: DomainProvider) => {
     setSelectedProvider(provider);
     const initialCredentials: Record<string, string> = {};
-    provider.requiredCredentials.forEach(cred => {
+    (provider.requiredCredentials || []).forEach((cred: string) => {
       initialCredentials[cred] = '';
     });
     setProviderCredentials(initialCredentials);
@@ -1132,7 +1141,7 @@ export default function DomainsPage() {
           ) : (
             <div className="space-y-6">
               {/* System Domains Section - نطاقات النظام */}
-              {domains.filter(d => d.domainType === 'system' || (d as any).isSystemDomain).length > 0 && (
+              {domains.filter(d => d.isSystemDomain).length > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                     <Crown className="w-4 h-4 text-amber-500" />
@@ -1142,7 +1151,7 @@ export default function DomainsPage() {
                       {t.domainTypes.protected}
                     </Badge>
                   </div>
-                  {domains.filter(d => d.domainType === 'system' || (d as any).isSystemDomain).map((domain) => {
+                  {domains.filter(d => d.isSystemDomain).map((domain) => {
                     const StatusIcon = getStatusIcon(domain.status);
                     const isSelected = selectedDomain?.id === domain.id;
                     
@@ -1216,13 +1225,13 @@ export default function DomainsPage() {
 
               {/* User Domains Section - نطاقات المستخدمين */}
               <div className="space-y-3">
-                {domains.filter(d => d.domainType !== 'system' && !(d as any).isSystemDomain).length > 0 && (
+                {domains.filter(d => !d.isSystemDomain).length > 0 && (
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                     <Users className="w-4 h-4" />
                     {t.tabs.userDomains}
                   </div>
                 )}
-                {domains.filter(d => d.domainType !== 'system' && !(d as any).isSystemDomain).map((domain) => {
+                {domains.filter(d => !d.isSystemDomain).map((domain) => {
                   const StatusIcon = getStatusIcon(domain.status);
                   const isSelected = selectedDomain?.id === domain.id;
                   
@@ -1309,7 +1318,7 @@ export default function DomainsPage() {
           {selectedDomain && (
             <>
               {/* Protection Alert for System Domains */}
-              {(selectedDomain.domainType === 'system' || (selectedDomain as any).isSystemDomain) && (
+              {selectedDomain.isSystemDomain && (
                 <Alert className="border-amber-500/50 bg-amber-500/10">
                   <Lock className="h-4 w-4 text-amber-500" />
                   <AlertTitle className="text-amber-600">
@@ -1327,7 +1336,7 @@ export default function DomainsPage() {
                       <CardTitle className="text-lg">{t.dnsRecords}</CardTitle>
                       <CardDescription>{selectedDomain.domainName}</CardDescription>
                     </div>
-                    {!(selectedDomain.domainType === 'system' || (selectedDomain as any).isSystemDomain) && (
+                    {!selectedDomain.isSystemDomain && (
                       <Dialog open={showDnsDialog} onOpenChange={setShowDnsDialog}>
                         <DialogTrigger asChild>
                           <Button size="sm" data-testid="button-add-dns">
@@ -1453,7 +1462,7 @@ export default function DomainsPage() {
                             </TableCell>
                             <TableCell>{record.ttl}</TableCell>
                             <TableCell>
-                              {!(selectedDomain.domainType === 'system' || (selectedDomain as any).isSystemDomain) ? (
+                              {!selectedDomain.isSystemDomain ? (
                                 <Button
                                   variant="ghost"
                                   size="icon"
@@ -1487,7 +1496,7 @@ export default function DomainsPage() {
           {selectedDomain && (
             <>
               {/* Protection Alert for System Domains */}
-              {(selectedDomain.domainType === 'system' || (selectedDomain as any).isSystemDomain) && (
+              {selectedDomain.isSystemDomain && (
                 <Alert className="border-amber-500/50 bg-amber-500/10">
                   <Lock className="h-4 w-4 text-amber-500" />
                   <AlertTitle className="text-amber-600">
@@ -1505,7 +1514,7 @@ export default function DomainsPage() {
                       <CardTitle className="text-lg">{t.linkedPlatforms}</CardTitle>
                       <CardDescription>{selectedDomain.domainName}</CardDescription>
                     </div>
-                    {!(selectedDomain.domainType === 'system' || (selectedDomain as any).isSystemDomain) && (
+                    {!selectedDomain.isSystemDomain && (
                       <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
                         <DialogTrigger asChild>
                           <Button size="sm" data-testid="button-link-platform">
@@ -1627,7 +1636,7 @@ export default function DomainsPage() {
                             </div>
                           </div>
                         </div>
-                        {!(selectedDomain.domainType === 'system' || (selectedDomain as any).isSystemDomain) ? (
+                        {!selectedDomain.isSystemDomain ? (
                           <Button
                             variant="ghost"
                             size="sm"
