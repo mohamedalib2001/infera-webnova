@@ -16,6 +16,7 @@ import { registerNovaRoutes } from "./nova-routes";
 import marketplaceRoutes from "./marketplace-routes";
 import sslRoutes from "./ssl-routes";
 import sshVaultRoutes from "./ssh-vault-routes";
+import { registerAppBuilderRoutes } from "./app-builder-routes";
 import {
   createLoginSession,
   endLoginSession,
@@ -13946,6 +13947,10 @@ ${project.description || ""}
   // ==================== NOVA CONVERSATION ENGINE ====================
   registerNovaRoutes(app);
   console.log("Nova Conversation Engine routes registered | تم تسجيل مسارات محرك محادثة نوفا");
+
+  // ==================== APP BUILDER - MOBILE & DESKTOP ====================
+  registerAppBuilderRoutes(app);
+  console.log("App Builder routes registered | تم تسجيل مسارات منشئ التطبيقات");
 
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 

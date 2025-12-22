@@ -11459,3 +11459,182 @@ export const insertTaskCommentSchema = createInsertSchema(taskComments).omit({
 });
 export type InsertTaskComment = z.infer<typeof insertTaskCommentSchema>;
 export type TaskComment = typeof taskComments.$inferSelect;
+
+// ==================== APP BUILDER PROJECTS (مشاريع منشئ التطبيقات) ====================
+
+// App types: mobile (جوال) or desktop (سطح مكتب)
+export const appProjectTypes = ['mobile', 'desktop'] as const;
+export type AppProjectType = typeof appProjectTypes[number];
+
+// Mobile platforms
+export const mobilePlatforms = ['android', 'ios', 'both'] as const;
+export type MobilePlatform = typeof mobilePlatforms[number];
+
+// Desktop platforms
+export const desktopPlatforms = ['windows', 'mac', 'linux', 'all'] as const;
+export type DesktopPlatform = typeof desktopPlatforms[number];
+
+// Mobile frameworks
+export const mobileFrameworks = ['react-native', 'flutter', 'native'] as const;
+export type MobileFramework = typeof mobileFrameworks[number];
+
+// Desktop frameworks
+export const desktopFrameworks = ['electron', 'tauri', 'pyqt'] as const;
+export type DesktopFramework = typeof desktopFrameworks[number];
+
+// Build status
+export const appBuildStatuses = ['draft', 'generating', 'building', 'testing', 'ready', 'published', 'failed'] as const;
+export type AppBuildStatus = typeof appBuildStatuses[number];
+
+// App Builder Projects Table
+export const appProjects = pgTable("app_projects", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Basic Info
+  name: text("name").notNull(),
+  description: text("description"),
+  type: text("type").notNull(), // 'mobile' or 'desktop'
+  
+  // Platform & Framework
+  platform: text("platform").notNull(), // android, ios, both, windows, mac, linux, all
+  framework: text("framework").notNull(), // react-native, flutter, native, electron, tauri, pyqt
+  
+  // App Configuration
+  appIcon: text("app_icon"), // URL to app icon
+  primaryColor: text("primary_color").default("#6366f1"),
+  
+  // Features (stored as JSON)
+  features: jsonb("features").$type<{
+    pushNotifications?: boolean;
+    camera?: boolean;
+    location?: boolean;
+    offline?: boolean;
+    biometric?: boolean;
+    darkMode?: boolean;
+    autoUpdate?: boolean;
+    systemTray?: boolean;
+    fileAccess?: boolean;
+    database?: boolean;
+    notifications?: boolean;
+  }>().default({}),
+  
+  // Window settings for desktop
+  windowSettings: jsonb("window_settings").$type<{
+    minWidth?: number;
+    minHeight?: number;
+    resizable?: boolean;
+    fullscreen?: boolean;
+  }>(),
+  
+  // AI Generated Content
+  aiGeneratedSpecs: jsonb("ai_generated_specs").$type<{
+    screens?: Array<{ name: string; description: string; components: string[] }>;
+    dataModels?: Array<{ name: string; fields: string[] }>;
+    apiEndpoints?: Array<{ method: string; path: string; description: string }>;
+    codeFiles?: Array<{ path: string; content: string; language: string }>;
+  }>(),
+  
+  // Build Status
+  status: text("status").notNull().default("draft"),
+  buildProgress: integer("build_progress").default(0),
+  buildLogs: jsonb("build_logs").$type<Array<{ timestamp: string; message: string; level: string }>>().default([]),
+  
+  // Generated Artifacts
+  androidApkUrl: text("android_apk_url"),
+  iosIpaUrl: text("ios_ipa_url"),
+  windowsExeUrl: text("windows_exe_url"),
+  macDmgUrl: text("mac_dmg_url"),
+  linuxAppImageUrl: text("linux_appimage_url"),
+  
+  // Timestamps
+  lastBuildAt: timestamp("last_build_at"),
+  publishedAt: timestamp("published_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_app_proj_user").on(table.userId),
+  index("IDX_app_proj_type").on(table.type),
+  index("IDX_app_proj_status").on(table.status),
+]);
+
+export const insertAppProjectSchema = createInsertSchema(appProjects).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAppProject = z.infer<typeof insertAppProjectSchema>;
+export type AppProject = typeof appProjects.$inferSelect;
+
+// App Build History - سجل عمليات البناء
+export const appBuildHistory = pgTable("app_build_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().references(() => appProjects.id, { onDelete: "cascade" }),
+  
+  // Build Info
+  version: text("version").notNull().default("1.0.0"),
+  platform: text("platform").notNull(), // which platform was built
+  status: text("status").notNull(), // success, failed, cancelled
+  
+  // Timing
+  startedAt: timestamp("started_at").notNull(),
+  completedAt: timestamp("completed_at"),
+  durationSeconds: integer("duration_seconds"),
+  
+  // Artifacts
+  artifactUrl: text("artifact_url"),
+  artifactSize: integer("artifact_size"), // in bytes
+  
+  // Logs
+  logs: text("logs"),
+  errorMessage: text("error_message"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_build_hist_proj").on(table.projectId),
+  index("IDX_build_hist_status").on(table.status),
+]);
+
+export const insertAppBuildHistorySchema = createInsertSchema(appBuildHistory).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertAppBuildHistory = z.infer<typeof insertAppBuildHistorySchema>;
+export type AppBuildHistory = typeof appBuildHistory.$inferSelect;
+
+// AI App Generation Prompts - سجل طلبات توليد التطبيقات بالذكاء الاصطناعي
+export const appAiGenerations = pgTable("app_ai_generations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().references(() => appProjects.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  
+  // Request
+  prompt: text("prompt").notNull(),
+  generationType: text("generation_type").notNull(), // 'ui', 'code', 'optimize', 'security'
+  
+  // Response
+  result: jsonb("result").$type<{
+    success: boolean;
+    generatedContent?: unknown;
+    suggestions?: string[];
+    issues?: string[];
+  }>(),
+  
+  // Usage tracking
+  tokensUsed: integer("tokens_used"),
+  modelUsed: text("model_used"),
+  durationMs: integer("duration_ms"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_ai_gen_proj").on(table.projectId),
+  index("IDX_ai_gen_user").on(table.userId),
+  index("IDX_ai_gen_type").on(table.generationType),
+]);
+
+export const insertAppAiGenerationSchema = createInsertSchema(appAiGenerations).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertAppAiGeneration = z.infer<typeof insertAppAiGenerationSchema>;
+export type AppAiGeneration = typeof appAiGenerations.$inferSelect;
