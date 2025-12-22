@@ -18673,6 +18673,448 @@ describe('Generated Tests', () => {
     }
   });
 
+  // ============ DEPARTMENTS MANAGEMENT (إدارة الأقسام) ============
+
+  // Get all departments - جلب كافة الأقسام (Owner only)
+  app.get("/api/departments", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const departments = await storage.getDepartments();
+      res.json(departments);
+    } catch (error) {
+      console.error("Get departments error:", error);
+      res.status(500).json({ error: "فشل في جلب الأقسام / Failed to fetch departments" });
+    }
+  });
+
+  // Get single department - جلب قسم واحد
+  app.get("/api/departments/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const department = await storage.getDepartment(req.params.id);
+      if (!department) {
+        return res.status(404).json({ error: "القسم غير موجود / Department not found" });
+      }
+      res.json(department);
+    } catch (error) {
+      console.error("Get department error:", error);
+      res.status(500).json({ error: "فشل في جلب القسم / Failed to fetch department" });
+    }
+  });
+
+  // Create department - إنشاء قسم جديد
+  app.post("/api/departments", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { name, nameAr, description, descriptionAr, parentId, managerId, color, icon, maxMembers } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ error: "اسم القسم مطلوب / Department name is required" });
+      }
+      
+      const department = await storage.createDepartment({
+        name,
+        nameAr,
+        description,
+        descriptionAr,
+        parentId,
+        managerId,
+        color: color || "#3b82f6",
+        icon: icon || "building",
+        maxMembers,
+        status: "active",
+        memberCount: 0,
+      });
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "department_created",
+        entityType: "department",
+        entityId: department.id,
+        details: { name },
+      });
+      
+      res.status(201).json(department);
+    } catch (error) {
+      console.error("Create department error:", error);
+      res.status(500).json({ error: "فشل في إنشاء القسم / Failed to create department" });
+    }
+  });
+
+  // Update department - تحديث قسم
+  app.patch("/api/departments/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const allowedFields = ["name", "nameAr", "description", "descriptionAr", "parentId", "managerId", "color", "icon", "status", "maxMembers"];
+      const updates: Record<string, any> = {};
+      
+      for (const field of allowedFields) {
+        if (req.body[field] !== undefined) {
+          updates[field] = req.body[field];
+        }
+      }
+      
+      updates.updatedAt = new Date();
+      
+      const department = await storage.updateDepartment(req.params.id, updates);
+      if (!department) {
+        return res.status(404).json({ error: "القسم غير موجود / Department not found" });
+      }
+      
+      res.json(department);
+    } catch (error) {
+      console.error("Update department error:", error);
+      res.status(500).json({ error: "فشل في تحديث القسم / Failed to update department" });
+    }
+  });
+
+  // Delete department - حذف قسم
+  app.delete("/api/departments/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      await storage.deleteDepartment(req.params.id);
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "department_deleted",
+        entityType: "department",
+        entityId: req.params.id,
+        details: {},
+      });
+      
+      res.json({ success: true, message: "تم حذف القسم / Department deleted" });
+    } catch (error) {
+      console.error("Delete department error:", error);
+      res.status(500).json({ error: "فشل في حذف القسم / Failed to delete department" });
+    }
+  });
+
+  // Get department members - جلب أعضاء القسم
+  app.get("/api/departments/:id/members", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const members = await storage.getDepartmentMembers(req.params.id);
+      res.json(members);
+    } catch (error) {
+      console.error("Get department members error:", error);
+      res.status(500).json({ error: "فشل في جلب أعضاء القسم / Failed to fetch department members" });
+    }
+  });
+
+  // Add member to department - إضافة عضو للقسم
+  app.post("/api/departments/:id/members", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { userId, role, title } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({ error: "معرف المستخدم مطلوب / User ID is required" });
+      }
+      
+      const member = await storage.addDepartmentMember({
+        departmentId: req.params.id,
+        userId,
+        role: role || "member",
+        title,
+        isActive: true,
+      });
+      
+      // Update member count
+      const department = await storage.getDepartment(req.params.id);
+      if (department) {
+        await storage.updateDepartment(req.params.id, { 
+          memberCount: (department.memberCount || 0) + 1,
+          updatedAt: new Date()
+        });
+      }
+      
+      res.status(201).json(member);
+    } catch (error) {
+      console.error("Add department member error:", error);
+      res.status(500).json({ error: "فشل في إضافة العضو / Failed to add member" });
+    }
+  });
+
+  // Remove member from department - إزالة عضو من القسم
+  app.delete("/api/department-members/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const member = await storage.getDepartmentMember(req.params.id);
+      if (member) {
+        await storage.removeDepartmentMember(req.params.id);
+        
+        // Update member count
+        const department = await storage.getDepartment(member.departmentId);
+        if (department && department.memberCount && department.memberCount > 0) {
+          await storage.updateDepartment(member.departmentId, { 
+            memberCount: department.memberCount - 1,
+            updatedAt: new Date()
+          });
+        }
+      }
+      
+      res.json({ success: true, message: "تم إزالة العضو / Member removed" });
+    } catch (error) {
+      console.error("Remove department member error:", error);
+      res.status(500).json({ error: "فشل في إزالة العضو / Failed to remove member" });
+    }
+  });
+
+  // ============ EMPLOYEE TASKS MANAGEMENT (إدارة مهام الموظفين) ============
+
+  // Get all tasks (Owner sees all, employees see their own)
+  app.get("/api/tasks", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user) {
+        return res.status(401).json({ error: "غير مصرح / Unauthorized" });
+      }
+      
+      let tasks;
+      if (user.role === "owner" || user.role === "sovereign" || user.role === "ROOT_OWNER") {
+        tasks = await storage.getAllTasks();
+      } else {
+        tasks = await storage.getTasksByEmployee(req.session.userId!);
+      }
+      
+      res.json(tasks);
+    } catch (error) {
+      console.error("Get tasks error:", error);
+      res.status(500).json({ error: "فشل في جلب المهام / Failed to fetch tasks" });
+    }
+  });
+
+  // Get single task
+  app.get("/api/tasks/:id", requireAuth, async (req, res) => {
+    try {
+      const task = await storage.getTask(req.params.id);
+      if (!task) {
+        return res.status(404).json({ error: "المهمة غير موجودة / Task not found" });
+      }
+      
+      // Check permission
+      const user = await storage.getUser(req.session.userId!);
+      if (user?.role !== "owner" && user?.role !== "sovereign" && user?.role !== "ROOT_OWNER") {
+        if (task.assignedTo !== req.session.userId) {
+          return res.status(403).json({ error: "غير مصرح / Not authorized" });
+        }
+      }
+      
+      res.json(task);
+    } catch (error) {
+      console.error("Get task error:", error);
+      res.status(500).json({ error: "فشل في جلب المهمة / Failed to fetch task" });
+    }
+  });
+
+  // Create task (Owner only)
+  app.post("/api/tasks", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { title, titleAr, description, descriptionAr, assignedTo, departmentId, priority, dueDate, estimatedHours, notes, tags } = req.body;
+      
+      if (!title) {
+        return res.status(400).json({ error: "عنوان المهمة مطلوب / Task title is required" });
+      }
+      
+      const task = await storage.createTask({
+        title,
+        titleAr,
+        description,
+        descriptionAr,
+        assignedTo,
+        assignedBy: req.session.userId!,
+        departmentId,
+        status: "pending",
+        priority: priority || "medium",
+        dueDate: dueDate ? new Date(dueDate) : null,
+        estimatedHours,
+        notes,
+        tags: tags || [],
+        progress: 0,
+      });
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "task_created",
+        entityType: "task",
+        entityId: task.id,
+        details: { title, assignedTo },
+      });
+      
+      res.status(201).json(task);
+    } catch (error) {
+      console.error("Create task error:", error);
+      res.status(500).json({ error: "فشل في إنشاء المهمة / Failed to create task" });
+    }
+  });
+
+  // Update task
+  app.patch("/api/tasks/:id", requireAuth, async (req, res) => {
+    try {
+      const task = await storage.getTask(req.params.id);
+      if (!task) {
+        return res.status(404).json({ error: "المهمة غير موجودة / Task not found" });
+      }
+      
+      const user = await storage.getUser(req.session.userId!);
+      const isOwner = user?.role === "owner" || user?.role === "sovereign" || user?.role === "ROOT_OWNER";
+      const isAssignee = task.assignedTo === req.session.userId;
+      
+      if (!isOwner && !isAssignee) {
+        return res.status(403).json({ error: "غير مصرح / Not authorized" });
+      }
+      
+      // Employees can only update status, progress, actualHours, completionNotes
+      const allowedFields = isOwner 
+        ? ["title", "titleAr", "description", "descriptionAr", "assignedTo", "departmentId", "status", "priority", "dueDate", "progress", "estimatedHours", "actualHours", "notes", "completionNotes", "tags"]
+        : ["status", "progress", "actualHours", "completionNotes"];
+      
+      const updates: Record<string, any> = {};
+      
+      for (const field of allowedFields) {
+        if (req.body[field] !== undefined) {
+          updates[field] = req.body[field];
+        }
+      }
+      
+      // Handle status changes
+      if (updates.status === "in_progress" && !task.startedAt) {
+        updates.startedAt = new Date();
+      }
+      if (updates.status === "completed" && !task.completedAt) {
+        updates.completedAt = new Date();
+        updates.progress = 100;
+      }
+      
+      updates.updatedAt = new Date();
+      
+      const updatedTask = await storage.updateTask(req.params.id, updates);
+      res.json(updatedTask);
+    } catch (error) {
+      console.error("Update task error:", error);
+      res.status(500).json({ error: "فشل في تحديث المهمة / Failed to update task" });
+    }
+  });
+
+  // Delete task (Owner only)
+  app.delete("/api/tasks/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      await storage.deleteTask(req.params.id);
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "task_deleted",
+        entityType: "task",
+        entityId: req.params.id,
+        details: {},
+      });
+      
+      res.json({ success: true, message: "تم حذف المهمة / Task deleted" });
+    } catch (error) {
+      console.error("Delete task error:", error);
+      res.status(500).json({ error: "فشل في حذف المهمة / Failed to delete task" });
+    }
+  });
+
+  // Get task comments
+  app.get("/api/tasks/:id/comments", requireAuth, async (req, res) => {
+    try {
+      const comments = await storage.getTaskComments(req.params.id);
+      res.json(comments);
+    } catch (error) {
+      console.error("Get task comments error:", error);
+      res.status(500).json({ error: "فشل في جلب التعليقات / Failed to fetch comments" });
+    }
+  });
+
+  // Add task comment
+  app.post("/api/tasks/:id/comments", requireAuth, async (req, res) => {
+    try {
+      const { content } = req.body;
+      
+      if (!content) {
+        return res.status(400).json({ error: "محتوى التعليق مطلوب / Comment content is required" });
+      }
+      
+      const comment = await storage.addTaskComment({
+        taskId: req.params.id,
+        userId: req.session.userId!,
+        content,
+      });
+      
+      res.status(201).json(comment);
+    } catch (error) {
+      console.error("Add task comment error:", error);
+      res.status(500).json({ error: "فشل في إضافة التعليق / Failed to add comment" });
+    }
+  });
+
+  // Get tasks by department
+  app.get("/api/departments/:id/tasks", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const tasks = await storage.getTasksByDepartment(req.params.id);
+      res.json(tasks);
+    } catch (error) {
+      console.error("Get department tasks error:", error);
+      res.status(500).json({ error: "فشل في جلب مهام القسم / Failed to fetch department tasks" });
+    }
+  });
+
+  // Get task statistics (Owner only)
+  app.get("/api/tasks/stats/overview", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const tasks = await storage.getAllTasks();
+      
+      const stats = {
+        total: tasks.length,
+        pending: tasks.filter(t => t.status === "pending").length,
+        inProgress: tasks.filter(t => t.status === "in_progress").length,
+        completed: tasks.filter(t => t.status === "completed").length,
+        cancelled: tasks.filter(t => t.status === "cancelled").length,
+        onHold: tasks.filter(t => t.status === "on_hold").length,
+        byPriority: {
+          urgent: tasks.filter(t => t.priority === "urgent").length,
+          high: tasks.filter(t => t.priority === "high").length,
+          medium: tasks.filter(t => t.priority === "medium").length,
+          low: tasks.filter(t => t.priority === "low").length,
+        },
+        overdue: tasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "completed").length,
+        completionRate: tasks.length > 0 ? Math.round((tasks.filter(t => t.status === "completed").length / tasks.length) * 100) : 0,
+      };
+      
+      res.json(stats);
+    } catch (error) {
+      console.error("Get task stats error:", error);
+      res.status(500).json({ error: "فشل في جلب الإحصائيات / Failed to fetch stats" });
+    }
+  });
+
+  // Employee dashboard data
+  app.get("/api/employee/dashboard", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const tasks = await storage.getTasksByEmployee(userId);
+      const memberships = await storage.getUserDepartments(userId);
+      
+      // Get today's and upcoming tasks
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const nextWeek = new Date(today);
+      nextWeek.setDate(nextWeek.getDate() + 7);
+      
+      const stats = {
+        totalTasks: tasks.length,
+        pending: tasks.filter(t => t.status === "pending").length,
+        inProgress: tasks.filter(t => t.status === "in_progress").length,
+        completed: tasks.filter(t => t.status === "completed").length,
+        overdue: tasks.filter(t => t.dueDate && new Date(t.dueDate) < today && t.status !== "completed").length,
+        upcomingThisWeek: tasks.filter(t => t.dueDate && new Date(t.dueDate) >= today && new Date(t.dueDate) <= nextWeek && t.status !== "completed").length,
+        departments: memberships.length,
+      };
+      
+      res.json({
+        stats,
+        recentTasks: tasks.slice(0, 10),
+        memberships,
+      });
+    } catch (error) {
+      console.error("Get employee dashboard error:", error);
+      res.status(500).json({ error: "فشل في جلب بيانات لوحة التحكم / Failed to fetch dashboard data" });
+    }
+  });
+
   return httpServer;
 }
 

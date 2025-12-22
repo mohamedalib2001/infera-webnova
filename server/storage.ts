@@ -488,6 +488,19 @@ import {
   unifiedBlueprints,
   type UnifiedBlueprint,
   type InsertUnifiedBlueprint,
+  // Departments & Tasks
+  departments,
+  type Department,
+  type InsertDepartment,
+  departmentMembers,
+  type DepartmentMember,
+  type InsertDepartmentMember,
+  employeeTasks,
+  type EmployeeTask,
+  type InsertEmployeeTask,
+  taskComments,
+  type TaskComment,
+  type InsertTaskComment,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt, gte, lte, sql } from "drizzle-orm";
@@ -7718,6 +7731,111 @@ body { font-family: 'Tajawal', sans-serif; }
       isPublished: true,
       isSystemPlatform: true,
     });
+  }
+
+  // ==================== DEPARTMENTS MANAGEMENT (إدارة الأقسام) ====================
+
+  async getDepartments(): Promise<Department[]> {
+    return db.select().from(departments).orderBy(departments.name);
+  }
+
+  async getDepartment(id: string): Promise<Department | undefined> {
+    const [dept] = await db.select().from(departments).where(eq(departments.id, id));
+    return dept;
+  }
+
+  async createDepartment(data: InsertDepartment): Promise<Department> {
+    const [created] = await db.insert(departments).values(data as any).returning();
+    return created;
+  }
+
+  async updateDepartment(id: string, data: Partial<InsertDepartment>): Promise<Department | undefined> {
+    const [updated] = await db.update(departments)
+      .set(data as any)
+      .where(eq(departments.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteDepartment(id: string): Promise<void> {
+    await db.delete(departments).where(eq(departments.id, id));
+  }
+
+  // Department Members
+  async getDepartmentMembers(departmentId: string): Promise<DepartmentMember[]> {
+    return db.select().from(departmentMembers)
+      .where(eq(departmentMembers.departmentId, departmentId));
+  }
+
+  async getDepartmentMember(id: string): Promise<DepartmentMember | undefined> {
+    const [member] = await db.select().from(departmentMembers).where(eq(departmentMembers.id, id));
+    return member;
+  }
+
+  async addDepartmentMember(data: InsertDepartmentMember): Promise<DepartmentMember> {
+    const [created] = await db.insert(departmentMembers).values(data as any).returning();
+    return created;
+  }
+
+  async removeDepartmentMember(id: string): Promise<void> {
+    await db.delete(departmentMembers).where(eq(departmentMembers.id, id));
+  }
+
+  async getUserDepartments(userId: string): Promise<DepartmentMember[]> {
+    return db.select().from(departmentMembers)
+      .where(and(eq(departmentMembers.userId, userId), eq(departmentMembers.isActive, true)));
+  }
+
+  // ==================== EMPLOYEE TASKS (مهام الموظفين) ====================
+
+  async getAllTasks(): Promise<EmployeeTask[]> {
+    return db.select().from(employeeTasks).orderBy(desc(employeeTasks.createdAt));
+  }
+
+  async getTask(id: string): Promise<EmployeeTask | undefined> {
+    const [task] = await db.select().from(employeeTasks).where(eq(employeeTasks.id, id));
+    return task;
+  }
+
+  async createTask(data: InsertEmployeeTask): Promise<EmployeeTask> {
+    const [created] = await db.insert(employeeTasks).values(data as any).returning();
+    return created;
+  }
+
+  async updateTask(id: string, data: Partial<InsertEmployeeTask>): Promise<EmployeeTask | undefined> {
+    const [updated] = await db.update(employeeTasks)
+      .set(data as any)
+      .where(eq(employeeTasks.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteTask(id: string): Promise<void> {
+    await db.delete(employeeTasks).where(eq(employeeTasks.id, id));
+  }
+
+  async getTasksByEmployee(userId: string): Promise<EmployeeTask[]> {
+    return db.select().from(employeeTasks)
+      .where(eq(employeeTasks.assignedTo, userId))
+      .orderBy(desc(employeeTasks.createdAt));
+  }
+
+  async getTasksByDepartment(departmentId: string): Promise<EmployeeTask[]> {
+    return db.select().from(employeeTasks)
+      .where(eq(employeeTasks.departmentId, departmentId))
+      .orderBy(desc(employeeTasks.createdAt));
+  }
+
+  // Task Comments
+  async getTaskComments(taskId: string): Promise<TaskComment[]> {
+    return db.select().from(taskComments)
+      .where(eq(taskComments.taskId, taskId))
+      .orderBy(taskComments.createdAt);
+  }
+
+  async addTaskComment(data: InsertTaskComment): Promise<TaskComment> {
+    const [created] = await db.insert(taskComments).values(data as any).returning();
+    return created;
   }
 }
 
