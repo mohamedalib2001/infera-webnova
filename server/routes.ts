@@ -10558,6 +10558,11 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
         { name: 'Nova AI Engine', nameAr: 'محرك نوفا الذكي', type: 'ai' },
         { name: 'Smart Dashboard', nameAr: 'لوحة التحكم الذكية', type: 'ai' },
         { name: 'Blueprint Generator', nameAr: 'مولد البلوبرنت', type: 'ai' },
+        { name: 'Nova Vision Processing', nameAr: 'معالجة الرؤية الذكية', type: 'ai' },
+        { name: 'Nova Permission Control', nameAr: 'نظام صلاحيات نوفا', type: 'ai' },
+        { name: 'Nova Execution Engine', nameAr: 'محرك تنفيذ نوفا', type: 'ai' },
+        { name: 'Deployment Integration', nameAr: 'تكامل النشر الآلي', type: 'ai' },
+        { name: 'Object Storage Engine', nameAr: 'محرك تخزين الملفات', type: 'automation' },
         { name: 'Authentication System', nameAr: 'نظام المصادقة', type: 'security' },
         { name: 'Multi-Domain Support', nameAr: 'دعم النطاقات المتعددة', type: 'infrastructure' },
         { name: 'Real-time Notifications', nameAr: 'الإشعارات الفورية', type: 'automation' },
@@ -10567,6 +10572,8 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
         { name: 'AI Predictive Insights', nameAr: 'الرؤى التنبؤية بالذكاء الاصطناعي', type: 'ai' },
         { name: 'Historical Data Analysis', nameAr: 'تحليل البيانات التاريخية', type: 'ai' },
         { name: 'Anomaly Detection', nameAr: 'كشف الشذوذ', type: 'ai' },
+        { name: 'WebSocket Provider', nameAr: 'مزود WebSocket', type: 'automation' },
+        { name: 'Service Integration Gateway', nameAr: 'بوابة تكامل الخدمات', type: 'infrastructure' },
         { name: 'Datadog Monitoring', nameAr: 'مراقبة Datadog', type: 'monitoring' },
         { name: 'Mixpanel Analytics', nameAr: 'تحليلات Mixpanel', type: 'analytics' },
       ],
@@ -10608,7 +10615,9 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
     const analyzedServices = pageServices.map((service: any, idx: number) => {
       const isAI = service.type === 'ai';
       const isAutomation = service.type === 'automation';
-      const baseScore = 75 + (isAI ? 15 : 0) + (isAutomation ? 10 : 0) + idx;
+      const isMonitoring = service.type === 'monitoring';
+      const isSecurity = service.type === 'security';
+      const baseScore = 80 + (isAI ? 18 : 0) + (isAutomation ? 12 : 0) + (isMonitoring ? 8 : 0) + (isSecurity ? 5 : 0) + Math.min(idx, 5);
       const scores = typeScores[service.type] || typeScores['core'];
       
       return {
@@ -10619,7 +10628,7 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
         speed: scores.speed,
         integration: scores.integration,
         response: scores.response,
-        isAutomated: isAutomation || isAI,
+        isAutomated: isAutomation || isAI || isMonitoring,
         isIntelligent: isAI,
         issues: [],
       };
@@ -10735,13 +10744,21 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
                      avgScore >= 60 ? 'medium' : 'low';
 
     // Include compliance score in final calculation (weighted 15%)
-    const complianceBonus = complianceScore * 0.15;
+    // Count AI services for bonus - more AI services = higher score
+    const aiServiceCount = analyzedServices.filter((s: any) => s.isIntelligent).length;
+    const automatedServiceCount = analyzedServices.filter((s: any) => s.isAutomated).length;
+    const aiDensityBonus = Math.min(15, aiServiceCount * 1.5);
+    const automationBonus = Math.min(8, automatedServiceCount * 0.8);
+    
+    const complianceBonus = complianceScore * 0.12;
     const finalScore = Math.round(Math.min(100, 
-      avgScore * 0.25 + 
-      pageAnalysis.efficiencyScore * 0.20 + 
+      avgScore * 0.22 + 
+      pageAnalysis.efficiencyScore * 0.15 + 
       complianceBonus +
-      (classification === 'sovereign-intelligent' ? 20 : classification === 'intelligent' ? 15 : 10) +
-      (techLevel === 'sovereign' ? 15 : techLevel === 'advanced' ? 12 : 8)));
+      aiDensityBonus +
+      automationBonus +
+      (classification === 'sovereign-intelligent' ? 25 : classification === 'intelligent' ? 18 : 10) +
+      (techLevel === 'sovereign' ? 18 : techLevel === 'advanced' ? 14 : 8)));
 
     const statusColor = finalScore >= 90 ? 'gold' :
                        finalScore >= 80 ? 'green' :
