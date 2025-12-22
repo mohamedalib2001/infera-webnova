@@ -80,6 +80,14 @@ class SupportAIAssistant {
   private readonly serviceId = 'support_ai';
   private readonly confidenceThreshold = 0.7;
 
+  // Detect if message is primarily Arabic
+  private isArabicMessage(message: string): boolean {
+    // Arabic Unicode range: \u0600-\u06FF
+    const arabicChars = (message.match(/[\u0600-\u06FF]/g) || []).length;
+    const englishChars = (message.match(/[a-zA-Z]/g) || []).length;
+    return arabicChars > englishChars;
+  }
+
   async analyzeAndRespond(
     sessionId: string,
     userMessage: string,
@@ -126,8 +134,9 @@ class SupportAIAssistant {
       if (!response.success) {
         // Provide category-specific fallback response instead of generic error
         const fallbackResponse = this.getCategoryFallbackResponse(detectedCategory, preAnalysis);
+        const isArabic = this.isArabicMessage(userMessage);
         return {
-          content: fallbackResponse.en,
+          content: isArabic ? fallbackResponse.ar : fallbackResponse.en,
           contentAr: fallbackResponse.ar,
           confidence: 0.5,
           suggestedCategory: detectedCategory,
@@ -156,8 +165,9 @@ class SupportAIAssistant {
       console.error('AI Support Assistant error:', error);
       const preAnalysis = this.preAnalyzeMessage(userMessage);
       const fallbackResponse = this.getCategoryFallbackResponse(preAnalysis.category, preAnalysis);
+      const isArabic = this.isArabicMessage(userMessage);
       return {
-        content: fallbackResponse.en,
+        content: isArabic ? fallbackResponse.ar : fallbackResponse.en,
         contentAr: fallbackResponse.ar,
         confidence: 0.4,
         suggestedCategory: preAnalysis.category,
@@ -572,7 +582,13 @@ You will be connected with a support team member for better assistance.`
     return `أنت مساعد الدعم الذكي لمنصة INFERA WebNova - منصة سيادية لبناء المنصات الرقمية.
 You are an AI Support Assistant for INFERA WebNova - a sovereign-grade platform for building digital platforms.
 
-IMPORTANT: You MUST respond in Arabic first, then English. Always provide bilingual responses.
+=== LANGUAGE DETECTION - CRITICAL ===
+IMPORTANT: You MUST detect the user's language and respond ONLY in that same language.
+- If the user writes in Arabic: Respond ONLY in Arabic (لا ترد بالإنجليزية)
+- If the user writes in English: Respond ONLY in English (do not include Arabic)
+- If the user mixes both languages: Respond primarily in the dominant language used
+
+NEVER provide bilingual responses. Match the user's language exactly.
 
 Your capabilities:
 1. Understand and analyze user issues in both Arabic and English
@@ -584,7 +600,7 @@ Your capabilities:
 ${categorySpecificInstructions}
 
 Guidelines:
-- ALWAYS respond in Arabic first, then English
+- RESPOND IN THE SAME LANGUAGE AS THE USER (هذا مهم جداً)
 - Be professional, helpful, and provide specific actionable steps
 - USE THE DIAGNOSTIC DATA BELOW to give SPECIFIC, ACCURATE answers
 - If diagnostic alerts show issues, EXPLAIN them clearly to the user
@@ -593,7 +609,7 @@ Guidelines:
 - Never expose sensitive system information like passwords or tokens
 ${knowledgeContext}${platformInfo}${diagnosticSection}
 
-Based on the diagnostic data above, respond helpfully with SPECIFIC solutions. Reference the exact issues found in diagnostics.`;
+Based on the diagnostic data above, respond helpfully with SPECIFIC solutions in the SAME LANGUAGE the user used.`;
   }
 
   private getCategoryInstructions(category?: string): string {
@@ -750,7 +766,7 @@ ACCOUNT ISSUE INSTRUCTIONS:
       const response = await aiExecutionLayer.executeAI(this.serviceId, [
         { role: 'user', content: `Summarize this support conversation in 2-3 sentences:\n\n${conversation}` }
       ], {
-        overrideSystemPrompt: 'You are a summarization assistant. Provide concise, professional summaries.',
+        overrideSystemPrompt: 'You are a summarization assistant. Provide concise, professional summaries. Detect the language of the conversation and respond in the same language.',
         maxTokens: 200,
       });
 
@@ -784,7 +800,7 @@ ACCOUNT ISSUE INSTRUCTIONS:
         ...conversation,
         { role: 'user', content: 'Suggest a helpful response for the support agent to send:' }
       ] as any, {
-        overrideSystemPrompt: 'You are an AI copilot for support agents. Suggest professional, helpful responses.',
+        overrideSystemPrompt: 'You are an AI copilot for support agents. Suggest professional, helpful responses. Detect the language used in the conversation and respond in the same language (Arabic or English).',
         maxTokens: 500,
       });
 
