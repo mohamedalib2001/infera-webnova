@@ -51,6 +51,9 @@ import {
   Code,
   MessageSquare,
   Lock,
+  Building2,
+  ListTodo,
+  Briefcase,
 } from "lucide-react";
 import {
   Sidebar,
@@ -107,6 +110,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
 
   const managementItems = [
     { title: language === "ar" ? "المشاريع" : "Projects", url: "/projects", icon: FolderOpen, testId: "nav-projects" },
+    { title: language === "ar" ? "مهامي" : "My Tasks", url: "/employee-dashboard", icon: Briefcase, testId: "nav-employee-dashboard", requiresAuth: true },
     { title: language === "ar" ? "النطاقات" : "Domains", url: "/domains", icon: Globe, testId: "nav-domains", requiresAuth: true },
     { title: language === "ar" ? "الدعم" : "Support", url: "/support", icon: Headphones, testId: "nav-support", requiresAuth: true },
     { title: language === "ar" ? "الإعدادات" : "Settings", url: "/settings", icon: Settings, testId: "nav-settings", requiresAuth: true },
@@ -343,6 +347,22 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                       <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/departments"}>
+                          <Link href="/departments" data-testid="nav-departments">
+                            <Building2 className="h-4 w-4 text-blue-500" />
+                            <span>{language === "ar" ? "الأقسام" : "Departments"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/tasks"}>
+                          <Link href="/tasks" data-testid="nav-tasks">
+                            <ListTodo className="h-4 w-4 text-green-500" />
+                            <span>{language === "ar" ? "المهام" : "Tasks"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
                         <SidebarMenuButton asChild isActive={location === "/payments"}>
                           <Link href="/payments" data-testid="nav-payments">
                             <CreditCard className="h-4 w-4 text-green-500" />
@@ -546,6 +566,35 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                       <Link href="/sovereign/strategic-forecast" data-testid="nav-strategic-forecast">
                         <LineChart className="h-4 w-4 text-purple-500" />
                         <span>{language === "ar" ? "التنبؤ الاستراتيجي" : "Strategic Forecast"}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
+
+          {isOwner && (
+            <SidebarGroup>
+              <SidebarGroupLabel className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                <Users className="h-3 w-3" />
+                {language === "ar" ? "الموارد البشرية" : "Human Resources"}
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location === "/departments"}>
+                      <Link href="/departments" data-testid="nav-departments">
+                        <Building2 className="h-4 w-4 text-blue-500" />
+                        <span>{language === "ar" ? "الأقسام" : "Departments"}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location === "/tasks"}>
+                      <Link href="/tasks" data-testid="nav-tasks">
+                        <ListTodo className="h-4 w-4 text-green-500" />
+                        <span>{language === "ar" ? "المهام" : "Tasks"}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

@@ -67,6 +67,9 @@ import Marketplace from "@/pages/marketplace";
 import Collaboration from "@/pages/collaboration";
 import SSLCertificates from "@/pages/ssl-certificates";
 import SSHVault from "@/pages/ssh-vault";
+import DepartmentsPage from "@/pages/departments";
+import TasksPage from "@/pages/tasks";
+import EmployeeDashboard from "@/pages/employee-dashboard";
 import ConsolePage from "@/pages/console";
 import Support from "@/pages/support";
 import SupportAgentDashboard from "@/pages/support-agent-dashboard";
@@ -162,6 +165,9 @@ function AuthenticatedRouter() {
       <Route path="/ssl" component={SSLCertificates} />
       <Route path="/ssl-certificates" component={SSLCertificates} />
       <Route path="/ssh-vault" component={SSHVault} />
+      <Route path="/departments" component={DepartmentsPage} />
+      <Route path="/tasks" component={TasksPage} />
+      <Route path="/employee-dashboard" component={EmployeeDashboard} />
       <Route path="/backend-generator" component={BackendGenerator} />
       <Route path="/git" component={GitControl} />
       <Route path="/ai-copilot" component={AICopilot} />
