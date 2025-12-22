@@ -15,6 +15,7 @@ import { registerPlatformApiRoutes } from "./platform-api-routes";
 import { registerNovaRoutes } from "./nova-routes";
 import marketplaceRoutes from "./marketplace-routes";
 import sslRoutes from "./ssl-routes";
+import sshVaultRoutes from "./ssh-vault-routes";
 import { eq, and } from "drizzle-orm";
 import { 
   insertProjectSchema, insertMessageSchema, insertProjectVersionSchema, 
@@ -11737,6 +11738,10 @@ ${project.description || ""}
   // ==================== SSL CERTIFICATES ====================
   app.use("/api/ssl", sslRoutes);
   console.log("SSL routes registered | تم تسجيل مسارات SSL");
+
+  // ==================== SSH VAULT - SOVEREIGN ENCRYPTED KEY MANAGEMENT ====================
+  app.use("/api/vault/ssh", sshVaultRoutes);
+  console.log("SSH Vault routes registered | تم تسجيل مسارات خزنة SSH");
 
   // ==================== NAMECHEAP DOMAIN MANAGEMENT ====================
   // Must be registered BEFORE Custom Domains API to avoid route conflicts

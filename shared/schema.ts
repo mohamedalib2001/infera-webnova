@@ -10514,3 +10514,159 @@ export const insertUnifiedBlueprintSchema = createInsertSchema(unifiedBlueprints
 });
 export type InsertUnifiedBlueprint = z.infer<typeof insertUnifiedBlueprintSchema>;
 export type UnifiedBlueprint = typeof unifiedBlueprints.$inferSelect;
+
+// ==================== SOVEREIGN SSH VAULT ====================
+// Enterprise-grade encrypted SSH key management with triple authentication
+
+// Vault access levels
+export const vaultAccessLevels = ['view', 'use', 'manage', 'admin'] as const;
+export type VaultAccessLevel = typeof vaultAccessLevels[number];
+
+// SSH Key types
+export const sshKeyTypes = ['rsa', 'ed25519', 'ecdsa', 'dsa'] as const;
+export type SSHKeyType = typeof sshKeyTypes[number];
+
+// SSH Keys Vault - Encrypted storage with AES-256-GCM
+export const sshVault = pgTable("ssh_vault", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Key identification
+  name: text("name").notNull(),
+  description: text("description"),
+  serverHost: text("server_host"), // hostname or IP
+  serverPort: integer("server_port").default(22),
+  serverUsername: text("server_username"),
+  keyType: text("key_type").notNull().default("ed25519"), // rsa, ed25519, ecdsa
+  keyFingerprint: text("key_fingerprint"), // SHA256 fingerprint
+  
+  // Encrypted key data (AES-256-GCM encrypted)
+  encryptedPrivateKey: text("encrypted_private_key").notNull(), // Base64 encrypted
+  encryptedPublicKey: text("encrypted_public_key"), // Base64 encrypted
+  encryptedPassphrase: text("encrypted_passphrase"), // If key has passphrase
+  
+  // Encryption metadata
+  encryptionVersion: integer("encryption_version").notNull().default(1),
+  encryptionSalt: text("encryption_salt").notNull(), // For key derivation
+  encryptionIV: text("encryption_iv").notNull(), // Initialization vector
+  
+  // Access control
+  accessLevel: text("access_level").notNull().default("manage"),
+  allowedIPs: jsonb("allowed_ips").$type<string[]>().default([]), // IP whitelist
+  allowedOperations: jsonb("allowed_operations").$type<string[]>().default(['connect', 'deploy', 'manage']),
+  
+  // Usage tracking
+  lastUsedAt: timestamp("last_used_at"),
+  usageCount: integer("usage_count").default(0),
+  
+  // Expiry and rotation
+  expiresAt: timestamp("expires_at"),
+  rotatedAt: timestamp("rotated_at"),
+  rotationReminder: boolean("rotation_reminder").default(true),
+  
+  // Status
+  isActive: boolean("is_active").notNull().default(true),
+  isRevoked: boolean("is_revoked").notNull().default(false),
+  revokedAt: timestamp("revoked_at"),
+  revokedBy: varchar("revoked_by"),
+  revokedReason: text("revoked_reason"),
+  
+  // Tags for organization
+  tags: jsonb("tags").$type<string[]>().default([]),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_sshv_user").on(table.userId),
+  index("IDX_sshv_fingerprint").on(table.keyFingerprint),
+  index("IDX_sshv_host").on(table.serverHost),
+]);
+
+export const insertSSHVaultSchema = createInsertSchema(sshVault).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSSHVault = z.infer<typeof insertSSHVaultSchema>;
+export type SSHVault = typeof sshVault.$inferSelect;
+
+// Vault Access Sessions - Triple authentication tracking
+export const vaultAccessSessions = pgTable("vault_access_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Session identification
+  sessionToken: text("session_token").notNull().unique(), // Hashed session token
+  
+  // Triple authentication status
+  passwordVerified: boolean("password_verified").notNull().default(false),
+  passwordVerifiedAt: timestamp("password_verified_at"),
+  
+  totpVerified: boolean("totp_verified").notNull().default(false),
+  totpVerifiedAt: timestamp("totp_verified_at"),
+  
+  emailCodeVerified: boolean("email_code_verified").notNull().default(false),
+  emailCodeVerifiedAt: timestamp("email_code_verified_at"),
+  emailCode: text("email_code"), // Hashed email verification code
+  emailCodeExpiresAt: timestamp("email_code_expires_at"),
+  
+  // Session metadata
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  deviceFingerprint: text("device_fingerprint"),
+  
+  // Session status
+  isFullyAuthenticated: boolean("is_fully_authenticated").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  expiresAt: timestamp("expires_at").notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  lastActivityAt: timestamp("last_activity_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_vas_user").on(table.userId),
+  index("IDX_vas_token").on(table.sessionToken),
+  index("IDX_vas_active").on(table.isActive),
+]);
+
+export const insertVaultAccessSessionSchema = createInsertSchema(vaultAccessSessions).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertVaultAccessSession = z.infer<typeof insertVaultAccessSessionSchema>;
+export type VaultAccessSession = typeof vaultAccessSessions.$inferSelect;
+
+// Vault Audit Log - Immutable audit trail
+export const vaultAuditLog = pgTable("vault_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  keyId: varchar("key_id"),
+  sessionId: varchar("session_id"),
+  
+  // Action details
+  action: text("action").notNull(), // create, view, use, update, delete, export, revoke
+  actionDetail: text("action_detail"),
+  
+  // Security context
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  geoLocation: text("geo_location"),
+  
+  // Result
+  success: boolean("success").notNull(),
+  errorMessage: text("error_message"),
+  
+  // Immutable timestamp
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_val_user").on(table.userId),
+  index("IDX_val_key").on(table.keyId),
+  index("IDX_val_action").on(table.action),
+  index("IDX_val_created").on(table.createdAt),
+]);
+
+export const insertVaultAuditLogSchema = createInsertSchema(vaultAuditLog).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertVaultAuditLog = z.infer<typeof insertVaultAuditLogSchema>;
+export type VaultAuditLog = typeof vaultAuditLog.$inferSelect;

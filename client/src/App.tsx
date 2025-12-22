@@ -66,6 +66,7 @@ import TestingGenerator from "@/pages/testing-generator";
 import Marketplace from "@/pages/marketplace";
 import Collaboration from "@/pages/collaboration";
 import SSLCertificates from "@/pages/ssl-certificates";
+import SSHVault from "@/pages/ssh-vault";
 import ConsolePage from "@/pages/console";
 import Support from "@/pages/support";
 import SupportAgentDashboard from "@/pages/support-agent-dashboard";
@@ -159,6 +160,7 @@ function AuthenticatedRouter() {
       <Route path="/deploy" component={OneClickDeploy} />
       <Route path="/ssl" component={SSLCertificates} />
       <Route path="/ssl-certificates" component={SSLCertificates} />
+      <Route path="/ssh-vault" component={SSHVault} />
       <Route path="/backend-generator" component={BackendGenerator} />
       <Route path="/git" component={GitControl} />
       <Route path="/ai-copilot" component={AICopilot} />
