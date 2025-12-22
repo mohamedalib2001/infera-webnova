@@ -1831,11 +1831,26 @@ export async function registerRoutes(
         }
       };
       
-      // Update domains with calculated scores
+      // Safe standards parser helper
+      const safeParseStandards = (standards: unknown): string[] => {
+        if (Array.isArray(standards)) return standards;
+        if (typeof standards === 'string') {
+          try { return JSON.parse(standards); } 
+          catch (e) { 
+            console.warn('Failed to parse standards JSON:', standards);
+            return []; 
+          }
+        }
+        return [];
+      };
+      
+      // Update domains with calculated scores and ensure standards is an array
       const enrichedDomains = domains.map(domain => {
         const calculated = calculateDomainScore(domain.code);
+        const standards = safeParseStandards(domain.standards);
         return {
           ...domain,
+          standards,
           complianceScore: calculated.score,
           status: calculated.status,
           lastAssessedAt: new Date().toISOString()

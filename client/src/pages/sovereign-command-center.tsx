@@ -79,6 +79,28 @@ interface PolicyDecision {
   createdAt: string;
 }
 
+interface ComplianceDomain {
+  id: string;
+  code: string;
+  name: string;
+  nameAr: string;
+  description: string;
+  descriptionAr: string;
+  icon: string;
+  color: string;
+  standards: string[];
+  complianceScore: number;
+  status: 'excellent' | 'good' | 'partial' | 'non_compliant';
+  lastAssessedAt: string;
+}
+
+interface ComplianceDomainsResponse {
+  domains: ComplianceDomain[];
+  overallComplianceIndex: number;
+  overallStatus: string;
+  lastUpdated: string;
+}
+
 const healthColors: Record<string, string> = {
   excellent: "text-emerald-600",
   good: "text-green-600",
@@ -115,6 +137,11 @@ export default function SovereignCommandCenter() {
 
   const { data: decisionsData } = useQuery<{ decisions: PolicyDecision[] }>({
     queryKey: ["/api/sovereign/decisions"],
+  });
+
+  const { data: complianceData } = useQuery<ComplianceDomainsResponse>({
+    queryKey: ["/api/sovereign/compliance-domains"],
+    refetchInterval: 60000,
   });
 
   const metrics = metricsData || {
@@ -279,6 +306,10 @@ export default function SovereignCommandCenter() {
                 <TabsTrigger value="enforcement" className="text-xs gap-1.5" data-testid="tab-enforcement">
                   <Shield className="w-3.5 h-3.5" />
                   {language === "ar" ? "التنفيذ" : "Enforcement"}
+                </TabsTrigger>
+                <TabsTrigger value="compliance" className="text-xs gap-1.5" data-testid="tab-compliance">
+                  <Scale className="w-3.5 h-3.5" />
+                  {language === "ar" ? "الامتثال السيادي" : "Sovereign Compliance"}
                 </TabsTrigger>
               </TabsList>
 
@@ -705,6 +736,167 @@ export default function SovereignCommandCenter() {
                         ))}
                       </div>
                     </ScrollArea>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="compliance" className="mt-0 space-y-6">
+                {/* Sovereign Compliance Dashboard */}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/10 border border-amber-500/30">
+                      <Scale className="w-5 h-5 text-amber-500" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold text-white">
+                        {language === "ar" ? "مؤشر الامتثال السيادي" : "Sovereign Compliance Index"}
+                      </h2>
+                      <p className="text-xs text-slate-400">
+                        {language === "ar" ? "8 مجالات امتثال | معايير دولية" : "8 Compliance Domains | International Standards"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <p className="text-3xl font-bold text-emerald-500">{complianceData?.overallComplianceIndex || 0}%</p>
+                      <p className="text-xs text-slate-400">{language === "ar" ? "المؤشر الإجمالي" : "Overall Index"}</p>
+                    </div>
+                    <Badge 
+                      variant="outline" 
+                      className={`${
+                        (complianceData?.overallComplianceIndex || 0) >= 90 ? 'text-emerald-500 border-emerald-500/30' :
+                        (complianceData?.overallComplianceIndex || 0) >= 75 ? 'text-green-500 border-green-500/30' :
+                        'text-yellow-500 border-yellow-500/30'
+                      }`}
+                    >
+                      {language === "ar" ? (complianceData?.overallStatus === 'excellent' ? 'ممتاز' : complianceData?.overallStatus === 'good' ? 'جيد' : 'جزئي') 
+                        : (complianceData?.overallStatus?.toUpperCase() || 'GOOD')}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-4 gap-4">
+                  {(complianceData?.domains || []).map((domain) => {
+                    const iconColors: Record<string, string> = {
+                      red: 'text-red-500 bg-red-500/10 border-red-500/20',
+                      blue: 'text-blue-500 bg-blue-500/10 border-blue-500/20',
+                      amber: 'text-amber-500 bg-amber-500/10 border-amber-500/20',
+                      green: 'text-green-500 bg-green-500/10 border-green-500/20',
+                      purple: 'text-purple-500 bg-purple-500/10 border-purple-500/20',
+                      cyan: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/20',
+                      emerald: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20',
+                      slate: 'text-slate-400 bg-slate-500/10 border-slate-500/20',
+                    };
+                    const colorClass = iconColors[domain.color] || iconColors.slate;
+                    
+                    const domainIcons: Record<string, typeof Shield> = {
+                      cybersecurity: Shield,
+                      data_protection: Lock,
+                      digital_sovereignty: Crown,
+                      business_continuity: RefreshCw,
+                      digital_governance: Scale,
+                      ai_compliance: Brain,
+                      digital_safety: ShieldCheck,
+                      infrastructure_ops: Server,
+                    };
+                    const IconComponent = domainIcons[domain.code] || Shield;
+
+                    const parseStandards = (standards: string | string[] | unknown): string[] => {
+                      if (Array.isArray(standards)) return standards;
+                      if (typeof standards === 'string') {
+                        try { return JSON.parse(standards); } 
+                        catch { return []; }
+                      }
+                      return [];
+                    };
+
+                    return (
+                      <Card 
+                        key={domain.id}
+                        className={`bg-slate-900/50 border-slate-800/50 hover-elevate cursor-pointer transition-all`}
+                        data-testid={`compliance-domain-${domain.code}`}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className={`p-2 rounded-lg border ${colorClass}`}>
+                              <IconComponent className="w-5 h-5" />
+                            </div>
+                            <Badge 
+                              variant="outline" 
+                              className={`text-[9px] ${
+                                domain.status === 'excellent' ? 'text-emerald-500 border-emerald-500/30' :
+                                domain.status === 'good' ? 'text-green-500 border-green-500/30' :
+                                domain.status === 'partial' ? 'text-yellow-500 border-yellow-500/30' :
+                                'text-red-500 border-red-500/30'
+                              }`}
+                            >
+                              {domain.complianceScore}%
+                            </Badge>
+                          </div>
+                          <h3 className="text-sm font-medium text-white mb-1">
+                            {language === "ar" ? domain.nameAr : domain.name}
+                          </h3>
+                          <p className="text-[10px] text-slate-400 mb-3 line-clamp-2">
+                            {language === "ar" ? domain.descriptionAr : domain.description}
+                          </p>
+                          <div className="space-y-2">
+                            <Progress 
+                              value={domain.complianceScore} 
+                              className="h-1.5" 
+                            />
+                            <div className="flex flex-wrap gap-1">
+                              {parseStandards(domain.standards).slice(0, 2).map((standard: string, idx: number) => (
+                                <Badge 
+                                  key={idx}
+                                  variant="secondary" 
+                                  className="text-[8px] bg-slate-800/50 text-slate-400 border-0"
+                                >
+                                  {standard}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+
+                <Card className="bg-slate-900/50 border-slate-800/50">
+                  <CardHeader>
+                    <CardTitle className="text-base text-white flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-blue-500" />
+                      {language === "ar" ? "المعايير والأطر التنظيمية المطبقة" : "Applied Regulatory Frameworks"}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-4 gap-4">
+                      {[
+                        { name: "ISO 27001", nameAr: "ISO 27001", desc: "Information Security Management", descAr: "إدارة أمن المعلومات", icon: Shield, color: "text-blue-500" },
+                        { name: "GDPR", nameAr: "GDPR", desc: "EU Data Protection Regulation", descAr: "لائحة حماية البيانات الأوروبية", icon: Lock, color: "text-purple-500" },
+                        { name: "NIST CSF", nameAr: "NIST CSF", desc: "Cybersecurity Framework", descAr: "إطار الأمن السيبراني", icon: ShieldCheck, color: "text-cyan-500" },
+                        { name: "EU AI Act", nameAr: "قانون AI الأوروبي", desc: "Artificial Intelligence Regulation", descAr: "تنظيم الذكاء الاصطناعي", icon: Brain, color: "text-violet-500" },
+                        { name: "COBIT 2019", nameAr: "COBIT 2019", desc: "IT Governance Framework", descAr: "إطار حوكمة تقنية المعلومات", icon: Scale, color: "text-amber-500" },
+                        { name: "ITIL 4", nameAr: "ITIL 4", desc: "IT Service Management", descAr: "إدارة خدمات تقنية المعلومات", icon: Server, color: "text-green-500" },
+                        { name: "ISO 22301", nameAr: "ISO 22301", desc: "Business Continuity", descAr: "استمرارية الأعمال", icon: RefreshCw, color: "text-emerald-500" },
+                        { name: "ISO 38500", nameAr: "ISO 38500", desc: "IT Governance Standard", descAr: "معيار حوكمة تقنية المعلومات", icon: Gavel, color: "text-orange-500" },
+                      ].map((framework, i) => (
+                        <div 
+                          key={i}
+                          className="p-3 rounded-lg bg-slate-800/30 border border-slate-700/30 hover-elevate cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <framework.icon className={`w-4 h-4 ${framework.color}`} />
+                            <span className="text-sm font-medium text-white">
+                              {language === "ar" ? framework.nameAr : framework.name}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-400">
+                            {language === "ar" ? framework.descAr : framework.desc}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>
