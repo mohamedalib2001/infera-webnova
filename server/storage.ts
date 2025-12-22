@@ -421,6 +421,19 @@ import {
   type WhiteLabelSettings,
   type InsertWhiteLabelSettings,
   whiteLabelSettings,
+  // INFERA Engine Platform Linking Unit
+  inferaPlatforms,
+  type InferaPlatform,
+  type InsertInferaPlatform,
+  platformLinks,
+  type PlatformLink,
+  type InsertPlatformLink,
+  platformServices,
+  type PlatformService,
+  type InsertPlatformService,
+  platformCertificates,
+  type PlatformCertificate,
+  type InsertPlatformCertificate,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt, gte, lte, sql } from "drizzle-orm";
@@ -6775,6 +6788,284 @@ body { font-family: 'Tajawal', sans-serif; }
         .returning();
       return created;
     }
+  }
+
+  // ==================== INFERA ENGINE PLATFORM LINKING UNIT ====================
+  // وحدة ربط منصات مجموعة انفرا انجن
+
+  // Platform Registry - سجل المنصات
+  async getAllInferaPlatforms(): Promise<InferaPlatform[]> {
+    return db.select().from(inferaPlatforms).orderBy(desc(inferaPlatforms.createdAt));
+  }
+
+  async getInferaPlatform(id: string): Promise<InferaPlatform | undefined> {
+    const [platform] = await db.select().from(inferaPlatforms).where(eq(inferaPlatforms.id, id));
+    return platform;
+  }
+
+  async getInferaPlatformByCode(code: string): Promise<InferaPlatform | undefined> {
+    const [platform] = await db.select().from(inferaPlatforms).where(eq(inferaPlatforms.code, code));
+    return platform;
+  }
+
+  async getInferaPlatformsByType(platformType: string): Promise<InferaPlatform[]> {
+    return db.select().from(inferaPlatforms)
+      .where(eq(inferaPlatforms.platformType, platformType))
+      .orderBy(inferaPlatforms.name);
+  }
+
+  async getActivePlatforms(): Promise<InferaPlatform[]> {
+    return db.select().from(inferaPlatforms)
+      .where(eq(inferaPlatforms.status, 'active'))
+      .orderBy(inferaPlatforms.name);
+  }
+
+  async createInferaPlatform(data: InsertInferaPlatform): Promise<InferaPlatform> {
+    const [created] = await db.insert(inferaPlatforms).values(data as any).returning();
+    return created;
+  }
+
+  async updateInferaPlatform(id: string, data: Partial<InsertInferaPlatform>): Promise<InferaPlatform | undefined> {
+    const [updated] = await db.update(inferaPlatforms)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where(eq(inferaPlatforms.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteInferaPlatform(id: string): Promise<boolean> {
+    const result = await db.delete(inferaPlatforms).where(eq(inferaPlatforms.id, id));
+    return true;
+  }
+
+  // Platform Links - روابط المنصات
+  async getAllPlatformLinks(): Promise<PlatformLink[]> {
+    return db.select().from(platformLinks).orderBy(desc(platformLinks.createdAt));
+  }
+
+  async getPlatformLink(id: string): Promise<PlatformLink | undefined> {
+    const [link] = await db.select().from(platformLinks).where(eq(platformLinks.id, id));
+    return link;
+  }
+
+  async getPlatformLinksBySource(sourcePlatformId: string): Promise<PlatformLink[]> {
+    return db.select().from(platformLinks)
+      .where(eq(platformLinks.sourcePlatformId, sourcePlatformId))
+      .orderBy(platformLinks.linkType);
+  }
+
+  async getPlatformLinksByTarget(targetPlatformId: string): Promise<PlatformLink[]> {
+    return db.select().from(platformLinks)
+      .where(eq(platformLinks.targetPlatformId, targetPlatformId))
+      .orderBy(platformLinks.linkType);
+  }
+
+  async getActivePlatformLinks(): Promise<PlatformLink[]> {
+    return db.select().from(platformLinks)
+      .where(eq(platformLinks.isActive, true))
+      .orderBy(platformLinks.linkType);
+  }
+
+  async createPlatformLink(data: InsertPlatformLink): Promise<PlatformLink> {
+    const [created] = await db.insert(platformLinks).values(data as any).returning();
+    return created;
+  }
+
+  async updatePlatformLink(id: string, data: Partial<InsertPlatformLink>): Promise<PlatformLink | undefined> {
+    const [updated] = await db.update(platformLinks)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where(eq(platformLinks.id, id))
+      .returning();
+    return updated;
+  }
+
+  async activatePlatformLink(id: string): Promise<PlatformLink | undefined> {
+    const [updated] = await db.update(platformLinks)
+      .set({ isActive: true, status: 'active', establishedAt: new Date(), updatedAt: new Date() } as any)
+      .where(eq(platformLinks.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deactivatePlatformLink(id: string): Promise<PlatformLink | undefined> {
+    const [updated] = await db.update(platformLinks)
+      .set({ isActive: false, status: 'suspended', updatedAt: new Date() } as any)
+      .where(eq(platformLinks.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deletePlatformLink(id: string): Promise<boolean> {
+    await db.delete(platformLinks).where(eq(platformLinks.id, id));
+    return true;
+  }
+
+  // Platform Services - خدمات المنصات
+  async getAllPlatformServices(): Promise<PlatformService[]> {
+    return db.select().from(platformServices).orderBy(desc(platformServices.createdAt));
+  }
+
+  async getPlatformService(id: string): Promise<PlatformService | undefined> {
+    const [service] = await db.select().from(platformServices).where(eq(platformServices.id, id));
+    return service;
+  }
+
+  async getPlatformServicesByPlatform(platformId: string): Promise<PlatformService[]> {
+    return db.select().from(platformServices)
+      .where(eq(platformServices.platformId, platformId))
+      .orderBy(platformServices.serviceKind);
+  }
+
+  async getActiveServices(): Promise<PlatformService[]> {
+    return db.select().from(platformServices)
+      .where(eq(platformServices.status, 'active'))
+      .orderBy(platformServices.serviceKind);
+  }
+
+  async createPlatformService(data: InsertPlatformService): Promise<PlatformService> {
+    const [created] = await db.insert(platformServices).values(data as any).returning();
+    return created;
+  }
+
+  async updatePlatformService(id: string, data: Partial<InsertPlatformService>): Promise<PlatformService | undefined> {
+    const [updated] = await db.update(platformServices)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where(eq(platformServices.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deletePlatformService(id: string): Promise<boolean> {
+    await db.delete(platformServices).where(eq(platformServices.id, id));
+    return true;
+  }
+
+  // Platform Certificates - شهادات المنصات
+  async getAllPlatformCertificates(): Promise<PlatformCertificate[]> {
+    return db.select().from(platformCertificates).orderBy(desc(platformCertificates.createdAt));
+  }
+
+  async getPlatformCertificate(id: string): Promise<PlatformCertificate | undefined> {
+    const [cert] = await db.select().from(platformCertificates).where(eq(platformCertificates.id, id));
+    return cert;
+  }
+
+  async getPlatformCertificateBySerial(serialNumber: string): Promise<PlatformCertificate | undefined> {
+    const [cert] = await db.select().from(platformCertificates)
+      .where(eq(platformCertificates.serialNumber, serialNumber));
+    return cert;
+  }
+
+  async getCertificatesByHierarchy(hierarchyRole: string): Promise<PlatformCertificate[]> {
+    return db.select().from(platformCertificates)
+      .where(eq(platformCertificates.hierarchyRole, hierarchyRole))
+      .orderBy(desc(platformCertificates.createdAt));
+  }
+
+  async getOwnerCertificates(): Promise<PlatformCertificate[]> {
+    return db.select().from(platformCertificates)
+      .where(eq(platformCertificates.isOwnerCertificate, true))
+      .orderBy(desc(platformCertificates.createdAt));
+  }
+
+  async getUserCertificates(userId: string): Promise<PlatformCertificate[]> {
+    return db.select().from(platformCertificates)
+      .where(and(
+        eq(platformCertificates.userId, userId),
+        eq(platformCertificates.isRevoked, false)
+      ))
+      .orderBy(desc(platformCertificates.createdAt));
+  }
+
+  async getPlatformCertificatesByPlatform(platformId: string): Promise<PlatformCertificate[]> {
+    return db.select().from(platformCertificates)
+      .where(eq(platformCertificates.platformId, platformId))
+      .orderBy(desc(platformCertificates.createdAt));
+  }
+
+  async getValidCertificates(): Promise<PlatformCertificate[]> {
+    return db.select().from(platformCertificates)
+      .where(and(
+        eq(platformCertificates.isRevoked, false),
+        gt(platformCertificates.validUntil, new Date())
+      ))
+      .orderBy(platformCertificates.hierarchyRole);
+  }
+
+  async createPlatformCertificate(data: InsertPlatformCertificate): Promise<PlatformCertificate> {
+    const [created] = await db.insert(platformCertificates).values(data as any).returning();
+    return created;
+  }
+
+  async updatePlatformCertificate(id: string, data: Partial<InsertPlatformCertificate>): Promise<PlatformCertificate | undefined> {
+    const [updated] = await db.update(platformCertificates)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where(eq(platformCertificates.id, id))
+      .returning();
+    return updated;
+  }
+
+  async revokeCertificate(id: string, reason: string): Promise<PlatformCertificate | undefined> {
+    const [updated] = await db.update(platformCertificates)
+      .set({
+        isRevoked: true,
+        revokedAt: new Date(),
+        revokedReason: reason,
+        updatedAt: new Date(),
+      } as any)
+      .where(eq(platformCertificates.id, id))
+      .returning();
+    return updated;
+  }
+
+  async incrementCertificateUsage(id: string): Promise<PlatformCertificate | undefined> {
+    const cert = await this.getPlatformCertificate(id);
+    if (!cert) return undefined;
+    
+    const [updated] = await db.update(platformCertificates)
+      .set({
+        usageCount: (cert.usageCount || 0) + 1,
+        lastUsedAt: new Date(),
+        updatedAt: new Date(),
+      } as any)
+      .where(eq(platformCertificates.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deletePlatformCertificate(id: string): Promise<boolean> {
+    await db.delete(platformCertificates).where(eq(platformCertificates.id, id));
+    return true;
+  }
+
+  // Seed WebNova as the first platform - تهيئة WebNova كأول منصة
+  async seedWebNovaPlatform(): Promise<InferaPlatform> {
+    const existing = await this.getInferaPlatformByCode('INFERA-WEBNOVA-001');
+    if (existing) return existing;
+
+    return this.createInferaPlatform({
+      code: 'INFERA-WEBNOVA-001',
+      name: 'INFERA WebNova',
+      nameAr: 'انفرا ويب نوفا',
+      description: 'The Core Operating System for building sovereign digital platforms',
+      descriptionAr: 'نظام التشغيل الأساسي لبناء المنصات الرقمية السيادية',
+      platformType: 'builder',
+      sovereigntyTier: 'root',
+      category: 'sovereign',
+      version: '1.0.0',
+      capabilities: {
+        canBuildPlatforms: true,
+        canManageDomains: true,
+        canDeployServices: true,
+        canProcessPayments: true,
+        canManageUsers: true,
+        canAccessAI: true,
+        customCapabilities: ['platform_generation', 'ai_orchestration', 'multi_cloud_deployment'],
+      },
+      status: 'active',
+      isPublished: true,
+      isSystemPlatform: true,
+    });
   }
 }
 
