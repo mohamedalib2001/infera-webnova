@@ -9366,3 +9366,303 @@ export const insertProjectBrainSchema = createInsertSchema(projectBrain).omit({
 });
 export type InsertProjectBrain = z.infer<typeof insertProjectBrainSchema>;
 export type ProjectBrain = typeof projectBrain.$inferSelect;
+
+// ==================== INFERA ENGINE PLATFORM LINKING UNIT ====================
+// وحدة ربط منصات مجموعة انفرا انجن - للربط بين 30+ منصة رقمية
+
+// Platform types in INFERA Engine ecosystem
+export const inferaPlatformTypes = [
+  'central',      // المنصة المركزية - Central Hub
+  'sovereign',    // منصة سيادية - Owner's Sovereign Platform
+  'builder',      // منصة بناء - WebNova Builder
+  'commercial',   // منصة تجارية - Commercial Platform
+  'enterprise',   // منصة مؤسسية - Enterprise Platform
+  'government',   // منصة حكومية - Government Platform
+  'healthcare',   // منصة صحية - Healthcare Platform
+  'education',    // منصة تعليمية - Education Platform
+  'financial',    // منصة مالية - Financial Platform
+  'ecommerce',    // منصة تجارة إلكترونية - E-commerce Platform
+] as const;
+export type InferaPlatformType = typeof inferaPlatformTypes[number];
+
+// Platform sovereignty tiers
+export const sovereigntyTiers = [
+  'root',         // مستوى الجذر - Root Owner Level (INFERA Engine)
+  'platform',     // مستوى المنصة - Platform Level
+  'tenant',       // مستوى المستأجر - Tenant Level
+  'user',         // مستوى المستخدم - User Level
+] as const;
+export type SovereigntyTier = typeof sovereigntyTiers[number];
+
+// INFERA Engine Platform Registry - سجل منصات مجموعة انفرا انجن
+export const inferaPlatforms = pgTable("infera_platforms", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Platform identification
+  code: varchar("code", { length: 50 }).unique().notNull(), // e.g., "INFERA-WEBNOVA-001"
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  
+  // Platform classification
+  platformType: text("platform_type").notNull().default("commercial"), // central, sovereign, builder, commercial...
+  sovereigntyTier: text("sovereignty_tier").notNull().default("platform"), // root, platform, tenant, user
+  category: text("category").notNull().default("commercial"), // commercial, sovereign
+  version: varchar("version", { length: 20 }).default("1.0.0"),
+  
+  // Technical details
+  baseUrl: text("base_url"),
+  apiEndpoint: text("api_endpoint"),
+  webhookUrl: text("webhook_url"),
+  healthCheckUrl: text("health_check_url"),
+  
+  // Capabilities
+  capabilities: jsonb("capabilities").$type<{
+    canBuildPlatforms?: boolean;    // قدرة بناء المنصات
+    canManageDomains?: boolean;     // إدارة النطاقات
+    canDeployServices?: boolean;    // نشر الخدمات
+    canProcessPayments?: boolean;   // معالجة المدفوعات
+    canManageUsers?: boolean;       // إدارة المستخدمين
+    canAccessAI?: boolean;          // الوصول للذكاء الاصطناعي
+    customCapabilities?: string[];  // قدرات مخصصة
+  }>().default({}),
+  
+  // Service configuration
+  serviceConfig: jsonb("service_config").$type<{
+    maxUsers?: number;
+    maxStorage?: number; // GB
+    maxBandwidth?: number; // GB/month
+    allowedRegions?: string[];
+    complianceStandards?: string[]; // GDPR, HIPAA, PCI-DSS
+  }>(),
+  
+  // Status
+  status: text("status").notNull().default("draft"), // draft, active, maintenance, suspended, decommissioned
+  isPublished: boolean("is_published").notNull().default(false),
+  isSystemPlatform: boolean("is_system_platform").notNull().default(false), // WebNova, Central Platform
+  
+  // Ownership
+  ownerId: varchar("owner_id").references(() => users.id),
+  tenantId: varchar("tenant_id"),
+  
+  // Timestamps
+  launchedAt: timestamp("launched_at"),
+  lastHealthCheckAt: timestamp("last_health_check_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_ip_code").on(table.code),
+  index("IDX_ip_platform_type").on(table.platformType),
+  index("IDX_ip_status").on(table.status),
+  index("IDX_ip_owner_id").on(table.ownerId),
+]);
+
+export const insertInferaPlatformSchema = createInsertSchema(inferaPlatforms).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertInferaPlatform = z.infer<typeof insertInferaPlatformSchema>;
+export type InferaPlatform = typeof inferaPlatforms.$inferSelect;
+
+// Platform Link Types
+export const platformLinkTypes = [
+  'parent_child',      // علاقة أب-ابن
+  'peer',              // علاقة نظير
+  'service_provider',  // مزود خدمة
+  'service_consumer',  // مستهلك خدمة
+  'federation',        // اتحاد فيدرالي
+  'mirror',            // نسخة مرآة
+] as const;
+export type PlatformLinkType = typeof platformLinkTypes[number];
+
+// Platform Links - روابط المنصات
+export const platformLinks = pgTable("platform_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Link endpoints
+  sourcePlatformId: varchar("source_platform_id").references(() => inferaPlatforms.id, { onDelete: "cascade" }).notNull(),
+  targetPlatformId: varchar("target_platform_id").references(() => inferaPlatforms.id, { onDelete: "cascade" }).notNull(),
+  
+  // Link configuration
+  linkType: text("link_type").notNull().default("peer"), // parent_child, peer, service_provider...
+  linkDirection: text("link_direction").notNull().default("bidirectional"), // unidirectional, bidirectional
+  trustLevel: integer("trust_level").notNull().default(5), // 1-10 scale
+  
+  // Sync policies
+  syncPolicies: jsonb("sync_policies").$type<{
+    syncUsers?: boolean;
+    syncProjects?: boolean;
+    syncConfigs?: boolean;
+    syncFrequency?: string; // realtime, hourly, daily
+    conflictResolution?: string; // source_wins, target_wins, manual
+  }>().default({}),
+  
+  // Access control
+  allowedOperations: jsonb("allowed_operations").$type<string[]>().default([]),
+  restrictedOperations: jsonb("restricted_operations").$type<string[]>().default([]),
+  
+  // Status
+  status: text("status").notNull().default("pending"), // pending, active, suspended, revoked
+  isActive: boolean("is_active").notNull().default(false),
+  
+  // Audit
+  establishedAt: timestamp("established_at"),
+  lastSyncAt: timestamp("last_sync_at"),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_pl_source").on(table.sourcePlatformId),
+  index("IDX_pl_target").on(table.targetPlatformId),
+  index("IDX_pl_status").on(table.status),
+]);
+
+export const insertPlatformLinkSchema = createInsertSchema(platformLinks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertPlatformLink = z.infer<typeof insertPlatformLinkSchema>;
+export type PlatformLink = typeof platformLinks.$inferSelect;
+
+// Platform Services - خدمات المنصات (للتطوير والصيانة المستمرة)
+export const platformServices = pgTable("platform_services", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  platformId: varchar("platform_id").references(() => inferaPlatforms.id, { onDelete: "cascade" }).notNull(),
+  
+  // Service identification
+  serviceName: text("service_name").notNull(),
+  serviceNameAr: text("service_name_ar"),
+  serviceKind: text("service_kind").notNull(), // development, maintenance, monitoring, security, backup
+  
+  // Service contract
+  serviceContract: jsonb("service_contract").$type<{
+    slaLevel?: string; // basic, standard, premium, enterprise
+    responseTime?: string; // 24h, 8h, 4h, 1h
+    uptimeGuarantee?: number; // percentage
+    includedHours?: number; // hours/month
+    features?: string[];
+  }>(),
+  
+  // Lifecycle hooks - for continuous development
+  lifecycleHooks: jsonb("lifecycle_hooks").$type<{
+    onDeploy?: string[];  // commands to run on deploy
+    onUpdate?: string[];  // commands to run on update
+    onScale?: string[];   // commands to run on scaling
+    onBackup?: string[];  // commands for backup
+    onRestore?: string[]; // commands for restore
+  }>(),
+  
+  // Maintenance obligations
+  maintenanceSchedule: jsonb("maintenance_schedule").$type<{
+    frequency?: string; // daily, weekly, monthly
+    preferredWindow?: string; // e.g., "02:00-06:00 UTC"
+    notifyBefore?: number; // hours
+    autoApplyPatches?: boolean;
+  }>(),
+  
+  // Status
+  status: text("status").notNull().default("active"), // active, paused, terminated
+  lastServiceAt: timestamp("last_service_at"),
+  nextServiceAt: timestamp("next_service_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_ps_platform_id").on(table.platformId),
+  index("IDX_ps_service_kind").on(table.serviceKind),
+  index("IDX_ps_status").on(table.status),
+]);
+
+export const insertPlatformServiceSchema = createInsertSchema(platformServices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertPlatformService = z.infer<typeof insertPlatformServiceSchema>;
+export type PlatformService = typeof platformServices.$inferSelect;
+
+// Certificate Hierarchy Roles
+export const certificateHierarchyRoles = [
+  'root_ca',           // شهادة الجذر - Owner Root CA
+  'platform_ca',       // شهادة المنصة - Platform Intermediate CA
+  'service_cert',      // شهادة الخدمة - Service Certificate
+  'user_cert',         // شهادة المستخدم - User Certificate
+  'device_cert',       // شهادة الجهاز - Device Certificate
+] as const;
+export type CertificateHierarchyRole = typeof certificateHierarchyRoles[number];
+
+// Platform Certificates - شهادات المنصات (هرمية الأمان)
+export const platformCertificates = pgTable("platform_certificates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  platformId: varchar("platform_id").references(() => inferaPlatforms.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
+  
+  // Certificate identification
+  serialNumber: varchar("serial_number", { length: 100 }).unique().notNull(),
+  commonName: text("common_name").notNull(),
+  
+  // Hierarchy
+  hierarchyRole: text("hierarchy_role").notNull().default("user_cert"), // root_ca, platform_ca, service_cert, user_cert
+  parentCertId: varchar("parent_cert_id").references((): any => platformCertificates.id),
+  
+  // Certificate details
+  publicKeyFingerprint: text("public_key_fingerprint").notNull(),
+  signatureAlgorithm: varchar("signature_algorithm", { length: 50 }).default("SHA256withRSA"),
+  keySize: integer("key_size").default(2048),
+  
+  // Scope & Permissions
+  scope: jsonb("scope").$type<{
+    allowedPlatforms?: string[];
+    allowedServices?: string[];
+    allowedOperations?: string[];
+    ipRestrictions?: string[];
+    domainRestrictions?: string[];
+  }>().default({}),
+  
+  // Validity
+  validFrom: timestamp("valid_from").notNull(),
+  validUntil: timestamp("valid_until").notNull(),
+  isRevoked: boolean("is_revoked").notNull().default(false),
+  revokedAt: timestamp("revoked_at"),
+  revokedReason: text("revoked_reason"),
+  
+  // Security flags
+  isHardwareBacked: boolean("is_hardware_backed").notNull().default(false), // TPM/HSM
+  isOwnerCertificate: boolean("is_owner_certificate").notNull().default(false),
+  canSignOthers: boolean("can_sign_others").notNull().default(false), // CA capability
+  
+  // Rotation
+  rotationPolicy: jsonb("rotation_policy").$type<{
+    autoRotate?: boolean;
+    rotateBeforeDays?: number;
+    notifyBeforeDays?: number;
+    maxRenewals?: number;
+    currentRenewals?: number;
+  }>(),
+  
+  // Audit
+  issuedBy: varchar("issued_by").references(() => users.id),
+  issuedAt: timestamp("issued_at").defaultNow().notNull(),
+  lastUsedAt: timestamp("last_used_at"),
+  usageCount: integer("usage_count").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_pc_platform_id").on(table.platformId),
+  index("IDX_pc_user_id").on(table.userId),
+  index("IDX_pc_hierarchy_role").on(table.hierarchyRole),
+  index("IDX_pc_is_revoked").on(table.isRevoked),
+  index("IDX_pc_valid_until").on(table.validUntil),
+]);
+
+export const insertPlatformCertificateSchema = createInsertSchema(platformCertificates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertPlatformCertificate = z.infer<typeof insertPlatformCertificateSchema>;
+export type PlatformCertificate = typeof platformCertificates.$inferSelect;
