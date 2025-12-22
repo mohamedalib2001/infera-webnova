@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Monitor, Tablet, Smartphone, RefreshCw, Maximize2, Copy, Check, Download, Sparkles, Code2, Palette, Zap, CheckCircle2 } from "lucide-react";
+import { Monitor, Tablet, Smartphone, RefreshCw, Maximize2, Copy, Check, Download, Sparkles, Code2, Palette, Zap, CheckCircle2, Brain, Cpu, Lightbulb, Search, MessageSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/use-language";
 
@@ -11,6 +11,7 @@ interface CodePreviewProps {
   js: string;
   onRefresh?: () => void;
   isGenerating?: boolean;
+  isThinking?: boolean;
 }
 
 type ViewportSize = "desktop" | "tablet" | "mobile";
@@ -29,12 +30,21 @@ const generationStages = [
   { id: "finishing", icon: CheckCircle2, labelEn: "Initializing autonomous operations...", labelAr: "جاري تهيئة التشغيل الذاتي..." },
 ];
 
-export function CodePreview({ html, css, js, onRefresh, isGenerating = false }: CodePreviewProps) {
+const thinkingStages = [
+  { id: "understanding", icon: MessageSquare, labelEn: "Understanding your request...", labelAr: "جاري فهم طلبك..." },
+  { id: "analyzing", icon: Search, labelEn: "Analyzing context...", labelAr: "جاري تحليل السياق..." },
+  { id: "thinking", icon: Brain, labelEn: "AI thinking deeply...", labelAr: "الذكاء الاصطناعي يفكر بعمق..." },
+  { id: "processing", icon: Cpu, labelEn: "Processing information...", labelAr: "جاري معالجة المعلومات..." },
+  { id: "formulating", icon: Lightbulb, labelEn: "Formulating response...", labelAr: "جاري صياغة الرد..." },
+];
+
+export function CodePreview({ html, css, js, onRefresh, isGenerating = false, isThinking = false }: CodePreviewProps) {
   const [viewport, setViewport] = useState<ViewportSize>("desktop");
   const [activeTab, setActiveTab] = useState<"preview" | "html" | "css" | "js">("preview");
   const [copied, setCopied] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentStage, setCurrentStage] = useState(0);
+  const [thinkingStage, setThinkingStage] = useState(0);
   const { toast } = useToast();
   const { isRtl } = useLanguage();
   
@@ -47,6 +57,16 @@ export function CodePreview({ html, css, js, onRefresh, isGenerating = false }: 
       return () => clearInterval(interval);
     }
   }, [isGenerating]);
+  
+  useEffect(() => {
+    if (isThinking) {
+      setThinkingStage(0);
+      const interval = setInterval(() => {
+        setThinkingStage(prev => (prev + 1) % thinkingStages.length);
+      }, 2000);
+      return () => clearInterval(interval);
+    }
+  }, [isThinking]);
   
   console.log("CodePreview render - html:", html?.length || 0, "css:", css?.length || 0, "js:", js?.length || 0);
 
@@ -173,7 +193,53 @@ export function CodePreview({ html, css, js, onRefresh, isGenerating = false }: 
               className="h-full bg-white rounded-lg shadow-lg overflow-hidden transition-all duration-300"
               style={{ width: viewportSizes[viewport].width, maxWidth: "100%" }}
             >
-              {isGenerating ? (
+              {isThinking ? (
+                <div className="h-full flex flex-col items-center justify-center gap-8 p-8">
+                  <div className="relative">
+                    <div className="w-28 h-28 rounded-full bg-gradient-to-tr from-blue-500/20 via-purple-500/20 to-cyan-500/20 animate-pulse" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-600 via-purple-600 to-cyan-600 flex items-center justify-center" style={{ animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }}>
+                        {(() => {
+                          const ThinkIcon = thinkingStages[thinkingStage].icon;
+                          return <ThinkIcon className="w-10 h-10 text-white" />;
+                        })()}
+                      </div>
+                    </div>
+                    <div className="absolute -inset-6 rounded-full border-2 border-purple-400/40 animate-ping" style={{ animationDuration: "1.5s" }} />
+                    <div className="absolute -inset-3 rounded-full border border-blue-400/30 animate-ping" style={{ animationDuration: "2s", animationDelay: "0.5s" }} />
+                  </div>
+                  
+                  <div className="text-center space-y-4">
+                    <div className="flex items-center justify-center gap-2">
+                      <Brain className="w-5 h-5 text-purple-500 animate-bounce" />
+                      <p className="text-xl font-semibold bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 bg-clip-text text-transparent">
+                        {isRtl ? "جاري التفكير" : "AI Thinking"}
+                      </p>
+                      <Cpu className="w-5 h-5 text-cyan-500 animate-bounce" style={{ animationDelay: "0.2s" }} />
+                    </div>
+                    <p className="text-base text-foreground/80 animate-pulse">
+                      {isRtl ? thinkingStages[thinkingStage].labelAr : thinkingStages[thinkingStage].labelEn}
+                    </p>
+                    <div className="flex items-center justify-center gap-1.5">
+                      {thinkingStages.map((stage, idx) => (
+                        <div
+                          key={stage.id}
+                          className={`h-1.5 rounded-full transition-all duration-500 ${
+                            idx === thinkingStage 
+                              ? "bg-gradient-to-r from-blue-500 to-purple-500 w-8" 
+                              : idx < thinkingStage 
+                                ? "bg-purple-400/60 w-2" 
+                                : "bg-muted-foreground/30 w-2"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {isRtl ? "الذكاء الاصطناعي يحلل سؤالك بعمق..." : "AI is analyzing your question deeply..."}
+                    </p>
+                  </div>
+                </div>
+              ) : isGenerating ? (
                 <div className="h-full flex flex-col items-center justify-center gap-8 p-8">
                   <div className="relative">
                     <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-primary/20 to-primary/40 animate-pulse" />

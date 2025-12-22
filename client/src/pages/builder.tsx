@@ -76,6 +76,7 @@ export default function Builder() {
   const [css, setCss] = useState(storedCode.css);
   const [js, setJs] = useState(storedCode.js);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isCodeGenerating, setIsCodeGenerating] = useState(false);
   const [projectId, setProjectId] = useState<string | null>(params.id || null);
   const [hasProcessedInitialPrompt, setHasProcessedInitialPrompt] = useState(false);
   const [pendingMessages, setPendingMessages] = useState<string[]>([]);
@@ -238,6 +239,7 @@ export default function Builder() {
       abortControllerRef.current = null;
     }
     setIsGenerating(false);
+    setIsCodeGenerating(false);
     toast({
       title: t("builder.cancelled"),
       description: t("builder.generationCancelled"),
@@ -300,6 +302,7 @@ export default function Builder() {
     
     setMessages((prev) => [...prev, userMessage]);
     setIsGenerating(true);
+    setIsCodeGenerating(false);
     
     abortControllerRef.current = new AbortController();
     
@@ -333,6 +336,7 @@ export default function Builder() {
       console.log("Smart chat response:", data.type);
       
       if (data.code && (data.type === "code_generation" || data.type === "code_refinement")) {
+        setIsCodeGenerating(true);
         setHtml(data.code.html || "");
         setCss(data.code.css || "");
         setJs(data.code.js || "");
@@ -397,6 +401,7 @@ export default function Builder() {
       });
     } finally {
       setIsGenerating(false);
+      setIsCodeGenerating(false);
     }
   };
 
@@ -548,7 +553,8 @@ export default function Builder() {
               html={html}
               css={css}
               js={js}
-              isGenerating={isGenerating}
+              isGenerating={isCodeGenerating}
+              isThinking={isGenerating && !isCodeGenerating}
             />
           </div>
         </ResizablePanel>
