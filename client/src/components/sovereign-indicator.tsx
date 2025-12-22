@@ -216,8 +216,14 @@ const translations = {
 // Page/Route to Services mapping for real analysis
 const pageServicesMap: Record<string, { name: string; nameAr: string; type: string }[]> = {
   '/': [
-    { name: 'Dashboard', nameAr: 'لوحة التحكم', type: 'core' },
-    { name: 'Authentication', nameAr: 'المصادقة', type: 'security' },
+    { name: 'Nova AI Engine', nameAr: 'محرك نوفا الذكي', type: 'ai' },
+    { name: 'Smart Dashboard', nameAr: 'لوحة التحكم الذكية', type: 'ai' },
+    { name: 'Blueprint Generator', nameAr: 'مولد البلوبرنت', type: 'ai' },
+    { name: 'Authentication System', nameAr: 'نظام المصادقة', type: 'security' },
+    { name: 'Multi-Domain Support', nameAr: 'دعم النطاقات المتعددة', type: 'infrastructure' },
+    { name: 'Real-time Notifications', nameAr: 'الإشعارات الفورية', type: 'automation' },
+    { name: 'Sovereign Security', nameAr: 'الأمان السيادي', type: 'security' },
+    { name: 'Platform Orchestrator', nameAr: 'منسق المنصات', type: 'ai' },
   ],
   '/builder': [
     { name: 'Code Editor', nameAr: 'محرر الكود', type: 'core' },
@@ -225,11 +231,12 @@ const pageServicesMap: Record<string, { name: string; nameAr: string; type: stri
     { name: 'Live Preview', nameAr: 'المعاينة المباشرة', type: 'core' },
     { name: 'Version Control', nameAr: 'التحكم بالإصدارات', type: 'core' },
     { name: 'Auto Save', nameAr: 'الحفظ التلقائي', type: 'automation' },
+    { name: 'Nova Copilot', nameAr: 'مساعد نوفا', type: 'ai' },
   ],
   '/collaboration': [
     { name: 'Real-time Comments', nameAr: 'التعليقات الفورية', type: 'collaboration' },
     { name: 'Collaborator Management', nameAr: 'إدارة المتعاونين', type: 'collaboration' },
-    { name: 'Activity Tracking', nameAr: 'تتبع النشاط', type: 'analytics' },
+    { name: 'Live Sync', nameAr: 'المزامنة المباشرة', type: 'automation' },
   ],
   '/nova-vision': [
     { name: 'Image Analysis', nameAr: 'تحليل الصور', type: 'ai' },
@@ -555,35 +562,28 @@ export function SovereignIndicator() {
             className={cn(
               "relative group w-14 h-14 rounded-full flex items-center justify-center",
               "transition-all duration-300 ease-out",
-              "shadow-lg hover:shadow-xl hover:scale-105",
-              analysis ? getStatusBgClass(analysis.statusColor) : "bg-gradient-to-br from-amber-400 via-yellow-500 to-amber-600"
+              "shadow-lg hover:shadow-xl hover:scale-105"
             )}
             style={{
-              boxShadow: analysis?.statusColor === 'gold' 
-                ? '0 0 20px rgba(251, 191, 36, 0.5), 0 0 40px rgba(251, 191, 36, 0.3)'
-                : undefined,
+              background: 'linear-gradient(135deg, #FFD700 0%, #FFC800 50%, #FFD700 100%)',
+              boxShadow: '0 0 25px rgba(255, 215, 0, 0.6), 0 0 50px rgba(255, 215, 0, 0.3), inset 0 0 10px rgba(255, 255, 255, 0.2)',
             }}
           >
-            {/* Crown */}
-            <Crown 
-              className="absolute -top-2 w-5 h-5 text-amber-300 drop-shadow-lg animate-pulse"
-              style={{ filter: 'drop-shadow(0 0 4px rgba(251, 191, 36, 0.8))' }}
-            />
-            
-            {/* Arrow */}
+            {/* Arrow - Pure Gold */}
             <TrendingUp 
               className={cn(
                 "w-7 h-7 text-white drop-shadow-md transition-transform",
                 "group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
               )}
+              style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}
             />
             
             {/* Glow effect */}
             <div 
               className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"
               style={{
-                background: 'radial-gradient(circle, rgba(251, 191, 36, 0.4) 0%, transparent 70%)',
-                filter: 'blur(8px)',
+                background: 'radial-gradient(circle, rgba(255, 215, 0, 0.5) 0%, transparent 70%)',
+                filter: 'blur(10px)',
               }}
             />
             
@@ -591,7 +591,12 @@ export function SovereignIndicator() {
             {analysis && (
               <div 
                 data-testid="badge-final-score"
-                className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-background border-2 border-amber-500 flex items-center justify-center text-xs font-bold"
+                className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-black"
+                style={{
+                  background: 'linear-gradient(135deg, #FFD700 0%, #FFC800 100%)',
+                  border: '2px solid #FFD700',
+                  boxShadow: '0 2px 8px rgba(255, 215, 0, 0.4)',
+                }}
               >
                 {analysis.finalScore}
               </div>

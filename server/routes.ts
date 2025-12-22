@@ -9973,8 +9973,14 @@ ${project.description || ""}
   function generateAlgorithmicAnalysis(pathname: string, services: any[], pageMetrics: any) {
     const pageServicesMap: Record<string, { name: string; nameAr: string; type: string }[]> = {
       '/': [
-        { name: 'Dashboard', nameAr: 'لوحة التحكم', type: 'core' },
-        { name: 'Authentication', nameAr: 'المصادقة', type: 'security' },
+        { name: 'Nova AI Engine', nameAr: 'محرك نوفا الذكي', type: 'ai' },
+        { name: 'Smart Dashboard', nameAr: 'لوحة التحكم الذكية', type: 'ai' },
+        { name: 'Blueprint Generator', nameAr: 'مولد البلوبرنت', type: 'ai' },
+        { name: 'Authentication System', nameAr: 'نظام المصادقة', type: 'security' },
+        { name: 'Multi-Domain Support', nameAr: 'دعم النطاقات المتعددة', type: 'infrastructure' },
+        { name: 'Real-time Notifications', nameAr: 'الإشعارات الفورية', type: 'automation' },
+        { name: 'Sovereign Security', nameAr: 'الأمان السيادي', type: 'security' },
+        { name: 'Platform Orchestrator', nameAr: 'منسق المنصات', type: 'ai' },
       ],
       '/builder': [
         { name: 'Code Editor', nameAr: 'محرر الكود', type: 'core' },
@@ -9982,10 +9988,12 @@ ${project.description || ""}
         { name: 'Live Preview', nameAr: 'المعاينة المباشرة', type: 'core' },
         { name: 'Version Control', nameAr: 'التحكم بالإصدارات', type: 'core' },
         { name: 'Auto Save', nameAr: 'الحفظ التلقائي', type: 'automation' },
+        { name: 'Nova Copilot', nameAr: 'مساعد نوفا', type: 'ai' },
       ],
       '/collaboration': [
         { name: 'Real-time Comments', nameAr: 'التعليقات الفورية', type: 'collaboration' },
         { name: 'Collaborator Management', nameAr: 'إدارة المتعاونين', type: 'collaboration' },
+        { name: 'Live Sync', nameAr: 'المزامنة المباشرة', type: 'automation' },
       ],
       '/nova-vision': [
         { name: 'Image Analysis', nameAr: 'تحليل الصور', type: 'ai' },
