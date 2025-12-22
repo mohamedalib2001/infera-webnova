@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,6 +40,12 @@ import {
   Rocket,
   Brain,
   ArrowRight,
+  Activity,
+  TrendingUp,
+  Server,
+  AlertTriangle,
+  LineChart,
+  Clock,
 } from "lucide-react";
 
 interface ConsoleMessage {
@@ -64,10 +70,32 @@ interface AgentSettings {
 
 type ConsoleMode = "build" | "plan";
 
+interface DashboardAnalytics {
+  kpis: {
+    activeUsers: number;
+    userGrowth: string;
+    uptime: string;
+    responseTime: number;
+    eventsToday: number;
+  };
+  predictions: {
+    nextMonthGrowth: string;
+    accuracy: number;
+    userPattern: string;
+  };
+  anomalies: {
+    activeAlerts: number;
+    resolvedAnomalies: number;
+    detectionAccuracy: number;
+  };
+  timestamp: string;
+}
+
 export default function ConsolePage() {
   const [messages, setMessages] = useState<ConsoleMessage[]>([]);
   const [input, setInput] = useState("");
   const [mode, setMode] = useState<ConsoleMode>("build");
+  const [showAnalytics, setShowAnalytics] = useState(true);
   const [settings, setSettings] = useState<AgentSettings>({
     autonomyLevel: 2,
     generateAndExecute: true,
@@ -80,6 +108,12 @@ export default function ConsolePage() {
   });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Real-time Analytics Query (Historical Data Analysis with AI Predictions)
+  const { data: analytics } = useQuery<DashboardAnalytics>({
+    queryKey: ["/api/dashboard-analytics"],
+    refetchInterval: 30000, // Auto-refresh every 30 seconds
+  });
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -166,6 +200,17 @@ export default function ConsolePage() {
             {mode === "build" ? "Build Mode" : "Plan Mode"}
           </Badge>
         </div>
+
+        <div className="flex items-center gap-2">
+          <Button 
+            variant={showAnalytics ? "default" : "ghost"} 
+            size="sm"
+            onClick={() => setShowAnalytics(!showAnalytics)}
+            data-testid="button-toggle-analytics"
+          >
+            <Activity className="w-4 h-4 me-1" />
+            Analytics
+          </Button>
 
         <Popover>
           <PopoverTrigger asChild>
@@ -306,7 +351,53 @@ export default function ConsolePage() {
             </div>
           </PopoverContent>
         </Popover>
+        </div>
       </header>
+
+      {/* Real-time Analytics Panel - Historical Data Analysis with AI Predictions */}
+      {showAnalytics && analytics && (
+        <div className="border-b bg-card/50 backdrop-blur-sm px-4 py-3" data-testid="container-analytics-panel">
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-2 text-sm">
+              <Activity className="w-4 h-4 text-green-500" />
+              <span className="text-muted-foreground">Active Users:</span>
+              <span className="font-semibold" data-testid="analytics-active-users">{analytics.kpis.activeUsers}</span>
+              <Badge variant="secondary" className="text-xs">{analytics.kpis.userGrowth}</Badge>
+            </div>
+            
+            <div className="flex items-center gap-2 text-sm">
+              <Server className="w-4 h-4 text-blue-500" />
+              <span className="text-muted-foreground">Uptime:</span>
+              <span className="font-semibold" data-testid="analytics-uptime">{analytics.kpis.uptime}</span>
+            </div>
+            
+            <div className="flex items-center gap-2 text-sm">
+              <Clock className="w-4 h-4 text-violet-500" />
+              <span className="text-muted-foreground">Response:</span>
+              <span className="font-semibold" data-testid="analytics-response">{analytics.kpis.responseTime}ms</span>
+            </div>
+            
+            <div className="flex items-center gap-2 text-sm">
+              <LineChart className="w-4 h-4 text-amber-500" />
+              <span className="text-muted-foreground">AI Prediction:</span>
+              <span className="font-semibold text-green-500" data-testid="analytics-prediction">{analytics.predictions.nextMonthGrowth}</span>
+              <span className="text-xs text-muted-foreground">({analytics.predictions.accuracy}% accuracy)</span>
+            </div>
+            
+            <div className="flex items-center gap-2 text-sm">
+              {analytics.anomalies.activeAlerts > 0 ? (
+                <AlertTriangle className="w-4 h-4 text-red-500" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4 text-green-500" />
+              )}
+              <span className="text-muted-foreground">Anomalies:</span>
+              <span className={`font-semibold ${analytics.anomalies.activeAlerts > 0 ? "text-red-500" : "text-green-500"}`} data-testid="analytics-anomalies">
+                {analytics.anomalies.activeAlerts} active
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="flex-1 overflow-y-auto" data-testid="container-messages">
         {messages.length === 0 ? (
