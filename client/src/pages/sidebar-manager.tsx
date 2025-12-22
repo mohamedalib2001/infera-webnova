@@ -11,6 +11,16 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
   GripVertical,
   Eye,
   EyeOff,
@@ -23,6 +33,7 @@ import {
   Loader2,
   Search,
   Filter,
+  X,
 } from "lucide-react";
 
 interface PageVisibility {
@@ -136,6 +147,9 @@ export default function SidebarManager() {
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [localPages, setLocalPages] = useState<PageVisibility[]>([]);
+  const [editingConfig, setEditingConfig] = useState<SidebarConfig | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
 
   const { data: config, isLoading } = useQuery<SidebarConfig>({
     queryKey: ['/api/platform/sidebar/config'],
@@ -198,6 +212,40 @@ export default function SidebarManager() {
       toast({ title: language === 'ar' ? "خطأ" : "Error", description: error.message, variant: "destructive" });
     },
   });
+
+  const updateConfigMutation = useMutation({
+    mutationFn: async ({ configId, name, description }: { configId: string; name: string; description: string }) => {
+      return apiRequest('PATCH', `/api/platform/sidebar/config/${configId}`, {
+        name,
+        description,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/platform/sidebar/configs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/platform/sidebar/config'] });
+      toast({ title: txt.changesSaved });
+      setEditingConfig(null);
+    },
+    onError: (error: any) => {
+      toast({ title: language === 'ar' ? "خطأ" : "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleEditConfig = (cfg: SidebarConfig) => {
+    setEditingConfig(cfg);
+    setEditName(cfg.name);
+    setEditDescription(cfg.description);
+  };
+
+  const handleSaveConfig = () => {
+    if (editingConfig) {
+      updateConfigMutation.mutate({
+        configId: editingConfig.id,
+        name: editName,
+        description: editDescription,
+      });
+    }
+  };
 
   const pages = config?.pages || [];
   
@@ -408,7 +456,12 @@ export default function SidebarManager() {
                         {cfg.pages.length} {txt.pages}
                       </p>
                     </div>
-                    <Button variant="outline" size="sm" data-testid={`button-edit-${cfg.id}`}>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => handleEditConfig(cfg)}
+                      data-testid={`button-edit-${cfg.id}`}
+                    >
                       <Settings className="h-4 w-4" />
                     </Button>
                   </div>
@@ -418,6 +471,69 @@ export default function SidebarManager() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!editingConfig} onOpenChange={(open) => !open && setEditingConfig(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'تعديل التكوين' : 'Edit Configuration'}
+            </DialogTitle>
+            <DialogDescription>
+              {language === 'ar' 
+                ? 'قم بتعديل اسم ووصف التكوين'
+                : 'Update the configuration name and description'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="config-name">
+                {txt.configName}
+              </Label>
+              <Input
+                id="config-name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder={language === 'ar' ? 'اسم التكوين' : 'Configuration name'}
+                data-testid="input-config-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="config-description">
+                {txt.configDescription}
+              </Label>
+              <Textarea
+                id="config-description"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                placeholder={language === 'ar' ? 'وصف التكوين' : 'Configuration description'}
+                rows={3}
+                data-testid="input-config-description"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setEditingConfig(null)}
+              data-testid="button-cancel-edit"
+            >
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button
+              onClick={handleSaveConfig}
+              disabled={updateConfigMutation.isPending || !editName.trim()}
+              data-testid="button-save-config"
+            >
+              {updateConfigMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              <span className="mr-2">{txt.saveChanges}</span>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
