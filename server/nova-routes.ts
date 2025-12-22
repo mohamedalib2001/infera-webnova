@@ -70,13 +70,13 @@ const updatePreferencesSchema = z.object({
 
 const createKnowledgeNodeSchema = z.object({
   nodeType: z.enum(["decision", "component", "requirement", "constraint", "dependency", "risk", "goal"]),
-  label: z.string().min(1).max(200),
-  labelAr: z.string().optional(),
+  name: z.string().min(1).max(200),
+  nameAr: z.string().optional(),
   description: z.string().optional(),
   descriptionAr: z.string().optional(),
-  metadata: z.record(z.any()).optional(),
+  technicalDetails: z.record(z.any()).optional(),
   businessIntent: z.string().optional(),
-  confidenceScore: z.number().min(0).max(1).optional(),
+  confidence: z.number().min(0).max(1).optional(),
 });
 
 export function registerNovaRoutes(app: Express) {
@@ -736,8 +736,8 @@ Format as JSON:
 
       const node = await storage.createKnowledgeNode({
         projectId,
+        userId,
         ...validatedData,
-        createdBy: userId,
       });
 
       // Log the event
@@ -746,7 +746,7 @@ Format as JSON:
         userId,
         eventType: "knowledge_node_created",
         eventName: "Knowledge Node Created",
-        payload: { metadata: { nodeType: req.body.nodeType, label: req.body.label, entityId: node.id } },
+        payload: { metadata: { nodeType: validatedData.nodeType, name: validatedData.name, entityId: node.id } },
       });
 
       res.json(node);
@@ -787,6 +787,312 @@ Format as JSON:
         : await storage.resolvePattern(patternId);
 
       res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ==================== OPERATIONS PLATFORM ====================
+
+  // Get project deployments
+  app.get("/api/nova/deployments/:projectId", requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const { projectId } = req.params;
+
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      const deployments = await storage.getProjectDeployments(projectId);
+      const configs = await storage.getProjectDeploymentConfigs(projectId);
+
+      res.json({ deployments, configs });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create deployment config
+  app.post("/api/nova/deployments/:projectId/config", requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const { projectId } = req.params;
+
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      // Explicitly pick allowed fields - never spread req.body over critical identifiers
+      const { name, nameAr, environment, provider, region, instanceType, autoScaling, 
+              minInstances, maxInstances, envVars, customDomain, sslEnabled, cdnEnabled } = req.body;
+
+      const config = await storage.createDeploymentConfig({
+        projectId,
+        userId,
+        name: name || "Default Config",
+        nameAr: nameAr || "الإعداد الافتراضي",
+        environment: environment || "development",
+        provider: provider || "hetzner",
+        region,
+        instanceType,
+        autoScaling,
+        minInstances,
+        maxInstances,
+        envVars,
+        customDomain,
+        sslEnabled,
+        cdnEnabled,
+      });
+
+      res.json(config);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get project health alerts
+  app.get("/api/nova/alerts/:projectId", requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const { projectId } = req.params;
+
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      const alerts = await storage.getProjectHealthAlerts(projectId);
+      res.json(alerts);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Acknowledge alert
+  app.patch("/api/nova/alerts/:alertId/acknowledge", requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const { alertId } = req.params;
+
+      // Get alert and verify ownership through project
+      const existingAlert = await storage.getHealthAlert(alertId);
+      if (!existingAlert) {
+        return res.status(404).json({ error: "Alert not found" });
+      }
+
+      const project = await storage.getProject(existingAlert.projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      const alert = await storage.acknowledgeAlert(alertId, userId);
+      res.json(alert);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get project metrics
+  app.get("/api/nova/metrics/:projectId", requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const { projectId } = req.params;
+
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      const metrics = await storage.getProjectMetrics(projectId);
+      res.json(metrics);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ==================== MULTI-SURFACE BUILD ====================
+
+  // Get project build configs and jobs
+  app.get("/api/nova/builds/:projectId", requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const { projectId } = req.params;
+
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      const configs = await storage.getProjectBuildConfigs(projectId);
+      const jobs = await storage.getProjectBuildJobs(projectId);
+      res.json({ configs, jobs });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create build config
+  app.post("/api/nova/builds/:projectId/config", requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const { projectId } = req.params;
+
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      // Explicitly pick allowed fields
+      const { name, nameAr, platform, version, bundleId, appIcon, splashScreen,
+              buildSettings, signingConfig, targetSdk, minimumSdk } = req.body;
+
+      if (!platform) {
+        return res.status(400).json({ error: "Platform is required" });
+      }
+
+      const config = await storage.createBuildConfig({
+        projectId,
+        userId,
+        name: name || `${platform} Build`,
+        nameAr: nameAr || `بناء ${platform}`,
+        platform,
+        version: version || "1.0.0",
+        bundleId,
+        appIcon,
+        splashScreen,
+        buildSettings,
+        signingConfig,
+        targetSdk,
+        minimumSdk,
+      });
+      res.json(config);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Start a build job
+  app.post("/api/nova/builds/:projectId/start", requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const { projectId } = req.params;
+      // Only accept configId and version from body
+      const { configId, version } = req.body;
+
+      if (!configId) {
+        return res.status(400).json({ error: "Config ID is required" });
+      }
+
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      const config = await storage.getBuildConfig(configId);
+      if (!config || config.projectId !== projectId) {
+        return res.status(404).json({ error: "Build config not found" });
+      }
+
+      // Explicitly construct job data - no spread
+      const job = await storage.createBuildJob({
+        projectId,
+        configId,
+        userId,
+        platform: config.platform,
+        version: version || config.version || "1.0.0",
+        status: "queued",
+      });
+      res.json(job);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ==================== UNIFIED BLUEPRINTS ====================
+
+  // Get project blueprints
+  app.get("/api/nova/blueprints/:projectId", requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const { projectId } = req.params;
+
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      const blueprints = await storage.getProjectBlueprints(projectId);
+      res.json({ blueprints });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create unified blueprint
+  app.post("/api/nova/blueprints/:projectId", requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const { projectId } = req.params;
+
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      // Explicitly pick allowed fields
+      const { name, nameAr, version, definition, surfaces, isLocked } = req.body;
+
+      if (!name) {
+        return res.status(400).json({ error: "Name is required" });
+      }
+
+      const blueprint = await storage.createUnifiedBlueprint({
+        projectId,
+        userId,
+        name,
+        nameAr: nameAr || name,
+        version: version || "1.0.0",
+        definition: definition || {},
+        surfaces: surfaces || ["web"],
+        isLocked: isLocked || false,
+      });
+      res.json(blueprint);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update blueprint
+  app.patch("/api/nova/blueprints/:blueprintId", requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const { blueprintId } = req.params;
+
+      const existing = await storage.getUnifiedBlueprint(blueprintId);
+      if (!existing) {
+        return res.status(404).json({ error: "Blueprint not found" });
+      }
+
+      const project = await storage.getProject(existing.projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      // Explicitly pick allowed fields for update
+      const { name, nameAr, version, definition, surfaces, isLocked } = req.body;
+      const updateData: Record<string, any> = {};
+      if (name !== undefined) updateData.name = name;
+      if (nameAr !== undefined) updateData.nameAr = nameAr;
+      if (version !== undefined) updateData.version = version;
+      if (definition !== undefined) updateData.definition = definition;
+      if (surfaces !== undefined) updateData.surfaces = surfaces;
+      if (isLocked !== undefined) updateData.isLocked = isLocked;
+
+      const blueprint = await storage.updateUnifiedBlueprint(blueprintId, updateData);
+      res.json(blueprint);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

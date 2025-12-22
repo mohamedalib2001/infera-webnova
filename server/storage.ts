@@ -463,6 +463,28 @@ import {
   architecturePatterns,
   type ArchitecturePattern,
   type InsertArchitecturePattern,
+  // Operations Platform
+  deploymentConfigs,
+  type DeploymentConfig,
+  type InsertDeploymentConfig,
+  deployments,
+  type Deployment,
+  type InsertDeployment,
+  healthAlerts,
+  type HealthAlert,
+  type InsertHealthAlert,
+  metricsSnapshots,
+  // Multi-Surface Generator
+  buildConfigs,
+  type BuildConfig,
+  type InsertBuildConfig,
+  buildJobs,
+  type BuildJob,
+  type InsertBuildJob,
+  // Unified Blueprint System
+  unifiedBlueprints,
+  type UnifiedBlueprint,
+  type InsertUnifiedBlueprint,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt, gte, lte, sql } from "drizzle-orm";
@@ -7439,6 +7461,185 @@ body { font-family: 'Tajawal', sans-serif; }
 
   async resolvePattern(id: string): Promise<ArchitecturePattern | undefined> {
     return this.updateArchitecturePattern(id, { status: 'resolved', resolvedAt: new Date() });
+  }
+
+  // ==================== OPERATIONS PLATFORM ====================
+
+  // Deployment Configs
+  async createDeploymentConfig(data: InsertDeploymentConfig): Promise<DeploymentConfig> {
+    const [created] = await db.insert(deploymentConfigs).values(data as any).returning();
+    return created;
+  }
+
+  async getDeploymentConfig(id: string): Promise<DeploymentConfig | undefined> {
+    const [config] = await db.select().from(deploymentConfigs).where(eq(deploymentConfigs.id, id));
+    return config;
+  }
+
+  async getProjectDeploymentConfigs(projectId: string): Promise<DeploymentConfig[]> {
+    return db.select().from(deploymentConfigs)
+      .where(and(eq(deploymentConfigs.projectId, projectId), eq(deploymentConfigs.isActive, true)));
+  }
+
+  async updateDeploymentConfig(id: string, data: Partial<InsertDeploymentConfig>): Promise<DeploymentConfig | undefined> {
+    const [updated] = await db.update(deploymentConfigs)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where(eq(deploymentConfigs.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Deployments
+  async createDeployment(data: InsertDeployment): Promise<Deployment> {
+    const [created] = await db.insert(deployments).values(data as any).returning();
+    return created;
+  }
+
+  async getDeployment(id: string): Promise<Deployment | undefined> {
+    const [deployment] = await db.select().from(deployments).where(eq(deployments.id, id));
+    return deployment;
+  }
+
+  async getProjectDeployments(projectId: string, limit = 20): Promise<Deployment[]> {
+    return db.select().from(deployments)
+      .where(eq(deployments.projectId, projectId))
+      .orderBy(desc(deployments.startedAt))
+      .limit(limit);
+  }
+
+  async updateDeployment(id: string, data: Partial<InsertDeployment>): Promise<Deployment | undefined> {
+    const [updated] = await db.update(deployments)
+      .set(data as any)
+      .where(eq(deployments.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Health Alerts
+  async createHealthAlert(data: InsertHealthAlert): Promise<HealthAlert> {
+    const [created] = await db.insert(healthAlerts).values(data as any).returning();
+    return created;
+  }
+
+  async getProjectHealthAlerts(projectId: string, status?: string): Promise<HealthAlert[]> {
+    const conditions = [eq(healthAlerts.projectId, projectId)];
+    if (status) conditions.push(eq(healthAlerts.status, status));
+    
+    return db.select().from(healthAlerts)
+      .where(and(...conditions))
+      .orderBy(desc(healthAlerts.createdAt));
+  }
+
+  async updateHealthAlert(id: string, data: Partial<InsertHealthAlert>): Promise<HealthAlert | undefined> {
+    const [updated] = await db.update(healthAlerts)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where(eq(healthAlerts.id, id))
+      .returning();
+    return updated;
+  }
+
+  async acknowledgeAlert(id: string, userId: string): Promise<HealthAlert | undefined> {
+    return this.updateHealthAlert(id, { status: 'acknowledged', acknowledgedAt: new Date(), acknowledgedBy: userId } as any);
+  }
+
+  async resolveAlert(id: string): Promise<HealthAlert | undefined> {
+    return this.updateHealthAlert(id, { status: 'resolved', resolvedAt: new Date() } as any);
+  }
+
+  // Metrics Snapshots
+  async createMetricsSnapshot(data: any): Promise<any> {
+    const [created] = await db.insert(metricsSnapshots).values(data).returning();
+    return created;
+  }
+
+  async getProjectMetrics(projectId: string, limit = 100): Promise<any[]> {
+    return db.select().from(metricsSnapshots)
+      .where(eq(metricsSnapshots.projectId, projectId))
+      .orderBy(desc(metricsSnapshots.timestamp))
+      .limit(limit);
+  }
+
+  async getHealthAlert(id: string): Promise<HealthAlert | undefined> {
+    const [alert] = await db.select().from(healthAlerts).where(eq(healthAlerts.id, id));
+    return alert;
+  }
+
+  // ==================== MULTI-SURFACE GENERATOR ====================
+
+  // Build Configs
+  async createBuildConfig(data: InsertBuildConfig): Promise<BuildConfig> {
+    const [created] = await db.insert(buildConfigs).values(data as any).returning();
+    return created;
+  }
+
+  async getBuildConfig(id: string): Promise<BuildConfig | undefined> {
+    const [config] = await db.select().from(buildConfigs).where(eq(buildConfigs.id, id));
+    return config;
+  }
+
+  async getProjectBuildConfigs(projectId: string): Promise<BuildConfig[]> {
+    return db.select().from(buildConfigs)
+      .where(and(eq(buildConfigs.projectId, projectId), eq(buildConfigs.isActive, true)));
+  }
+
+  async updateBuildConfig(id: string, data: Partial<InsertBuildConfig>): Promise<BuildConfig | undefined> {
+    const [updated] = await db.update(buildConfigs)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where(eq(buildConfigs.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Build Jobs
+  async createBuildJob(data: InsertBuildJob): Promise<BuildJob> {
+    const [created] = await db.insert(buildJobs).values(data as any).returning();
+    return created;
+  }
+
+  async getBuildJob(id: string): Promise<BuildJob | undefined> {
+    const [job] = await db.select().from(buildJobs).where(eq(buildJobs.id, id));
+    return job;
+  }
+
+  async getProjectBuildJobs(projectId: string, limit = 20): Promise<BuildJob[]> {
+    return db.select().from(buildJobs)
+      .where(eq(buildJobs.projectId, projectId))
+      .orderBy(desc(buildJobs.queuedAt))
+      .limit(limit);
+  }
+
+  async updateBuildJob(id: string, data: Partial<InsertBuildJob>): Promise<BuildJob | undefined> {
+    const [updated] = await db.update(buildJobs)
+      .set(data as any)
+      .where(eq(buildJobs.id, id))
+      .returning();
+    return updated;
+  }
+
+  // ==================== UNIFIED BLUEPRINT SYSTEM ====================
+
+  async createUnifiedBlueprint(data: InsertUnifiedBlueprint): Promise<UnifiedBlueprint> {
+    const [created] = await db.insert(unifiedBlueprints).values(data as any).returning();
+    return created;
+  }
+
+  async getUnifiedBlueprint(id: string): Promise<UnifiedBlueprint | undefined> {
+    const [blueprint] = await db.select().from(unifiedBlueprints).where(eq(unifiedBlueprints.id, id));
+    return blueprint;
+  }
+
+  async getProjectBlueprints(projectId: string): Promise<UnifiedBlueprint[]> {
+    return db.select().from(unifiedBlueprints)
+      .where(eq(unifiedBlueprints.projectId, projectId))
+      .orderBy(desc(unifiedBlueprints.updatedAt));
+  }
+
+  async updateUnifiedBlueprint(id: string, data: Partial<InsertUnifiedBlueprint>): Promise<UnifiedBlueprint | undefined> {
+    const [updated] = await db.update(unifiedBlueprints)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where(eq(unifiedBlueprints.id, id))
+      .returning();
+    return updated;
   }
 
   // Seed WebNova as the first platform - تهيئة WebNova كأول منصة

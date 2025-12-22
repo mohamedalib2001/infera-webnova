@@ -10130,3 +10130,364 @@ export const insertArchitecturePatternSchema = createInsertSchema(architecturePa
 });
 export type InsertArchitecturePattern = z.infer<typeof insertArchitecturePatternSchema>;
 export type ArchitecturePattern = typeof architecturePatterns.$inferSelect;
+
+// ==================== OPERATIONS PLATFORM ====================
+
+// Deployment configurations for projects
+export const deploymentConfigs = pgTable("deployment_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  
+  // Environment settings
+  environment: text("environment").notNull().default("production"), // development, staging, production
+  provider: text("provider").notNull(), // hetzner, aws, vercel, netlify, railway
+  
+  // Configuration
+  domain: text("domain"),
+  customDomain: text("custom_domain"),
+  sslEnabled: boolean("ssl_enabled").notNull().default(true),
+  cdnEnabled: boolean("cdn_enabled").notNull().default(false),
+  
+  // Auto-scaling
+  autoScale: boolean("auto_scale").notNull().default(false),
+  minInstances: integer("min_instances").default(1),
+  maxInstances: integer("max_instances").default(5),
+  
+  // Health checks
+  healthCheckPath: text("health_check_path").default("/health"),
+  healthCheckInterval: integer("health_check_interval").default(30), // seconds
+  
+  // Environment variables (encrypted reference)
+  envVarsRef: varchar("env_vars_ref"),
+  
+  // Deployment settings
+  autoDeploy: boolean("auto_deploy").notNull().default(true),
+  deployBranch: text("deploy_branch").default("main"),
+  
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_dc_project").on(table.projectId),
+  index("IDX_dc_env").on(table.environment),
+]);
+
+export const insertDeploymentConfigSchema = createInsertSchema(deploymentConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertDeploymentConfig = z.infer<typeof insertDeploymentConfigSchema>;
+export type DeploymentConfig = typeof deploymentConfigs.$inferSelect;
+
+// Deployment history
+export const deployments = pgTable("deployments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  configId: varchar("config_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  
+  // Deployment details
+  version: text("version").notNull(),
+  commitHash: text("commit_hash"),
+  commitMessage: text("commit_message"),
+  
+  // Status
+  status: text("status").notNull().default("pending"), // pending, building, deploying, live, failed, rolled_back
+  buildLogs: text("build_logs"),
+  deploymentUrl: text("deployment_url"),
+  
+  // Timing
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+  duration: integer("duration"), // seconds
+  
+  // Rollback info
+  isRollback: boolean("is_rollback").notNull().default(false),
+  rolledBackFrom: varchar("rolled_back_from"),
+  
+  // Metrics
+  buildSize: integer("build_size"), // bytes
+  assetsCount: integer("assets_count"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_dep_project").on(table.projectId),
+  index("IDX_dep_status").on(table.status),
+  index("IDX_dep_started").on(table.startedAt),
+]);
+
+export const insertDeploymentSchema = createInsertSchema(deployments).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertDeployment = z.infer<typeof insertDeploymentSchema>;
+export type Deployment = typeof deployments.$inferSelect;
+
+// Health monitoring alerts
+export const healthAlerts = pgTable("health_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  deploymentId: varchar("deployment_id"),
+  
+  // Alert details
+  alertType: text("alert_type").notNull(), // downtime, high_latency, high_error_rate, ssl_expiry, resource_limit
+  severity: text("severity").notNull().default("warning"), // info, warning, critical
+  
+  // Content
+  title: text("title").notNull(),
+  titleAr: text("title_ar"),
+  message: text("message").notNull(),
+  messageAr: text("message_ar"),
+  
+  // Status
+  status: text("status").notNull().default("active"), // active, acknowledged, resolved, auto_healed
+  acknowledgedAt: timestamp("acknowledged_at"),
+  acknowledgedBy: varchar("acknowledged_by"),
+  resolvedAt: timestamp("resolved_at"),
+  
+  // Auto-healing
+  autoHealAttempted: boolean("auto_heal_attempted").notNull().default(false),
+  autoHealSuccess: boolean("auto_heal_success"),
+  autoHealAction: text("auto_heal_action"),
+  
+  // Metrics at time of alert
+  metrics: jsonb("metrics").$type<{
+    responseTime?: number;
+    errorRate?: number;
+    cpuUsage?: number;
+    memoryUsage?: number;
+    requestCount?: number;
+  }>(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_ha_project").on(table.projectId),
+  index("IDX_ha_status").on(table.status),
+  index("IDX_ha_severity").on(table.severity),
+]);
+
+export const insertHealthAlertSchema = createInsertSchema(healthAlerts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertHealthAlert = z.infer<typeof insertHealthAlertSchema>;
+export type HealthAlert = typeof healthAlerts.$inferSelect;
+
+// Real-time metrics snapshots
+export const metricsSnapshots = pgTable("metrics_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  deploymentId: varchar("deployment_id"),
+  
+  // Metrics
+  responseTimeAvg: real("response_time_avg"), // ms
+  responseTimeP95: real("response_time_p95"),
+  responseTimeP99: real("response_time_p99"),
+  errorRate: real("error_rate"), // percentage
+  successRate: real("success_rate"),
+  requestsPerMinute: integer("requests_per_minute"),
+  
+  // Resources
+  cpuUsage: real("cpu_usage"), // percentage
+  memoryUsage: real("memory_usage"),
+  diskUsage: real("disk_usage"),
+  networkIn: integer("network_in"), // bytes
+  networkOut: integer("network_out"),
+  
+  // Status
+  isHealthy: boolean("is_healthy").notNull().default(true),
+  activeInstances: integer("active_instances").default(1),
+  
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_ms_project").on(table.projectId),
+  index("IDX_ms_timestamp").on(table.timestamp),
+]);
+
+// ==================== MULTI-SURFACE GENERATOR ====================
+
+// Build configurations for different platforms
+export const buildConfigs = pgTable("build_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  
+  // Platform target
+  platform: text("platform").notNull(), // web, android, ios, windows, macos, linux
+  platformVersion: text("platform_version"), // e.g., "Android 14", "iOS 17"
+  
+  // Build settings
+  buildType: text("build_type").notNull().default("release"), // debug, release, production
+  bundleId: text("bundle_id"), // com.company.app
+  appName: text("app_name").notNull(),
+  appNameAr: text("app_name_ar"),
+  version: text("version").default("1.0.0"),
+  versionCode: integer("version_code").default(1),
+  
+  // Signing & Certificates
+  signingConfigRef: varchar("signing_config_ref"), // Reference to secure storage
+  certificateType: text("certificate_type"), // development, distribution, adhoc
+  
+  // Platform-specific configs
+  androidConfig: jsonb("android_config").$type<{
+    minSdk?: number;
+    targetSdk?: number;
+    permissions?: string[];
+    features?: string[];
+    proguard?: boolean;
+  }>(),
+  
+  iosConfig: jsonb("ios_config").$type<{
+    minimumOsVersion?: string;
+    capabilities?: string[];
+    entitlements?: string[];
+    provisioningProfile?: string;
+  }>(),
+  
+  desktopConfig: jsonb("desktop_config").$type<{
+    architecture?: string[];
+    installer?: string;
+    autoUpdate?: boolean;
+    deepLink?: string;
+  }>(),
+  
+  // Resources
+  iconPath: text("icon_path"),
+  splashPath: text("splash_path"),
+  
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_bc_project").on(table.projectId),
+  index("IDX_bc_platform").on(table.platform),
+]);
+
+export const insertBuildConfigSchema = createInsertSchema(buildConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertBuildConfig = z.infer<typeof insertBuildConfigSchema>;
+export type BuildConfig = typeof buildConfigs.$inferSelect;
+
+// Build jobs for artifact generation
+export const buildJobs = pgTable("build_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  configId: varchar("config_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  
+  // Build info
+  platform: text("platform").notNull(),
+  version: text("version").notNull(),
+  
+  // Status
+  status: text("status").notNull().default("queued"), // queued, building, packaging, signing, completed, failed
+  progress: integer("progress").default(0), // 0-100
+  currentStep: text("current_step"),
+  currentStepAr: text("current_step_ar"),
+  
+  // Logs
+  buildLogs: text("build_logs"),
+  errorMessage: text("error_message"),
+  
+  // Artifacts
+  artifacts: jsonb("artifacts").$type<{
+    type: string; // apk, aab, ipa, exe, dmg, appimage, deb
+    url: string;
+    size: number;
+    checksum: string;
+  }[]>().default([]),
+  
+  // Timing
+  queuedAt: timestamp("queued_at").defaultNow().notNull(),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  duration: integer("duration"), // seconds
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_bj_project").on(table.projectId),
+  index("IDX_bj_status").on(table.status),
+  index("IDX_bj_platform").on(table.platform),
+]);
+
+export const insertBuildJobSchema = createInsertSchema(buildJobs).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertBuildJob = z.infer<typeof insertBuildJobSchema>;
+export type BuildJob = typeof buildJobs.$inferSelect;
+
+// ==================== UNIFIED BLUEPRINT SYSTEM ====================
+
+// Unified blueprints that generate all surfaces
+export const unifiedBlueprints = pgTable("unified_blueprints", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  
+  // Blueprint identity
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  version: text("version").default("1.0.0"),
+  
+  // Source of truth - the unified definition
+  definition: jsonb("definition").$type<{
+    entities: {
+      name: string;
+      fields: { name: string; type: string; required?: boolean; }[];
+      relationships?: { entity: string; type: string; }[];
+    }[];
+    screens: {
+      name: string;
+      type: string; // list, detail, form, dashboard
+      entity?: string;
+      components?: { type: string; props?: Record<string, any>; }[];
+    }[];
+    navigation: {
+      type: string; // tabs, drawer, stack
+      routes: { name: string; screen: string; icon?: string; }[];
+    };
+    theme?: {
+      primaryColor: string;
+      secondaryColor: string;
+      fontFamily?: string;
+    };
+    features?: string[]; // auth, push_notifications, offline, analytics
+  }>().notNull(),
+  
+  // Generation status per surface
+  generatedSurfaces: jsonb("generated_surfaces").$type<{
+    web?: { status: string; lastGenerated?: string; };
+    android?: { status: string; lastGenerated?: string; };
+    ios?: { status: string; lastGenerated?: string; };
+    windows?: { status: string; lastGenerated?: string; };
+    macos?: { status: string; lastGenerated?: string; };
+  }>().default({}),
+  
+  // Validation
+  isValid: boolean("is_valid").notNull().default(false),
+  validationErrors: jsonb("validation_errors").$type<string[]>().default([]),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_ub_project").on(table.projectId),
+  index("IDX_ub_version").on(table.version),
+]);
+
+export const insertUnifiedBlueprintSchema = createInsertSchema(unifiedBlueprints).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertUnifiedBlueprint = z.infer<typeof insertUnifiedBlueprintSchema>;
+export type UnifiedBlueprint = typeof unifiedBlueprints.$inferSelect;
