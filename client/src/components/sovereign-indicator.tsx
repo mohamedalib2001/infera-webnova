@@ -584,50 +584,49 @@ export function SovereignIndicator() {
               "shadow-lg hover:shadow-xl hover:scale-105"
             )}
             style={{
-              background: 'linear-gradient(135deg, #C0C0C0 0%, #E8E8E8 15%, #FFFFFF 30%, #D4AF37 50%, #FFD700 70%, #FFF5A0 85%, #FFD700 100%)',
-              boxShadow: '0 0 25px rgba(192, 192, 192, 0.6), 0 0 40px rgba(212, 175, 55, 0.5), 0 0 80px rgba(255, 215, 0, 0.3), inset 0 2px 15px rgba(255, 255, 255, 0.7), inset 0 -2px 10px rgba(0,0,0,0.15)',
-              border: '3px solid transparent',
-              backgroundClip: 'padding-box',
+              background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 25%, #FFF5A0 50%, #FFD700 75%, #B8860B 100%)',
+              boxShadow: '0 0 30px rgba(212, 175, 55, 0.7), 0 0 60px rgba(255, 215, 0, 0.4), inset 0 2px 12px rgba(255, 255, 255, 0.6), inset 0 -2px 8px rgba(0,0,0,0.15)',
             }}
           >
-            {/* Outer ring - Silver to Gold gradient */}
+            {/* Silver Border Ring */}
             <div 
-              className="absolute inset-[-3px] rounded-full -z-10"
+              className="absolute inset-[-4px] rounded-full -z-10"
               style={{
-                background: 'linear-gradient(135deg, #E8E8E8 0%, #FFFFFF 25%, #FFD700 50%, #FFF5A0 75%, #C0C0C0 100%)',
+                background: 'linear-gradient(135deg, #C0C0C0 0%, #E8E8E8 20%, #FFFFFF 50%, #E8E8E8 80%, #C0C0C0 100%)',
+                boxShadow: '0 0 20px rgba(255, 255, 255, 0.5), 0 0 40px rgba(192, 192, 192, 0.4)',
               }}
             />
             
-            {/* Arrow - Dark for contrast */}
+            {/* Arrow/Crown - Golden */}
             <TrendingUp 
               className={cn(
                 "w-7 h-7 transition-transform",
                 "group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
               )}
               style={{ 
-                color: '#1a1a2e',
-                filter: 'drop-shadow(0 1px 3px rgba(255,255,255,0.9))',
+                color: '#8B4513',
+                filter: 'drop-shadow(0 1px 2px rgba(255,215,0,0.8))',
               }}
             />
             
-            {/* Royal Glow effect - Silver & Gold */}
+            {/* Royal Glow effect - Gold with Silver edge */}
             <div 
-              className="absolute inset-0 rounded-full opacity-60 group-hover:opacity-100 transition-opacity duration-300"
+              className="absolute inset-0 rounded-full opacity-50 group-hover:opacity-100 transition-opacity duration-300"
               style={{
-                background: 'radial-gradient(circle, rgba(255, 255, 255, 0.7) 0%, rgba(212, 175, 55, 0.5) 40%, rgba(192, 192, 192, 0.3) 60%, transparent 80%)',
+                background: 'radial-gradient(circle, rgba(255, 245, 160, 0.6) 0%, rgba(212, 175, 55, 0.4) 50%, rgba(192, 192, 192, 0.3) 80%, transparent 100%)',
                 filter: 'blur(12px)',
               }}
             />
             
-            {/* Score badge - Silver & Gold */}
+            {/* Score badge - Gold with Silver border */}
             {analysis && (
               <div 
                 data-testid="badge-final-score"
                 className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
                 style={{
-                  background: 'linear-gradient(135deg, #E8E8E8 0%, #FFFFFF 30%, #FFD700 70%, #FFF5A0 100%)',
-                  border: '2px solid rgba(255, 255, 255, 0.9)',
-                  boxShadow: '0 2px 15px rgba(255, 255, 255, 0.5), 0 2px 10px rgba(212, 175, 55, 0.4), inset 0 1px 4px rgba(255,255,255,0.6)',
+                  background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 50%, #FFF5A0 100%)',
+                  border: '2px solid #E8E8E8',
+                  boxShadow: '0 2px 12px rgba(212, 175, 55, 0.6), 0 0 8px rgba(255, 255, 255, 0.4), inset 0 1px 3px rgba(255,255,255,0.5)',
                   color: '#1a1a2e',
                 }}
               >
