@@ -16,6 +16,14 @@ import { registerNovaRoutes } from "./nova-routes";
 import marketplaceRoutes from "./marketplace-routes";
 import sslRoutes from "./ssl-routes";
 import sshVaultRoutes from "./ssh-vault-routes";
+import {
+  createLoginSession,
+  endLoginSession,
+  sendLoginNotification,
+  sendLogoutNotification,
+  getGeolocation,
+  parseUserAgent,
+} from "./login-notifications";
 import { eq, and } from "drizzle-orm";
 import { 
   insertProjectSchema, insertMessageSchema, insertProjectVersionSchema, 
@@ -391,6 +399,36 @@ export async function registerRoutes(
       req.session.userId = user.id;
       req.session.user = userWithoutPassword;
       
+      // Create login session SYNCHRONOUSLY (needed for logout notification)
+      const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || 
+                        req.socket.remoteAddress || '127.0.0.1';
+      const userAgent = req.headers['user-agent'] || '';
+      
+      // Create session record synchronously
+      await createLoginSession(user.id, req.sessionID, ipAddress, userAgent, 'password');
+      
+      // Send login notification (async, don't block response)
+      if (user.email) {
+        (async () => {
+          try {
+            const geo = await getGeolocation(ipAddress);
+            const device = parseUserAgent(userAgent);
+            await sendLoginNotification(
+              user.email,
+              user.username || user.fullName || 'User',
+              geo,
+              device,
+              new Date(),
+              'password',
+              (user.language || 'ar') as 'ar' | 'en',
+              storage
+            );
+          } catch (err) {
+            console.error('Login notification error:', err);
+          }
+        })();
+      }
+      
       res.json({ 
         message: "تم تسجيل الدخول بنجاح / Login successful",
         user: userWithoutPassword 
@@ -406,7 +444,35 @@ export async function registerRoutes(
   });
 
   // Logout - تسجيل الخروج
-  app.post("/api/auth/logout", (req, res) => {
+  app.post("/api/auth/logout", async (req, res) => {
+    const user = req.session.user;
+    const sessionId = req.sessionID;
+    
+    // End login session and send notification (async)
+    if (user && sessionId) {
+      (async () => {
+        try {
+          const result = await endLoginSession(sessionId);
+          if (result && user.email) {
+            const { session, geo, device } = result;
+            await sendLogoutNotification(
+              user.email,
+              user.username || user.fullName || 'User',
+              geo,
+              device,
+              new Date(session.loginAt),
+              new Date(),
+              session.activities || [],
+              (user.language || 'ar') as 'ar' | 'en',
+              storage
+            );
+          }
+        } catch (err) {
+          console.error('Logout notification error:', err);
+        }
+      })();
+    }
+    
     req.session.destroy((err) => {
       if (err) {
         return res.status(500).json({ error: "فشل في تسجيل الخروج / Logout failed" });
@@ -514,12 +580,39 @@ export async function registerRoutes(
           // Complete login
           req.session.userId = pendingLogin.userId;
           req.session.user = pendingLogin.user;
+          const savedPendingLogin = { ...pendingLogin };
           delete req.session.pendingLogin;
+          
+          // Create session SYNCHRONOUSLY
+          const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || 
+                            req.socket.remoteAddress || '127.0.0.1';
+          const userAgent = req.headers['user-agent'] || '';
+          
+          await createLoginSession(savedPendingLogin.userId, req.sessionID, ipAddress, userAgent, '2fa');
+          
+          // Send login notification (async)
+          if (savedPendingLogin.email) {
+            (async () => {
+              try {
+                const geo = await getGeolocation(ipAddress);
+                const device = parseUserAgent(userAgent);
+                await sendLoginNotification(
+                  savedPendingLogin.email!,
+                  savedPendingLogin.user.username || savedPendingLogin.user.fullName || 'User',
+                  geo, device, new Date(), '2fa',
+                  (savedPendingLogin.user.language || 'ar') as 'ar' | 'en',
+                  storage
+                );
+              } catch (err) {
+                console.error('Login notification error:', err);
+              }
+            })();
+          }
           
           return res.json({ 
             success: true,
             message: "تم تسجيل الدخول بنجاح / Login successful",
-            user: pendingLogin.user,
+            user: savedPendingLogin.user,
           });
         }
         
@@ -536,12 +629,39 @@ export async function registerRoutes(
         // Complete login
         req.session.userId = pendingLogin.userId;
         req.session.user = pendingLogin.user;
+        const savedPendingLogin2 = { ...pendingLogin };
         delete req.session.pendingLogin;
+        
+        // Create session SYNCHRONOUSLY
+        const ipAddress2 = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || 
+                          req.socket.remoteAddress || '127.0.0.1';
+        const userAgent2 = req.headers['user-agent'] || '';
+        
+        await createLoginSession(savedPendingLogin2.userId, req.sessionID, ipAddress2, userAgent2, 'otp_email');
+        
+        // Send login notification (async)
+        if (savedPendingLogin2.email) {
+          (async () => {
+            try {
+              const geo = await getGeolocation(ipAddress2);
+              const device = parseUserAgent(userAgent2);
+              await sendLoginNotification(
+                savedPendingLogin2.email!,
+                savedPendingLogin2.user.username || savedPendingLogin2.user.fullName || 'User',
+                geo, device, new Date(), 'otp_email',
+                (savedPendingLogin2.user.language || 'ar') as 'ar' | 'en',
+                storage
+              );
+            } catch (err) {
+              console.error('Login notification error:', err);
+            }
+          })();
+        }
         
         return res.json({ 
           success: true,
           message: "تم تسجيل الدخول بنجاح / Login successful",
-          user: pendingLogin.user,
+          user: savedPendingLogin2.user,
         });
       }
       
@@ -826,6 +946,32 @@ export async function registerRoutes(
       req.session.user = userWithoutPassword;
       req.session.userId = user.id;
       delete req.session.pendingLogin;
+      
+      // Create session SYNCHRONOUSLY
+      const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || 
+                        req.socket.remoteAddress || '127.0.0.1';
+      const userAgent = req.headers['user-agent'] || '';
+      
+      await createLoginSession(user.id, req.sessionID, ipAddress, userAgent, 'recovery');
+      
+      // Send login notification (async)
+      if (user.email) {
+        (async () => {
+          try {
+            const geo = await getGeolocation(ipAddress);
+            const device = parseUserAgent(userAgent);
+            await sendLoginNotification(
+              user.email,
+              user.username || user.fullName || 'User',
+              geo, device, new Date(), 'recovery',
+              (user.language || 'ar') as 'ar' | 'en',
+              storage
+            );
+          } catch (err) {
+            console.error('Login notification error:', err);
+          }
+        })();
+      }
       
       res.json({
         success: true,
