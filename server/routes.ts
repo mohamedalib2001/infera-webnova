@@ -14217,6 +14217,7 @@ describe('Generated Tests', () => {
           const aiResponse = await supportAI.analyzeAndRespond(session.id, message, {
             category: category || "general",
             platformContext,
+            userId,
           });
 
           // Store AI response
@@ -14355,6 +14356,7 @@ describe('Generated Tests', () => {
         const aiResponse = await supportAI.analyzeAndRespond(sessionId, content, {
           category: session.category,
           previousMessages: conversationHistory,
+          userId,
         });
 
         await supportSessions$.addMessage({

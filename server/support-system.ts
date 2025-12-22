@@ -65,12 +65,31 @@ class SupportAIAssistant {
       category?: string;
       previousMessages?: Array<{ role: string; content: string }>;
       platformContext?: Record<string, unknown>;
+      userId?: string;
     }
   ): Promise<AIAssistantResponse> {
     try {
+      // Step 1: Pre-analyze the message to detect category
+      const preAnalysis = this.preAnalyzeMessage(userMessage);
+      const detectedCategory = preAnalysis.category || context.category || 'general';
+      
+      // Step 2: Run smart diagnostics based on detected category
+      const diagnosticInfo = await this.runSmartDiagnostics(
+        detectedCategory,
+        userMessage,
+        context.userId,
+        context.platformContext
+      );
+      
+      // Step 3: Search knowledge base
       const knowledgeArticles = await this.searchKnowledgeBase(userMessage);
       
-      const systemPrompt = this.buildSystemPrompt(knowledgeArticles, context);
+      // Step 4: Build enhanced context with diagnostics
+      const systemPrompt = this.buildSystemPrompt(knowledgeArticles, {
+        ...context,
+        category: detectedCategory,
+        diagnosticInfo,
+      });
       
       const messages = [
         ...(context.previousMessages || []),
@@ -83,12 +102,16 @@ class SupportAIAssistant {
       });
 
       if (!response.success) {
+        // Provide category-specific fallback response instead of generic error
+        const fallbackResponse = this.getCategoryFallbackResponse(detectedCategory, preAnalysis);
         return {
-          content: "I apologize, but I'm having trouble processing your request. Let me connect you with a human agent.",
-          contentAr: "أعتذر، لكنني أواجه صعوبة في معالجة طلبك. دعني أوصلك بوكيل بشري.",
-          confidence: 0,
+          content: fallbackResponse.en,
+          contentAr: fallbackResponse.ar,
+          confidence: 0.5,
+          suggestedCategory: detectedCategory,
           shouldEscalate: true,
-          escalationReason: 'AI processing error',
+          escalationReason: 'AI processing error - provided guided response',
+          diagnosticSuggestions: preAnalysis.diagnostics,
         };
       }
 
@@ -109,19 +132,275 @@ class SupportAIAssistant {
       };
     } catch (error) {
       console.error('AI Support Assistant error:', error);
+      const preAnalysis = this.preAnalyzeMessage(userMessage);
+      const fallbackResponse = this.getCategoryFallbackResponse(preAnalysis.category, preAnalysis);
       return {
-        content: "I encountered an error. A human agent will assist you shortly.",
-        contentAr: "واجهت خطأ. سيساعدك وكيل بشري قريباً.",
-        confidence: 0,
+        content: fallbackResponse.en,
+        contentAr: fallbackResponse.ar,
+        confidence: 0.4,
+        suggestedCategory: preAnalysis.category,
         shouldEscalate: true,
-        escalationReason: 'System error',
+        escalationReason: 'System error - provided guided response',
+        diagnosticSuggestions: preAnalysis.diagnostics,
       };
     }
   }
 
+  private preAnalyzeMessage(message: string): { category: string; intent: string; diagnostics: string[] } {
+    const lowerMessage = message.toLowerCase();
+    
+    // Detect category from keywords (Arabic + English) - covers all categories
+    const categoryPatterns: Record<string, { keywords: string[]; intent: string; diagnostics: string[] }> = {
+      billing: {
+        keywords: ['payment', 'pay', 'invoice', 'billing', 'charge', 'refund', 'subscription', 'price', 'cost',
+          'فاتورة', 'فواتير', 'دفع', 'سداد', 'اشتراك', 'رسوم', 'يقبل', 'لا يقبل', 'بطاقة', 'مالي', 'سعر', 'تكلفة'],
+        intent: 'payment_issue',
+        diagnostics: ['Check subscription status', 'Review payment history', 'Verify payment method']
+      },
+      ai: {
+        keywords: ['ai', 'model', 'claude', 'openai', 'copilot', 'generate', 'assistant',
+          'ذكاء', 'اصطناعي', 'كلود', 'نموذج', 'توليد', 'مساعد'],
+        intent: 'ai_issue',
+        diagnostics: ['Check API quota', 'Review model availability', 'Check rate limits']
+      },
+      security: {
+        keywords: ['password', 'login', 'access', 'hack', 'security', 'auth', 'token', '2fa',
+          'كلمة مرور', 'تسجيل دخول', 'أمان', 'صلاحية', 'اختراق'],
+        intent: 'security_issue',
+        diagnostics: ['Check login attempts', 'Review account status', 'Verify identity']
+      },
+      account: {
+        keywords: ['account', 'profile', 'settings', 'email', 'user', 'register',
+          'حساب', 'ملف', 'إعدادات', 'بريد', 'مستخدم', 'تسجيل'],
+        intent: 'account_issue',
+        diagnostics: ['Check profile status', 'Verify email', 'Review account flags']
+      },
+      performance: {
+        keywords: ['slow', 'speed', 'timeout', 'loading', 'performance', 'lag', 'hang', 'freeze',
+          'بطيء', 'سرعة', 'تحميل', 'أداء', 'تعليق', 'تجمد', 'انتظار'],
+        intent: 'performance_issue',
+        diagnostics: ['Check system load', 'Review response times', 'Check network latency']
+      },
+      ui: {
+        keywords: ['interface', 'button', 'screen', 'display', 'design', 'dark mode', 'theme', 'layout',
+          'واجهة', 'زر', 'شاشة', 'عرض', 'تصميم', 'الوضع الداكن', 'مظهر'],
+        intent: 'ui_issue',
+        diagnostics: ['Check browser compatibility', 'Review display settings', 'Check theme configuration']
+      },
+      api: {
+        keywords: ['api', 'endpoint', 'rest', 'request', 'response', 'error code', 'integration', 'webhook',
+          'واجهة برمجة', 'طلب', 'استجابة', 'خطأ برمجي', 'ربط'],
+        intent: 'api_issue',
+        diagnostics: ['Check API key status', 'Review rate limits', 'Check endpoint availability']
+      },
+    };
+
+    for (const [category, config] of Object.entries(categoryPatterns)) {
+      if (config.keywords.some(k => lowerMessage.includes(k) || message.includes(k))) {
+        return { category, intent: config.intent, diagnostics: config.diagnostics };
+      }
+    }
+
+    return { category: 'general', intent: 'general_inquiry', diagnostics: [] };
+  }
+
+  private async runSmartDiagnostics(
+    category: string,
+    message: string,
+    userId?: string,
+    platformContext?: Record<string, unknown>
+  ): Promise<string> {
+    const diagnostics: string[] = [];
+
+    try {
+      if (category === 'billing' && userId) {
+        // Check user subscription and payment status
+        const user = await db.query.users.findFirst({
+          where: eq(users.id, userId),
+        });
+        
+        if (user) {
+          diagnostics.push(`User Status: ${user.status || 'active'}`);
+          diagnostics.push(`Role: ${user.role || 'user'}`);
+          if (user.stripeCustomerId) {
+            diagnostics.push('Payment Integration: Connected');
+          } else {
+            diagnostics.push('Payment Integration: Not configured - this may be the issue');
+          }
+        }
+      }
+
+      if (category === 'account' && userId) {
+        const user = await db.query.users.findFirst({
+          where: eq(users.id, userId),
+        });
+        
+        if (user) {
+          diagnostics.push(`Account Status: ${user.status || 'active'}`);
+          diagnostics.push(`Email Verified: ${user.emailVerified ? 'Yes' : 'No'}`);
+          diagnostics.push(`Created: ${user.createdAt}`);
+        }
+      }
+
+      // Add platform context info
+      if (platformContext) {
+        diagnostics.push(`Platform Context: ${JSON.stringify(platformContext)}`);
+      }
+
+    } catch (error) {
+      console.error('Diagnostic error:', error);
+      diagnostics.push('Unable to fetch some diagnostic data');
+    }
+
+    return diagnostics.length > 0 ? diagnostics.join('\n') : 'No additional diagnostic data available';
+  }
+
+  private getCategoryFallbackResponse(category: string, analysis: { intent: string; diagnostics: string[] }): { ar: string; en: string } {
+    const responses: Record<string, { ar: string; en: string }> = {
+      billing: {
+        ar: `أفهم أنك تواجه مشكلة في نظام الفواتير أو الدفع. إليك بعض الخطوات التي قد تساعد:
+
+1. تأكد من صلاحية بطاقة الدفع الخاصة بك
+2. تحقق من توفر رصيد كافٍ في حسابك البنكي
+3. جرب استخدام طريقة دفع مختلفة (بطاقة أخرى أو Apple Pay)
+4. تأكد من إدخال معلومات البطاقة بشكل صحيح
+
+إذا استمرت المشكلة، سيتواصل معك أحد أعضاء فريق الدعم قريباً.`,
+        en: `I understand you're having a billing or payment issue. Here are some steps that may help:
+
+1. Verify your payment card is still valid
+2. Check that you have sufficient funds in your bank account
+3. Try using a different payment method (another card or Apple Pay)
+4. Ensure your card information is entered correctly
+
+If the issue persists, a support team member will contact you shortly.`
+      },
+      ai: {
+        ar: `أفهم أنك تواجه مشكلة مع خدمات الذكاء الاصطناعي. إليك بعض الحلول المقترحة:
+
+1. تحقق من حالة اتصالك بالإنترنت
+2. حاول تحديث الصفحة وإعادة المحاولة
+3. تأكد من أن استخدامك ضمن الحد المسموح
+
+سيتم مراجعة طلبك من قبل فريق الدعم الفني.`,
+        en: `I understand you're experiencing an AI service issue. Here are some suggested solutions:
+
+1. Check your internet connection
+2. Try refreshing the page and retry
+3. Ensure your usage is within allowed limits
+
+Your request will be reviewed by our technical support team.`
+      },
+      security: {
+        ar: `أفهم أن لديك استفسار أمني. لحماية حسابك:
+
+1. لا تشارك كلمة المرور مع أي شخص
+2. استخدم كلمة مرور قوية وفريدة
+3. فعّل المصادقة الثنائية إن أمكن
+
+سيتواصل معك فريق الأمان قريباً للمساعدة.`,
+        en: `I understand you have a security concern. To protect your account:
+
+1. Never share your password with anyone
+2. Use a strong, unique password
+3. Enable two-factor authentication if available
+
+Our security team will contact you shortly to assist.`
+      },
+      account: {
+        ar: `أفهم أن لديك استفسار حول حسابك. يمكنك:
+
+1. تحديث معلومات حسابك من صفحة الإعدادات
+2. التحقق من بريدك الإلكتروني لأي رسائل تأكيد
+3. مراجعة تفاصيل اشتراكك
+
+سيتم مراجعة طلبك من قبل فريق الدعم.`,
+        en: `I understand you have an account inquiry. You can:
+
+1. Update your account information from the Settings page
+2. Check your email for any confirmation messages
+3. Review your subscription details
+
+Your request will be reviewed by our support team.`
+      },
+      performance: {
+        ar: `أفهم أنك تواجه مشكلة في الأداء أو السرعة. إليك بعض الخطوات:
+
+1. تحقق من اتصالك بالإنترنت
+2. جرب تحديث الصفحة (Ctrl+F5)
+3. أغلق التبويبات غير الضرورية في المتصفح
+4. جرب استخدام متصفح مختلف
+
+إذا استمرت المشكلة، سيتم مراجعة أداء حسابك من قبل فريقنا الفني.`,
+        en: `I understand you're experiencing performance or speed issues. Here are some steps:
+
+1. Check your internet connection
+2. Try refreshing the page (Ctrl+F5)
+3. Close unnecessary browser tabs
+4. Try using a different browser
+
+If the issue persists, our technical team will review your account performance.`
+      },
+      ui: {
+        ar: `أفهم أن لديك مشكلة في واجهة المستخدم أو العرض. يمكنك تجربة:
+
+1. تبديل الوضع الداكن/الفاتح من الإعدادات
+2. مسح ذاكرة التخزين المؤقت للمتصفح
+3. التأكد من تحديث المتصفح لأحدث إصدار
+4. تجربة تكبير/تصغير الصفحة (Ctrl + أو -)
+
+سيتم إبلاغ فريق التطوير بملاحظتك.`,
+        en: `I understand you have a UI or display issue. You can try:
+
+1. Toggle dark/light mode from settings
+2. Clear your browser cache
+3. Make sure your browser is updated to the latest version
+4. Try zooming in/out (Ctrl + or -)
+
+Your feedback will be reported to our development team.`
+      },
+      api: {
+        ar: `أفهم أنك تواجه مشكلة مع واجهة برمجة التطبيقات (API). إليك بعض النقاط للتحقق منها:
+
+1. تأكد من صلاحية مفتاح API الخاص بك
+2. تحقق من عدم تجاوز حد الطلبات المسموح
+3. راجع وثائق API للتأكد من صحة الطلب
+4. تحقق من رسالة الخطأ المُرجعة
+
+للمساعدة التقنية المتقدمة، سيتواصل معك أحد المطورين.`,
+        en: `I understand you're facing an API issue. Here are some points to check:
+
+1. Ensure your API key is valid
+2. Check you haven't exceeded the rate limit
+3. Review the API documentation to verify your request format
+4. Check the error message returned
+
+For advanced technical assistance, a developer will contact you.`
+      },
+      general: {
+        ar: `شكراً لتواصلك معنا. أفهم استفسارك وسأحاول مساعدتك.
+
+يمكنك أيضاً:
+- مراجعة مركز المساعدة للإجابات السريعة
+- التواصل معنا عبر البريد الإلكتروني
+
+سيتم تحويلك لأحد أعضاء فريق الدعم للمساعدة بشكل أفضل.`,
+        en: `Thank you for contacting us. I understand your inquiry and will try to help.
+
+You can also:
+- Check the Help Center for quick answers
+- Contact us via email
+
+You will be connected with a support team member for better assistance.`
+      }
+    };
+
+    return responses[category] || responses.general;
+  }
+
   private buildSystemPrompt(
     articles: SupportKnowledgeBase[],
-    context: { category?: string; platformContext?: Record<string, unknown> }
+    context: { category?: string; platformContext?: Record<string, unknown>; diagnosticInfo?: string }
   ): string {
     const knowledgeContext = articles.length > 0
       ? `\n\nRelevant Knowledge Base Articles:\n${articles.map(a => `- ${a.title}: ${a.content.substring(0, 500)}`).join('\n')}`
@@ -131,26 +410,67 @@ class SupportAIAssistant {
       ? `\n\nPlatform Context:\n${JSON.stringify(context.platformContext, null, 2)}`
       : '';
 
-    return `You are an AI Support Assistant for Infra Web Nova - a sovereign-grade platform for building digital platforms.
+    const diagnosticInfo = context.diagnosticInfo
+      ? `\n\nDiagnostic Information:\n${context.diagnosticInfo}`
+      : '';
+
+    const categorySpecificInstructions = this.getCategoryInstructions(context.category);
+
+    return `أنت مساعد الدعم الذكي لمنصة INFERA WebNova - منصة سيادية لبناء المنصات الرقمية.
+You are an AI Support Assistant for INFERA WebNova - a sovereign-grade platform for building digital platforms.
+
+IMPORTANT: You MUST respond in Arabic first, then English. Always provide bilingual responses.
 
 Your capabilities:
-1. Understand and analyze user issues
-2. Provide step-by-step solutions
-3. Reference knowledge base articles
+1. Understand and analyze user issues in both Arabic and English
+2. Provide step-by-step solutions based on diagnostic data
+3. Reference knowledge base articles when available
 4. Identify issue severity and urgency
-5. Know when to escalate to human agents
+5. Take action to help resolve issues when possible
+
+${categorySpecificInstructions}
 
 Guidelines:
-- Be professional, helpful, and concise
-- Provide bilingual responses when appropriate (English/Arabic)
-- If you're uncertain, express your confidence level
-- For complex technical issues, suggest escalation
-- Never expose sensitive system information
-- Tag issues appropriately (billing, AI, API, security, UI, etc.)
+- ALWAYS respond in Arabic first, then English
+- Be professional, helpful, and provide specific actionable steps
+- Use the diagnostic information provided to give accurate answers
+- If you can see the issue from diagnostics, explain what you found
+- Only escalate if the issue truly requires human intervention
+- Never expose sensitive system information like passwords or tokens
+${knowledgeContext}${platformInfo}${diagnosticInfo}
 
-${knowledgeContext}${platformInfo}
+Respond helpfully to the user's issue with specific solutions based on the available data.`;
+  }
 
-Respond helpfully to the user's issue. If you cannot resolve it with high confidence, recommend escalation.`;
+  private getCategoryInstructions(category?: string): string {
+    const instructions: Record<string, string> = {
+      billing: `
+BILLING ISSUE INSTRUCTIONS:
+- Check if the user has an active subscription
+- Look for failed payment attempts in recent history
+- Common billing issues: expired card, insufficient funds, wrong payment method
+- For "payment not accepted" issues: suggest checking card validity, trying different payment method
+- Provide steps to update payment information if needed`,
+      ai: `
+AI/MODEL ISSUE INSTRUCTIONS:
+- Check API key status and quota usage
+- Look for rate limiting issues
+- Common AI issues: timeout, model unavailable, quota exceeded
+- Provide guidance on model selection and usage optimization`,
+      security: `
+SECURITY ISSUE INSTRUCTIONS:
+- Never share or reset passwords directly
+- Guide user through official password reset flow
+- Check for suspicious login attempts
+- Verify account ownership before any sensitive actions`,
+      account: `
+ACCOUNT ISSUE INSTRUCTIONS:
+- Check user profile completeness
+- Verify email confirmation status
+- Look for account restrictions or flags
+- Guide through account recovery if needed`,
+    };
+    return instructions[category || ''] || '';
   }
 
   private async searchKnowledgeBase(query: string): Promise<SupportKnowledgeBase[]> {
@@ -203,13 +523,34 @@ Respond helpfully to the user's issue. If you cannot resolve it with high confid
     if (aiResponse.length < 50) confidence -= 0.2;
 
     const categoryKeywords: Record<string, string[]> = {
-      billing: ['payment', 'invoice', 'subscription', 'charge', 'refund', 'price'],
-      ai: ['model', 'claude', 'openai', 'ai', 'artificial', 'intelligence', 'copilot'],
-      api: ['api', 'endpoint', 'rest', 'request', 'response', 'error code'],
-      security: ['password', 'login', 'authentication', 'permission', 'access', 'hack'],
-      ui: ['interface', 'button', 'screen', 'display', 'design', 'dark mode'],
-      account: ['account', 'profile', 'settings', 'email', 'user'],
-      performance: ['slow', 'speed', 'timeout', 'loading', 'performance'],
+      billing: [
+        'payment', 'invoice', 'subscription', 'charge', 'refund', 'price', 'billing', 'pay',
+        'فاتورة', 'فواتير', 'دفع', 'سداد', 'اشتراك', 'رسوم', 'استرداد', 'سعر', 'مالية', 'بطاقة', 'يقبل', 'لا يقبل'
+      ],
+      ai: [
+        'model', 'claude', 'openai', 'ai', 'artificial', 'intelligence', 'copilot',
+        'ذكاء', 'اصطناعي', 'نموذج', 'كلود', 'مساعد ذكي'
+      ],
+      api: [
+        'api', 'endpoint', 'rest', 'request', 'response', 'error code',
+        'واجهة برمجة', 'طلب', 'استجابة', 'خطأ برمجي'
+      ],
+      security: [
+        'password', 'login', 'authentication', 'permission', 'access', 'hack',
+        'كلمة مرور', 'تسجيل دخول', 'صلاحية', 'وصول', 'اختراق', 'أمان'
+      ],
+      ui: [
+        'interface', 'button', 'screen', 'display', 'design', 'dark mode',
+        'واجهة', 'زر', 'شاشة', 'عرض', 'تصميم', 'الوضع الداكن'
+      ],
+      account: [
+        'account', 'profile', 'settings', 'email', 'user',
+        'حساب', 'ملف شخصي', 'إعدادات', 'بريد', 'مستخدم'
+      ],
+      performance: [
+        'slow', 'speed', 'timeout', 'loading', 'performance',
+        'بطيء', 'سرعة', 'تحميل', 'أداء', 'تعليق'
+      ],
     };
 
     let category = 'general';
@@ -366,9 +707,10 @@ class SupportSessionManager {
   }
 
   async getSession(sessionId: string): Promise<SupportSession | null> {
-    return db.query.supportSessions.findFirst({
+    const session = await db.query.supportSessions.findFirst({
       where: eq(supportSessions.id, sessionId),
-    }) || null;
+    });
+    return session ?? null;
   }
 
   async updateSession(
@@ -495,7 +837,7 @@ class SupportSessionManager {
   }
 
   private async getSLAPolicy(priority: string): Promise<SupportSlaPolicy | null> {
-    return db.query.supportSlaPolicies.findFirst({
+    const policy = await db.query.supportSlaPolicies.findFirst({
       where: and(
         eq(supportSlaPolicies.isActive, true),
         or(
@@ -504,7 +846,8 @@ class SupportSessionManager {
         )
       ),
       orderBy: [asc(supportSlaPolicies.priority)],
-    }) || null;
+    });
+    return policy ?? null;
   }
 
   async getOpenSessions(filters?: {
@@ -633,7 +976,7 @@ class SmartRoutingEngine {
   }
 
   private async findNextAvailableAgent(): Promise<SupportAgent | null> {
-    return db.query.supportAgents.findFirst({
+    const agent = await db.query.supportAgents.findFirst({
       where: and(
         eq(supportAgents.status, 'available'),
         sql`${supportAgents.currentChatCount} < ${supportAgents.maxConcurrentChats}`,
@@ -642,7 +985,8 @@ class SmartRoutingEngine {
         asc(supportAgents.currentChatCount),
         desc(supportAgents.averageRating),
       ],
-    }) || null;
+    });
+    return agent ?? null;
   }
 }
 
@@ -737,9 +1081,10 @@ class KnowledgeBaseManager {
 
 class AgentManager {
   async getAgent(userId: string): Promise<SupportAgent | null> {
-    return db.query.supportAgents.findFirst({
+    const agent = await db.query.supportAgents.findFirst({
       where: eq(supportAgents.userId, userId),
-    }) || null;
+    });
+    return agent ?? null;
   }
 
   async getAvailableAgents(): Promise<SupportAgent[]> {
