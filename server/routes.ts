@@ -14984,14 +14984,15 @@ describe('Generated Tests', () => {
       }
 
       const isAgent = await agentManager.getAgent(userId);
+      const isOwner = req.session.user?.role === "owner" || req.session.user?.role === "sovereign";
       const isSessionUser = session.userId === userId;
 
-      if (!isSessionUser && !isAgent) {
+      if (!isSessionUser && !isAgent && !isOwner) {
         return res.status(403).json({ error: "Access denied" });
       }
 
-      // Add user/agent message
-      const senderType = isAgent ? "agent" : "user";
+      // Add user/agent message - owner/sovereign can act as agent
+      const senderType = (isAgent || isOwner) ? "agent" : "user";
       const message = await supportSessions$.addMessage({
         sessionId,
         senderType,
