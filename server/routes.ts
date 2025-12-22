@@ -1250,6 +1250,25 @@ export async function registerRoutes(
     }
   });
 
+  // Get employees list for sovereign indicator
+  app.get("/api/users/employees", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      // Filter to only employees (not owner/sovereign)
+      const employees = users
+        .filter((u: User) => u.role !== 'owner' && u.role !== 'sovereign')
+        .map((u: User) => ({
+          id: u.id,
+          username: u.username,
+          fullName: u.fullName,
+          role: u.role,
+        }));
+      res.json(employees);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب الموظفين" });
+    }
+  });
+
   // ============ Sovereign Routes - مسارات سيادية ============
   
   // Get all users (sovereign only)

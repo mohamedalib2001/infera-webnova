@@ -24,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Crown,
   TrendingUp,
@@ -50,6 +51,8 @@ import {
   Server,
   Wifi,
   RefreshCw,
+  Users,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -158,6 +161,9 @@ const translations = {
     finalScore: "النتيجة النهائية",
     exportPdf: "تصدير تقرير PDF",
     showToEmployees: "إظهار للموظفين",
+    allEmployees: "جميع الموظفين",
+    specificEmployees: "موظفين محددين",
+    selectEmployees: "اختر الموظفين",
     refreshAnalysis: "تحديث التحليل",
     analyzing: "جاري التحليل...",
     noIssues: "لا توجد مشاكل",
@@ -207,6 +213,9 @@ const translations = {
     finalScore: "Final Score",
     exportPdf: "Export PDF Report",
     showToEmployees: "Show to Employees",
+    allEmployees: "All Employees",
+    specificEmployees: "Specific Employees",
+    selectEmployees: "Select Employees",
     refreshAnalysis: "Refresh Analysis",
     analyzing: "Analyzing...",
     noIssues: "No issues found",
@@ -491,8 +500,16 @@ export function SovereignIndicator() {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [showToEmployees, setShowToEmployees] = useState(false);
+  const [employeeMode, setEmployeeMode] = useState<'all' | 'specific'>('all');
+  const [selectedEmployees, setSelectedEmployees] = useState<number[]>([]);
   const [analysis, setAnalysis] = useState<FullAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  
+  // Fetch employees list
+  const { data: employees = [] } = useQuery<{ id: number; username: string; fullName: string; role: string }[]>({
+    queryKey: ['/api/users/employees'],
+    enabled: showToEmployees && employeeMode === 'specific',
+  });
   
   const t = translations[language as keyof typeof translations] || translations.en;
   
@@ -922,6 +939,81 @@ export function SovereignIndicator() {
                 className="data-[state=checked]:bg-amber-500"
               />
             </div>
+            
+            {/* Employee Selection Options */}
+            {showToEmployees && (
+              <div className="space-y-2 p-2 bg-white/5 rounded-lg">
+                <div className="flex gap-2">
+                  <Button
+                    data-testid="button-all-employees"
+                    variant={employeeMode === 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    className={cn(
+                      "flex-1 text-xs",
+                      employeeMode === 'all' 
+                        ? "bg-amber-500 hover:bg-amber-600 text-white" 
+                        : "border-white/20 text-white/70 hover:bg-white/10"
+                    )}
+                    onClick={() => setEmployeeMode('all')}
+                  >
+                    <Users className="w-3 h-3 mr-1" />
+                    {t.allEmployees}
+                  </Button>
+                  <Button
+                    data-testid="button-specific-employees"
+                    variant={employeeMode === 'specific' ? 'default' : 'outline'}
+                    size="sm"
+                    className={cn(
+                      "flex-1 text-xs",
+                      employeeMode === 'specific' 
+                        ? "bg-amber-500 hover:bg-amber-600 text-white" 
+                        : "border-white/20 text-white/70 hover:bg-white/10"
+                    )}
+                    onClick={() => setEmployeeMode('specific')}
+                  >
+                    <User className="w-3 h-3 mr-1" />
+                    {t.specificEmployees}
+                  </Button>
+                </div>
+                
+                {/* Employee Selection List */}
+                {employeeMode === 'specific' && (
+                  <div className="max-h-32 overflow-y-auto space-y-1 mt-2">
+                    {employees.length === 0 ? (
+                      <div className="text-xs text-white/40 text-center py-2">
+                        {language === 'ar' ? 'لا يوجد موظفين' : 'No employees found'}
+                      </div>
+                    ) : (
+                      employees.map((emp) => (
+                        <div 
+                          key={emp.id}
+                          data-testid={`employee-checkbox-${emp.id}`}
+                          className="flex items-center gap-2 p-1.5 rounded hover:bg-white/5 cursor-pointer"
+                          onClick={() => {
+                            setSelectedEmployees(prev => 
+                              prev.includes(emp.id) 
+                                ? prev.filter(id => id !== emp.id)
+                                : [...prev, emp.id]
+                            );
+                          }}
+                        >
+                          <Checkbox
+                            checked={selectedEmployees.includes(emp.id)}
+                            className="border-white/30 data-[state=checked]:bg-amber-500"
+                          />
+                          <span className="text-xs text-white/70">
+                            {emp.fullName || emp.username}
+                          </span>
+                          <Badge variant="outline" className="text-[10px] border-white/20 text-white/50 ml-auto">
+                            {emp.role}
+                          </Badge>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             
             <div className="flex gap-2">
               <Button
