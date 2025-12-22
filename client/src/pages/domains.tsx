@@ -325,6 +325,7 @@ interface AvailabilityResult {
   available: boolean;
   price?: number;
   currency?: string;
+  isSimulated?: boolean;
 }
 
 interface DomainProvider {
@@ -549,7 +550,17 @@ export default function DomainsPage() {
           available: result.available ?? result.Available,
           price: result.price || result.PremiumRegistrationPrice,
           currency: result.currency || 'USD',
+          isSimulated: result.isSimulated || data.simulated || false,
         });
+        if (data.simulated) {
+          toast({ 
+            title: language === 'ar' ? 'وضع تجريبي' : 'Demo Mode',
+            description: language === 'ar' 
+              ? 'هذه نتائج محاكاة. قم بتكوين Namecheap API للنتائج الفعلية' 
+              : 'These are simulated results. Configure Namecheap API for real results',
+            variant: 'default'
+          });
+        }
       }
     },
     onError: () => {
@@ -1002,7 +1013,7 @@ export default function DomainsPage() {
                 {availabilityResult && (
                   <Card className={availabilityResult.available ? "border-green-500" : "border-destructive"}>
                     <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
                         <div className="flex items-center gap-2">
                           {availabilityResult.available ? (
                             <CheckCircle2 className="w-5 h-5 text-green-500" />
@@ -1011,9 +1022,16 @@ export default function DomainsPage() {
                           )}
                           <span className="font-medium">{availabilityResult.domain}</span>
                         </div>
-                        <Badge variant={availabilityResult.available ? "default" : "destructive"}>
-                          {availabilityResult.available ? t.available : t.unavailable}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          {availabilityResult.isSimulated && (
+                            <Badge variant="outline" className="text-xs">
+                              {language === 'ar' ? 'تجريبي' : 'Demo'}
+                            </Badge>
+                          )}
+                          <Badge variant={availabilityResult.available ? "default" : "destructive"}>
+                            {availabilityResult.available ? t.available : t.unavailable}
+                          </Badge>
+                        </div>
                       </div>
                       {availabilityResult.available && availabilityResult.price && (
                         <div className="mt-3 flex items-center justify-between">
@@ -1022,6 +1040,13 @@ export default function DomainsPage() {
                             ${availabilityResult.price} / {t.years}
                           </span>
                         </div>
+                      )}
+                      {availabilityResult.isSimulated && (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          {language === 'ar' 
+                            ? 'النتائج محاكاة. للتسجيل الفعلي، قم بتكوين مفاتيح Namecheap API' 
+                            : 'Results are simulated. For real registration, configure Namecheap API keys'}
+                        </p>
                       )}
                     </CardContent>
                   </Card>

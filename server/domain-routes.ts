@@ -806,10 +806,70 @@ export function registerDomainRoutes(app: Express) {
       }
 
       const client = await getNamecheapClient();
+      
+      // If Namecheap API not configured, use simulation mode for free accounts
       if (!client) {
-        return res.status(503).json({ 
-          error: "Namecheap API not configured",
-          errorAr: "لم يتم تكوين Namecheap API"
+        // Simulate domain availability check for demo/free accounts
+        const simulatedResults = domains.map((domain: string) => {
+          const parts = domain.toLowerCase().split(".");
+          const sld = parts[0];
+          const tld = parts.slice(1).join(".") || "com";
+          
+          // Common TLDs with simulated pricing
+          const tldPricing: Record<string, { available: boolean; price: number }> = {
+            "com": { available: Math.random() > 0.3, price: 12.99 },
+            "net": { available: Math.random() > 0.25, price: 11.99 },
+            "org": { available: Math.random() > 0.2, price: 10.99 },
+            "io": { available: Math.random() > 0.4, price: 39.99 },
+            "dev": { available: Math.random() > 0.35, price: 14.99 },
+            "app": { available: Math.random() > 0.3, price: 15.99 },
+            "co": { available: Math.random() > 0.25, price: 24.99 },
+            "me": { available: Math.random() > 0.3, price: 8.99 },
+            "xyz": { available: true, price: 1.99 },
+            "online": { available: true, price: 2.99 },
+            "site": { available: true, price: 2.49 },
+            "store": { available: Math.random() > 0.2, price: 4.99 },
+            "sa": { available: Math.random() > 0.5, price: 49.99 },
+            "com.sa": { available: Math.random() > 0.4, price: 39.99 },
+          };
+
+          const tldInfo = tldPricing[tld] || { available: Math.random() > 0.5, price: 9.99 };
+          
+          // Very short or common names are usually taken
+          const isCommonName = ["google", "facebook", "amazon", "apple", "microsoft", "test", "example", "admin"].includes(sld);
+          const isTooShort = sld.length <= 2;
+          
+          return {
+            domain: `${sld}.${tld}`,
+            available: !isCommonName && !isTooShort && tldInfo.available,
+            premium: sld.length <= 4 && tldInfo.available,
+            price: tldInfo.price,
+            currency: "USD",
+            isSimulated: true
+          };
+        });
+
+        await logDomainOperation(
+          null,
+          domains.join(","),
+          req.session.userId || null,
+          req.session.user?.email || null,
+          "check_availability_simulated",
+          { domains, simulated: true },
+          true,
+          undefined,
+          req.ip || undefined,
+          req.get("user-agent")
+        );
+
+        return res.json({ 
+          success: true, 
+          domains: simulatedResults,
+          simulated: true,
+          message: { 
+            en: "Availability checked (Demo Mode - Configure Namecheap API for real results)", 
+            ar: "تم فحص التوفر (وضع تجريبي - قم بتكوين Namecheap API للنتائج الفعلية)" 
+          }
         });
       }
 
