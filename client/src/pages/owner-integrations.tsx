@@ -172,6 +172,7 @@ export default function OwnerIntegrations() {
   const [showActivateDialog, setShowActivateDialog] = useState(false);
   const [selectedSession, setSelectedSession] = useState<ExternalIntegrationSession | null>(null);
   const [activationReason, setActivationReason] = useState("");
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const [newSessionForm, setNewSessionForm] = useState({
     partnerName: "replit",
@@ -232,9 +233,21 @@ export default function OwnerIntegrations() {
           </h1>
           <p className="text-muted-foreground mt-1">{t.subtitle}</p>
         </div>
-        <Button variant="outline" onClick={() => refetchSessions()} data-testid="button-refresh">
-          <RefreshCw className="w-4 h-4 mr-2" />
+        <Button 
+          variant="outline" 
+          onClick={async () => { 
+            setIsRefreshing(true);
+            await refetchSessions();
+            setTimeout(() => setIsRefreshing(false), 1000);
+          }} 
+          data-testid="button-refresh"
+          className={isRefreshing ? 'relative overflow-visible' : ''}
+        >
+          <RefreshCw className={`w-4 h-4 mr-2 transition-transform duration-500 ${isRefreshing ? 'animate-spin' : ''}`} />
           {language === 'ar' ? 'تحديث' : 'Refresh'}
+          {isRefreshing && (
+            <span className="absolute inset-0 rounded-md animate-ping bg-primary/30 pointer-events-none" />
+          )}
         </Button>
       </div>
 
