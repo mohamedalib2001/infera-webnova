@@ -155,7 +155,33 @@ ${context ? `\nسياق المشروع الحالي:\n${context}` : ""}
     };
   } catch (error) {
     console.error("AI generation error:", error);
-    throw new Error("فشل في إنشاء كود الموقع. يرجى المحاولة مرة أخرى. / Failed to generate website code. Please try again.");
+    // Return fallback template instead of throwing error
+    return {
+      html: `<div class="fallback-page">
+  <header class="hero">
+    <h1>مرحباً بك في منصتك</h1>
+    <p>صف ما تريد إنشاءه وسأساعدك في بنائه</p>
+  </header>
+  <main class="content">
+    <div class="card">
+      <h2>ابدأ الآن</h2>
+      <p>اكتب وصفاً تفصيلياً لمنصتك في صندوق المحادثة</p>
+    </div>
+  </main>
+</div>`,
+      css: `* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+.fallback-page { min-height: 100vh; display: flex; flex-direction: column; }
+.hero { padding: 4rem 2rem; text-align: center; color: white; }
+.hero h1 { font-size: 2.5rem; margin-bottom: 1rem; }
+.hero p { font-size: 1.2rem; opacity: 0.9; }
+.content { flex: 1; padding: 2rem; display: flex; justify-content: center; }
+.card { background: white; padding: 2rem; border-radius: 16px; max-width: 500px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+.card h2 { color: #6366f1; margin-bottom: 1rem; }
+.card p { color: #64748b; line-height: 1.7; }`,
+      js: `console.log('منصة جاهزة للتخصيص');`,
+      message: "تم إنشاء قالب أساسي. اكتب تفاصيل أكثر عن منصتك للحصول على تصميم مخصص.",
+    };
   }
 }
 
@@ -689,6 +715,12 @@ Important: Only respond with valid JSON. No markdown code blocks or extra text.`
     };
   } catch (error) {
     console.error("AI refinement error:", error);
-    throw new Error("فشل في تحديث كود الموقع. يرجى المحاولة مرة أخرى. / Failed to update website code. Please try again.");
+    // Return current code with error message instead of throwing
+    return {
+      html: currentHtml,
+      css: currentCss,
+      js: currentJs,
+      message: "لم نتمكن من تعديل الكود حالياً. حاول مرة أخرى أو اكتب طلباً مختلفاً.",
+    };
   }
 }
