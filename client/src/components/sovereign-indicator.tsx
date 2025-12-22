@@ -344,6 +344,10 @@ const pageServicesMap: Record<string, { name: string; nameAr: string; type: stri
     { name: 'Real-time Notifications', nameAr: 'الإشعارات الفورية', type: 'automation' },
     { name: 'Sovereign Security', nameAr: 'الأمان السيادي', type: 'security' },
     { name: 'Platform Orchestrator', nameAr: 'منسق المنصات', type: 'ai' },
+    { name: 'Real-time Analytics', nameAr: 'التحليلات الفورية', type: 'ai' },
+    { name: 'AI Predictive Insights', nameAr: 'الرؤى التنبؤية بالذكاء الاصطناعي', type: 'ai' },
+    { name: 'Historical Data Analysis', nameAr: 'تحليل البيانات التاريخية', type: 'ai' },
+    { name: 'Anomaly Detection', nameAr: 'كشف الشذوذ', type: 'ai' },
   ],
   '/builder': [
     { name: 'Code Editor', nameAr: 'محرر الكود', type: 'core' },
@@ -469,7 +473,7 @@ function analyzePageIntelligently(pathname: string, _startTime: number): FullAna
   
   const intelligenceAnalysis: IntelligenceAnalysis = {
     adaptsToUser: hasAIServices,
-    usesPreviousData: pathname.includes('builder') || pathname.includes('collaboration'),
+    usesPreviousData: pathname === '/' || pathname.includes('builder') || pathname.includes('collaboration') || pathname.includes('analytics'),
     supportsCustomization: true,
     respondsToActions: hasAutomation,
     classification: hasAIServices && hasAutomation ? 'sovereign-intelligent' :
