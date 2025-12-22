@@ -60,7 +60,8 @@ import {
   aiForecastRuns,
   aiScenarios,
   sovereignComplianceDomains,
-  complianceIndicators
+  complianceIndicators,
+  auditLogs as auditLogsTable
 } from "@shared/schema";
 import Anthropic from "@anthropic-ai/sdk";
 import { sql } from "drizzle-orm";
@@ -10417,7 +10418,7 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
       try {
         const domains = await db.select().from(sovereignComplianceDomains);
         if (domains.length > 0) {
-          const auditLogs = await db.select().from(auditLog).limit(200);
+          const auditLogs = await db.select().from(auditLogsTable).limit(200);
           const users = await db.select().from(usersTable);
           const projects = await db.select().from(projectsTable).limit(50);
           
