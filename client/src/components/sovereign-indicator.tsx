@@ -580,19 +580,13 @@ export function SovereignIndicator() {
     }
   }, [location, isSovereign, isAuthenticated]);
   
+  // Run analysis automatically on page load and location change
   useEffect(() => {
-    if (isOpen && !analysis && isSovereign && isAuthenticated) {
-      runAnalysis();
-    }
-  }, [isOpen, analysis, isSovereign, isAuthenticated, runAnalysis]);
-  
-  // Re-analyze when location changes
-  useEffect(() => {
-    if (isOpen && isSovereign && isAuthenticated) {
+    if (isSovereign && isAuthenticated) {
       setAnalysis(null);
       runAnalysis();
     }
-  }, [location, isSovereign, isAuthenticated]);
+  }, [location, isSovereign, isAuthenticated, runAnalysis]);
   
   // Don't render if not sovereign
   if (!isAuthenticated || !isSovereign) {
@@ -606,52 +600,59 @@ export function SovereignIndicator() {
           <button
             data-testid="sovereign-indicator-trigger"
             className={cn(
-              "relative group flex items-center gap-2 px-3 py-1.5 rounded-full",
-              "transition-all duration-300 ease-out",
-              "shadow-lg hover:shadow-xl hover:scale-105"
+              "relative group flex flex-col items-center gap-1",
+              "transition-all duration-300 ease-out"
             )}
-            style={{
-              background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 25%, #FFF5A0 50%, #FFD700 75%, #B8860B 100%)',
-              boxShadow: '0 0 20px rgba(212, 175, 55, 0.5), 0 0 40px rgba(255, 215, 0, 0.3), inset 0 2px 8px rgba(255, 255, 255, 0.5), inset 0 -2px 6px rgba(0,0,0,0.1)',
-            }}
           >
-            {/* Arrow/Crown - Golden */}
-            <TrendingUp 
+            {/* Golden Circle with Arrow */}
+            <div
               className={cn(
-                "w-5 h-5 transition-transform",
-                "group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                "w-10 h-10 rounded-full flex items-center justify-center",
+                "shadow-lg hover:shadow-xl hover:scale-105 transition-all"
               )}
-              style={{ 
-                color: '#8B4513',
-                filter: 'drop-shadow(0 1px 2px rgba(255,215,0,0.8))',
-              }}
-            />
-            
-            {/* Owner Name */}
-            <span 
-              className="text-sm font-bold whitespace-nowrap"
               style={{
-                color: '#1a1a2e',
-                textShadow: '0 1px 2px rgba(255,215,0,0.5)',
+                background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 50%, #FFF5A0 100%)',
+                boxShadow: '0 0 15px rgba(212, 175, 55, 0.6), inset 0 2px 6px rgba(255, 255, 255, 0.5)',
+              }}
+            >
+              <TrendingUp 
+                className={cn(
+                  "w-5 h-5 transition-transform",
+                  "group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                )}
+                style={{ 
+                  color: '#8B4513',
+                  filter: 'drop-shadow(0 1px 2px rgba(255,215,0,0.8))',
+                }}
+              />
+              
+              {/* Score badge */}
+              {analysis && (
+                <div 
+                  data-testid="badge-final-score"
+                  className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
+                  style={{
+                    background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+                    color: '#1a1a2e',
+                    boxShadow: '0 2px 6px rgba(212, 175, 55, 0.5)',
+                  }}
+                >
+                  {analysis.finalScore}
+                </div>
+              )}
+            </div>
+            
+            {/* Owner Name below circle */}
+            <span 
+              className="text-[10px] font-semibold whitespace-nowrap max-w-[80px] truncate"
+              style={{
+                color: '#D4AF37',
+                textShadow: '0 1px 2px rgba(0,0,0,0.3)',
               }}
               data-testid="text-owner-name"
             >
               {user?.fullName || user?.username || (language === 'ar' ? 'المالك' : 'Owner')}
             </span>
-            
-            {/* Score badge */}
-            {analysis && (
-              <div 
-                data-testid="badge-final-score"
-                className="flex items-center justify-center text-xs font-bold px-1.5 py-0.5 rounded-full"
-                style={{
-                  background: 'rgba(26, 26, 46, 0.8)',
-                  color: '#FFD700',
-                }}
-              >
-                {analysis.finalScore}
-              </div>
-            )}
           </button>
         </PopoverTrigger>
         
