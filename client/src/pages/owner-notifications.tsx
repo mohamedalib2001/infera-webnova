@@ -222,7 +222,7 @@ export default function OwnerNotifications() {
   });
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
 
-  const { data: notificationsData, isLoading: loadingNotifications, refetch: refetchNotifications } = useQuery<{
+  const { data: notificationsData, isLoading: loadingNotifications, refetch: refetchNotifications, isFetching: isRefetchingNotifications } = useQuery<{
     success: boolean;
     notifications: SovereignNotification[];
     stats?: { total: number; unread: number; critical: number; pendingAcknowledgment: number };
@@ -422,8 +422,13 @@ export default function OwnerNotifications() {
           <p className="text-muted-foreground mt-1">{t.subtitle}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => refetchNotifications()} data-testid="button-refresh">
-            <RefreshCw className="w-4 h-4 mr-2" />
+          <Button 
+            variant="outline" 
+            onClick={() => refetchNotifications()} 
+            disabled={isRefetchingNotifications}
+            data-testid="button-refresh"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${isRefetchingNotifications ? 'animate-spin' : ''}`} />
             {t.actions.refresh}
           </Button>
           <Dialog open={showAlertDialog} onOpenChange={setShowAlertDialog}>
