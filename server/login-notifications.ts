@@ -1069,6 +1069,8 @@ export async function sendDeletionNotificationEmail(
   storage?: any
 ): Promise<boolean> {
   try {
+    console.log(`[Deletion Email] Starting for ${user.email}, entity: ${entityType}, storage provided: ${!!storage}`);
+    
     if (!user.email) {
       console.log('[Deletion Email] No email for user, skipping notification');
       return false;
@@ -1078,6 +1080,7 @@ export async function sendDeletionNotificationEmail(
     const { getEmailConfigFromDb } = await import('./email');
     
     let config = storage ? await getEmailConfigFromDb(storage) : null;
+    console.log(`[Deletion Email] Config from DB: ${config ? 'found' : 'not found'}`);
     
     if (!config) {
       const host = process.env.SMTP_HOST;
@@ -1088,6 +1091,7 @@ export async function sendDeletionNotificationEmail(
         console.log(`[DEV MODE] Deletion notification for ${user.email}`);
         console.log(`  Entity: ${entityType} - ${entityDetails?.name}`);
         console.log(`  Success: ${wasSuccessful}`);
+        console.log(`  No SMTP config found in DB or env vars`);
         return true;
       }
       
