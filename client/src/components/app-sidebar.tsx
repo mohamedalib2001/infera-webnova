@@ -54,6 +54,8 @@ import {
   Building2,
   ListTodo,
   Briefcase,
+  Smartphone,
+  Monitor,
 } from "lucide-react";
 import {
   Sidebar,
@@ -106,6 +108,8 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     { title: language === "ar" ? "مولّد المنصات" : "Platform Generator", url: "/platform-generator", icon: TrendingUp, testId: "nav-platform-generator" },
     { title: language === "ar" ? "القوالب" : "Templates", url: "/templates", icon: LayoutTemplate, testId: "nav-templates" },
     { title: language === "ar" ? "منشئ الروبوتات" : "Chatbot Builder", url: "/chatbot-builder", icon: Bot, testId: "nav-chatbot" },
+    { title: language === "ar" ? "تطبيقات الجوال" : "Mobile Apps", url: "/mobile-builder", icon: Smartphone, testId: "nav-mobile-builder" },
+    { title: language === "ar" ? "تطبيقات سطح المكتب" : "Desktop Apps", url: "/desktop-builder", icon: Monitor, testId: "nav-desktop-builder" },
   ];
 
   const managementItems = [

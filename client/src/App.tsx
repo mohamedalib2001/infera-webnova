@@ -85,6 +85,8 @@ import PlatformRegistry from "@/pages/platform-registry";
 import NovaChat from "@/pages/nova-chat";
 import OperationsDashboard from "@/pages/operations-dashboard";
 import BuildManager from "@/pages/build-manager";
+import MobileAppBuilder from "@/pages/mobile-app-builder";
+import DesktopAppBuilder from "@/pages/desktop-app-builder";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
@@ -189,6 +191,8 @@ function AuthenticatedRouter() {
       <Route path="/nova" component={NovaChat} />
       <Route path="/nova/operations" component={OperationsDashboard} />
       <Route path="/nova/builds" component={BuildManager} />
+      <Route path="/mobile-builder" component={MobileAppBuilder} />
+      <Route path="/desktop-builder" component={DesktopAppBuilder} />
       <Route path="/preview/:shareCode" component={Preview} />
       <Route component={NotFound} />
     </Switch>
