@@ -606,28 +606,19 @@ export function SovereignIndicator() {
           <button
             data-testid="sovereign-indicator-trigger"
             className={cn(
-              "relative group w-14 h-14 rounded-full flex items-center justify-center",
+              "relative group flex items-center gap-2 px-3 py-1.5 rounded-full",
               "transition-all duration-300 ease-out",
               "shadow-lg hover:shadow-xl hover:scale-105"
             )}
             style={{
               background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 25%, #FFF5A0 50%, #FFD700 75%, #B8860B 100%)',
-              boxShadow: '0 0 30px rgba(212, 175, 55, 0.7), 0 0 60px rgba(255, 215, 0, 0.4), inset 0 2px 12px rgba(255, 255, 255, 0.6), inset 0 -2px 8px rgba(0,0,0,0.15)',
+              boxShadow: '0 0 20px rgba(212, 175, 55, 0.5), 0 0 40px rgba(255, 215, 0, 0.3), inset 0 2px 8px rgba(255, 255, 255, 0.5), inset 0 -2px 6px rgba(0,0,0,0.1)',
             }}
           >
-            {/* Silver Border Ring */}
-            <div 
-              className="absolute inset-[-4px] rounded-full -z-10"
-              style={{
-                background: 'linear-gradient(135deg, #C0C0C0 0%, #E8E8E8 20%, #FFFFFF 50%, #E8E8E8 80%, #C0C0C0 100%)',
-                boxShadow: '0 0 20px rgba(255, 255, 255, 0.5), 0 0 40px rgba(192, 192, 192, 0.4)',
-              }}
-            />
-            
             {/* Arrow/Crown - Golden */}
             <TrendingUp 
               className={cn(
-                "w-7 h-7 transition-transform",
+                "w-5 h-5 transition-transform",
                 "group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
               )}
               style={{ 
@@ -636,25 +627,26 @@ export function SovereignIndicator() {
               }}
             />
             
-            {/* Royal Glow effect - Gold with Silver edge */}
-            <div 
-              className="absolute inset-0 rounded-full opacity-50 group-hover:opacity-100 transition-opacity duration-300"
+            {/* Owner Name */}
+            <span 
+              className="text-sm font-bold whitespace-nowrap"
               style={{
-                background: 'radial-gradient(circle, rgba(255, 245, 160, 0.6) 0%, rgba(212, 175, 55, 0.4) 50%, rgba(192, 192, 192, 0.3) 80%, transparent 100%)',
-                filter: 'blur(12px)',
+                color: '#1a1a2e',
+                textShadow: '0 1px 2px rgba(255,215,0,0.5)',
               }}
-            />
+              data-testid="text-owner-name"
+            >
+              {user?.fullName || user?.username || (language === 'ar' ? 'المالك' : 'Owner')}
+            </span>
             
-            {/* Score badge - Gold with Silver border */}
+            {/* Score badge */}
             {analysis && (
               <div 
                 data-testid="badge-final-score"
-                className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                className="flex items-center justify-center text-xs font-bold px-1.5 py-0.5 rounded-full"
                 style={{
-                  background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 50%, #FFF5A0 100%)',
-                  border: '2px solid #E8E8E8',
-                  boxShadow: '0 2px 12px rgba(212, 175, 55, 0.6), 0 0 8px rgba(255, 255, 255, 0.4), inset 0 1px 3px rgba(255,255,255,0.5)',
-                  color: '#1a1a2e',
+                  background: 'rgba(26, 26, 46, 0.8)',
+                  color: '#FFD700',
                 }}
               >
                 {analysis.finalScore}
