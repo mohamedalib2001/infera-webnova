@@ -9,11 +9,13 @@ import { LanguageToggle } from "@/components/language-toggle";
 import { LanguageProvider, useLanguage } from "@/hooks/use-language";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { GuestSidebar } from "@/components/guest-sidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Bell } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import Home from "@/pages/home";
+import Landing from "@/pages/landing";
 import Auth from "@/pages/auth";
 import Builder from "@/pages/builder";
 import Projects from "@/pages/projects";
@@ -82,7 +84,33 @@ import BuildManager from "@/pages/build-manager";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 
-function Router() {
+function RedirectToAuth() {
+  const [, setLocation] = useLocation();
+  const currentPath = window.location.pathname;
+  
+  // Redirect to auth with return URL
+  if (currentPath !== "/" && currentPath !== "/auth" && currentPath !== "/pricing" && currentPath !== "/support" && !currentPath.startsWith("/preview/")) {
+    setLocation(`/auth?redirect=${encodeURIComponent(currentPath)}`);
+    return null;
+  }
+  
+  return <Landing />;
+}
+
+function GuestRouter() {
+  return (
+    <Switch>
+      <Route path="/" component={Landing} />
+      <Route path="/auth" component={Auth} />
+      <Route path="/pricing" component={Pricing} />
+      <Route path="/support" component={Support} />
+      <Route path="/preview/:shareCode" component={Preview} />
+      <Route component={RedirectToAuth} />
+    </Switch>
+  );
+}
+
+function AuthenticatedRouter() {
   return (
     <Switch>
       <Route path="/" component={Home} />
@@ -195,6 +223,7 @@ function NotificationBell() {
 
 function AppContent() {
   const { isRtl } = useLanguage();
+  const { isAuthenticated } = useAuth();
   
   // Load and apply platform branding dynamically
   usePlatformBranding();
@@ -208,7 +237,11 @@ function AppContent() {
     <div dir={isRtl ? "rtl" : "ltr"}>
       <SidebarProvider style={style as React.CSSProperties}>
         <div className="flex h-screen w-full">
-          <AppSidebar side={isRtl ? "right" : "left"} />
+          {isAuthenticated ? (
+            <AppSidebar side={isRtl ? "right" : "left"} />
+          ) : (
+            <GuestSidebar side={isRtl ? "right" : "left"} />
+          )}
           <div className="flex flex-col flex-1 min-w-0">
             <header className="flex items-center justify-between gap-2 p-3 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
               <SidebarTrigger data-testid="button-sidebar-toggle" />
@@ -219,34 +252,36 @@ function AppContent() {
               </div>
             </header>
             <main className="flex-1 overflow-auto">
-              <Router />
+              {isAuthenticated ? <AuthenticatedRouter /> : <GuestRouter />}
             </main>
-            <footer className="border-t bg-gradient-to-r from-background via-muted/30 to-background py-3 px-4">
-              <div className="flex items-center justify-center gap-3">
-                <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-primary/20 blur-md rounded-full" />
-                    <div className="relative w-6 h-6 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
-                      <span className="text-[10px] font-bold text-primary-foreground">IE</span>
+            {isAuthenticated && (
+              <footer className="border-t bg-gradient-to-r from-background via-muted/30 to-background py-3 px-4">
+                <div className="flex items-center justify-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-primary/20 blur-md rounded-full" />
+                      <div className="relative w-6 h-6 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
+                        <span className="text-[10px] font-bold text-primary-foreground">IE</span>
+                      </div>
                     </div>
+                    <span className="text-sm font-medium bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                      INFERA Engine
+                    </span>
                   </div>
-                  <span className="text-sm font-medium bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-                    INFERA Engine
+                  <span className="text-muted-foreground/50">|</span>
+                  <span className="text-xs text-muted-foreground">
+                    {isRtl 
+                      ? 'تقنيات مبتكرة لعالم رقمي متطور' 
+                      : 'Innovative Technology for an Evolving Digital World'
+                    }
+                  </span>
+                  <span className="text-muted-foreground/50">|</span>
+                  <span className="text-xs text-muted-foreground/70">
+                    © {new Date().getFullYear()} INFERA Engine
                   </span>
                 </div>
-                <span className="text-muted-foreground/50">|</span>
-                <span className="text-xs text-muted-foreground">
-                  {isRtl 
-                    ? 'تقنيات مبتكرة لعالم رقمي متطور' 
-                    : 'Innovative Technology for an Evolving Digital World'
-                  }
-                </span>
-                <span className="text-muted-foreground/50">|</span>
-                <span className="text-xs text-muted-foreground/70">
-                  © {new Date().getFullYear()} INFERA Engine
-                </span>
-              </div>
-            </footer>
+              </footer>
+            )}
           </div>
         </div>
       </SidebarProvider>
