@@ -1931,7 +1931,10 @@ export function SovereignIndicator() {
                 onClick={() => {
                   if (!analysis) return;
                   
-                  // Generate PDF content as HTML
+                  // Generate comprehensive PDF content with all 6 tabs
+                  const currentPage = location || '/';
+                  const pageName = currentPage === '/' ? 'Dashboard' : currentPage.replace('/', '').replace(/-/g, ' ');
+                  
                   const pdfContent = `
 <!DOCTYPE html>
 <html lang="${language}" dir="${isRtl ? 'rtl' : 'ltr'}">
@@ -1939,126 +1942,488 @@ export function SovereignIndicator() {
   <meta charset="UTF-8">
   <title>INFERA WebNova - ${t.title}</title>
   <style>
-    @page { size: A4; margin: 20mm; }
+    @page { size: A4; margin: 15mm; }
+    * { box-sizing: border-box; }
     body { 
       font-family: 'Segoe UI', Tahoma, sans-serif;
       background: linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 100%);
       color: #fff;
-      padding: 40px;
+      padding: 30px;
       min-height: 100vh;
+      font-size: 12px;
+      line-height: 1.5;
     }
     .header {
       text-align: center;
-      padding: 30px;
+      padding: 25px;
       background: linear-gradient(135deg, #D4AF37 0%, #FFD700 50%, #FFF5A0 100%);
-      border-radius: 12px;
-      margin-bottom: 30px;
+      border-radius: 10px;
+      margin-bottom: 25px;
     }
-    .header h1 { color: #1a1a2e; margin: 0; font-size: 28px; }
-    .header p { color: #333; margin: 10px 0 0; }
+    .header h1 { color: #1a1a2e; margin: 0; font-size: 24px; }
+    .header p { color: #333; margin: 8px 0 0; font-size: 14px; }
+    .header .page-info { color: #555; font-size: 12px; margin-top: 5px; }
     .score-card {
       text-align: center;
-      padding: 30px;
+      padding: 25px;
       background: rgba(255,255,255,0.05);
-      border-radius: 12px;
-      margin-bottom: 30px;
+      border-radius: 10px;
+      margin-bottom: 25px;
       border: 1px solid rgba(255,255,255,0.1);
     }
-    .score { font-size: 72px; font-weight: bold; color: #FFD700; }
-    .score-label { color: rgba(255,255,255,0.7); font-size: 18px; }
+    .score { font-size: 56px; font-weight: bold; color: #FFD700; }
+    .score-label { color: rgba(255,255,255,0.7); font-size: 16px; }
+    .gap-indicator { font-size: 14px; color: #f87171; margin-top: 8px; }
     .section {
       background: rgba(255,255,255,0.05);
-      border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 20px;
+      border-radius: 10px;
+      padding: 18px;
+      margin-bottom: 18px;
       border: 1px solid rgba(255,255,255,0.1);
+      page-break-inside: avoid;
     }
     .section-title { 
       color: #FFD700; 
-      font-size: 18px; 
-      margin-bottom: 15px;
+      font-size: 16px; 
+      margin-bottom: 12px;
       border-bottom: 1px solid rgba(255,255,255,0.1);
-      padding-bottom: 10px;
+      padding-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-title .badge {
+      background: rgba(255,215,0,0.2);
+      color: #FFD700;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
     }
     .service-item {
       display: flex;
       justify-content: space-between;
-      padding: 10px 0;
+      padding: 8px 0;
       border-bottom: 1px solid rgba(255,255,255,0.05);
     }
     .service-name { color: #fff; }
+    .service-type { color: rgba(255,255,255,0.5); font-size: 10px; }
     .service-score { color: #FFD700; font-weight: bold; }
     .metric-row {
       display: flex;
       justify-content: space-between;
-      padding: 8px 0;
+      padding: 6px 0;
     }
     .metric-label { color: rgba(255,255,255,0.7); }
     .metric-value { color: #fff; font-weight: bold; }
+    .issue-item {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 8px;
+    }
+    .issue-critical { border-color: #ef4444; }
+    .issue-medium { border-color: #f59e0b; background: rgba(245,158,11,0.1); }
+    .issue-low { border-color: #22c55e; background: rgba(34,197,94,0.1); }
+    .recommendation-item {
+      background: rgba(59,130,246,0.1);
+      border: 1px solid rgba(59,130,246,0.3);
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .recommendation-title { color: #fff; font-weight: bold; margin-bottom: 5px; }
+    .recommendation-desc { color: rgba(255,255,255,0.7); font-size: 11px; }
+    .priority-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      margin-right: 6px;
+    }
+    .priority-high { background: rgba(239,68,68,0.3); color: #f87171; }
+    .priority-medium { background: rgba(245,158,11,0.3); color: #fbbf24; }
+    .priority-low { background: rgba(34,197,94,0.3); color: #4ade80; }
+    .impact-badge {
+      background: rgba(59,130,246,0.3);
+      color: #60a5fa;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+    }
+    .action-steps {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+    .action-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      padding: 3px 0;
+      font-size: 11px;
+      color: rgba(255,255,255,0.6);
+    }
+    .action-step:before {
+      content: "✓";
+      color: #22c55e;
+    }
+    .tool-item {
+      background: linear-gradient(135deg, rgba(6,182,212,0.1), rgba(59,130,246,0.1));
+      border: 1px solid rgba(6,182,212,0.3);
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .tool-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+    .tool-name { color: #fff; font-weight: bold; }
+    .tool-category { 
+      background: rgba(6,182,212,0.3); 
+      color: #22d3ee; 
+      padding: 2px 6px; 
+      border-radius: 4px; 
+      font-size: 9px; 
+      text-transform: uppercase;
+    }
+    .tool-vendor { color: rgba(255,255,255,0.5); font-size: 10px; }
+    .tool-benefits { margin-top: 8px; }
+    .tool-benefit { font-size: 11px; color: rgba(255,255,255,0.7); padding: 2px 0; }
+    .tool-benefit:before { content: "→ "; color: #22d3ee; }
+    .standards-row { 
+      display: flex; 
+      flex-wrap: wrap; 
+      gap: 4px; 
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+    .standard-badge {
+      background: rgba(251,191,36,0.2);
+      color: #fbbf24;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 9px;
+    }
+    .missing-item {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.2);
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin-bottom: 6px;
+    }
+    .ai-item {
+      background: rgba(168,85,247,0.1);
+      border: 1px solid rgba(168,85,247,0.2);
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin-bottom: 6px;
+    }
+    .legacy-item {
+      background: rgba(245,158,11,0.1);
+      border: 1px solid rgba(245,158,11,0.2);
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin-bottom: 6px;
+    }
+    .two-cols { display: flex; gap: 15px; }
+    .two-cols > div { flex: 1; }
     .footer {
       text-align: center;
-      margin-top: 40px;
-      padding-top: 20px;
+      margin-top: 30px;
+      padding-top: 15px;
       border-top: 1px solid rgba(255,255,255,0.1);
       color: rgba(255,255,255,0.5);
+      font-size: 11px;
     }
+    .page-break { page-break-before: always; }
+    .intelligence-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .intel-sovereign { background: linear-gradient(135deg, #D4AF37, #FFD700); color: #1a1a2e; }
+    .intel-advanced { background: rgba(16,185,129,0.3); color: #34d399; }
+    .intel-good { background: rgba(245,158,11,0.3); color: #fbbf24; }
+    .intel-basic { background: rgba(107,114,128,0.3); color: #9ca3af; }
   </style>
 </head>
 <body>
+  <!-- COVER & EXECUTIVE SUMMARY -->
   <div class="header">
     <h1>INFERA WebNova</h1>
     <p>${t.title}</p>
+    <div class="page-info">${language === 'ar' ? 'الصفحة المحللة' : 'Analyzed Page'}: ${pageName}</div>
   </div>
   
   <div class="score-card">
     <div class="score">${analysis.finalScore}/100</div>
     <div class="score-label">${t.finalScore}</div>
+    <div class="gap-indicator">${t.gapToClose}: ${analysis.gapAnalysis.gap}%</div>
   </div>
-  
+
+  <!-- TAB 1: SERVICES -->
   <div class="section">
-    <div class="section-title">${t.services} (${analysis.services.length})</div>
+    <div class="section-title">
+      1. ${t.services}
+      <span class="badge">${analysis.services.length} ${language === 'ar' ? 'خدمة' : 'services'}</span>
+    </div>
     ${analysis.services.map(s => `
       <div class="service-item">
-        <span class="service-name">${language === 'ar' ? s.nameAr : s.name}</span>
+        <div>
+          <span class="service-name">${language === 'ar' ? s.nameAr : s.name}</span>
+          <span class="service-type"> (${s.isIntelligent ? (language === 'ar' ? 'ذكي' : 'AI') : (language === 'ar' ? 'قياسي' : 'Standard')})</span>
+        </div>
         <span class="service-score">${s.score}%</span>
       </div>
     `).join('')}
   </div>
   
+  <!-- TAB 2: PAGE EFFICIENCY -->
   <div class="section">
-    <div class="section-title">${t.pageEfficiency}</div>
-    <div class="metric-row">
-      <span class="metric-label">${t.loadTime}</span>
-      <span class="metric-value">${analysis.page.loadTime}ms</span>
-    </div>
-    <div class="metric-row">
-      <span class="metric-label">${t.componentIntegration}</span>
-      <span class="metric-value">${analysis.page.componentIntegration}%</span>
-    </div>
-    <div class="metric-row">
-      <span class="metric-label">${t.deviceCompatibility}</span>
-      <span class="metric-value">${analysis.page.deviceCompatibility}%</span>
-    </div>
-    <div class="metric-row">
-      <span class="metric-label">${t.structuralSecurity}</span>
-      <span class="metric-value">${analysis.page.structuralSecurity}%</span>
+    <div class="section-title">2. ${t.pageEfficiency}</div>
+    <div class="two-cols">
+      <div>
+        <div class="metric-row">
+          <span class="metric-label">${t.loadTime}</span>
+          <span class="metric-value">${analysis.page.loadTime}ms</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">${t.componentIntegration}</span>
+          <span class="metric-value">${analysis.page.componentIntegration}%</span>
+        </div>
+      </div>
+      <div>
+        <div class="metric-row">
+          <span class="metric-label">${t.deviceCompatibility}</span>
+          <span class="metric-value">${analysis.page.deviceCompatibility}%</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">${t.structuralSecurity}</span>
+          <span class="metric-value">${analysis.page.structuralSecurity}%</span>
+        </div>
+      </div>
     </div>
   </div>
   
+  <!-- TAB 3: INTELLIGENCE -->
   <div class="section">
-    <div class="section-title">${t.techProgress}</div>
+    <div class="section-title">3. ${t.intelligence}</div>
+    <div style="text-align: center; padding: 15px;">
+      <span class="intelligence-badge ${
+        analysis.intelligence.classification === 'sovereign-intelligent' ? 'intel-sovereign' :
+        analysis.intelligence.classification === 'intelligent' ? 'intel-advanced' :
+        analysis.intelligence.classification === 'semi-intelligent' ? 'intel-good' : 'intel-basic'
+      }">
+        ${analysis.intelligence.classification.toUpperCase()}
+      </span>
+    </div>
+    <div class="metric-row">
+      <span class="metric-label">${language === 'ar' ? 'يتكيف مع المستخدم' : 'Adapts to User'}</span>
+      <span class="metric-value">${analysis.intelligence.adaptsToUser ? '✓' : '✗'}</span>
+    </div>
+    <div class="metric-row">
+      <span class="metric-label">${language === 'ar' ? 'يستخدم البيانات السابقة' : 'Uses Previous Data'}</span>
+      <span class="metric-value">${analysis.intelligence.usesPreviousData ? '✓' : '✗'}</span>
+    </div>
+    <div class="metric-row">
+      <span class="metric-label">${language === 'ar' ? 'يدعم التخصيص' : 'Supports Customization'}</span>
+      <span class="metric-value">${analysis.intelligence.supportsCustomization ? '✓' : '✗'}</span>
+    </div>
+    <div class="metric-row">
+      <span class="metric-label">${language === 'ar' ? 'يستجيب للإجراءات' : 'Responds to Actions'}</span>
+      <span class="metric-value">${analysis.intelligence.respondsToActions ? '✓' : '✗'}</span>
+    </div>
+  </div>
+  
+  <!-- TAB 4: ISSUES -->
+  <div class="section">
+    <div class="section-title">
+      4. ${t.issues}
+      <span class="badge">${analysis.issues.length}</span>
+    </div>
+    ${analysis.issues.length === 0 ? `<div style="text-align: center; color: #22c55e; padding: 15px;">${t.noIssues}</div>` :
+      analysis.issues.map(issue => `
+        <div class="issue-item issue-${issue.severity}">
+          <div style="display: flex; justify-content: space-between;">
+            <strong style="color: #fff;">${language === 'ar' ? issue.messageAr : issue.message}</strong>
+            <span class="priority-badge priority-${issue.severity}">${issue.severity.toUpperCase()}</span>
+          </div>
+          <div style="color: rgba(255,255,255,0.6); font-size: 11px; margin-top: 4px;">
+            ${language === 'ar' ? 'النوع' : 'Type'}: ${issue.type}
+          </div>
+        </div>
+      `).join('')
+    }
+  </div>
+  
+  <!-- TAB 5: TECH PROGRESS -->
+  <div class="section">
+    <div class="section-title">5. ${t.techProgress}</div>
     <div class="metric-row">
       <span class="metric-label">${t.level}</span>
-      <span class="metric-value">${analysis.techMaturity.level}</span>
+      <span class="metric-value" style="color: ${
+        analysis.techMaturity.level === 'sovereign' ? '#FFD700' :
+        analysis.techMaturity.level === 'advanced' ? '#22c55e' :
+        analysis.techMaturity.level === 'good' ? '#fbbf24' : '#f87171'
+      };">${analysis.techMaturity.level.toUpperCase()}</span>
     </div>
     <div class="metric-row">
       <span class="metric-label">${t.finalScore}</span>
       <span class="metric-value">${analysis.techMaturity.score}%</span>
     </div>
+    <div style="margin-top: 10px;">
+      <div style="background: rgba(255,255,255,0.1); border-radius: 10px; height: 12px; overflow: hidden;">
+        <div style="background: linear-gradient(90deg, #FFD700, #D4AF37); height: 100%; width: ${analysis.techMaturity.score}%;"></div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="page-break"></div>
+  
+  <!-- TAB 6: GAP ANALYSIS -->
+  <div class="section">
+    <div class="section-title">6. ${t.gapAnalysis}</div>
+    
+    <!-- Gap Overview -->
+    <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+      <div class="two-cols">
+        <div style="text-align: center;">
+          <div style="font-size: 28px; color: #FFD700; font-weight: bold;">${analysis.gapAnalysis.currentScore}%</div>
+          <div style="color: rgba(255,255,255,0.6); font-size: 11px;">${t.currentScore}</div>
+        </div>
+        <div style="text-align: center;">
+          <div style="font-size: 28px; color: #22c55e; font-weight: bold;">100%</div>
+          <div style="color: rgba(255,255,255,0.6); font-size: 11px;">${t.targetScore}</div>
+        </div>
+      </div>
+      <div style="text-align: center; margin-top: 10px; color: #f87171;">
+        ${t.gapToClose}: <strong>${analysis.gapAnalysis.gap}%</strong>
+      </div>
+    </div>
+    
+    <!-- Missing Services -->
+    ${analysis.gapAnalysis.missingServices.length > 0 ? `
+      <div style="margin-bottom: 15px;">
+        <div style="color: #f87171; font-weight: bold; margin-bottom: 8px;">${t.missingTools} (${analysis.gapAnalysis.missingServices.length})</div>
+        ${analysis.gapAnalysis.missingServices.map(s => `
+          <div class="missing-item">
+            <strong>${language === 'ar' ? s.nameAr : s.name}</strong>
+            <span style="color: rgba(255,255,255,0.5);"> - ${s.type}</span>
+          </div>
+        `).join('')}
+      </div>
+    ` : ''}
+    
+    <!-- AI Opportunities -->
+    ${analysis.gapAnalysis.aiOpportunities.length > 0 ? `
+      <div style="margin-bottom: 15px;">
+        <div style="color: #a855f7; font-weight: bold; margin-bottom: 8px;">${t.aiInjection} (${analysis.gapAnalysis.aiOpportunities.length})</div>
+        ${analysis.gapAnalysis.aiOpportunities.map(s => `
+          <div class="ai-item">
+            <strong>${language === 'ar' ? s.areaAr : s.area}</strong>
+            <span style="color: rgba(255,255,255,0.5);"> - ${language === 'ar' ? s.benefitAr : s.benefit}</span>
+          </div>
+        `).join('')}
+      </div>
+    ` : ''}
+    
+    <!-- Legacy Systems -->
+    ${analysis.gapAnalysis.legacySystems.length > 0 ? `
+      <div style="margin-bottom: 15px;">
+        <div style="color: #f59e0b; font-weight: bold; margin-bottom: 8px;">${t.legacyUpgrade} (${analysis.gapAnalysis.legacySystems.length})</div>
+        ${analysis.gapAnalysis.legacySystems.map(s => `
+          <div class="legacy-item">
+            <strong>${language === 'ar' ? s.nameAr : s.name}</strong>
+            <span style="color: rgba(255,255,255,0.5);"> - ${language === 'ar' ? s.issueAr : s.issue}</span>
+          </div>
+        `).join('')}
+      </div>
+    ` : ''}
+  </div>
+  
+  <!-- EXECUTIVE RECOMMENDATIONS -->
+  <div class="section">
+    <div class="section-title">
+      ${t.executiveRecommendations}
+      <span class="badge">${analysis.gapAnalysis.executiveRecommendations.length}</span>
+    </div>
+    ${analysis.gapAnalysis.executiveRecommendations.map(rec => `
+      <div class="recommendation-item">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <div>
+            <span class="priority-badge priority-${rec.priority}">${
+              rec.priority === 'high' ? t.highPriority :
+              rec.priority === 'medium' ? t.mediumPriority : t.lowPriority
+            }</span>
+            <span class="impact-badge">+${rec.impact} ${t.impactPoints}</span>
+          </div>
+        </div>
+        <div class="recommendation-title">${language === 'ar' ? rec.titleAr : rec.title}</div>
+        <div class="recommendation-desc">${language === 'ar' ? rec.descriptionAr : rec.description}</div>
+        <div class="action-steps">
+          ${rec.actionSteps.map(step => `
+            <div class="action-step">${language === 'ar' ? step.ar : step.en}</div>
+          `).join('')}
+        </div>
+        <div style="margin-top: 8px; font-size: 10px; color: rgba(255,255,255,0.5);">
+          ${t.globalStandard}: ${rec.globalStandard}
+        </div>
+      </div>
+    `).join('')}
+  </div>
+  
+  <div class="page-break"></div>
+  
+  <!-- CUTTING-EDGE TOOLS -->
+  <div class="section">
+    <div class="section-title">
+      ${t.cuttingEdgeTools}
+      <span class="badge">${analysis.gapAnalysis.cuttingEdgeTools.length}</span>
+    </div>
+    ${analysis.gapAnalysis.cuttingEdgeTools.map(tool => `
+      <div class="tool-item">
+        <div class="tool-header">
+          <div>
+            <span class="tool-name">${language === 'ar' ? tool.nameAr : tool.name}</span>
+            <div class="tool-vendor">${t.vendor}: ${tool.vendor} | ${tool.adoptionRate}</div>
+          </div>
+          <div>
+            <span class="tool-category">${tool.category}</span>
+            <span class="impact-badge" style="margin-${isRtl ? 'right' : 'left'}: 4px;">+${tool.impact}</span>
+          </div>
+        </div>
+        <div style="color: rgba(255,255,255,0.7); font-size: 11px; margin: 8px 0;">
+          ${language === 'ar' ? tool.descriptionAr : tool.description}
+        </div>
+        <div class="tool-benefits">
+          <div style="color: rgba(255,255,255,0.5); font-size: 10px; margin-bottom: 4px;">${t.benefits}:</div>
+          ${tool.benefits.map(b => `
+            <div class="tool-benefit">${language === 'ar' ? b.ar : b.en}</div>
+          `).join('')}
+        </div>
+        <div style="margin-top: 8px;">
+          <div style="color: rgba(255,255,255,0.5); font-size: 10px; margin-bottom: 4px;">${t.integrationSteps}:</div>
+          ${tool.integrationSteps.map((step, i) => `
+            <div style="font-size: 11px; color: rgba(255,255,255,0.6); padding: 2px 0;">
+              <span style="color: #22d3ee; font-weight: bold;">${i + 1}.</span> ${language === 'ar' ? step.ar : step.en}
+            </div>
+          `).join('')}
+        </div>
+        <div class="standards-row">
+          ${tool.globalStandards.map(std => `
+            <span class="standard-badge">${std}</span>
+          `).join('')}
+        </div>
+      </div>
+    `).join('')}
   </div>
   
   <div class="footer">
-    <p>INFERA Engine 2025 - ${new Date().toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US')}</p>
+    <p>INFERA Engine 2025 - ${t.title}</p>
+    <p>${language === 'ar' ? 'تاريخ التقرير' : 'Report Date'}: ${new Date().toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US')} ${new Date().toLocaleTimeString(language === 'ar' ? 'ar-SA' : 'en-US')}</p>
+    <p style="margin-top: 10px; font-size: 10px;">${language === 'ar' ? 'الصفحة المحللة' : 'Analyzed Page'}: ${currentPage}</p>
   </div>
 </body>
 </html>
