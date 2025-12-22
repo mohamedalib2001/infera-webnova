@@ -43,6 +43,32 @@ export default function Builder() {
     } catch { return { html: '', css: '', js: '' }; }
   };
   
+  // Local backup for unsaved sessions
+  const saveToLocalBackup = (data: { messages: ChatMessageType[], projectName: string, html: string, css: string, js: string }) => {
+    try {
+      localStorage.setItem('builder_unsaved_session', JSON.stringify({ ...data, timestamp: Date.now() }));
+    } catch (e) { console.error("Failed to backup session:", e); }
+  };
+  
+  const getLocalBackup = () => {
+    try {
+      const stored = localStorage.getItem('builder_unsaved_session');
+      if (stored) {
+        const data = JSON.parse(stored);
+        // Only return backup if less than 24 hours old
+        if (Date.now() - data.timestamp < 24 * 60 * 60 * 1000) {
+          return data;
+        }
+        localStorage.removeItem('builder_unsaved_session');
+      }
+    } catch { }
+    return null;
+  };
+  
+  const clearLocalBackup = () => {
+    localStorage.removeItem('builder_unsaved_session');
+  };
+  
   const storedCode = getStoredCode();
   const [projectName, setProjectName] = useState(t("builder.newProject"));
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
@@ -82,6 +108,24 @@ export default function Builder() {
       sessionStorage.setItem('builder_code', JSON.stringify({ html, css, js }));
     }
   }, [html, css, js]);
+
+  // Check for and offer to restore local backup on mount (only for new sessions)
+  useEffect(() => {
+    if (!projectId) {
+      const backup = getLocalBackup();
+      if (backup && backup.messages && backup.messages.length > 0) {
+        setMessages(backup.messages);
+        setProjectName(backup.projectName || t("builder.newProject"));
+        setHtml(backup.html || "");
+        setCss(backup.css || "");
+        setJs(backup.js || "");
+        toast({
+          title: isRtl ? "تم استعادة الجلسة السابقة" : "Previous session restored",
+          description: isRtl ? "اضغط حفظ لحفظ التغييرات" : "Click Save to persist changes",
+        });
+      }
+    }
+  }, []);
 
   const { data: project, isLoading: projectLoading } = useQuery<Project>({
     queryKey: ["/api/projects", projectId],
@@ -149,10 +193,18 @@ export default function Builder() {
       }
     },
     onSuccess: async (data) => {
-      if (!projectId && data?.id) {
-        setProjectId(data.id);
-        window.history.replaceState({}, "", `/builder/${data.id}`);
+      const newId = data?.id;
+      if (!projectId && newId) {
+        setProjectId(newId);
+        window.history.replaceState({}, "", `/builder/${newId}`);
+        // Save any existing messages to the new project
+        for (const msg of messages) {
+          try {
+            await apiRequest("POST", "/api/messages", { projectId: newId, role: msg.role, content: msg.content });
+          } catch (e) { console.error("Failed to save message:", e); }
+        }
       }
+      clearLocalBackup(); // Clear local backup on successful save
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       toast({ title: t("builder.saved") });
     },
@@ -261,9 +313,44 @@ export default function Builder() {
       
       setMessages((prev) => [...prev, aiMessage]);
 
+      // Auto-save project and messages if not already saved
       if (projectId) {
         saveMessageMutation.mutate({ projectId, role: "user", content });
         saveMessageMutation.mutate({ projectId, role: "assistant", content: data.message });
+      } else {
+        // Auto-create project on first message
+        try {
+          const newProjectData = await apiRequest("POST", "/api/projects", {
+            name: projectName || content.slice(0, 50),
+            htmlCode: data.code?.html || html,
+            cssCode: data.code?.css || css,
+            jsCode: data.code?.js || js,
+          });
+          if (newProjectData?.id) {
+            setProjectId(newProjectData.id);
+            window.history.replaceState({}, "", `/builder/${newProjectData.id}`);
+            // Save ALL existing messages to the new project (including restored ones)
+            const allExistingMessages = [...messages];
+            for (const msg of allExistingMessages) {
+              await saveMessageMutation.mutateAsync({ projectId: newProjectData.id, role: msg.role, content: msg.content });
+            }
+            // Save the current user message and AI response
+            await saveMessageMutation.mutateAsync({ projectId: newProjectData.id, role: "user", content });
+            await saveMessageMutation.mutateAsync({ projectId: newProjectData.id, role: "assistant", content: data.message });
+            clearLocalBackup(); // Clear backup on successful auto-save
+            queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+          }
+        } catch (saveError) {
+          console.error("Failed to auto-save project:", saveError);
+          // Backup to localStorage for recovery
+          const allMessages = [...messages, { id: crypto.randomUUID(), role: "user" as const, content, timestamp: new Date() }, aiMessage];
+          saveToLocalBackup({ messages: allMessages, projectName, html: data.code?.html || html, css: data.code?.css || css, js: data.code?.js || js });
+          toast({
+            title: isRtl ? "تم الحفظ محلياً" : "Saved locally",
+            description: isRtl ? "اضغط حفظ لحفظ المشروع في السحابة" : "Click Save to sync to cloud",
+            variant: "default",
+          });
+        }
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : t("builder.tryAgain");
