@@ -18,6 +18,7 @@ import sslRoutes from "./ssl-routes";
 import sshVaultRoutes from "./ssh-vault-routes";
 import { registerAppBuilderRoutes } from "./app-builder-routes";
 import { buildRoutes } from "./build-routes";
+import { registerEnterpriseServicesRoutes } from "./enterprise-services-routes";
 import {
   createLoginSession,
   endLoginSession,
@@ -13953,6 +13954,10 @@ ${project.description || ""}
   registerAppBuilderRoutes(app);
   app.use('/api', buildRoutes);
   console.log("App Builder routes registered | تم تسجيل مسارات منشئ التطبيقات");
+
+  // ==================== ENTERPRISE SERVICES - WORLD-CLASS CI/CD ====================
+  registerEnterpriseServicesRoutes(app);
+  console.log("Enterprise Services routes registered | تم تسجيل مسارات الخدمات المؤسسية");
 
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
