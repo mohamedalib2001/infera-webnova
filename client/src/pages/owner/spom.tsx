@@ -103,12 +103,11 @@ export default function SpomPage() {
 
   const startSessionMutation = useMutation({
     mutationFn: async (operationType: string) => {
-      const res = await apiRequest("POST", "/api/owner/spom/session/start", {
+      return apiRequest("POST", "/api/owner/spom/session/start", {
         operationType,
         operationDescription: null,
         targetResource: null,
       });
-      return res.json();
     },
     onSuccess: (data) => {
       setSessionId(data.sessionId);
@@ -126,11 +125,10 @@ export default function SpomPage() {
 
   const verifyPasswordMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/owner/spom/session/verify-password", {
+      return apiRequest("POST", "/api/owner/spom/session/verify-password", {
         sessionId,
         password,
       });
-      return res.json();
     },
     onSuccess: (data) => {
       setPassword("");
@@ -152,11 +150,10 @@ export default function SpomPage() {
 
   const sendOtpMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/owner/spom/session/send-otp", {
+      return apiRequest("POST", "/api/owner/spom/session/send-otp", {
         sessionId,
         method: "email",
       });
-      return res.json();
     },
     onSuccess: (data) => {
       setCurrentStep("otp");
@@ -179,11 +176,10 @@ export default function SpomPage() {
 
   const verifyOtpMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/owner/spom/session/verify-otp", {
+      return apiRequest("POST", "/api/owner/spom/session/verify-otp", {
         sessionId,
         otpCode,
       });
-      return res.json();
     },
     onSuccess: () => {
       setOtpCode("");
@@ -206,10 +202,9 @@ export default function SpomPage() {
 
   const endSessionMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/owner/spom/session/end", {
+      return apiRequest("POST", "/api/owner/spom/session/end", {
         sessionId,
       });
-      return res.json();
     },
     onSuccess: () => {
       resetState();
