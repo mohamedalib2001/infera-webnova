@@ -208,7 +208,20 @@ export const conversationLedger = {
     const { sovereignConversations, conversationMessages } = await import('../../schema');
     const { eq, and } = await import('drizzle-orm');
     
-    // Delete messages first
+    // SECURITY: Verify ownership FIRST before any destructive operations
+    const conv = await db.select()
+      .from(sovereignConversations)
+      .where(and(
+        eq(sovereignConversations.id, conversationId),
+        eq(sovereignConversations.userId, userId)
+      ))
+      .limit(1);
+    
+    if (conv.length === 0) {
+      throw new Error('Conversation not found or unauthorized');
+    }
+    
+    // Only delete messages after ownership verification
     await db.delete(conversationMessages)
       .where(eq(conversationMessages.conversationId, conversationId));
     
@@ -433,12 +446,22 @@ export const restorePointSystem = {
     const { restorePoints } = await import('../../schema');
     const { eq, and } = await import('drizzle-orm');
     
-    await db.update(restorePoints)
-      .set({ isImmutable: true, expiresAt: null })
+    // SECURITY: Verify ownership first
+    const point = await db.select()
+      .from(restorePoints)
       .where(and(
         eq(restorePoints.id, restorePointId),
         eq(restorePoints.userId, userId)
-      ));
+      ))
+      .limit(1);
+    
+    if (point.length === 0) {
+      return false; // Not found or unauthorized
+    }
+    
+    await db.update(restorePoints)
+      .set({ isImmutable: true, expiresAt: null })
+      .where(eq(restorePoints.id, restorePointId));
     
     return true;
   },
@@ -517,7 +540,20 @@ export const platformIsolation = {
   async revokeToken(tokenId: string, revokedBy: string): Promise<boolean> {
     const { db } = await import('../../../server/db');
     const { platformTokens } = await import('../../schema');
-    const { eq } = await import('drizzle-orm');
+    const { eq, and } = await import('drizzle-orm');
+    
+    // SECURITY: Verify ownership - user can only revoke their own tokens
+    const token = await db.select()
+      .from(platformTokens)
+      .where(and(
+        eq(platformTokens.id, tokenId),
+        eq(platformTokens.userId, revokedBy)
+      ))
+      .limit(1);
+    
+    if (token.length === 0) {
+      return false; // Not found or unauthorized
+    }
     
     await db.update(platformTokens)
       .set({ 
@@ -602,15 +638,30 @@ export const sovereignDeleteSystem = {
     const { deletedPlatformsLedger } = await import('../../schema');
     const { eq, and } = await import('drizzle-orm');
     
+    // SECURITY: Verify ownership first
+    const entry = await db.select()
+      .from(deletedPlatformsLedger)
+      .where(and(
+        eq(deletedPlatformsLedger.originalId, originalId),
+        eq(deletedPlatformsLedger.userId, userId)
+      ))
+      .limit(1);
+    
+    if (entry.length === 0) {
+      return {
+        phase: 'error',
+        success: false,
+        message: 'Entry not found or unauthorized',
+        messageAr: 'السجل غير موجود أو غير مصرح',
+      };
+    }
+    
     await db.update(deletedPlatformsLedger)
       .set({
         deletionPhase: 'confirmed',
         confirmedAt: new Date(),
       })
-      .where(and(
-        eq(deletedPlatformsLedger.originalId, originalId),
-        eq(deletedPlatformsLedger.userId, userId)
-      ));
+      .where(eq(deletedPlatformsLedger.id, entry[0].id));
     
     return {
       phase: 'confirmed',
@@ -631,15 +682,30 @@ export const sovereignDeleteSystem = {
     const { deletedPlatformsLedger } = await import('../../schema');
     const { eq, and } = await import('drizzle-orm');
     
+    // SECURITY: Verify ownership first
+    const entry = await db.select()
+      .from(deletedPlatformsLedger)
+      .where(and(
+        eq(deletedPlatformsLedger.originalId, originalId),
+        eq(deletedPlatformsLedger.userId, userId)
+      ))
+      .limit(1);
+    
+    if (entry.length === 0) {
+      return {
+        phase: 'error',
+        success: false,
+        message: 'Entry not found or unauthorized',
+        messageAr: 'السجل غير موجود أو غير مصرح',
+      };
+    }
+    
     await db.update(deletedPlatformsLedger)
       .set({
         deletionPhase: 'password_verified',
         passwordVerifiedAt: new Date(),
       })
-      .where(and(
-        eq(deletedPlatformsLedger.originalId, originalId),
-        eq(deletedPlatformsLedger.userId, userId)
-      ));
+      .where(eq(deletedPlatformsLedger.id, entry[0].id));
     
     return {
       phase: 'password_verified',
@@ -655,16 +721,31 @@ export const sovereignDeleteSystem = {
     const { deletedPlatformsLedger } = await import('../../schema');
     const { eq, and } = await import('drizzle-orm');
     
+    // SECURITY: Verify ownership first
+    const entry = await db.select()
+      .from(deletedPlatformsLedger)
+      .where(and(
+        eq(deletedPlatformsLedger.originalId, originalId),
+        eq(deletedPlatformsLedger.userId, userId)
+      ))
+      .limit(1);
+    
+    if (entry.length === 0) {
+      return {
+        phase: 'error',
+        success: false,
+        message: 'Entry not found or unauthorized',
+        messageAr: 'السجل غير موجود أو غير مصرح',
+      };
+    }
+    
     await db.update(deletedPlatformsLedger)
       .set({
         deletionPhase: 'soft_deleted',
         softDeletedAt: new Date(),
         fullBackup: fullBackup as any,
       })
-      .where(and(
-        eq(deletedPlatformsLedger.originalId, originalId),
-        eq(deletedPlatformsLedger.userId, userId)
-      ));
+      .where(eq(deletedPlatformsLedger.id, entry[0].id));
     
     return {
       phase: 'soft_deleted',
@@ -732,6 +813,19 @@ export const sovereignDeleteSystem = {
     const { deletedPlatformsLedger } = await import('../../schema');
     const { eq, and } = await import('drizzle-orm');
     
+    // SECURITY: Verify ownership first
+    const entry = await db.select()
+      .from(deletedPlatformsLedger)
+      .where(and(
+        eq(deletedPlatformsLedger.originalId, originalId),
+        eq(deletedPlatformsLedger.userId, userId)
+      ))
+      .limit(1);
+    
+    if (entry.length === 0) {
+      throw new Error('Entry not found or unauthorized');
+    }
+    
     await db.update(deletedPlatformsLedger)
       .set({
         deletionPhase: 'permanently_deleted',
@@ -742,10 +836,7 @@ export const sovereignDeleteSystem = {
         canRestore: false,
         fullBackup: null, // Clear backup data
       })
-      .where(and(
-        eq(deletedPlatformsLedger.originalId, originalId),
-        eq(deletedPlatformsLedger.userId, userId)
-      ));
+      .where(eq(deletedPlatformsLedger.id, entry[0].id));
     
     return true;
   },
