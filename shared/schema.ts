@@ -869,6 +869,29 @@ export const insertCollaboratorSchema = createInsertSchema(collaborators).omit({
 export type InsertCollaborator = z.infer<typeof insertCollaboratorSchema>;
 export type Collaborator = typeof collaborators.$inferSelect;
 
+// Project Comments table - for collaboration comments
+export const projectComments = pgTable("project_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  content: text("content").notNull(),
+  file: text("file"), // Optional file reference
+  line: integer("line"), // Optional line number
+  parentId: varchar("parent_id"), // For threaded comments
+  isResolved: boolean("is_resolved").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertProjectCommentSchema = createInsertSchema(projectComments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertProjectComment = z.infer<typeof insertProjectCommentSchema>;
+export type ProjectComment = typeof projectComments.$inferSelect;
+
 // ==================== AI USAGE TRACKING ====================
 
 // AI Usage tracking for rate limiting

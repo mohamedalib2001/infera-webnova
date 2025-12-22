@@ -77,8 +77,11 @@ import {
   type InsertNotification,
   type Collaborator,
   type InsertCollaborator,
+  type ProjectComment,
+  type InsertProjectComment,
   notifications,
   collaborators,
+  projectComments,
   type InsertAiBuildTask,
   type AiBuildArtifact,
   type InsertAiBuildArtifact,
@@ -2761,6 +2764,45 @@ body { font-family: 'Tajawal', sans-serif; }
   async deleteCollaborator(id: string): Promise<boolean> {
     const result = await db.delete(collaborators).where(eq(collaborators.id, id));
     return (result.rowCount ?? 0) > 0;
+  }
+
+  // Project Comments methods
+  async getProjectComments(projectId: string): Promise<ProjectComment[]> {
+    return db
+      .select()
+      .from(projectComments)
+      .where(eq(projectComments.projectId, projectId))
+      .orderBy(desc(projectComments.createdAt));
+  }
+
+  async createProjectComment(insertComment: InsertProjectComment): Promise<ProjectComment> {
+    const [comment] = await db.insert(projectComments).values(insertComment as any).returning();
+    return comment;
+  }
+
+  async updateProjectComment(id: string, userId: string, updates: Partial<InsertProjectComment>): Promise<ProjectComment | undefined> {
+    const [comment] = await db
+      .update(projectComments)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(projectComments.id, id), eq(projectComments.userId, userId)))
+      .returning();
+    return comment || undefined;
+  }
+
+  async deleteProjectComment(id: string, userId: string): Promise<boolean> {
+    const result = await db
+      .delete(projectComments)
+      .where(and(eq(projectComments.id, id), eq(projectComments.userId, userId)));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async resolveProjectComment(id: string): Promise<ProjectComment | undefined> {
+    const [comment] = await db
+      .update(projectComments)
+      .set({ isResolved: true, updatedAt: new Date() })
+      .where(eq(projectComments.id, id))
+      .returning();
+    return comment || undefined;
   }
 
   // Components methods

@@ -3678,6 +3678,83 @@ Provide realistic, data-driven predictions based on the actual platform state.`;
     }
   });
 
+  // ============ Project Comments Routes ============
+
+  // Get comments for a project
+  app.get("/api/projects/:projectId/comments", async (req, res) => {
+    try {
+      const comments = await storage.getProjectComments(req.params.projectId);
+      // Enrich comments with user info
+      const enrichedComments = await Promise.all(comments.map(async (comment) => {
+        const user = await storage.getUser(comment.userId);
+        return {
+          ...comment,
+          author: user ? (user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.username) : 'Unknown',
+          authorEmail: user?.email || ''
+        };
+      }));
+      res.json(enrichedComments);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch comments" });
+    }
+  });
+
+  // Create a comment
+  app.post("/api/projects/:projectId/comments", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { content, file, line, parentId } = req.body;
+      if (!content) return res.status(400).json({ error: "Content is required" });
+      
+      const comment = await storage.createProjectComment({
+        projectId: req.params.projectId,
+        userId,
+        content,
+        file,
+        line,
+        parentId,
+        isResolved: false
+      });
+      
+      // Enrich with user info
+      const user = await storage.getUser(userId);
+      res.status(201).json({
+        ...comment,
+        author: user ? (user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.username) : 'Unknown',
+        authorEmail: user?.email || ''
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create comment" });
+    }
+  });
+
+  // Delete a comment
+  app.delete("/api/projects/:projectId/comments/:commentId", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const success = await storage.deleteProjectComment(req.params.commentId, userId);
+      if (!success) return res.status(404).json({ error: "Comment not found or not authorized" });
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete comment" });
+    }
+  });
+
+  // Resolve a comment
+  app.patch("/api/projects/:projectId/comments/:commentId/resolve", requireAuth, async (req, res) => {
+    try {
+      const comment = await storage.resolveProjectComment(req.params.commentId);
+      if (!comment) return res.status(404).json({ error: "Comment not found" });
+      res.json(comment);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to resolve comment" });
+    }
+  });
+
   // ============ Projects Routes ============
   
   // Get all projects

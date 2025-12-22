@@ -194,6 +194,8 @@ export default function Builder() {
     },
     onSuccess: async (data) => {
       const newId = data?.id;
+      const targetProjectId = projectId || newId;
+      
       if (!projectId && newId) {
         setProjectId(newId);
         window.history.replaceState({}, "", `/builder/${newId}`);
@@ -204,6 +206,17 @@ export default function Builder() {
           } catch (e) { console.error("Failed to save message:", e); }
         }
       }
+      
+      // Auto-save version snapshot
+      if (targetProjectId) {
+        try {
+          await apiRequest("POST", `/api/projects/${targetProjectId}/versions`, {
+            description: `Auto-save ${new Date().toLocaleString()}`
+          });
+          queryClient.invalidateQueries({ queryKey: ["/api/projects", targetProjectId, "versions"] });
+        } catch (e) { console.error("Auto-version failed:", e); }
+      }
+      
       clearLocalBackup(); // Clear local backup on successful save
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       toast({ title: t("builder.saved") });
