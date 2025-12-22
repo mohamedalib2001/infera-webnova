@@ -399,6 +399,8 @@ export const projects = pgTable("projects", {
   seoTitle: text("seo_title"),
   seoDescription: text("seo_description"),
   seoKeywords: text("seo_keywords"),
+  status: text("status").default("draft"), // draft, published, archived
+  deletedAt: timestamp("deleted_at"), // For soft delete (recycle bin)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
