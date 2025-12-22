@@ -67,6 +67,10 @@ export const users = pgTable("users", {
   lastLoginAt: timestamp("last_login_at"),
   lastLoginIP: text("last_login_ip"),
   failedLoginAttempts: integer("failed_login_attempts").default(0),
+  // Two-Factor Authentication (TOTP)
+  twoFactorSecret: text("two_factor_secret"), // Encrypted TOTP secret
+  twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
+  twoFactorRecoveryCodes: jsonb("two_factor_recovery_codes").$type<string[]>(), // Hashed backup codes
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
