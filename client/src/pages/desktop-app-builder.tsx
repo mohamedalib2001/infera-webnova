@@ -258,22 +258,31 @@ export default function DesktopAppBuilder() {
     primaryColor: "#6366f1"
   });
 
-  const { data: projects = [], isLoading: isLoadingProjects } = useQuery<AppProject[]>({
-    queryKey: ['/api/app-projects', 'desktop']
+  const { data: desktopProjects = [], isLoading: isLoadingProjects } = useQuery<AppProject[]>({
+    queryKey: ['/api/app-projects', { type: 'desktop' }],
+    queryFn: async () => {
+      const res = await fetch('/api/app-projects?type=desktop');
+      if (!res.ok) throw new Error('Failed to fetch projects');
+      return res.json();
+    }
   });
-
-  const desktopProjects = projects.filter(p => p.type === 'desktop');
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof newApp) => {
       const res = await apiRequest('POST', '/api/app-projects', {
-        ...data,
+        name: data.name,
+        description: data.description,
+        platform: data.platform,
+        framework: data.framework,
+        features: data.features,
+        windowSettings: data.window,
+        primaryColor: data.primaryColor,
         type: 'desktop'
       });
       return res.json();
     },
     onSuccess: (project) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/app-projects'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/app-projects', { type: 'desktop' }] });
       toast({ 
         title: language === "ar" ? "تم إنشاء التطبيق بنجاح!" : "App created successfully!",
         description: language === "ar" ? "يمكنك الآن البدء في التطوير" : "You can now start developing"
@@ -318,7 +327,7 @@ export default function DesktopAppBuilder() {
       return res.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/app-projects'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/app-projects', { type: 'desktop' }] });
       toast({ 
         title: language === "ar" ? "تم التوليد بنجاح!" : "Generation complete!",
         description: language === "ar" ? `تم استخدام ${data.tokensUsed} توكن` : `Used ${data.tokensUsed} tokens`
@@ -339,7 +348,7 @@ export default function DesktopAppBuilder() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/app-projects'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/app-projects', { type: 'desktop' }] });
       toast({ 
         title: language === "ar" ? "بدأ البناء!" : "Build started!",
         description: language === "ar" ? "سيتم إشعارك عند الانتهاء" : "You'll be notified when complete"

@@ -232,22 +232,30 @@ export default function MobileAppBuilder() {
     primaryColor: "#6366f1"
   });
 
-  const { data: projects = [], isLoading: isLoadingProjects } = useQuery<AppProject[]>({
-    queryKey: ['/api/app-projects', 'mobile']
+  const { data: mobileProjects = [], isLoading: isLoadingProjects } = useQuery<AppProject[]>({
+    queryKey: ['/api/app-projects', { type: 'mobile' }],
+    queryFn: async () => {
+      const res = await fetch('/api/app-projects?type=mobile');
+      if (!res.ok) throw new Error('Failed to fetch projects');
+      return res.json();
+    }
   });
-
-  const mobileProjects = projects.filter(p => p.type === 'mobile');
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof newApp) => {
       const res = await apiRequest('POST', '/api/app-projects', {
-        ...data,
+        name: data.name,
+        description: data.description,
+        platform: data.platform,
+        framework: data.framework,
+        features: data.features,
+        primaryColor: data.primaryColor,
         type: 'mobile'
       });
       return res.json();
     },
     onSuccess: (project) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/app-projects'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/app-projects', { type: 'mobile' }] });
       toast({ 
         title: language === "ar" ? "تم إنشاء التطبيق بنجاح!" : "App created successfully!",
         description: language === "ar" ? "يمكنك الآن البدء في التطوير" : "You can now start developing"
@@ -286,7 +294,7 @@ export default function MobileAppBuilder() {
       return res.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/app-projects'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/app-projects', { type: 'mobile' }] });
       toast({ 
         title: language === "ar" ? "تم التوليد بنجاح!" : "Generation complete!",
         description: language === "ar" ? `تم استخدام ${data.tokensUsed} توكن` : `Used ${data.tokensUsed} tokens`
@@ -307,7 +315,7 @@ export default function MobileAppBuilder() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/app-projects'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/app-projects', { type: 'mobile' }] });
       toast({ 
         title: language === "ar" ? "بدأ البناء!" : "Build started!",
         description: language === "ar" ? "سيتم إشعارك عند الانتهاء" : "You'll be notified when complete"
