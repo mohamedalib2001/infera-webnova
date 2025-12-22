@@ -780,6 +780,64 @@ export async function registerRoutes(
     }
   });
 
+  // Verify recovery code for 2FA login
+  app.post("/api/auth/verify-recovery-code", async (req, res) => {
+    try {
+      const { code } = req.body;
+      
+      if (!code) {
+        return res.status(400).json({ error: "رمز الاسترداد مطلوب / Recovery code is required" });
+      }
+      
+      // Check for pending login
+      const pendingLogin = req.session.pendingLogin;
+      if (!pendingLogin || !pendingLogin.twoFactorEnabled) {
+        return res.status(400).json({ error: "لا توجد عملية تسجيل دخول معلقة / No pending login" });
+      }
+      
+      const user = await storage.getUser(pendingLogin.userId);
+      if (!user || !user.twoFactorRecoveryCodes) {
+        return res.status(400).json({ error: "لا توجد رموز استرداد / No recovery codes available" });
+      }
+      
+      // Normalize the code (remove dashes, uppercase)
+      const normalizedCode = code.replace(/-/g, "").toUpperCase();
+      
+      // Check if code matches any recovery code
+      const codeIndex = user.twoFactorRecoveryCodes.findIndex(
+        (rc: string) => rc.replace(/-/g, "").toUpperCase() === normalizedCode
+      );
+      
+      if (codeIndex === -1) {
+        return res.status(400).json({ error: "رمز الاسترداد غير صحيح / Invalid recovery code" });
+      }
+      
+      // Remove the used recovery code
+      const updatedCodes = [...user.twoFactorRecoveryCodes];
+      updatedCodes.splice(codeIndex, 1);
+      
+      await storage.updateUser(user.id, {
+        twoFactorRecoveryCodes: updatedCodes,
+      });
+      
+      // Complete login
+      const { password: _, ...userWithoutPassword } = user;
+      req.session.user = userWithoutPassword;
+      req.session.userId = user.id;
+      delete req.session.pendingLogin;
+      
+      res.json({
+        success: true,
+        user: userWithoutPassword,
+        remainingRecoveryCodes: updatedCodes.length,
+        message: `تم تسجيل الدخول بنجاح. تبقى ${updatedCodes.length} رموز استرداد / Login successful. ${updatedCodes.length} recovery codes remaining`,
+      });
+    } catch (error) {
+      console.error("Recovery code verification error:", error);
+      res.status(500).json({ error: "فشل في التحقق من رمز الاسترداد / Recovery code verification failed" });
+    }
+  });
+
   // ============ User Profile Routes - مسارات الملف الشخصي ============
 
   // Update user profile

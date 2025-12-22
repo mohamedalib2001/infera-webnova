@@ -48,6 +48,8 @@ export default function Auth() {
   const [otpValue, setOtpValue] = useState("");
   const [pendingEmail, setPendingEmail] = useState("");
   const [isTwoFactorLogin, setIsTwoFactorLogin] = useState(false);
+  const [showRecoveryInput, setShowRecoveryInput] = useState(false);
+  const [recoveryCode, setRecoveryCode] = useState("");
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -139,6 +141,23 @@ export default function Auth() {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       setShowOtp(false);
       setOtpValue("");
+      setLocation("/projects");
+    },
+    onError: (error: unknown) => {
+      toast({ title: t("auth.error"), description: handleApiError(error), variant: "destructive" });
+    },
+  });
+
+  const verifyRecoveryCodeMutation = useMutation({
+    mutationFn: async (code: string) => {
+      return await apiRequest("POST", "/api/auth/verify-recovery-code", { code });
+    },
+    onSuccess: () => {
+      toast({ title: language === "ar" ? "تم تسجيل الدخول بنجاح" : "Login successful" });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      setShowOtp(false);
+      setShowRecoveryInput(false);
+      setRecoveryCode("");
       setLocation("/projects");
     },
     onError: (error: unknown) => {
@@ -253,19 +272,77 @@ export default function Auth() {
                   </InputOTP>
                 </div>
 
-                <Button 
-                  className="w-full" 
-                  disabled={otpValue.length !== 6 || verifyOtpMutation.isPending}
-                  onClick={() => verifyOtpMutation.mutate(otpValue)}
-                  data-testid="button-verify-otp"
-                >
-                  {verifyOtpMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : t("auth.verifyOtp")}
-                </Button>
+                {!showRecoveryInput ? (
+                  <>
+                    <Button 
+                      className="w-full" 
+                      disabled={otpValue.length !== 6 || verifyOtpMutation.isPending}
+                      onClick={() => verifyOtpMutation.mutate(otpValue)}
+                      data-testid="button-verify-otp"
+                    >
+                      {verifyOtpMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : t("auth.verifyOtp")}
+                    </Button>
+
+                    {isTwoFactorLogin && (
+                      <Button 
+                        variant="ghost" 
+                        className="w-full text-sm underline"
+                        onClick={() => setShowRecoveryInput(true)}
+                        data-testid="button-use-recovery-code"
+                      >
+                        {language === "ar" 
+                          ? "لا يمكنني الوصول لتطبيق المصادقة - استخدام رمز الاسترداد"
+                          : "Can't access authenticator? Use recovery code"}
+                      </Button>
+                    )}
+                  </>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="text-center">
+                      <p className="text-sm text-muted-foreground mb-2">
+                        {language === "ar"
+                          ? "أدخل أحد رموز الاسترداد التي حصلت عليها عند إعداد المصادقة الثنائية"
+                          : "Enter one of the recovery codes you received when setting up 2FA"}
+                      </p>
+                    </div>
+                    <Input
+                      value={recoveryCode}
+                      onChange={(e) => setRecoveryCode(e.target.value.toUpperCase())}
+                      placeholder="XXXX-XXXX-XXXX"
+                      className="text-center font-mono tracking-widest"
+                      data-testid="input-recovery-code"
+                    />
+                    <Button 
+                      className="w-full" 
+                      disabled={recoveryCode.length < 8 || verifyRecoveryCodeMutation.isPending}
+                      onClick={() => verifyRecoveryCodeMutation.mutate(recoveryCode)}
+                      data-testid="button-verify-recovery"
+                    >
+                      {verifyRecoveryCodeMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : (
+                        language === "ar" ? "تسجيل الدخول" : "Login"
+                      )}
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      className="w-full text-sm underline"
+                      onClick={() => {
+                        setShowRecoveryInput(false);
+                        setRecoveryCode("");
+                      }}
+                    >
+                      {language === "ar" ? "العودة لإدخال رمز المصادقة" : "Back to authenticator code"}
+                    </Button>
+                  </div>
+                )}
 
                 <Button 
                   variant="ghost" 
                   className="w-full"
-                  onClick={() => setShowOtp(false)}
+                  onClick={() => {
+                    setShowOtp(false);
+                    setShowRecoveryInput(false);
+                    setRecoveryCode("");
+                  }}
                 >
                   {t("auth.backToLogin")}
                 </Button>
