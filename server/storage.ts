@@ -501,6 +501,7 @@ export interface IStorage {
   getAllUsers(): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined>;
+  deleteUser(id: string): Promise<boolean>;
   upsertUser(userData: UpsertUser): Promise<User>; // For OAuth/Replit Auth
   
   // User Governance (Owner only)
@@ -2265,6 +2266,11 @@ body { font-family: 'Tajawal', sans-serif; }
       .where(eq(users.id, id))
       .returning();
     return user || undefined;
+  }
+
+  async deleteUser(id: string): Promise<boolean> {
+    const result = await db.delete(users).where(eq(users.id, id));
+    return true;
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
