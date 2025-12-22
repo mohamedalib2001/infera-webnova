@@ -502,15 +502,16 @@ export function SovereignIndicator() {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [showToEmployees, setShowToEmployees] = useState(false);
-  const [employeeMode, setEmployeeMode] = useState<'all' | 'specific'>('all');
+  const [employeeMode, setEmployeeMode] = useState<'all' | 'specific'>('specific');
   const [selectedEmployees, setSelectedEmployees] = useState<number[]>([]);
   const [analysis, setAnalysis] = useState<FullAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   
-  // Fetch employees list
+  // Fetch INFERA Engine employees only (not subscribers)
+  // Employees are users with roles: sovereign, support_agent, admin (NOT free, basic, pro, enterprise)
   const { data: employees = [] } = useQuery<{ id: number; username: string; fullName: string; role: string }[]>({
-    queryKey: ['/api/users/employees'],
-    enabled: showToEmployees && employeeMode === 'specific',
+    queryKey: ['/api/users/infera-employees'],
+    enabled: showToEmployees,
   });
   
   const t = translations[language as keyof typeof translations] || translations.en;

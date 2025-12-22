@@ -1250,7 +1250,7 @@ export async function registerRoutes(
     }
   });
 
-  // Get employees list for sovereign indicator
+  // Get employees list for sovereign indicator (all non-owner users)
   app.get("/api/users/employees", requireAuth, requireSovereign, async (req, res) => {
     try {
       const users = await storage.getAllUsers();
@@ -1268,6 +1268,30 @@ export async function registerRoutes(
       res.json(employees);
     } catch (error) {
       res.status(500).json({ error: "فشل في جلب الموظفين" });
+    }
+  });
+
+  // Get INFERA Engine employees only (NOT subscribers)
+  // Employees are users with internal roles: sovereign, support_agent, admin
+  // Subscribers have roles: free, basic, pro, enterprise
+  app.get("/api/users/infera-employees", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      // INFERA Engine internal roles (employees, not subscribers)
+      const inferaRoles = ['sovereign', 'support_agent', 'admin'];
+      const inferaEmployees = users
+        .filter((u: User) => inferaRoles.includes(u.role) && u.role !== 'owner')
+        .map((u: User) => ({
+          id: u.id,
+          username: u.username,
+          fullName: u.fullName,
+          role: u.role,
+          email: u.email,
+          isActive: u.isActive,
+        }));
+      res.json(inferaEmployees);
+    } catch (error) {
+      res.status(500).json({ error: "فشل في جلب موظفي INFERA" });
     }
   });
 
