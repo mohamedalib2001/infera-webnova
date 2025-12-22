@@ -47,7 +47,8 @@ import {
   Play,
   Box,
   Database,
-  Terminal
+  Terminal,
+  UserCheck
 } from "lucide-react";
 import { SiApple, SiLinux, SiElectron, SiRust, SiPython } from "react-icons/si";
 
@@ -212,13 +213,104 @@ const translations = {
   }
 };
 
-const appTemplates = [
-  { id: "productivity", name: "Productivity Tool", nameAr: "أداة إنتاجية", icon: Zap, color: "#f59e0b" },
-  { id: "media", name: "Media Player", nameAr: "مشغل وسائط", icon: Play, color: "#3b82f6" },
-  { id: "editor", name: "Code Editor", nameAr: "محرر أكواد", icon: FileCode, color: "#10b981" },
-  { id: "dashboard", name: "Dashboard", nameAr: "لوحة تحكم", icon: Layout, color: "#8b5cf6" },
-  { id: "database", name: "Database Manager", nameAr: "مدير قواعد بيانات", icon: Database, color: "#ef4444" },
-  { id: "terminal", name: "Terminal App", nameAr: "تطبيق طرفية", icon: Terminal, color: "#06b6d4" },
+interface AppTemplate {
+  id: string;
+  name: string;
+  nameAr: string;
+  description: string;
+  descriptionAr: string;
+  icon: typeof Zap;
+  color: string;
+  features: Record<string, boolean>;
+  screens: string[];
+  screensAr: string[];
+}
+
+const appTemplates: AppTemplate[] = [
+  { 
+    id: "attendance", 
+    name: "Attendance System", 
+    nameAr: "نظام الحضور والانصراف", 
+    description: "Face recognition attendance with multi-role access control",
+    descriptionAr: "نظام حضور ببصمة الوجه مع صلاحيات متعددة المستويات",
+    icon: UserCheck, 
+    color: "#059669",
+    features: { autoUpdate: true, systemTray: true, fileAccess: true, database: true, notifications: true, darkMode: true },
+    screens: ["Face Capture", "Dashboard", "Reports", "Employees", "Departments", "Roles & Permissions", "User Management", "Shifts", "Settings"],
+    screensAr: ["بصمة الوجه", "لوحة التحكم", "التقارير", "الموظفين", "الأقسام", "الأدوار والصلاحيات", "إدارة المستخدمين", "الورديات", "الإعدادات"]
+  },
+  { 
+    id: "productivity", 
+    name: "Productivity Tool", 
+    nameAr: "أداة إنتاجية", 
+    description: "Task management & productivity tracking",
+    descriptionAr: "إدارة المهام وتتبع الإنتاجية",
+    icon: Zap, 
+    color: "#f59e0b",
+    features: { autoUpdate: true, systemTray: true, notifications: true, database: true, fileAccess: false, darkMode: true },
+    screens: ["Dashboard", "Tasks", "Calendar", "Reports", "Settings"],
+    screensAr: ["لوحة التحكم", "المهام", "التقويم", "التقارير", "الإعدادات"]
+  },
+  { 
+    id: "media", 
+    name: "Media Player", 
+    nameAr: "مشغل وسائط", 
+    description: "Audio & video playback with playlists",
+    descriptionAr: "تشغيل الصوت والفيديو مع قوائم التشغيل",
+    icon: Play, 
+    color: "#3b82f6",
+    features: { autoUpdate: true, fileAccess: true, darkMode: true, systemTray: true, notifications: false, database: false },
+    screens: ["Player", "Library", "Playlists", "Equalizer", "Settings"],
+    screensAr: ["المشغل", "المكتبة", "قوائم التشغيل", "المعادل", "الإعدادات"]
+  },
+  { 
+    id: "editor", 
+    name: "Code Editor", 
+    nameAr: "محرر أكواد", 
+    description: "Multi-language code editor with syntax highlighting",
+    descriptionAr: "محرر أكواد متعدد اللغات مع تمييز الصياغة",
+    icon: FileCode, 
+    color: "#10b981",
+    features: { autoUpdate: true, fileAccess: true, darkMode: true, systemTray: false, notifications: false, database: false },
+    screens: ["Editor", "Explorer", "Terminal", "Extensions", "Settings"],
+    screensAr: ["المحرر", "المستكشف", "الطرفية", "الإضافات", "الإعدادات"]
+  },
+  { 
+    id: "dashboard", 
+    name: "Dashboard", 
+    nameAr: "لوحة تحكم", 
+    description: "Business analytics & monitoring dashboard",
+    descriptionAr: "لوحة تحليلات ومراقبة الأعمال",
+    icon: Layout, 
+    color: "#8b5cf6",
+    features: { autoUpdate: true, database: true, notifications: true, darkMode: true, systemTray: true, fileAccess: false },
+    screens: ["Overview", "Analytics", "Reports", "Alerts", "Settings"],
+    screensAr: ["النظرة العامة", "التحليلات", "التقارير", "التنبيهات", "الإعدادات"]
+  },
+  { 
+    id: "database", 
+    name: "Database Manager", 
+    nameAr: "مدير قواعد بيانات", 
+    description: "SQL & NoSQL database management tool",
+    descriptionAr: "أداة إدارة قواعد بيانات SQL و NoSQL",
+    icon: Database, 
+    color: "#ef4444",
+    features: { autoUpdate: true, fileAccess: true, database: true, darkMode: true, systemTray: false, notifications: false },
+    screens: ["Connections", "Query", "Tables", "Backup", "Settings"],
+    screensAr: ["الاتصالات", "الاستعلام", "الجداول", "النسخ الاحتياطي", "الإعدادات"]
+  },
+  { 
+    id: "terminal", 
+    name: "Terminal App", 
+    nameAr: "تطبيق طرفية", 
+    description: "Advanced terminal emulator with tabs",
+    descriptionAr: "محاكي طرفية متقدم مع تبويبات",
+    icon: Terminal, 
+    color: "#06b6d4",
+    features: { autoUpdate: true, fileAccess: true, darkMode: true, systemTray: true, notifications: false, database: false },
+    screens: ["Terminal", "Sessions", "Themes", "Keybindings", "Settings"],
+    screensAr: ["الطرفية", "الجلسات", "السمات", "اختصارات المفاتيح", "الإعدادات"]
+  },
 ];
 
 interface AppProject {
@@ -266,6 +358,7 @@ export default function DesktopAppBuilder() {
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedProject, setSelectedProject] = useState<AppProject | null>(null);
   const [aiPrompt, setAiPrompt] = useState("");
+  const [selectedTemplate, setSelectedTemplate] = useState<AppTemplate | null>(null);
   
   const [newApp, setNewApp] = useState({
     name: "",
@@ -707,8 +800,28 @@ export default function DesktopAppBuilder() {
                   {appTemplates.map((template) => (
                     <Card 
                       key={template.id} 
-                      className="cursor-pointer hover-elevate"
-                      onClick={() => setNewApp({ ...newApp, name: language === "ar" ? template.nameAr : template.name })}
+                      className={`cursor-pointer hover-elevate transition-all ${selectedTemplate?.id === template.id ? 'ring-2 ring-primary' : ''}`}
+                      onClick={() => {
+                        setSelectedTemplate(template);
+                        setNewApp({ 
+                          ...newApp, 
+                          name: language === "ar" ? template.nameAr : template.name,
+                          description: language === "ar" ? template.descriptionAr : template.description,
+                          features: {
+                            autoUpdate: template.features.autoUpdate || false,
+                            systemTray: template.features.systemTray || false,
+                            fileAccess: template.features.fileAccess || false,
+                            database: template.features.database || false,
+                            notifications: template.features.notifications || false,
+                            darkMode: template.features.darkMode || false,
+                          },
+                          primaryColor: template.color
+                        });
+                        toast({
+                          title: language === "ar" ? "تم تحديد القالب" : "Template Selected",
+                          description: language === "ar" ? template.nameAr : template.name
+                        });
+                      }}
                       data-testid={`template-${template.id}`}
                     >
                       <CardContent className="p-4">
@@ -719,14 +832,50 @@ export default function DesktopAppBuilder() {
                           >
                             <template.icon className="h-5 w-5" style={{ color: template.color }} />
                           </div>
-                          <div>
+                          <div className="flex-1 min-w-0">
                             <p className="font-medium">{language === "ar" ? template.nameAr : template.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {language === "ar" ? template.descriptionAr : template.description}
+                            </p>
                           </div>
+                          {selectedTemplate?.id === template.id && (
+                            <CheckCircle className="h-5 w-5 text-primary shrink-0" />
+                          )}
                         </div>
                       </CardContent>
                     </Card>
                   ))}
                 </div>
+
+                {selectedTemplate && (
+                  <div className="mt-6 p-4 bg-muted/50 rounded-lg">
+                    <h4 className="font-medium mb-3 flex items-center gap-2">
+                      <Layers className="h-4 w-4" />
+                      {language === "ar" ? "الشاشات المضمنة:" : "Included Screens:"}
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {(language === "ar" ? selectedTemplate.screensAr : selectedTemplate.screens).map((screen, idx) => (
+                        <Badge key={idx} variant="secondary" className="text-xs">
+                          {screen}
+                        </Badge>
+                      ))}
+                    </div>
+                    {selectedTemplate.id === "attendance" && (
+                      <div className="mt-4 p-3 bg-primary/10 rounded-md">
+                        <p className="text-sm font-medium text-primary mb-2">
+                          {language === "ar" ? "ميزات إدارة المستخدمين:" : "User Management Features:"}
+                        </p>
+                        <ul className="text-xs text-muted-foreground space-y-1">
+                          <li>{language === "ar" ? "• أدوار متعددة (مدير، مشرف، موظف)" : "• Multiple roles (Admin, Supervisor, Employee)"}</li>
+                          <li>{language === "ar" ? "• صلاحيات عرض الصفحات" : "• Page access permissions"}</li>
+                          <li>{language === "ar" ? "• أقسام وإدارات متعددة" : "• Multiple departments"}</li>
+                          <li>{language === "ar" ? "• التحقق ببصمة الوجه" : "• Face recognition verification"}</li>
+                          <li>{language === "ar" ? "• إدارة الورديات والجداول" : "• Shift & schedule management"}</li>
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

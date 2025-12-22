@@ -48,7 +48,8 @@ import {
   Layout,
   FileCode,
   TestTube,
-  Upload
+  Upload,
+  UserCheck
 } from "lucide-react";
 import { SiAndroid, SiApple, SiFlutter, SiReact, SiKotlin, SiSwift } from "react-icons/si";
 
@@ -191,13 +192,104 @@ const translations = {
   }
 };
 
-const appTemplates = [
-  { id: "ecommerce", name: "E-Commerce", nameAr: "متجر إلكتروني", icon: Package, color: "#f59e0b" },
-  { id: "social", name: "Social Network", nameAr: "شبكة اجتماعية", icon: Globe, color: "#3b82f6" },
-  { id: "fitness", name: "Fitness Tracker", nameAr: "متتبع اللياقة", icon: Zap, color: "#10b981" },
-  { id: "news", name: "News App", nameAr: "تطبيق أخبار", icon: FileCode, color: "#8b5cf6" },
-  { id: "delivery", name: "Delivery App", nameAr: "تطبيق توصيل", icon: MapPin, color: "#ef4444" },
-  { id: "chat", name: "Chat App", nameAr: "تطبيق محادثة", icon: Bell, color: "#06b6d4" },
+interface AppTemplate {
+  id: string;
+  name: string;
+  nameAr: string;
+  description: string;
+  descriptionAr: string;
+  icon: typeof Package;
+  color: string;
+  features: Record<string, boolean>;
+  screens: string[];
+  screensAr: string[];
+}
+
+const appTemplates: AppTemplate[] = [
+  { 
+    id: "attendance", 
+    name: "Attendance System", 
+    nameAr: "نظام الحضور والانصراف", 
+    description: "Face recognition attendance with multi-role access control",
+    descriptionAr: "نظام حضور ببصمة الوجه مع صلاحيات متعددة المستويات",
+    icon: UserCheck, 
+    color: "#059669",
+    features: { biometric: true, camera: true, pushNotifications: true, offline: true, darkMode: true, location: true },
+    screens: ["Face Capture", "Dashboard", "Reports", "Employees", "Departments", "Roles & Permissions", "User Management", "Settings"],
+    screensAr: ["بصمة الوجه", "لوحة التحكم", "التقارير", "الموظفين", "الأقسام", "الأدوار والصلاحيات", "إدارة المستخدمين", "الإعدادات"]
+  },
+  { 
+    id: "ecommerce", 
+    name: "E-Commerce", 
+    nameAr: "متجر إلكتروني", 
+    description: "Full shopping app with cart & payments",
+    descriptionAr: "تطبيق تسوق كامل مع سلة وعمليات دفع",
+    icon: Package, 
+    color: "#f59e0b",
+    features: { pushNotifications: true, offline: true, darkMode: true, location: false, camera: false, biometric: false },
+    screens: ["Home", "Products", "Cart", "Checkout", "Orders", "Profile"],
+    screensAr: ["الرئيسية", "المنتجات", "السلة", "الدفع", "الطلبات", "الملف الشخصي"]
+  },
+  { 
+    id: "social", 
+    name: "Social Network", 
+    nameAr: "شبكة اجتماعية", 
+    description: "Social media with posts & messaging",
+    descriptionAr: "شبكة اجتماعية مع منشورات ورسائل",
+    icon: Globe, 
+    color: "#3b82f6",
+    features: { pushNotifications: true, camera: true, offline: false, darkMode: true, location: false, biometric: false },
+    screens: ["Feed", "Messages", "Notifications", "Profile", "Search", "Settings"],
+    screensAr: ["الخلاصة", "الرسائل", "الإشعارات", "الملف", "البحث", "الإعدادات"]
+  },
+  { 
+    id: "fitness", 
+    name: "Fitness Tracker", 
+    nameAr: "متتبع اللياقة", 
+    description: "Workout tracking & health monitoring",
+    descriptionAr: "تتبع التمارين ومراقبة الصحة",
+    icon: Zap, 
+    color: "#10b981",
+    features: { pushNotifications: true, location: true, offline: true, darkMode: true, camera: false, biometric: false },
+    screens: ["Dashboard", "Workouts", "Progress", "Goals", "Profile"],
+    screensAr: ["لوحة التحكم", "التمارين", "التقدم", "الأهداف", "الملف"]
+  },
+  { 
+    id: "news", 
+    name: "News App", 
+    nameAr: "تطبيق أخبار", 
+    description: "News feed with categories & bookmarks",
+    descriptionAr: "خلاصة أخبار مع فئات وإشارات مرجعية",
+    icon: FileCode, 
+    color: "#8b5cf6",
+    features: { pushNotifications: true, offline: true, darkMode: true, camera: false, location: false, biometric: false },
+    screens: ["Headlines", "Categories", "Bookmarks", "Search", "Settings"],
+    screensAr: ["العناوين", "الفئات", "المحفوظات", "البحث", "الإعدادات"]
+  },
+  { 
+    id: "delivery", 
+    name: "Delivery App", 
+    nameAr: "تطبيق توصيل", 
+    description: "Order tracking & delivery management",
+    descriptionAr: "تتبع الطلبات وإدارة التوصيل",
+    icon: MapPin, 
+    color: "#ef4444",
+    features: { pushNotifications: true, location: true, offline: false, darkMode: true, camera: false, biometric: false },
+    screens: ["Home", "Track Order", "Orders", "Profile", "Support"],
+    screensAr: ["الرئيسية", "تتبع الطلب", "الطلبات", "الملف", "الدعم"]
+  },
+  { 
+    id: "chat", 
+    name: "Chat App", 
+    nameAr: "تطبيق محادثة", 
+    description: "Real-time messaging with groups",
+    descriptionAr: "محادثة فورية مع مجموعات",
+    icon: Bell, 
+    color: "#06b6d4",
+    features: { pushNotifications: true, camera: true, offline: true, darkMode: true, location: false, biometric: false },
+    screens: ["Chats", "Contacts", "Groups", "Calls", "Settings"],
+    screensAr: ["المحادثات", "جهات الاتصال", "المجموعات", "المكالمات", "الإعدادات"]
+  },
 ];
 
 interface AppProject {
@@ -246,6 +338,7 @@ export default function MobileAppBuilder() {
   const [selectedProject, setSelectedProject] = useState<AppProject | null>(null);
   const [aiPrompt, setAiPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<AppTemplate | null>(null);
   
   const [newApp, setNewApp] = useState({
     name: "",
@@ -669,8 +762,28 @@ export default function MobileAppBuilder() {
                   {appTemplates.map((template) => (
                     <Card 
                       key={template.id} 
-                      className="cursor-pointer hover-elevate"
-                      onClick={() => setNewApp({ ...newApp, name: language === "ar" ? template.nameAr : template.name })}
+                      className={`cursor-pointer hover-elevate transition-all ${selectedTemplate?.id === template.id ? 'ring-2 ring-primary' : ''}`}
+                      onClick={() => {
+                        setSelectedTemplate(template);
+                        setNewApp({ 
+                          ...newApp, 
+                          name: language === "ar" ? template.nameAr : template.name,
+                          description: language === "ar" ? template.descriptionAr : template.description,
+                          features: {
+                            pushNotifications: template.features.pushNotifications || false,
+                            camera: template.features.camera || false,
+                            location: template.features.location || false,
+                            offline: template.features.offline || false,
+                            biometric: template.features.biometric || false,
+                            darkMode: template.features.darkMode || false,
+                          },
+                          primaryColor: template.color
+                        });
+                        toast({
+                          title: language === "ar" ? "تم تحديد القالب" : "Template Selected",
+                          description: language === "ar" ? template.nameAr : template.name
+                        });
+                      }}
                       data-testid={`template-${template.id}`}
                     >
                       <CardContent className="p-4">
@@ -681,14 +794,49 @@ export default function MobileAppBuilder() {
                           >
                             <template.icon className="h-5 w-5" style={{ color: template.color }} />
                           </div>
-                          <div>
+                          <div className="flex-1 min-w-0">
                             <p className="font-medium">{language === "ar" ? template.nameAr : template.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {language === "ar" ? template.descriptionAr : template.description}
+                            </p>
                           </div>
+                          {selectedTemplate?.id === template.id && (
+                            <CheckCircle className="h-5 w-5 text-primary shrink-0" />
+                          )}
                         </div>
                       </CardContent>
                     </Card>
                   ))}
                 </div>
+
+                {selectedTemplate && (
+                  <div className="mt-6 p-4 bg-muted/50 rounded-lg">
+                    <h4 className="font-medium mb-3 flex items-center gap-2">
+                      <Layers className="h-4 w-4" />
+                      {language === "ar" ? "الشاشات المضمنة:" : "Included Screens:"}
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {(language === "ar" ? selectedTemplate.screensAr : selectedTemplate.screens).map((screen, idx) => (
+                        <Badge key={idx} variant="secondary" className="text-xs">
+                          {screen}
+                        </Badge>
+                      ))}
+                    </div>
+                    {selectedTemplate.id === "attendance" && (
+                      <div className="mt-4 p-3 bg-primary/10 rounded-md">
+                        <p className="text-sm font-medium text-primary mb-2">
+                          {language === "ar" ? "ميزات إدارة المستخدمين:" : "User Management Features:"}
+                        </p>
+                        <ul className="text-xs text-muted-foreground space-y-1">
+                          <li>{language === "ar" ? "• أدوار متعددة (مدير، مشرف، موظف)" : "• Multiple roles (Admin, Supervisor, Employee)"}</li>
+                          <li>{language === "ar" ? "• صلاحيات عرض الصفحات" : "• Page access permissions"}</li>
+                          <li>{language === "ar" ? "• أقسام وإدارات متعددة" : "• Multiple departments"}</li>
+                          <li>{language === "ar" ? "• التحقق ببصمة الوجه" : "• Face recognition verification"}</li>
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
