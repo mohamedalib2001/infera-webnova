@@ -4,7 +4,7 @@
  * يظهر فقط للحساب السيادي (owner/sovereign)
  */
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
@@ -492,13 +492,10 @@ export function SovereignIndicator() {
   // Check if user is sovereign (owner or sovereign role)
   const isSovereign = user?.role === 'owner' || user?.role === 'sovereign';
   
-  // Don't render if not sovereign
-  if (!isAuthenticated || !isSovereign) {
-    return null;
-  }
-  
   // Run analysis with real API (Claude AI)
-  const runAnalysis = async () => {
+  const runAnalysis = useCallback(async () => {
+    if (!isSovereign || !isAuthenticated) return;
+    
     setIsAnalyzing(true);
     
     const services = pageServicesMap[location] || pageServicesMap['/'] || [];
@@ -528,21 +525,26 @@ export function SovereignIndicator() {
     } finally {
       setIsAnalyzing(false);
     }
-  };
+  }, [location, isSovereign, isAuthenticated]);
   
   useEffect(() => {
-    if (isOpen && !analysis) {
+    if (isOpen && !analysis && isSovereign && isAuthenticated) {
       runAnalysis();
     }
-  }, [isOpen]);
+  }, [isOpen, analysis, isSovereign, isAuthenticated, runAnalysis]);
   
   // Re-analyze when location changes
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && isSovereign && isAuthenticated) {
       setAnalysis(null);
       runAnalysis();
     }
-  }, [location]);
+  }, [location, isSovereign, isAuthenticated]);
+  
+  // Don't render if not sovereign
+  if (!isAuthenticated || !isSovereign) {
+    return null;
+  }
   
   return (
     <div className="fixed bottom-6 right-6 z-[9999]" dir={isRtl ? 'rtl' : 'ltr'}>
