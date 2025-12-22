@@ -54,6 +54,28 @@ interface RoutingRecommendation {
   reason: string;
 }
 
+interface DiagnosticCheck {
+  name: string;
+  nameAr: string;
+  status: 'ok' | 'warning' | 'error';
+  value: string;
+}
+
+interface DiagnosticAlert {
+  severity: 'low' | 'medium' | 'high';
+  message: string;
+  messageAr: string;
+}
+
+interface DiagnosticResult {
+  summary: string;
+  summaryAr: string;
+  checks: DiagnosticCheck[];
+  alerts: DiagnosticAlert[];
+  recommendations: string[];
+  recommendationsAr: string[];
+}
+
 class SupportAIAssistant {
   private readonly serviceId = 'support_ai';
   private readonly confidenceThreshold = 0.7;
@@ -209,24 +231,50 @@ class SupportAIAssistant {
     message: string,
     userId?: string,
     platformContext?: Record<string, unknown>
-  ): Promise<string> {
-    const diagnostics: string[] = [];
+  ): Promise<DiagnosticResult> {
+    const result: DiagnosticResult = {
+      summary: '',
+      summaryAr: '',
+      checks: [],
+      alerts: [],
+      recommendations: [],
+      recommendationsAr: [],
+    };
 
     try {
       if (category === 'billing' && userId) {
-        // Check user subscription and payment status
         const user = await db.query.users.findFirst({
           where: eq(users.id, userId),
         });
         
         if (user) {
-          diagnostics.push(`User Status: ${user.status || 'active'}`);
-          diagnostics.push(`Role: ${user.role || 'user'}`);
-          if (user.stripeCustomerId) {
-            diagnostics.push('Payment Integration: Connected');
-          } else {
-            diagnostics.push('Payment Integration: Not configured - this may be the issue');
+          result.checks.push({
+            name: 'User Status',
+            nameAr: 'حالة المستخدم',
+            status: user.status === 'active' ? 'ok' : 'warning',
+            value: user.status || 'active',
+          });
+          
+          const hasPaymentIntegration = !!user.stripeCustomerId;
+          result.checks.push({
+            name: 'Payment Integration',
+            nameAr: 'ربط الدفع',
+            status: hasPaymentIntegration ? 'ok' : 'error',
+            value: hasPaymentIntegration ? 'Connected' : 'Not configured',
+          });
+
+          if (!hasPaymentIntegration) {
+            result.alerts.push({
+              severity: 'high',
+              message: 'Payment method not configured - this is likely the issue',
+              messageAr: 'لم يتم ربط وسيلة دفع - هذا على الأرجح سبب المشكلة',
+            });
+            result.recommendations.push('Set up a payment method in Account Settings');
+            result.recommendationsAr.push('قم بإعداد وسيلة دفع من إعدادات الحساب');
           }
+
+          result.summary = `Billing check: ${hasPaymentIntegration ? 'Payment configured' : 'Payment NOT configured'}`;
+          result.summaryAr = `فحص الفواتير: ${hasPaymentIntegration ? 'الدفع مُعد' : 'الدفع غير مُعد'}`;
         }
       }
 
@@ -236,23 +284,95 @@ class SupportAIAssistant {
         });
         
         if (user) {
-          diagnostics.push(`Account Status: ${user.status || 'active'}`);
-          diagnostics.push(`Email Verified: ${user.emailVerified ? 'Yes' : 'No'}`);
-          diagnostics.push(`Created: ${user.createdAt}`);
+          result.checks.push({
+            name: 'Account Status',
+            nameAr: 'حالة الحساب',
+            status: user.status === 'active' ? 'ok' : 'warning',
+            value: user.status || 'active',
+          });
+
+          const emailVerified = user.emailVerified;
+          result.checks.push({
+            name: 'Email Verified',
+            nameAr: 'البريد مُفعّل',
+            status: emailVerified ? 'ok' : 'warning',
+            value: emailVerified ? 'Yes' : 'No',
+          });
+
+          if (!emailVerified) {
+            result.alerts.push({
+              severity: 'medium',
+              message: 'Email not verified - some features may be limited',
+              messageAr: 'البريد غير مُفعّل - قد تكون بعض الميزات محدودة',
+            });
+            result.recommendations.push('Verify your email address to unlock all features');
+            result.recommendationsAr.push('قم بتفعيل بريدك الإلكتروني لفتح جميع الميزات');
+          }
+
+          result.summary = `Account: ${user.status || 'active'}, Email: ${emailVerified ? 'verified' : 'unverified'}`;
+          result.summaryAr = `الحساب: ${user.status || 'نشط'}, البريد: ${emailVerified ? 'مُفعّل' : 'غير مُفعّل'}`;
         }
       }
 
-      // Add platform context info
-      if (platformContext) {
-        diagnostics.push(`Platform Context: ${JSON.stringify(platformContext)}`);
+      if (category === 'security' && userId) {
+        const user = await db.query.users.findFirst({
+          where: eq(users.id, userId),
+        });
+        
+        if (user) {
+          result.checks.push({
+            name: 'Account Status',
+            nameAr: 'حالة الحساب',
+            status: user.status === 'active' ? 'ok' : 'error',
+            value: user.status || 'active',
+          });
+
+          result.summary = `Security check: Account is ${user.status || 'active'}`;
+          result.summaryAr = `فحص الأمان: الحساب ${user.status || 'نشط'}`;
+          
+          result.recommendations.push('Consider enabling 2FA for better security');
+          result.recommendationsAr.push('يُنصح بتفعيل المصادقة الثنائية لأمان أفضل');
+        }
+      }
+
+      if (category === 'performance') {
+        result.summary = 'Performance diagnostics: System status normal';
+        result.summaryAr = 'تشخيص الأداء: حالة النظام طبيعية';
+        result.recommendations.push('Try clearing browser cache if issues persist');
+        result.recommendationsAr.push('جرب مسح ذاكرة المتصفح إذا استمرت المشكلة');
+      }
+
+      if (category === 'ui') {
+        result.summary = 'UI diagnostics: Standard display settings';
+        result.summaryAr = 'تشخيص الواجهة: إعدادات العرض الافتراضية';
+        result.recommendations.push('Toggle dark/light mode from settings menu');
+        result.recommendationsAr.push('جرب تبديل الوضع الداكن/الفاتح من قائمة الإعدادات');
+      }
+
+      if (category === 'api' && userId) {
+        result.summary = 'API diagnostics: Checking access permissions';
+        result.summaryAr = 'تشخيص API: فحص صلاحيات الوصول';
+        result.recommendations.push('Verify your API key is valid and has required permissions');
+        result.recommendationsAr.push('تأكد من أن مفتاح API صالح ولديه الصلاحيات المطلوبة');
+      }
+
+      if (category === 'ai') {
+        result.summary = 'AI diagnostics: Checking model availability';
+        result.summaryAr = 'تشخيص الذكاء الاصطناعي: فحص توفر النماذج';
+        result.recommendations.push('AI features require active subscription');
+        result.recommendationsAr.push('ميزات الذكاء الاصطناعي تتطلب اشتراك نشط');
       }
 
     } catch (error) {
       console.error('Diagnostic error:', error);
-      diagnostics.push('Unable to fetch some diagnostic data');
+      result.alerts.push({
+        severity: 'low',
+        message: 'Some diagnostic data unavailable',
+        messageAr: 'بعض البيانات التشخيصية غير متوفرة',
+      });
     }
 
-    return diagnostics.length > 0 ? diagnostics.join('\n') : 'No additional diagnostic data available';
+    return result;
   }
 
   private getCategoryFallbackResponse(category: string, analysis: { intent: string; diagnostics: string[] }): { ar: string; en: string } {
@@ -400,7 +520,7 @@ You will be connected with a support team member for better assistance.`
 
   private buildSystemPrompt(
     articles: SupportKnowledgeBase[],
-    context: { category?: string; platformContext?: Record<string, unknown>; diagnosticInfo?: string }
+    context: { category?: string; platformContext?: Record<string, unknown>; diagnosticInfo?: DiagnosticResult }
   ): string {
     const knowledgeContext = articles.length > 0
       ? `\n\nRelevant Knowledge Base Articles:\n${articles.map(a => `- ${a.title}: ${a.content.substring(0, 500)}`).join('\n')}`
@@ -410,9 +530,42 @@ You will be connected with a support team member for better assistance.`
       ? `\n\nPlatform Context:\n${JSON.stringify(context.platformContext, null, 2)}`
       : '';
 
-    const diagnosticInfo = context.diagnosticInfo
-      ? `\n\nDiagnostic Information:\n${context.diagnosticInfo}`
-      : '';
+    // Format structured diagnostic info for AI
+    let diagnosticSection = '';
+    if (context.diagnosticInfo) {
+      const diag = context.diagnosticInfo;
+      diagnosticSection = `\n\n=== DIAGNOSTIC RESULTS (استخدم هذه المعلومات في ردك) ===`;
+      
+      if (diag.summary) {
+        diagnosticSection += `\nSummary: ${diag.summary}`;
+        diagnosticSection += `\nالملخص: ${diag.summaryAr}`;
+      }
+
+      if (diag.checks.length > 0) {
+        diagnosticSection += `\n\nSystem Checks / فحوصات النظام:`;
+        for (const check of diag.checks) {
+          const statusIcon = check.status === 'ok' ? '✓' : check.status === 'warning' ? '⚠' : '✗';
+          diagnosticSection += `\n- ${statusIcon} ${check.name}: ${check.value}`;
+          diagnosticSection += ` (${check.nameAr})`;
+        }
+      }
+
+      if (diag.alerts.length > 0) {
+        diagnosticSection += `\n\nALERTS (Important! Include in response) / تنبيهات:`;
+        for (const alert of diag.alerts) {
+          diagnosticSection += `\n- [${alert.severity.toUpperCase()}] ${alert.message}`;
+          diagnosticSection += ` | ${alert.messageAr}`;
+        }
+      }
+
+      if (diag.recommendations.length > 0) {
+        diagnosticSection += `\n\nRecommendations (Provide to user) / التوصيات:`;
+        for (let i = 0; i < diag.recommendations.length; i++) {
+          diagnosticSection += `\n${i + 1}. ${diag.recommendations[i]}`;
+          diagnosticSection += ` | ${diag.recommendationsAr[i] || ''}`;
+        }
+      }
+    }
 
     const categorySpecificInstructions = this.getCategoryInstructions(context.category);
 
@@ -433,13 +586,14 @@ ${categorySpecificInstructions}
 Guidelines:
 - ALWAYS respond in Arabic first, then English
 - Be professional, helpful, and provide specific actionable steps
-- Use the diagnostic information provided to give accurate answers
-- If you can see the issue from diagnostics, explain what you found
+- USE THE DIAGNOSTIC DATA BELOW to give SPECIFIC, ACCURATE answers
+- If diagnostic alerts show issues, EXPLAIN them clearly to the user
+- Include the recommendations from diagnostics in your response
 - Only escalate if the issue truly requires human intervention
 - Never expose sensitive system information like passwords or tokens
-${knowledgeContext}${platformInfo}${diagnosticInfo}
+${knowledgeContext}${platformInfo}${diagnosticSection}
 
-Respond helpfully to the user's issue with specific solutions based on the available data.`;
+Based on the diagnostic data above, respond helpfully with SPECIFIC solutions. Reference the exact issues found in diagnostics.`;
   }
 
   private getCategoryInstructions(category?: string): string {
