@@ -1052,3 +1052,208 @@ export async function getUserRecentSessions(userId: string, limit: number = 20) 
     return [];
   }
 }
+
+// ============================================
+// Send Deletion Notification Email
+// ============================================
+export async function sendDeletionNotificationEmail(
+  user: { email: string | null; fullName?: string | null; username?: string | null; preferredLanguage?: string | null },
+  wasSuccessful: boolean,
+  entityType: string,
+  entityDetails: { name?: string },
+  ipAddress: string,
+  userAgent: string,
+  storage?: any
+): Promise<boolean> {
+  try {
+    if (!user.email) {
+      console.log('[Deletion Email] No email for user, skipping notification');
+      return false;
+    }
+
+    const nodemailer = await import('nodemailer');
+    const { getEmailConfigFromDb } = await import('./email');
+    
+    let config = storage ? await getEmailConfigFromDb(storage) : null;
+    
+    if (!config) {
+      const host = process.env.SMTP_HOST;
+      const smtpUser = process.env.SMTP_USER;
+      const pass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS;
+      
+      if (!host || !smtpUser || !pass) {
+        console.log(`[DEV MODE] Deletion notification for ${user.email}`);
+        console.log(`  Entity: ${entityType} - ${entityDetails?.name}`);
+        console.log(`  Success: ${wasSuccessful}`);
+        return true;
+      }
+      
+      config = {
+        host,
+        port: parseInt(process.env.SMTP_PORT || '587'),
+        secure: process.env.SMTP_SECURE === 'true',
+        user: smtpUser,
+        pass,
+        from: process.env.SMTP_FROM_EMAIL || smtpUser,
+      };
+    }
+
+    const isRTL = user.preferredLanguage === 'ar';
+    const userName = user.fullName || user.username || 'User';
+    const entityName = entityDetails?.name || entityType;
+    const device = parseUserAgent(userAgent);
+    const geo = await getGeolocation(ipAddress);
+    const now = new Date();
+    const formattedTime = formatDateTime(now, geo.timezone, isRTL);
+
+    const entityTypeAr: Record<string, string> = {
+      platform: 'منصة',
+      project: 'مشروع',
+      file: 'ملف',
+      user: 'مستخدم',
+      domain: 'نطاق',
+    };
+
+    const subject = isRTL 
+      ? (wasSuccessful 
+        ? `تم حذف ${entityTypeAr[entityType] || entityType}: ${entityName} - INFERA WebNova`
+        : `فشل في حذف ${entityTypeAr[entityType] || entityType} - INFERA WebNova`)
+      : (wasSuccessful 
+        ? `${entityType} Deleted: ${entityName} - INFERA WebNova`
+        : `Failed to Delete ${entityType} - INFERA WebNova`);
+
+    const title = isRTL 
+      ? (wasSuccessful ? 'تم حذف عنصر من حسابك' : 'فشلت عملية الحذف')
+      : (wasSuccessful ? 'An Item Was Deleted' : 'Deletion Failed');
+    
+    const greeting = isRTL ? `مرحباً ${userName}،` : `Hello ${userName},`;
+    
+    const intro = isRTL 
+      ? (wasSuccessful 
+        ? `تم حذف ${entityTypeAr[entityType] || entityType} "${entityName}" من حسابك. سيبقى في سلة المحذوفات لمدة 30 يوماً.`
+        : `فشلت محاولة حذف ${entityTypeAr[entityType] || entityType} "${entityName}" من حسابك.`)
+      : (wasSuccessful 
+        ? `The ${entityType} "${entityName}" has been deleted from your account. It will remain in the recycle bin for 30 days.`
+        : `An attempt to delete the ${entityType} "${entityName}" from your account has failed.`);
+
+    const securityNotice = isRTL
+      ? 'إذا لم تكن أنت من قام بهذا الإجراء، يرجى تغيير كلمة المرور فوراً والتواصل مع الدعم.'
+      : "If this wasn't you, please change your password immediately and contact support.";
+
+    const trashIcon = `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`;
+    const alertIcon = `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
+
+    const content = `
+      <tr>
+        <td style="padding: 40px 40px 0 40px;" align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="background: ${wasSuccessful ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'}; padding: 16px; border-radius: 50%;">
+                ${wasSuccessful ? trashIcon : alertIcon}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 24px 40px 0 40px;" align="center">
+          <h1 style="margin: 0; color: ${BRAND.text}; font-size: 24px; font-weight: 700;">${title}</h1>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 16px 40px 0 40px;">
+          <p style="margin: 0; color: ${BRAND.text}; font-size: 16px; line-height: 1.6;">${greeting}</p>
+          <p style="margin: 16px 0 0 0; color: ${BRAND.textSecondary}; font-size: 15px; line-height: 1.6;">${intro}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 24px 40px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: ${BRAND.background}; border-radius: 12px; border: 1px solid ${BRAND.border};">
+            <tr>
+              <td style="padding: 20px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="padding: 8px 0;">
+                      <span style="color: ${BRAND.textSecondary}; font-size: 13px;">${isRTL ? 'العنصر المحذوف' : 'Deleted Item'}</span>
+                      <p style="margin: 4px 0 0 0; color: ${BRAND.text}; font-size: 15px; font-weight: 600;">${entityName}</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0;">
+                      <span style="color: ${BRAND.textSecondary}; font-size: 13px;">${isRTL ? 'النوع' : 'Type'}</span>
+                      <p style="margin: 4px 0 0 0; color: ${BRAND.text}; font-size: 15px; font-weight: 600;">${entityTypeAr[entityType] || entityType}</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0;">
+                      <span style="color: ${BRAND.textSecondary}; font-size: 13px;">${isRTL ? 'الوقت' : 'Time'}</span>
+                      <p style="margin: 4px 0 0 0; color: ${BRAND.text}; font-size: 15px; font-weight: 600;">${formattedTime}</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0;">
+                      <span style="color: ${BRAND.textSecondary}; font-size: 13px;">${isRTL ? 'الموقع' : 'Location'}</span>
+                      <p style="margin: 4px 0 0 0; color: ${BRAND.text}; font-size: 15px; font-weight: 600;">${geo.city}, ${geo.country}</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0;">
+                      <span style="color: ${BRAND.textSecondary}; font-size: 13px;">${isRTL ? 'الجهاز' : 'Device'}</span>
+                      <p style="margin: 4px 0 0 0; color: ${BRAND.text}; font-size: 15px; font-weight: 600;">${device.browser} on ${device.os}</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0;">
+                      <span style="color: ${BRAND.textSecondary}; font-size: 13px;">${isRTL ? 'عنوان IP' : 'IP Address'}</span>
+                      <p style="margin: 4px 0 0 0; color: ${BRAND.text}; font-size: 15px; font-weight: 600;">${geo.ip}</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 0 40px 40px 40px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: rgba(245, 158, 11, 0.1); border-radius: 12px; border: 1px solid rgba(245, 158, 11, 0.3);">
+            <tr>
+              <td style="padding: 16px;">
+                <p style="margin: 0; color: #d97706; font-size: 14px; line-height: 1.6;">${securityNotice}</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    `;
+
+    const html = getEmailWrapper(content, isRTL);
+
+    const transporter = nodemailer.createTransport({
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      auth: {
+        user: config.user,
+        pass: config.pass,
+      },
+    });
+
+    const fromAddress = config.from && config.from.includes('@') 
+      ? config.from 
+      : `INFERA WebNova <${config.user}>`;
+
+    await transporter.sendMail({
+      from: fromAddress,
+      to: user.email,
+      subject,
+      html,
+    });
+
+    console.log(`[Deletion Email] Sent to ${user.email} for ${entityType}: ${entityName}`);
+    return true;
+  } catch (error) {
+    console.error('Failed to send deletion notification:', error);
+    return false;
+  }
+}

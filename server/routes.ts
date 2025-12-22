@@ -21,6 +21,7 @@ import {
   endLoginSession,
   sendLoginNotification,
   sendLogoutNotification,
+  sendDeletionNotificationEmail,
   getGeolocation,
   parseUserAgent,
 } from "./login-notifications";
@@ -2372,7 +2373,7 @@ export async function registerRoutes(
     }
   });
 
-  // Delete project - with ownership check
+  // Delete project - with ownership check, recycle bin, audit log, and email notification
   app.delete("/api/projects/:id", async (req, res) => {
     try {
       // Get authenticated user
@@ -2397,16 +2398,101 @@ export async function registerRoutes(
       
       // Allow owner role to delete any project, or project owner
       const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+      
       if (project.userId !== userId && user?.role !== "owner") {
         return res.status(403).json({ error: "Not authorized to delete this project" });
       }
       
+      const ipAddress = req.headers["x-forwarded-for"]?.toString().split(",")[0] || 
+                        req.headers["x-real-ip"]?.toString() || 
+                        req.socket?.remoteAddress || "unknown";
+      const userAgent = req.headers["user-agent"] || "unknown";
+      
+      // 1. Soft delete the project (set deletedAt)
       const deleted = await storage.deleteProject(req.params.id);
       if (!deleted) {
         return res.status(500).json({ error: "Failed to delete project" });
       }
+      
+      // 2. Add to deleted_items table for recycle bin tracking
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 30); // 30 days retention
+      
+      try {
+        const deletedItem = await storage.createDeletedItem({
+          entityType: "platform",
+          entityId: req.params.id,
+          entityName: project.name,
+          entityData: {
+            id: project.id,
+            name: project.name,
+            description: project.description,
+            industry: project.industry,
+            language: project.language,
+            isPublished: project.isPublished,
+            customDomain: project.customDomain,
+          },
+          deletedBy: userId,
+          deletedByRole: user.role || "user",
+          deletedByEmail: user.email || "",
+          deletedByFullName: user.fullName || user.username || "",
+          deletedByAccountStatus: user.status || "active",
+          deletionType: "manual",
+          deletionReason: "User deleted platform",
+          retentionDays: 30,
+          expiresAt,
+          status: "recoverable",
+          ipAddress,
+        });
+        
+        // 3. Add to recycle bin
+        await storage.addToRecycleBin({
+          deletedItemId: deletedItem.id,
+          ownerId: userId,
+          entityType: "platform",
+          entityName: project.name,
+          scheduledPurgeAt: expiresAt,
+          priority: "normal",
+        });
+        
+        // 4. Create audit log entry
+        await storage.createDeletionAuditLog({
+          action: "delete",
+          actionBy: userId,
+          actionByRole: user.role || "user",
+          targetType: "platform",
+          targetId: req.params.id,
+          targetName: project.name,
+          previousState: {
+            id: project.id,
+            name: project.name,
+            status: project.status || "active",
+          },
+          newState: { status: "deleted", deletedAt: new Date().toISOString() },
+          reason: "User deleted platform",
+          ipAddress,
+          userAgent,
+        });
+        
+        console.log(`[Audit] Platform "${project.name}" deleted by ${user.email} from ${ipAddress}`);
+      } catch (trackingError) {
+        console.error("Failed to create deletion tracking records:", trackingError);
+        // Continue even if tracking fails - the project is already deleted
+      }
+      
+      // 5. Send deletion notification email
+      try {
+        await sendDeletionNotificationEmail(user, true, "platform", { name: project.name }, ipAddress, userAgent);
+      } catch (emailError) {
+        console.error("Failed to send deletion email:", emailError);
+      }
+      
       res.status(204).send();
     } catch (error) {
+      console.error("Failed to delete project:", error);
       res.status(500).json({ error: "Failed to delete project" });
     }
   });
