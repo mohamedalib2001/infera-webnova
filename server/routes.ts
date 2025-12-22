@@ -9399,6 +9399,50 @@ ${project.description || ""}
     }
   });
 
+  // Download all artifacts as structured JSON (can be converted to files client-side)
+  app.get("/api/ai-builder/sessions/:sessionId/download", async (req, res) => {
+    try {
+      const session = await storage.getAiBuildSession(req.params.sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "الجلسة غير موجودة / Session not found" });
+      }
+      
+      // Security: Verify user owns this session
+      const userId = req.session?.userId;
+      if (session.userId && session.userId !== userId) {
+        return res.status(403).json({ error: "غير مصرح لك بالوصول لهذه الجلسة / Not authorized to access this session" });
+      }
+      
+      const artifacts = await storage.getAiBuildArtifacts(req.params.sessionId);
+      
+      const projectStructure = {
+        projectName: session.appName || "generated-project",
+        projectNameAr: session.appNameAr || "مشروع مُولد",
+        generatedAt: new Date().toISOString(),
+        plan: session.plan,
+        techStack: session.plan?.techStack,
+        files: artifacts.map(a => ({
+          path: a.filePath,
+          name: a.fileName,
+          type: a.fileType,
+          category: a.category,
+          content: a.content,
+        })),
+        schema: session.generatedSchema,
+        backend: session.generatedBackend,
+        frontend: session.generatedFrontend,
+        styles: session.generatedStyles,
+      };
+      
+      const fileName = `${(session.appName || 'project').replace(/[^a-zA-Z0-9-_]/g, '-')}-blueprint.json`;
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.send(JSON.stringify(projectStructure, null, 2));
+    } catch (error) {
+      res.status(500).json({ error: "فشل في تحميل الملفات / Failed to download files" });
+    }
+  });
+
   // ============ Cloud IDE Routes - بيئة التطوير السحابية ============
 
   // Get all dev projects

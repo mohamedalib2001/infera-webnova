@@ -37,7 +37,11 @@ import {
   FileText,
   Layers,
   Shield,
-  Zap
+  Zap,
+  Download,
+  Eye,
+  Copy,
+  Check,
 } from "lucide-react";
 import type { AiBuildSession, AiBuildTask, AiBuildArtifact } from "@shared/schema";
 
@@ -128,8 +132,26 @@ const complexityColors: Record<string, string> = {
 export default function AiAppBuilder() {
   const [prompt, setPrompt] = useState("");
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [copiedSection, setCopiedSection] = useState<string | null>(null);
   const { toast } = useToast();
   const [, navigate] = useLocation();
+
+  const copyToClipboard = async (text: string, section: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedSection(section);
+      setTimeout(() => setCopiedSection(null), 2000);
+      toast({
+        title: "تم النسخ / Copied",
+        description: "تم نسخ الكود للحافظة / Code copied to clipboard",
+      });
+    } catch {
+      toast({
+        title: "فشل النسخ / Copy failed",
+        variant: "destructive",
+      });
+    }
+  };
 
   const { data: sessions = [], isLoading: sessionsLoading } = useQuery<AiBuildSession[]>({
     queryKey: ["/api/ai-builder/sessions"],
@@ -424,11 +446,52 @@ Example: I want an HR platform with employee management, leave requests, attenda
             {activeSessionId && sessionDetails?.artifacts && sessionDetails.artifacts.length > 0 && (
               <Card className="border-border/60">
                 <CardHeader className="pb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                      <FileCode className="w-5 h-5 text-foreground" />
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                        <FileCode className="w-5 h-5 text-foreground" />
+                      </div>
+                      <CardTitle className="text-lg">الملفات المُنشأة / Generated Files</CardTitle>
                     </div>
-                    <CardTitle className="text-lg">الملفات المُنشأة / Generated Files</CardTitle>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      onClick={async () => {
+                        try {
+                          const response = await fetch(`/api/ai-builder/sessions/${activeSessionId}/download`, {
+                            credentials: 'include',
+                          });
+                          if (!response.ok) {
+                            const error = await response.json();
+                            throw new Error(error.error || 'Download failed');
+                          }
+                          const blob = await response.blob();
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `${sessionDetails?.session.appName || 'project'}-blueprint.json`;
+                          document.body.appendChild(a);
+                          a.click();
+                          window.URL.revokeObjectURL(url);
+                          a.remove();
+                          toast({
+                            title: "تم التحميل / Downloaded",
+                            description: "تم تحميل Blueprint بنجاح / Blueprint downloaded successfully",
+                          });
+                        } catch (error) {
+                          toast({
+                            title: "فشل التحميل / Download failed",
+                            description: error instanceof Error ? error.message : "Unknown error",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      data-testid="button-download-blueprint"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span className="hidden sm:inline">تحميل Blueprint</span>
+                    </Button>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -459,25 +522,64 @@ Example: I want an HR platform with employee management, leave requests, attenda
                       </ScrollArea>
                     </TabsContent>
                     <TabsContent value="schema" className="mt-4">
-                      <ScrollArea className="h-[280px]">
-                        <pre className="text-xs bg-muted p-4 rounded-lg overflow-x-auto font-mono">
-                          {sessionDetails.session.generatedSchema || "لم يتم إنشاء قاعدة البيانات بعد / Schema not generated yet"}
-                        </pre>
-                      </ScrollArea>
+                      <div className="relative">
+                        {sessionDetails.session.generatedSchema && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-2 right-2 z-10"
+                            onClick={() => copyToClipboard(sessionDetails.session.generatedSchema!, "schema")}
+                            data-testid="button-copy-schema"
+                          >
+                            {copiedSection === "schema" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                          </Button>
+                        )}
+                        <ScrollArea className="h-[280px]">
+                          <pre className="text-xs bg-muted p-4 rounded-lg overflow-x-auto font-mono">
+                            {sessionDetails.session.generatedSchema || "لم يتم إنشاء قاعدة البيانات بعد / Schema not generated yet"}
+                          </pre>
+                        </ScrollArea>
+                      </div>
                     </TabsContent>
                     <TabsContent value="backend" className="mt-4">
-                      <ScrollArea className="h-[280px]">
-                        <pre className="text-xs bg-muted p-4 rounded-lg overflow-x-auto font-mono">
-                          {sessionDetails.session.generatedBackend || "لم يتم إنشاء الخلفية بعد / Backend not generated yet"}
-                        </pre>
-                      </ScrollArea>
+                      <div className="relative">
+                        {sessionDetails.session.generatedBackend && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-2 right-2 z-10"
+                            onClick={() => copyToClipboard(sessionDetails.session.generatedBackend!, "backend")}
+                            data-testid="button-copy-backend"
+                          >
+                            {copiedSection === "backend" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                          </Button>
+                        )}
+                        <ScrollArea className="h-[280px]">
+                          <pre className="text-xs bg-muted p-4 rounded-lg overflow-x-auto font-mono">
+                            {sessionDetails.session.generatedBackend || "لم يتم إنشاء الخلفية بعد / Backend not generated yet"}
+                          </pre>
+                        </ScrollArea>
+                      </div>
                     </TabsContent>
                     <TabsContent value="frontend" className="mt-4">
-                      <ScrollArea className="h-[280px]">
-                        <pre className="text-xs bg-muted p-4 rounded-lg overflow-x-auto font-mono">
-                          {sessionDetails.session.generatedFrontend || "لم يتم إنشاء الواجهة بعد / Frontend not generated yet"}
-                        </pre>
-                      </ScrollArea>
+                      <div className="relative">
+                        {sessionDetails.session.generatedFrontend && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-2 right-2 z-10"
+                            onClick={() => copyToClipboard(sessionDetails.session.generatedFrontend!, "frontend")}
+                            data-testid="button-copy-frontend"
+                          >
+                            {copiedSection === "frontend" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                          </Button>
+                        )}
+                        <ScrollArea className="h-[280px]">
+                          <pre className="text-xs bg-muted p-4 rounded-lg overflow-x-auto font-mono">
+                            {sessionDetails.session.generatedFrontend || "لم يتم إنشاء الواجهة بعد / Frontend not generated yet"}
+                          </pre>
+                        </ScrollArea>
+                      </div>
                     </TabsContent>
                   </Tabs>
                 </CardContent>
