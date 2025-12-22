@@ -129,10 +129,22 @@ export default function SSHVault() {
         setAuthStep("email_code");
       }
     },
-    onError: () => {
+    onError: (error: any) => {
+      const errorMessage = error?.message || "";
+      let title = isRtl ? "خطأ في المصادقة" : "Authentication Error";
+      let description = isRtl ? "كلمة المرور غير صحيحة" : "Invalid password";
+      
+      if (errorMessage.includes("Unauthorized") || errorMessage.includes("401")) {
+        title = isRtl ? "غير مسجل الدخول" : "Not Logged In";
+        description = isRtl ? "يرجى تسجيل الدخول أولاً" : "Please log in first";
+      } else if (errorMessage.includes("Sovereign") || errorMessage.includes("403")) {
+        title = isRtl ? "غير مصرح" : "Access Denied";
+        description = isRtl ? "هذه الميزة متاحة فقط للحساب السيادي" : "This feature is only available for sovereign accounts";
+      }
+      
       toast({
-        title: isRtl ? "خطأ في المصادقة" : "Authentication Error",
-        description: isRtl ? "كلمة المرور غير صحيحة" : "Invalid password",
+        title,
+        description,
         variant: "destructive",
       });
     },
