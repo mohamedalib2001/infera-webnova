@@ -118,6 +118,24 @@ interface ExecutiveRecommendation {
   globalStandard: string; // Which global standard this addresses
 }
 
+// Cutting-edge tool recommendation for reaching 100%
+interface CuttingEdgeTool {
+  id: string;
+  name: string;
+  nameAr: string;
+  category: 'ai' | 'devops' | 'security' | 'testing' | 'monitoring' | 'automation' | 'analytics' | 'infrastructure';
+  description: string;
+  descriptionAr: string;
+  vendor: string;
+  releaseYear: number;
+  adoptionRate: string; // e.g., "85% of Fortune 500"
+  impact: number;
+  benefits: { en: string; ar: string }[];
+  integrationSteps: { en: string; ar: string }[];
+  globalStandards: string[];
+  useCases: { en: string; ar: string }[];
+}
+
 interface GapAnalysis {
   currentScore: number;
   targetScore: number;
@@ -126,6 +144,7 @@ interface GapAnalysis {
   legacySystems: { name: string; nameAr: string; issue: string; issueAr: string }[];
   aiOpportunities: { area: string; areaAr: string; benefit: string; benefitAr: string }[];
   executiveRecommendations: ExecutiveRecommendation[];
+  cuttingEdgeTools: CuttingEdgeTool[];
 }
 
 interface FullAnalysis {
@@ -216,6 +235,16 @@ const translations = {
     targetScore: "النتيجة المستهدفة",
     gapToClose: "الفجوة للإغلاق",
     pathTo100: "المسار للوصول إلى 100%",
+    cuttingEdgeTools: "أحدث الأدوات العالمية",
+    latestTech: "أحدث التقنيات",
+    vendor: "المزود",
+    adoptionRate: "نسبة الاعتماد",
+    benefits: "الفوائد",
+    integrationSteps: "خطوات التكامل",
+    useCases: "حالات الاستخدام",
+    standards: "المعايير",
+    viewDetails: "عرض التفاصيل",
+    hideDetails: "إخفاء التفاصيل",
   },
   en: {
     title: "Sovereign Intelligence Panel",
@@ -291,6 +320,16 @@ const translations = {
     targetScore: "Target Score",
     gapToClose: "Gap to Close",
     pathTo100: "Path to 100%",
+    cuttingEdgeTools: "Cutting-Edge Global Tools",
+    latestTech: "Latest Technologies",
+    vendor: "Vendor",
+    adoptionRate: "Adoption Rate",
+    benefits: "Benefits",
+    integrationSteps: "Integration Steps",
+    useCases: "Use Cases",
+    standards: "Standards",
+    viewDetails: "View Details",
+    hideDetails: "Hide Details",
   }
 };
 
@@ -781,6 +820,199 @@ function analyzePageIntelligently(pathname: string, _startTime: number): FullAna
   // Sort recommendations by impact
   executiveRecommendations.sort((a, b) => b.impact - a.impact);
   
+  // ==================== CUTTING-EDGE TOOLS RECOMMENDATIONS ====================
+  const cuttingEdgeTools: CuttingEdgeTool[] = [];
+  
+  // AI/ML Tools - Based on page context
+  if (!hasAIServices || intelligenceAnalysis.classification !== 'sovereign-intelligent') {
+    cuttingEdgeTools.push({
+      id: 'claude-ai',
+      name: 'Claude AI (Anthropic)',
+      nameAr: 'كلود AI (أنثروبيك)',
+      category: 'ai',
+      description: 'Most advanced AI assistant for code generation, analysis, and intelligent automation',
+      descriptionAr: 'أكثر مساعد ذكاء اصطناعي تقدماً لتوليد الكود والتحليل والأتمتة الذكية',
+      vendor: 'Anthropic',
+      releaseYear: 2024,
+      adoptionRate: '78% of AI-first companies',
+      impact: 12,
+      benefits: [
+        { en: 'Advanced reasoning and code generation', ar: 'تفكير متقدم وتوليد الكود' },
+        { en: 'Context-aware intelligent responses', ar: 'استجابات ذكية مدركة للسياق' },
+        { en: 'Multi-language support with high accuracy', ar: 'دعم متعدد اللغات بدقة عالية' },
+      ],
+      integrationSteps: [
+        { en: 'Setup Anthropic API key', ar: 'إعداد مفتاح API أنثروبيك' },
+        { en: 'Integrate Claude SDK', ar: 'دمج Claude SDK' },
+        { en: 'Implement context management', ar: 'تنفيذ إدارة السياق' },
+      ],
+      globalStandards: ['ISO 22989 AI', 'NIST AI RMF', 'EU AI Act'],
+      useCases: [
+        { en: 'Intelligent code completion', ar: 'إكمال الكود الذكي' },
+        { en: 'Automated code review', ar: 'مراجعة الكود الآلية' },
+        { en: 'Natural language to code', ar: 'تحويل اللغة الطبيعية لكود' },
+      ],
+    });
+  }
+  
+  // DevOps & CI/CD Tools
+  if (pathname.includes('mobile') || pathname.includes('builder') || pathname.includes('desktop')) {
+    cuttingEdgeTools.push({
+      id: 'github-actions',
+      name: 'GitHub Actions + Fastlane',
+      nameAr: 'GitHub Actions + Fastlane',
+      category: 'devops',
+      description: 'Industry-leading CI/CD pipeline for mobile app automation',
+      descriptionAr: 'خط أنابيب CI/CD رائد في الصناعة لأتمتة تطبيقات الجوال',
+      vendor: 'GitHub + Fastlane',
+      releaseYear: 2024,
+      adoptionRate: '92% of mobile teams',
+      impact: 10,
+      benefits: [
+        { en: 'Automated App Store & Play Store deployment', ar: 'نشر آلي على App Store و Play Store' },
+        { en: 'Code signing automation', ar: 'أتمتة توقيع الكود' },
+        { en: 'Beta distribution with TestFlight/Firebase', ar: 'توزيع بيتا مع TestFlight/Firebase' },
+      ],
+      integrationSteps: [
+        { en: 'Configure Fastlane lanes', ar: 'تكوين مسارات Fastlane' },
+        { en: 'Setup GitHub Actions workflows', ar: 'إعداد سير عمل GitHub Actions' },
+        { en: 'Configure secrets and certificates', ar: 'تكوين الأسرار والشهادات' },
+      ],
+      globalStandards: ['DORA Metrics', 'DevSecOps', 'ISO 27001'],
+      useCases: [
+        { en: 'Automated releases', ar: 'إصدارات آلية' },
+        { en: 'Multi-platform builds', ar: 'بناء متعدد المنصات' },
+        { en: 'Automated testing', ar: 'اختبار آلي' },
+      ],
+    });
+    
+    cuttingEdgeTools.push({
+      id: 'browserstack',
+      name: 'BrowserStack + AWS Device Farm',
+      nameAr: 'BrowserStack + AWS Device Farm',
+      category: 'testing',
+      description: 'Real device testing on 3000+ devices for comprehensive coverage',
+      descriptionAr: 'اختبار على أجهزة حقيقية على أكثر من 3000 جهاز لتغطية شاملة',
+      vendor: 'BrowserStack / AWS',
+      releaseYear: 2024,
+      adoptionRate: '85% of enterprise mobile teams',
+      impact: 8,
+      benefits: [
+        { en: 'Test on real iOS and Android devices', ar: 'اختبار على أجهزة iOS و Android حقيقية' },
+        { en: 'Parallel test execution', ar: 'تنفيذ اختبارات متوازية' },
+        { en: 'Visual regression testing', ar: 'اختبار الانحدار البصري' },
+      ],
+      integrationSteps: [
+        { en: 'Setup BrowserStack account', ar: 'إعداد حساب BrowserStack' },
+        { en: 'Configure test frameworks (Appium/XCUITest)', ar: 'تكوين أطر الاختبار' },
+        { en: 'Integrate with CI/CD pipeline', ar: 'التكامل مع خط أنابيب CI/CD' },
+      ],
+      globalStandards: ['ISTQB', 'IEEE 829', 'ISO 25010'],
+      useCases: [
+        { en: 'Cross-device compatibility', ar: 'التوافق عبر الأجهزة' },
+        { en: 'Performance testing', ar: 'اختبار الأداء' },
+        { en: 'Accessibility testing', ar: 'اختبار إمكانية الوصول' },
+      ],
+    });
+  }
+  
+  // Security Tools
+  if (!hasSecurityServices) {
+    cuttingEdgeTools.push({
+      id: 'snyk-security',
+      name: 'Snyk + SonarQube',
+      nameAr: 'Snyk + SonarQube',
+      category: 'security',
+      description: 'Developer-first security platform for vulnerability detection',
+      descriptionAr: 'منصة أمان موجهة للمطورين لاكتشاف الثغرات',
+      vendor: 'Snyk / SonarSource',
+      releaseYear: 2024,
+      adoptionRate: '89% of DevSecOps teams',
+      impact: 9,
+      benefits: [
+        { en: 'Real-time vulnerability scanning', ar: 'فحص الثغرات في الوقت الفعلي' },
+        { en: 'Dependency security analysis', ar: 'تحليل أمان التبعيات' },
+        { en: 'SAST & DAST integration', ar: 'تكامل SAST و DAST' },
+      ],
+      integrationSteps: [
+        { en: 'Install Snyk CLI', ar: 'تثبيت Snyk CLI' },
+        { en: 'Configure SonarQube server', ar: 'تكوين خادم SonarQube' },
+        { en: 'Setup CI/CD security gates', ar: 'إعداد بوابات أمان CI/CD' },
+      ],
+      globalStandards: ['OWASP Top 10', 'CWE Top 25', 'PCI-DSS', 'SOC 2'],
+      useCases: [
+        { en: 'Code security scanning', ar: 'فحص أمان الكود' },
+        { en: 'Container security', ar: 'أمان الحاويات' },
+        { en: 'License compliance', ar: 'امتثال التراخيص' },
+      ],
+    });
+  }
+  
+  // Monitoring & Observability
+  cuttingEdgeTools.push({
+    id: 'datadog-observability',
+    name: 'Datadog Full-Stack Observability',
+    nameAr: 'Datadog للمراقبة الشاملة',
+    category: 'monitoring',
+    description: 'Unified monitoring, APM, and log management platform',
+    descriptionAr: 'منصة موحدة للمراقبة وإدارة أداء التطبيقات والسجلات',
+    vendor: 'Datadog',
+    releaseYear: 2024,
+    adoptionRate: '76% of cloud-native companies',
+    impact: 7,
+    benefits: [
+      { en: 'Real-time performance monitoring', ar: 'مراقبة الأداء في الوقت الفعلي' },
+      { en: 'AI-powered anomaly detection', ar: 'اكتشاف الشذوذ بالذكاء الاصطناعي' },
+      { en: 'Unified logs, metrics, and traces', ar: 'سجلات ومقاييس وتتبعات موحدة' },
+    ],
+    integrationSteps: [
+      { en: 'Install Datadog agent', ar: 'تثبيت وكيل Datadog' },
+      { en: 'Configure APM tracing', ar: 'تكوين تتبع APM' },
+      { en: 'Setup dashboards and alerts', ar: 'إعداد لوحات التحكم والتنبيهات' },
+    ],
+    globalStandards: ['SRE Best Practices', 'MTTD/MTTR', 'SLA Management'],
+    useCases: [
+      { en: 'Infrastructure monitoring', ar: 'مراقبة البنية التحتية' },
+      { en: 'Application performance', ar: 'أداء التطبيقات' },
+      { en: 'User experience monitoring', ar: 'مراقبة تجربة المستخدم' },
+    ],
+  });
+  
+  // Analytics & BI
+  if (!hasAnalyticsServices) {
+    cuttingEdgeTools.push({
+      id: 'mixpanel-analytics',
+      name: 'Mixpanel + Amplitude',
+      nameAr: 'Mixpanel + Amplitude',
+      category: 'analytics',
+      description: 'Product analytics for user behavior and conversion optimization',
+      descriptionAr: 'تحليلات المنتج لسلوك المستخدم وتحسين التحويل',
+      vendor: 'Mixpanel / Amplitude',
+      releaseYear: 2024,
+      adoptionRate: '82% of product-led companies',
+      impact: 6,
+      benefits: [
+        { en: 'User journey mapping', ar: 'رسم خريطة رحلة المستخدم' },
+        { en: 'Funnel analysis and optimization', ar: 'تحليل وتحسين القمع' },
+        { en: 'Cohort analysis and retention', ar: 'تحليل المجموعات والاحتفاظ' },
+      ],
+      integrationSteps: [
+        { en: 'Install SDK', ar: 'تثبيت SDK' },
+        { en: 'Define event taxonomy', ar: 'تحديد تصنيف الأحداث' },
+        { en: 'Configure user properties', ar: 'تكوين خصائص المستخدم' },
+      ],
+      globalStandards: ['GDPR Compliant', 'Privacy-first Analytics'],
+      useCases: [
+        { en: 'Feature adoption tracking', ar: 'تتبع تبني الميزات' },
+        { en: 'A/B testing analysis', ar: 'تحليل اختبار A/B' },
+        { en: 'Churn prediction', ar: 'توقع الاستنزاف' },
+      ],
+    });
+  }
+  
+  // Sort cutting-edge tools by impact
+  cuttingEdgeTools.sort((a, b) => b.impact - a.impact);
+  
   const gapAnalysis: GapAnalysis = {
     currentScore: finalScore,
     targetScore: 100,
@@ -789,6 +1021,7 @@ function analyzePageIntelligently(pathname: string, _startTime: number): FullAna
     legacySystems,
     aiOpportunities,
     executiveRecommendations,
+    cuttingEdgeTools,
   };
   
   return {
@@ -1472,6 +1705,110 @@ export function SovereignIndicator() {
                       ))}
                     </div>
                   </div>
+
+                  {/* Cutting-Edge Global Tools */}
+                  {analysis.gapAnalysis.cuttingEdgeTools.length > 0 && (
+                    <div className="space-y-2 mt-4">
+                      <h4 className="text-cyan-400 text-xs font-semibold flex items-center gap-1">
+                        <Zap className="w-3 h-3" />
+                        {t.cuttingEdgeTools}
+                      </h4>
+                      <div className="space-y-3">
+                        {analysis.gapAnalysis.cuttingEdgeTools.map((tool, idx) => (
+                          <div 
+                            key={tool.id} 
+                            data-testid={`cutting-edge-tool-${idx}`}
+                            className="p-3 rounded-lg bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 space-y-2"
+                          >
+                            {/* Header */}
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <Badge variant="outline" className="text-[10px] border-cyan-400/50 text-cyan-400">
+                                    {tool.category.toUpperCase()}
+                                  </Badge>
+                                  <Badge variant="outline" className="text-[10px] border-emerald-400/50 text-emerald-400">
+                                    +{tool.impact} {t.impactPoints}
+                                  </Badge>
+                                  <Badge variant="outline" className="text-[10px] border-white/20 text-white/50">
+                                    {tool.releaseYear}
+                                  </Badge>
+                                </div>
+                                <h5 className="text-white text-sm font-medium mt-1">
+                                  {language === 'ar' ? tool.nameAr : tool.name}
+                                </h5>
+                                <p className="text-white/50 text-xs mt-1">
+                                  {language === 'ar' ? tool.descriptionAr : tool.description}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            {/* Vendor & Adoption */}
+                            <div className="flex items-center gap-3 text-[10px]">
+                              <div className="flex items-center gap-1 text-white/40">
+                                <Globe className="w-3 h-3" />
+                                <span>{t.vendor}: {tool.vendor}</span>
+                              </div>
+                              <div className="flex items-center gap-1 text-emerald-400">
+                                <TrendingUp className="w-3 h-3" />
+                                <span>{tool.adoptionRate}</span>
+                              </div>
+                            </div>
+                            
+                            {/* Benefits */}
+                            <div className="pt-2 border-t border-white/5">
+                              <div className="text-white/60 text-[10px] font-medium mb-1">{t.benefits}:</div>
+                              <div className="space-y-1">
+                                {tool.benefits.map((benefit, bIdx) => (
+                                  <div key={bIdx} className="flex items-start gap-1.5 text-[10px] text-white/50">
+                                    <CheckCircle className="w-3 h-3 text-cyan-400 mt-0.5 flex-shrink-0" />
+                                    <span>{language === 'ar' ? benefit.ar : benefit.en}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                            
+                            {/* Integration Steps */}
+                            <div className="pt-2 border-t border-white/5">
+                              <div className="text-white/60 text-[10px] font-medium mb-1">{t.integrationSteps}:</div>
+                              <div className="space-y-1">
+                                {tool.integrationSteps.map((step, sIdx) => (
+                                  <div key={sIdx} className="flex items-start gap-1.5 text-[10px] text-white/50">
+                                    <span className="text-cyan-400 font-bold">{sIdx + 1}.</span>
+                                    <span>{language === 'ar' ? step.ar : step.en}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                            
+                            {/* Use Cases */}
+                            <div className="pt-2 border-t border-white/5">
+                              <div className="text-white/60 text-[10px] font-medium mb-1">{t.useCases}:</div>
+                              <div className="flex flex-wrap gap-1">
+                                {tool.useCases.map((useCase, uIdx) => (
+                                  <Badge key={uIdx} variant="outline" className="text-[9px] border-white/10 text-white/40">
+                                    {language === 'ar' ? useCase.ar : useCase.en}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                            
+                            {/* Global Standards */}
+                            <div className="flex items-center gap-2 pt-2 border-t border-white/5">
+                              <Shield className="w-3 h-3 text-amber-400" />
+                              <div className="flex flex-wrap gap-1">
+                                {tool.globalStandards.map((std, stdIdx) => (
+                                  <Badge key={stdIdx} variant="outline" className="text-[9px] border-amber-400/30 text-amber-400/70">
+                                    {std}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </TabsContent>
               </Tabs>
             ) : null}
