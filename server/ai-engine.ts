@@ -1,5 +1,6 @@
 import { DEFAULT_ANTHROPIC_MODEL, getAnthropicClientAsync } from "./ai-config";
 import { findBestTemplate } from "./premium-templates";
+import * as crypto from 'crypto';
 
 // ============= Types =============
 
@@ -440,9 +441,45 @@ function postProcessCode(code: GeneratedCode): GeneratedCode {
   };
 }
 
+// ============= Plan Cache for Faster Planning =============
+
+interface CachedPlan {
+  plan: WebsitePlan;
+  timestamp: number;
+}
+
+const planCache = new Map<string, CachedPlan>();
+const PLAN_CACHE_TTL = 1000 * 60 * 30; // 30 minutes
+
+function getPlanCacheKey(request: string): string {
+  // Create collision-resistant hash of full normalized request
+  const normalized = request.toLowerCase().trim();
+  return crypto.createHash('sha256').update(normalized).digest('hex').substring(0, 32);
+}
+
+function getCachedPlan(request: string): WebsitePlan | null {
+  const key = getPlanCacheKey(request);
+  const cached = planCache.get(key);
+  if (cached && Date.now() - cached.timestamp < PLAN_CACHE_TTL) {
+    console.log(`[cache] Using cached plan for similar request`);
+    return cached.plan;
+  }
+  return null;
+}
+
+function savePlanToCache(request: string, plan: WebsitePlan): void {
+  const key = getPlanCacheKey(request);
+  planCache.set(key, { plan, timestamp: Date.now() });
+  // Keep cache size manageable
+  if (planCache.size > 50) {
+    const oldestKey = planCache.keys().next().value;
+    if (oldestKey) planCache.delete(oldestKey);
+  }
+}
+
 // ============= Main Engine =============
 
-const MAX_ATTEMPTS = 2;
+const MAX_ATTEMPTS = 2; // Keep retry for quality assurance
 
 function formatValidationFeedback(validation: ValidationResult): string {
   const criticalIssues = validation.issues
@@ -462,7 +499,7 @@ Please fix ALL these issues in your next output.`;
 }
 
 export async function generateWebsite(userRequest: string): Promise<GenerationResult> {
-  console.log("=== MULTI-STAGE AI GENERATION ===");
+  console.log("=== OPTIMIZED AI GENERATION ===");
   
   let attempts = 0;
   let lastResult: GeneratedCode | null = null;
@@ -470,9 +507,18 @@ export async function generateWebsite(userRequest: string): Promise<GenerationRe
   let plan: WebsitePlan | null = null;
 
   try {
-    console.log("[planning] Analyzing request...");
-    plan = await createWebsitePlan(userRequest);
-    console.log(`[planning] Plan: ${plan.type}, ${plan.sections.length} sections`);
+    // Check for cached plan first (faster than AI planning)
+    const cachedPlan = getCachedPlan(userRequest);
+    if (cachedPlan) {
+      plan = cachedPlan;
+      console.log(`[cached-plan] Using cached plan: ${plan.type}, ${plan.sections.length} sections`);
+    } else {
+      // Create new plan with AI
+      console.log("[planning] Analyzing request...");
+      plan = await createWebsitePlan(userRequest);
+      savePlanToCache(userRequest, plan);
+      console.log(`[planning] Plan: ${plan.type}, ${plan.sections.length} sections`);
+    }
 
     while (attempts < MAX_ATTEMPTS) {
       attempts++;
@@ -511,6 +557,7 @@ export async function generateWebsite(userRequest: string): Promise<GenerationRe
       };
     }
 
+    // Fallback: use premium template directly
     const template = findBestTemplate(userRequest);
     const processed = postProcessCode(template);
     return { html: processed.html, css: processed.css, js: processed.js, message: "تم إنشاء موقع احترافي", attempts };
