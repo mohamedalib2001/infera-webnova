@@ -22,18 +22,54 @@ import {
   Terminal,
   Sparkles,
   Layout,
+  Activity,
+  Server,
+  Clock,
+  LineChart,
+  AlertTriangle,
+  CheckCircle2,
 } from "lucide-react";
 import type { DevProject } from "@shared/schema";
+
+// Dashboard Analytics interface for real-time data
+interface DashboardAnalytics {
+  kpis: {
+    activeUsers: number;
+    totalProjects: number;
+    uptime: string;
+    responseTime: number;
+    eventsToday: number;
+    userGrowth: string;
+  };
+  predictions: {
+    nextMonthGrowth: string;
+    potentialIssues: string[];
+    recommendedActions: string[];
+    accuracy: number;
+  };
+  anomalies: {
+    activeAlerts: number;
+    resolvedToday: number;
+    criticalLevel: string;
+  };
+}
 
 export default function IDEProjects() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [language, setLanguage] = useState<"ar" | "en">("ar");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const [newProject, setNewProject] = useState({
     name: "",
     description: "",
     projectType: "nodejs",
+  });
+
+  // Real-time Analytics Query (Historical Data Analysis with AI Predictions)
+  const { data: analytics } = useQuery<DashboardAnalytics>({
+    queryKey: ["/api/dashboard-analytics"],
+    refetchInterval: 30000, // Auto-refresh every 30 seconds
   });
 
   const t = {
@@ -176,6 +212,15 @@ export default function IDEProjects() {
             </div>
             <div className="flex items-center gap-3">
               <Button
+                variant={showAnalytics ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setShowAnalytics(!showAnalytics)}
+                data-testid="button-toggle-analytics"
+              >
+                <Activity className="w-4 h-4 me-1" />
+                {language === "ar" ? "التحليلات" : "Analytics"}
+              </Button>
+              <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setLanguage(language === "ar" ? "en" : "ar")}
@@ -254,6 +299,53 @@ export default function IDEProjects() {
           </div>
         </div>
       </header>
+
+      {/* Real-time Analytics Panel - Historical Data Analysis with AI Predictions */}
+      {showAnalytics && analytics && (
+        <div className="border-b bg-card/50 backdrop-blur-sm px-4 py-3" data-testid="container-analytics-panel">
+          <div className="container mx-auto">
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2 text-sm">
+                <Activity className="w-4 h-4 text-green-500" />
+                <span className="text-muted-foreground">{language === "ar" ? "المستخدمون النشطون:" : "Active Users:"}</span>
+                <span className="font-semibold" data-testid="analytics-active-users">{analytics.kpis.activeUsers}</span>
+                <Badge variant="secondary" className="text-xs">{analytics.kpis.userGrowth}</Badge>
+              </div>
+              
+              <div className="flex items-center gap-2 text-sm">
+                <Server className="w-4 h-4 text-blue-500" />
+                <span className="text-muted-foreground">{language === "ar" ? "وقت التشغيل:" : "Uptime:"}</span>
+                <span className="font-semibold" data-testid="analytics-uptime">{analytics.kpis.uptime}</span>
+              </div>
+              
+              <div className="flex items-center gap-2 text-sm">
+                <Clock className="w-4 h-4 text-violet-500" />
+                <span className="text-muted-foreground">{language === "ar" ? "الاستجابة:" : "Response:"}</span>
+                <span className="font-semibold" data-testid="analytics-response">{analytics.kpis.responseTime}ms</span>
+              </div>
+              
+              <div className="flex items-center gap-2 text-sm">
+                <LineChart className="w-4 h-4 text-amber-500" />
+                <span className="text-muted-foreground">{language === "ar" ? "التوقع بالذكاء الاصطناعي:" : "AI Prediction:"}</span>
+                <span className="font-semibold text-green-500" data-testid="analytics-prediction">{analytics.predictions.nextMonthGrowth}</span>
+                <span className="text-xs text-muted-foreground">({analytics.predictions.accuracy}% {language === "ar" ? "دقة" : "accuracy"})</span>
+              </div>
+              
+              <div className="flex items-center gap-2 text-sm">
+                {analytics.anomalies.activeAlerts > 0 ? (
+                  <AlertTriangle className="w-4 h-4 text-red-500" />
+                ) : (
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                )}
+                <span className="text-muted-foreground">{language === "ar" ? "الشذوذ:" : "Anomalies:"}</span>
+                <span className={`font-semibold ${analytics.anomalies.activeAlerts > 0 ? "text-red-500" : "text-green-500"}`} data-testid="analytics-anomalies">
+                  {analytics.anomalies.activeAlerts} {language === "ar" ? "نشط" : "active"}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Features Banner */}
       <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-b">
