@@ -515,6 +515,33 @@ export function SovereignIndicator() {
   
   const t = translations[language as keyof typeof translations] || translations.en;
   
+  // Page names mapping
+  const pageNames: Record<string, { ar: string; en: string }> = {
+    '/': { ar: 'الرئيسية', en: 'Home' },
+    '/builder': { ar: 'منشئ المنصات', en: 'Platform Builder' },
+    '/nova': { ar: 'AI Site Builder', en: 'AI Site Builder' },
+    '/collaboration': { ar: 'التعاون', en: 'Collaboration' },
+    '/templates': { ar: 'القوالب', en: 'Templates' },
+    '/projects': { ar: 'المشاريع', en: 'Projects' },
+    '/dashboard': { ar: 'لوحة التحكم', en: 'Dashboard' },
+    '/owner': { ar: 'لوحة تحكم المالك', en: 'Owner Dashboard' },
+    '/sovereign': { ar: 'إدارة المنظومة', en: 'System Management' },
+    '/api-keys': { ar: 'مفاتيح API', en: 'API Keys' },
+    '/ssh-vault': { ar: 'خزنة SSH', en: 'SSH Vault' },
+    '/payments': { ar: 'لوحة الدفع', en: 'Payments' },
+    '/integrations': { ar: 'التكاملات', en: 'Integrations' },
+    '/domains': { ar: 'النطاقات', en: 'Domains' },
+    '/ai-settings': { ar: 'إعدادات الذكاء', en: 'AI Settings' },
+    '/marketplace': { ar: 'سوق الإضافات', en: 'Marketplace' },
+    '/analytics': { ar: 'التحليلات', en: 'Analytics' },
+  };
+  
+  const getPageName = () => {
+    const page = pageNames[location];
+    if (page) return language === 'ar' ? page.ar : page.en;
+    return location.replace('/', '').replace(/-/g, ' ') || (language === 'ar' ? 'الرئيسية' : 'Home');
+  };
+  
   // Check if user is sovereign (owner or sovereign role)
   const isSovereign = user?.role === 'owner' || user?.role === 'sovereign';
   
@@ -654,7 +681,10 @@ export function SovereignIndicator() {
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center">
                 <Crown className="w-4 h-4 text-white" />
               </div>
-              <h3 data-testid="text-panel-title" className="font-semibold text-white text-sm">{t.title}</h3>
+              <div className="flex flex-col">
+                <h3 data-testid="text-panel-title" className="font-semibold text-white text-sm">{t.title}</h3>
+                <span data-testid="text-current-page" className="text-xs text-amber-400/80">{getPageName()}</span>
+              </div>
             </div>
             {analysis && (
               <div 
