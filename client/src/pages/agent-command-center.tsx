@@ -166,10 +166,24 @@ export default function AgentCommandCenter() {
 
   const { data: sessionsData, isLoading: loadingSessions } = useQuery<{ sessions: AgentSession[] }>({
     queryKey: ["/api/agent/sessions", filterStatus, filterPriority],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (filterStatus !== "all") params.set("status", filterStatus);
+      if (filterPriority !== "all") params.set("priority", filterPriority);
+      const url = `/api/agent/sessions${params.toString() ? `?${params.toString()}` : ""}`;
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch sessions");
+      return res.json();
+    },
   });
 
   const { data: messagesData, isLoading: loadingMessages, refetch: refetchMessages } = useQuery<{ messages: AgentMessage[] }>({
     queryKey: ["/api/agent/sessions", selectedSession?.id, "messages"],
+    queryFn: async () => {
+      const res = await fetch(`/api/agent/sessions/${selectedSession?.id}/messages`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch messages");
+      return res.json();
+    },
     enabled: !!selectedSession,
   });
 
