@@ -560,6 +560,17 @@ You exist to THINK, REMEMBER, and CONTINUE — not to reset.
   }
 }
 
+// Attachment type for Vision support
+interface ChatAttachment {
+  type: "image" | "file";
+  content?: string;
+  url?: string;
+  metadata?: {
+    mimeType?: string;
+    name?: string;
+  };
+}
+
 export async function smartChat(
   prompt: string,
   conversationHistory: ChatMessage[] = [],
@@ -568,15 +579,29 @@ export async function smartChat(
     htmlCode?: string;
     cssCode?: string;
     jsCode?: string;
-  }
+  },
+  attachments?: ChatAttachment[]
 ): Promise<SmartChatResponse> {
   const hasExistingCode = !!(projectContext?.htmlCode && projectContext.htmlCode.length > 10);
+  const hasImages = attachments?.some(a => a.type === "image" && a.content);
   
   // Model info to include in all responses
   const modelInfo = {
     name: DEFAULT_ANTHROPIC_MODEL,
     provider: "Anthropic"
   };
+  
+  // If images are attached, use Vision-enabled processing
+  if (hasImages) {
+    const visionResponse = await processVisionRequest(prompt, attachments!, projectContext);
+    return {
+      type: visionResponse.type as SmartChatResponse["type"],
+      message: visionResponse.message,
+      code: visionResponse.code,
+      suggestions: visionResponse.suggestions,
+      modelInfo
+    };
+  }
   
   const { intent, codeRequest } = await analyzeIntent(prompt, hasExistingCode, conversationHistory);
   
@@ -642,6 +667,158 @@ export async function smartChat(
     suggestions: response.suggestions,
     modelInfo
   };
+}
+
+// Allowed image MIME types for Vision
+const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB per image
+
+// Process image-based requests using Claude Vision
+async function processVisionRequest(
+  prompt: string,
+  attachments: ChatAttachment[],
+  projectContext?: {
+    name?: string;
+    htmlCode?: string;
+    cssCode?: string;
+    jsCode?: string;
+  }
+): Promise<{
+  type: string;
+  message: string;
+  code?: GeneratedCode;
+  suggestions: string[];
+}> {
+  const anthropic = await getAnthropicClientAsync();
+  if (!anthropic) {
+    return {
+      type: "conversation",
+      message: "Vision API غير متاح حالياً / Vision API not available",
+      suggestions: ["حاول مرة أخرى"]
+    };
+  }
+  
+  const isArabic = /[\u0600-\u06FF]/.test(prompt);
+  
+  // Filter and validate image attachments
+  const validAttachments = (attachments || []).filter(att => {
+    if (att.type !== "image" || !att.content) return false;
+    const mimeType = att.metadata?.mimeType || "image/png";
+    if (!ALLOWED_IMAGE_TYPES.includes(mimeType)) return false;
+    // Rough size check (base64 is ~1.37x original)
+    if (att.content.length > MAX_IMAGE_SIZE_BYTES * 1.4) return false;
+    return true;
+  });
+  
+  if (validAttachments.length === 0) {
+    return {
+      type: "conversation",
+      message: isArabic 
+        ? "لم يتم العثور على صور صالحة. يرجى التأكد من أن الصور بتنسيق PNG أو JPEG أو GIF أو WEBP وحجمها أقل من 5MB."
+        : "No valid images found. Please ensure images are PNG, JPEG, GIF or WEBP and under 5MB.",
+      suggestions: isArabic ? ["أرفق صورة صالحة"] : ["Attach a valid image"]
+    };
+  }
+  
+  // Build multi-modal content with images
+  const contentParts: any[] = [];
+  
+  for (const att of validAttachments) {
+    const mediaType = att.metadata?.mimeType || "image/png";
+    contentParts.push({
+      type: "image",
+      source: {
+        type: "base64",
+        media_type: mediaType,
+        data: att.content!.replace(/^data:image\/\w+;base64,/, ""),
+      },
+    });
+  }
+  
+  contentParts.push({
+    type: "text",
+    text: prompt || (isArabic ? "حلل هذه الصورة وأنشئ كود مناسب" : "Analyze this image and generate appropriate code"),
+  });
+  
+  const systemPrompt = `You are an expert web developer and UI/UX designer with vision capabilities.
+You can analyze images, screenshots, mockups, and designs to:
+1. Convert UI designs to HTML/CSS/JS code
+2. Identify UI patterns and components
+3. Detect errors in screenshots
+4. Extract text (OCR)
+5. Analyze architecture diagrams
+
+${projectContext?.htmlCode ? `Current project code context:\nHTML: ${projectContext.htmlCode.substring(0, 1000)}...\nCSS: ${projectContext.cssCode?.substring(0, 500) || ''}...\nJS: ${projectContext.jsCode?.substring(0, 500) || ''}...` : ''}
+
+Respond in the same language as the user's request (Arabic or English).
+
+If the image is a UI design/mockup, generate complete code. Respond with JSON:
+{
+  "type": "code_generation" | "analysis" | "error_detection",
+  "message": "Your analysis or explanation",
+  "html": "Complete HTML code if applicable",
+  "css": "Complete CSS code if applicable", 
+  "js": "JavaScript code if applicable",
+  "suggestions": ["suggestion1", "suggestion2"]
+}
+
+For non-code requests, use type "analysis" with just message and suggestions.
+Only respond with valid JSON.`;
+
+  try {
+    const response = await anthropic.messages.create({
+      model: DEFAULT_ANTHROPIC_MODEL,
+      max_tokens: 8000,
+      system: systemPrompt,
+      messages: [{ role: "user", content: contentParts }],
+    });
+    
+    const responseText = response.content[0].type === "text" ? response.content[0].text : "";
+    
+    // Parse JSON response
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const result = JSON.parse(jsonMatch[0]);
+      
+      if (result.html || result.css || result.js) {
+        return {
+          type: result.type || "code_generation",
+          message: result.message,
+          code: {
+            html: result.html || "",
+            css: result.css || "",
+            js: result.js || "",
+            message: result.message
+          },
+          suggestions: result.suggestions || [
+            isArabic ? "عدل التصميم" : "Modify design",
+            isArabic ? "أضف المزيد" : "Add more"
+          ]
+        };
+      }
+      
+      return {
+        type: result.type || "analysis",
+        message: result.message,
+        suggestions: result.suggestions || []
+      };
+    }
+    
+    return {
+      type: "analysis",
+      message: responseText,
+      suggestions: isArabic ? ["حلل أكثر", "أنشئ كود"] : ["Analyze more", "Generate code"]
+    };
+  } catch (error) {
+    console.error("[Vision] Error:", error);
+    return {
+      type: "conversation",
+      message: isArabic 
+        ? "حدث خطأ أثناء تحليل الصورة. يرجى المحاولة مرة أخرى."
+        : "Error analyzing image. Please try again.",
+      suggestions: isArabic ? ["حاول مرة أخرى"] : ["Try again"]
+    };
+  }
 }
 
 export async function refineWebsiteCode(

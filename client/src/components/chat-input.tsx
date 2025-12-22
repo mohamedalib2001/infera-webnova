@@ -163,7 +163,9 @@ export function ChatInput({
         };
 
         if (file.type.startsWith("image/")) {
-          newFile.preview = event.target?.result as string;
+          const base64Data = event.target?.result as string;
+          newFile.preview = base64Data;
+          newFile.content = base64Data; // Store base64 for Vision API
         } else if (file.type.startsWith("text/") || file.name.endsWith(".json") || file.name.endsWith(".md")) {
           newFile.content = event.target?.result as string;
         }
@@ -211,6 +213,39 @@ export function ChatInput({
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 150)}px`;
     }
   }, [message]);
+
+  // Handle paste event for images from clipboard
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData.items;
+    
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) continue;
+        
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const newFile: AttachedFile = {
+            id: Math.random().toString(36).substring(7),
+            name: `pasted-image-${Date.now()}.png`,
+            type: file.type,
+            size: file.size,
+            preview: event.target?.result as string,
+            content: event.target?.result as string, // Base64 for Vision API
+          };
+          
+          setAttachments(prev => [...prev, newFile]);
+          toast({
+            title: language === "ar" ? "تم لصق الصورة" : "Image pasted",
+            description: language === "ar" ? "الصورة جاهزة للتحليل بالذكاء الاصطناعي" : "Image ready for AI analysis",
+          });
+        };
+        reader.readAsDataURL(file);
+        break; // Only handle first image
+      }
+    }
+  };
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -285,6 +320,7 @@ export function ChatInput({
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             placeholder={placeholder}
             className="min-h-[44px] max-h-[150px] resize-none border-0 bg-transparent text-base focus-visible:ring-0 placeholder:text-muted-foreground/60"
             disabled={isLoading && !allowWhileLoading}

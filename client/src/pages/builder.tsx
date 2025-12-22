@@ -231,7 +231,16 @@ export default function Builder() {
     });
   };
 
-  const handleSendMessage = async (content: string) => {
+  interface AttachedFile {
+    id: string;
+    name: string;
+    type: string;
+    size: number;
+    preview?: string;
+    content?: string;
+  }
+
+  const handleSendMessage = async (content: string, attachments?: AttachedFile[]) => {
     if (isGenerating) {
       setPendingMessages(prev => [...prev, content]);
       const queuedMessage: ChatMessageType = {
@@ -248,7 +257,7 @@ export default function Builder() {
       });
       return;
     }
-    processMessage(content);
+    processMessage(content, attachments);
   };
 
   interface SmartChatResponse {
@@ -262,11 +271,16 @@ export default function Builder() {
     };
   }
 
-  const processMessage = async (content: string) => {
+  const processMessage = async (content: string, attachments?: AttachedFile[]) => {
+    // Format message display with attachment info
+    const displayContent = attachments && attachments.some(a => a.type.startsWith("image/"))
+      ? `[📷 ${attachments.filter(a => a.type.startsWith("image/")).length} صورة مرفقة] ${content}`
+      : content;
+    
     const userMessage: ChatMessageType = {
       id: crypto.randomUUID(),
       role: "user",
-      content,
+      content: displayContent,
       timestamp: new Date(),
       status: "sending",
     };
@@ -281,8 +295,16 @@ export default function Builder() {
       .slice(-6)
       .map(m => ({ role: m.role, content: m.content }));
     
+    // Convert attachments to API format for Vision support
+    const apiAttachments = attachments?.map(att => ({
+      type: att.type.startsWith("image/") ? "image" as const : "file" as const,
+      content: att.content,
+      url: att.preview,
+      metadata: { mimeType: att.type, name: att.name },
+    }));
+    
     try {
-      console.log("Starting smart chat request...");
+      console.log("Starting smart chat request with Vision support...");
       const data: SmartChatResponse = await apiRequest("POST", "/api/smart-chat", {
         prompt: content,
         conversationHistory,
@@ -292,6 +314,7 @@ export default function Builder() {
           cssCode: css,
           jsCode: js,
         },
+        attachments: apiAttachments,
       });
       
       console.log("Smart chat response:", data.type);

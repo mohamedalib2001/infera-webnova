@@ -5397,14 +5397,23 @@ ${project.description || ""}
       cssCode: z.string().optional(),
       jsCode: z.string().optional(),
     }).optional(),
+    attachments: z.array(z.object({
+      type: z.enum(["image", "file"]),
+      content: z.string().optional(),
+      url: z.string().optional(),
+      metadata: z.object({
+        mimeType: z.string().optional(),
+        name: z.string().optional(),
+      }).optional(),
+    })).optional(),
   });
 
   app.post("/api/smart-chat", async (req, res) => {
     try {
-      const { prompt, conversationHistory, projectContext } = smartChatSchema.parse(req.body);
+      const { prompt, conversationHistory, projectContext, attachments } = smartChatSchema.parse(req.body);
       const { smartChat } = await import("./openai");
       
-      const result = await smartChat(prompt, conversationHistory, projectContext);
+      const result = await smartChat(prompt, conversationHistory, projectContext, attachments);
       res.json(result);
     } catch (error) {
       if (error instanceof z.ZodError) {

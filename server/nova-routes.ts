@@ -182,15 +182,21 @@ const createSessionSchema = z.object({
   language: z.enum(["ar", "en"]).default("ar"),
 });
 
+// Shared attachment schema with size validation
+const attachmentSchema = z.object({
+  type: z.enum(["image", "file", "code", "blueprint"]),
+  url: z.string().optional(),
+  content: z.string().max(10 * 1024 * 1024).optional(), // Max 10MB base64
+  metadata: z.object({
+    mimeType: z.string().optional(),
+    name: z.string().optional(),
+  }).passthrough().optional(),
+});
+
 const sendMessageSchema = z.object({
   content: z.string().min(1),
   language: z.enum(["ar", "en"]).default("ar"),
-  attachments: z.array(z.object({
-    type: z.enum(["image", "file", "code", "blueprint"]),
-    url: z.string().optional(),
-    content: z.string().optional(),
-    metadata: z.record(z.any()).optional(),
-  })).optional(),
+  attachments: z.array(attachmentSchema).max(5).optional(), // Max 5 attachments
 });
 
 const createDecisionSchema = z.object({
@@ -472,15 +478,104 @@ export function registerNovaRoutes(app: Express) {
       // Build system prompt
       const systemPrompt = buildSystemPrompt(data.language, preferences, decisions);
       
-      // Build conversation history
-      const conversationHistory = recentMessages.map(msg => ({
-        role: msg.role as "user" | "assistant",
-        content: msg.content,
-      }));
+      // Build conversation history with Vision support for images
+      const conversationHistory: any[] = recentMessages.map(msg => {
+        // Check if message has image attachments
+        const attachments = (msg as any).attachments || [];
+        const imageAttachments = attachments.filter((a: any) => a.type === "image");
+        
+        if (imageAttachments.length > 0 && msg.role === "user") {
+          // Build multi-modal content with images
+          const contentParts: any[] = [];
+          
+          // Add images first
+          for (const img of imageAttachments) {
+            if (img.content) {
+              // Base64 image data
+              const mediaType = img.metadata?.mimeType || "image/png";
+              contentParts.push({
+                type: "image",
+                source: {
+                  type: "base64",
+                  media_type: mediaType,
+                  data: img.content.replace(/^data:image\/\w+;base64,/, ""),
+                },
+              });
+            } else if (img.url) {
+              // URL-based image
+              contentParts.push({
+                type: "image",
+                source: {
+                  type: "url",
+                  url: img.url,
+                },
+              });
+            }
+          }
+          
+          // Add text content
+          contentParts.push({
+            type: "text",
+            text: msg.content,
+          });
+          
+          return {
+            role: msg.role as "user" | "assistant",
+            content: contentParts,
+          };
+        }
+        
+        return {
+          role: msg.role as "user" | "assistant",
+          content: msg.content,
+        };
+      });
+      
+      // Add current message with any new images
+      const currentImageAttachments = (data.attachments || []).filter(a => a.type === "image");
+      if (currentImageAttachments.length > 0) {
+        // Replace last user message (which is the current one) with vision-enabled version
+        const lastMsgIndex = conversationHistory.length - 1;
+        if (lastMsgIndex >= 0 && conversationHistory[lastMsgIndex].role === "user") {
+          const contentParts: any[] = [];
+          
+          for (const img of currentImageAttachments) {
+            if (img.content) {
+              const mediaType = img.metadata?.mimeType || "image/png";
+              contentParts.push({
+                type: "image",
+                source: {
+                  type: "base64",
+                  media_type: mediaType,
+                  data: img.content.replace(/^data:image\/\w+;base64,/, ""),
+                },
+              });
+            } else if (img.url) {
+              contentParts.push({
+                type: "image",
+                source: {
+                  type: "url",
+                  url: img.url,
+                },
+              });
+            }
+          }
+          
+          contentParts.push({
+            type: "text",
+            text: data.content,
+          });
+          
+          conversationHistory[lastMsgIndex] = {
+            role: "user",
+            content: contentParts,
+          };
+        }
+      }
       
       const startTime = Date.now();
       
-      // Call Claude AI with tools for agentic capabilities
+      // Call Claude AI with tools for agentic capabilities (Vision-enabled)
       let response = await anthropic.messages.create({
         model: "claude-sonnet-4-20250514",
         max_tokens: 4096,
