@@ -40,7 +40,9 @@ import {
   domainPlatformLinks,
   aiProviderConfigs,
   aiUsageLogs,
-  deletionAttempts
+  deletionAttempts,
+  aiPolicies,
+  insertAIPolicySchema
 } from "@shared/schema";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
@@ -1606,10 +1608,13 @@ export async function registerRoutes(
     }
   });
 
-  // Get AI governance policies - REAL DATA from AI usage
+  // Get AI governance policies - REAL DATA from database
   app.get("/api/sovereign/ai-policies", requireAuth, requireSovereign, async (req, res) => {
     try {
-      // Get real AI usage data
+      // Get real policies from database
+      const dbPolicies = await db.select().from(aiPolicies).orderBy(aiPolicies.priority);
+      
+      // Get AI usage stats for context
       const aiUsageResult = await db.select({ 
         count: sql<number>`COALESCE(count(*), 0)`,
         totalTokens: sql<number>`COALESCE(sum(tokens_used), 0)`
@@ -1618,52 +1623,150 @@ export async function registerRoutes(
       const totalCalls = aiUsageResult[0]?.count || 0;
       const totalTokens = aiUsageResult[0]?.totalTokens || 0;
       
-      const auditLogs = await storage.getAuditLogs(100);
-      const projects = await storage.getProjects();
-      
-      const policies = [
-        { 
-          id: "policy-rate-limit",
-          name: "API Rate Limiting", 
-          nameAr: "تحديد معدل API", 
-          description: `Active policy monitoring ${totalCalls} AI API calls`, 
-          descriptionAr: `سياسة نشطة تراقب ${totalCalls} استدعاء API للذكاء الاصطناعي`,
-          category: "security", 
-          status: "active", 
-          autonomyLevel: Math.min(95, 50 + Math.floor(totalCalls / 10)),
-          enforcementCount: totalCalls,
-          affectedResources: projects.length
-        },
-        { 
-          id: "policy-encryption",
-          name: "Data Encryption Policy", 
-          nameAr: "سياسة تشفير البيانات", 
-          description: "All data encrypted at rest and in transit via TLS", 
-          descriptionAr: "جميع البيانات مشفرة في حالة السكون والنقل عبر TLS",
-          category: "security", 
-          status: "enforcing", 
-          autonomyLevel: 100,
-          enforcementCount: auditLogs.length,
-          affectedResources: projects.length + 5
-        },
-        { 
-          id: "policy-resource",
-          name: "Resource Scaling", 
-          nameAr: "تحجيم الموارد", 
-          description: `Monitoring ${totalTokens} tokens used across ${totalCalls} requests`, 
-          descriptionAr: `مراقبة ${totalTokens} توكن مستخدم عبر ${totalCalls} طلب`,
-          category: "infrastructure", 
-          status: "active", 
-          autonomyLevel: 80,
-          enforcementCount: Math.floor(totalCalls / 5),
-          affectedResources: Math.ceil(projects.length / 2)
-        },
-      ];
+      // Transform database policies to frontend format
+      const policies = dbPolicies.map(p => ({
+        id: p.id,
+        name: p.name,
+        nameAr: p.nameAr || p.name,
+        description: p.description || '',
+        descriptionAr: p.descriptionAr || p.description || '',
+        category: p.scope || 'general',
+        status: p.isActive ? 'active' : 'inactive',
+        autonomyLevel: p.priority,
+        enforcementCount: 0,
+        affectedResources: 0,
+        policyType: p.policyType,
+        requiresHumanReview: p.requiresHumanReview,
+        createdAt: p.createdAt,
+      }));
       
       res.json({ policies, stats: { totalCalls, totalTokens } });
     } catch (error) {
       console.error('Failed to fetch AI policies:', error);
       res.status(500).json({ error: "Failed to fetch AI policies" });
+    }
+  });
+  
+  // Create new AI policy
+  app.post("/api/sovereign/ai-policies", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const validatedData = insertAIPolicySchema.parse({
+        ...req.body,
+        createdBy: user.id
+      });
+      
+      const [newPolicy] = await db.insert(aiPolicies).values(validatedData).returning();
+      
+      // Log the action
+      await storage.createAuditLog({
+        action: 'ai_policy_created',
+        userId: user.id,
+        resourceType: 'ai_policy',
+        resourceId: newPolicy.id,
+        metadata: { policyName: newPolicy.name }
+      });
+      
+      res.status(201).json(newPolicy);
+    } catch (error) {
+      console.error('Failed to create AI policy:', error);
+      res.status(500).json({ error: "Failed to create AI policy" });
+    }
+  });
+  
+  // Update AI policy
+  app.patch("/api/sovereign/ai-policies/:id", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const user = (req as any).user;
+      const { name, nameAr, description, descriptionAr, policyType, scope, priority, isActive, requiresHumanReview } = req.body;
+      
+      const [updated] = await db.update(aiPolicies)
+        .set({ 
+          name, nameAr, description, descriptionAr, policyType, scope, priority, isActive, requiresHumanReview,
+          updatedAt: new Date()
+        })
+        .where(eq(aiPolicies.id, id))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Policy not found" });
+      }
+      
+      // Log the action
+      await storage.createAuditLog({
+        action: 'ai_policy_updated',
+        userId: user.id,
+        resourceType: 'ai_policy',
+        resourceId: id,
+        metadata: { policyName: updated.name }
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error('Failed to update AI policy:', error);
+      res.status(500).json({ error: "Failed to update AI policy" });
+    }
+  });
+  
+  // Delete AI policy
+  app.delete("/api/sovereign/ai-policies/:id", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const user = (req as any).user;
+      
+      const [deleted] = await db.delete(aiPolicies).where(eq(aiPolicies.id, id)).returning();
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "Policy not found" });
+      }
+      
+      // Log the action
+      await storage.createAuditLog({
+        action: 'ai_policy_deleted',
+        userId: user.id,
+        resourceType: 'ai_policy',
+        resourceId: id,
+        metadata: { policyName: deleted.name }
+      });
+      
+      res.json({ success: true, deleted });
+    } catch (error) {
+      console.error('Failed to delete AI policy:', error);
+      res.status(500).json({ error: "Failed to delete AI policy" });
+    }
+  });
+  
+  // Toggle AI policy status
+  app.post("/api/sovereign/ai-policies/:id/toggle", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const user = (req as any).user;
+      
+      // Get current status
+      const [policy] = await db.select().from(aiPolicies).where(eq(aiPolicies.id, id));
+      if (!policy) {
+        return res.status(404).json({ error: "Policy not found" });
+      }
+      
+      const [updated] = await db.update(aiPolicies)
+        .set({ isActive: !policy.isActive, updatedAt: new Date() })
+        .where(eq(aiPolicies.id, id))
+        .returning();
+      
+      // Log the action
+      await storage.createAuditLog({
+        action: updated.isActive ? 'ai_policy_activated' : 'ai_policy_deactivated',
+        userId: user.id,
+        resourceType: 'ai_policy',
+        resourceId: id,
+        metadata: { policyName: updated.name }
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error('Failed to toggle AI policy:', error);
+      res.status(500).json({ error: "Failed to toggle AI policy" });
     }
   });
 

@@ -15,6 +15,7 @@ import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
 import { 
   Brain, Sparkles, Target, Activity, Zap, Shield, Lock,
   Eye, Settings, Play, Pause, RefreshCw, AlertTriangle,
@@ -22,7 +23,8 @@ import {
   Lightbulb, Bot, Cpu, Network, Database, Server,
   GitBranch, Workflow, Layers, Scale, Gavel, FileText,
   Crown, Radio, ArrowUpRight, ArrowDownRight, Timer,
-  Gauge, PieChart, LineChart, AreaChart, AlertOctagon
+  Gauge, PieChart, LineChart, AreaChart, AlertOctagon,
+  Plus, Trash2
 } from "lucide-react";
 
 interface AIPolicy {
@@ -71,23 +73,97 @@ export default function AIGovernanceEngine() {
   const { toast } = useToast();
   const [selectedPolicy, setSelectedPolicy] = useState<AIPolicy | null>(null);
   const [showSimulation, setShowSimulation] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [globalAutonomy, setGlobalAutonomy] = useState(75);
   const [autoEnforce, setAutoEnforce] = useState(true);
   const [humanInLoop, setHumanInLoop] = useState(true);
+  const [newPolicyName, setNewPolicyName] = useState("");
+  const [newPolicyNameAr, setNewPolicyNameAr] = useState("");
+  const [newPolicyDescription, setNewPolicyDescription] = useState("");
+  const [newPolicyCategory, setNewPolicyCategory] = useState("security");
 
-  const policies: AIPolicy[] = [
-    { id: "1", name: "API Rate Limiting", nameAr: "تحديد معدل API", description: "Automatically enforce rate limits based on traffic patterns", descriptionAr: "فرض حدود المعدل تلقائياً بناءً على أنماط الحركة", category: "security", status: "active", autonomyLevel: 85, enforcementCount: 1247, affectedResources: 156, lastEnforced: new Date().toISOString() },
-    { id: "2", name: "Data Encryption Policy", nameAr: "سياسة تشفير البيانات", description: "Enforce encryption at rest and in transit", descriptionAr: "فرض التشفير في حالة السكون والنقل", category: "security", status: "enforcing", autonomyLevel: 95, enforcementCount: 89, affectedResources: 45, lastEnforced: new Date().toISOString() },
-    { id: "3", name: "Resource Scaling", nameAr: "تحجيم الموارد", description: "Auto-scale resources based on demand predictions", descriptionAr: "تحجيم الموارد تلقائياً بناءً على توقعات الطلب", category: "infrastructure", status: "active", autonomyLevel: 70, enforcementCount: 567, affectedResources: 23, lastEnforced: new Date().toISOString() },
-    { id: "4", name: "Access Control", nameAr: "التحكم في الوصول", description: "Dynamic access control based on behavior analysis", descriptionAr: "التحكم الديناميكي في الوصول بناءً على تحليل السلوك", category: "security", status: "active", autonomyLevel: 60, enforcementCount: 2341, affectedResources: 890 },
-    { id: "5", name: "Cost Optimization", nameAr: "تحسين التكاليف", description: "AI-driven cost reduction strategies", descriptionAr: "استراتيجيات خفض التكاليف بالذكاء الاصطناعي", category: "finance", status: "pending", autonomyLevel: 50, enforcementCount: 0, affectedResources: 0 },
-  ];
+  // Fetch real policies from database
+  const { data: policiesData, isLoading: policiesLoading, refetch: refetchPolicies } = useQuery<{ policies: AIPolicy[], stats: { totalCalls: number, totalTokens: number } }>({
+    queryKey: ["/api/sovereign/ai-policies"],
+  });
+  
+  // Fetch real decisions from API
+  const { data: decisionsData } = useQuery<{ decisions: AIDecision[] }>({
+    queryKey: ["/api/sovereign/decisions"],
+  });
 
-  const decisions: AIDecision[] = [
-    { id: "1", type: "enforcement", action: "Blocked suspicious IP range", actionAr: "تم حظر نطاق IP مشبوه", reason: "Detected anomalous traffic pattern", reasonAr: "تم اكتشاف نمط حركة مرور غير طبيعي", impact: "high", status: "executed", confidence: 94, timestamp: new Date(Date.now() - 300000).toISOString(), affectedSystems: ["firewall", "api-gateway"] },
-    { id: "2", type: "optimization", action: "Scaled down idle instances", actionAr: "تم تقليص المثيلات الخاملة", reason: "Low traffic detected for 30 minutes", reasonAr: "تم اكتشاف حركة منخفضة لمدة 30 دقيقة", impact: "low", status: "executed", confidence: 98, timestamp: new Date(Date.now() - 600000).toISOString(), affectedSystems: ["compute", "containers"] },
-    { id: "3", type: "security", action: "Rotate API keys for tenant #456", actionAr: "تدوير مفاتيح API للمستأجر #456", reason: "Key exposure risk detected", reasonAr: "تم اكتشاف خطر كشف المفتاح", impact: "critical", status: "proposed", confidence: 87, timestamp: new Date().toISOString(), affectedSystems: ["auth", "api-gateway", "secrets-manager"] },
-  ];
+  const policies = policiesData?.policies || [];
+  const decisions = decisionsData?.decisions || [];
+  const stats = policiesData?.stats || { totalCalls: 0, totalTokens: 0 };
+
+  // Create policy mutation
+  const createPolicyMutation = useMutation({
+    mutationFn: async (policyData: any) => {
+      return await apiRequest("POST", "/api/sovereign/ai-policies", policyData);
+    },
+    onSuccess: () => {
+      toast({
+        title: language === "ar" ? "تم إنشاء السياسة" : "Policy Created",
+        description: language === "ar" ? "تم إنشاء سياسة AI جديدة بنجاح" : "New AI policy created successfully"
+      });
+      refetchPolicies();
+      setShowCreateDialog(false);
+      setNewPolicyName("");
+      setNewPolicyNameAr("");
+      setNewPolicyDescription("");
+    },
+    onError: () => {
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar" ? "فشل في إنشاء السياسة" : "Failed to create policy",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Toggle policy mutation
+  const togglePolicyMutation = useMutation({
+    mutationFn: async (policyId: string) => {
+      return await apiRequest("POST", `/api/sovereign/ai-policies/${policyId}/toggle`);
+    },
+    onSuccess: () => {
+      toast({
+        title: language === "ar" ? "تم تحديث السياسة" : "Policy Updated",
+        description: language === "ar" ? "تم تغيير حالة السياسة" : "Policy status changed"
+      });
+      refetchPolicies();
+    }
+  });
+
+  // Delete policy mutation
+  const deletePolicyMutation = useMutation({
+    mutationFn: async (policyId: string) => {
+      return await apiRequest("DELETE", `/api/sovereign/ai-policies/${policyId}`);
+    },
+    onSuccess: () => {
+      toast({
+        title: language === "ar" ? "تم حذف السياسة" : "Policy Deleted",
+        description: language === "ar" ? "تم حذف السياسة بنجاح" : "Policy deleted successfully"
+      });
+      refetchPolicies();
+      setSelectedPolicy(null);
+    }
+  });
+
+  const handleCreatePolicy = () => {
+    if (!newPolicyName.trim()) return;
+    createPolicyMutation.mutate({
+      name: newPolicyName,
+      nameAr: newPolicyNameAr || newPolicyName,
+      description: newPolicyDescription,
+      descriptionAr: newPolicyDescription,
+      policyType: "ALLOW",
+      scope: newPolicyCategory,
+      priority: 50,
+      isActive: true,
+      requiresHumanReview: humanInLoop,
+    });
+  };
 
   const categoryColors: Record<string, string> = {
     security: "text-red-500 bg-red-500/10 border-red-500/30",
@@ -213,9 +289,20 @@ export default function AIGovernanceEngine() {
             </div>
             
             <div className="p-3 border-b border-slate-800/50">
-              <h3 className="text-sm font-medium text-white mb-2">
-                {language === "ar" ? "سياسات AI" : "AI Policies"}
-              </h3>
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-medium text-white">
+                  {language === "ar" ? "سياسات AI" : "AI Policies"}
+                </h3>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  onClick={() => setShowCreateDialog(true)}
+                  data-testid="button-create-policy"
+                  className="text-violet-500"
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
             
             <ScrollArea className="flex-1">
@@ -291,25 +378,43 @@ export default function AIGovernanceEngine() {
                     </div>
                     
                     <div className="flex gap-3">
-                      <Button className="flex-1 bg-violet-600 hover:bg-violet-700" data-testid="button-simulate-policy">
+                      <Button className="flex-1 bg-violet-600" data-testid="button-simulate-policy">
                         <Lightbulb className="w-4 h-4 mr-2" />
                         {language === "ar" ? "محاكاة التأثير" : "Simulate Impact"}
                       </Button>
-                      <Button variant="outline" className="flex-1 border-slate-600" data-testid="button-edit-policy">
-                        <Settings className="w-4 h-4 mr-2" />
-                        {language === "ar" ? "تعديل السياسة" : "Edit Policy"}
-                      </Button>
                       {selectedPolicy.status === 'active' ? (
-                        <Button variant="outline" className="border-amber-500/30 text-amber-500" data-testid="button-pause-policy">
+                        <Button 
+                          variant="outline" 
+                          className="border-amber-500/30 text-amber-500" 
+                          onClick={() => togglePolicyMutation.mutate(selectedPolicy.id)}
+                          disabled={togglePolicyMutation.isPending}
+                          data-testid="button-pause-policy"
+                        >
                           <Pause className="w-4 h-4 mr-2" />
                           {language === "ar" ? "إيقاف" : "Pause"}
                         </Button>
                       ) : (
-                        <Button variant="outline" className="border-emerald-500/30 text-emerald-500" data-testid="button-activate-policy">
+                        <Button 
+                          variant="outline" 
+                          className="border-emerald-500/30 text-emerald-500"
+                          onClick={() => togglePolicyMutation.mutate(selectedPolicy.id)}
+                          disabled={togglePolicyMutation.isPending}
+                          data-testid="button-activate-policy"
+                        >
                           <Play className="w-4 h-4 mr-2" />
                           {language === "ar" ? "تفعيل" : "Activate"}
                         </Button>
                       )}
+                      <Button 
+                        variant="outline" 
+                        className="border-red-500/30 text-red-500"
+                        onClick={() => deletePolicyMutation.mutate(selectedPolicy.id)}
+                        disabled={deletePolicyMutation.isPending}
+                        data-testid="button-delete-policy"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        {language === "ar" ? "حذف" : "Delete"}
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -394,6 +499,89 @@ export default function AIGovernanceEngine() {
           </div>
         </div>
       </div>
+
+      {/* Create Policy Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="bg-slate-900 border-slate-700">
+          <DialogHeader>
+            <DialogTitle className="text-white">
+              {language === "ar" ? "إنشاء سياسة AI جديدة" : "Create New AI Policy"}
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              {language === "ar" ? "أضف سياسة جديدة لحوكمة الذكاء الاصطناعي" : "Add a new AI governance policy"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-slate-300">{language === "ar" ? "اسم السياسة (English)" : "Policy Name (English)"}</Label>
+              <Input 
+                value={newPolicyName}
+                onChange={(e) => setNewPolicyName(e.target.value)}
+                placeholder="e.g., Data Encryption Policy"
+                className="bg-slate-800 border-slate-600 text-white"
+                data-testid="input-policy-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-slate-300">{language === "ar" ? "اسم السياسة (عربي)" : "Policy Name (Arabic)"}</Label>
+              <Input 
+                value={newPolicyNameAr}
+                onChange={(e) => setNewPolicyNameAr(e.target.value)}
+                placeholder="مثال: سياسة تشفير البيانات"
+                className="bg-slate-800 border-slate-600 text-white"
+                dir="rtl"
+                data-testid="input-policy-name-ar"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-slate-300">{language === "ar" ? "الوصف" : "Description"}</Label>
+              <Input 
+                value={newPolicyDescription}
+                onChange={(e) => setNewPolicyDescription(e.target.value)}
+                placeholder={language === "ar" ? "وصف السياسة..." : "Policy description..."}
+                className="bg-slate-800 border-slate-600 text-white"
+                data-testid="input-policy-description"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-slate-300">{language === "ar" ? "الفئة" : "Category"}</Label>
+              <Select value={newPolicyCategory} onValueChange={setNewPolicyCategory}>
+                <SelectTrigger className="bg-slate-800 border-slate-600 text-white" data-testid="select-policy-category">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-600">
+                  <SelectItem value="security">{language === "ar" ? "الأمان" : "Security"}</SelectItem>
+                  <SelectItem value="infrastructure">{language === "ar" ? "البنية التحتية" : "Infrastructure"}</SelectItem>
+                  <SelectItem value="finance">{language === "ar" ? "المالية" : "Finance"}</SelectItem>
+                  <SelectItem value="compliance">{language === "ar" ? "الامتثال" : "Compliance"}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowCreateDialog(false)}
+              className="border-slate-600 text-slate-300"
+              data-testid="button-cancel-create"
+            >
+              {language === "ar" ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button 
+              onClick={handleCreatePolicy}
+              disabled={!newPolicyName.trim() || createPolicyMutation.isPending}
+              className="bg-violet-600"
+              data-testid="button-confirm-create"
+            >
+              {createPolicyMutation.isPending ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                language === "ar" ? "إنشاء" : "Create"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
