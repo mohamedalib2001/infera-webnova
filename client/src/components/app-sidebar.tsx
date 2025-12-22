@@ -467,6 +467,14 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location === "/owner/quality"}>
+                      <Link href="/owner/quality" data-testid="nav-owner-quality">
+                        <Scale className="h-4 w-4 text-green-500" />
+                        <span>{language === "ar" ? "ضمان الجودة" : "Quality Assurance"}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
                     <SidebarMenuButton asChild isActive={location === "/sovereign/command-center"}>
                       <Link href="/sovereign/command-center" data-testid="nav-sovereign-command">
                         <Crown className="h-4 w-4 text-amber-500" />

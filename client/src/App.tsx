@@ -72,6 +72,7 @@ import AdminSubscriptions from "@/pages/admin-subscriptions";
 import DeletionManagement from "@/pages/deletion-management";
 import ISDSPage from "@/pages/isds";
 import SpomPage from "@/pages/owner/spom";
+import QualityDashboard from "@/pages/quality-dashboard";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 
@@ -138,6 +139,7 @@ function Router() {
       <Route path="/owner/deletion-management" component={DeletionManagement} />
       <Route path="/owner/isds" component={ISDSPage} />
       <Route path="/owner/spom" component={SpomPage} />
+      <Route path="/owner/quality" component={QualityDashboard} />
       <Route path="/preview/:shareCode" component={Preview} />
       <Route component={NotFound} />
     </Switch>

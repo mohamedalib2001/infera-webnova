@@ -1034,6 +1034,59 @@ router.post('/copilot/chat', requireAuth, async (req: Request, res: Response) =>
   }
 });
 
+/**
+ * POST /api/platform/copilot/contextual-chat
+ * Advanced contextual chat with memory and coherent responses
+ */
+router.post('/copilot/contextual-chat', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { aiCopilot } = await import('@shared/core/kernel/ai-copilot');
+    const { 
+      message, 
+      projectContext, 
+      conversationHistory, 
+      codeContext, 
+      userPreferences, 
+      sessionMemory 
+    } = req.body;
+    
+    if (!message) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+    
+    const response = await aiCopilot.contextualChat(message, {
+      projectContext,
+      conversationHistory,
+      codeContext,
+      userPreferences,
+      sessionMemory,
+    });
+    res.json(response);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/copilot/summarize
+ * Summarize conversation for context retention
+ */
+router.post('/copilot/summarize', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { aiCopilot } = await import('@shared/core/kernel/ai-copilot');
+    const { history } = req.body;
+    
+    if (!history || !Array.isArray(history)) {
+      return res.status(400).json({ error: 'History array is required' });
+    }
+    
+    const summary = await aiCopilot.summarizeConversation(history);
+    res.json(summary);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ==================== HETZNER DEPLOYMENT ROUTES ====================
 
 // Helper to sanitize Hetzner errors - never expose internal API details

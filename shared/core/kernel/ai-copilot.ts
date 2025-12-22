@@ -646,7 +646,7 @@ Cover all public functions, edge cases, and error handling.`;
   }
 
   /**
-   * Chat with AI about code
+   * Chat with AI about code - Enhanced with context understanding
    */
   async chat(
     message: string,
@@ -699,6 +699,231 @@ Respond ONLY with valid JSON:
       return {
         response: 'Sorry, I encountered an error: ' + error.message,
         responseAr: 'عذراً، حدث خطأ: ' + error.message,
+      };
+    }
+  }
+
+  /**
+   * Advanced contextual chat with memory and coherent responses like Claude
+   * محادثة متقدمة مع ذاكرة السياق وردود متناسقة
+   */
+  async contextualChat(
+    message: string,
+    options: {
+      projectContext?: {
+        projectName: string;
+        projectType: string;
+        techStack: string[];
+        currentFiles?: string[];
+        recentChanges?: string[];
+      };
+      conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
+      codeContext?: CodeContext;
+      userPreferences?: {
+        language: 'ar' | 'en';
+        detailLevel: 'brief' | 'detailed' | 'comprehensive';
+        codeStyle?: 'functional' | 'oop' | 'mixed';
+      };
+      sessionMemory?: {
+        topics: string[];
+        decisions: string[];
+        pendingActions: string[];
+      };
+    } = {}
+  ): Promise<{
+    response: string;
+    responseAr: string;
+    suggestedActions?: Array<{ action: string; actionAr: string; type: string }>;
+    contextUpdates?: {
+      newTopics?: string[];
+      newDecisions?: string[];
+      newPendingActions?: string[];
+    };
+    confidence: number;
+  }> {
+    const {
+      projectContext,
+      conversationHistory = [],
+      codeContext,
+      userPreferences = { language: 'en', detailLevel: 'detailed' },
+      sessionMemory = { topics: [], decisions: [], pendingActions: [] }
+    } = options;
+
+    const systemPrompt = `You are an advanced AI programming assistant with contextual memory and coherent conversation capabilities.
+
+## Your Core Traits:
+1. **Context Awareness**: You remember previous conversations and maintain coherence across messages
+2. **Proactive Assistance**: Suggest relevant actions based on context
+3. **Adaptive Communication**: Match the user's language preference and detail level
+4. **Technical Excellence**: Provide accurate, production-ready code and advice
+5. **Bilingual Support**: Respond in both English and Arabic
+
+## Current Project Context:
+${projectContext ? `
+- Project: ${projectContext.projectName}
+- Type: ${projectContext.projectType}
+- Tech Stack: ${projectContext.techStack.join(', ')}
+${projectContext.currentFiles ? `- Active Files: ${projectContext.currentFiles.slice(0, 5).join(', ')}` : ''}
+${projectContext.recentChanges ? `- Recent Changes: ${projectContext.recentChanges.slice(0, 3).join(', ')}` : ''}
+` : 'No project context provided'}
+
+## Session Memory:
+${sessionMemory.topics.length > 0 ? `- Topics Discussed: ${sessionMemory.topics.join(', ')}` : ''}
+${sessionMemory.decisions.length > 0 ? `- Decisions Made: ${sessionMemory.decisions.join(', ')}` : ''}
+${sessionMemory.pendingActions.length > 0 ? `- Pending Actions: ${sessionMemory.pendingActions.join(', ')}` : ''}
+
+## User Preferences:
+- Language: ${userPreferences.language === 'ar' ? 'Arabic preferred' : 'English preferred'}
+- Detail Level: ${userPreferences.detailLevel}
+${userPreferences.codeStyle ? `- Code Style: ${userPreferences.codeStyle}` : ''}
+
+## Response Guidelines:
+1. Be coherent with previous messages - reference past discussions when relevant
+2. Provide actionable suggestions when appropriate
+3. Update context with new topics, decisions, or pending actions
+4. Match the user's communication style
+5. Include code examples when they would be helpful
+
+Respond ONLY with valid JSON:
+{
+  "response": "Your detailed response in English",
+  "responseAr": "ردك المفصل بالعربية",
+  "suggestedActions": [
+    {"action": "Action description", "actionAr": "وصف الإجراء", "type": "code|config|review|deploy|test"}
+  ],
+  "contextUpdates": {
+    "newTopics": ["any new topics discussed"],
+    "newDecisions": ["any decisions made"],
+    "newPendingActions": ["any new action items"]
+  },
+  "confidence": 95
+}`;
+
+    const codeContextStr = codeContext
+      ? `\n\nCode Context:\n\`\`\`${codeContext.language}\n${codeContext.code}\n\`\`\``
+      : '';
+
+    const messages = [
+      ...conversationHistory.slice(-10).map(h => ({ 
+        role: h.role as 'user' | 'assistant', 
+        content: h.content 
+      })),
+      { role: 'user' as const, content: message + codeContextStr }
+    ];
+
+    try {
+      const response = await anthropic.messages.create({
+        model: this.model,
+        max_tokens: this.maxTokens,
+        messages,
+        system: systemPrompt,
+      });
+
+      const content = response.content[0];
+      if (content.type !== 'text') {
+        throw new Error('Unexpected response type');
+      }
+
+      const jsonMatch = content.text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        return {
+          response: content.text,
+          responseAr: content.text,
+          confidence: 70,
+        };
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]);
+      return {
+        response: parsed.response || content.text,
+        responseAr: parsed.responseAr || parsed.response || content.text,
+        suggestedActions: parsed.suggestedActions || [],
+        contextUpdates: parsed.contextUpdates || {},
+        confidence: parsed.confidence || 85,
+      };
+    } catch (error: any) {
+      console.error('Contextual chat failed:', error);
+      return {
+        response: 'I apologize, I encountered an error processing your request. Please try again.',
+        responseAr: 'أعتذر، حدث خطأ أثناء معالجة طلبك. يرجى المحاولة مرة أخرى.',
+        confidence: 0,
+      };
+    }
+  }
+
+  /**
+   * Smart conversation summarizer - maintains context across sessions
+   * ملخص المحادثة الذكي - يحافظ على السياق عبر الجلسات
+   */
+  async summarizeConversation(
+    history: Array<{ role: 'user' | 'assistant'; content: string }>
+  ): Promise<{
+    summary: string;
+    summaryAr: string;
+    keyPoints: string[];
+    keyPointsAr: string[];
+    actionItems: string[];
+    actionItemsAr: string[];
+    topicsDiscussed: string[];
+  }> {
+    if (history.length === 0) {
+      return {
+        summary: 'No conversation to summarize.',
+        summaryAr: 'لا توجد محادثة لتلخيصها.',
+        keyPoints: [],
+        keyPointsAr: [],
+        actionItems: [],
+        actionItemsAr: [],
+        topicsDiscussed: [],
+      };
+    }
+
+    const systemPrompt = `Summarize this programming conversation. Extract key points, action items, and topics.
+
+Respond ONLY with valid JSON:
+{
+  "summary": "Brief summary in English",
+  "summaryAr": "ملخص موجز بالعربية",
+  "keyPoints": ["Key point 1", "Key point 2"],
+  "keyPointsAr": ["النقطة الرئيسية 1", "النقطة الرئيسية 2"],
+  "actionItems": ["Action 1", "Action 2"],
+  "actionItemsAr": ["الإجراء 1", "الإجراء 2"],
+  "topicsDiscussed": ["topic1", "topic2"]
+}`;
+
+    const conversationText = history
+      .map(h => `${h.role}: ${h.content}`)
+      .join('\n\n');
+
+    try {
+      const response = await anthropic.messages.create({
+        model: this.model,
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: `Summarize this conversation:\n\n${conversationText}` }],
+        system: systemPrompt,
+      });
+
+      const content = response.content[0];
+      if (content.type !== 'text') {
+        throw new Error('Unexpected response type');
+      }
+
+      const jsonMatch = content.text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('No JSON found in response');
+      }
+
+      return JSON.parse(jsonMatch[0]);
+    } catch (error: any) {
+      console.error('Summarization failed:', error);
+      return {
+        summary: 'Failed to summarize conversation.',
+        summaryAr: 'فشل تلخيص المحادثة.',
+        keyPoints: [],
+        keyPointsAr: [],
+        actionItems: [],
+        actionItemsAr: [],
+        topicsDiscussed: [],
       };
     }
   }
