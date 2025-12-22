@@ -55,14 +55,32 @@ function generateFingerprint(publicKey: string): string {
   return "SHA256:" + hash.toString("base64").replace(/=+$/, "");
 }
 
-function requireSovereignRole(req: Request, res: Response, next: NextFunction) {
-  if (!req.user) {
+async function requireSovereignRole(req: Request, res: Response, next: NextFunction) {
+  // Check session-based auth first (used by main app)
+  const userId = (req.session as any)?.userId;
+  
+  if (!userId) {
+    console.log("[SSH Vault] No userId in session");
     return res.status(401).json({ error: "Unauthorized" });
   }
-  const role = (req.user as any).role;
-  if (!["sovereign", "owner"].includes(role)) {
+  
+  // Fetch user from database to get role
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  
+  if (!user) {
+    console.log("[SSH Vault] User not found in database");
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  
+  const role = user.role;
+  console.log(`[SSH Vault] User ${user.username} with role ${role} accessing vault`);
+  
+  if (!["sovereign", "owner"].includes(role || "")) {
     return res.status(403).json({ error: "Sovereign access required" });
   }
+  
+  // Attach user to request for downstream use
+  (req as any).user = user;
   next();
 }
 

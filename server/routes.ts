@@ -4276,6 +4276,47 @@ Provide realistic, data-driven predictions based on the actual platform state.`;
         }
 
         deleteSuccess = await storage.deleteProject(entityId);
+        
+        // Add to deleted_items and recycle_bin for tracking
+        if (deleteSuccess) {
+          const expiresAt = new Date();
+          expiresAt.setDate(expiresAt.getDate() + 30);
+          
+          try {
+            const deletedItem = await storage.createDeletedItem({
+              entityType: "platform",
+              entityId,
+              entityName: entity.name || "Unknown Project",
+              entityData: {
+                id: entity.id,
+                name: entity.name,
+                description: entity.description,
+                language: entity.language,
+              },
+              deletedBy: userId,
+              deletedByRole: user.role || "user",
+              deletedByEmail: user.email || "",
+              deletedByFullName: user.fullName || user.username || "",
+              deletedByAccountStatus: user.status || "active",
+              deletionType: "secure",
+              deletionReason: "Secure deletion by user",
+              retentionDays: 30,
+              expiresAt,
+              status: "recoverable",
+              ipAddress,
+            });
+            
+            await storage.addToRecycleBin({
+              deletedItemId: deletedItem.id,
+              ownerId: userId,
+              entityType: "platform",
+              entityName: entity.name || "Unknown Project",
+              scheduledPurgeAt: expiresAt,
+            });
+          } catch (recycleBinError) {
+            console.error("Failed to add to recycle bin:", recycleBinError);
+          }
+        }
       }
 
       if (deleteSuccess) {
