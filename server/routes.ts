@@ -1398,6 +1398,29 @@ export async function registerRoutes(
       const uptimeMs = process.uptime() * 1000;
       const systemUptime = uptimeMs > 86400000 ? 99.97 : uptimeMs > 3600000 ? 99.5 : 98.0;
       
+      // Count AI-related failures from audit logs for accuracy calculation  
+      const aiFailures = auditLogs.filter(log => 
+        (log.action.includes('ai') || log.action.includes('generation')) && 
+        (log.action.includes('failed') || log.action.includes('error'))
+      ).length;
+      
+      // Calculate AI accuracy: (successful AI calls / total AI calls) * 100
+      // If no AI calls yet, accuracy is 0 (not applicable)
+      const aiAccuracy = totalAiCalls > 0 
+        ? Math.round(((totalAiCalls - aiFailures) / totalAiCalls) * 100)
+        : 0;
+      
+      // Count violations from audit logs
+      const violations = auditLogs.filter(log => 
+        log.action.includes('violation') || 
+        log.action.includes('failed') || 
+        log.action.includes('error')
+      ).length;
+      
+      // Get infrastructure regions (currently single-region deployment on Replit)
+      // This is the actual deployed infrastructure count, not simulated
+      const infrastructureRegions = 1;
+      
       res.json({
         platformHealth,
         riskIndex,
@@ -1406,7 +1429,7 @@ export async function registerRoutes(
         sovereigntyScore,
         activeUsers,
         activeProjects,
-        activePolicies: auditLogs.filter(l => l.action.includes('policy')).length || 5,
+        activePolicies: auditLogs.filter(l => l.action.includes('policy')).length || 0,
         pendingApprovals: auditLogs.filter(l => l.action.includes('pending')).length,
         enforcementActions: auditLogs.filter(l => l.action.includes('enforce')).length,
         dataResidencyCompliance: 100 - riskIndex,
@@ -1414,10 +1437,18 @@ export async function registerRoutes(
         costEfficiency: Math.min(95, 60 + Math.floor(activeProjects / 5)),
         systemUptime,
         lastUpdated: new Date().toISOString(),
+        activeRegions: infrastructureRegions,
+        violations: violations,
+        aiAccuracy: aiAccuracy,
+        todayDecisions: recentAuditLogs.filter(l => l.action.includes('decision')).length,
+        insightsGenerated: totalAiCalls,
+        insightsApplied: auditLogs.filter(l => l.action.includes('applied') || l.action.includes('enforced')).length,
+        insightsAwaiting: auditLogs.filter(l => l.action.includes('pending') || l.action.includes('awaiting')).length,
         metrics: {
           totalUsers,
           totalAiCalls,
           recentAuditEvents: recentAuditLogs.length,
+          aiFailures: aiFailures,
         }
       });
     } catch (error) {

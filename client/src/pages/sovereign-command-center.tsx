@@ -41,6 +41,13 @@ interface SovereignMetrics {
   costEfficiency: number;
   systemUptime: number;
   lastUpdated?: string;
+  activeRegions: number;
+  violations: number;
+  aiAccuracy: number;
+  todayDecisions: number;
+  insightsGenerated: number;
+  insightsApplied: number;
+  insightsAwaiting: number;
   metrics?: {
     totalUsers: number;
     totalAiCalls: number;
@@ -125,6 +132,13 @@ export default function SovereignCommandCenter() {
     securityPosture: 0,
     costEfficiency: 0,
     systemUptime: 0,
+    activeRegions: 0,
+    violations: 0,
+    aiAccuracy: 0,
+    todayDecisions: 0,
+    insightsGenerated: 0,
+    insightsApplied: 0,
+    insightsAwaiting: 0,
     metrics: { totalUsers: 0, totalAiCalls: 0, recentAuditEvents: 0 }
   };
 
@@ -384,11 +398,11 @@ export default function SovereignCommandCenter() {
                         <Progress value={metrics.dataResidencyCompliance} className="h-2" />
                         <div className="grid grid-cols-2 gap-2 mt-4">
                           <div className="p-2 rounded bg-slate-800/50 text-center">
-                            <p className="text-lg font-bold text-white">1</p>
+                            <p className="text-lg font-bold text-white">{metrics.activeRegions}</p>
                             <p className="text-[10px] text-slate-400">{language === "ar" ? "مناطق نشطة" : "Active Regions"}</p>
                           </div>
                           <div className="p-2 rounded bg-slate-800/50 text-center">
-                            <p className="text-lg font-bold text-emerald-500">{metrics.riskIndex > 0 ? Math.ceil(metrics.riskIndex / 20) : 0}</p>
+                            <p className="text-lg font-bold text-emerald-500">{metrics.violations}</p>
                             <p className="text-[10px] text-slate-400">{language === "ar" ? "انتهاكات" : "Violations"}</p>
                           </div>
                         </div>
@@ -414,11 +428,11 @@ export default function SovereignCommandCenter() {
                         <Progress value={metrics.aiAutonomyLevel} className="h-2" />
                         <div className="grid grid-cols-2 gap-2 mt-4">
                           <div className="p-2 rounded bg-slate-800/50 text-center">
-                            <p className="text-lg font-bold text-white">{decisions.length}</p>
+                            <p className="text-lg font-bold text-white">{metrics.todayDecisions || decisions.length}</p>
                             <p className="text-[10px] text-slate-400">{language === "ar" ? "قرارات اليوم" : "Today's Decisions"}</p>
                           </div>
                           <div className="p-2 rounded bg-slate-800/50 text-center">
-                            <p className="text-lg font-bold text-violet-500">{Math.max(70, 100 - metrics.riskIndex)}%</p>
+                            <p className="text-lg font-bold text-violet-500">{metrics.aiAccuracy}%</p>
                             <p className="text-[10px] text-slate-400">{language === "ar" ? "دقة التنبؤ" : "Accuracy"}</p>
                           </div>
                         </div>
@@ -590,22 +604,22 @@ export default function SovereignCommandCenter() {
                     <div className="grid grid-cols-4 gap-4 mb-6">
                       <div className="p-4 rounded-lg bg-violet-500/10 border border-violet-500/20 text-center">
                         <Sparkles className="w-6 h-6 text-violet-500 mx-auto mb-2" />
-                        <p className="text-2xl font-bold text-white">{metrics.metrics?.totalAiCalls || 0}</p>
+                        <p className="text-2xl font-bold text-white">{metrics.insightsGenerated}</p>
                         <p className="text-xs text-slate-400">{language === "ar" ? "رؤى مُولدة" : "Insights Generated"}</p>
                       </div>
                       <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-center">
                         <CheckCircle2 className="w-6 h-6 text-emerald-500 mx-auto mb-2" />
-                        <p className="text-2xl font-bold text-white">{decisions.filter(d => d.status === 'enforced').length}</p>
+                        <p className="text-2xl font-bold text-white">{metrics.insightsApplied}</p>
                         <p className="text-xs text-slate-400">{language === "ar" ? "تم تطبيقها" : "Applied"}</p>
                       </div>
                       <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-center">
                         <Clock className="w-6 h-6 text-amber-500 mx-auto mb-2" />
-                        <p className="text-2xl font-bold text-white">{decisions.filter(d => d.status === 'pending').length}</p>
+                        <p className="text-2xl font-bold text-white">{metrics.insightsAwaiting}</p>
                         <p className="text-xs text-slate-400">{language === "ar" ? "بانتظار المراجعة" : "Awaiting Review"}</p>
                       </div>
                       <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20 text-center">
                         <Target className="w-6 h-6 text-blue-500 mx-auto mb-2" />
-                        <p className="text-2xl font-bold text-white">{Math.max(70, 100 - metrics.riskIndex)}%</p>
+                        <p className="text-2xl font-bold text-white">{metrics.aiAccuracy}%</p>
                         <p className="text-xs text-slate-400">{language === "ar" ? "معدل الدقة" : "Accuracy Rate"}</p>
                       </div>
                     </div>
