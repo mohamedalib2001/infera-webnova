@@ -5178,25 +5178,89 @@ export type InsertInfrastructureBackup = z.infer<typeof insertInfrastructureBack
 export type InfrastructureBackup = typeof infrastructureBackups.$inferSelect;
 
 // ==================== EXTERNAL INTEGRATION GATEWAY ====================
-// بوابة التكامل الخارجي (Replit وغيرها)
+// بوابة التكامل الخارجي (Replit، Hetzner، وغيرها)
+
+// أنواع الأغراض المتاحة للجلسات
+export const sessionPurposes = [
+  'development',        // تطوير وبناء
+  'maintenance',        // صيانة دورية
+  'technical_support',  // دعم فني
+  'diagnostic',         // فحص وتشخيص
+  'emergency',          // حالة طوارئ
+  'update',             // تحديثات
+  'security_audit',     // تدقيق أمني
+  'performance_tuning', // تحسين الأداء
+  'data_migration',     // نقل بيانات
+  'backup_restore',     // نسخ احتياطي واستعادة
+  'testing',            // اختبار
+  'training',           // تدريب
+] as const;
+export type SessionPurpose = typeof sessionPurposes[number];
+
+// أنواع المزودين
+export const integrationProviders = [
+  'replit',           // Replit
+  'hetzner',          // Hetzner Cloud
+  'aws',              // Amazon Web Services
+  'azure',            // Microsoft Azure
+  'gcp',              // Google Cloud Platform
+  'digitalocean',     // DigitalOcean
+  'cloudflare',       // Cloudflare
+  'github',           // GitHub
+  'gitlab',           // GitLab
+  'custom',           // مزود مخصص
+] as const;
+export type IntegrationProvider = typeof integrationProviders[number];
+
+// أنواع الوصول للجلسات
+export const accessLevels = [
+  'read_only',        // قراءة فقط
+  'read_write',       // قراءة وكتابة
+  'full_access',      // وصول كامل
+  'admin',            // صلاحيات إدارية
+  'root',             // صلاحيات جذرية (للطوارئ فقط)
+] as const;
+export type AccessLevel = typeof accessLevels[number];
 
 export const externalIntegrationSessions = pgTable("external_integration_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   // معلومات الجلسة
-  partnerName: text("partner_name").notNull(), // replit, github_copilot, etc.
+  partnerName: text("partner_name").notNull(), // replit, hetzner, aws, etc.
   partnerDisplayName: text("partner_display_name").notNull(),
+  providerType: text("provider_type").default("custom"), // development, hosting, cloud, security
   
-  // الغرض
-  purpose: text("purpose").notNull(), // development_support, diagnostic, emergency, testing
+  // الغرض - موسّع
+  purpose: text("purpose").notNull(), // development, maintenance, technical_support, diagnostic, etc.
   purposeDescription: text("purpose_description").notNull(),
   purposeDescriptionAr: text("purpose_description_ar"),
   
-  // الصلاحيات
+  // تصنيف الجلسة
+  sessionType: text("session_type").default("standard"), // standard, priority, emergency, scheduled
+  priority: text("priority").default("normal"), // low, normal, high, critical
+  
+  // معلومات الاتصال بالسيرفر
+  serverConnection: jsonb("server_connection").$type<{
+    serverId?: string;
+    serverName?: string;
+    serverIp?: string;
+    sshPort?: number;
+    connectionMethod?: string; // ssh, api, console, vpn
+    credentials?: {
+      type: string; // key, password, token
+      keyFingerprint?: string;
+    };
+  }>(),
+  
+  // مستوى الوصول
+  accessLevel: text("access_level").default("read_only"), // read_only, read_write, full_access, admin, root
+  
+  // الصلاحيات التفصيلية
   permissions: jsonb("permissions").$type<{
-    type: string; // read, write, execute
-    scope: string; // code, logs, config, database
+    type: string; // read, write, execute, delete, admin
+    scope: string; // code, logs, config, database, files, system, network
     resources: string[];
+    actions?: string[]; // specific allowed actions
   }[]>().notNull(),
   
   // القيود
@@ -5205,10 +5269,30 @@ export const externalIntegrationSessions = pgTable("external_integration_session
     maxDuration: number; // minutes
     requireApproval: boolean;
     sandboxOnly: boolean;
+    allowedCommands?: string[];
+    blockedCommands?: string[];
+    allowedPaths?: string[];
+    blockedPaths?: string[];
+    maxFileSize?: number; // bytes
+    noDeleteData?: boolean;
+    noModifyConfig?: boolean;
   }>().notNull(),
   
+  // معلومات التواصل
+  contactInfo: jsonb("contact_info").$type<{
+    technician?: string;
+    technicianEmail?: string;
+    technicianPhone?: string;
+    ticketNumber?: string;
+    referenceNumber?: string;
+  }>(),
+  
+  // الجدولة
+  scheduledStart: timestamp("scheduled_start"),
+  scheduledEnd: timestamp("scheduled_end"),
+  
   // الحالة
-  status: text("status").notNull().default("inactive"), // inactive, pending_activation, active, expired, revoked
+  status: text("status").notNull().default("inactive"), // inactive, pending_activation, active, paused, expired, revoked, completed
   
   // التفعيل
   activatedAt: timestamp("activated_at"),

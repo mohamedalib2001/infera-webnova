@@ -36,7 +36,7 @@ import {
   ShieldOff,
   Zap
 } from "lucide-react";
-import { SiReplit, SiGithub } from "react-icons/si";
+import { SiReplit, SiGithub, SiGitlab, SiAmazon, SiGooglecloud, SiDigitalocean, SiCloudflare, SiHetzner } from "react-icons/si";
 import type { ExternalIntegrationSession, ExternalIntegrationLog } from "@shared/schema";
 
 const translations = {
@@ -61,14 +61,42 @@ const translations = {
     },
     partners: {
       replit: "Replit",
-      github: "GitHub Copilot",
+      hetzner: "Hetzner Cloud",
+      aws: "Amazon AWS",
+      azure: "Microsoft Azure",
+      gcp: "Google Cloud",
+      digitalocean: "DigitalOcean",
+      cloudflare: "Cloudflare",
+      github: "GitHub",
+      gitlab: "GitLab",
       custom: "شريك مخصص"
     },
     purposes: {
-      development_support: "دعم التطوير",
-      diagnostic: "تشخيص المشاكل",
+      development: "تطوير وبناء",
+      maintenance: "صيانة دورية",
+      technical_support: "دعم فني",
+      diagnostic: "فحص وتشخيص",
+      emergency: "حالة طوارئ",
+      update: "تحديثات",
+      security_audit: "تدقيق أمني",
+      performance_tuning: "تحسين الأداء",
+      data_migration: "نقل بيانات",
+      backup_restore: "نسخ احتياطي",
+      testing: "اختبار",
+      training: "تدريب"
+    },
+    accessLevels: {
+      read_only: "قراءة فقط",
+      read_write: "قراءة وكتابة",
+      full_access: "وصول كامل",
+      admin: "صلاحيات إدارية",
+      root: "صلاحيات جذرية"
+    },
+    sessionTypes: {
+      standard: "عادية",
+      priority: "أولوية",
       emergency: "طوارئ",
-      testing: "اختبار"
+      scheduled: "مجدولة"
     },
     permissions: {
       read: "قراءة",
@@ -107,14 +135,42 @@ const translations = {
     },
     partners: {
       replit: "Replit",
-      github: "GitHub Copilot",
+      hetzner: "Hetzner Cloud",
+      aws: "Amazon AWS",
+      azure: "Microsoft Azure",
+      gcp: "Google Cloud",
+      digitalocean: "DigitalOcean",
+      cloudflare: "Cloudflare",
+      github: "GitHub",
+      gitlab: "GitLab",
       custom: "Custom Partner"
     },
     purposes: {
-      development_support: "Development Support",
-      diagnostic: "Diagnostics",
+      development: "Development & Build",
+      maintenance: "Routine Maintenance",
+      technical_support: "Technical Support",
+      diagnostic: "Diagnostic & Inspection",
       emergency: "Emergency",
-      testing: "Testing"
+      update: "Updates",
+      security_audit: "Security Audit",
+      performance_tuning: "Performance Tuning",
+      data_migration: "Data Migration",
+      backup_restore: "Backup & Restore",
+      testing: "Testing",
+      training: "Training"
+    },
+    accessLevels: {
+      read_only: "Read Only",
+      read_write: "Read & Write",
+      full_access: "Full Access",
+      admin: "Admin",
+      root: "Root Access"
+    },
+    sessionTypes: {
+      standard: "Standard",
+      priority: "Priority",
+      emergency: "Emergency",
+      scheduled: "Scheduled"
     },
     permissions: {
       read: "Read",
@@ -137,7 +193,15 @@ const translations = {
 function getPartnerIcon(name: string) {
   switch (name?.toLowerCase()) {
     case 'replit': return <SiReplit className="w-6 h-6" />;
+    case 'hetzner': return <SiHetzner className="w-6 h-6" />;
+    case 'aws': return <SiAmazon className="w-6 h-6" />;
+    case 'azure': return <Cloud className="w-6 h-6" />;
+    case 'gcp': return <SiGooglecloud className="w-6 h-6" />;
+    case 'digitalocean': return <SiDigitalocean className="w-6 h-6" />;
+    case 'cloudflare': return <SiCloudflare className="w-6 h-6" />;
+    case 'github': 
     case 'github_copilot': return <SiGithub className="w-6 h-6" />;
+    case 'gitlab': return <SiGitlab className="w-6 h-6" />;
     default: return <Link2 className="w-6 h-6" />;
   }
 }
@@ -157,9 +221,39 @@ function getPurposeColor(purpose: string) {
   switch (purpose) {
     case 'emergency': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
     case 'diagnostic': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+    case 'development':
     case 'development_support': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+    case 'maintenance': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+    case 'technical_support': return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200';
+    case 'update': return 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200';
+    case 'security_audit': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+    case 'performance_tuning': return 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200';
+    case 'data_migration': return 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200';
+    case 'backup_restore': return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200';
     case 'testing': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
-    default: return 'bg-gray-100 text-gray-800';
+    case 'training': return 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200';
+    default: return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200';
+  }
+}
+
+function getAccessLevelColor(level: string) {
+  switch (level) {
+    case 'read_only': return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
+    case 'read_write': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+    case 'full_access': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+    case 'admin': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+    case 'root': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+    default: return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200';
+  }
+}
+
+function getSessionTypeColor(type: string) {
+  switch (type) {
+    case 'standard': return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
+    case 'priority': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+    case 'emergency': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+    case 'scheduled': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+    default: return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200';
   }
 }
 

@@ -153,6 +153,9 @@ export const ProjectSpecSchema = z.object({
     components: z.array(z.string()).default([]),
   })).default([]),
   
+  // Target platforms (web, mobile, desktop)
+  targetPlatforms: z.array(z.enum(['web', 'mobile', 'desktop', 'pwa'])).default(['web']),
+  
   // Deployment target
   deployment: z.object({
     provider: z.enum(['vercel', 'netlify', 'railway', 'render', 'fly', 'hetzner', 'aws', 'gcp', 'azure']).default('vercel'),

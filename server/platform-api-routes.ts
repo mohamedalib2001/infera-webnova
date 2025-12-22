@@ -190,6 +190,187 @@ router.post('/generate-from-prompt', requireAuth, async (req: Request, res: Resp
 });
 
 /**
+ * POST /api/platform/generate-sovereign
+ * Generate sovereign platform from template selection
+ */
+router.post('/generate-sovereign', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+    
+    const { template, features, targetPlatforms, name, description, projectId, deploymentProvider } = req.body;
+    
+    if (!template) {
+      return res.status(400).json({ error: 'Template is required' });
+    }
+    
+    const templateMapping: Record<string, { 
+      projectTemplate: string; 
+      frontend: 'react' | 'nextjs' | 'vue' | 'svelte';
+      backend: 'express' | 'fastify' | 'nestjs' | 'nextjs-api';
+    }> = {
+      ecommerce: { projectTemplate: 'ecommerce', frontend: 'react', backend: 'express' },
+      education: { projectTemplate: 'saas-starter', frontend: 'react', backend: 'express' },
+      healthcare: { projectTemplate: 'dashboard', frontend: 'react', backend: 'express' },
+      financial: { projectTemplate: 'dashboard', frontend: 'react', backend: 'express' },
+      corporate: { projectTemplate: 'dashboard', frontend: 'react', backend: 'express' },
+      saas: { projectTemplate: 'saas-starter', frontend: 'nextjs', backend: 'nextjs-api' },
+      news: { projectTemplate: 'blog-cms', frontend: 'nextjs', backend: 'nextjs-api' },
+      community: { projectTemplate: 'saas-starter', frontend: 'react', backend: 'express' },
+    };
+    
+    const config = templateMapping[template] || { projectTemplate: 'react-express', frontend: 'react', backend: 'express' };
+    
+    const featureFlags = {
+      authentication: features?.includes('auth') ?? true,
+      authorization: features?.includes('rbac') ?? true,
+      api: true,
+      database: true,
+      fileUpload: false,
+      realtime: features?.includes('chat') ?? false,
+      i18n: true,
+      darkMode: true,
+      seo: true,
+      analytics: features?.includes('analytics') ?? false,
+      payments: features?.includes('payments') ?? false,
+      notifications: features?.includes('notifications') ?? false,
+      search: features?.includes('search') ?? false,
+    };
+    
+    const specInput = {
+      name: name || `${template.charAt(0).toUpperCase() + template.slice(1)} Platform`,
+      description: description || `Generated ${template} platform`,
+      language: 'ar' as const,
+      template: config.projectTemplate as any,
+      techStack: {
+        frontend: config.frontend,
+        backend: config.backend,
+        database: 'postgresql' as const,
+        orm: 'drizzle' as const,
+        ui: 'tailwind' as const,
+        auth: 'session' as const,
+      },
+      features: featureFlags,
+      pages: [
+        { name: 'Home', nameAr: 'الرئيسية', path: '/', type: 'public' as const, layout: 'landing' as const, components: [] },
+        { name: 'Dashboard', nameAr: 'لوحة التحكم', path: '/dashboard', type: 'protected' as const, layout: 'dashboard' as const, components: [] },
+      ],
+      entities: [],
+      targetPlatforms: (() => {
+        if (Array.isArray(targetPlatforms)) {
+          const filtered = targetPlatforms.filter((p: string) => ['web', 'mobile', 'desktop', 'pwa'].includes(p));
+          return filtered.length > 0 ? filtered : ['web'];
+        } else if (typeof targetPlatforms === 'object' && targetPlatforms !== null) {
+          const platforms: ('web' | 'mobile' | 'desktop' | 'pwa')[] = [];
+          if (targetPlatforms.web) platforms.push('web');
+          if (targetPlatforms.mobile) platforms.push('mobile');
+          if (targetPlatforms.desktop) platforms.push('desktop');
+          if (targetPlatforms.pwa) platforms.push('pwa');
+          return platforms.length > 0 ? platforms : ['web'];
+        }
+        return ['web'] as ('web' | 'mobile' | 'desktop' | 'pwa')[];
+      })(),
+      deployment: {
+        provider: (['vercel', 'netlify', 'railway', 'render', 'fly', 'hetzner', 'aws', 'gcp', 'azure'].includes(deploymentProvider) 
+          ? deploymentProvider 
+          : 'vercel') as 'vercel' | 'netlify' | 'railway' | 'render' | 'fly' | 'hetzner' | 'aws' | 'gcp' | 'azure',
+        region: 'auto',
+      },
+    };
+    
+    const spec = ProjectSpecSchema.parse(specInput);
+    
+    const result = await fullStackGenerator.generate(spec);
+    
+    if (!result.success) {
+      return res.status(400).json({ 
+        error: 'Generation failed',
+        errors: result.errors 
+      });
+    }
+    
+    let workspace = await db.query.devWorkspaces.findFirst({
+      where: eq(devWorkspaces.ownerId, userId)
+    });
+    
+    if (!workspace) {
+      const workspaceInsert = await db.insert(devWorkspaces).values({
+        name: 'My Workspace',
+        slug: `workspace-${userId.slice(0, 8)}`,
+        ownerId: userId,
+        status: 'active',
+        visibility: 'private',
+      }).returning();
+      workspace = workspaceInsert[0];
+    }
+    
+    const [project] = await db.insert(isdsProjects).values({
+      name: spec.name,
+      slug: spec.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
+      description: spec.description,
+      workspaceId: workspace.id,
+      projectType: 'sovereign-platform',
+      framework: spec.techStack.frontend,
+      language: 'typescript',
+      status: 'active',
+      buildConfig: {
+        buildCommand: result.scripts.build || 'npm run build',
+        outputDirectory: '.next',
+        installCommand: 'npm install',
+        devCommand: result.scripts.dev || 'npm run dev',
+        envVars: result.envVars,
+        sovereignTemplate: template,
+        selectedFeatures: features || [],
+        targetPlatforms: spec.targetPlatforms,
+        deploymentProvider: spec.deployment?.provider || 'vercel',
+      },
+      dependencies: result.dependencies,
+    }).returning();
+    
+    for (const file of result.files) {
+      await db.insert(devFiles).values({
+        name: file.path.split('/').pop() || file.path,
+        path: file.path,
+        projectId: project.id,
+        fileType: file.path.includes('.') ? 'file' : 'directory',
+        content: file.content,
+        sizeBytes: Buffer.byteLength(file.content, 'utf8'),
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: `تم توليد منصة ${template} بنجاح`,
+      projectId: project.id,
+      project: {
+        id: project.id,
+        name: project.name,
+        slug: project.slug,
+        framework: project.framework,
+        template,
+        features: features || [],
+        targetPlatforms: spec.targetPlatforms,
+        deploymentProvider: spec.deployment?.provider || 'vercel',
+      },
+      files: result.files.map(f => ({
+        path: f.path,
+        type: f.type,
+        language: f.language,
+      })),
+      instructions: result.instructions,
+    });
+  } catch (error) {
+    console.error('[Platform API] Sovereign generation error:', error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Invalid specification', details: error.errors });
+    }
+    res.status(500).json({ error: 'Failed to generate sovereign platform' });
+  }
+});
+
+/**
  * POST /api/platform/preview-spec
  * Preview what will be generated for a specification
  */
