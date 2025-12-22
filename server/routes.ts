@@ -61,7 +61,11 @@ import {
   aiScenarios,
   sovereignComplianceDomains,
   complianceIndicators,
-  auditLogs as auditLogsTable
+  auditLogs as auditLogsTable,
+  sovereignConversations,
+  conversationMessages,
+  insertSovereignConversationSchema,
+  insertConversationMessageSchema
 } from "@shared/schema";
 import Anthropic from "@anthropic-ai/sdk";
 import { sql } from "drizzle-orm";
@@ -14506,6 +14510,10 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
   registerNovaRoutes(app);
   console.log("Nova Conversation Engine routes registered | تم تسجيل مسارات محرك محادثة نوفا");
 
+  // ==================== CONVERSATION HISTORY (سجل المحادثات) ====================
+  registerConversationRoutes(app, requireAuth);
+  console.log("Conversation History routes registered | تم تسجيل مسارات سجل المحادثات");
+
   // ==================== APP BUILDER - MOBILE & DESKTOP ====================
   registerAppBuilderRoutes(app);
   app.use('/api', buildRoutes);
@@ -19897,4 +19905,309 @@ function getDefaultProjectFiles(projectType: string, projectId: string) {
   }
   
   return files;
+}
+
+// ===================== CONVERSATION HISTORY API (سجل المحادثات) =====================
+
+export function registerConversationRoutes(app: Express, requireAuth: any) {
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  
+  // Get all conversations for user
+  app.get("/api/conversations", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      const conversations = await db
+        .select()
+        .from(sovereignConversations)
+        .where(and(
+          eq(sovereignConversations.userId, userId),
+          eq(sovereignConversations.status, "active")
+        ))
+        .orderBy(sql`${sovereignConversations.updatedAt} DESC`);
+      
+      res.json(conversations);
+    } catch (error) {
+      console.error("Error fetching conversations:", error);
+      res.status(500).json({ error: "Failed to fetch conversations" });
+    }
+  });
+
+  // Get single conversation with messages
+  app.get("/api/conversations/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      const { id } = req.params;
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      const [conversation] = await db
+        .select()
+        .from(sovereignConversations)
+        .where(and(
+          eq(sovereignConversations.id, id),
+          eq(sovereignConversations.userId, userId)
+        ))
+        .limit(1);
+      
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+      
+      const messages = await db
+        .select()
+        .from(conversationMessages)
+        .where(eq(conversationMessages.conversationId, id))
+        .orderBy(sql`${conversationMessages.createdAt} ASC`);
+      
+      res.json({ ...conversation, messages });
+    } catch (error) {
+      console.error("Error fetching conversation:", error);
+      res.status(500).json({ error: "Failed to fetch conversation" });
+    }
+  });
+
+  // Create new conversation
+  app.post("/api/conversations", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      const { title, projectId, platformId, metadata } = req.body;
+      
+      const [conversation] = await db
+        .insert(sovereignConversations)
+        .values({
+          userId,
+          title: title || "New Conversation",
+          projectId: projectId || null,
+          platformId: platformId || null,
+          metadata: metadata || null,
+          status: "active",
+          messageCount: 0,
+          isEncrypted: false,
+        })
+        .returning();
+      
+      res.status(201).json(conversation);
+    } catch (error) {
+      console.error("Error creating conversation:", error);
+      res.status(500).json({ error: "Failed to create conversation" });
+    }
+  });
+
+  // Add message to conversation
+  app.post("/api/conversations/:id/messages", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      const { id } = req.params;
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      // Verify ownership
+      const [conversation] = await db
+        .select()
+        .from(sovereignConversations)
+        .where(and(
+          eq(sovereignConversations.id, id),
+          eq(sovereignConversations.userId, userId)
+        ))
+        .limit(1);
+      
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+      
+      const { role, content, contentAr, tokenCount, modelUsed, generationTime, metadata } = req.body;
+      
+      const [message] = await db
+        .insert(conversationMessages)
+        .values({
+          conversationId: id,
+          role,
+          content,
+          contentAr: contentAr || null,
+          isEncrypted: false,
+          tokenCount: tokenCount || null,
+          modelUsed: modelUsed || null,
+          generationTime: generationTime || null,
+          metadata: metadata || null,
+        })
+        .returning();
+      
+      // Update conversation stats
+      await db
+        .update(sovereignConversations)
+        .set({
+          messageCount: sql`${sovereignConversations.messageCount} + 1`,
+          lastMessageAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(sovereignConversations.id, id));
+      
+      res.status(201).json(message);
+    } catch (error) {
+      console.error("Error adding message:", error);
+      res.status(500).json({ error: "Failed to add message" });
+    }
+  });
+
+  // Generate title for conversation using AI
+  app.post("/api/conversations/:id/generate-title", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      const { id } = req.params;
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      // Verify ownership and get messages
+      const [conversation] = await db
+        .select()
+        .from(sovereignConversations)
+        .where(and(
+          eq(sovereignConversations.id, id),
+          eq(sovereignConversations.userId, userId)
+        ))
+        .limit(1);
+      
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+      
+      const messages = await db
+        .select()
+        .from(conversationMessages)
+        .where(eq(conversationMessages.conversationId, id))
+        .orderBy(sql`${conversationMessages.createdAt} ASC`)
+        .limit(5);
+      
+      if (messages.length === 0) {
+        return res.json({ title: "New Conversation", titleAr: "محادثة جديدة" });
+      }
+      
+      // Use first few messages to generate title
+      const context = messages.map(m => `${m.role}: ${m.content.substring(0, 200)}`).join("\n");
+      
+      const response = await anthropic.messages.create({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 100,
+        messages: [{
+          role: "user",
+          content: `Based on this conversation, generate a short, descriptive title (max 50 chars) in both English and Arabic. Format: "English Title | العنوان بالعربية"\n\nConversation:\n${context}`
+        }]
+      });
+      
+      const generatedText = response.content[0].type === 'text' ? response.content[0].text : '';
+      const parts = generatedText.split('|').map(p => p.trim());
+      const title = parts[0] || "Conversation";
+      const titleAr = parts[1] || "محادثة";
+      
+      // Update conversation title
+      await db
+        .update(sovereignConversations)
+        .set({ title, titleAr, updatedAt: new Date() })
+        .where(eq(sovereignConversations.id, id));
+      
+      res.json({ title, titleAr });
+    } catch (error) {
+      console.error("Error generating title:", error);
+      // Fallback to timestamp-based title
+      const title = `Conversation ${new Date().toLocaleDateString()}`;
+      const titleAr = `محادثة ${new Date().toLocaleDateString('ar')}`;
+      res.json({ title, titleAr });
+    }
+  });
+
+  // Delete single conversation
+  app.delete("/api/conversations/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      const { id } = req.params;
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      // Soft delete - update status
+      const result = await db
+        .update(sovereignConversations)
+        .set({
+          status: "soft_deleted",
+          deletedAt: new Date(),
+          deletedBy: userId,
+          updatedAt: new Date(),
+        })
+        .where(and(
+          eq(sovereignConversations.id, id),
+          eq(sovereignConversations.userId, userId)
+        ))
+        .returning();
+      
+      if (result.length === 0) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+      
+      res.json({ success: true, message: "Conversation deleted" });
+    } catch (error) {
+      console.error("Error deleting conversation:", error);
+      res.status(500).json({ error: "Failed to delete conversation" });
+    }
+  });
+
+  // Delete all conversations for user
+  app.delete("/api/conversations", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      // Soft delete all active conversations
+      await db
+        .update(sovereignConversations)
+        .set({
+          status: "soft_deleted",
+          deletedAt: new Date(),
+          deletedBy: userId,
+          updatedAt: new Date(),
+        })
+        .where(and(
+          eq(sovereignConversations.userId, userId),
+          eq(sovereignConversations.status, "active")
+        ));
+      
+      res.json({ success: true, message: "All conversations deleted" });
+    } catch (error) {
+      console.error("Error deleting all conversations:", error);
+      res.status(500).json({ error: "Failed to delete conversations" });
+    }
+  });
+
+  // Update conversation (for title changes, etc.)
+  app.patch("/api/conversations/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      const { id } = req.params;
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      const { title, titleAr, metadata, projectId } = req.body;
+      
+      const [updated] = await db
+        .update(sovereignConversations)
+        .set({
+          ...(title !== undefined && { title }),
+          ...(titleAr !== undefined && { titleAr }),
+          ...(metadata !== undefined && { metadata }),
+          ...(projectId !== undefined && { projectId }),
+          updatedAt: new Date(),
+        })
+        .where(and(
+          eq(sovereignConversations.id, id),
+          eq(sovereignConversations.userId, userId)
+        ))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating conversation:", error);
+      res.status(500).json({ error: "Failed to update conversation" });
+    }
+  });
 }

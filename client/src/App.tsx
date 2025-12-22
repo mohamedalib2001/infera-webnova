@@ -87,6 +87,7 @@ import OperationsDashboard from "@/pages/operations-dashboard";
 import BuildManager from "@/pages/build-manager";
 import MobileAppBuilder from "@/pages/mobile-app-builder";
 import DesktopAppBuilder from "@/pages/desktop-app-builder";
+import ConversationHistory from "@/pages/conversation-history";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
@@ -124,6 +125,7 @@ function AuthenticatedRouter() {
       <Route path="/auth" component={Auth} />
       <Route path="/builder" component={Builder} />
       <Route path="/builder/:id" component={Builder} />
+      <Route path="/conversations" component={ConversationHistory} />
       <Route path="/projects" component={Projects} />
       <Route path="/templates" component={Templates} />
       <Route path="/pricing" component={Pricing} />

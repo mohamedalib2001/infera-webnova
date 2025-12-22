@@ -18,7 +18,7 @@ import {
   ArrowRight, ArrowLeft, Save, Loader2, Sparkles, 
   Globe, Terminal, FolderTree, LayoutGrid, Monitor, 
   Play, Square, ExternalLink, Rocket, Eye, Check,
-  Copy, RefreshCw, Settings, ChevronDown, X
+  Copy, RefreshCw, Settings, ChevronDown, X, MessageSquare, History
 } from "lucide-react";
 import { ThinkingIndicator } from "@/components/thinking-indicator";
 import { useToast } from "@/hooks/use-toast";
@@ -33,6 +33,7 @@ export default function Builder() {
   const searchParams = new URLSearchParams(searchString);
   const initialPrompt = searchParams.get("prompt");
   const templateId = searchParams.get("template");
+  const conversationParam = searchParams.get("conversation");
   const { toast } = useToast();
   const { t, isRtl } = useLanguage();
   
@@ -78,10 +79,12 @@ export default function Builder() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCodeGenerating, setIsCodeGenerating] = useState(false);
   const [projectId, setProjectId] = useState<string | null>(params.id || null);
+  const [conversationId, setConversationId] = useState<string | null>(conversationParam || null);
   const [hasProcessedInitialPrompt, setHasProcessedInitialPrompt] = useState(false);
   const [pendingMessages, setPendingMessages] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const hasLoadedConversation = useRef(false);
   
   const [activeBottomTool, setActiveBottomTool] = useState<string | null>(null);
   const [workflowStatus, setWorkflowStatus] = useState<'running' | 'stopped' | 'error'>('stopped');
@@ -143,6 +146,74 @@ export default function Builder() {
     enabled: !!templateId,
   });
 
+  // Load conversation from URL parameter
+  const { data: loadedConversation } = useQuery<{
+    id: string;
+    title: string;
+    titleAr?: string;
+    projectId?: string;
+    messages: Array<{ id: string; role: string; content: string; createdAt: string }>;
+  }>({
+    queryKey: ["/api/conversations", conversationParam, "resume"],
+    queryFn: async () => {
+      if (!conversationParam) return null;
+      const res = await fetch(`/api/conversations/${conversationParam}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load conversation');
+      return res.json();
+    },
+    enabled: !!conversationParam && !hasLoadedConversation.current,
+  });
+
+  // Load conversation messages when resuming
+  useEffect(() => {
+    if (loadedConversation && !hasLoadedConversation.current) {
+      hasLoadedConversation.current = true;
+      const formattedMessages: ChatMessageType[] = loadedConversation.messages.map((m) => ({
+        id: m.id,
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+        timestamp: new Date(m.createdAt),
+      }));
+      setMessages(formattedMessages);
+      setProjectName(isRtl && loadedConversation.titleAr ? loadedConversation.titleAr : loadedConversation.title);
+      // Set conversation ID to continue saving messages to the same conversation
+      setConversationId(loadedConversation.id);
+      if (loadedConversation.projectId) {
+        setProjectId(loadedConversation.projectId);
+      }
+      toast({
+        title: isRtl ? "تم استئناف المحادثة" : "Conversation resumed",
+        description: isRtl ? "يمكنك المتابعة من حيث توقفت" : "Continue where you left off",
+      });
+    }
+  }, [loadedConversation]);
+
+  // Create conversation mutation
+  const createConversationMutation = useMutation({
+    mutationFn: async (data: { title: string; projectId?: string }) => {
+      return apiRequest("POST", "/api/conversations", data);
+    },
+  });
+
+  // Add message to conversation mutation
+  const addConversationMessageMutation = useMutation({
+    mutationFn: async (data: { conversationId: string; role: string; content: string; modelUsed?: string }) => {
+      return apiRequest("POST", `/api/conversations/${data.conversationId}/messages`, data);
+    },
+  });
+
+  // Generate title mutation
+  const generateTitleMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("POST", `/api/conversations/${id}/generate-title`);
+    },
+    onSuccess: (data) => {
+      if (data?.title) {
+        setProjectName(isRtl && data.titleAr ? data.titleAr : data.title);
+      }
+    },
+  });
+
   useEffect(() => {
     if (project) {
       setProjectName(project.name);
@@ -199,7 +270,9 @@ export default function Builder() {
       
       if (!projectId && newId) {
         setProjectId(newId);
-        window.history.replaceState({}, "", `/builder/${newId}`);
+        // Preserve conversation ID in URL for resume on refresh
+        const convParam = conversationId ? `?conversation=${conversationId}` : '';
+        window.history.replaceState({}, "", `/builder/${newId}${convParam}`);
         // Save any existing messages to the new project
         for (const msg of messages) {
           try {
@@ -353,6 +426,59 @@ export default function Builder() {
       
       setMessages((prev) => [...prev, aiMessage]);
 
+      // Track the active conversation ID (could be existing or newly created)
+      let activeConversationId = conversationId;
+
+      // Auto-save to conversation system (use original content, not display string)
+      try {
+        // Create conversation if doesn't exist
+        if (!activeConversationId) {
+          const newConversation = await createConversationMutation.mutateAsync({
+            title: content.slice(0, 50) || "New Conversation",
+            projectId: projectId || undefined,
+          });
+          if (newConversation?.id) {
+            activeConversationId = newConversation.id;
+            setConversationId(newConversation.id);
+            // Update URL to include conversation ID for resume on refresh
+            const newUrl = projectId 
+              ? `/builder/${projectId}?conversation=${newConversation.id}`
+              : `/builder?conversation=${newConversation.id}`;
+            window.history.replaceState({}, "", newUrl);
+          }
+        }
+        
+        // Save messages to conversation (use original content, not displayContent)
+        if (activeConversationId) {
+          await addConversationMessageMutation.mutateAsync({
+            conversationId: activeConversationId,
+            role: "user",
+            content, // Original content without attachment indicators
+            modelUsed: data.modelInfo?.name,
+          });
+          await addConversationMessageMutation.mutateAsync({
+            conversationId: activeConversationId,
+            role: "assistant",
+            content: data.message,
+            modelUsed: data.modelInfo?.name,
+          });
+          
+          // Generate title after first exchange
+          if (messages.length === 0) {
+            generateTitleMutation.mutate(activeConversationId);
+          }
+          
+          queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
+        }
+      } catch (convError) {
+        console.error("Failed to save to conversation:", convError);
+        toast({
+          title: isRtl ? "تحذير" : "Warning",
+          description: isRtl ? "فشل حفظ المحادثة. يمكنك المتابعة." : "Failed to save conversation. You can continue.",
+          variant: "default",
+        });
+      }
+
       // Auto-save project and messages if not already saved
       if (projectId) {
         saveMessageMutation.mutate({ projectId, role: "user", content });
@@ -368,7 +494,9 @@ export default function Builder() {
           });
           if (newProjectData?.id) {
             setProjectId(newProjectData.id);
-            window.history.replaceState({}, "", `/builder/${newProjectData.id}`);
+            // Preserve conversation ID in URL for resume on refresh (use activeConversationId from outer scope)
+            const convParam = activeConversationId ? `?conversation=${activeConversationId}` : '';
+            window.history.replaceState({}, "", `/builder/${newProjectData.id}${convParam}`);
             // Save ALL existing messages to the new project (including restored ones)
             const allExistingMessages = [...messages];
             for (const msg of allExistingMessages) {
@@ -496,6 +624,22 @@ export default function Builder() {
         />
         
         {projectId && <VersionHistory projectId={projectId} onRestore={(h, c, j) => { setHtml(h); setCss(c); setJs(j); }} />}
+        
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setLocation("/conversations")}
+              data-testid="button-conversation-history"
+            >
+              <History className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {isRtl ? "سجل المحادثات" : "Conversation History"}
+          </TooltipContent>
+        </Tooltip>
         
         <Button
           onClick={handleSave}
