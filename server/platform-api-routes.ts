@@ -1729,6 +1729,416 @@ router.get('/terminal/stats', requireAuth, async (req: Request, res: Response) =
   }
 });
 
+// ==================== PHASE 0: SOVEREIGNTY LAYER ENDPOINTS ====================
+
+/**
+ * POST /api/platform/sovereignty/conversations
+ * Create a new conversation
+ */
+router.post('/sovereignty/conversations', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereigntyLayer } = await import('@shared/core/kernel/sovereignty-layer');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    const { projectId, title, titleAr, metadata } = req.body;
+    
+    const result = await sovereigntyLayer.conversations.create({
+      userId,
+      projectId,
+      title,
+      titleAr,
+      metadata,
+    });
+    
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/platform/sovereignty/conversations
+ * List user's conversations
+ */
+router.get('/sovereignty/conversations', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereigntyLayer } = await import('@shared/core/kernel/sovereignty-layer');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    const status = (req.query.status as string) || 'active';
+    
+    const conversations = await sovereigntyLayer.conversations.listConversations(userId, status);
+    res.json({ conversations });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/platform/sovereignty/conversations/:id
+ * Get conversation with messages
+ */
+router.get('/sovereignty/conversations/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereigntyLayer } = await import('@shared/core/kernel/sovereignty-layer');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    
+    const conversation = await sovereigntyLayer.conversations.getConversation(req.params.id, userId);
+    if (!conversation) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+    
+    res.json(conversation);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/sovereignty/conversations/:id/messages
+ * Add message to conversation
+ */
+router.post('/sovereignty/conversations/:id/messages', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereigntyLayer } = await import('@shared/core/kernel/sovereignty-layer');
+    const { role, content, contentAr, tokenCount, modelUsed, generationTime, metadata } = req.body;
+    
+    const result = await sovereigntyLayer.conversations.addMessage({
+      conversationId: req.params.id,
+      role,
+      content,
+      contentAr,
+      tokenCount,
+      modelUsed,
+      generationTime,
+      metadata,
+    });
+    
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/platform/sovereignty/conversations/:id
+ * Soft delete conversation
+ */
+router.delete('/sovereignty/conversations/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereigntyLayer } = await import('@shared/core/kernel/sovereignty-layer');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    
+    await sovereigntyLayer.conversations.softDeleteConversation(req.params.id, userId);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/sovereignty/conversations/:id/restore
+ * Restore soft-deleted conversation
+ */
+router.post('/sovereignty/conversations/:id/restore', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereigntyLayer } = await import('@shared/core/kernel/sovereignty-layer');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    
+    await sovereigntyLayer.conversations.restoreConversation(req.params.id, userId);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/platform/sovereignty/conversations/:id/export
+ * Export conversation
+ */
+router.get('/sovereignty/conversations/:id/export', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereigntyLayer } = await import('@shared/core/kernel/sovereignty-layer');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    
+    const exported = await sovereigntyLayer.conversations.exportConversation(req.params.id, userId);
+    if (!exported) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+    
+    res.json(exported);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/sovereignty/restore-points
+ * Create manual restore point
+ */
+router.post('/sovereignty/restore-points', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereigntyLayer } = await import('@shared/core/kernel/sovereignty-layer');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    const { projectId, name, description } = req.body;
+    
+    const result = await sovereigntyLayer.restorePoints.createManual(projectId, userId, name, description);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/platform/sovereignty/restore-points/:projectId
+ * List restore points for project
+ */
+router.get('/sovereignty/restore-points/:projectId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereigntyLayer } = await import('@shared/core/kernel/sovereignty-layer');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    
+    const points = await sovereigntyLayer.restorePoints.list(req.params.projectId, userId);
+    res.json({ restorePoints: points });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/sovereignty/restore-points/:id/restore
+ * Restore from restore point
+ */
+router.post('/sovereignty/restore-points/:id/restore', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereigntyLayer } = await import('@shared/core/kernel/sovereignty-layer');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    const { filesOnly, contextOnly, full } = req.body;
+    
+    const result = await sovereigntyLayer.restorePoints.restore(req.params.id, userId, { filesOnly, contextOnly, full });
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/sovereignty/restore-points/:id/immutable
+ * Mark restore point as immutable milestone
+ */
+router.post('/sovereignty/restore-points/:id/immutable', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereigntyLayer } = await import('@shared/core/kernel/sovereignty-layer');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    
+    await sovereigntyLayer.restorePoints.markAsImmutable(req.params.id, userId);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/sovereignty/delete/initiate
+ * Initiate sovereign delete workflow
+ */
+router.post('/sovereignty/delete/initiate', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereigntyLayer } = await import('@shared/core/kernel/sovereignty-layer');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    const { originalId, originalType, name, nameAr } = req.body;
+    
+    const result = await sovereigntyLayer.delete.initiateDelete(originalId, originalType, userId, name, nameAr);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/sovereignty/delete/confirm
+ * Confirm deletion
+ */
+router.post('/sovereignty/delete/confirm', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereigntyLayer } = await import('@shared/core/kernel/sovereignty-layer');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    const { originalId } = req.body;
+    
+    const result = await sovereigntyLayer.delete.confirmDelete(originalId, userId);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/sovereignty/delete/verify-password
+ * Verify password for deletion
+ */
+router.post('/sovereignty/delete/verify-password', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereigntyLayer } = await import('@shared/core/kernel/sovereignty-layer');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    const { originalId, passwordHash } = req.body;
+    
+    const result = await sovereigntyLayer.delete.verifyPassword(originalId, userId, passwordHash);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/sovereignty/delete/execute
+ * Execute soft delete
+ */
+router.post('/sovereignty/delete/execute', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereigntyLayer } = await import('@shared/core/kernel/sovereignty-layer');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    const { originalId, fullBackup } = req.body;
+    
+    const result = await sovereigntyLayer.delete.executeSoftDelete(originalId, userId, fullBackup);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/platform/sovereignty/deleted
+ * List deleted platforms
+ */
+router.get('/sovereignty/deleted', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereigntyLayer } = await import('@shared/core/kernel/sovereignty-layer');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    
+    const deleted = await sovereigntyLayer.delete.listDeleted(userId);
+    res.json({ deleted });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/sovereignty/deleted/:id/restore
+ * Restore deleted platform
+ */
+router.post('/sovereignty/deleted/:id/restore', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereigntyLayer } = await import('@shared/core/kernel/sovereignty-layer');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    
+    const success = await sovereigntyLayer.delete.restore(req.params.id, userId);
+    res.json({ success });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/platform/sovereignty/audit
+ * Query audit log
+ */
+router.get('/sovereignty/audit', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereigntyLayer } = await import('@shared/core/kernel/sovereignty-layer');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    const { projectId, category, criticalOnly, limit } = req.query;
+    
+    const logs = await sovereigntyLayer.audit.query(userId, {
+      projectId: projectId as string,
+      category: category as string,
+      criticalOnly: criticalOnly === 'true',
+      limit: limit ? parseInt(limit as string) : 100,
+    });
+    
+    res.json({ logs });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/platform/sovereignty/audit/verify
+ * Verify audit log integrity
+ */
+router.get('/sovereignty/audit/verify', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereigntyLayer } = await import('@shared/core/kernel/sovereignty-layer');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    
+    const result = await sovereigntyLayer.audit.verifyIntegrity(userId);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/platform/sovereignty/ai-decisions/:projectId
+ * Get AI decision memory for project
+ */
+router.get('/sovereignty/ai-decisions/:projectId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereigntyLayer } = await import('@shared/core/kernel/sovereignty-layer');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    
+    const decisions = await sovereigntyLayer.aiMemory.getProjectDecisions(req.params.projectId, userId);
+    res.json({ decisions });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/platform/sovereignty/ai-decisions/:projectId/narrative
+ * Get AI decision narrative for project
+ */
+router.get('/sovereignty/ai-decisions/:projectId/narrative', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereigntyLayer } = await import('@shared/core/kernel/sovereignty-layer');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    
+    const narrative = await sovereigntyLayer.aiMemory.getDecisionNarrative(req.params.projectId, userId);
+    res.json({ narrative });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/platform/sovereignty/project-brain/:projectId
+ * Get project brain
+ */
+router.get('/sovereignty/project-brain/:projectId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereigntyLayer } = await import('@shared/core/kernel/sovereignty-layer');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    
+    const brain = await sovereigntyLayer.projectBrain.get(req.params.projectId, userId);
+    res.json({ brain });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/sovereignty/project-brain/:projectId/analyze
+ * Analyze project with Project Brain
+ */
+router.post('/sovereignty/project-brain/:projectId/analyze', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereigntyLayer } = await import('@shared/core/kernel/sovereignty-layer');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    
+    const analysis = await sovereigntyLayer.projectBrain.analyze(req.params.projectId, userId);
+    res.json(analysis);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ==================== EXPORT ROUTER ====================
 export function registerPlatformApiRoutes(app: any) {
   app.use('/api/platform', router);
@@ -1739,6 +2149,7 @@ export function registerPlatformApiRoutes(app: any) {
   console.log('[Hetzner Deployment] Cloud endpoints ready at /api/platform/hetzner/*');
   console.log('[Monitoring] Metrics endpoints ready at /api/platform/monitoring/*');
   console.log('[Secure Terminal] Terminal endpoints ready at /api/platform/terminal/*');
+  console.log('[Sovereignty Layer] Phase 0 endpoints ready at /api/platform/sovereignty/*');
 }
 
 export default router;

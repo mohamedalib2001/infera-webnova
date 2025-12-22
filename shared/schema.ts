@@ -8959,3 +8959,410 @@ export const insertHetznerDeploymentSchema = createInsertSchema(hetznerDeploymen
 
 export type InsertHetznerDeployment = z.infer<typeof insertHetznerDeploymentSchema>;
 export type HetznerDeployment = typeof hetznerDeployments.$inferSelect;
+
+// ==================== PHASE 0: MEMORY, STATE & SOVEREIGNTY LAYER ====================
+
+// ==================== 0.1 CONVERSATION LEDGER (سجل المحادثات الدائم) ====================
+
+// Conversations table - encrypted, user-scoped
+export const sovereignConversations = pgTable("sovereign_conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  projectId: varchar("project_id").references(() => isdsProjects.id, { onDelete: "set null" }),
+  platformId: varchar("platform_id"), // For future platform linking
+  title: text("title").notNull(),
+  titleAr: text("title_ar"),
+  status: text("status").notNull().default("active"), // active, archived, soft_deleted, permanently_deleted
+  isEncrypted: boolean("is_encrypted").notNull().default(true),
+  encryptionKeyId: varchar("encryption_key_id"),
+  messageCount: integer("message_count").notNull().default(0),
+  lastMessageAt: timestamp("last_message_at"),
+  deletedAt: timestamp("deleted_at"),
+  deletedBy: varchar("deleted_by").references(() => users.id),
+  canRestore: boolean("can_restore").notNull().default(true),
+  restoreDeadline: timestamp("restore_deadline"), // After this, permanent delete allowed
+  metadata: jsonb("metadata").$type<{
+    context?: string;
+    tags?: string[];
+    linkedProjects?: string[];
+  }>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_conv_user_id").on(table.userId),
+  index("IDX_conv_project_id").on(table.projectId),
+  index("IDX_conv_status").on(table.status),
+  index("IDX_conv_created_at").on(table.createdAt),
+]);
+
+export const insertSovereignConversationSchema = createInsertSchema(sovereignConversations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSovereignConversation = z.infer<typeof insertSovereignConversationSchema>;
+export type SovereignConversation = typeof sovereignConversations.$inferSelect;
+
+// Conversation messages - encrypted content
+export const conversationMessages = pgTable("conversation_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: varchar("conversation_id").references(() => sovereignConversations.id, { onDelete: "cascade" }).notNull(),
+  role: text("role").notNull(), // user, assistant, system
+  content: text("content").notNull(), // Encrypted content
+  contentAr: text("content_ar"), // Arabic translation if available
+  isEncrypted: boolean("is_encrypted").notNull().default(true),
+  tokenCount: integer("token_count"),
+  modelUsed: varchar("model_used", { length: 50 }),
+  generationTime: integer("generation_time"), // milliseconds
+  metadata: jsonb("metadata").$type<{
+    codeBlocks?: { language: string; code: string }[];
+    filesModified?: string[];
+    commandsExecuted?: string[];
+  }>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_msg_conversation_id").on(table.conversationId),
+  index("IDX_msg_role").on(table.role),
+  index("IDX_msg_created_at").on(table.createdAt),
+]);
+
+export const insertConversationMessageSchema = createInsertSchema(conversationMessages).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertConversationMessage = z.infer<typeof insertConversationMessageSchema>;
+export type ConversationMessage = typeof conversationMessages.$inferSelect;
+
+// ==================== 0.2 RESTORE POINTS (نقاط الاستعادة) ====================
+
+export const restorePoints = pgTable("restore_points", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").references(() => isdsProjects.id, { onDelete: "cascade" }).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  type: text("type").notNull(), // auto_pre_install, auto_pre_push, auto_pre_structure, manual
+  triggerEvent: text("trigger_event"), // What triggered this snapshot
+  
+  // Snapshot data
+  filesSnapshot: jsonb("files_snapshot").$type<{
+    files: { path: string; content: string; size: number }[];
+    totalSize: number;
+    fileCount: number;
+  }>(),
+  contextSnapshot: jsonb("context_snapshot").$type<{
+    conversationId?: string;
+    lastMessageId?: string;
+    aiState?: Record<string, unknown>;
+  }>(),
+  configSnapshot: jsonb("config_snapshot").$type<{
+    dependencies?: Record<string, string>;
+    envVars?: string[]; // Names only, not values
+    settings?: Record<string, unknown>;
+  }>(),
+  gitSnapshot: jsonb("git_snapshot").$type<{
+    branch?: string;
+    commitHash?: string;
+    uncommittedChanges?: string[];
+  }>(),
+  
+  // Metadata
+  sizeBytes: integer("size_bytes").notNull().default(0),
+  isImmutable: boolean("is_immutable").notNull().default(false), // Milestone - cannot be modified
+  isLocked: boolean("is_locked").notNull().default(false),
+  expiresAt: timestamp("expires_at"), // Auto-cleanup for old snapshots
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_rp_project_id").on(table.projectId),
+  index("IDX_rp_user_id").on(table.userId),
+  index("IDX_rp_type").on(table.type),
+  index("IDX_rp_created_at").on(table.createdAt),
+]);
+
+export const insertRestorePointSchema = createInsertSchema(restorePoints).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertRestorePoint = z.infer<typeof insertRestorePointSchema>;
+export type RestorePoint = typeof restorePoints.$inferSelect;
+
+// ==================== 0.3 PLATFORM ISOLATION & SECURITY (العزل والحماية) ====================
+
+// Platform-scoped tokens for isolation
+export const platformTokens = pgTable("platform_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  platformId: varchar("platform_id").notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  organizationId: varchar("organization_id"),
+  tokenHash: text("token_hash").notNull(), // Hashed token
+  tokenType: text("token_type").notNull(), // api, session, service
+  role: text("role").notNull().default("user"), // user, admin, sovereign
+  scopes: jsonb("scopes").$type<string[]>().default([]),
+  lastUsedAt: timestamp("last_used_at"),
+  expiresAt: timestamp("expires_at"),
+  isRevoked: boolean("is_revoked").notNull().default(false),
+  revokedAt: timestamp("revoked_at"),
+  revokedBy: varchar("revoked_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_pt_platform_id").on(table.platformId),
+  index("IDX_pt_user_id").on(table.userId),
+  index("IDX_pt_token_type").on(table.tokenType),
+]);
+
+export const insertPlatformTokenSchema = createInsertSchema(platformTokens).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertPlatformToken = z.infer<typeof insertPlatformTokenSchema>;
+export type PlatformToken = typeof platformTokens.$inferSelect;
+
+// ==================== 0.4 SOVEREIGN DELETE SYSTEM (نظام الحذف السيادي) ====================
+
+// Deleted platforms ledger - soft delete registry
+export const deletedPlatformsLedger = pgTable("deleted_platforms_ledger", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  originalId: varchar("original_id").notNull(), // Original platform/project ID
+  originalType: text("original_type").notNull(), // platform, project, workspace
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  description: text("description"),
+  
+  // Deletion workflow tracking
+  deletionPhase: text("deletion_phase").notNull().default("warning_shown"),
+  // Phases: warning_shown, confirmed, password_verified, soft_deleted, scheduled_permanent, permanently_deleted
+  warningShownAt: timestamp("warning_shown_at"),
+  confirmedAt: timestamp("confirmed_at"),
+  passwordVerifiedAt: timestamp("password_verified_at"),
+  softDeletedAt: timestamp("soft_deleted_at"),
+  permanentDeleteScheduledAt: timestamp("permanent_delete_scheduled_at"),
+  permanentlyDeletedAt: timestamp("permanently_deleted_at"),
+  
+  // Full backup for restoration
+  fullBackup: jsonb("full_backup").$type<{
+    files?: unknown;
+    config?: unknown;
+    metadata?: unknown;
+  }>(),
+  backupSizeBytes: integer("backup_size_bytes"),
+  
+  // Restoration
+  canRestore: boolean("can_restore").notNull().default(true),
+  restoreDeadline: timestamp("restore_deadline").notNull(), // After this, can be permanently deleted
+  restoredAt: timestamp("restored_at"),
+  restoredBy: varchar("restored_by").references(() => users.id),
+  
+  // Permanent deletion (sovereign only)
+  permanentDeletedBy: varchar("permanent_deleted_by").references(() => users.id),
+  permanentDeleteReason: text("permanent_delete_reason"),
+  sovereignToken: text("sovereign_token"), // Required for permanent delete
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_dpl_user_id").on(table.userId),
+  index("IDX_dpl_original_id").on(table.originalId),
+  index("IDX_dpl_deletion_phase").on(table.deletionPhase),
+  index("IDX_dpl_restore_deadline").on(table.restoreDeadline),
+]);
+
+export const insertDeletedPlatformSchema = createInsertSchema(deletedPlatformsLedger).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertDeletedPlatform = z.infer<typeof insertDeletedPlatformSchema>;
+export type DeletedPlatform = typeof deletedPlatformsLedger.$inferSelect;
+
+// ==================== 0.5 IMMUTABLE AUDIT LOG (سجل التدقيق غير القابل للتعديل) ====================
+
+export const sovereignAuditLog = pgTable("sovereign_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  projectId: varchar("project_id"),
+  platformId: varchar("platform_id"),
+  
+  // Action details
+  category: text("category").notNull(), // terminal, file, ai_decision, delete, restore, git, security
+  action: text("action").notNull(), // e.g., "execute_command", "modify_file", "ai_generate"
+  actionAr: text("action_ar"),
+  target: text("target"), // What was affected
+  targetPath: text("target_path"), // File path if applicable
+  
+  // Before/After state
+  previousValue: jsonb("previous_value"),
+  newValue: jsonb("new_value"),
+  
+  // AI-specific
+  aiModel: varchar("ai_model", { length: 50 }),
+  aiPrompt: text("ai_prompt"),
+  aiResponse: text("ai_response"),
+  aiDecisionReason: text("ai_decision_reason"), // Why AI made this choice
+  aiDecisionReasonAr: text("ai_decision_reason_ar"),
+  aiAlternativesConsidered: jsonb("ai_alternatives_considered").$type<{
+    option: string;
+    reason: string;
+    rejected: boolean;
+  }[]>(),
+  
+  // Terminal-specific
+  command: text("command"),
+  commandOutput: text("command_output"),
+  exitCode: integer("exit_code"),
+  
+  // Git-specific
+  gitOperation: text("git_operation"),
+  gitBranch: text("git_branch"),
+  gitCommitHash: text("git_commit_hash"),
+  
+  // Security & Integrity
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  sessionId: varchar("session_id"),
+  integrityHash: text("integrity_hash").notNull(), // SHA-256 of log content
+  previousLogHash: text("previous_log_hash"), // Chain link for tamper detection
+  
+  // Flags
+  isCritical: boolean("is_critical").notNull().default(false),
+  isReversible: boolean("is_reversible").notNull().default(true),
+  wasBlocked: boolean("was_blocked").notNull().default(false), // AI Guardian blocked this
+  blockedReason: text("blocked_reason"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_sal_user_id").on(table.userId),
+  index("IDX_sal_project_id").on(table.projectId),
+  index("IDX_sal_category").on(table.category),
+  index("IDX_sal_action").on(table.action),
+  index("IDX_sal_created_at").on(table.createdAt),
+  index("IDX_sal_is_critical").on(table.isCritical),
+]);
+
+export const insertSovereignAuditLogEntrySchema = createInsertSchema(sovereignAuditLog).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertSovereignAuditLogEntry = z.infer<typeof insertSovereignAuditLogEntrySchema>;
+export type SovereignAuditLogEntry = typeof sovereignAuditLog.$inferSelect;
+
+// ==================== AI DECISION MEMORY (ذاكرة قرارات AI) ====================
+
+export const aiDecisionMemory = pgTable("ai_decision_memory", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").references(() => isdsProjects.id, { onDelete: "cascade" }).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  conversationId: varchar("conversation_id").references(() => sovereignConversations.id, { onDelete: "set null" }),
+  
+  // Decision details
+  decisionType: text("decision_type").notNull(), // technology_choice, architecture, pattern, library, approach
+  question: text("question").notNull(), // What was being decided
+  questionAr: text("question_ar"),
+  chosenOption: text("chosen_option").notNull(),
+  chosenOptionAr: text("chosen_option_ar"),
+  reasoning: text("reasoning").notNull(), // Why this was chosen
+  reasoningAr: text("reasoning_ar"),
+  
+  // Alternatives
+  alternativesConsidered: jsonb("alternatives_considered").$type<{
+    option: string;
+    optionAr?: string;
+    pros: string[];
+    cons: string[];
+    rejectionReason: string;
+    rejectionReasonAr?: string;
+  }[]>().default([]),
+  
+  // Context
+  contextAtDecision: jsonb("context_at_decision").$type<{
+    projectState?: string;
+    existingStack?: string[];
+    constraints?: string[];
+    userPreferences?: string[];
+  }>(),
+  
+  // Impact tracking
+  impactLevel: text("impact_level").notNull().default("medium"), // low, medium, high, critical
+  affectedAreas: jsonb("affected_areas").$type<string[]>().default([]),
+  
+  // Validation
+  wasReversed: boolean("was_reversed").notNull().default(false),
+  reversedAt: timestamp("reversed_at"),
+  reversedReason: text("reversed_reason"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_adm_project_id").on(table.projectId),
+  index("IDX_adm_user_id").on(table.userId),
+  index("IDX_adm_decision_type").on(table.decisionType),
+  index("IDX_adm_impact_level").on(table.impactLevel),
+]);
+
+export const insertAIDecisionMemorySchema = createInsertSchema(aiDecisionMemory).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertAIDecisionMemory = z.infer<typeof insertAIDecisionMemorySchema>;
+export type AIDecisionMemory = typeof aiDecisionMemory.$inferSelect;
+
+// ==================== PROJECT BRAIN (ملخص حي للمشروع) ====================
+
+export const projectBrain = pgTable("project_brain", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").references(() => isdsProjects.id, { onDelete: "cascade" }).notNull().unique(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  
+  // Live summary
+  stack: jsonb("stack").$type<{
+    frontend?: string[];
+    backend?: string[];
+    database?: string[];
+    devops?: string[];
+    other?: string[];
+  }>().default({}),
+  
+  status: jsonb("status").$type<{
+    overall: "healthy" | "warning" | "critical" | "unknown";
+    lastBuildSuccess?: boolean;
+    lastDeploySuccess?: boolean;
+    testsPassingPercent?: number;
+    activeIssues?: number;
+  }>().default({ overall: "unknown" }),
+  
+  risks: jsonb("risks").$type<{
+    security?: { level: string; items: string[] };
+    performance?: { level: string; items: string[] };
+    maintainability?: { level: string; items: string[] };
+    dependencies?: { level: string; items: string[] };
+  }>().default({}),
+  
+  nextSteps: jsonb("next_steps").$type<{
+    priority: "high" | "medium" | "low";
+    task: string;
+    taskAr?: string;
+    estimatedTime?: string;
+    blockedBy?: string[];
+  }[]>().default([]),
+  
+  insights: jsonb("insights").$type<{
+    recentActivity?: string;
+    performanceTrend?: string;
+    securityScore?: number;
+    codeQualityScore?: number;
+  }>().default({}),
+  
+  lastAnalyzedAt: timestamp("last_analyzed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_pb_project_id").on(table.projectId),
+  index("IDX_pb_user_id").on(table.userId),
+]);
+
+export const insertProjectBrainSchema = createInsertSchema(projectBrain).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertProjectBrain = z.infer<typeof insertProjectBrainSchema>;
+export type ProjectBrain = typeof projectBrain.$inferSelect;
