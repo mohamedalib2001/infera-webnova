@@ -399,6 +399,11 @@ const pageServicesMap: Record<string, { name: string; nameAr: string; type: stri
     { name: 'Nova AI Engine', nameAr: 'محرك نوفا الذكي', type: 'ai' },
     { name: 'Smart Dashboard', nameAr: 'لوحة التحكم الذكية', type: 'ai' },
     { name: 'Blueprint Generator', nameAr: 'مولد البلوبرنت', type: 'ai' },
+    { name: 'Nova Vision Processing', nameAr: 'معالجة الرؤية الذكية', type: 'ai' },
+    { name: 'Nova Permission Control', nameAr: 'نظام صلاحيات نوفا', type: 'ai' },
+    { name: 'Nova Execution Engine', nameAr: 'محرك تنفيذ نوفا', type: 'ai' },
+    { name: 'Deployment Integration', nameAr: 'تكامل النشر الآلي', type: 'ai' },
+    { name: 'Object Storage Engine', nameAr: 'محرك تخزين الملفات', type: 'automation' },
     { name: 'Authentication System', nameAr: 'نظام المصادقة', type: 'security' },
     { name: 'Multi-Domain Support', nameAr: 'دعم النطاقات المتعددة', type: 'infrastructure' },
     { name: 'Real-time Notifications', nameAr: 'الإشعارات الفورية', type: 'automation' },
@@ -408,8 +413,17 @@ const pageServicesMap: Record<string, { name: string; nameAr: string; type: stri
     { name: 'AI Predictive Insights', nameAr: 'الرؤى التنبؤية بالذكاء الاصطناعي', type: 'ai' },
     { name: 'Historical Data Analysis', nameAr: 'تحليل البيانات التاريخية', type: 'ai' },
     { name: 'Anomaly Detection', nameAr: 'كشف الشذوذ', type: 'ai' },
+    { name: 'WebSocket Provider', nameAr: 'مزود WebSocket', type: 'automation' },
+    { name: 'Service Integration Gateway', nameAr: 'بوابة تكامل الخدمات', type: 'infrastructure' },
     { name: 'Datadog Monitoring', nameAr: 'مراقبة Datadog', type: 'monitoring' },
     { name: 'Mixpanel Analytics', nameAr: 'تحليلات Mixpanel', type: 'analytics' },
+  ],
+  '/ssh-vault': [
+    { name: 'SSH Key Vault', nameAr: 'خزنة مفاتيح SSH', type: 'security' },
+    { name: 'AES-256-GCM Encryption', nameAr: 'تشفير AES-256-GCM', type: 'security' },
+    { name: 'Key Management', nameAr: 'إدارة المفاتيح', type: 'security' },
+    { name: 'Audit Logging', nameAr: 'سجل التدقيق', type: 'monitoring' },
+    { name: 'Zero-Knowledge Vault', nameAr: 'خزنة المعرفة الصفرية', type: 'ai' },
   ],
   '/builder': [
     { name: 'Code Editor', nameAr: 'محرر الكود', type: 'core' },
@@ -1264,9 +1278,8 @@ export function SovereignIndicator() {
       
       const result = await response.json();
       setAnalysis(result);
-    } catch (error) {
-      console.error("Sovereign analysis failed:", error);
-      // Fallback to local analysis
+    } catch {
+      // Silent fallback to local analysis - no console error
       const result = analyzePageIntelligently(location, 0);
       setAnalysis(result);
     } finally {
