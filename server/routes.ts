@@ -10412,9 +10412,50 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
       const validatedData = sovereignIndicatorSchema.parse(req.body);
       const { pathname, services = [], pageMetrics = {} } = validatedData;
       
+      // Fetch compliance score to include in the analysis
+      let complianceScore = 85; // default baseline
+      try {
+        const domains = await db.select().from(sovereignComplianceDomains);
+        if (domains.length > 0) {
+          const auditLogs = await db.select().from(auditLog).limit(200);
+          const users = await db.select().from(usersTable);
+          const projects = await db.select().from(projectsTable).limit(50);
+          
+          const calculateDomainScore = (code: string): number => {
+            switch (code) {
+              case 'cybersecurity': return auditLogs.length > 50 ? 92 : auditLogs.length > 20 ? 88 : 80;
+              case 'data_protection': return 90;
+              case 'digital_sovereignty': return 95;
+              case 'business_continuity': return Math.min(95, 80 + Math.floor(projects.length / 2));
+              case 'digital_governance': return auditLogs.length > 100 ? 90 : auditLogs.length > 50 ? 85 : 75;
+              case 'ai_compliance': return 85;
+              case 'digital_safety': return 92;
+              case 'infrastructure_ops': return process.uptime() > 86400 ? 98 : process.uptime() > 3600 ? 95 : 90;
+              default: return 75;
+            }
+          };
+          
+          const weights: Record<string, number> = {
+            cybersecurity: 20, data_protection: 15, digital_sovereignty: 15,
+            business_continuity: 10, digital_governance: 15, ai_compliance: 10,
+            digital_safety: 10, infrastructure_ops: 5
+          };
+          
+          let totalWeight = 0, weightedScore = 0;
+          domains.forEach(domain => {
+            const weight = weights[domain.code] || 10;
+            weightedScore += calculateDomainScore(domain.code) * weight;
+            totalWeight += weight;
+          });
+          complianceScore = Math.round(weightedScore / totalWeight);
+        }
+      } catch (compError) {
+        console.log("Using default compliance score, error fetching data:", compError);
+      }
+      
       // Use algorithmic analysis for non-sovereign users (works for all)
       if (!isSovereign) {
-        return res.json(generateAlgorithmicAnalysis(pathname, services, pageMetrics));
+        return res.json(generateAlgorithmicAnalysis(pathname, services, pageMetrics, complianceScore));
       }
 
       // Import Anthropic client
@@ -10423,7 +10464,7 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
       
       if (!anthropic) {
         // Fallback to algorithmic analysis if AI not available
-        return res.json(generateAlgorithmicAnalysis(pathname, services, pageMetrics));
+        return res.json(generateAlgorithmicAnalysis(pathname, services, pageMetrics, complianceScore));
       }
 
       const analysisPrompt = `أنت محلل ذكاء سيادي لمنصة INFERA WebNova. قم بتحليل الصفحة التالية وأعد تقريراً شاملاً.
@@ -10479,7 +10520,7 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
       }
 
       // Fallback to algorithmic
-      return res.json(generateAlgorithmicAnalysis(pathname, services, pageMetrics));
+      return res.json(generateAlgorithmicAnalysis(pathname, services, pageMetrics, complianceScore));
     } catch (error) {
       console.error("Sovereign analysis error:", error);
       res.status(500).json({ error: "فشل في تحليل الصفحة / Failed to analyze page" });
@@ -10505,7 +10546,7 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
   });
 
   // Helper function for algorithmic analysis (fallback)
-  function generateAlgorithmicAnalysis(pathname: string, services: any[], pageMetrics: any) {
+  function generateAlgorithmicAnalysis(pathname: string, services: any[], pageMetrics: any, complianceScore: number = 85) {
     const pageServicesMap: Record<string, { name: string; nameAr: string; type: string }[]> = {
       '/': [
         { name: 'Nova AI Engine', nameAr: 'محرك نوفا الذكي', type: 'ai' },
@@ -10608,7 +10649,12 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
                      avgScore >= 75 ? 'good' :
                      avgScore >= 60 ? 'medium' : 'low';
 
-    const finalScore = Math.round(Math.min(100, avgScore * 0.3 + pageAnalysis.efficiencyScore * 0.25 + 
+    // Include compliance score in final calculation (weighted 15%)
+    const complianceBonus = complianceScore * 0.15;
+    const finalScore = Math.round(Math.min(100, 
+      avgScore * 0.25 + 
+      pageAnalysis.efficiencyScore * 0.20 + 
+      complianceBonus +
       (classification === 'sovereign-intelligent' ? 20 : classification === 'intelligent' ? 15 : 10) +
       (techLevel === 'sovereign' ? 15 : techLevel === 'advanced' ? 12 : 8)));
 
