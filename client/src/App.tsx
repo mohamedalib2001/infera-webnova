@@ -75,6 +75,7 @@ import SpomPage from "@/pages/owner/spom";
 import QualityDashboard from "@/pages/quality-dashboard";
 import SidebarManager from "@/pages/sidebar-manager";
 import SovereignChat from "@/pages/sovereign-chat";
+import PlatformRegistry from "@/pages/platform-registry";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 
@@ -144,6 +145,7 @@ function Router() {
       <Route path="/owner/quality" component={QualityDashboard} />
       <Route path="/owner/sidebar-manager" component={SidebarManager} />
       <Route path="/sovereign-chat" component={SovereignChat} />
+      <Route path="/owner/platform-registry" component={PlatformRegistry} />
       <Route path="/preview/:shareCode" component={Preview} />
       <Route component={NotFound} />
     </Switch>

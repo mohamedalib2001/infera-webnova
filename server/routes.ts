@@ -136,19 +136,81 @@ const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
   return res.status(401).json({ error: "يجب تسجيل الدخول أولاً / Authentication required" });
 };
 
-// Sovereign middleware - requires sovereign or owner role
-const requireSovereign = (req: Request, res: Response, next: NextFunction) => {
-  const user = req.session?.user;
-  if (!user || (user.role !== 'sovereign' && user.role !== 'owner')) {
+// Sovereign middleware - requires sovereign or owner role (including ROOT_OWNER)
+const requireSovereign = async (req: Request, res: Response, next: NextFunction) => {
+  // Try to get user from session
+  let user = req.session?.user;
+  
+  // If no user object but userId exists, hydrate from storage
+  if (!user && req.session?.userId) {
+    const dbUser = await storage.getUser(req.session.userId);
+    if (dbUser) {
+      const { password: _, ...userWithoutPassword } = dbUser;
+      req.session.user = userWithoutPassword as any;
+      user = userWithoutPassword as any;
+    }
+  }
+  
+  // Also check Replit Auth user
+  if (!user && req.isAuthenticated && req.isAuthenticated() && req.user) {
+    const replitUser = req.user as any;
+    const userId = replitUser.claims?.sub;
+    if (userId) {
+      const dbUser = await storage.getUser(userId);
+      if (dbUser) {
+        const { password: _, ...userWithoutPassword } = dbUser;
+        req.session.user = userWithoutPassword as any;
+        user = userWithoutPassword as any;
+      }
+    }
+  }
+  
+  if (!user) {
+    return res.status(401).json({ error: "غير مصرح / Unauthorized" });
+  }
+  
+  // Allow owner, sovereign, and ROOT_OWNER roles
+  const allowedRoles = ['owner', 'sovereign', 'ROOT_OWNER'];
+  if (!allowedRoles.includes(user.role) && !isRootOwner(user.role)) {
     return res.status(403).json({ error: "صلاحيات سيادية مطلوبة / Sovereign access required" });
   }
   next();
 };
 
 // Owner middleware - requires ROOT_OWNER (owner role) only
-const requireOwner = (req: Request, res: Response, next: NextFunction) => {
-  const user = req.session?.user;
-  if (!user || !isRootOwner(user.role)) {
+const requireOwner = async (req: Request, res: Response, next: NextFunction) => {
+  // Try to get user from session
+  let user = req.session?.user;
+  
+  // If no user object but userId exists, hydrate from storage
+  if (!user && req.session?.userId) {
+    const dbUser = await storage.getUser(req.session.userId);
+    if (dbUser) {
+      const { password: _, ...userWithoutPassword } = dbUser;
+      req.session.user = userWithoutPassword as any;
+      user = userWithoutPassword as any;
+    }
+  }
+  
+  // Also check Replit Auth user
+  if (!user && req.isAuthenticated && req.isAuthenticated() && req.user) {
+    const replitUser = req.user as any;
+    const userId = replitUser.claims?.sub;
+    if (userId) {
+      const dbUser = await storage.getUser(userId);
+      if (dbUser) {
+        const { password: _, ...userWithoutPassword } = dbUser;
+        req.session.user = userWithoutPassword as any;
+        user = userWithoutPassword as any;
+      }
+    }
+  }
+  
+  if (!user) {
+    return res.status(401).json({ error: "غير مصرح / Unauthorized" });
+  }
+  
+  if (!isRootOwner(user.role)) {
     return res.status(403).json({ 
       error: "صلاحيات المالك مطلوبة / Owner access required",
       errorAr: "صلاحيات المالك مطلوبة"
@@ -15484,6 +15546,481 @@ describe('Generated Tests', () => {
     } catch (error) {
       console.error("Update heartbeat error:", error);
       res.status(500).json({ error: "فشل في تحديث الحالة / Failed to update status" });
+    }
+  });
+
+  // ============ INFERA Engine Platform Linking Unit - وحدة ربط منصات انفرا انجن ============
+  
+  // Import platform schemas for validation
+  const { 
+    insertInferaPlatformSchema, 
+    insertPlatformLinkSchema, 
+    insertPlatformServiceSchema, 
+    insertPlatformCertificateSchema 
+  } = await import("@shared/schema");
+
+  // Initialize WebNova as the root platform
+  app.post("/api/platform-linking/init", requireOwner, async (req, res) => {
+    try {
+      const webNova = await storage.seedWebNovaPlatform();
+      res.json({ 
+        message: "تم تهيئة منصة WebNova كمنصة جذرية / WebNova initialized as root platform",
+        platform: webNova
+      });
+    } catch (error) {
+      console.error("Platform init error:", error);
+      res.status(500).json({ error: "فشل في تهيئة المنصة / Failed to initialize platform" });
+    }
+  });
+
+  // Get all platforms - جميع المنصات (Sovereign/Owner only)
+  app.get("/api/platform-linking/platforms", requireSovereign, async (req, res) => {
+    try {
+      const { type, status } = req.query;
+      let platforms;
+      
+      if (type) {
+        platforms = await storage.getInferaPlatformsByType(type as string);
+      } else if (status === 'active') {
+        platforms = await storage.getActivePlatforms();
+      } else {
+        platforms = await storage.getAllInferaPlatforms();
+      }
+      
+      res.json(platforms);
+    } catch (error) {
+      console.error("Get platforms error:", error);
+      res.status(500).json({ error: "فشل في جلب المنصات / Failed to fetch platforms" });
+    }
+  });
+
+  // Get single platform (Sovereign/Owner only)
+  app.get("/api/platform-linking/platforms/:id", requireSovereign, async (req, res) => {
+    try {
+      const platform = await storage.getInferaPlatform(req.params.id);
+      if (!platform) {
+        return res.status(404).json({ error: "المنصة غير موجودة / Platform not found" });
+      }
+      res.json(platform);
+    } catch (error) {
+      console.error("Get platform error:", error);
+      res.status(500).json({ error: "فشل في جلب المنصة / Failed to fetch platform" });
+    }
+  });
+
+  // Create new platform (Owner only) - with validation
+  app.post("/api/platform-linking/platforms", requireOwner, async (req, res) => {
+    try {
+      // Validate input using Zod schema
+      const validationResult = insertInferaPlatformSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: "بيانات غير صالحة / Invalid data",
+          details: validationResult.error.flatten()
+        });
+      }
+      
+      // Prevent client from setting isSystemPlatform flag
+      const platformData = { ...validationResult.data, isSystemPlatform: false };
+      
+      const platform = await storage.createInferaPlatform(platformData);
+      res.status(201).json(platform);
+    } catch (error) {
+      console.error("Create platform error:", error);
+      res.status(500).json({ error: "فشل في إنشاء المنصة / Failed to create platform" });
+    }
+  });
+
+  // Update platform (Owner only) - with validation
+  app.patch("/api/platform-linking/platforms/:id", requireOwner, async (req, res) => {
+    try {
+      const platform = await storage.getInferaPlatform(req.params.id);
+      if (!platform) {
+        return res.status(404).json({ error: "المنصة غير موجودة / Platform not found" });
+      }
+      
+      // Define protected fields that cannot be changed by any user
+      const protectedFields = ['isSystemPlatform', 'code', 'id'];
+      
+      // Define allowed fields for updates
+      const allowedUpdateFields = platform.isSystemPlatform 
+        ? ['description', 'descriptionAr', 'features', 'endpoints', 'configuration'] 
+        : ['name', 'nameAr', 'description', 'descriptionAr', 'version', 'type', 'status', 
+           'features', 'endpoints', 'configuration', 'marketingConfig', 'analyticsConfig'];
+      
+      // Filter input to only allowed fields
+      const updateData: Record<string, any> = {};
+      for (const [key, value] of Object.entries(req.body)) {
+        if (protectedFields.includes(key)) {
+          return res.status(403).json({ 
+            error: `لا يمكن تعديل الحقل المحمي / Cannot modify protected field: ${key}` 
+          });
+        }
+        if (allowedUpdateFields.includes(key)) {
+          updateData[key] = value;
+        }
+      }
+      
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ 
+          error: "لم يتم تقديم حقول صالحة للتحديث / No valid fields provided for update" 
+        });
+      }
+      
+      const updated = await storage.updateInferaPlatform(req.params.id, updateData);
+      res.json(updated);
+    } catch (error) {
+      console.error("Update platform error:", error);
+      res.status(500).json({ error: "فشل في تحديث المنصة / Failed to update platform" });
+    }
+  });
+
+  // Delete platform (Owner only, non-system platforms only)
+  app.delete("/api/platform-linking/platforms/:id", requireOwner, async (req, res) => {
+    try {
+      const platform = await storage.getInferaPlatform(req.params.id);
+      if (!platform) {
+        return res.status(404).json({ error: "المنصة غير موجودة / Platform not found" });
+      }
+      
+      if (platform.isSystemPlatform) {
+        return res.status(403).json({ error: "لا يمكن حذف منصة النظام / Cannot delete system platform" });
+      }
+      
+      // Check for linked records before deletion
+      const links = await storage.getPlatformLinksBySource(req.params.id);
+      const targetLinks = await storage.getPlatformLinksByTarget(req.params.id);
+      const services = await storage.getPlatformServicesByPlatform(req.params.id);
+      const certificates = await storage.getPlatformCertificatesByPlatform(req.params.id);
+      
+      if (links.length > 0 || targetLinks.length > 0 || services.length > 0 || certificates.length > 0) {
+        return res.status(409).json({ 
+          error: "لا يمكن حذف المنصة لوجود سجلات مرتبطة. احذف الروابط والخدمات والشهادات أولاً / Cannot delete platform with linked records. Delete links, services, and certificates first",
+          linkedRecords: {
+            links: links.length + targetLinks.length,
+            services: services.length,
+            certificates: certificates.length
+          }
+        });
+      }
+      
+      await storage.deleteInferaPlatform(req.params.id);
+      res.json({ message: "تم حذف المنصة بنجاح / Platform deleted successfully" });
+    } catch (error) {
+      console.error("Delete platform error:", error);
+      res.status(500).json({ error: "فشل في حذف المنصة / Failed to delete platform" });
+    }
+  });
+
+  // Platform Links - روابط المنصات (Sovereign/Owner only)
+  app.get("/api/platform-linking/links", requireSovereign, async (req, res) => {
+    try {
+      const { source, target, active } = req.query;
+      let links;
+      
+      if (source) {
+        links = await storage.getPlatformLinksBySource(source as string);
+      } else if (target) {
+        links = await storage.getPlatformLinksByTarget(target as string);
+      } else if (active === 'true') {
+        links = await storage.getActivePlatformLinks();
+      } else {
+        links = await storage.getAllPlatformLinks();
+      }
+      
+      res.json(links);
+    } catch (error) {
+      console.error("Get links error:", error);
+      res.status(500).json({ error: "فشل في جلب الروابط / Failed to fetch links" });
+    }
+  });
+
+  app.post("/api/platform-linking/links", requireOwner, async (req, res) => {
+    try {
+      // Validate input using Zod schema
+      const validationResult = insertPlatformLinkSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: "بيانات غير صالحة / Invalid data",
+          details: validationResult.error.flatten()
+        });
+      }
+      
+      const link = await storage.createPlatformLink(validationResult.data);
+      res.status(201).json(link);
+    } catch (error) {
+      console.error("Create link error:", error);
+      res.status(500).json({ error: "فشل في إنشاء الرابط / Failed to create link" });
+    }
+  });
+
+  app.patch("/api/platform-linking/links/:id/activate", requireOwner, async (req, res) => {
+    try {
+      const link = await storage.activatePlatformLink(req.params.id);
+      res.json(link);
+    } catch (error) {
+      console.error("Activate link error:", error);
+      res.status(500).json({ error: "فشل في تفعيل الرابط / Failed to activate link" });
+    }
+  });
+
+  app.patch("/api/platform-linking/links/:id/deactivate", requireOwner, async (req, res) => {
+    try {
+      const link = await storage.deactivatePlatformLink(req.params.id);
+      res.json(link);
+    } catch (error) {
+      console.error("Deactivate link error:", error);
+      res.status(500).json({ error: "فشل في إلغاء تفعيل الرابط / Failed to deactivate link" });
+    }
+  });
+
+  app.delete("/api/platform-linking/links/:id", requireOwner, async (req, res) => {
+    try {
+      await storage.deletePlatformLink(req.params.id);
+      res.json({ message: "تم حذف الرابط بنجاح / Link deleted successfully" });
+    } catch (error) {
+      console.error("Delete link error:", error);
+      res.status(500).json({ error: "فشل في حذف الرابط / Failed to delete link" });
+    }
+  });
+
+  // Platform Services - خدمات المنصات (Sovereign/Owner only)
+  app.get("/api/platform-linking/services", requireSovereign, async (req, res) => {
+    try {
+      const { platformId, active } = req.query;
+      let services;
+      
+      if (platformId) {
+        services = await storage.getPlatformServicesByPlatform(platformId as string);
+      } else if (active === 'true') {
+        services = await storage.getActiveServices();
+      } else {
+        services = await storage.getAllPlatformServices();
+      }
+      
+      res.json(services);
+    } catch (error) {
+      console.error("Get services error:", error);
+      res.status(500).json({ error: "فشل في جلب الخدمات / Failed to fetch services" });
+    }
+  });
+
+  app.post("/api/platform-linking/services", requireOwner, async (req, res) => {
+    try {
+      // Validate input using Zod schema
+      const validationResult = insertPlatformServiceSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: "بيانات غير صالحة / Invalid data",
+          details: validationResult.error.flatten()
+        });
+      }
+      
+      const service = await storage.createPlatformService(validationResult.data);
+      res.status(201).json(service);
+    } catch (error) {
+      console.error("Create service error:", error);
+      res.status(500).json({ error: "فشل في إنشاء الخدمة / Failed to create service" });
+    }
+  });
+
+  app.patch("/api/platform-linking/services/:id", requireOwner, async (req, res) => {
+    try {
+      // Define allowed update fields for services
+      const allowedFields = ['name', 'nameAr', 'description', 'descriptionAr', 'status', 
+                            'configuration', 'pricing', 'sla', 'endpoints'];
+      const protectedFields = ['id', 'platformId', 'isDefaultProvider'];
+      
+      // Filter input to only allowed fields
+      const updateData: Record<string, any> = {};
+      for (const [key, value] of Object.entries(req.body)) {
+        if (protectedFields.includes(key)) {
+          return res.status(403).json({ 
+            error: `لا يمكن تعديل الحقل المحمي / Cannot modify protected field: ${key}` 
+          });
+        }
+        if (allowedFields.includes(key)) {
+          updateData[key] = value;
+        }
+      }
+      
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ 
+          error: "لم يتم تقديم حقول صالحة للتحديث / No valid fields provided for update" 
+        });
+      }
+      
+      const service = await storage.updatePlatformService(req.params.id, updateData);
+      res.json(service);
+    } catch (error) {
+      console.error("Update service error:", error);
+      res.status(500).json({ error: "فشل في تحديث الخدمة / Failed to update service" });
+    }
+  });
+
+  app.delete("/api/platform-linking/services/:id", requireOwner, async (req, res) => {
+    try {
+      await storage.deletePlatformService(req.params.id);
+      res.json({ message: "تم حذف الخدمة بنجاح / Service deleted successfully" });
+    } catch (error) {
+      console.error("Delete service error:", error);
+      res.status(500).json({ error: "فشل في حذف الخدمة / Failed to delete service" });
+    }
+  });
+
+  // Platform Certificates - شهادات المنصات (Sovereign/Owner only)
+  app.get("/api/platform-linking/certificates", requireSovereign, async (req, res) => {
+    try {
+      const { platformId, hierarchy, userId, valid } = req.query;
+      let certificates;
+      
+      if (platformId) {
+        certificates = await storage.getPlatformCertificatesByPlatform(platformId as string);
+      } else if (hierarchy) {
+        certificates = await storage.getCertificatesByHierarchy(hierarchy as string);
+      } else if (userId) {
+        certificates = await storage.getUserCertificates(userId as string);
+      } else if (valid === 'true') {
+        certificates = await storage.getValidCertificates();
+      } else {
+        certificates = await storage.getAllPlatformCertificates();
+      }
+      
+      res.json(certificates);
+    } catch (error) {
+      console.error("Get certificates error:", error);
+      res.status(500).json({ error: "فشل في جلب الشهادات / Failed to fetch certificates" });
+    }
+  });
+
+  app.get("/api/platform-linking/certificates/owner", requireOwner, async (req, res) => {
+    try {
+      const certificates = await storage.getOwnerCertificates();
+      res.json(certificates);
+    } catch (error) {
+      console.error("Get owner certificates error:", error);
+      res.status(500).json({ error: "فشل في جلب شهادات المالك / Failed to fetch owner certificates" });
+    }
+  });
+
+  app.post("/api/platform-linking/certificates", requireOwner, async (req, res) => {
+    try {
+      // Validate input using Zod schema
+      const validationResult = insertPlatformCertificateSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: "بيانات غير صالحة / Invalid data",
+          details: validationResult.error.flatten()
+        });
+      }
+      
+      // Enforce certificate hierarchy constraints - only root_ca can be issued without parent
+      const certData = { ...validationResult.data };
+      
+      // Prevent non-owner from creating root_ca certificates
+      if (certData.hierarchyRole === 'root_ca') {
+        // Root CA can only be created for the owner/system
+        const existingRootCa = await storage.getCertificatesByHierarchy('root_ca');
+        if (existingRootCa.length > 0) {
+          return res.status(403).json({ 
+            error: "شهادة جذر CA موجودة بالفعل / Root CA certificate already exists" 
+          });
+        }
+      }
+      
+      // Intermediate certificates must have a parent
+      if (['platform_ca', 'service_cert', 'user_cert'].includes(certData.hierarchyRole as string) && !certData.parentCertId) {
+        return res.status(400).json({ 
+          error: "الشهادات الفرعية يجب أن يكون لها شهادة أب / Subordinate certificates must have a parent certificate" 
+        });
+      }
+      
+      const certificate = await storage.createPlatformCertificate(certData);
+      res.status(201).json(certificate);
+    } catch (error) {
+      console.error("Create certificate error:", error);
+      res.status(500).json({ error: "فشل في إنشاء الشهادة / Failed to create certificate" });
+    }
+  });
+
+  app.patch("/api/platform-linking/certificates/:id/revoke", requireOwner, async (req, res) => {
+    try {
+      const { reason } = req.body;
+      if (!reason) {
+        return res.status(400).json({ error: "سبب الإلغاء مطلوب / Revocation reason required" });
+      }
+      
+      const certificate = await storage.revokeCertificate(req.params.id, reason);
+      res.json(certificate);
+    } catch (error) {
+      console.error("Revoke certificate error:", error);
+      res.status(500).json({ error: "فشل في إلغاء الشهادة / Failed to revoke certificate" });
+    }
+  });
+
+  app.post("/api/platform-linking/certificates/:id/use", requireAuth, async (req, res) => {
+    try {
+      const certificate = await storage.incrementCertificateUsage(req.params.id);
+      if (!certificate) {
+        return res.status(404).json({ error: "الشهادة غير موجودة / Certificate not found" });
+      }
+      res.json(certificate);
+    } catch (error) {
+      console.error("Use certificate error:", error);
+      res.status(500).json({ error: "فشل في تسجيل استخدام الشهادة / Failed to record certificate usage" });
+    }
+  });
+
+  app.delete("/api/platform-linking/certificates/:id", requireOwner, async (req, res) => {
+    try {
+      await storage.deletePlatformCertificate(req.params.id);
+      res.json({ message: "تم حذف الشهادة بنجاح / Certificate deleted successfully" });
+    } catch (error) {
+      console.error("Delete certificate error:", error);
+      res.status(500).json({ error: "فشل في حذف الشهادة / Failed to delete certificate" });
+    }
+  });
+
+  // Platform ecosystem stats - إحصائيات منظومة المنصات (Sovereign/Owner only)
+  app.get("/api/platform-linking/stats", requireSovereign, async (req, res) => {
+    try {
+      const [platforms, links, services, certificates] = await Promise.all([
+        storage.getAllInferaPlatforms(),
+        storage.getAllPlatformLinks(),
+        storage.getAllPlatformServices(),
+        storage.getAllPlatformCertificates()
+      ]);
+      
+      const activePlatforms = platforms.filter(p => p.status === 'active').length;
+      const activeLinks = links.filter(l => l.isActive).length;
+      const activeServices = services.filter(s => s.status === 'active').length;
+      const validCertificates = certificates.filter(c => !c.isRevoked && new Date(c.validUntil) > new Date()).length;
+      
+      res.json({
+        totalPlatforms: platforms.length,
+        activePlatforms,
+        totalLinks: links.length,
+        activeLinks,
+        totalServices: services.length,
+        activeServices,
+        totalCertificates: certificates.length,
+        validCertificates,
+        platformsByType: {
+          central: platforms.filter(p => p.platformType === 'central').length,
+          sovereign: platforms.filter(p => p.platformType === 'sovereign').length,
+          builder: platforms.filter(p => p.platformType === 'builder').length,
+          commercial: platforms.filter(p => p.platformType === 'commercial').length,
+        },
+        certificatesByHierarchy: {
+          root_ca: certificates.filter(c => c.hierarchyRole === 'root_ca').length,
+          platform_ca: certificates.filter(c => c.hierarchyRole === 'platform_ca').length,
+          service_cert: certificates.filter(c => c.hierarchyRole === 'service_cert').length,
+          user_cert: certificates.filter(c => c.hierarchyRole === 'user_cert').length,
+        }
+      });
+    } catch (error) {
+      console.error("Get platform stats error:", error);
+      res.status(500).json({ error: "فشل في جلب الإحصائيات / Failed to fetch stats" });
     }
   });
 
