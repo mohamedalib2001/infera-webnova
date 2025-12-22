@@ -7880,6 +7880,209 @@ export const insertActiveContributorSchema = createInsertSchema(activeContributo
 export type InsertActiveContributor = z.infer<typeof insertActiveContributorSchema>;
 export type ActiveContributor = typeof activeContributors.$inferSelect;
 
+// ==================== TRUST, RISK & COMPLIANCE (هيئة الثقة والمخاطر والامتثال) ====================
+
+// Risk severity levels
+export const riskSeverities = ['low', 'medium', 'high', 'critical'] as const;
+export type RiskSeverity = typeof riskSeverities[number];
+
+// Risk categories
+export const riskCategories = ['security', 'data_privacy', 'access_control', 'infrastructure', 'api_security', 'compliance'] as const;
+export type RiskCategory = typeof riskCategories[number];
+
+// Finding status
+export const findingStatuses = ['open', 'in_progress', 'resolved', 'accepted', 'false_positive'] as const;
+export type FindingStatus = typeof findingStatuses[number];
+
+// Risk Findings - المخاطر المكتشفة
+export const riskFindings = pgTable("risk_findings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Finding details
+  title: text("title").notNull(),
+  titleAr: text("title_ar").notNull(),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  
+  // Classification
+  category: text("category").notNull(), // security, data_privacy, access_control, infrastructure, api_security
+  severity: text("severity").notNull().default("medium"), // low, medium, high, critical
+  
+  // Status
+  status: text("status").notNull().default("open"), // open, in_progress, resolved, accepted, false_positive
+  
+  // Impact assessment
+  impactScore: integer("impact_score").notNull().default(50), // 0-100
+  likelihood: integer("likelihood").notNull().default(50), // 0-100
+  riskScore: integer("risk_score").notNull().default(50), // calculated: impact * likelihood / 100
+  
+  // Evidence
+  evidence: text("evidence"),
+  affectedAssets: text("affected_assets").array(),
+  
+  // Remediation
+  remediation: text("remediation"),
+  remediationAr: text("remediation_ar"),
+  assignedTo: varchar("assigned_to").references(() => users.id),
+  dueDate: timestamp("due_date"),
+  resolvedAt: timestamp("resolved_at"),
+  resolvedBy: varchar("resolved_by").references(() => users.id),
+  
+  // Detection source
+  detectedBy: text("detected_by").notNull().default("system"), // system, manual, audit, external
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_risk_category").on(table.category),
+  index("IDX_risk_severity").on(table.severity),
+  index("IDX_risk_status").on(table.status),
+  index("IDX_risk_assigned").on(table.assignedTo),
+]);
+
+export const insertRiskFindingSchema = createInsertSchema(riskFindings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertRiskFinding = z.infer<typeof insertRiskFindingSchema>;
+export type RiskFinding = typeof riskFindings.$inferSelect;
+
+// Compliance Frameworks - أطر الامتثال
+export const complianceFrameworks = pgTable("compliance_frameworks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Framework info
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  code: text("code").notNull().unique(), // PDPL, GDPR, NCA_ECC, ISO27001, PCI_DSS
+  
+  // Requirements tracking
+  totalRequirements: integer("total_requirements").notNull().default(0),
+  passedRequirements: integer("passed_requirements").notNull().default(0),
+  failedRequirements: integer("failed_requirements").notNull().default(0),
+  pendingRequirements: integer("pending_requirements").notNull().default(0),
+  
+  // Compliance score
+  complianceScore: integer("compliance_score").notNull().default(0), // 0-100
+  status: text("status").notNull().default("partial"), // compliant, partial, non_compliant
+  
+  // Last assessment
+  lastAssessedAt: timestamp("last_assessed_at"),
+  nextAssessmentDue: timestamp("next_assessment_due"),
+  
+  // Certification
+  isCertified: boolean("is_certified").notNull().default(false),
+  certificationDate: timestamp("certification_date"),
+  certificationExpiry: timestamp("certification_expiry"),
+  
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_framework_code").on(table.code),
+  index("IDX_framework_status").on(table.status),
+]);
+
+export const insertComplianceFrameworkSchema = createInsertSchema(complianceFrameworks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertComplianceFramework = z.infer<typeof insertComplianceFrameworkSchema>;
+export type ComplianceFramework = typeof complianceFrameworks.$inferSelect;
+
+// Trust Metrics - مقاييس الثقة
+export const trustMetrics = pgTable("trust_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Metric type
+  category: text("category").notNull(), // security, data_privacy, access_control, infrastructure, api_security
+  categoryAr: text("category_ar").notNull(),
+  
+  // Scores
+  score: integer("score").notNull().default(0), // 0-100
+  previousScore: integer("previous_score"),
+  trend: text("trend").notNull().default("stable"), // up, down, stable
+  
+  // Issues
+  activeIssues: integer("active_issues").notNull().default(0),
+  resolvedIssues: integer("resolved_issues").notNull().default(0),
+  
+  // Details
+  details: jsonb("details").$type<Record<string, any>>(),
+  
+  // Timestamps
+  measuredAt: timestamp("measured_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_trust_category").on(table.category),
+  index("IDX_trust_measured").on(table.measuredAt),
+]);
+
+export const insertTrustMetricSchema = createInsertSchema(trustMetrics).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertTrustMetric = z.infer<typeof insertTrustMetricSchema>;
+export type TrustMetric = typeof trustMetrics.$inferSelect;
+
+// Remediation Actions - إجراءات المعالجة
+export const remediationActions = pgTable("remediation_actions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Link to finding
+  findingId: varchar("finding_id").references(() => riskFindings.id).notNull(),
+  
+  // Action details
+  title: text("title").notNull(),
+  titleAr: text("title_ar").notNull(),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  
+  // Status
+  status: text("status").notNull().default("pending"), // pending, approved, in_progress, completed, rejected
+  priority: text("priority").notNull().default("medium"), // low, medium, high, critical
+  
+  // Assignment
+  assignedTo: varchar("assigned_to").references(() => users.id),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  
+  // Timing
+  dueDate: timestamp("due_date"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  
+  // Effort
+  estimatedHours: integer("estimated_hours"),
+  actualHours: integer("actual_hours"),
+  
+  // Notes
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_remediation_finding").on(table.findingId),
+  index("IDX_remediation_status").on(table.status),
+  index("IDX_remediation_assigned").on(table.assignedTo),
+]);
+
+export const insertRemediationActionSchema = createInsertSchema(remediationActions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertRemediationAction = z.infer<typeof insertRemediationActionSchema>;
+export type RemediationAction = typeof remediationActions.$inferSelect;
+
 // ==================== SOVEREIGN AUDIT SYSTEM (نظام الفحص السيادي) ====================
 
 // Audit run status
