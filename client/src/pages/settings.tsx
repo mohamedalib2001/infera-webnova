@@ -152,11 +152,92 @@ export default function SettingsPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  
+  // 2FA setup state
+  const [show2faSetup, setShow2faSetup] = useState(false);
+  const [qrCode, setQrCode] = useState("");
+  const [totpSecret, setTotpSecret] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  const [showRecoveryCodes, setShowRecoveryCodes] = useState(false);
 
   // Notification preferences state
   const [emailNotifications, setEmailNotifications] = useState(false);
   const [pushNotifications, setPushNotifications] = useState(false);
   const [twoFactor, setTwoFactor] = useState(false);
+
+  // Fetch 2FA status
+  const { data: twoFaStatus, refetch: refetch2faStatus } = useQuery<{
+    enabled: boolean;
+    hasRecoveryCodes: boolean;
+    recoveryCodesCount: number;
+  }>({
+    queryKey: ["/api/auth/2fa/status"],
+    enabled: isAuthenticated,
+  });
+
+  // 2FA Setup mutation
+  const setup2faMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/auth/2fa/setup", {});
+    },
+    onSuccess: (data: any) => {
+      setQrCode(data.qrCode);
+      setTotpSecret(data.secret);
+      setShow2faSetup(true);
+    },
+    onError: (error: any) => {
+      toast({
+        title: language === "ar" ? "فشل في إعداد 2FA" : "2FA setup failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // 2FA Enable mutation
+  const enable2faMutation = useMutation({
+    mutationFn: async (code: string) => {
+      return await apiRequest("POST", "/api/auth/2fa/enable", { code });
+    },
+    onSuccess: (data: any) => {
+      setRecoveryCodes(data.recoveryCodes || []);
+      setShowRecoveryCodes(true);
+      setShow2faSetup(false);
+      setVerificationCode("");
+      refetch2faStatus();
+      toast({
+        title: language === "ar" ? "تم تفعيل المصادقة الثنائية" : "2FA enabled successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: language === "ar" ? "فشل في تفعيل 2FA" : "Failed to enable 2FA",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // 2FA Disable mutation
+  const disable2faMutation = useMutation({
+    mutationFn: async (code: string) => {
+      return await apiRequest("POST", "/api/auth/2fa/disable", { code });
+    },
+    onSuccess: () => {
+      refetch2faStatus();
+      toast({
+        title: language === "ar" ? "تم تعطيل المصادقة الثنائية" : "2FA disabled successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: language === "ar" ? "فشل في تعطيل 2FA" : "Failed to disable 2FA",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   // Fetch notification preferences
   const { data: notificationPrefs } = useQuery<{
@@ -370,16 +451,62 @@ export default function SettingsPage() {
             <CardDescription>{t.sections.securityDesc}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="two-factor">{t.options.twoFactor}</Label>
-              <Switch 
-                id="two-factor" 
-                data-testid="switch-two-factor"
-                checked={twoFactor}
-                onCheckedChange={(checked) => handleNotificationToggle("twoFactor", checked)}
-                disabled={saveNotificationsMutation.isPending}
-              />
+            {/* Two-Factor Authentication */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>{t.options.twoFactor}</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {language === "ar" 
+                      ? "أضف طبقة حماية إضافية لحسابك" 
+                      : "Add an extra layer of security to your account"}
+                  </p>
+                </div>
+                {twoFaStatus?.enabled ? (
+                  <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                    {language === "ar" ? "مفعّل" : "Enabled"}
+                  </span>
+                ) : (
+                  <span className="text-sm text-muted-foreground">
+                    {language === "ar" ? "غير مفعّل" : "Not enabled"}
+                  </span>
+                )}
+              </div>
+              
+              {twoFaStatus?.enabled ? (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    const code = prompt(language === "ar" ? "أدخل رمز المصادقة" : "Enter authenticator code");
+                    if (code) disable2faMutation.mutate(code);
+                  }}
+                  disabled={disable2faMutation.isPending}
+                  data-testid="button-disable-2fa"
+                >
+                  {disable2faMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    language === "ar" ? "تعطيل المصادقة الثنائية" : "Disable 2FA"
+                  )}
+                </Button>
+              ) : (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setup2faMutation.mutate()}
+                  disabled={setup2faMutation.isPending}
+                  data-testid="button-setup-2fa"
+                >
+                  {setup2faMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    language === "ar" ? "إعداد المصادقة الثنائية" : "Set up 2FA"
+                  )}
+                </Button>
+              )}
             </div>
+            
             <Separator />
             <div className="flex items-center justify-between">
               <span>{t.options.changePassword}</span>
@@ -476,6 +603,127 @@ export default function SettingsPage() {
                 <Save className="w-4 h-4 mr-2" />
               )}
               {t.editProfileDialog.save}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 2FA Setup Dialog */}
+      <Dialog open={show2faSetup} onOpenChange={setShow2faSetup}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5" />
+              {language === "ar" ? "إعداد المصادقة الثنائية" : "Set up Two-Factor Authentication"}
+            </DialogTitle>
+            <DialogDescription>
+              {language === "ar" 
+                ? "امسح رمز QR باستخدام تطبيق المصادقة مثل Google Authenticator أو Authy"
+                : "Scan the QR code with your authenticator app like Google Authenticator or Authy"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {qrCode && (
+              <div className="flex justify-center">
+                <img 
+                  src={qrCode} 
+                  alt="2FA QR Code" 
+                  className="w-48 h-48 rounded-lg border"
+                  data-testid="img-2fa-qrcode"
+                />
+              </div>
+            )}
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground mb-1">
+                {language === "ar" ? "أو أدخل هذا الرمز يدوياً:" : "Or enter this code manually:"}
+              </p>
+              <code className="text-sm bg-muted px-2 py-1 rounded font-mono" data-testid="text-totp-secret">
+                {totpSecret}
+              </code>
+            </div>
+            <Separator />
+            <div className="space-y-2">
+              <Label>
+                {language === "ar" ? "أدخل رمز التحقق من التطبيق" : "Enter verification code from app"}
+              </Label>
+              <Input
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="000000"
+                maxLength={6}
+                className="text-center text-lg tracking-widest"
+                data-testid="input-2fa-verification"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShow2faSetup(false);
+                setQrCode("");
+                setTotpSecret("");
+                setVerificationCode("");
+              }}
+            >
+              {language === "ar" ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button 
+              onClick={() => enable2faMutation.mutate(verificationCode)}
+              disabled={verificationCode.length !== 6 || enable2faMutation.isPending}
+              data-testid="button-verify-2fa"
+            >
+              {enable2faMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                language === "ar" ? "تفعيل" : "Enable"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Recovery Codes Dialog */}
+      <Dialog open={showRecoveryCodes} onOpenChange={setShowRecoveryCodes}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="w-5 h-5" />
+              {language === "ar" ? "أكواد الاسترداد" : "Recovery Codes"}
+            </DialogTitle>
+            <DialogDescription>
+              {language === "ar" 
+                ? "احفظ هذه الأكواد في مكان آمن. يمكنك استخدامها للدخول إذا فقدت هاتفك."
+                : "Save these codes in a safe place. You can use them to sign in if you lose your phone."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertTitle>{language === "ar" ? "مهم" : "Important"}</AlertTitle>
+              <AlertDescription>
+                {language === "ar" 
+                  ? "لن تتمكن من رؤية هذه الأكواد مرة أخرى"
+                  : "You won't be able to see these codes again"}
+              </AlertDescription>
+            </Alert>
+            <div className="grid grid-cols-2 gap-2 mt-4 p-4 bg-muted rounded-lg">
+              {recoveryCodes.map((code, index) => (
+                <code key={index} className="text-sm font-mono p-1 bg-background rounded text-center" data-testid={`text-recovery-code-${index}`}>
+                  {code}
+                </code>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              onClick={() => {
+                setShowRecoveryCodes(false);
+                setRecoveryCodes([]);
+              }}
+              data-testid="button-close-recovery-codes"
+            >
+              {language === "ar" ? "تم الحفظ" : "I've saved these codes"}
             </Button>
           </DialogFooter>
         </DialogContent>

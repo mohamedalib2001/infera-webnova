@@ -47,6 +47,7 @@ export default function Auth() {
   const [otpMethod, setOtpMethod] = useState<"email" | "authenticator">("email");
   const [otpValue, setOtpValue] = useState("");
   const [pendingEmail, setPendingEmail] = useState("");
+  const [isTwoFactorLogin, setIsTwoFactorLogin] = useState(false);
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -92,7 +93,19 @@ export default function Auth() {
       if (response.requiresOtp) {
         setPendingEmail(response.email || loginForm.getValues("email"));
         setShowOtp(true);
-        toast({ title: language === "ar" ? "تم إرسال رمز التحقق" : "OTP sent to your email" });
+        
+        // Check if this is TOTP 2FA login
+        if (response.twoFactorEnabled) {
+          setIsTwoFactorLogin(true);
+          setOtpMethod("authenticator");
+          toast({ 
+            title: language === "ar" ? "يرجى إدخال رمز المصادقة" : "Enter your authenticator code" 
+          });
+        } else {
+          setIsTwoFactorLogin(false);
+          setOtpMethod("email");
+          toast({ title: language === "ar" ? "تم إرسال رمز التحقق" : "OTP sent to your email" });
+        }
         return;
       }
       
@@ -210,11 +223,13 @@ export default function Auth() {
 
                   <TabsContent value="authenticator">
                     <div className="text-center mb-4">
-                      <div className="mx-auto w-32 h-32 rounded-lg bg-muted flex items-center justify-center mb-4">
-                        <QrCode className="h-16 w-16 text-muted-foreground" />
+                      <div className="mx-auto w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                        <Smartphone className="h-12 w-12 text-primary" />
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        {t("auth.authenticatorDesc")}
+                        {language === "ar" 
+                          ? "أدخل الرمز المكون من 6 أرقام من تطبيق المصادقة الخاص بك"
+                          : "Enter the 6-digit code from your authenticator app"}
                       </p>
                     </div>
                   </TabsContent>
