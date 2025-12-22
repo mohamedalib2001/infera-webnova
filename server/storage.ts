@@ -434,6 +434,22 @@ import {
   platformCertificates,
   type PlatformCertificate,
   type InsertPlatformCertificate,
+  // Nova Conversation Engine
+  novaSessions,
+  type NovaSession,
+  type InsertNovaSession,
+  novaMessages,
+  type NovaMessage,
+  type InsertNovaMessage,
+  novaDecisions,
+  type NovaDecision,
+  type InsertNovaDecision,
+  novaPreferences,
+  type NovaPreferences,
+  type InsertNovaPreferences,
+  novaProjectContexts,
+  type NovaProjectContext,
+  type InsertNovaProjectContext,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt, gte, lte, sql } from "drizzle-orm";
@@ -7036,6 +7052,260 @@ body { font-family: 'Tajawal', sans-serif; }
   async deletePlatformCertificate(id: string): Promise<boolean> {
     await db.delete(platformCertificates).where(eq(platformCertificates.id, id));
     return true;
+  }
+
+  // ==================== NOVA CONVERSATION ENGINE ====================
+
+  // Nova Sessions
+  async createNovaSession(data: InsertNovaSession): Promise<NovaSession> {
+    const [created] = await db.insert(novaSessions).values(data as any).returning();
+    return created;
+  }
+
+  async getNovaSession(id: string): Promise<NovaSession | undefined> {
+    const [session] = await db.select().from(novaSessions).where(eq(novaSessions.id, id));
+    return session;
+  }
+
+  async getUserNovaSessions(userId: string, limit = 20): Promise<NovaSession[]> {
+    return db.select().from(novaSessions)
+      .where(and(
+        eq(novaSessions.userId, userId),
+        sql`${novaSessions.status} != 'deleted'`
+      ))
+      .orderBy(desc(novaSessions.lastMessageAt))
+      .limit(limit);
+  }
+
+  async updateNovaSession(id: string, data: Partial<InsertNovaSession>): Promise<NovaSession | undefined> {
+    const [updated] = await db.update(novaSessions)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where(eq(novaSessions.id, id))
+      .returning();
+    return updated;
+  }
+
+  async archiveNovaSession(id: string): Promise<NovaSession | undefined> {
+    return this.updateNovaSession(id, { status: 'archived' });
+  }
+
+  async deleteNovaSession(id: string): Promise<boolean> {
+    await db.delete(novaSessions).where(eq(novaSessions.id, id));
+    return true;
+  }
+
+  // Nova Messages
+  async createNovaMessage(data: InsertNovaMessage): Promise<NovaMessage> {
+    const [created] = await db.insert(novaMessages).values(data as any).returning();
+    
+    // Update session message count and last message time
+    await db.update(novaSessions)
+      .set({
+        messageCount: sql`${novaSessions.messageCount} + 1`,
+        lastMessageAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(novaSessions.id, data.sessionId));
+    
+    return created;
+  }
+
+  async getNovaMessage(id: string): Promise<NovaMessage | undefined> {
+    const [message] = await db.select().from(novaMessages).where(eq(novaMessages.id, id));
+    return message;
+  }
+
+  async getSessionMessages(sessionId: string, limit = 100): Promise<NovaMessage[]> {
+    return db.select().from(novaMessages)
+      .where(eq(novaMessages.sessionId, sessionId))
+      .orderBy(novaMessages.createdAt)
+      .limit(limit);
+  }
+
+  async updateNovaMessage(id: string, data: Partial<InsertNovaMessage>): Promise<NovaMessage | undefined> {
+    const [updated] = await db.update(novaMessages)
+      .set({ ...data, isEdited: true, updatedAt: new Date() } as any)
+      .where(eq(novaMessages.id, id))
+      .returning();
+    return updated;
+  }
+
+  async toggleMessagePin(id: string): Promise<NovaMessage | undefined> {
+    const message = await this.getNovaMessage(id);
+    if (!message) return undefined;
+    
+    // Update pin without marking as edited
+    const [updated] = await db.update(novaMessages)
+      .set({ isPinned: !message.isPinned, updatedAt: new Date() })
+      .where(eq(novaMessages.id, id))
+      .returning();
+    return updated;
+  }
+
+  async executeMessageAction(messageId: string, actionId: string, result?: any): Promise<NovaMessage | undefined> {
+    const message = await this.getNovaMessage(messageId);
+    if (!message || !message.actions) return undefined;
+    
+    const updatedActions = (message.actions as any[]).map(action => {
+      if (action.id === actionId) {
+        return { ...action, status: 'executed', executedAt: new Date().toISOString(), result };
+      }
+      return action;
+    });
+    
+    // Update actions without marking as edited
+    const [updated] = await db.update(novaMessages)
+      .set({ actions: updatedActions, updatedAt: new Date() })
+      .where(eq(novaMessages.id, messageId))
+      .returning();
+    return updated;
+  }
+
+  // Nova Decisions
+  async createNovaDecision(data: InsertNovaDecision): Promise<NovaDecision> {
+    const [created] = await db.insert(novaDecisions).values(data as any).returning();
+    return created;
+  }
+
+  async getNovaDecision(id: string): Promise<NovaDecision | undefined> {
+    const [decision] = await db.select().from(novaDecisions).where(eq(novaDecisions.id, id));
+    return decision;
+  }
+
+  async getUserDecisions(userId: string, category?: string): Promise<NovaDecision[]> {
+    const conditions = [eq(novaDecisions.userId, userId)];
+    if (category) conditions.push(eq(novaDecisions.category, category));
+    
+    return db.select().from(novaDecisions)
+      .where(and(...conditions))
+      .orderBy(desc(novaDecisions.createdAt));
+  }
+
+  async getActiveDecisions(userId: string): Promise<NovaDecision[]> {
+    return db.select().from(novaDecisions)
+      .where(and(
+        eq(novaDecisions.userId, userId),
+        eq(novaDecisions.status, 'active')
+      ))
+      .orderBy(desc(novaDecisions.createdAt));
+  }
+
+  async updateNovaDecision(id: string, data: Partial<InsertNovaDecision>): Promise<NovaDecision | undefined> {
+    const [updated] = await db.update(novaDecisions)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where(eq(novaDecisions.id, id))
+      .returning();
+    return updated;
+  }
+
+  async applyDecision(id: string): Promise<NovaDecision | undefined> {
+    return this.updateNovaDecision(id, { wasApplied: true, appliedAt: new Date() });
+  }
+
+  async supersededDecision(id: string, newDecisionId: string): Promise<NovaDecision | undefined> {
+    return this.updateNovaDecision(id, { status: 'superseded', supersededBy: newDecisionId });
+  }
+
+  // Nova Preferences
+  async getNovaPreferences(userId: string): Promise<NovaPreferences | undefined> {
+    const [prefs] = await db.select().from(novaPreferences).where(eq(novaPreferences.userId, userId));
+    return prefs;
+  }
+
+  async upsertNovaPreferences(userId: string, data: Partial<InsertNovaPreferences>): Promise<NovaPreferences> {
+    const existing = await this.getNovaPreferences(userId);
+    
+    if (existing) {
+      const [updated] = await db.update(novaPreferences)
+        .set({
+          ...data,
+          interactionCount: (existing.interactionCount || 0) + 1,
+          lastInteraction: new Date(),
+          updatedAt: new Date(),
+        } as any)
+        .where(eq(novaPreferences.userId, userId))
+        .returning();
+      return updated;
+    }
+    
+    const [created] = await db.insert(novaPreferences)
+      .values({ ...data, userId, interactionCount: 1, lastInteraction: new Date() } as any)
+      .returning();
+    return created;
+  }
+
+  async updateLearningScore(userId: string, score: number): Promise<NovaPreferences | undefined> {
+    const [updated] = await db.update(novaPreferences)
+      .set({ learningScore: score, updatedAt: new Date() } as any)
+      .where(eq(novaPreferences.userId, userId))
+      .returning();
+    return updated;
+  }
+
+  // Nova Project Contexts
+  async getNovaProjectContext(projectId: string): Promise<NovaProjectContext | undefined> {
+    const [context] = await db.select().from(novaProjectContexts).where(eq(novaProjectContexts.projectId, projectId));
+    return context;
+  }
+
+  async upsertNovaProjectContext(projectId: string, userId: string, data: Partial<InsertNovaProjectContext>): Promise<NovaProjectContext> {
+    const existing = await this.getNovaProjectContext(projectId);
+    
+    if (existing) {
+      const [updated] = await db.update(novaProjectContexts)
+        .set({ ...data, updatedAt: new Date() } as any)
+        .where(eq(novaProjectContexts.projectId, projectId))
+        .returning();
+      return updated;
+    }
+    
+    const [created] = await db.insert(novaProjectContexts)
+      .values({ ...data, projectId, userId } as any)
+      .returning();
+    return created;
+  }
+
+  async addConfigChange(projectId: string, change: { timestamp: string; change: string; previousValue: any; newValue: any }): Promise<NovaProjectContext | undefined> {
+    const context = await this.getNovaProjectContext(projectId);
+    if (!context) return undefined;
+    
+    const history = (context.configHistory as any[]) || [];
+    history.push(change);
+    
+    const [updated] = await db.update(novaProjectContexts)
+      .set({ configHistory: history, updatedAt: new Date() } as any)
+      .where(eq(novaProjectContexts.projectId, projectId))
+      .returning();
+    return updated;
+  }
+
+  async addDetectedConflict(projectId: string, conflict: { id: string; type: string; description: string; severity: 'warning' | 'error'; suggestedResolution?: string; resolved: boolean }): Promise<NovaProjectContext | undefined> {
+    const context = await this.getNovaProjectContext(projectId);
+    if (!context) return undefined;
+    
+    const conflicts = (context.detectedConflicts as any[]) || [];
+    conflicts.push(conflict);
+    
+    const [updated] = await db.update(novaProjectContexts)
+      .set({ detectedConflicts: conflicts, updatedAt: new Date() } as any)
+      .where(eq(novaProjectContexts.projectId, projectId))
+      .returning();
+    return updated;
+  }
+
+  async resolveConflict(projectId: string, conflictId: string): Promise<NovaProjectContext | undefined> {
+    const context = await this.getNovaProjectContext(projectId);
+    if (!context || !context.detectedConflicts) return undefined;
+    
+    const conflicts = (context.detectedConflicts as any[]).map(c =>
+      c.id === conflictId ? { ...c, resolved: true } : c
+    );
+    
+    const [updated] = await db.update(novaProjectContexts)
+      .set({ detectedConflicts: conflicts, updatedAt: new Date() } as any)
+      .where(eq(novaProjectContexts.projectId, projectId))
+      .returning();
+    return updated;
   }
 
   // Seed WebNova as the first platform - تهيئة WebNova كأول منصة

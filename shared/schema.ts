@@ -9666,3 +9666,263 @@ export const insertPlatformCertificateSchema = createInsertSchema(platformCertif
 });
 export type InsertPlatformCertificate = z.infer<typeof insertPlatformCertificateSchema>;
 export type PlatformCertificate = typeof platformCertificates.$inferSelect;
+
+// ==================== NOVA CONVERSATION ENGINE - PERSISTENT MEMORY ====================
+
+// Nova Conversation sessions - جلسات محادثة نوفا
+export const novaSessions = pgTable("nova_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  projectId: varchar("project_id"), // optional: linked project
+  
+  // Session metadata
+  title: text("title"),
+  summary: text("summary"), // AI-generated summary
+  language: text("language").notNull().default("ar"), // ar, en
+  
+  // Session state
+  status: text("status").notNull().default("active"), // active, archived, deleted
+  messageCount: integer("message_count").notNull().default(0),
+  
+  // Context preservation
+  contextSnapshot: jsonb("context_snapshot").$type<{
+    currentProject?: string;
+    activeBlueprint?: string;
+    recentDecisions?: string[];
+    preferences?: Record<string, any>;
+  }>(),
+  
+  // Timestamps
+  lastMessageAt: timestamp("last_message_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_ns_user_id").on(table.userId),
+  index("IDX_ns_project_id").on(table.projectId),
+  index("IDX_ns_status").on(table.status),
+  index("IDX_ns_last_message").on(table.lastMessageAt),
+]);
+
+export const insertNovaSessionSchema = createInsertSchema(novaSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertNovaSession = z.infer<typeof insertNovaSessionSchema>;
+export type NovaSession = typeof novaSessions.$inferSelect;
+
+// Nova messages - رسائل نوفا
+export const novaMessages = pgTable("nova_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => novaSessions.id, { onDelete: "cascade" }).notNull(),
+  
+  // Message content
+  role: text("role").notNull(), // user, assistant, system
+  content: text("content").notNull(),
+  language: text("language").notNull().default("ar"),
+  
+  // Rich content
+  attachments: jsonb("attachments").$type<{
+    type: 'image' | 'file' | 'code' | 'blueprint';
+    url?: string;
+    content?: string;
+    metadata?: Record<string, any>;
+  }[]>(),
+  
+  // AI metadata
+  modelUsed: text("model_used"),
+  tokensUsed: integer("tokens_used"),
+  responseTime: integer("response_time"), // ms
+  
+  // Interactive elements
+  actions: jsonb("actions").$type<{
+    id: string;
+    type: 'confirm' | 'apply' | 'preview' | 'compare' | 'rollback';
+    label: string;
+    labelAr?: string;
+    status: 'pending' | 'executed' | 'cancelled';
+    executedAt?: string;
+    result?: any;
+  }[]>(),
+  
+  // Message flags
+  isEdited: boolean("is_edited").notNull().default(false),
+  isPinned: boolean("is_pinned").notNull().default(false),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_nm_session_id").on(table.sessionId),
+  index("IDX_nm_role").on(table.role),
+  index("IDX_nm_created").on(table.createdAt),
+]);
+
+export const insertNovaMessageSchema = createInsertSchema(novaMessages).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertNovaMessage = z.infer<typeof insertNovaMessageSchema>;
+export type NovaMessage = typeof novaMessages.$inferSelect;
+
+// Nova User decisions - قرارات المستخدم
+export const novaDecisions = pgTable("nova_decisions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  sessionId: varchar("session_id").references(() => novaSessions.id, { onDelete: "set null" }),
+  messageId: varchar("message_id").references(() => novaMessages.id, { onDelete: "set null" }),
+  
+  // Decision details
+  category: text("category").notNull(), // architecture, security, deployment, database, ui, integration
+  decisionType: text("decision_type").notNull(), // choice, configuration, approval, rejection
+  
+  // What was decided
+  question: text("question").notNull(), // The question/prompt that led to decision
+  selectedOption: text("selected_option").notNull(), // What user chose
+  alternatives: jsonb("alternatives").$type<string[]>(), // Other options that were available
+  
+  // Context
+  context: jsonb("context").$type<{
+    projectId?: string;
+    blueprintId?: string;
+    affectedComponents?: string[];
+    dependencies?: string[];
+    costImpact?: { estimate: number; currency: string };
+    riskLevel?: 'low' | 'medium' | 'high' | 'critical';
+  }>(),
+  
+  // Reasoning
+  reasoning: text("reasoning"), // AI explanation for recommendation
+  userNotes: text("user_notes"), // User's own notes
+  
+  // Status
+  status: text("status").notNull().default("active"), // active, superseded, reverted
+  supersededBy: varchar("superseded_by").references((): any => novaDecisions.id),
+  
+  // Impact tracking
+  wasApplied: boolean("was_applied").notNull().default(false),
+  appliedAt: timestamp("applied_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_nd_user_id").on(table.userId),
+  index("IDX_nd_session_id").on(table.sessionId),
+  index("IDX_nd_category").on(table.category),
+  index("IDX_nd_status").on(table.status),
+]);
+
+export const insertNovaDecisionSchema = createInsertSchema(novaDecisions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertNovaDecision = z.infer<typeof insertNovaDecisionSchema>;
+export type NovaDecision = typeof novaDecisions.$inferSelect;
+
+// Nova User preferences - تفضيلات المستخدم المتعلمة
+export const novaPreferences = pgTable("nova_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull().unique(),
+  
+  // Learned preferences
+  preferredLanguage: text("preferred_language").default("ar"),
+  preferredFramework: text("preferred_framework"),
+  preferredDatabase: text("preferred_database"),
+  preferredCloudProvider: text("preferred_cloud_provider"),
+  preferredUIStyle: text("preferred_ui_style"),
+  
+  // Communication style
+  detailLevel: text("detail_level").default("balanced"), // brief, balanced, detailed
+  codeExplanations: boolean("code_explanations").default(true),
+  showAlternatives: boolean("show_alternatives").default(true),
+  
+  // Architecture preferences
+  architecturePatterns: jsonb("architecture_patterns").$type<{
+    pattern: string;
+    usageCount: number;
+    lastUsed: string;
+  }[]>(),
+  
+  // Common configurations
+  defaultConfigs: jsonb("default_configs").$type<Record<string, any>>(),
+  
+  // Learning data
+  interactionCount: integer("interaction_count").default(0),
+  lastInteraction: timestamp("last_interaction"),
+  learningScore: real("learning_score").default(0), // How well system knows user
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_np_user_id").on(table.userId),
+]);
+
+export const insertNovaPreferencesSchema = createInsertSchema(novaPreferences).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertNovaPreferences = z.infer<typeof insertNovaPreferencesSchema>;
+export type NovaPreferences = typeof novaPreferences.$inferSelect;
+
+// Nova Project context - سياق المشروع للذكاء الاصطناعي
+export const novaProjectContexts = pgTable("nova_project_contexts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().unique(), // From projects table
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  
+  // Project understanding
+  projectType: text("project_type"), // web, mobile, api, microservice, monolith
+  techStack: jsonb("tech_stack").$type<{
+    frontend?: string[];
+    backend?: string[];
+    database?: string[];
+    infrastructure?: string[];
+  }>(),
+  
+  // Current state
+  activeBlueprint: jsonb("active_blueprint").$type<Record<string, any>>(),
+  generatedModels: jsonb("generated_models").$type<{ name: string; fields: any[] }[]>(),
+  generatedServices: jsonb("generated_services").$type<{ name: string; endpoints: any[] }[]>(),
+  
+  // Configuration history
+  configHistory: jsonb("config_history").$type<{
+    timestamp: string;
+    change: string;
+    previousValue: any;
+    newValue: any;
+  }[]>(),
+  
+  // Conflict detection
+  detectedConflicts: jsonb("detected_conflicts").$type<{
+    id: string;
+    type: string;
+    description: string;
+    severity: 'warning' | 'error';
+    suggestedResolution?: string;
+    resolved: boolean;
+  }[]>(),
+  
+  // Cost tracking
+  estimatedCosts: jsonb("estimated_costs").$type<{
+    component: string;
+    monthlyCost: number;
+    currency: string;
+    provider: string;
+  }[]>(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_npc_project_id").on(table.projectId),
+  index("IDX_npc_user_id").on(table.userId),
+]);
+
+export const insertNovaProjectContextSchema = createInsertSchema(novaProjectContexts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertNovaProjectContext = z.infer<typeof insertNovaProjectContextSchema>;
+export type NovaProjectContext = typeof novaProjectContexts.$inferSelect;

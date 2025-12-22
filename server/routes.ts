@@ -12,6 +12,7 @@ import { registerDomainRoutes } from "./domain-routes";
 import { registerISDSRoutes } from "./isds-routes";
 import { registerSpomRoutes } from "./spom-routes";
 import { registerPlatformApiRoutes } from "./platform-api-routes";
+import { registerNovaRoutes } from "./nova-routes";
 import marketplaceRoutes from "./marketplace-routes";
 import sslRoutes from "./ssl-routes";
 import { eq, and } from "drizzle-orm";
@@ -11381,6 +11382,10 @@ ${project.description || ""}
   // ==================== PLATFORM API - GENERATION, DEPLOYMENT, EXECUTION ====================
   registerPlatformApiRoutes(app);
   console.log("Platform API routes registered | تم تسجيل مسارات منصة التطوير");
+
+  // ==================== NOVA CONVERSATION ENGINE ====================
+  registerNovaRoutes(app);
+  console.log("Nova Conversation Engine routes registered | تم تسجيل مسارات محرك محادثة نوفا");
 
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
