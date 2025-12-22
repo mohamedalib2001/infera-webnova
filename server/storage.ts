@@ -478,6 +478,12 @@ export interface IStorage {
   deleteProject(id: string): Promise<boolean>;
   ensureSystemProject(): Promise<Project>;
   
+  // Recycle Bin
+  getDeletedProjects(userId?: string): Promise<Project[]>;
+  getDeletedProject(id: string): Promise<Project | undefined>;
+  restoreProject(id: string): Promise<boolean>;
+  permanentlyDeleteProject(id: string): Promise<boolean>;
+  
   // Messages
   getMessagesByProject(projectId: string): Promise<Message[]>;
   createMessage(message: InsertMessage): Promise<Message>;
@@ -2433,15 +2439,20 @@ body { font-family: 'Tajawal', sans-serif; }
 
   // Project methods
   async getProjects(): Promise<Project[]> {
-    return db.select().from(projects).orderBy(desc(projects.updatedAt));
+    return db.select().from(projects)
+      .where(sql`${projects.deletedAt} IS NULL`)
+      .orderBy(desc(projects.updatedAt));
   }
 
   async getProjectsByUser(userId: string): Promise<Project[]> {
-    return db.select().from(projects).where(eq(projects.userId, userId)).orderBy(desc(projects.updatedAt));
+    return db.select().from(projects)
+      .where(and(eq(projects.userId, userId), sql`${projects.deletedAt} IS NULL`))
+      .orderBy(desc(projects.updatedAt));
   }
 
   async getProject(id: string): Promise<Project | undefined> {
-    const [project] = await db.select().from(projects).where(eq(projects.id, id));
+    const [project] = await db.select().from(projects)
+      .where(and(eq(projects.id, id), sql`${projects.deletedAt} IS NULL`));
     return project || undefined;
   }
 
@@ -2460,6 +2471,46 @@ body { font-family: 'Tajawal', sans-serif; }
   }
 
   async deleteProject(id: string): Promise<boolean> {
+    // Soft delete - move to recycle bin
+    const result = await db
+      .update(projects)
+      .set({ 
+        deletedAt: new Date(),
+        status: 'deleted'
+      } as any)
+      .where(eq(projects.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async getDeletedProjects(userId?: string): Promise<Project[]> {
+    if (userId) {
+      return db.select().from(projects)
+        .where(and(eq(projects.userId, userId), sql`${projects.deletedAt} IS NOT NULL`))
+        .orderBy(desc(projects.deletedAt));
+    }
+    return db.select().from(projects)
+      .where(sql`${projects.deletedAt} IS NOT NULL`)
+      .orderBy(desc(projects.deletedAt));
+  }
+
+  async getDeletedProject(id: string): Promise<Project | undefined> {
+    const [project] = await db.select().from(projects)
+      .where(and(eq(projects.id, id), sql`${projects.deletedAt} IS NOT NULL`));
+    return project || undefined;
+  }
+
+  async restoreProject(id: string): Promise<boolean> {
+    const result = await db
+      .update(projects)
+      .set({ 
+        deletedAt: null,
+        status: 'draft'
+      } as any)
+      .where(eq(projects.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async permanentlyDeleteProject(id: string): Promise<boolean> {
     const result = await db.delete(projects).where(eq(projects.id, id));
     return (result.rowCount ?? 0) > 0;
   }

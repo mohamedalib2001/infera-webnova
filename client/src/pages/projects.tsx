@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { ProjectCard } from "@/components/project-card";
@@ -6,85 +6,22 @@ import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Plus, AlertTriangle, Globe, Server, Database, Users, Trash2, ShieldAlert } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SecureDeletionDialog } from "@/components/secure-deletion-dialog";
+import { Plus, RotateCcw, FolderOpen, Archive } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Project } from "@shared/schema";
 import { useLanguage } from "@/hooks/use-language";
-
-interface PlatformDetails {
-  domains: { id: string; name: string }[];
-  collaborators: number;
-  filesCount: number;
-  hasDatabase: boolean;
-  hasBackend: boolean;
-}
 
 export default function Projects() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { language } = useLanguage();
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
-  const [platformDetails, setPlatformDetails] = useState<PlatformDetails | null>(null);
-  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
   const { data: projects, isLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
-  });
-
-  // Fetch platform details when deletion dialog opens
-  useEffect(() => {
-    if (projectToDelete) {
-      setIsLoadingDetails(true);
-      fetch(`/api/projects/${projectToDelete.id}/deletion-info`, { credentials: 'include' })
-        .then(res => res.json())
-        .then(data => {
-          setPlatformDetails(data);
-          setIsLoadingDetails(false);
-        })
-        .catch(() => {
-          setPlatformDetails(null);
-          setIsLoadingDetails(false);
-        });
-    } else {
-      setPlatformDetails(null);
-    }
-  }, [projectToDelete]);
-
-  const deleteMutation = useMutation({
-    mutationFn: async (projectId: string) => {
-      const response = await apiRequest("DELETE", `/api/projects/${projectId}`);
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to delete");
-      }
-      return response;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      toast({ 
-        title: language === "ar" ? "تم حذف المنصة بنجاح" : "Platform deleted successfully" 
-      });
-      setProjectToDelete(null);
-    },
-    onError: (error: Error) => {
-      toast({ 
-        title: language === "ar" ? "فشل حذف المنصة" : "Failed to delete platform",
-        description: error.message,
-        variant: "destructive" 
-      });
-      setProjectToDelete(null);
-    },
   });
 
   const handleOpenProject = (project: Project) => {
@@ -152,6 +89,58 @@ export default function Projects() {
 
   const t = translations[language] || translations.en;
 
+  const recycleBinTranslations = {
+    ar: {
+      recycleBin: "سلة المحذوفات",
+      activeProjects: "المنصات النشطة",
+      noDeleted: "لا توجد منصات محذوفة",
+      restore: "استعادة",
+      permanentDelete: "حذف نهائي",
+      deletedAt: "تاريخ الحذف",
+      restoreSuccess: "تم استعادة المنصة بنجاح",
+      restoreFailed: "فشل في استعادة المنصة",
+    },
+    en: {
+      recycleBin: "Recycle Bin",
+      activeProjects: "Active Platforms",
+      noDeleted: "No deleted platforms",
+      restore: "Restore",
+      permanentDelete: "Delete Permanently",
+      deletedAt: "Deleted At",
+      restoreSuccess: "Platform restored successfully",
+      restoreFailed: "Failed to restore platform",
+    }
+  };
+
+  const rt = recycleBinTranslations[language] || recycleBinTranslations.en;
+
+  const { data: deletedProjects, isLoading: isLoadingDeleted } = useQuery<Project[]>({
+    queryKey: ["/api/projects/recycle-bin"],
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: async (projectId: string) => {
+      const response = await apiRequest("POST", `/api/projects/${projectId}/restore`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to restore");
+      }
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects/recycle-bin"] });
+      toast({ title: rt.restoreSuccess });
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: rt.restoreFailed,
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between gap-4 mb-8 flex-wrap">
@@ -169,128 +158,119 @@ export default function Projects() {
         </Button>
       </div>
 
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="space-y-3">
-              <Skeleton className="aspect-video rounded-lg" />
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-3 w-1/2" />
-            </div>
-          ))}
-        </div>
-      ) : projects && projects.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.map((project) => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              onOpen={handleOpenProject}
-              onDelete={handleDeleteProject}
-            />
-          ))}
-        </div>
-      ) : (
-        <EmptyState type="projects" onAction={() => setLocation("/builder")} />
-      )}
+      <Tabs defaultValue="active" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="active" className="gap-2" data-testid="tab-active-projects">
+            <FolderOpen className="h-4 w-4" />
+            {rt.activeProjects}
+            {projects && projects.length > 0 && (
+              <Badge variant="secondary" className="ml-1">{projects.length}</Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="deleted" className="gap-2" data-testid="tab-recycle-bin">
+            <Archive className="h-4 w-4" />
+            {rt.recycleBin}
+            {deletedProjects && deletedProjects.length > 0 && (
+              <Badge variant="outline" className="ml-1">{deletedProjects.length}</Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
-      <AlertDialog open={!!projectToDelete} onOpenChange={(open) => !open && setProjectToDelete(null)}>
-        <AlertDialogContent className="max-w-lg">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
-              <ShieldAlert className="h-6 w-6" />
-              {t.deleteTitle}
-            </AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-4">
-                <p className="text-base">{t.deleteDescription}</p>
-                
-                {projectToDelete && (
-                  <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">{t.platformName}:</span>
-                      <span className="font-bold text-foreground">{projectToDelete.name}</span>
-                    </div>
-                    
-                    {isLoadingDetails ? (
-                      <div className="text-center py-2 text-muted-foreground text-sm">
-                        {t.loading}
-                      </div>
-                    ) : platformDetails && (
-                      <>
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground flex items-center gap-2">
-                            <Globe className="w-4 h-4" />
-                            {t.linkedDomains}:
-                          </span>
-                          <div className="flex flex-wrap gap-1 justify-end">
-                            {platformDetails.domains.length > 0 ? (
-                              platformDetails.domains.map(d => (
-                                <Badge key={d.id} variant="outline" className="text-xs">
-                                  {d.name}
-                                </Badge>
-                              ))
-                            ) : (
-                              <span className="text-xs text-muted-foreground">{t.noDomains}</span>
-                            )}
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground flex items-center gap-2">
-                            <Users className="w-4 h-4" />
-                            {t.collaborators}:
-                          </span>
-                          <Badge variant="secondary">{platformDetails.collaborators}</Badge>
-                        </div>
-                        
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground flex items-center gap-2">
-                            <Database className="w-4 h-4" />
-                            {t.database}:
-                          </span>
-                          <Badge variant={platformDetails.hasDatabase ? "default" : "outline"}>
-                            {platformDetails.hasDatabase ? t.hasDatabase : t.noDatabase}
-                          </Badge>
-                        </div>
-                        
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground flex items-center gap-2">
-                            <Server className="w-4 h-4" />
-                            {t.backend}:
-                          </span>
-                          <Badge variant={platformDetails.hasBackend ? "default" : "outline"}>
-                            {platformDetails.hasBackend ? t.hasBackend : t.noBackend}
-                          </Badge>
-                        </div>
-                      </>
-                    )}
+        <TabsContent value="active">
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="space-y-3">
+                  <Skeleton className="aspect-video rounded-lg" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                </div>
+              ))}
+            </div>
+          ) : projects && projects.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {projects.map((project) => (
+                <ProjectCard
+                  key={project.id}
+                  project={project}
+                  onOpen={handleOpenProject}
+                  onDelete={handleDeleteProject}
+                />
+              ))}
+            </div>
+          ) : (
+            <EmptyState type="projects" onAction={() => setLocation("/builder")} />
+          )}
+        </TabsContent>
+
+        <TabsContent value="deleted">
+          {isLoadingDeleted ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="space-y-3">
+                  <Skeleton className="aspect-video rounded-lg" />
+                  <Skeleton className="h-4 w-3/4" />
+                </div>
+              ))}
+            </div>
+          ) : deletedProjects && deletedProjects.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {deletedProjects.map((project) => (
+                <div
+                  key={project.id}
+                  className="border rounded-lg p-4 bg-muted/30 space-y-3"
+                  data-testid={`card-deleted-project-${project.id}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Archive className="h-5 w-5 text-muted-foreground" />
+                    <h3 className="font-medium">{project.name}</h3>
                   </div>
-                )}
-                
-                <p className="text-destructive font-medium text-center py-2 bg-destructive/5 rounded-md">
-                  <AlertTriangle className="w-4 h-4 inline mr-2" />
-                  {t.finalWarning}
-                </p>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="gap-2 sm:gap-0">
-            <AlertDialogCancel data-testid="button-cancel-delete">
-              {t.cancel}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              disabled={deleteMutation.isPending || isLoadingDetails}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              data-testid="button-confirm-delete"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              {deleteMutation.isPending ? t.deleting : t.confirmDelete}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+                  {project.description && (
+                    <p className="text-sm text-muted-foreground line-clamp-2">{project.description}</p>
+                  )}
+                  <div className="flex items-center gap-2 pt-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => restoreMutation.mutate(project.id)}
+                      disabled={restoreMutation.isPending}
+                      className="gap-2"
+                      data-testid={`button-restore-${project.id}`}
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      {rt.restore}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-muted-foreground">
+              <Archive className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>{rt.noDeleted}</p>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      <SecureDeletionDialog
+        open={!!projectToDelete}
+        onOpenChange={(open) => !open && setProjectToDelete(null)}
+        entity={projectToDelete ? {
+          id: projectToDelete.id,
+          name: projectToDelete.name,
+          type: projectToDelete.templateType || 'custom',
+          status: projectToDelete.status,
+          description: projectToDelete.description || undefined,
+          createdAt: projectToDelete.createdAt,
+        } : null}
+        entityType="platform"
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/projects/recycle-bin"] });
+        }}
+        onCancel={() => setProjectToDelete(null)}
+      />
     </div>
   );
 }

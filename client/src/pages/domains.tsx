@@ -52,6 +52,10 @@ import {
   Edit,
   Save,
   X,
+  Lock,
+  Crown,
+  Users,
+  Building2,
 } from "lucide-react";
 
 const translations = {
@@ -60,8 +64,22 @@ const translations = {
     subtitle: "تسجيل وإدارة نطاقاتك عبر Namecheap",
     tabs: {
       domains: "النطاقات",
+      systemDomains: "نطاقات النظام",
+      userDomains: "نطاقات المستخدمين",
       dns: "سجلات DNS",
       links: "ربط المنصات",
+    },
+    domainTypes: {
+      system: "نطاق النظام",
+      owner: "نطاق المالك",
+      user: "نطاق المستخدم",
+      protected: "محمي",
+      coreEngine: "محرك INFERA",
+    },
+    protectionMessages: {
+      systemProtected: "هذا النطاق محمي ولا يمكن تعديله",
+      ownerOnly: "فقط المالك يمكنه تعديل نطاقات النظام",
+      cannotDelete: "لا يمكن حذف نطاقات النظام الأساسية",
     },
     checkDomain: "فحص التوفر",
     registerDomain: "تسجيل نطاق جديد",
@@ -155,8 +173,22 @@ const translations = {
     subtitle: "Register and manage your domains via Namecheap",
     tabs: {
       domains: "Domains",
+      systemDomains: "System Domains",
+      userDomains: "User Domains",
       dns: "DNS Records",
       links: "Platform Links",
+    },
+    domainTypes: {
+      system: "System Domain",
+      owner: "Owner Domain",
+      user: "User Domain",
+      protected: "Protected",
+      coreEngine: "INFERA Engine",
+    },
+    protectionMessages: {
+      systemProtected: "This domain is protected and cannot be modified",
+      ownerOnly: "Only the owner can modify system domains",
+      cannotDelete: "Core system domains cannot be deleted",
     },
     checkDomain: "Check Availability",
     registerDomain: "Register New Domain",
@@ -1073,85 +1105,177 @@ export default function DomainsPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-3">
-              {domains.map((domain) => {
-                const StatusIcon = getStatusIcon(domain.status);
-                const isSelected = selectedDomain?.id === domain.id;
-                
-                return (
-                  <Card 
-                    key={domain.id} 
-                    className={`cursor-pointer transition-colors ${isSelected ? 'border-primary' : ''}`}
-                    onClick={() => setSelectedDomain(domain)}
-                    data-testid={`domain-card-${domain.id}`}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between gap-4 flex-wrap">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
-                            <Globe className="w-5 h-5 text-primary" />
+            <div className="space-y-6">
+              {/* System Domains Section - نطاقات النظام */}
+              {domains.filter(d => d.domainType === 'system' || (d as any).isSystemDomain).length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <Crown className="w-4 h-4 text-amber-500" />
+                    {t.tabs.systemDomains}
+                    <Badge variant="outline" className="text-xs ml-2">
+                      <Lock className="w-3 h-3 mr-1" />
+                      {t.domainTypes.protected}
+                    </Badge>
+                  </div>
+                  {domains.filter(d => d.domainType === 'system' || (d as any).isSystemDomain).map((domain) => {
+                    const StatusIcon = getStatusIcon(domain.status);
+                    const isSelected = selectedDomain?.id === domain.id;
+                    
+                    return (
+                      <Card 
+                        key={domain.id} 
+                        className={`cursor-pointer transition-colors border-amber-500/30 ${isSelected ? 'border-amber-500' : ''}`}
+                        onClick={() => setSelectedDomain(domain)}
+                        data-testid={`domain-card-${domain.id}`}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between gap-4 flex-wrap">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-md bg-amber-500/10 flex items-center justify-center">
+                                <Building2 className="w-5 h-5 text-amber-600" />
+                              </div>
+                              <div>
+                                <p className="font-medium flex items-center gap-2">
+                                  {domain.domainName}
+                                  <Badge variant="outline" className="text-xs gap-1 bg-amber-500/10 border-amber-500/30">
+                                    <Crown className="w-3 h-3 text-amber-500" />
+                                    {t.domainTypes.coreEngine}
+                                  </Badge>
+                                  <a 
+                                    href={`https://${domain.domainName}`} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="text-muted-foreground"
+                                    onClick={(e) => e.stopPropagation()}
+                                    data-testid={`link-domain-${domain.id}`}
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </a>
+                                </p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Badge variant={getStatusBadgeVariant(domain.status)} className="text-xs gap-1">
+                                    <StatusIcon className="w-3 h-3" />
+                                    {t.statuses[domain.status as keyof typeof t.statuses] || domain.status}
+                                  </Badge>
+                                  <Badge variant="secondary" className="text-xs gap-1">
+                                    <Shield className="w-3 h-3" />
+                                    {t.domainTypes.protected}
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-4">
+                              {domain.expirationDate && (
+                                <div className="text-sm text-muted-foreground">
+                                  <span>{t.expiryDate}: </span>
+                                  <span className="font-medium">
+                                    {new Date(domain.expirationDate).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US')}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                <Badge variant="outline" className="text-xs">
+                                  <Lock className="w-3 h-3 mr-1" />
+                                  {language === 'ar' ? 'للمالك فقط' : 'Owner Only'}
+                                </Badge>
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-medium flex items-center gap-2">
-                              {domain.domainName}
-                              <a 
-                                href={`https://${domain.domainName}`} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="text-muted-foreground"
-                                onClick={(e) => e.stopPropagation()}
-                                data-testid={`link-domain-${domain.id}`}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* User Domains Section - نطاقات المستخدمين */}
+              <div className="space-y-3">
+                {domains.filter(d => d.domainType !== 'system' && !(d as any).isSystemDomain).length > 0 && (
+                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <Users className="w-4 h-4" />
+                    {t.tabs.userDomains}
+                  </div>
+                )}
+                {domains.filter(d => d.domainType !== 'system' && !(d as any).isSystemDomain).map((domain) => {
+                  const StatusIcon = getStatusIcon(domain.status);
+                  const isSelected = selectedDomain?.id === domain.id;
+                  
+                  return (
+                    <Card 
+                      key={domain.id} 
+                      className={`cursor-pointer transition-colors ${isSelected ? 'border-primary' : ''}`}
+                      onClick={() => setSelectedDomain(domain)}
+                      data-testid={`domain-card-${domain.id}`}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between gap-4 flex-wrap">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
+                              <Globe className="w-5 h-5 text-primary" />
+                            </div>
+                            <div>
+                              <p className="font-medium flex items-center gap-2">
+                                {domain.domainName}
+                                <a 
+                                  href={`https://${domain.domainName}`} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-muted-foreground"
+                                  onClick={(e) => e.stopPropagation()}
+                                  data-testid={`link-domain-${domain.id}`}
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                </a>
+                              </p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge variant={getStatusBadgeVariant(domain.status)} className="text-xs gap-1">
+                                  <StatusIcon className="w-3 h-3" />
+                                  {t.statuses[domain.status as keyof typeof t.statuses] || domain.status}
+                                </Badge>
+                                {domain.isLocked && (
+                                  <Badge variant="outline" className="text-xs gap-1">
+                                    <Shield className="w-3 h-3" />
+                                    {t.statuses.locked}
+                                  </Badge>
+                                )}
+                                {domain.isAutoRenew && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    {t.autoRenew}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-4">
+                            {domain.expirationDate && (
+                              <div className="text-sm text-muted-foreground">
+                                <span>{t.expiryDate}: </span>
+                                <span className="font-medium">
+                                  {new Date(domain.expirationDate).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US')}
+                                </span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => renewDomainMutation.mutate({ domainId: domain.id, years: 1 })}
+                                disabled={renewDomainMutation.isPending}
+                                data-testid={`button-renew-${domain.id}`}
                               >
-                                <ExternalLink className="w-3.5 h-3.5" />
-                              </a>
-                            </p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge variant={getStatusBadgeVariant(domain.status)} className="text-xs gap-1">
-                                <StatusIcon className="w-3 h-3" />
-                                {t.statuses[domain.status as keyof typeof t.statuses] || domain.status}
-                              </Badge>
-                              {domain.isLocked && (
-                                <Badge variant="outline" className="text-xs gap-1">
-                                  <Shield className="w-3 h-3" />
-                                  {t.statuses.locked}
-                                </Badge>
-                              )}
-                              {domain.isAutoRenew && (
-                                <Badge variant="secondary" className="text-xs">
-                                  {t.autoRenew}
-                                </Badge>
-                              )}
+                                <RefreshCw className="w-4 h-4 mr-1" />
+                                {t.renew}
+                              </Button>
                             </div>
                           </div>
                         </div>
-                        
-                        <div className="flex items-center gap-4">
-                          {domain.expirationDate && (
-                            <div className="text-sm text-muted-foreground">
-                              <span>{t.expiryDate}: </span>
-                              <span className="font-medium">
-                                {new Date(domain.expirationDate).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US')}
-                              </span>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => renewDomainMutation.mutate({ domainId: domain.id, years: 1 })}
-                              disabled={renewDomainMutation.isPending}
-                              data-testid={`button-renew-${domain.id}`}
-                            >
-                              <RefreshCw className="w-4 h-4 mr-1" />
-                              {t.renew}
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
             </div>
           )}
         </TabsContent>
@@ -1159,6 +1283,18 @@ export default function DomainsPage() {
         <TabsContent value="dns" className="space-y-4 mt-4">
           {selectedDomain && (
             <>
+              {/* Protection Alert for System Domains */}
+              {(selectedDomain.domainType === 'system' || (selectedDomain as any).isSystemDomain) && (
+                <Alert className="border-amber-500/50 bg-amber-500/10">
+                  <Lock className="h-4 w-4 text-amber-500" />
+                  <AlertTitle className="text-amber-600">
+                    {t.domainTypes.protected}
+                  </AlertTitle>
+                  <AlertDescription className="text-muted-foreground">
+                    {t.protectionMessages.systemProtected}
+                  </AlertDescription>
+                </Alert>
+              )}
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between gap-4">
@@ -1166,13 +1302,14 @@ export default function DomainsPage() {
                       <CardTitle className="text-lg">{t.dnsRecords}</CardTitle>
                       <CardDescription>{selectedDomain.domainName}</CardDescription>
                     </div>
-                    <Dialog open={showDnsDialog} onOpenChange={setShowDnsDialog}>
-                      <DialogTrigger asChild>
-                        <Button size="sm" data-testid="button-add-dns">
-                          <Plus className="w-4 h-4 mr-2" />
-                          {t.addRecord}
-                        </Button>
-                      </DialogTrigger>
+                    {!(selectedDomain.domainType === 'system' || (selectedDomain as any).isSystemDomain) && (
+                      <Dialog open={showDnsDialog} onOpenChange={setShowDnsDialog}>
+                        <DialogTrigger asChild>
+                          <Button size="sm" data-testid="button-add-dns">
+                            <Plus className="w-4 h-4 mr-2" />
+                            {t.addRecord}
+                          </Button>
+                        </DialogTrigger>
                       <DialogContent>
                         <DialogHeader>
                           <DialogTitle>{t.addRecord}</DialogTitle>
@@ -1247,6 +1384,7 @@ export default function DomainsPage() {
                         </DialogFooter>
                       </DialogContent>
                     </Dialog>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -1290,17 +1428,24 @@ export default function DomainsPage() {
                             </TableCell>
                             <TableCell>{record.ttl}</TableCell>
                             <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => deleteDnsRecordMutation.mutate({ 
-                                  domainId: selectedDomain.id, 
-                                  recordId: record.id 
-                                })}
-                                data-testid={`button-delete-dns-${record.id}`}
-                              >
-                                <Trash2 className="w-4 h-4 text-destructive" />
-                              </Button>
+                              {!(selectedDomain.domainType === 'system' || (selectedDomain as any).isSystemDomain) ? (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => deleteDnsRecordMutation.mutate({ 
+                                    domainId: selectedDomain.id, 
+                                    recordId: record.id 
+                                  })}
+                                  data-testid={`button-delete-dns-${record.id}`}
+                                >
+                                  <Trash2 className="w-4 h-4 text-destructive" />
+                                </Button>
+                              ) : (
+                                <Badge variant="outline" className="text-xs">
+                                  <Lock className="w-3 h-3 mr-1" />
+                                  {t.domainTypes.protected}
+                                </Badge>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -1315,20 +1460,34 @@ export default function DomainsPage() {
 
         <TabsContent value="links" className="space-y-4 mt-4">
           {selectedDomain && (
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <CardTitle className="text-lg">{t.linkedPlatforms}</CardTitle>
-                    <CardDescription>{selectedDomain.domainName}</CardDescription>
-                  </div>
-                  <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
-                    <DialogTrigger asChild>
-                      <Button size="sm" data-testid="button-link-platform">
-                        <Link2 className="w-4 h-4 mr-2" />
-                        {t.platformLink}
-                      </Button>
-                    </DialogTrigger>
+            <>
+              {/* Protection Alert for System Domains */}
+              {(selectedDomain.domainType === 'system' || (selectedDomain as any).isSystemDomain) && (
+                <Alert className="border-amber-500/50 bg-amber-500/10">
+                  <Lock className="h-4 w-4 text-amber-500" />
+                  <AlertTitle className="text-amber-600">
+                    {t.domainTypes.protected}
+                  </AlertTitle>
+                  <AlertDescription className="text-muted-foreground">
+                    {t.protectionMessages.systemProtected}
+                  </AlertDescription>
+                </Alert>
+              )}
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <CardTitle className="text-lg">{t.linkedPlatforms}</CardTitle>
+                      <CardDescription>{selectedDomain.domainName}</CardDescription>
+                    </div>
+                    {!(selectedDomain.domainType === 'system' || (selectedDomain as any).isSystemDomain) && (
+                      <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
+                        <DialogTrigger asChild>
+                          <Button size="sm" data-testid="button-link-platform">
+                            <Link2 className="w-4 h-4 mr-2" />
+                            {t.platformLink}
+                          </Button>
+                        </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
                         <DialogTitle>{t.platformLink}</DialogTitle>
@@ -1403,10 +1562,11 @@ export default function DomainsPage() {
                         </Button>
                       </DialogFooter>
                     </DialogContent>
-                  </Dialog>
-                </div>
-              </CardHeader>
-              <CardContent>
+                      </Dialog>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
                 {platformLinks.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Link2 className="w-8 h-8 mx-auto mb-2" />
@@ -1442,22 +1602,30 @@ export default function DomainsPage() {
                             </div>
                           </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => unlinkPlatformMutation.mutate(link.id)}
-                          data-testid={`button-unlink-${link.id}`}
-                        >
-                          <X className="w-4 h-4 mr-1" />
-                          {t.unlink}
-                        </Button>
+                        {!(selectedDomain.domainType === 'system' || (selectedDomain as any).isSystemDomain) ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => unlinkPlatformMutation.mutate(link.id)}
+                            data-testid={`button-unlink-${link.id}`}
+                          >
+                            <X className="w-4 h-4 mr-1" />
+                            {t.unlink}
+                          </Button>
+                        ) : (
+                          <Badge variant="outline" className="text-xs">
+                            <Lock className="w-3 h-3 mr-1" />
+                            {t.domainTypes.protected}
+                          </Badge>
+                        )}
                       </div>
                       );
                     })}
                   </div>
                 )}
               </CardContent>
-            </Card>
+              </Card>
+            </>
           )}
         </TabsContent>
 

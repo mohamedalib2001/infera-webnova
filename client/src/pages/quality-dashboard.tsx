@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLanguage } from '@/hooks/use-language';
+import { useToast } from '@/hooks/use-toast';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 import {
   Shield,
   Activity,
@@ -33,6 +35,11 @@ import {
   Clock,
   Target,
   Award,
+  Download,
+  Play,
+  RotateCcw,
+  Loader2,
+  FileText,
 } from 'lucide-react';
 
 interface ServiceStatus {
@@ -144,12 +151,74 @@ function getCategoryIcon(category: string) {
 
 export default function QualityDashboard() {
   const { language, isRtl, t } = useLanguage();
+  const { toast } = useToast();
   const [selectedTab, setSelectedTab] = useState('overview');
+  const [exportingPdf, setExportingPdf] = useState(false);
   
   const { data: report, isLoading, refetch, isFetching } = useQuery<QualityReport>({
     queryKey: ['/api/platform/quality/report'],
     refetchInterval: 60000,
   });
+
+  const restartServiceMutation = useMutation({
+    mutationFn: async (serviceId: string) => {
+      const response = await apiRequest("POST", `/api/platform/quality/service/${serviceId}/restart`);
+      return response;
+    },
+    onSuccess: (_, serviceId) => {
+      toast({ 
+        title: language === 'ar' ? 'تم إعادة تشغيل الخدمة' : 'Service restarted',
+        description: language === 'ar' ? 'تم تنشيط الخدمة بنجاح' : 'Service has been activated successfully'
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/platform/quality/report'] });
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: language === 'ar' ? 'فشل إعادة التشغيل' : 'Restart failed',
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
+  });
+
+  const handleExportPdf = async () => {
+    setExportingPdf(true);
+    try {
+      const response = await fetch('/api/platform/quality/export-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ report, language })
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `quality-report-${new Date().toISOString().split('T')[0]}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        toast({ 
+          title: language === 'ar' ? 'تم تصدير التقرير' : 'Report exported',
+          description: language === 'ar' ? 'تم تنزيل تقرير PDF بنجاح' : 'PDF report downloaded successfully'
+        });
+      } else {
+        throw new Error('Export failed');
+      }
+    } catch (error) {
+      toast({ 
+        title: language === 'ar' ? 'فشل التصدير' : 'Export failed',
+        description: language === 'ar' ? 'حدث خطأ أثناء تصدير التقرير' : 'An error occurred while exporting the report',
+        variant: 'destructive'
+      });
+    } finally {
+      setExportingPdf(false);
+    }
+  };
   
   if (isLoading) {
     return (
@@ -186,15 +255,34 @@ export default function QualityDashboard() {
               : 'Real-time platform and service quality monitoring'}
           </p>
         </div>
-        <Button 
-          onClick={() => refetch()} 
-          disabled={isFetching}
-          variant="outline"
-          data-testid="button-refresh-quality"
-        >
-          <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
-          {language === 'ar' ? 'تحديث' : 'Refresh'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            onClick={handleExportPdf} 
+            disabled={exportingPdf || !report}
+            variant="outline"
+            data-testid="button-export-pdf"
+          >
+            {exportingPdf ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            <span className="hidden sm:inline ml-2">
+              {language === 'ar' ? 'تصدير PDF' : 'Export PDF'}
+            </span>
+          </Button>
+          <Button 
+            onClick={() => refetch()} 
+            disabled={isFetching}
+            variant="outline"
+            data-testid="button-refresh-quality"
+          >
+            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline ml-2">
+              {language === 'ar' ? 'تحديث' : 'Refresh'}
+            </span>
+          </Button>
+        </div>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -329,6 +417,21 @@ export default function QualityDashboard() {
                           <Badge variant={getStatusColor(service.status)}>
                             {getStatusIcon(service.status)}
                           </Badge>
+                          {(service.status === 'degraded' || service.status === 'down') && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => restartServiceMutation.mutate(service.serviceId)}
+                              disabled={restartServiceMutation.isPending}
+                              data-testid={`button-restart-${service.serviceId}`}
+                            >
+                              {restartServiceMutation.isPending ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <RotateCcw className="w-3 h-3" />
+                              )}
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ))}
