@@ -229,6 +229,7 @@ export default function OwnerInfrastructure() {
   const [showAddProvider, setShowAddProvider] = useState(false);
   const [showAddServer, setShowAddServer] = useState(false);
   const [showProviderSettings, setShowProviderSettings] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<InfrastructureProvider | null>(null);
   const [newProviderForm, setNewProviderForm] = useState({ name: "", displayName: "", type: "primary" });
   const [apiTokenInput, setApiTokenInput] = useState("");
@@ -458,9 +459,21 @@ export default function OwnerInfrastructure() {
           </h1>
           <p className="text-muted-foreground mt-1">{t.subtitle}</p>
         </div>
-        <Button variant="outline" onClick={() => { refetchProviders(); refetchServers(); }} data-testid="button-refresh">
-          <RefreshCw className="w-4 h-4 mr-2" />
+        <Button 
+          variant="outline" 
+          onClick={async () => { 
+            setIsRefreshing(true);
+            await Promise.all([refetchProviders(), refetchServers()]);
+            setTimeout(() => setIsRefreshing(false), 1000);
+          }} 
+          data-testid="button-refresh"
+          className={isRefreshing ? 'relative overflow-visible' : ''}
+        >
+          <RefreshCw className={`w-4 h-4 mr-2 transition-transform duration-500 ${isRefreshing ? 'animate-spin' : ''}`} />
           {language === 'ar' ? 'تحديث' : 'Refresh'}
+          {isRefreshing && (
+            <span className="absolute inset-0 rounded-md animate-ping bg-primary/30 pointer-events-none" />
+          )}
         </Button>
       </div>
 
