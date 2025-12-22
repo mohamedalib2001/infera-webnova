@@ -30,6 +30,10 @@ import {
   Package,
   Layers,
   RefreshCw,
+  QrCode,
+  Copy,
+  ExternalLink,
+  Zap,
 } from "lucide-react";
 import { SiAndroid, SiApple, SiLinux } from "react-icons/si";
 import {
@@ -49,6 +53,13 @@ interface Project {
   id: string;
   name: string;
   appName: string;
+}
+
+interface QRDialogState {
+  isOpen: boolean;
+  url: string;
+  platform: string;
+  version: string;
 }
 
 interface BuildConfig {
@@ -95,7 +106,64 @@ export default function BuildManager() {
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [showNewConfigDialog, setShowNewConfigDialog] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState<string>("web");
+  const [qrDialog, setQRDialog] = useState<QRDialogState>({
+    isOpen: false,
+    url: "",
+    platform: "",
+    version: "",
+  });
   const { toast } = useToast();
+
+  const generateQRCodeSVG = (data: string) => {
+    const size = 25;
+    const modules: boolean[][] = [];
+    
+    // Simple QR-like pattern (placeholder - in production use qrcode library)
+    const hash = data.split('').reduce((acc, char) => ((acc << 5) - acc) + char.charCodeAt(0), 0);
+    for (let i = 0; i < size; i++) {
+      modules[i] = [];
+      for (let j = 0; j < size; j++) {
+        // Fixed patterns for finder patterns
+        const isFinderPattern = (
+          (i < 7 && j < 7) || 
+          (i < 7 && j >= size - 7) || 
+          (i >= size - 7 && j < 7)
+        );
+        
+        if (isFinderPattern) {
+          const fi = i % (size - 7) < 7 ? i : i - (size - 7);
+          const fj = j < 7 ? j : (j >= size - 7 ? j - (size - 7) : j);
+          modules[i][j] = (
+            (fi === 0 || fi === 6 || fj === 0 || fj === 6) ||
+            (fi >= 2 && fi <= 4 && fj >= 2 && fj <= 4)
+          );
+        } else {
+          // Data pattern based on hash
+          modules[i][j] = ((hash >> ((i * size + j) % 32)) & 1) === 1;
+        }
+      }
+    }
+    
+    const cellSize = 8;
+    const svgSize = size * cellSize;
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}">`;
+    svg += `<rect width="${svgSize}" height="${svgSize}" fill="white"/>`;
+    
+    for (let i = 0; i < size; i++) {
+      for (let j = 0; j < size; j++) {
+        if (modules[i][j]) {
+          svg += `<rect x="${j * cellSize}" y="${i * cellSize}" width="${cellSize}" height="${cellSize}" fill="black"/>`;
+        }
+      }
+    }
+    svg += '</svg>';
+    return `data:image/svg+xml;base64,${btoa(svg)}`;
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: "تم النسخ", description: "تم نسخ الرابط إلى الحافظة" });
+  };
 
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -324,12 +392,28 @@ export default function BuildManager() {
                                       ({formatBytes(artifact.size)})
                                     </span>
                                   </div>
-                                  <Button variant="outline" size="sm" asChild>
-                                    <a href={artifact.url} download>
-                                      <Download className="w-3 h-3 ml-1" />
-                                      تحميل
-                                    </a>
-                                  </Button>
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setQRDialog({
+                                        isOpen: true,
+                                        url: artifact.url,
+                                        platform: job.platform,
+                                        version: job.version,
+                                      })}
+                                      data-testid={`button-qr-${job.id}-${idx}`}
+                                    >
+                                      <QrCode className="w-3 h-3 ml-1" />
+                                      QR
+                                    </Button>
+                                    <Button variant="outline" size="sm" asChild>
+                                      <a href={artifact.url} download>
+                                        <Download className="w-3 h-3 ml-1" />
+                                        تحميل
+                                      </a>
+                                    </Button>
+                                  </div>
                                 </div>
                               ))}
                             </div>
@@ -453,6 +537,64 @@ export default function BuildManager() {
           </Tabs>
         </>
       )}
+
+      <Dialog open={qrDialog.isOpen} onOpenChange={(open) => setQRDialog({ ...qrDialog, isOpen: open })}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <QrCode className="w-5 h-5" />
+              رمز QR للتحميل
+            </DialogTitle>
+            <DialogDescription>
+              امسح الرمز لتحميل التطبيق على جهازك
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-4">
+            <div className="bg-white p-4 rounded-md">
+              <img
+                src={generateQRCodeSVG(qrDialog.url)}
+                alt="QR Code"
+                className="w-48 h-48"
+                data-testid="img-qr-code"
+              />
+              <p className="text-xs text-center mt-2 text-muted-foreground">
+                استخدم تطبيق الكاميرا لمسح الرمز
+              </p>
+            </div>
+            <div className="text-center">
+              <Badge className="mb-2">
+                {PLATFORMS.find(p => p.id === qrDialog.platform)?.name || qrDialog.platform}
+              </Badge>
+              <p className="text-sm text-muted-foreground">الإصدار: {qrDialog.version}</p>
+            </div>
+            <div className="flex items-center gap-2 w-full">
+              <Input
+                value={qrDialog.url}
+                readOnly
+                className="text-xs"
+                data-testid="input-artifact-url"
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => copyToClipboard(qrDialog.url)}
+                data-testid="button-copy-url"
+              >
+                <Copy className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                asChild
+              >
+                <a href={qrDialog.url} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

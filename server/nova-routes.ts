@@ -953,6 +953,61 @@ Format as JSON:
     }
   });
 
+  // Rollback to a previous deployment
+  app.post("/api/nova/deployments/:projectId/rollback", requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const { projectId } = req.params;
+      const { deploymentId } = req.body;
+
+      if (!deploymentId) {
+        return res.status(400).json({ error: "Deployment ID is required" });
+      }
+
+      if (!projectId) {
+        return res.status(400).json({ error: "Project ID is required" });
+      }
+
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      if (project.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      // Create a rollback deployment
+      const targetDeployment = await storage.getDeployment(deploymentId);
+      if (!targetDeployment) {
+        return res.status(404).json({ error: "Target deployment not found" });
+      }
+      
+      // Ensure target deployment belongs to the same project (string comparison)
+      if (String(targetDeployment.projectId) !== String(projectId)) {
+        return res.status(403).json({ error: "Deployment does not belong to this project" });
+      }
+
+      const rollbackDeployment = await storage.createDeployment({
+        projectId,
+        configId: targetDeployment.configId,
+        userId,
+        version: `${targetDeployment.version}-rollback-${Date.now()}`,
+        commitHash: targetDeployment.commitHash,
+        commitMessage: `Rollback to ${targetDeployment.version}`,
+        status: "pending",
+      });
+
+      res.json({ 
+        success: true, 
+        deployment: rollbackDeployment,
+        message: `Rollback to version ${targetDeployment.version} initiated` 
+      });
+    } catch (error: any) {
+      console.error("Rollback error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Get project health alerts
   app.get("/api/nova/alerts/:projectId", requireAuth, async (req, res) => {
     try {

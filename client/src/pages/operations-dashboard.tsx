@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,22 @@ import {
   XCircle,
   Loader2,
   Plus,
+  RotateCcw,
+  BarChart3,
+  History,
 } from "lucide-react";
+import {
+  LineChart,
+  Line,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
 import {
   Dialog,
   DialogContent,
@@ -156,7 +171,28 @@ export default function OperationsDashboard() {
     },
   });
 
+  const rollbackMutation = useMutation({
+    mutationFn: async (deploymentId: string) => {
+      return apiRequest("POST", `/api/nova/deployments/${selectedProjectId}/rollback`, { deploymentId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/nova/deployments", selectedProjectId] });
+      toast({ title: "تم الاسترجاع", description: "Rollback initiated successfully" });
+    },
+  });
+
   const latestMetric = metrics[0];
+  
+  const chartData = metrics.slice(0, 20).reverse().map((m, idx) => ({
+    time: new Date(m.timestamp).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }),
+    responseTime: m.responseTimeAvg || 0,
+    responseTimeP95: m.responseTimeP95 || 0,
+    successRate: m.successRate || 0,
+    errorRate: m.errorRate || 0,
+    cpu: m.cpuUsage || 0,
+    memory: m.memoryUsage || 0,
+    requests: m.requestsPerMinute || 0,
+  }));
   const activeAlerts = alerts.filter(a => a.status === "active");
   const deployments = operationsData?.deployments || [];
   const configs = operationsData?.configs || [];
@@ -283,8 +319,12 @@ export default function OperationsDashboard() {
             </Card>
           </div>
 
-          <Tabs defaultValue="deployments" className="space-y-4">
+          <Tabs defaultValue="charts" className="space-y-4">
             <TabsList>
+              <TabsTrigger value="charts" data-testid="tab-charts">
+                <BarChart3 className="w-4 h-4 ml-2" />
+                الرسوم البيانية
+              </TabsTrigger>
               <TabsTrigger value="deployments" data-testid="tab-deployments">
                 <Rocket className="w-4 h-4 ml-2" />
                 عمليات النشر
@@ -301,6 +341,90 @@ export default function OperationsDashboard() {
                 إعدادات النشر
               </TabsTrigger>
             </TabsList>
+
+            <TabsContent value="charts" className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <Card data-testid="chart-response-time">
+                  <CardHeader>
+                    <CardTitle className="text-base">وقت الاستجابة (ms)</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={chartData}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                          <XAxis dataKey="time" className="text-xs" />
+                          <YAxis className="text-xs" />
+                          <Tooltip />
+                          <Legend />
+                          <Line type="monotone" dataKey="responseTime" stroke="#3b82f6" name="متوسط" strokeWidth={2} />
+                          <Line type="monotone" dataKey="responseTimeP95" stroke="#f59e0b" name="P95" strokeWidth={2} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card data-testid="chart-success-rate">
+                  <CardHeader>
+                    <CardTitle className="text-base">معدل النجاح (%)</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={chartData}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                          <XAxis dataKey="time" className="text-xs" />
+                          <YAxis domain={[0, 100]} className="text-xs" />
+                          <Tooltip />
+                          <Area type="monotone" dataKey="successRate" stroke="#22c55e" fill="#22c55e" fillOpacity={0.3} name="النجاح" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card data-testid="chart-resources">
+                  <CardHeader>
+                    <CardTitle className="text-base">استخدام الموارد (%)</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={chartData}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                          <XAxis dataKey="time" className="text-xs" />
+                          <YAxis domain={[0, 100]} className="text-xs" />
+                          <Tooltip />
+                          <Legend />
+                          <Area type="monotone" dataKey="cpu" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.3} name="CPU" />
+                          <Area type="monotone" dataKey="memory" stroke="#ec4899" fill="#ec4899" fillOpacity={0.3} name="الذاكرة" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card data-testid="chart-requests">
+                  <CardHeader>
+                    <CardTitle className="text-base">الطلبات في الدقيقة</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={chartData}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                          <XAxis dataKey="time" className="text-xs" />
+                          <YAxis className="text-xs" />
+                          <Tooltip />
+                          <Area type="monotone" dataKey="requests" stroke="#06b6d4" fill="#06b6d4" fillOpacity={0.3} name="الطلبات/دقيقة" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
 
             <TabsContent value="deployments" className="space-y-4">
               <Card>
@@ -331,6 +455,18 @@ export default function OperationsDashboard() {
                             </div>
                           </div>
                           <div className="flex items-center gap-4">
+                            {deployment.status === "live" && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => rollbackMutation.mutate(deployment.id)}
+                                disabled={rollbackMutation.isPending}
+                                data-testid={`button-rollback-${deployment.id}`}
+                              >
+                                <RotateCcw className="w-3 h-3 ml-1" />
+                                استرجاع
+                              </Button>
+                            )}
                             {deployment.deploymentUrl && (
                               <Button variant="outline" size="sm" asChild>
                                 <a href={deployment.deploymentUrl} target="_blank" rel="noopener noreferrer">
