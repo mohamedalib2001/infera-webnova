@@ -11305,3 +11305,157 @@ export const insertVaultAuditLogSchema = createInsertSchema(vaultAuditLog).omit(
 });
 export type InsertVaultAuditLog = z.infer<typeof insertVaultAuditLogSchema>;
 export type VaultAuditLog = typeof vaultAuditLog.$inferSelect;
+
+// ==================== DEPARTMENTS (الأقسام/الإدارات) ====================
+
+export const departmentStatuses = ['active', 'inactive', 'archived'] as const;
+export type DepartmentStatus = typeof departmentStatuses[number];
+
+export const departments = pgTable("departments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Basic info
+  name: text("name").notNull(),
+  nameAr: text("name_ar"), // Arabic name
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  
+  // Hierarchy
+  parentId: varchar("parent_id"), // For nested departments
+  managerId: varchar("manager_id").references(() => users.id), // Department head
+  
+  // Settings
+  color: text("color").default("#3b82f6"), // Department color for UI
+  icon: text("icon").default("building"), // Lucide icon name
+  status: text("status").notNull().default("active"),
+  
+  // Metadata
+  memberCount: integer("member_count").default(0),
+  maxMembers: integer("max_members"), // Optional limit
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_dept_parent").on(table.parentId),
+  index("IDX_dept_manager").on(table.managerId),
+  index("IDX_dept_status").on(table.status),
+]);
+
+export const insertDepartmentSchema = createInsertSchema(departments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertDepartment = z.infer<typeof insertDepartmentSchema>;
+export type Department = typeof departments.$inferSelect;
+
+// Department Members - Link users to departments
+export const departmentMembers = pgTable("department_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  departmentId: varchar("department_id").notNull().references(() => departments.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Role in department
+  role: text("role").notNull().default("member"), // manager, lead, member
+  title: text("title"), // Job title in this department
+  
+  // Status
+  isActive: boolean("is_active").notNull().default(true),
+  joinedAt: timestamp("joined_at").defaultNow().notNull(),
+  leftAt: timestamp("left_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_dm_dept").on(table.departmentId),
+  index("IDX_dm_user").on(table.userId),
+]);
+
+export const insertDepartmentMemberSchema = createInsertSchema(departmentMembers).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertDepartmentMember = z.infer<typeof insertDepartmentMemberSchema>;
+export type DepartmentMember = typeof departmentMembers.$inferSelect;
+
+// ==================== EMPLOYEE TASKS (مهام الموظفين) ====================
+
+export const taskStatuses = ['pending', 'in_progress', 'completed', 'cancelled', 'on_hold'] as const;
+export type TaskStatus = typeof taskStatuses[number];
+
+export const taskPriorities = ['low', 'medium', 'high', 'urgent'] as const;
+export type TaskPriority = typeof taskPriorities[number];
+
+export const employeeTasks = pgTable("employee_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Task info
+  title: text("title").notNull(),
+  titleAr: text("title_ar"),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  
+  // Assignment
+  assignedTo: varchar("assigned_to").references(() => users.id), // Employee
+  assignedBy: varchar("assigned_by").notNull().references(() => users.id), // Manager/Owner
+  departmentId: varchar("department_id").references(() => departments.id),
+  
+  // Status & Priority
+  status: text("status").notNull().default("pending"),
+  priority: text("priority").notNull().default("medium"),
+  
+  // Dates
+  dueDate: timestamp("due_date"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  
+  // Progress
+  progress: integer("progress").default(0), // 0-100
+  estimatedHours: real("estimated_hours"),
+  actualHours: real("actual_hours"),
+  
+  // Notes & Comments
+  notes: text("notes"),
+  completionNotes: text("completion_notes"),
+  
+  // Tags
+  tags: jsonb("tags").$type<string[]>().default([]),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_task_assigned").on(table.assignedTo),
+  index("IDX_task_assignedby").on(table.assignedBy),
+  index("IDX_task_dept").on(table.departmentId),
+  index("IDX_task_status").on(table.status),
+  index("IDX_task_priority").on(table.priority),
+  index("IDX_task_due").on(table.dueDate),
+]);
+
+export const insertEmployeeTaskSchema = createInsertSchema(employeeTasks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertEmployeeTask = z.infer<typeof insertEmployeeTaskSchema>;
+export type EmployeeTask = typeof employeeTasks.$inferSelect;
+
+// Task Comments - للتعليقات على المهام
+export const taskComments = pgTable("task_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  taskId: varchar("task_id").notNull().references(() => employeeTasks.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  
+  content: text("content").notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_tc_task").on(table.taskId),
+  index("IDX_tc_user").on(table.userId),
+]);
+
+export const insertTaskCommentSchema = createInsertSchema(taskComments).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertTaskComment = z.infer<typeof insertTaskCommentSchema>;
+export type TaskComment = typeof taskComments.$inferSelect;
