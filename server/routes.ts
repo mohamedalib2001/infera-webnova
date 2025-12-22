@@ -4175,9 +4175,9 @@ Provide realistic, data-driven predictions based on the actual platform state.`;
         // Continue even if tracking fails - the project is already deleted
       }
       
-      // 5. Send deletion notification email
+      // 5. Send deletion notification email with full details
       try {
-        await sendDeletionNotificationEmail(user, true, "platform", { name: project.name }, ipAddress, userAgent);
+        await sendDeletionNotificationEmail(user, true, "platform", { name: project.name }, ipAddress, userAgent, storage);
       } catch (emailError) {
         console.error("Failed to send deletion email:", emailError);
       }

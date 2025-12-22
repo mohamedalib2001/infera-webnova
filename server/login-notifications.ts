@@ -21,6 +21,9 @@ const BRAND = {
   background: '#F9FAFB',
   cardBg: '#FFFFFF',
   accent: '#F5F3FF',
+  text: '#1F2937',
+  textSecondary: '#6B7280',
+  border: '#E5E7EB',
 };
 
 // ============================================
