@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLanguage } from "@/hooks/use-language";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -15,6 +15,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { AppCodeEditor } from "@/components/app-builder/AppCodeEditor";
+import { AppLivePreview } from "@/components/app-builder/AppLivePreview";
 import { 
   Smartphone, 
   Tablet,
@@ -98,6 +100,8 @@ const translations = {
       overview: "نظرة عامة",
       design: "التصميم",
       features: "الميزات",
+      code: "الكود",
+      preview: "المعاينة",
       build: "البناء"
     },
     aiSuggestions: "اقتراحات الذكاء الاصطناعي",
@@ -163,6 +167,8 @@ const translations = {
       overview: "Overview",
       design: "Design",
       features: "Features",
+      code: "Code",
+      preview: "Preview",
       build: "Build"
     },
     aiSuggestions: "AI Suggestions",
@@ -391,10 +397,12 @@ export default function MobileAppBuilder() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4 max-w-md">
+          <TabsList className="grid w-full grid-cols-6 max-w-2xl">
             <TabsTrigger value="overview" data-testid="tab-overview">{t.tabs.overview}</TabsTrigger>
             <TabsTrigger value="design" data-testid="tab-design">{t.tabs.design}</TabsTrigger>
             <TabsTrigger value="features" data-testid="tab-features">{t.tabs.features}</TabsTrigger>
+            <TabsTrigger value="code" data-testid="tab-code">{t.tabs.code}</TabsTrigger>
+            <TabsTrigger value="preview" data-testid="tab-preview">{t.tabs.preview}</TabsTrigger>
             <TabsTrigger value="build" data-testid="tab-build">{t.tabs.build}</TabsTrigger>
           </TabsList>
 
@@ -768,6 +776,67 @@ export default function MobileAppBuilder() {
                     </div>
                   ))}
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="code" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Code2 className="h-5 w-5" />
+                  {language === "ar" ? "محرر الكود" : "Code Editor"}
+                </CardTitle>
+                <CardDescription>
+                  {language === "ar" 
+                    ? "عرض وتعديل الكود المُولَّد بالذكاء الاصطناعي" 
+                    : "View and edit AI-generated code"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AppCodeEditor
+                  files={
+                    selectedProject?.aiGeneratedSpecs && 
+                    typeof selectedProject.aiGeneratedSpecs === 'object' &&
+                    (selectedProject.aiGeneratedSpecs as any).codeFiles
+                      ? (selectedProject.aiGeneratedSpecs as any).codeFiles
+                      : []
+                  }
+                  language={language}
+                  readOnly={false}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="preview" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Eye className="h-5 w-5" />
+                  {language === "ar" ? "معاينة التطبيق" : "App Preview"}
+                </CardTitle>
+                <CardDescription>
+                  {language === "ar" 
+                    ? "معاينة حية لشاشات التطبيق المُولَّدة" 
+                    : "Live preview of generated app screens"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AppLivePreview
+                  projectName={selectedProject?.name || newApp.name || "My App"}
+                  screens={
+                    selectedProject?.aiGeneratedSpecs && 
+                    typeof selectedProject.aiGeneratedSpecs === 'object' &&
+                    (selectedProject.aiGeneratedSpecs as any).screens
+                      ? (selectedProject.aiGeneratedSpecs as any).screens
+                      : []
+                  }
+                  primaryColor={selectedProject?.primaryColor || newApp.primaryColor}
+                  language={language}
+                  type="mobile"
+                  framework={selectedProject?.framework || newApp.framework}
+                />
               </CardContent>
             </Card>
           </TabsContent>
