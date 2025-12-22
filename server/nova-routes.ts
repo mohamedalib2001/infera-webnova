@@ -1,5 +1,8 @@
 import type { Express } from "express";
 import { storage } from "./storage";
+import { db } from "./db";
+import { architecturePatterns } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -63,6 +66,17 @@ const updatePreferencesSchema = z.object({
   detailLevel: z.enum(["brief", "balanced", "detailed"]).optional(),
   codeExplanations: z.boolean().optional(),
   showAlternatives: z.boolean().optional(),
+});
+
+const createKnowledgeNodeSchema = z.object({
+  nodeType: z.enum(["decision", "component", "requirement", "constraint", "dependency", "risk", "goal"]),
+  label: z.string().min(1).max(200),
+  labelAr: z.string().optional(),
+  description: z.string().optional(),
+  descriptionAr: z.string().optional(),
+  metadata: z.record(z.any()).optional(),
+  businessIntent: z.string().optional(),
+  confidenceScore: z.number().min(0).max(1).optional(),
 });
 
 export function registerNovaRoutes(app: Express) {
@@ -519,6 +533,260 @@ export function registerNovaRoutes(app: Express) {
       };
       
       res.json(analytics);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ==================== AI ARCHITECTURE ADVISOR ====================
+
+  // Analyze project architecture and detect patterns
+  app.post("/api/nova/architecture/analyze", requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const { projectId, scope } = req.body;
+      
+      // Verify project ownership
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      // Get existing knowledge graph
+      const nodes = await storage.getProjectKnowledgeNodes(projectId);
+      const edges = await storage.getProjectKnowledgeEdges(projectId);
+      const existingPatterns = await storage.getProjectPatterns(projectId);
+
+      // Prepare context for AI analysis
+      const analysisPrompt = `Analyze this project architecture and identify:
+1. Architecture patterns (good and anti-patterns)
+2. Performance optimization opportunities
+3. Security concerns
+4. Scalability issues
+5. Cost optimization suggestions
+
+Project Context:
+- Knowledge Nodes: ${nodes.length} components tracked
+- Dependencies: ${edges.length} relationships
+- Existing Patterns: ${existingPatterns.map(p => p.patternName).join(", ") || "None detected"}
+
+Scope: ${scope || "full"}
+
+Respond in JSON format:
+{
+  "patterns": [{"name": "...", "type": "pattern|anti_pattern", "severity": "info|warning|critical", "description": "...", "recommendation": "...", "impact": {"performance": 0-10, "security": 0-10, "scalability": 0-10, "cost": 0-10}}],
+  "summary": "...",
+  "overallHealth": 0-100
+}`;
+
+      const response = await anthropic.messages.create({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 2000,
+        messages: [{ role: "user", content: analysisPrompt }],
+      });
+
+      const analysisText = response.content[0].type === "text" ? response.content[0].text : "{}";
+      
+      // Extract JSON from response
+      const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
+      const analysis = jsonMatch ? JSON.parse(jsonMatch[0]) : { patterns: [], summary: "Analysis failed", overallHealth: 0 };
+
+      // Store detected patterns
+      for (const pattern of analysis.patterns || []) {
+        await storage.createArchitecturePattern({
+          projectId,
+          patternName: pattern.name,
+          patternType: pattern.type === "anti_pattern" ? "anti_pattern" : "design_pattern",
+          isAntiPattern: pattern.type === "anti_pattern",
+          description: pattern.description,
+          suggestedFix: pattern.recommendation,
+          performanceImpact: pattern.impact?.performance > 5 ? "positive" : pattern.impact?.performance < 5 ? "negative" : "neutral",
+          securityImpact: pattern.impact?.security > 5 ? "positive" : pattern.impact?.security < 5 ? "negative" : "neutral",
+          scalabilityImpact: pattern.impact?.scalability > 5 ? "positive" : pattern.impact?.scalability < 5 ? "negative" : "neutral",
+          costImpact: pattern.impact?.cost > 5 ? "positive" : pattern.impact?.cost < 5 ? "negative" : "neutral",
+        });
+      }
+
+      // Log the analysis event
+      await storage.createEventLog({
+        projectId,
+        userId,
+        eventType: "architecture_analysis",
+        eventName: "Architecture Analysis",
+        payload: { metadata: { scope, patternsFound: analysis.patterns?.length || 0 } },
+      });
+
+      res.json({
+        success: true,
+        analysis,
+        patternsStored: analysis.patterns?.length || 0,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get architecture suggestions for improvement
+  app.post("/api/nova/architecture/suggest", requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const { projectId, query, context } = req.body;
+
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      // Get knowledge context
+      const nodes = await storage.getProjectKnowledgeNodes(projectId);
+      const patterns = await storage.getProjectPatterns(projectId, true); // Anti-patterns only
+
+      const suggestionPrompt = `As an AI Architecture Advisor for INFERA WebNova, provide architectural suggestions.
+
+User Query: ${query}
+
+Project Context:
+- Components: ${nodes.filter(n => n.nodeType === "component").length}
+- Decisions: ${nodes.filter(n => n.nodeType === "decision").length}
+- Active Anti-patterns: ${patterns.filter(p => p.status === "detected").length}
+
+Additional Context: ${JSON.stringify(context || {})}
+
+Provide 3-5 actionable suggestions with:
+1. Clear recommendation
+2. Implementation steps
+3. Expected impact (performance, cost, security, scalability)
+4. Priority level
+
+Format as JSON:
+{
+  "suggestions": [{
+    "id": "...",
+    "title": "...",
+    "description": "...",
+    "steps": ["..."],
+    "impact": {"performance": 0-10, "security": 0-10, "scalability": 0-10, "cost": 0-10},
+    "priority": "low|medium|high|critical",
+    "estimatedEffort": "hours|days|weeks"
+  }]
+}`;
+
+      const response = await anthropic.messages.create({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 2000,
+        messages: [{ role: "user", content: suggestionPrompt }],
+      });
+
+      const suggestionText = response.content[0].type === "text" ? response.content[0].text : "{}";
+      const jsonMatch = suggestionText.match(/\{[\s\S]*\}/);
+      const suggestions = jsonMatch ? JSON.parse(jsonMatch[0]) : { suggestions: [] };
+
+      res.json(suggestions);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get project knowledge graph
+  app.get("/api/nova/knowledge/:projectId", requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const { projectId } = req.params;
+
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      const nodes = await storage.getProjectKnowledgeNodes(projectId);
+      const edges = await storage.getProjectKnowledgeEdges(projectId);
+      const patterns = await storage.getProjectPatterns(projectId);
+      const events = await storage.getProjectEventLog(projectId, 20);
+
+      res.json({
+        nodes,
+        edges,
+        patterns,
+        recentEvents: events,
+        stats: {
+          totalNodes: nodes.length,
+          totalEdges: edges.length,
+          activePatterns: patterns.filter(p => p.status !== "resolved").length,
+          antiPatterns: patterns.filter(p => p.isAntiPattern && p.status === "detected").length,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Add knowledge node
+  app.post("/api/nova/knowledge/:projectId/nodes", requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const { projectId } = req.params;
+
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      // Validate input
+      const validatedData = createKnowledgeNodeSchema.parse(req.body);
+
+      const node = await storage.createKnowledgeNode({
+        projectId,
+        ...validatedData,
+        createdBy: userId,
+      });
+
+      // Log the event
+      await storage.createEventLog({
+        projectId,
+        userId,
+        eventType: "knowledge_node_created",
+        eventName: "Knowledge Node Created",
+        payload: { metadata: { nodeType: req.body.nodeType, label: req.body.label, entityId: node.id } },
+      });
+
+      res.json(node);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Acknowledge or resolve a pattern
+  app.patch("/api/nova/patterns/:patternId", requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const { patternId } = req.params;
+      const { action } = req.body;
+
+      // Get pattern and verify ownership through project
+      const patterns = await storage.getProjectPatterns(patternId);
+      const pattern = patterns.find((p) => p.id === patternId);
+      if (!pattern) {
+        // Try direct lookup via projectId
+        const allPatterns = await db.select().from(architecturePatterns).where(eq(architecturePatterns.id, patternId));
+        if (allPatterns.length === 0) {
+          return res.status(404).json({ error: "Pattern not found" });
+        }
+        const project = await storage.getProject(allPatterns[0].projectId);
+        if (!project || project.userId !== userId) {
+          return res.status(403).json({ error: "Unauthorized" });
+        }
+      } else {
+        const project = await storage.getProject(pattern.projectId);
+        if (!project || project.userId !== userId) {
+          return res.status(403).json({ error: "Unauthorized" });
+        }
+      }
+
+      const updated = action === "acknowledge" 
+        ? await storage.acknowledgePattern(patternId)
+        : await storage.resolvePattern(patternId);
+
+      res.json(updated);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
