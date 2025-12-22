@@ -42,7 +42,13 @@ import {
   aiUsageLogs,
   deletionAttempts,
   aiPolicies,
-  insertAIPolicySchema
+  insertAIPolicySchema,
+  dataRegions,
+  dataRegionMetrics,
+  dataPolicies,
+  dataPolicyRegions,
+  insertDataRegionSchema,
+  insertDataPolicySchema
 } from "@shared/schema";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
@@ -1770,18 +1776,231 @@ export async function registerRoutes(
     }
   });
 
-  // Get data regions
+  // Get data regions - REAL DATA from database
   app.get("/api/sovereign/data-regions", requireAuth, requireSovereign, async (req, res) => {
     try {
-      res.json({
-        regions: [
-          { id: "1", name: "Saudi Arabia", nameAr: "المملكة العربية السعودية", code: "SA", status: "active", compliance: ["PDPL", "NCA"], dataStorageAllowed: true, dataProcessingAllowed: true, dataTransferAllowed: false, activeUsers: 12500, dataVolume: "2.4 TB" },
-          { id: "2", name: "United Arab Emirates", nameAr: "الإمارات العربية المتحدة", code: "AE", status: "active", compliance: ["PDPL-UAE"], dataStorageAllowed: true, dataProcessingAllowed: true, dataTransferAllowed: true, activeUsers: 8200, dataVolume: "1.8 TB" },
-          { id: "3", name: "European Union", nameAr: "الاتحاد الأوروبي", code: "EU", status: "active", compliance: ["GDPR", "ePrivacy"], dataStorageAllowed: true, dataProcessingAllowed: true, dataTransferAllowed: true, activeUsers: 5600, dataVolume: "3.2 TB" },
-        ]
+      // Fetch real regions from database
+      const regionsData = await db.select().from(dataRegions).orderBy(dataRegions.displayOrder);
+      
+      // Fetch latest metrics for each region
+      const metricsData = await db.select().from(dataRegionMetrics);
+      
+      // Calculate real stats
+      const totalUsers = await storage.getAllUsers();
+      const projects = await storage.getProjects();
+      
+      // Map regions with their metrics
+      const regions = regionsData.map(region => {
+        const metrics = metricsData.find(m => m.regionId === region.id);
+        
+        // Calculate data volume in human readable format
+        const volumeBytes = parseInt(metrics?.dataVolumeBytes || '0');
+        let dataVolume = '0 B';
+        if (volumeBytes > 1e12) dataVolume = (volumeBytes / 1e12).toFixed(1) + ' TB';
+        else if (volumeBytes > 1e9) dataVolume = (volumeBytes / 1e9).toFixed(1) + ' GB';
+        else if (volumeBytes > 1e6) dataVolume = (volumeBytes / 1e6).toFixed(1) + ' MB';
+        else if (volumeBytes > 1e3) dataVolume = (volumeBytes / 1e3).toFixed(1) + ' KB';
+        else dataVolume = volumeBytes + ' B';
+        
+        return {
+          id: region.id,
+          name: region.name,
+          nameAr: region.nameAr || region.name,
+          code: region.code,
+          status: region.status,
+          compliance: region.compliance || [],
+          dataStorageAllowed: region.dataStorageAllowed,
+          dataProcessingAllowed: region.dataProcessingAllowed,
+          dataTransferAllowed: region.dataTransferAllowed,
+          activeUsers: region.code === 'SA' ? totalUsers.filter(u => u.isActive).length : (metrics?.activeUsers || 0),
+          dataVolume: region.code === 'SA' ? 
+            (projects.reduce((sum, p) => sum + (p.htmlCode?.length || 0) + (p.cssCode?.length || 0) + (p.jsCode?.length || 0), 0) / 1e6).toFixed(2) + ' MB' 
+            : dataVolume,
+        };
+      });
+      
+      // Calculate totals
+      const totalVolume = projects.reduce((sum, p) => sum + (p.htmlCode?.length || 0) + (p.cssCode?.length || 0) + (p.jsCode?.length || 0), 0);
+      
+      res.json({ 
+        regions,
+        stats: {
+          totalRegions: regionsData.length,
+          activeRegions: regionsData.filter(r => r.status === 'active').length,
+          restrictedRegions: regionsData.filter(r => r.status === 'restricted').length,
+          blockedRegions: regionsData.filter(r => r.status === 'blocked').length,
+          totalDataVolume: (totalVolume / 1e6).toFixed(2) + ' MB',
+          totalUsers: totalUsers.filter(u => u.isActive).length,
+        }
       });
     } catch (error) {
+      console.error('Failed to fetch data regions:', error);
       res.status(500).json({ error: "Failed to fetch data regions" });
+    }
+  });
+  
+  // Create new data region
+  app.post("/api/sovereign/data-regions", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const validatedData = insertDataRegionSchema.parse(req.body);
+      
+      const [newRegion] = await db.insert(dataRegions).values(validatedData).returning();
+      
+      await storage.createAuditLog({
+        action: 'data_region_created',
+        userId: user.id,
+        resourceType: 'data_region',
+        resourceId: newRegion.id,
+        metadata: { regionName: newRegion.name, regionCode: newRegion.code }
+      });
+      
+      res.status(201).json(newRegion);
+    } catch (error) {
+      console.error('Failed to create data region:', error);
+      res.status(500).json({ error: "Failed to create data region" });
+    }
+  });
+  
+  // Update data region
+  app.patch("/api/sovereign/data-regions/:id", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const user = (req as any).user;
+      const { status, dataStorageAllowed, dataProcessingAllowed, dataTransferAllowed } = req.body;
+      
+      const [updated] = await db.update(dataRegions)
+        .set({ status, dataStorageAllowed, dataProcessingAllowed, dataTransferAllowed, updatedAt: new Date() })
+        .where(eq(dataRegions.id, id))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Region not found" });
+      }
+      
+      await storage.createAuditLog({
+        action: 'data_region_updated',
+        userId: user.id,
+        resourceType: 'data_region',
+        resourceId: id,
+        metadata: { regionName: updated.name, changes: { status, dataStorageAllowed, dataProcessingAllowed, dataTransferAllowed } }
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error('Failed to update data region:', error);
+      res.status(500).json({ error: "Failed to update data region" });
+    }
+  });
+  
+  // Get data policies - REAL DATA from database  
+  app.get("/api/sovereign/data-policies", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const policiesData = await db.select().from(dataPolicies);
+      const policyRegionsData = await db.select().from(dataPolicyRegions);
+      const regionsData = await db.select().from(dataRegions);
+      
+      const policies = policiesData.map(policy => {
+        const linkedRegionIds = policyRegionsData.filter(pr => pr.policyId === policy.id).map(pr => pr.regionId);
+        const affectedRegions = regionsData.filter(r => linkedRegionIds.includes(r.id)).map(r => r.code);
+        
+        return {
+          id: policy.id,
+          name: policy.name,
+          nameAr: policy.nameAr || policy.name,
+          description: policy.description,
+          descriptionAr: policy.descriptionAr,
+          type: policy.policyType,
+          status: policy.status,
+          affectedRegions,
+          isActive: policy.isActive,
+          createdAt: policy.createdAt,
+        };
+      });
+      
+      res.json({ 
+        policies,
+        stats: {
+          total: policies.length,
+          enforced: policies.filter(p => p.status === 'enforced').length,
+          pending: policies.filter(p => p.status === 'pending').length,
+          draft: policies.filter(p => p.status === 'draft').length,
+        }
+      });
+    } catch (error) {
+      console.error('Failed to fetch data policies:', error);
+      res.status(500).json({ error: "Failed to fetch data policies" });
+    }
+  });
+  
+  // Create data policy
+  app.post("/api/sovereign/data-policies", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const { affectedRegions, ...policyData } = req.body;
+      
+      const validatedData = insertDataPolicySchema.parse({
+        ...policyData,
+        createdBy: user.id
+      });
+      
+      const [newPolicy] = await db.insert(dataPolicies).values(validatedData).returning();
+      
+      // Link to regions if provided
+      if (affectedRegions && affectedRegions.length > 0) {
+        const regionsData = await db.select().from(dataRegions).where(sql`code = ANY(${affectedRegions})`);
+        for (const region of regionsData) {
+          await db.insert(dataPolicyRegions).values({
+            policyId: newPolicy.id,
+            regionId: region.id
+          });
+        }
+      }
+      
+      await storage.createAuditLog({
+        action: 'data_policy_created',
+        userId: user.id,
+        resourceType: 'data_policy',
+        resourceId: newPolicy.id,
+        metadata: { policyName: newPolicy.name, policyType: newPolicy.policyType }
+      });
+      
+      res.status(201).json(newPolicy);
+    } catch (error) {
+      console.error('Failed to create data policy:', error);
+      res.status(500).json({ error: "Failed to create data policy" });
+    }
+  });
+  
+  // Toggle data policy status
+  app.post("/api/sovereign/data-policies/:id/toggle", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const user = (req as any).user;
+      
+      const [policy] = await db.select().from(dataPolicies).where(eq(dataPolicies.id, id));
+      if (!policy) {
+        return res.status(404).json({ error: "Policy not found" });
+      }
+      
+      const newStatus = policy.status === 'enforced' ? 'pending' : 'enforced';
+      const [updated] = await db.update(dataPolicies)
+        .set({ status: newStatus, updatedAt: new Date() })
+        .where(eq(dataPolicies.id, id))
+        .returning();
+      
+      await storage.createAuditLog({
+        action: newStatus === 'enforced' ? 'data_policy_enforced' : 'data_policy_suspended',
+        userId: user.id,
+        resourceType: 'data_policy',
+        resourceId: id,
+        metadata: { policyName: updated.name }
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error('Failed to toggle data policy:', error);
+      res.status(500).json({ error: "Failed to toggle data policy" });
     }
   });
 

@@ -4462,6 +4462,126 @@ export const insertAIPolicySchema = createInsertSchema(aiPolicies).omit({
 export type InsertAIPolicy = z.infer<typeof insertAIPolicySchema>;
 export type AIPolicy = typeof aiPolicies.$inferSelect;
 
+// ==================== Digital Borders & Data Sovereignty ====================
+// الحدود الرقمية وسيادة البيانات
+
+// Data Regions - مناطق البيانات
+export const dataRegions = pgTable("data_regions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  code: text("code").notNull().unique(), // SA, AE, EU, US, etc.
+  status: text("status").notNull().default("active"), // active, restricted, blocked
+  
+  // Compliance frameworks
+  compliance: jsonb("compliance").$type<string[]>().default([]), // PDPL, GDPR, HIPAA, etc.
+  
+  // Data permissions
+  dataStorageAllowed: boolean("data_storage_allowed").notNull().default(true),
+  dataProcessingAllowed: boolean("data_processing_allowed").notNull().default(true),
+  dataTransferAllowed: boolean("data_transfer_allowed").notNull().default(false),
+  
+  // Display
+  flagIcon: text("flag_icon"),
+  displayOrder: integer("display_order").notNull().default(0),
+  
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertDataRegionSchema = createInsertSchema(dataRegions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertDataRegion = z.infer<typeof insertDataRegionSchema>;
+export type DataRegion = typeof dataRegions.$inferSelect;
+
+// Data Region Metrics - إحصائيات المناطق (مؤشرات متغيرة)
+export const dataRegionMetrics = pgTable("data_region_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  regionId: varchar("region_id").references(() => dataRegions.id, { onDelete: "cascade" }),
+  
+  // مؤشرات الأداء
+  activeUsers: integer("active_users").notNull().default(0),
+  dataVolumeBytes: text("data_volume_bytes").notNull().default("0"), // Using text for bigint
+  transferCount: integer("transfer_count").notNull().default(0),
+  requestCount: integer("request_count").notNull().default(0),
+  
+  // الفترة الزمنية
+  metricDate: timestamp("metric_date").notNull().defaultNow(),
+  
+  lastSyncedAt: timestamp("last_synced_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_region_metrics_region").on(table.regionId),
+  index("IDX_region_metrics_date").on(table.metricDate),
+]);
+
+export const insertDataRegionMetricsSchema = createInsertSchema(dataRegionMetrics).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertDataRegionMetrics = z.infer<typeof insertDataRegionMetricsSchema>;
+export type DataRegionMetrics = typeof dataRegionMetrics.$inferSelect;
+
+// Data Policies - سياسات البيانات
+export const dataPolicies = pgTable("data_policies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  
+  // نوع السياسة
+  policyType: text("policy_type").notNull(), // residency, transfer, retention, encryption
+  
+  // الحالة
+  status: text("status").notNull().default("draft"), // enforced, pending, draft
+  
+  // القواعد
+  rules: jsonb("rules").$type<{
+    action: string;
+    conditions: Record<string, unknown>;
+  }[]>().default([]),
+  
+  isActive: boolean("is_active").notNull().default(true),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertDataPolicySchema = createInsertSchema(dataPolicies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertDataPolicy = z.infer<typeof insertDataPolicySchema>;
+export type DataPolicy = typeof dataPolicies.$inferSelect;
+
+// Data Policy Regions - ربط السياسات بالمناطق
+export const dataPolicyRegions = pgTable("data_policy_regions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  policyId: varchar("policy_id").references(() => dataPolicies.id, { onDelete: "cascade" }),
+  regionId: varchar("region_id").references(() => dataRegions.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_policy_regions_policy").on(table.policyId),
+  index("IDX_policy_regions_region").on(table.regionId),
+]);
+
+export const insertDataPolicyRegionSchema = createInsertSchema(dataPolicyRegions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertDataPolicyRegion = z.infer<typeof insertDataPolicyRegionSchema>;
+export type DataPolicyRegion = typeof dataPolicyRegions.$inferSelect;
+
 // ==================== Cost Attribution Engine ====================
 // محرك إسناد التكلفة
 export const costAttributions = pgTable("cost_attributions", {

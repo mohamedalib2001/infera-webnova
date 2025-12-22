@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useLanguage } from "@/hooks/use-language";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,7 +18,7 @@ import {
   Layers, Network, Activity, Settings, Radio,
   Flag, Building, Crown, Scale, Gavel, FileText,
   ArrowUpRight, ArrowDownRight, Clock, Timer,
-  Fingerprint, Key, ShieldCheck, ShieldAlert
+  Fingerprint, Key, ShieldCheck, ShieldAlert, RefreshCw, Loader2
 } from "lucide-react";
 
 interface DataRegion {
@@ -49,20 +51,62 @@ export default function DigitalBorders() {
   const [selectedRegion, setSelectedRegion] = useState<DataRegion | null>(null);
   const [activeTab, setActiveTab] = useState("regions");
 
-  const regions: DataRegion[] = [
-    { id: "1", name: "Saudi Arabia", nameAr: "المملكة العربية السعودية", code: "SA", status: "active", compliance: ["PDPL", "NCA"], dataStorageAllowed: true, dataProcessingAllowed: true, dataTransferAllowed: false, activeUsers: 12500, dataVolume: "2.4 TB" },
-    { id: "2", name: "United Arab Emirates", nameAr: "الإمارات العربية المتحدة", code: "AE", status: "active", compliance: ["PDPL-UAE"], dataStorageAllowed: true, dataProcessingAllowed: true, dataTransferAllowed: true, activeUsers: 8200, dataVolume: "1.8 TB" },
-    { id: "3", name: "European Union", nameAr: "الاتحاد الأوروبي", code: "EU", status: "active", compliance: ["GDPR", "ePrivacy"], dataStorageAllowed: true, dataProcessingAllowed: true, dataTransferAllowed: true, activeUsers: 5600, dataVolume: "3.2 TB" },
-    { id: "4", name: "United States", nameAr: "الولايات المتحدة", code: "US", status: "restricted", compliance: ["CCPA", "HIPAA"], dataStorageAllowed: false, dataProcessingAllowed: true, dataTransferAllowed: true, activeUsers: 3400, dataVolume: "0.9 TB" },
-    { id: "5", name: "China", nameAr: "الصين", code: "CN", status: "blocked", compliance: ["PIPL"], dataStorageAllowed: false, dataProcessingAllowed: false, dataTransferAllowed: false, activeUsers: 0, dataVolume: "0 TB" },
-  ];
+  // Fetch real regions from database
+  const { data: regionsData, isLoading: regionsLoading, refetch: refetchRegions } = useQuery<{ regions: DataRegion[], stats: any }>({
+    queryKey: ['/api/sovereign/data-regions'],
+  });
 
-  const policies: DataPolicy[] = [
-    { id: "1", name: "Saudi Data Residency", nameAr: "إقامة البيانات السعودية", type: "residency", status: "enforced", affectedRegions: ["SA"], createdAt: new Date().toISOString() },
-    { id: "2", name: "Cross-Border Transfer Policy", nameAr: "سياسة النقل عبر الحدود", type: "transfer", status: "enforced", affectedRegions: ["SA", "AE", "EU"], createdAt: new Date().toISOString() },
-    { id: "3", name: "Data Retention Policy", nameAr: "سياسة الاحتفاظ بالبيانات", type: "retention", status: "pending", affectedRegions: ["SA", "AE", "EU", "US"], createdAt: new Date().toISOString() },
-    { id: "4", name: "Encryption at Rest", nameAr: "التشفير في حالة السكون", type: "encryption", status: "enforced", affectedRegions: ["SA", "AE", "EU", "US"], createdAt: new Date().toISOString() },
-  ];
+  // Fetch real policies from database
+  const { data: policiesData, isLoading: policiesLoading, refetch: refetchPolicies } = useQuery<{ policies: DataPolicy[], stats: any }>({
+    queryKey: ['/api/sovereign/data-policies'],
+  });
+
+  // Toggle policy status mutation
+  const togglePolicyMutation = useMutation({
+    mutationFn: async (policyId: string) => {
+      return apiRequest('POST', `/api/sovereign/data-policies/${policyId}/toggle`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/sovereign/data-policies'] });
+      toast({
+        title: language === "ar" ? "تم تحديث السياسة" : "Policy Updated",
+        description: language === "ar" ? "تم تغيير حالة السياسة بنجاح" : "Policy status changed successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar" ? "فشل في تحديث السياسة" : "Failed to update policy",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Update region mutation
+  const updateRegionMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string, updates: Partial<DataRegion> }) => {
+      return apiRequest('PATCH', `/api/sovereign/data-regions/${id}`, updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/sovereign/data-regions'] });
+      toast({
+        title: language === "ar" ? "تم تحديث المنطقة" : "Region Updated",
+        description: language === "ar" ? "تم تحديث إعدادات المنطقة بنجاح" : "Region settings updated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar" ? "فشل في تحديث المنطقة" : "Failed to update region",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const regions = regionsData?.regions || [];
+  const policies = policiesData?.policies || [];
+  const stats = regionsData?.stats || { totalRegions: 0, activeRegions: 0, restrictedRegions: 0, blockedRegions: 0, totalDataVolume: '0 B', totalUsers: 0 };
+  const policyStats = policiesData?.stats || { total: 0, enforced: 0, pending: 0, draft: 0 };
 
   const statusColors: Record<string, string> = {
     active: "text-emerald-500 bg-emerald-500/10 border-emerald-500/30",
@@ -100,13 +144,26 @@ export default function DigitalBorders() {
             </div>
             
             <div className="flex items-center gap-3">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => { refetchRegions(); refetchPolicies(); }}
+                disabled={regionsLoading || policiesLoading}
+                data-testid="button-refresh-borders"
+              >
+                {regionsLoading || policiesLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+              </Button>
               <Badge variant="outline" className="text-cyan-500 border-cyan-500/30 bg-cyan-500/5">
                 <ShieldCheck className="w-3 h-3 mr-1" />
                 {language === "ar" ? "متوافق" : "COMPLIANT"}
               </Badge>
               <Badge variant="outline" className="text-emerald-500 border-emerald-500/30 bg-emerald-500/5">
                 <Globe className="w-3 h-3 mr-1" />
-                5 {language === "ar" ? "مناطق" : "REGIONS"}
+                {stats.totalRegions} {language === "ar" ? "مناطق" : "REGIONS"}
               </Badge>
             </div>
           </div>
@@ -116,35 +173,35 @@ export default function DigitalBorders() {
           <Card className="bg-gradient-to-br from-emerald-500/10 to-transparent border-emerald-500/20">
             <CardContent className="p-3 text-center">
               <CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto mb-1" />
-              <p className="text-2xl font-bold text-emerald-500">3</p>
+              <p className="text-2xl font-bold text-emerald-500" data-testid="stat-active-regions">{stats.activeRegions}</p>
               <p className="text-[10px] text-slate-400">{language === "ar" ? "مناطق نشطة" : "Active Regions"}</p>
             </CardContent>
           </Card>
           <Card className="bg-gradient-to-br from-amber-500/10 to-transparent border-amber-500/20">
             <CardContent className="p-3 text-center">
               <AlertTriangle className="w-5 h-5 text-amber-500 mx-auto mb-1" />
-              <p className="text-2xl font-bold text-amber-500">1</p>
+              <p className="text-2xl font-bold text-amber-500" data-testid="stat-restricted-regions">{stats.restrictedRegions}</p>
               <p className="text-[10px] text-slate-400">{language === "ar" ? "مقيدة" : "Restricted"}</p>
             </CardContent>
           </Card>
           <Card className="bg-gradient-to-br from-red-500/10 to-transparent border-red-500/20">
             <CardContent className="p-3 text-center">
               <XCircle className="w-5 h-5 text-red-500 mx-auto mb-1" />
-              <p className="text-2xl font-bold text-red-500">1</p>
+              <p className="text-2xl font-bold text-red-500" data-testid="stat-blocked-regions">{stats.blockedRegions}</p>
               <p className="text-[10px] text-slate-400">{language === "ar" ? "محظورة" : "Blocked"}</p>
             </CardContent>
           </Card>
           <Card className="bg-gradient-to-br from-blue-500/10 to-transparent border-blue-500/20">
             <CardContent className="p-3 text-center">
               <Database className="w-5 h-5 text-blue-500 mx-auto mb-1" />
-              <p className="text-2xl font-bold text-blue-500">8.3 TB</p>
+              <p className="text-2xl font-bold text-blue-500" data-testid="stat-data-volume">{stats.totalDataVolume}</p>
               <p className="text-[10px] text-slate-400">{language === "ar" ? "حجم البيانات" : "Data Volume"}</p>
             </CardContent>
           </Card>
           <Card className="bg-gradient-to-br from-purple-500/10 to-transparent border-purple-500/20">
             <CardContent className="p-3 text-center">
               <FileText className="w-5 h-5 text-purple-500 mx-auto mb-1" />
-              <p className="text-2xl font-bold text-purple-500">{policies.filter(p => p.status === 'enforced').length}</p>
+              <p className="text-2xl font-bold text-purple-500" data-testid="stat-enforced-policies">{policyStats.enforced}</p>
               <p className="text-[10px] text-slate-400">{language === "ar" ? "سياسات مفعلة" : "Enforced Policies"}</p>
             </CardContent>
           </Card>
