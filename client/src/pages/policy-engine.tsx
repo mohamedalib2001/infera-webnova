@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useLanguage } from "@/hooks/use-language";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +19,7 @@ import {
   Clock, AlertTriangle, Plus, Settings, Eye, Lock,
   Play, Pause, RefreshCw, Edit, Trash2, Copy,
   Brain, Lightbulb, Target, Activity, Crown, Radio,
-  ArrowUpRight, Timer, Sparkles, Workflow, Layers
+  ArrowUpRight, Timer, Sparkles, Workflow, Layers, Loader2
 } from "lucide-react";
 
 interface Policy {
@@ -53,81 +55,99 @@ export default function PolicyEngine() {
   const [selectedPolicy, setSelectedPolicy] = useState<Policy | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
+  
+  // Form state for create dialog
+  const [newPolicyName, setNewPolicyName] = useState("");
+  const [newPolicyNameAr, setNewPolicyNameAr] = useState("");
+  const [newPolicyDescription, setNewPolicyDescription] = useState("");
+  const [newPolicyCategory, setNewPolicyCategory] = useState("");
+  const [newPolicyEnforcement, setNewPolicyEnforcement] = useState("");
 
-  const policies: Policy[] = [
-    {
-      id: "1",
-      name: "API Authentication Policy",
-      nameAr: "سياسة مصادقة API",
-      description: "Enforce OAuth 2.0 and API key authentication for all endpoints",
-      descriptionAr: "فرض مصادقة OAuth 2.0 ومفتاح API لجميع نقاط النهاية",
-      category: "security",
-      status: "enforcing",
-      scope: ["api-gateway", "backend-services"],
-      rules: [
-        { id: "r1", condition: "Request without valid token", conditionAr: "طلب بدون رمز صالح", action: "Block and log", actionAr: "حظر وتسجيل", severity: "high" },
-        { id: "r2", condition: "Token expired", conditionAr: "انتهت صلاحية الرمز", action: "Refresh or re-authenticate", actionAr: "تحديث أو إعادة المصادقة", severity: "medium" },
-      ],
-      createdAt: new Date(Date.now() - 86400000 * 30).toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdBy: "system",
-      approvedBy: "admin",
-      enforcementMode: "auto",
-      aiConfidence: 95,
+  // Fetch real policies from database
+  const { data: policiesData, isLoading, isError, refetch } = useQuery<{ policies: Policy[], stats: any }>({
+    queryKey: ['/api/sovereign/policies'],
+    retry: 2,
+  });
+
+  // Create policy mutation
+  const createPolicyMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest('POST', '/api/sovereign/policies', data);
     },
-    {
-      id: "2",
-      name: "Data Encryption Policy",
-      nameAr: "سياسة تشفير البيانات",
-      description: "Ensure all sensitive data is encrypted at rest and in transit",
-      descriptionAr: "ضمان تشفير جميع البيانات الحساسة في حالة السكون والنقل",
-      category: "data",
-      status: "active",
-      scope: ["database", "storage", "network"],
-      rules: [
-        { id: "r3", condition: "Unencrypted data detected", conditionAr: "تم اكتشاف بيانات غير مشفرة", action: "Encrypt immediately", actionAr: "تشفير فوري", severity: "critical" },
-      ],
-      createdAt: new Date(Date.now() - 86400000 * 60).toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdBy: "security-team",
-      approvedBy: "admin",
-      enforcementMode: "ai_assisted",
-      aiConfidence: 98,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/sovereign/policies'] });
+      toast({
+        title: language === "ar" ? "تم إنشاء السياسة" : "Policy Created",
+        description: language === "ar" ? "تم إنشاء السياسة بنجاح" : "Policy created successfully",
+      });
+      setShowCreateDialog(false);
+      resetForm();
     },
-    {
-      id: "3",
-      name: "Resource Usage Limits",
-      nameAr: "حدود استخدام الموارد",
-      description: "Set and enforce resource consumption limits per tenant",
-      descriptionAr: "تعيين وفرض حدود استهلاك الموارد لكل مستأجر",
-      category: "resource",
-      status: "pending_approval",
-      scope: ["compute", "storage", "bandwidth"],
-      rules: [
-        { id: "r4", condition: "CPU usage > 80%", conditionAr: "استخدام المعالج > 80%", action: "Throttle or scale", actionAr: "خنق أو توسيع", severity: "medium" },
-        { id: "r5", condition: "Storage quota exceeded", conditionAr: "تجاوز حصة التخزين", action: "Block new writes", actionAr: "حظر الكتابات الجديدة", severity: "high" },
-      ],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdBy: "ops-team",
-      enforcementMode: "manual",
+    onError: () => {
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar" ? "فشل في إنشاء السياسة" : "Failed to create policy",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Toggle policy mutation
+  const togglePolicyMutation = useMutation({
+    mutationFn: async (policyId: string) => {
+      return apiRequest('POST', `/api/sovereign/policies/${policyId}/toggle`);
     },
-    {
-      id: "4",
-      name: "Compliance Audit Policy",
-      nameAr: "سياسة تدقيق الامتثال",
-      description: "Automated compliance checks and reporting",
-      descriptionAr: "فحوصات الامتثال والتقارير الآلية",
-      category: "compliance",
-      status: "draft",
-      scope: ["all-systems"],
-      rules: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdBy: "compliance-team",
-      enforcementMode: "auto",
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/sovereign/policies'] });
+      toast({
+        title: language === "ar" ? "تم تحديث السياسة" : "Policy Updated",
+        description: language === "ar" ? "تم تغيير حالة السياسة" : "Policy status changed",
+      });
     },
-  ];
+  });
+
+  // Approve policy mutation
+  const approvePolicyMutation = useMutation({
+    mutationFn: async (policyId: string) => {
+      return apiRequest('POST', `/api/sovereign/policies/${policyId}/approve`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/sovereign/policies'] });
+      toast({
+        title: language === "ar" ? "تم الموافقة" : "Policy Approved",
+        description: language === "ar" ? "تم الموافقة على السياسة وتفعيلها" : "Policy approved and activated",
+      });
+    },
+  });
+
+  const resetForm = () => {
+    setNewPolicyName("");
+    setNewPolicyNameAr("");
+    setNewPolicyDescription("");
+    setNewPolicyCategory("");
+    setNewPolicyEnforcement("");
+  };
+
+  const handleCreatePolicy = () => {
+    if (!newPolicyName || !newPolicyCategory) {
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar" ? "يرجى ملء جميع الحقول المطلوبة" : "Please fill all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+    createPolicyMutation.mutate({
+      name: newPolicyName,
+      nameAr: newPolicyNameAr || newPolicyName,
+      description: newPolicyDescription,
+      category: newPolicyCategory,
+      enforcementMode: newPolicyEnforcement || 'manual',
+    });
+  };
+
+  const policies = policiesData?.policies || [];
+  const stats = policiesData?.stats || { total: 0, enforcing: 0, pending: 0, active: 0, drafts: 0, aiAssisted: 0 };
 
   const categoryConfig: Record<string, { color: string; icon: any; label: { en: string; ar: string } }> = {
     security: { color: "text-red-500 bg-red-500/10 border-red-500/30", icon: Shield, label: { en: "Security", ar: "الأمان" } },
@@ -188,35 +208,35 @@ export default function PolicyEngine() {
           <Card className="bg-gradient-to-br from-blue-500/10 to-transparent border-blue-500/20">
             <CardContent className="p-3 text-center">
               <FileText className="w-5 h-5 text-blue-500 mx-auto mb-1" />
-              <p className="text-2xl font-bold text-blue-500">{policies.length}</p>
+              <p className="text-2xl font-bold text-blue-500">{stats.total}</p>
               <p className="text-[10px] text-slate-400">{language === "ar" ? "إجمالي السياسات" : "Total Policies"}</p>
             </CardContent>
           </Card>
           <Card className="bg-gradient-to-br from-emerald-500/10 to-transparent border-emerald-500/20">
             <CardContent className="p-3 text-center">
               <CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto mb-1" />
-              <p className="text-2xl font-bold text-emerald-500">{policies.filter(p => p.status === 'enforcing').length}</p>
+              <p className="text-2xl font-bold text-emerald-500">{stats.enforcing}</p>
               <p className="text-[10px] text-slate-400">{language === "ar" ? "قيد التنفيذ" : "Enforcing"}</p>
             </CardContent>
           </Card>
           <Card className="bg-gradient-to-br from-amber-500/10 to-transparent border-amber-500/20">
             <CardContent className="p-3 text-center">
               <Clock className="w-5 h-5 text-amber-500 mx-auto mb-1" />
-              <p className="text-2xl font-bold text-amber-500">{policies.filter(p => p.status === 'pending_approval').length}</p>
+              <p className="text-2xl font-bold text-amber-500">{stats.pending}</p>
               <p className="text-[10px] text-slate-400">{language === "ar" ? "بانتظار الموافقة" : "Pending"}</p>
             </CardContent>
           </Card>
           <Card className="bg-gradient-to-br from-purple-500/10 to-transparent border-purple-500/20">
             <CardContent className="p-3 text-center">
               <Brain className="w-5 h-5 text-purple-500 mx-auto mb-1" />
-              <p className="text-2xl font-bold text-purple-500">{policies.filter(p => p.enforcementMode === 'ai_assisted').length}</p>
+              <p className="text-2xl font-bold text-purple-500">{stats.aiAssisted}</p>
               <p className="text-[10px] text-slate-400">{language === "ar" ? "بمساعدة AI" : "AI-Assisted"}</p>
             </CardContent>
           </Card>
           <Card className="bg-gradient-to-br from-slate-500/10 to-transparent border-slate-500/20">
             <CardContent className="p-3 text-center">
               <Edit className="w-5 h-5 text-slate-500 mx-auto mb-1" />
-              <p className="text-2xl font-bold text-slate-500">{policies.filter(p => p.status === 'draft').length}</p>
+              <p className="text-2xl font-bold text-slate-500">{stats.drafts}</p>
               <p className="text-[10px] text-slate-400">{language === "ar" ? "مسودات" : "Drafts"}</p>
             </CardContent>
           </Card>
@@ -233,9 +253,34 @@ export default function PolicyEngine() {
             </Tabs>
             
             <ScrollArea className="flex-1">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
+                </div>
+              ) : isError ? (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                  <AlertTriangle className="w-12 h-12 mb-2 text-red-500 opacity-70" />
+                  <p className="text-red-400 text-sm">{language === "ar" ? "فشل في تحميل السياسات" : "Failed to load policies"}</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-2"
+                    onClick={() => refetch()}
+                    data-testid="button-retry-policies"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    {language === "ar" ? "إعادة المحاولة" : "Retry"}
+                  </Button>
+                </div>
+              ) : filteredPolicies.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                  <Gavel className="w-12 h-12 mb-2 opacity-50" />
+                  <p className="text-sm">{language === "ar" ? "لا توجد سياسات" : "No policies found"}</p>
+                </div>
+              ) : (
               <div className="p-2 space-y-1">
                 {filteredPolicies.map((policy) => {
-                  const category = categoryConfig[policy.category];
+                  const category = categoryConfig[policy.category] || categoryConfig.compliance;
                   const CategoryIcon = category.icon;
                   return (
                     <button
@@ -252,8 +297,8 @@ export default function PolicyEngine() {
                         <span className="text-sm font-medium text-white truncate">
                           {language === "ar" ? policy.nameAr : policy.name}
                         </span>
-                        <Badge className={`text-[9px] ${statusConfig[policy.status].color}`}>
-                          {statusConfig[policy.status].label[language === "ar" ? "ar" : "en"]}
+                        <Badge className={`text-[9px] ${statusConfig[policy.status]?.color || statusConfig.draft.color}`}>
+                          {statusConfig[policy.status]?.label[language === "ar" ? "ar" : "en"] || policy.status}
                         </Badge>
                       </div>
                       <div className="flex items-center gap-2">
@@ -272,6 +317,7 @@ export default function PolicyEngine() {
                   );
                 })}
               </div>
+              )}
             </ScrollArea>
           </div>
 
@@ -317,29 +363,53 @@ export default function PolicyEngine() {
                       )}
                     </div>
 
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 flex-wrap">
                       {selectedPolicy.status === 'pending_approval' && (
-                        <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700" data-testid="button-approve-policy">
-                          <CheckCircle2 className="w-4 h-4 mr-2" />
+                        <Button 
+                          className="flex-1 bg-emerald-600 hover:bg-emerald-700" 
+                          data-testid="button-approve-policy"
+                          onClick={() => approvePolicyMutation.mutate(selectedPolicy.id)}
+                          disabled={approvePolicyMutation.isPending}
+                        >
+                          {approvePolicyMutation.isPending ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="w-4 h-4 mr-2" />
+                          )}
                           {language === "ar" ? "الموافقة والتفعيل" : "Approve & Activate"}
                         </Button>
                       )}
-                      {selectedPolicy.status === 'active' && (
-                        <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700" data-testid="button-enforce-policy">
-                          <Play className="w-4 h-4 mr-2" />
+                      {(selectedPolicy.status === 'active' || selectedPolicy.status === 'draft') && (
+                        <Button 
+                          className="flex-1 bg-emerald-600 hover:bg-emerald-700" 
+                          data-testid="button-enforce-policy"
+                          onClick={() => togglePolicyMutation.mutate(selectedPolicy.id)}
+                          disabled={togglePolicyMutation.isPending}
+                        >
+                          {togglePolicyMutation.isPending ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Play className="w-4 h-4 mr-2" />
+                          )}
                           {language === "ar" ? "بدء التنفيذ" : "Start Enforcement"}
                         </Button>
                       )}
                       {selectedPolicy.status === 'enforcing' && (
-                        <Button variant="outline" className="flex-1 border-amber-500/30 text-amber-500" data-testid="button-pause-enforcement">
-                          <Pause className="w-4 h-4 mr-2" />
+                        <Button 
+                          variant="outline" 
+                          className="flex-1 border-amber-500/30 text-amber-500" 
+                          data-testid="button-pause-enforcement"
+                          onClick={() => togglePolicyMutation.mutate(selectedPolicy.id)}
+                          disabled={togglePolicyMutation.isPending}
+                        >
+                          {togglePolicyMutation.isPending ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Pause className="w-4 h-4 mr-2" />
+                          )}
                           {language === "ar" ? "إيقاف مؤقت" : "Pause Enforcement"}
                         </Button>
                       )}
-                      <Button variant="outline" className="flex-1 border-slate-600" data-testid="button-simulate-policy">
-                        <Lightbulb className="w-4 h-4 mr-2" />
-                        {language === "ar" ? "محاكاة التأثير" : "Simulate Impact"}
-                      </Button>
                       <Button variant="outline" className="border-slate-600" data-testid="button-edit-policy">
                         <Edit className="w-4 h-4" />
                       </Button>
@@ -409,7 +479,7 @@ export default function PolicyEngine() {
         </div>
       </div>
 
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+      <Dialog open={showCreateDialog} onOpenChange={(open) => { setShowCreateDialog(open); if (!open) resetForm(); }}>
         <DialogContent className="sm:max-w-[500px] bg-slate-900 border-slate-800">
           <DialogHeader>
             <DialogTitle className="text-white flex items-center gap-2">
@@ -422,12 +492,28 @@ export default function PolicyEngine() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label className="text-slate-300">{language === "ar" ? "اسم السياسة" : "Policy Name"}</Label>
-              <Input placeholder={language === "ar" ? "أدخل اسم السياسة" : "Enter policy name"} className="bg-slate-800 border-slate-700" data-testid="input-policy-name" />
+              <Label className="text-slate-300">{language === "ar" ? "اسم السياسة (إنجليزي)" : "Policy Name (English)"}</Label>
+              <Input 
+                value={newPolicyName}
+                onChange={(e) => setNewPolicyName(e.target.value)}
+                placeholder={language === "ar" ? "أدخل اسم السياسة" : "Enter policy name"} 
+                className="bg-slate-800 border-slate-700" 
+                data-testid="input-policy-name" 
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-slate-300">{language === "ar" ? "اسم السياسة (عربي)" : "Policy Name (Arabic)"}</Label>
+              <Input 
+                value={newPolicyNameAr}
+                onChange={(e) => setNewPolicyNameAr(e.target.value)}
+                placeholder={language === "ar" ? "أدخل الاسم بالعربي" : "Enter Arabic name"} 
+                className="bg-slate-800 border-slate-700" 
+                data-testid="input-policy-name-ar" 
+              />
             </div>
             <div className="space-y-2">
               <Label className="text-slate-300">{language === "ar" ? "الفئة" : "Category"}</Label>
-              <Select>
+              <Select value={newPolicyCategory} onValueChange={setNewPolicyCategory}>
                 <SelectTrigger className="bg-slate-800 border-slate-700" data-testid="select-policy-category">
                   <SelectValue placeholder={language === "ar" ? "اختر الفئة" : "Select category"} />
                 </SelectTrigger>
@@ -442,11 +528,17 @@ export default function PolicyEngine() {
             </div>
             <div className="space-y-2">
               <Label className="text-slate-300">{language === "ar" ? "الوصف" : "Description"}</Label>
-              <Textarea placeholder={language === "ar" ? "وصف السياسة" : "Policy description"} className="bg-slate-800 border-slate-700 min-h-[80px]" data-testid="input-policy-description" />
+              <Textarea 
+                value={newPolicyDescription}
+                onChange={(e) => setNewPolicyDescription(e.target.value)}
+                placeholder={language === "ar" ? "وصف السياسة" : "Policy description"} 
+                className="bg-slate-800 border-slate-700 min-h-[80px]" 
+                data-testid="input-policy-description" 
+              />
             </div>
             <div className="space-y-2">
               <Label className="text-slate-300">{language === "ar" ? "وضع التنفيذ" : "Enforcement Mode"}</Label>
-              <Select>
+              <Select value={newPolicyEnforcement} onValueChange={setNewPolicyEnforcement}>
                 <SelectTrigger className="bg-slate-800 border-slate-700" data-testid="select-enforcement-mode">
                   <SelectValue placeholder={language === "ar" ? "اختر الوضع" : "Select mode"} />
                 </SelectTrigger>
@@ -458,11 +550,24 @@ export default function PolicyEngine() {
               </Select>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateDialog(false)} className="border-slate-600" data-testid="button-cancel-create">
+          <DialogFooter className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => { setShowCreateDialog(false); resetForm(); }} 
+              className="border-slate-600" 
+              data-testid="button-cancel-create"
+            >
               {language === "ar" ? "إلغاء" : "Cancel"}
             </Button>
-            <Button className="bg-amber-600 hover:bg-amber-700" data-testid="button-save-policy">
+            <Button 
+              className="bg-amber-600 hover:bg-amber-700" 
+              data-testid="button-save-policy"
+              onClick={handleCreatePolicy}
+              disabled={createPolicyMutation.isPending}
+            >
+              {createPolicyMutation.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : null}
               {language === "ar" ? "إنشاء السياسة" : "Create Policy"}
             </Button>
           </DialogFooter>

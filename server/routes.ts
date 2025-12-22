@@ -48,7 +48,8 @@ import {
   dataPolicies,
   dataPolicyRegions,
   insertDataRegionSchema,
-  insertDataPolicySchema
+  insertDataPolicySchema,
+  sovereignPolicies
 } from "@shared/schema";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
@@ -2017,6 +2018,260 @@ export async function registerRoutes(
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch compliance data" });
+    }
+  });
+
+  // ==================== SOVEREIGN POLICY ENGINE (National/Enterprise) ====================
+  
+  // Get all sovereign policies - REAL DATA from database
+  app.get("/api/sovereign/policies", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const policiesData = await db.select().from(sovereignPolicies);
+      
+      // Transform for frontend - match Policy interface exactly
+      const policies = policiesData.map(policy => {
+        // Determine category based on target field
+        let category: 'security' | 'access' | 'data' | 'resource' | 'compliance' = 'compliance';
+        if (policy.target?.includes('security')) category = 'security';
+        else if (policy.target?.includes('access')) category = 'access';
+        else if (policy.target?.includes('data')) category = 'data';
+        else if (policy.target?.includes('resource')) category = 'resource';
+        
+        // Determine status based on isActive and enforcementLevel
+        let status: 'draft' | 'pending_approval' | 'active' | 'enforcing' | 'suspended' = 'draft';
+        if (policy.isActive) {
+          status = policy.enforcementLevel === 'strict' ? 'enforcing' : 'active';
+        } else if (policy.ruleType === 'approval_required') {
+          status = 'pending_approval';
+        }
+        
+        // Parse rules from conditions - ensure array format
+        let rules: any[] = [];
+        if (policy.conditions) {
+          if (Array.isArray(policy.conditions)) {
+            rules = policy.conditions;
+          } else if (typeof policy.conditions === 'object') {
+            rules = [policy.conditions];
+          }
+        }
+        
+        // Determine enforcement mode
+        let enforcementMode: 'manual' | 'auto' | 'ai_assisted' = 'manual';
+        if (policy.enforcementLevel === 'strict') enforcementMode = 'auto';
+        else if (policy.enforcementLevel === 'warn') enforcementMode = 'ai_assisted';
+        
+        return {
+          id: policy.id,
+          name: policy.name,
+          nameAr: policy.nameAr,
+          description: policy.description || '',
+          descriptionAr: policy.descriptionAr || '',
+          category,
+          status,
+          scope: policy.target ? [policy.target] : [],
+          rules,
+          createdAt: policy.createdAt?.toISOString() || new Date().toISOString(),
+          updatedAt: policy.updatedAt?.toISOString() || new Date().toISOString(),
+          createdBy: policy.createdBy,
+          approvedBy: policy.isActive && policy.enforcementLevel === 'strict' ? 'admin' : undefined,
+          enforcementMode,
+          aiConfidence: enforcementMode === 'ai_assisted' ? 85 : 
+                        enforcementMode === 'auto' ? 95 : undefined,
+        };
+      });
+      
+      // Calculate stats
+      const stats = {
+        total: policies.length,
+        enforcing: policies.filter(p => p.status === 'enforcing').length,
+        pending: policies.filter(p => p.status === 'pending_approval').length,
+        active: policies.filter(p => p.status === 'active').length,
+        drafts: policies.filter(p => p.status === 'draft').length,
+        aiAssisted: policies.filter(p => p.enforcementMode === 'ai_assisted').length,
+      };
+      
+      res.json({ policies, stats });
+    } catch (error) {
+      console.error('Failed to fetch sovereign policies:', error);
+      res.status(500).json({ error: "Failed to fetch sovereign policies" });
+    }
+  });
+  
+  // Create sovereign policy
+  app.post("/api/sovereign/policies", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const { name, nameAr, description, descriptionAr, category, enforcementMode, rules } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ error: "Policy name is required" });
+      }
+      
+      // Build policy data matching schema requirements
+      const policyData = {
+        name,
+        nameAr: nameAr || name,
+        description: description || '',
+        descriptionAr: descriptionAr || description || '',
+        assistantType: 'system',
+        ruleType: 'limit' as const,
+        target: category || 'compliance',
+        conditions: rules || {},
+        isActive: false,
+        enforcementLevel: enforcementMode === 'auto' ? 'strict' : 
+                          enforcementMode === 'ai_assisted' ? 'warn' : 'log_only',
+        violationAction: 'notify',
+        createdBy: user.id,
+      };
+      
+      const [newPolicy] = await db.insert(sovereignPolicies).values(policyData).returning();
+      
+      await storage.createAuditLog({
+        action: 'sovereign_policy_created',
+        userId: user.id,
+        resourceType: 'sovereign_policy',
+        resourceId: newPolicy.id,
+        metadata: { policyName: newPolicy.name, category }
+      });
+      
+      res.status(201).json(newPolicy);
+    } catch (error) {
+      console.error('Failed to create sovereign policy:', error);
+      res.status(500).json({ error: "Failed to create sovereign policy" });
+    }
+  });
+  
+  // Update sovereign policy
+  app.patch("/api/sovereign/policies/:id", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const user = (req as any).user;
+      const { name, nameAr, description, descriptionAr, isActive, enforcementLevel, rules } = req.body;
+      
+      const updateData: any = { updatedAt: new Date() };
+      if (name !== undefined) updateData.name = name;
+      if (nameAr !== undefined) updateData.nameAr = nameAr;
+      if (description !== undefined) updateData.description = description;
+      if (descriptionAr !== undefined) updateData.descriptionAr = descriptionAr;
+      if (isActive !== undefined) updateData.isActive = isActive;
+      if (enforcementLevel !== undefined) updateData.enforcementLevel = enforcementLevel;
+      if (rules !== undefined) updateData.conditions = rules;
+      
+      const [updated] = await db.update(sovereignPolicies)
+        .set(updateData)
+        .where(eq(sovereignPolicies.id, id))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Policy not found" });
+      }
+      
+      await storage.createAuditLog({
+        action: 'sovereign_policy_updated',
+        userId: user.id,
+        resourceType: 'sovereign_policy',
+        resourceId: id,
+        metadata: { policyName: updated.name, changes: Object.keys(updateData) }
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error('Failed to update sovereign policy:', error);
+      res.status(500).json({ error: "Failed to update sovereign policy" });
+    }
+  });
+  
+  // Toggle sovereign policy status
+  app.post("/api/sovereign/policies/:id/toggle", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const user = (req as any).user;
+      
+      const [policy] = await db.select().from(sovereignPolicies).where(eq(sovereignPolicies.id, id));
+      if (!policy) {
+        return res.status(404).json({ error: "Policy not found" });
+      }
+      
+      const [updated] = await db.update(sovereignPolicies)
+        .set({ isActive: !policy.isActive, updatedAt: new Date() })
+        .where(eq(sovereignPolicies.id, id))
+        .returning();
+      
+      await storage.createAuditLog({
+        action: updated.isActive ? 'sovereign_policy_activated' : 'sovereign_policy_deactivated',
+        userId: user.id,
+        resourceType: 'sovereign_policy',
+        resourceId: id,
+        metadata: { policyName: updated.name }
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error('Failed to toggle sovereign policy:', error);
+      res.status(500).json({ error: "Failed to toggle sovereign policy" });
+    }
+  });
+  
+  // Approve sovereign policy
+  app.post("/api/sovereign/policies/:id/approve", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const user = (req as any).user;
+      
+      const [updated] = await db.update(sovereignPolicies)
+        .set({ 
+          isActive: true, 
+          enforcementLevel: 'strict',
+          updatedAt: new Date() 
+        })
+        .where(eq(sovereignPolicies.id, id))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Policy not found" });
+      }
+      
+      await storage.createAuditLog({
+        action: 'sovereign_policy_approved',
+        userId: user.id,
+        resourceType: 'sovereign_policy',
+        resourceId: id,
+        metadata: { policyName: updated.name, approvedBy: user.id }
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error('Failed to approve sovereign policy:', error);
+      res.status(500).json({ error: "Failed to approve sovereign policy" });
+    }
+  });
+  
+  // Delete sovereign policy
+  app.delete("/api/sovereign/policies/:id", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const user = (req as any).user;
+      
+      const [deleted] = await db.delete(sovereignPolicies)
+        .where(eq(sovereignPolicies.id, id))
+        .returning();
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "Policy not found" });
+      }
+      
+      await storage.createAuditLog({
+        action: 'sovereign_policy_deleted',
+        userId: user.id,
+        resourceType: 'sovereign_policy',
+        resourceId: id,
+        metadata: { policyName: deleted.name }
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Failed to delete sovereign policy:', error);
+      res.status(500).json({ error: "Failed to delete sovereign policy" });
     }
   });
 
