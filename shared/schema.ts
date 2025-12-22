@@ -11742,3 +11742,171 @@ export const insertAppAiGenerationSchema = createInsertSchema(appAiGenerations).
 });
 export type InsertAppAiGeneration = z.infer<typeof insertAppAiGenerationSchema>;
 export type AppAiGeneration = typeof appAiGenerations.$inferSelect;
+
+// ==================== NOVA AI PERMISSION CONTROL SYSTEM ====================
+// نظام التحكم في صلاحيات نوفا الذكي
+
+// Security levels for permissions
+export const securityLevels = ['high', 'medium', 'low', 'danger'] as const;
+export type SecurityLevel = typeof securityLevels[number];
+
+// Permission categories
+export const permissionCategories = [
+  'code_execution',      // تنفيذ الكود
+  'file_operations',     // عمليات الملفات
+  'database_operations', // عمليات قاعدة البيانات
+  'api_integrations',    // تكامل API
+  'deployment',          // النشر والإصدار
+  'ai_capabilities',     // قدرات الذكاء الاصطناعي
+  'infrastructure',      // إدارة البنية التحتية
+  'payment_billing',     // المدفوعات والفوترة
+  'user_management',     // إدارة المستخدمين
+  'system_config',       // إعدادات النظام
+] as const;
+export type PermissionCategory = typeof permissionCategories[number];
+
+// Nova AI Permissions - All available permissions with metadata
+export const novaPermissions = pgTable("nova_permissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Permission identity
+  code: text("code").notNull().unique(), // e.g., 'execute_code', 'create_files'
+  nameEn: text("name_en").notNull(),
+  nameAr: text("name_ar").notNull(),
+  descriptionEn: text("description_en"),
+  descriptionAr: text("description_ar"),
+  
+  // Classification
+  category: text("category").notNull(), // from permissionCategories
+  securityLevel: text("security_level").notNull(), // high, medium, low, danger
+  
+  // Default state
+  defaultEnabled: boolean("default_enabled").notNull().default(false),
+  
+  // System flag - cannot be deleted
+  isSystem: boolean("is_system").notNull().default(true),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_nova_perm_code").on(table.code),
+  index("IDX_nova_perm_category").on(table.category),
+  index("IDX_nova_perm_security").on(table.securityLevel),
+]);
+
+export const insertNovaPermissionSchema = createInsertSchema(novaPermissions).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertNovaPermission = z.infer<typeof insertNovaPermissionSchema>;
+export type NovaPermission = typeof novaPermissions.$inferSelect;
+
+// User-specific Nova Permission Grants
+export const novaPermissionGrants = pgTable("nova_permission_grants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Who owns this grant
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Which permission
+  permissionCode: text("permission_code").notNull(),
+  
+  // Grant state
+  isGranted: boolean("is_granted").notNull().default(false),
+  
+  // Grant metadata
+  grantedBy: varchar("granted_by"), // User ID who granted
+  grantedAt: timestamp("granted_at"),
+  revokedBy: varchar("revoked_by"), // User ID who revoked
+  revokedAt: timestamp("revoked_at"),
+  
+  // Optional expiry
+  expiresAt: timestamp("expires_at"),
+  
+  // Notes
+  reason: text("reason"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_nova_grant_user").on(table.userId),
+  index("IDX_nova_grant_perm").on(table.permissionCode),
+  index("IDX_nova_grant_active").on(table.userId, table.isGranted),
+]);
+
+export const insertNovaPermissionGrantSchema = createInsertSchema(novaPermissionGrants).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertNovaPermissionGrant = z.infer<typeof insertNovaPermissionGrantSchema>;
+export type NovaPermissionGrant = typeof novaPermissionGrants.$inferSelect;
+
+// Nova Permission Audit Log
+export const novaPermissionAudit = pgTable("nova_permission_audit", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Actor
+  userId: varchar("user_id").notNull(),
+  actorId: varchar("actor_id").notNull(), // Who made the change
+  
+  // Action
+  action: text("action").notNull(), // grant, revoke, bulk_grant, bulk_revoke
+  permissionCode: text("permission_code"),
+  permissionCodes: jsonb("permission_codes").$type<string[]>(), // For bulk actions
+  
+  // Previous state
+  previousState: boolean("previous_state"),
+  newState: boolean("new_state"),
+  
+  // Context
+  reason: text("reason"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_nova_audit_user").on(table.userId),
+  index("IDX_nova_audit_actor").on(table.actorId),
+  index("IDX_nova_audit_time").on(table.createdAt),
+]);
+
+export const insertNovaPermissionAuditSchema = createInsertSchema(novaPermissionAudit).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertNovaPermissionAudit = z.infer<typeof insertNovaPermissionAuditSchema>;
+export type NovaPermissionAudit = typeof novaPermissionAudit.$inferSelect;
+
+// Nova Permission Presets - Pre-configured permission sets
+export const novaPermissionPresets = pgTable("nova_permission_presets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Preset identity
+  code: text("code").notNull().unique(), // e.g., 'restrictive', 'balanced', 'full_access'
+  nameEn: text("name_en").notNull(),
+  nameAr: text("name_ar").notNull(),
+  descriptionEn: text("description_en"),
+  descriptionAr: text("description_ar"),
+  
+  // Permissions included
+  permissions: jsonb("permissions").$type<string[]>().notNull(),
+  
+  // Display
+  color: text("color"), // For UI badge
+  icon: text("icon"), // Icon name
+  displayOrder: integer("display_order").default(0),
+  
+  // System preset cannot be deleted
+  isSystem: boolean("is_system").notNull().default(false),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_nova_preset_code").on(table.code),
+]);
+
+export const insertNovaPermissionPresetSchema = createInsertSchema(novaPermissionPresets).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertNovaPermissionPreset = z.infer<typeof insertNovaPermissionPresetSchema>;
+export type NovaPermissionPreset = typeof novaPermissionPresets.$inferSelect;

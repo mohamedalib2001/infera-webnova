@@ -82,6 +82,7 @@ import { registerObjectStorageRoutes } from "./replit_integrations/object_storag
 import { registerExecutionRoutes } from "./execution-engine";
 import { registerDeploymentRoutes } from "./deployment-integration";
 import { registerVisionRoutes } from "./vision-processing";
+import { registerNovaPermissionRoutes } from "./nova-permissions";
 
 // Session user type
 declare module 'express-session' {
@@ -14512,6 +14513,10 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
   // ==================== VISION PROCESSING - IMAGE ANALYSIS & OCR ====================
   registerVisionRoutes(app);
   console.log("Vision Processing routes registered | تم تسجيل مسارات معالجة الرؤية");
+
+  // ==================== NOVA PERMISSION CONTROL - AI CAPABILITIES ====================
+  registerNovaPermissionRoutes(app);
+  console.log("Nova Permission Control routes registered | تم تسجيل مسارات التحكم في صلاحيات نوفا");
 
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
