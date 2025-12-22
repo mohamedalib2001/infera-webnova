@@ -465,69 +465,86 @@ export default function ConsolePage() {
         )}
       </main>
 
-      <footer className="border-t bg-card/80 backdrop-blur-sm" data-testid="container-input">
-        <div className="max-w-3xl mx-auto px-4 py-3">
-          <div className="flex items-center gap-2 mb-3">
-            <Button
-              variant={mode === "build" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setMode("build")}
-              className="h-9 gap-2"
-              data-testid="button-mode-build"
-            >
-              {mode === "build" ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
-              <span className="font-medium">Build</span>
-              <span className="text-xs opacity-70">Make, test, iterate</span>
-            </Button>
-            <Button
-              variant={mode === "plan" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setMode("plan")}
-              className="h-9 gap-2"
-              data-testid="button-mode-plan"
-            >
-              {mode === "plan" ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
-              <span className="font-medium">Plan</span>
-              <span className="text-xs opacity-70">Ask questions, plan your work</span>
-            </Button>
-          </div>
-
-          <div className="flex items-end gap-3">
-            <div className="flex-1 relative">
+      <footer className="border-t bg-gradient-to-t from-card via-card/95 to-card/80 backdrop-blur-md" data-testid="container-input">
+        <div className="max-w-3xl mx-auto px-4 py-4">
+          <div className="relative">
+            <div className="flex flex-col gap-3 p-4 rounded-2xl border border-border/60 bg-background/80 backdrop-blur-sm shadow-lg">
               <Textarea
                 ref={textareaRef}
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="اكتب هنا للبحث..."
-                className="min-h-[48px] max-h-32 resize-none pr-12 text-sm"
+                placeholder="اكتب هنا... ما الذي تريد بناءه اليوم؟"
+                className="min-h-[52px] max-h-36 resize-none border-0 bg-transparent px-0 text-base placeholder:text-muted-foreground/60 focus-visible:ring-0 focus-visible:ring-offset-0"
                 data-testid="input-console-message"
               />
-              <Button
-                size="icon"
-                className="absolute bottom-2 right-2 h-8 w-8"
-                onClick={handleSubmit}
-                disabled={!input.trim() || chatMutation.isPending}
-                data-testid="button-console-send"
-              >
-                {chatMutation.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <ChevronUp className="w-4 h-4" />
-                )}
-              </Button>
-            </div>
+              
+              <div className="flex items-center justify-between gap-3 pt-2 border-t border-border/40">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center p-1 rounded-lg bg-muted/50">
+                    <button
+                      onClick={() => setMode("plan")}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                        mode === "plan" 
+                          ? "bg-background shadow-sm text-foreground" 
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      data-testid="button-mode-plan"
+                    >
+                      <Lightbulb className="w-3.5 h-3.5" />
+                      <span>Plan</span>
+                    </button>
+                    <button
+                      onClick={() => setMode("build")}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                        mode === "build" 
+                          ? "bg-primary text-primary-foreground shadow-sm" 
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      data-testid="button-mode-build"
+                    >
+                      <Wand2 className="w-3.5 h-3.5" />
+                      <span>Build</span>
+                    </button>
+                  </div>
 
-            <Select defaultValue="auto">
-              <SelectTrigger className="w-24 h-[48px]" data-testid="select-generate-mode">
-                <SelectValue placeholder="Auto" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="auto" data-testid="option-mode-auto">Auto</SelectItem>
-                <SelectItem value="code" data-testid="option-mode-code">Code Only</SelectItem>
-                <SelectItem value="chat" data-testid="option-mode-chat">Chat Only</SelectItem>
-              </SelectContent>
-            </Select>
+                  <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-muted-foreground">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>{mode === "build" ? "وضع البناء" : "وضع التخطيط"}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Select defaultValue="auto">
+                    <SelectTrigger className="h-8 w-20 text-xs border-0 bg-muted/50" data-testid="select-generate-mode">
+                      <SelectValue placeholder="Auto" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto" data-testid="option-mode-auto">Auto</SelectItem>
+                      <SelectItem value="code" data-testid="option-mode-code">Code</SelectItem>
+                      <SelectItem value="chat" data-testid="option-mode-chat">Chat</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Button
+                    size="sm"
+                    className="h-8 px-4 gap-2 rounded-lg"
+                    onClick={handleSubmit}
+                    disabled={!input.trim() || chatMutation.isPending}
+                    data-testid="button-console-send"
+                  >
+                    {chatMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <span className="hidden sm:inline">إرسال</span>
+                        <ChevronUp className="w-4 h-4" />
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </footer>
