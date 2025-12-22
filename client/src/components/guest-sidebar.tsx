@@ -1,4 +1,5 @@
 import { Link, useLocation } from "wouter";
+import { useCallback } from "react";
 import { 
   Home, 
   LogIn, 
@@ -27,33 +28,60 @@ interface GuestSidebarProps {
 }
 
 export function GuestSidebar({ side = "left" }: GuestSidebarProps) {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const { language } = useLanguage();
+
+  // Handle hash navigation for anchor links
+  const handleHashClick = useCallback((e: React.MouseEvent, hash: string) => {
+    e.preventDefault();
+    
+    // If we're not on the home page, navigate there first
+    if (location !== "/") {
+      setLocation("/");
+      // Wait for navigation then scroll
+      setTimeout(() => {
+        const element = document.getElementById(hash);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth" });
+        }
+      }, 100);
+    } else {
+      // We're already on home page, just scroll
+      const element = document.getElementById(hash);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+  }, [location, setLocation]);
 
   const navItems = [
     { 
       title: language === "ar" ? "الرئيسية" : "Home", 
       url: "/", 
       icon: Home, 
-      testId: "nav-home" 
+      testId: "nav-home",
+      hash: null
     },
     { 
       title: language === "ar" ? "الميزات" : "Features", 
-      url: "/#features", 
+      url: "/", 
       icon: Sparkles, 
-      testId: "nav-features" 
+      testId: "nav-features",
+      hash: "features"
     },
     { 
       title: language === "ar" ? "الأسعار" : "Pricing", 
       url: "/pricing", 
       icon: CreditCard, 
-      testId: "nav-pricing" 
+      testId: "nav-pricing",
+      hash: null
     },
     { 
       title: language === "ar" ? "الدعم" : "Support", 
       url: "/support", 
       icon: Headphones, 
-      testId: "nav-support" 
+      testId: "nav-support",
+      hash: null
     },
   ];
 
@@ -87,12 +115,26 @@ export function GuestSidebar({ side = "left" }: GuestSidebarProps) {
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => (
-                <SidebarMenuItem key={item.url}>
-                  <SidebarMenuButton asChild isActive={location === item.url}>
-                    <Link href={item.url} data-testid={item.testId}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
+                <SidebarMenuItem key={item.testId}>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={item.hash ? false : location === item.url}
+                  >
+                    {item.hash ? (
+                      <a 
+                        href={`/#${item.hash}`}
+                        onClick={(e) => handleHashClick(e, item.hash!)}
+                        data-testid={item.testId}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </a>
+                    ) : (
+                      <Link href={item.url} data-testid={item.testId}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    )}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
