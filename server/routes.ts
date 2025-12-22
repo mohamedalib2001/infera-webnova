@@ -78,6 +78,10 @@ import {
   buildSovereignContext,
   type SovereignContext 
 } from "./sovereign-context";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import { registerExecutionRoutes } from "./execution-engine";
+import { registerDeploymentRoutes } from "./deployment-integration";
+import { registerVisionRoutes } from "./vision-processing";
 
 // Session user type
 declare module 'express-session' {
@@ -14492,6 +14496,22 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
   // ==================== ENTERPRISE SERVICES - WORLD-CLASS CI/CD ====================
   registerEnterpriseServicesRoutes(app);
   console.log("Enterprise Services routes registered | تم تسجيل مسارات الخدمات المؤسسية");
+
+  // ==================== OBJECT STORAGE - FILE UPLOADS ====================
+  registerObjectStorageRoutes(app);
+  console.log("Object Storage routes registered | تم تسجيل مسارات تخزين الملفات");
+
+  // ==================== EXECUTION ENGINE - SECURE CODE EXECUTION ====================
+  registerExecutionRoutes(app);
+  console.log("Execution Engine routes registered | تم تسجيل مسارات محرك التنفيذ");
+
+  // ==================== DEPLOYMENT INTEGRATION - VERCEL, NETLIFY, GITHUB ====================
+  registerDeploymentRoutes(app);
+  console.log("Deployment Integration routes registered | تم تسجيل مسارات تكامل النشر");
+
+  // ==================== VISION PROCESSING - IMAGE ANALYSIS & OCR ====================
+  registerVisionRoutes(app);
+  console.log("Vision Processing routes registered | تم تسجيل مسارات معالجة الرؤية");
 
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 

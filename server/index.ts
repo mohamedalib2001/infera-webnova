@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { initializeTerminalService, initializeRuntimeService } from "./terminal-service";
+import { initializeAIWebSocket } from "./ai-websocket";
 import { setupAuth } from "./replitAuth";
 import { initStripeSystem } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
@@ -13,6 +14,7 @@ const httpServer = createServer(app);
 
 initializeTerminalService(httpServer);
 initializeRuntimeService(httpServer);
+initializeAIWebSocket(httpServer);
 
 declare module "http" {
   interface IncomingMessage {
