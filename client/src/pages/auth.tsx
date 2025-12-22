@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -50,6 +50,19 @@ export default function Auth() {
   const [isTwoFactorLogin, setIsTwoFactorLogin] = useState(false);
   const [showRecoveryInput, setShowRecoveryInput] = useState(false);
   const [recoveryCode, setRecoveryCode] = useState("");
+
+  // Check if user is already authenticated
+  const { data: currentUser, isLoading: isCheckingAuth } = useQuery<{ id: number; username: string } | null>({
+    queryKey: ["/api/auth/me"],
+    retry: false,
+  });
+
+  // Redirect authenticated users away from auth page
+  useEffect(() => {
+    if (currentUser && !isCheckingAuth) {
+      setLocation("/projects");
+    }
+  }, [currentUser, isCheckingAuth, setLocation]);
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -198,6 +211,28 @@ export default function Auth() {
       </Button>
     </div>
   );
+
+  // Show loading while checking auth status
+  if (isCheckingAuth) {
+    return (
+      <GradientBackground>
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </GradientBackground>
+    );
+  }
+
+  // If already authenticated, show nothing (will redirect)
+  if (currentUser) {
+    return (
+      <GradientBackground>
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </GradientBackground>
+    );
+  }
 
   return (
     <GradientBackground>
