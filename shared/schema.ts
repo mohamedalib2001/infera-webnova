@@ -9926,3 +9926,207 @@ export const insertNovaProjectContextSchema = createInsertSchema(novaProjectCont
 });
 export type InsertNovaProjectContext = z.infer<typeof insertNovaProjectContextSchema>;
 export type NovaProjectContext = typeof novaProjectContexts.$inferSelect;
+
+// ==================== PROJECT KNOWLEDGE GRAPH ====================
+
+// Knowledge node types for system understanding
+export const knowledgeNodeTypes = [
+  'decision', 'component', 'requirement', 'constraint', 'pattern',
+  'entity', 'service', 'api', 'database', 'integration', 'concept'
+] as const;
+export type KnowledgeNodeType = typeof knowledgeNodeTypes[number];
+
+// Knowledge edge types for relationships
+export const knowledgeEdgeTypes = [
+  'depends_on', 'implements', 'uses', 'extends', 'conflicts_with',
+  'supersedes', 'relates_to', 'contains', 'triggers', 'validates'
+] as const;
+export type KnowledgeEdgeType = typeof knowledgeEdgeTypes[number];
+
+// Project Knowledge Nodes - nodes in the knowledge graph
+export const projectKnowledgeNodes = pgTable("project_knowledge_nodes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  
+  // Node content
+  nodeType: text("node_type").notNull(), // decision, component, requirement, etc.
+  name: text("name").notNull(),
+  nameAr: text("name_ar"), // Arabic name
+  description: text("description"),
+  descriptionAr: text("description_ar"), // Arabic description
+  
+  // Metadata for understanding
+  businessIntent: text("business_intent"), // What business goal this serves
+  technicalDetails: jsonb("technical_details").$type<{
+    technology?: string;
+    version?: string;
+    configuration?: Record<string, any>;
+    dependencies?: string[];
+  }>(),
+  
+  // Embeddings for semantic search (vector representation)
+  embedding: jsonb("embedding").$type<number[]>(), // Vector for similarity search
+  
+  // Context and evolution tracking
+  createdBySession: varchar("created_by_session"), // Nova session that created this
+  createdByMessage: varchar("created_by_message"), // Message that led to this
+  confidence: real("confidence").default(1.0), // AI confidence in this knowledge
+  isActive: boolean("is_active").notNull().default(true),
+  supersededBy: varchar("superseded_by"), // If replaced by another node
+  
+  // Tags and categorization
+  tags: jsonb("tags").$type<string[]>().default([]),
+  category: text("category"), // High-level category
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_pkn_project").on(table.projectId),
+  index("IDX_pkn_type").on(table.nodeType),
+  index("IDX_pkn_active").on(table.isActive),
+]);
+
+export const insertProjectKnowledgeNodeSchema = createInsertSchema(projectKnowledgeNodes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertProjectKnowledgeNode = z.infer<typeof insertProjectKnowledgeNodeSchema>;
+export type ProjectKnowledgeNode = typeof projectKnowledgeNodes.$inferSelect;
+
+// Project Knowledge Edges - relationships between nodes
+export const projectKnowledgeEdges = pgTable("project_knowledge_edges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  
+  // Edge definition
+  sourceNodeId: varchar("source_node_id").notNull(),
+  targetNodeId: varchar("target_node_id").notNull(),
+  edgeType: text("edge_type").notNull(), // depends_on, implements, uses, etc.
+  
+  // Edge metadata
+  label: text("label"),
+  labelAr: text("label_ar"),
+  weight: real("weight").default(1.0), // Strength of relationship
+  
+  // Context
+  reasoning: text("reasoning"), // Why this relationship exists
+  createdBySession: varchar("created_by_session"),
+  
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_pke_project").on(table.projectId),
+  index("IDX_pke_source").on(table.sourceNodeId),
+  index("IDX_pke_target").on(table.targetNodeId),
+]);
+
+export const insertProjectKnowledgeEdgeSchema = createInsertSchema(projectKnowledgeEdges).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertProjectKnowledgeEdge = z.infer<typeof insertProjectKnowledgeEdgeSchema>;
+export type ProjectKnowledgeEdge = typeof projectKnowledgeEdges.$inferSelect;
+
+// Project Event Log - Event sourcing for complete history
+export const projectEventLog = pgTable("project_event_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  
+  // Event details
+  eventType: text("event_type").notNull(), // decision_made, component_added, config_changed, etc.
+  eventName: text("event_name").notNull(),
+  eventNameAr: text("event_name_ar"),
+  
+  // Event payload
+  payload: jsonb("payload").$type<{
+    before?: Record<string, any>;
+    after?: Record<string, any>;
+    changes?: Record<string, any>;
+    metadata?: Record<string, any>;
+  }>().notNull(),
+  
+  // Context tracking
+  sessionId: varchar("session_id"), // Nova session
+  messageId: varchar("message_id"), // Message that triggered this
+  decisionId: varchar("decision_id"), // Related decision
+  
+  // Impact assessment
+  impactLevel: text("impact_level").default("low"), // low, medium, high, critical
+  affectedComponents: jsonb("affected_components").$type<string[]>().default([]),
+  
+  // Rollback support
+  isReversible: boolean("is_reversible").notNull().default(true),
+  rolledBackAt: timestamp("rolled_back_at"),
+  rolledBackBy: varchar("rolled_back_by"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_pel_project").on(table.projectId),
+  index("IDX_pel_type").on(table.eventType),
+  index("IDX_pel_time").on(table.createdAt),
+]);
+
+export const insertProjectEventLogSchema = createInsertSchema(projectEventLog).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertProjectEventLog = z.infer<typeof insertProjectEventLogSchema>;
+export type ProjectEventLog = typeof projectEventLog.$inferSelect;
+
+// Architecture Patterns - detected and suggested patterns
+export const architecturePatterns = pgTable("architecture_patterns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  
+  // Pattern identification
+  patternType: text("pattern_type").notNull(), // microservices, monolith, event-driven, etc.
+  patternName: text("pattern_name").notNull(),
+  patternNameAr: text("pattern_name_ar"),
+  
+  // Detection details
+  isDetected: boolean("is_detected").notNull().default(true), // Auto-detected vs suggested
+  isSuggested: boolean("is_suggested").notNull().default(false),
+  confidence: real("confidence").default(1.0),
+  
+  // Pattern analysis
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  benefits: jsonb("benefits").$type<string[]>().default([]),
+  drawbacks: jsonb("drawbacks").$type<string[]>().default([]),
+  
+  // Anti-pattern detection
+  isAntiPattern: boolean("is_anti_pattern").notNull().default(false),
+  antiPatternReason: text("anti_pattern_reason"),
+  suggestedFix: text("suggested_fix"),
+  
+  // Impact assessment
+  performanceImpact: text("performance_impact"), // positive, negative, neutral
+  scalabilityImpact: text("scalability_impact"),
+  costImpact: text("cost_impact"),
+  securityImpact: text("security_impact"),
+  
+  // Related components
+  affectedNodes: jsonb("affected_nodes").$type<string[]>().default([]),
+  
+  // Status
+  status: text("status").notNull().default("detected"), // detected, acknowledged, resolved, ignored
+  resolvedAt: timestamp("resolved_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_ap_project").on(table.projectId),
+  index("IDX_ap_type").on(table.patternType),
+  index("IDX_ap_anti").on(table.isAntiPattern),
+]);
+
+export const insertArchitecturePatternSchema = createInsertSchema(architecturePatterns).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertArchitecturePattern = z.infer<typeof insertArchitecturePatternSchema>;
+export type ArchitecturePattern = typeof architecturePatterns.$inferSelect;

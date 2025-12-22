@@ -450,6 +450,19 @@ import {
   novaProjectContexts,
   type NovaProjectContext,
   type InsertNovaProjectContext,
+  // Knowledge Graph
+  projectKnowledgeNodes,
+  type ProjectKnowledgeNode,
+  type InsertProjectKnowledgeNode,
+  projectKnowledgeEdges,
+  type ProjectKnowledgeEdge,
+  type InsertProjectKnowledgeEdge,
+  projectEventLog,
+  type ProjectEventLog,
+  type InsertProjectEventLog,
+  architecturePatterns,
+  type ArchitecturePattern,
+  type InsertArchitecturePattern,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt, gte, lte, sql } from "drizzle-orm";
@@ -7315,6 +7328,117 @@ body { font-family: 'Tajawal', sans-serif; }
       .where(eq(novaProjectContexts.projectId, projectId))
       .returning();
     return updated;
+  }
+
+  // ==================== KNOWLEDGE GRAPH ====================
+
+  // Knowledge Nodes
+  async createKnowledgeNode(data: InsertProjectKnowledgeNode): Promise<ProjectKnowledgeNode> {
+    const [created] = await db.insert(projectKnowledgeNodes).values(data as any).returning();
+    return created;
+  }
+
+  async getKnowledgeNode(id: string): Promise<ProjectKnowledgeNode | undefined> {
+    const [node] = await db.select().from(projectKnowledgeNodes).where(eq(projectKnowledgeNodes.id, id));
+    return node;
+  }
+
+  async getProjectKnowledgeNodes(projectId: string, nodeType?: string): Promise<ProjectKnowledgeNode[]> {
+    const conditions = [
+      eq(projectKnowledgeNodes.projectId, projectId),
+      eq(projectKnowledgeNodes.isActive, true)
+    ];
+    if (nodeType) conditions.push(eq(projectKnowledgeNodes.nodeType, nodeType));
+    
+    return db.select().from(projectKnowledgeNodes)
+      .where(and(...conditions))
+      .orderBy(desc(projectKnowledgeNodes.createdAt));
+  }
+
+  async updateKnowledgeNode(id: string, data: Partial<InsertProjectKnowledgeNode>): Promise<ProjectKnowledgeNode | undefined> {
+    const [updated] = await db.update(projectKnowledgeNodes)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where(eq(projectKnowledgeNodes.id, id))
+      .returning();
+    return updated;
+  }
+
+  async supersedKnowledgeNode(id: string, newNodeId: string): Promise<ProjectKnowledgeNode | undefined> {
+    return this.updateKnowledgeNode(id, { isActive: false, supersededBy: newNodeId });
+  }
+
+  // Knowledge Edges
+  async createKnowledgeEdge(data: InsertProjectKnowledgeEdge): Promise<ProjectKnowledgeEdge> {
+    const [created] = await db.insert(projectKnowledgeEdges).values(data as any).returning();
+    return created;
+  }
+
+  async getProjectKnowledgeEdges(projectId: string): Promise<ProjectKnowledgeEdge[]> {
+    return db.select().from(projectKnowledgeEdges)
+      .where(and(
+        eq(projectKnowledgeEdges.projectId, projectId),
+        eq(projectKnowledgeEdges.isActive, true)
+      ));
+  }
+
+  async getNodeConnections(nodeId: string): Promise<{ incoming: ProjectKnowledgeEdge[]; outgoing: ProjectKnowledgeEdge[] }> {
+    const incoming = await db.select().from(projectKnowledgeEdges)
+      .where(and(eq(projectKnowledgeEdges.targetNodeId, nodeId), eq(projectKnowledgeEdges.isActive, true)));
+    const outgoing = await db.select().from(projectKnowledgeEdges)
+      .where(and(eq(projectKnowledgeEdges.sourceNodeId, nodeId), eq(projectKnowledgeEdges.isActive, true)));
+    return { incoming, outgoing };
+  }
+
+  // Event Log
+  async createEventLog(data: InsertProjectEventLog): Promise<ProjectEventLog> {
+    const [created] = await db.insert(projectEventLog).values(data as any).returning();
+    return created;
+  }
+
+  async getProjectEventLog(projectId: string, limit = 50): Promise<ProjectEventLog[]> {
+    return db.select().from(projectEventLog)
+      .where(eq(projectEventLog.projectId, projectId))
+      .orderBy(desc(projectEventLog.createdAt))
+      .limit(limit);
+  }
+
+  async rollbackEvent(eventId: string, userId: string): Promise<ProjectEventLog | undefined> {
+    const [updated] = await db.update(projectEventLog)
+      .set({ rolledBackAt: new Date(), rolledBackBy: userId })
+      .where(eq(projectEventLog.id, eventId))
+      .returning();
+    return updated;
+  }
+
+  // Architecture Patterns
+  async createArchitecturePattern(data: InsertArchitecturePattern): Promise<ArchitecturePattern> {
+    const [created] = await db.insert(architecturePatterns).values(data as any).returning();
+    return created;
+  }
+
+  async getProjectPatterns(projectId: string, antiPatternsOnly = false): Promise<ArchitecturePattern[]> {
+    const conditions = [eq(architecturePatterns.projectId, projectId)];
+    if (antiPatternsOnly) conditions.push(eq(architecturePatterns.isAntiPattern, true));
+    
+    return db.select().from(architecturePatterns)
+      .where(and(...conditions))
+      .orderBy(desc(architecturePatterns.createdAt));
+  }
+
+  async updateArchitecturePattern(id: string, data: Partial<InsertArchitecturePattern>): Promise<ArchitecturePattern | undefined> {
+    const [updated] = await db.update(architecturePatterns)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where(eq(architecturePatterns.id, id))
+      .returning();
+    return updated;
+  }
+
+  async acknowledgePattern(id: string): Promise<ArchitecturePattern | undefined> {
+    return this.updateArchitecturePattern(id, { status: 'acknowledged' });
+  }
+
+  async resolvePattern(id: string): Promise<ArchitecturePattern | undefined> {
+    return this.updateArchitecturePattern(id, { status: 'resolved', resolvedAt: new Date() });
   }
 
   // Seed WebNova as the first platform - تهيئة WebNova كأول منصة
