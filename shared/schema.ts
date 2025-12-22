@@ -8106,6 +8106,110 @@ export const insertRemediationActionSchema = createInsertSchema(remediationActio
 export type InsertRemediationAction = z.infer<typeof insertRemediationActionSchema>;
 export type RemediationAction = typeof remediationActions.$inferSelect;
 
+// ==================== SOVEREIGN COMPLIANCE DOMAINS (مجالات الامتثال السيادي) ====================
+
+// 8 Compliance Domains based on international standards
+export const complianceDomainCodes = [
+  'cybersecurity',        // الأمن السيبراني - ISO 27001, NIST, CIS
+  'data_protection',      // حماية البيانات - GDPR, ISO 27701, OECD
+  'digital_sovereignty',  // السيادة الرقمية - EU Digital Sovereignty, Data Residency
+  'business_continuity',  // استمرارية الأعمال - ISO 22301, NIST SP 800-34
+  'digital_governance',   // الحوكمة الرقمية - COBIT 2019, ISO 38500
+  'ai_compliance',        // امتثال الذكاء الاصطناعي - EU AI Act, OECD AI, ISO 23894
+  'digital_safety',       // السلامة الرقمية - ISO 27032, Online Safety
+  'infrastructure_ops',   // التشغيل والبنية - ITIL 4, ISO 20000
+] as const;
+export type ComplianceDomainCode = typeof complianceDomainCodes[number];
+
+export const sovereignComplianceDomains = pgTable("sovereign_compliance_domains", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  code: text("code").notNull().unique(), // cybersecurity, data_protection, etc.
+  
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  
+  icon: text("icon").notNull(), // Lucide icon name
+  color: text("color").notNull().default("blue"), // For UI styling
+  
+  standards: jsonb("standards").$type<string[]>().default([]), // ISO 27001, GDPR, etc.
+  
+  complianceScore: integer("compliance_score").notNull().default(0), // 0-100
+  previousScore: integer("previous_score"),
+  trend: text("trend").notNull().default("stable"), // up, down, stable
+  
+  status: text("status").notNull().default("partial"), // excellent, good, partial, poor, critical
+  
+  totalIndicators: integer("total_indicators").notNull().default(0),
+  passedIndicators: integer("passed_indicators").notNull().default(0),
+  failedIndicators: integer("failed_indicators").notNull().default(0),
+  pendingIndicators: integer("pending_indicators").notNull().default(0),
+  
+  lastAssessedAt: timestamp("last_assessed_at"),
+  nextAssessmentDue: timestamp("next_assessment_due"),
+  
+  isActive: boolean("is_active").notNull().default(true),
+  displayOrder: integer("display_order").notNull().default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_compliance_domain_code").on(table.code),
+  index("IDX_compliance_domain_status").on(table.status),
+]);
+
+export const insertSovereignComplianceDomainSchema = createInsertSchema(sovereignComplianceDomains).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSovereignComplianceDomain = z.infer<typeof insertSovereignComplianceDomainSchema>;
+export type SovereignComplianceDomain = typeof sovereignComplianceDomains.$inferSelect;
+
+export const complianceIndicators = pgTable("compliance_indicators", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  domainId: varchar("domain_id").references(() => sovereignComplianceDomains.id).notNull(),
+  
+  code: text("code").notNull(),
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  
+  standard: text("standard"), // Which standard this indicator is from
+  standardSection: text("standard_section"), // e.g., "ISO 27001 A.5.1"
+  
+  status: text("status").notNull().default("pending"), // passed, failed, pending, not_applicable
+  score: integer("score").notNull().default(0), // 0-100
+  
+  evidence: text("evidence"),
+  evidenceAr: text("evidence_ar"),
+  
+  assessedAt: timestamp("assessed_at"),
+  assessedBy: varchar("assessed_by"),
+  
+  weight: integer("weight").notNull().default(1), // Weight for scoring
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_indicator_domain").on(table.domainId),
+  index("IDX_indicator_status").on(table.status),
+]);
+
+export const insertComplianceIndicatorSchema = createInsertSchema(complianceIndicators).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertComplianceIndicator = z.infer<typeof insertComplianceIndicatorSchema>;
+export type ComplianceIndicator = typeof complianceIndicators.$inferSelect;
+
 // ==================== INTELLIGENT FORECASTING SYSTEM (نظام التنبؤ الذكي) ====================
 
 // Forecast types
