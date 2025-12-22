@@ -4,6 +4,7 @@ import {
   Home, 
   FolderOpen, 
   LayoutTemplate, 
+  LayoutDashboard,
   Settings, 
   Plus, 
   LogIn, 
@@ -48,6 +49,7 @@ import {
   Package,
   Trash2,
   Code,
+  MessageSquare,
 } from "lucide-react";
 import {
   Sidebar,
@@ -471,6 +473,22 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                       <Link href="/owner/quality" data-testid="nav-owner-quality">
                         <Scale className="h-4 w-4 text-green-500" />
                         <span>{language === "ar" ? "ضمان الجودة" : "Quality Assurance"}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location === "/owner/sidebar-manager"}>
+                      <Link href="/owner/sidebar-manager" data-testid="nav-sidebar-manager">
+                        <LayoutDashboard className="h-4 w-4 text-cyan-500" />
+                        <span>{language === "ar" ? "إدارة الصفحات" : "Sidebar Manager"}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location === "/sovereign-chat"}>
+                      <Link href="/sovereign-chat" data-testid="nav-sovereign-chat">
+                        <MessageSquare className="h-4 w-4 text-violet-500" />
+                        <span>{language === "ar" ? "المساعدون السياديون" : "Sovereign Chat"}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

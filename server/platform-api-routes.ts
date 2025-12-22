@@ -2280,6 +2280,280 @@ router.post('/quality/analyze', requireAuth, async (req: Request, res: Response)
   }
 });
 
+// ==================== SIDEBAR CONTROLLER ROUTES ====================
+
+/**
+ * GET /api/platform/sidebar/config
+ * Get sidebar configuration
+ */
+router.get('/sidebar/config', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sidebarController } = await import('@shared/core/kernel/sidebar-controller');
+    const config = sidebarController.getDefaultConfig();
+    res.json(config);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/platform/sidebar/configs
+ * Get all sidebar configurations
+ */
+router.get('/sidebar/configs', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sidebarController } = await import('@shared/core/kernel/sidebar-controller');
+    const configs = sidebarController.getAllConfigs();
+    res.json({ configs });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/platform/sidebar/user-pages
+ * Get pages for current user based on their role
+ */
+router.get('/sidebar/user-pages', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sidebarController } = await import('@shared/core/kernel/sidebar-controller');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    const user = await storage.getUser(userId);
+    const userRole = user?.role || 'free';
+    const pages = sidebarController.getUserPages(userId, userRole);
+    res.json({ pages });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/sidebar/config
+ * Create new sidebar configuration (Owner only)
+ */
+router.post('/sidebar/config', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    const user = await storage.getUser(userId);
+    if (user?.role !== 'owner') {
+      return res.status(403).json({ error: 'Owner access required' });
+    }
+    
+    const { sidebarController } = await import('@shared/core/kernel/sidebar-controller');
+    const { name, description, pages } = req.body;
+    const config = sidebarController.createConfig(name, description, pages, userId);
+    res.json(config);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * PATCH /api/platform/sidebar/config/:id
+ * Update sidebar configuration (Owner only)
+ */
+router.patch('/sidebar/config/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    const user = await storage.getUser(userId);
+    if (user?.role !== 'owner') {
+      return res.status(403).json({ error: 'Owner access required' });
+    }
+    
+    const { sidebarController } = await import('@shared/core/kernel/sidebar-controller');
+    const config = sidebarController.updateConfig(req.params.id, req.body);
+    if (!config) {
+      return res.status(404).json({ error: 'Configuration not found' });
+    }
+    res.json(config);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * PATCH /api/platform/sidebar/page-visibility
+ * Set page visibility (Owner only)
+ */
+router.patch('/sidebar/page-visibility', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    const user = await storage.getUser(userId);
+    if (user?.role !== 'owner') {
+      return res.status(403).json({ error: 'Owner access required' });
+    }
+    
+    const { sidebarController } = await import('@shared/core/kernel/sidebar-controller');
+    const { configId, pageId, isVisible } = req.body;
+    sidebarController.setPageVisibility(configId || 'default', pageId, isVisible);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/sidebar/reorder
+ * Reorder pages (Owner only)
+ */
+router.post('/sidebar/reorder', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    const user = await storage.getUser(userId);
+    if (user?.role !== 'owner') {
+      return res.status(403).json({ error: 'Owner access required' });
+    }
+    
+    const { sidebarController } = await import('@shared/core/kernel/sidebar-controller');
+    const { configId, pageIds } = req.body;
+    sidebarController.reorderPages(configId || 'default', pageIds);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/sidebar/reset
+ * Reset configuration to default (Owner only)
+ */
+router.post('/sidebar/reset', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    const user = await storage.getUser(userId);
+    if (user?.role !== 'owner') {
+      return res.status(403).json({ error: 'Owner access required' });
+    }
+    
+    const { sidebarController } = await import('@shared/core/kernel/sidebar-controller');
+    const { configId } = req.body;
+    const config = sidebarController.resetToDefault(configId || 'default');
+    res.json(config);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== SOVEREIGN ASSISTANT ENGINE ROUTES ====================
+
+/**
+ * POST /api/platform/sovereign-assistant/session
+ * Initialize a conversation session with a sovereign assistant
+ */
+router.post('/sovereign-assistant/session', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereignAssistantEngine } = await import('@shared/core/kernel/sovereign-assistant-engine');
+    const userId = req.session?.userId || (req.user as any)?.claims?.sub;
+    const { assistantId } = req.body;
+    
+    const session = sovereignAssistantEngine.initializeSession(assistantId, userId);
+    res.json(session);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/sovereign-assistant/chat
+ * Send a message to a sovereign assistant
+ */
+router.post('/sovereign-assistant/chat', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereignAssistantEngine } = await import('@shared/core/kernel/sovereign-assistant-engine');
+    const { sessionId, message, context } = req.body;
+    
+    const response = await sovereignAssistantEngine.chat(sessionId, message, context);
+    res.json(response);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/sovereign-assistant/stream
+ * Stream a response from a sovereign assistant
+ */
+router.post('/sovereign-assistant/stream', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereignAssistantEngine } = await import('@shared/core/kernel/sovereign-assistant-engine');
+    const { sessionId, message } = req.body;
+    
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    
+    const response = await sovereignAssistantEngine.streamChat(sessionId, message, (chunk) => {
+      res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
+    });
+    
+    res.write(`data: ${JSON.stringify({ done: true, ...response })}\n\n`);
+    res.end();
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/platform/sovereign-assistant/session/:id
+ * Get session details
+ */
+router.get('/sovereign-assistant/session/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereignAssistantEngine } = await import('@shared/core/kernel/sovereign-assistant-engine');
+    const session = sovereignAssistantEngine.getSession(req.params.id);
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    res.json(session);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/platform/sovereign-assistant/session/:id
+ * End a conversation session
+ */
+router.delete('/sovereign-assistant/session/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereignAssistantEngine } = await import('@shared/core/kernel/sovereign-assistant-engine');
+    sovereignAssistantEngine.endSession(req.params.id);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/platform/sovereign-assistant/configs
+ * Get all sovereign assistant configurations
+ */
+router.get('/sovereign-assistant/configs', async (req: Request, res: Response) => {
+  try {
+    const { sovereignAssistantEngine } = await import('@shared/core/kernel/sovereign-assistant-engine');
+    const configs = sovereignAssistantEngine.getAllAssistantConfigs();
+    res.json({ configs });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/sovereign-assistant/execute-action
+ * Execute a pending action from an assistant
+ */
+router.post('/sovereign-assistant/execute-action', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { sovereignAssistantEngine } = await import('@shared/core/kernel/sovereign-assistant-engine');
+    const { sessionId, actionId } = req.body;
+    
+    const result = await sovereignAssistantEngine.executeAction(sessionId, actionId);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ==================== EXPORT ROUTER ====================
 export function registerPlatformApiRoutes(app: any) {
   app.use('/api/platform', router);
@@ -2292,6 +2566,8 @@ export function registerPlatformApiRoutes(app: any) {
   console.log('[Secure Terminal] Terminal endpoints ready at /api/platform/terminal/*');
   console.log('[Sovereignty Layer] Phase 0 endpoints ready at /api/platform/sovereignty/*');
   console.log('[Quality Assurance] Quality endpoints ready at /api/platform/quality/*');
+  console.log('[Sidebar Controller] Sidebar endpoints ready at /api/platform/sidebar/*');
+  console.log('[Sovereign Assistants] Chat endpoints ready at /api/platform/sovereign-assistant/*');
 }
 
 export default router;

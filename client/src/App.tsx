@@ -73,6 +73,8 @@ import DeletionManagement from "@/pages/deletion-management";
 import ISDSPage from "@/pages/isds";
 import SpomPage from "@/pages/owner/spom";
 import QualityDashboard from "@/pages/quality-dashboard";
+import SidebarManager from "@/pages/sidebar-manager";
+import SovereignChat from "@/pages/sovereign-chat";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 
@@ -140,6 +142,8 @@ function Router() {
       <Route path="/owner/isds" component={ISDSPage} />
       <Route path="/owner/spom" component={SpomPage} />
       <Route path="/owner/quality" component={QualityDashboard} />
+      <Route path="/owner/sidebar-manager" component={SidebarManager} />
+      <Route path="/sovereign-chat" component={SovereignChat} />
       <Route path="/preview/:shareCode" component={Preview} />
       <Route component={NotFound} />
     </Switch>
