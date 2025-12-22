@@ -137,33 +137,45 @@ const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
 };
 
 // Sovereign middleware - requires sovereign or owner role (including ROOT_OWNER)
+// ALWAYS revalidates role from database to prevent privilege escalation via stale sessions
 const requireSovereign = async (req: Request, res: Response, next: NextFunction) => {
-  // Try to get user from session
-  let user = req.session?.user;
+  let userId: string | undefined;
   
-  // If no user object but userId exists, hydrate from storage
-  if (!user && req.session?.userId) {
-    const dbUser = await storage.getUser(req.session.userId);
-    if (dbUser) {
-      const { password: _, ...userWithoutPassword } = dbUser;
-      req.session.user = userWithoutPassword as any;
-      user = userWithoutPassword as any;
-    }
-  }
-  
-  // Also check Replit Auth user
-  if (!user && req.isAuthenticated && req.isAuthenticated() && req.user) {
+  // Get userId from session or Replit Auth
+  if (req.session?.userId) {
+    userId = req.session.userId;
+  } else if (req.isAuthenticated && req.isAuthenticated() && req.user) {
     const replitUser = req.user as any;
-    const userId = replitUser.claims?.sub;
-    if (userId) {
-      const dbUser = await storage.getUser(userId);
-      if (dbUser) {
-        const { password: _, ...userWithoutPassword } = dbUser;
-        req.session.user = userWithoutPassword as any;
-        user = userWithoutPassword as any;
-      }
-    }
+    userId = replitUser.claims?.sub;
   }
+  
+  if (!userId) {
+    return res.status(401).json({ 
+      error: "يجب تسجيل الدخول أولاً / Authentication required" 
+    });
+  }
+  
+  // ALWAYS fetch fresh user data from storage to revalidate role
+  const dbUser = await storage.getUser(userId);
+  if (!dbUser) {
+    // User no longer exists - invalidate session
+    req.session.destroy(() => {});
+    return res.status(401).json({ 
+      error: "جلسة غير صالحة / Invalid session" 
+    });
+  }
+  
+  // Check user status
+  if (dbUser.status === 'BANNED' || dbUser.status === 'SUSPENDED' || dbUser.status === 'DEACTIVATED') {
+    return res.status(403).json({ 
+      error: "الحساب معطل / Account is disabled" 
+    });
+  }
+  
+  // Update session with fresh data
+  const { password: _, ...userWithoutPassword } = dbUser;
+  req.session.user = userWithoutPassword as any;
+  const user = userWithoutPassword;
   
   if (!user) {
     return res.status(401).json({ error: "غير مصرح / Unauthorized" });
@@ -178,39 +190,40 @@ const requireSovereign = async (req: Request, res: Response, next: NextFunction)
 };
 
 // Owner middleware - requires ROOT_OWNER (owner role) only
+// ALWAYS revalidates role from database to prevent privilege escalation via stale sessions
 const requireOwner = async (req: Request, res: Response, next: NextFunction) => {
-  // Try to get user from session
-  let user = req.session?.user;
+  let userId: string | undefined;
   
-  // If no user object but userId exists, hydrate from storage
-  if (!user && req.session?.userId) {
-    const dbUser = await storage.getUser(req.session.userId);
-    if (dbUser) {
-      const { password: _, ...userWithoutPassword } = dbUser;
-      req.session.user = userWithoutPassword as any;
-      user = userWithoutPassword as any;
-    }
-  }
-  
-  // Also check Replit Auth user
-  if (!user && req.isAuthenticated && req.isAuthenticated() && req.user) {
+  // Get userId from session or Replit Auth
+  if (req.session?.userId) {
+    userId = req.session.userId;
+  } else if (req.isAuthenticated && req.isAuthenticated() && req.user) {
     const replitUser = req.user as any;
-    const userId = replitUser.claims?.sub;
-    if (userId) {
-      const dbUser = await storage.getUser(userId);
-      if (dbUser) {
-        const { password: _, ...userWithoutPassword } = dbUser;
-        req.session.user = userWithoutPassword as any;
-        user = userWithoutPassword as any;
-      }
-    }
+    userId = replitUser.claims?.sub;
   }
   
-  if (!user) {
+  if (!userId) {
     return res.status(401).json({ error: "غير مصرح / Unauthorized" });
   }
   
-  if (!isRootOwner(user.role)) {
+  // ALWAYS fetch fresh user data from storage to revalidate role
+  const dbUser = await storage.getUser(userId);
+  if (!dbUser) {
+    // User no longer exists - invalidate session
+    req.session.destroy(() => {});
+    return res.status(401).json({ error: "جلسة غير صالحة / Invalid session" });
+  }
+  
+  // Check user status
+  if (dbUser.status === 'BANNED' || dbUser.status === 'SUSPENDED' || dbUser.status === 'DEACTIVATED') {
+    return res.status(403).json({ error: "الحساب معطل / Account is disabled" });
+  }
+  
+  // Update session with fresh data
+  const { password: _, ...userWithoutPassword } = dbUser;
+  req.session.user = userWithoutPassword as any;
+  
+  if (!isRootOwner(dbUser.role)) {
     return res.status(403).json({ 
       error: "صلاحيات المالك مطلوبة / Owner access required",
       errorAr: "صلاحيات المالك مطلوبة"
