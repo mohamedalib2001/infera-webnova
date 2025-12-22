@@ -212,12 +212,29 @@ const appTemplates = [
   { id: "terminal", name: "Terminal App", nameAr: "تطبيق طرفية", icon: Terminal, color: "#06b6d4" },
 ];
 
+interface AppProject {
+  id: string;
+  name: string;
+  description: string | null;
+  type: string;
+  platform: string;
+  framework: string;
+  primaryColor: string | null;
+  features: Record<string, boolean> | null;
+  status: string;
+  buildProgress: number | null;
+  aiGeneratedSpecs: unknown | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export default function DesktopAppBuilder() {
   const { language } = useLanguage();
   const t = translations[language];
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("overview");
-  const [isCreating, setIsCreating] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<AppProject | null>(null);
+  const [aiPrompt, setAiPrompt] = useState("");
   
   const [newApp, setNewApp] = useState({
     name: "",
@@ -241,23 +258,27 @@ export default function DesktopAppBuilder() {
     primaryColor: "#6366f1"
   });
 
-  const handleCreate = async () => {
-    if (!newApp.name.trim()) {
-      toast({ 
-        title: language === "ar" ? "يرجى إدخال اسم التطبيق" : "Please enter app name",
-        variant: "destructive" 
+  const { data: projects = [], isLoading: isLoadingProjects } = useQuery<AppProject[]>({
+    queryKey: ['/api/app-projects', 'desktop']
+  });
+
+  const desktopProjects = projects.filter(p => p.type === 'desktop');
+
+  const createMutation = useMutation({
+    mutationFn: async (data: typeof newApp) => {
+      const res = await apiRequest('POST', '/api/app-projects', {
+        ...data,
+        type: 'desktop'
       });
-      return;
-    }
-    
-    setIsCreating(true);
-    
-    setTimeout(() => {
-      setIsCreating(false);
+      return res.json();
+    },
+    onSuccess: (project) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/app-projects'] });
       toast({ 
         title: language === "ar" ? "تم إنشاء التطبيق بنجاح!" : "App created successfully!",
         description: language === "ar" ? "يمكنك الآن البدء في التطوير" : "You can now start developing"
       });
+      setSelectedProject(project);
       setNewApp({
         name: "",
         description: "",
@@ -279,7 +300,92 @@ export default function DesktopAppBuilder() {
         },
         primaryColor: "#6366f1"
       });
-    }, 2000);
+    },
+    onError: () => {
+      toast({ 
+        title: language === "ar" ? "فشل إنشاء التطبيق" : "Failed to create app",
+        variant: "destructive" 
+      });
+    }
+  });
+
+  const generateAIMutation = useMutation({
+    mutationFn: async ({ projectId, prompt, generationType }: { projectId: string; prompt: string; generationType: string }) => {
+      const res = await apiRequest('POST', `/api/app-projects/${projectId}/generate`, {
+        prompt,
+        generationType
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/app-projects'] });
+      toast({ 
+        title: language === "ar" ? "تم التوليد بنجاح!" : "Generation complete!",
+        description: language === "ar" ? `تم استخدام ${data.tokensUsed} توكن` : `Used ${data.tokensUsed} tokens`
+      });
+      setAiPrompt("");
+    },
+    onError: () => {
+      toast({ 
+        title: language === "ar" ? "فشل التوليد بالذكاء الاصطناعي" : "AI generation failed",
+        variant: "destructive" 
+      });
+    }
+  });
+
+  const buildMutation = useMutation({
+    mutationFn: async ({ projectId, platform }: { projectId: string; platform: string }) => {
+      const res = await apiRequest('POST', `/api/app-projects/${projectId}/build`, { platform });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/app-projects'] });
+      toast({ 
+        title: language === "ar" ? "بدأ البناء!" : "Build started!",
+        description: language === "ar" ? "سيتم إشعارك عند الانتهاء" : "You'll be notified when complete"
+      });
+    }
+  });
+
+  const handleCreate = async () => {
+    if (!newApp.name.trim()) {
+      toast({ 
+        title: language === "ar" ? "يرجى إدخال اسم التطبيق" : "Please enter app name",
+        variant: "destructive" 
+      });
+      return;
+    }
+    createMutation.mutate(newApp);
+  };
+
+  const handleGenerateUI = () => {
+    if (!selectedProject) {
+      toast({ title: language === "ar" ? "اختر مشروعاً أولاً" : "Select a project first", variant: "destructive" });
+      return;
+    }
+    generateAIMutation.mutate({
+      projectId: selectedProject.id,
+      prompt: aiPrompt || `Generate a complete desktop UI design for ${selectedProject.name}`,
+      generationType: 'ui'
+    });
+  };
+
+  const handleOptimize = () => {
+    if (!selectedProject) return;
+    generateAIMutation.mutate({
+      projectId: selectedProject.id,
+      prompt: "Optimize the desktop app for better performance",
+      generationType: 'optimize'
+    });
+  };
+
+  const handleSecurityScan = () => {
+    if (!selectedProject) return;
+    generateAIMutation.mutate({
+      projectId: selectedProject.id,
+      prompt: "Perform a security analysis and suggest improvements",
+      generationType: 'security'
+    });
   };
 
   return (
@@ -401,10 +507,10 @@ export default function DesktopAppBuilder() {
                   <Button 
                     className="w-full gap-2" 
                     onClick={handleCreate}
-                    disabled={isCreating}
+                    disabled={createMutation.isPending}
                     data-testid="button-create-app"
                   >
-                    {isCreating ? (
+                    {createMutation.isPending ? (
                       <>
                         <RefreshCw className="h-4 w-4 animate-spin" />
                         {t.creating}
@@ -430,21 +536,121 @@ export default function DesktopAppBuilder() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Button variant="outline" className="w-full justify-start gap-2" data-testid="button-generate-ui">
-                    <Sparkles className="h-4 w-4 text-yellow-500" />
+                  <div className="space-y-2">
+                    <Textarea
+                      placeholder={language === "ar" ? "صف ما تريد أن يولده الذكاء الاصطناعي..." : "Describe what you want AI to generate..."}
+                      value={aiPrompt}
+                      onChange={(e) => setAiPrompt(e.target.value)}
+                      className="min-h-[80px]"
+                      data-testid="input-ai-prompt"
+                    />
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start gap-2" 
+                    onClick={handleGenerateUI}
+                    disabled={generateAIMutation.isPending || !selectedProject}
+                    data-testid="button-generate-ui"
+                  >
+                    {generateAIMutation.isPending ? (
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4 text-yellow-500" />
+                    )}
                     {t.generateUI}
                   </Button>
-                  <Button variant="outline" className="w-full justify-start gap-2" data-testid="button-optimize">
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start gap-2" 
+                    onClick={handleOptimize}
+                    disabled={generateAIMutation.isPending || !selectedProject}
+                    data-testid="button-optimize"
+                  >
                     <Zap className="h-4 w-4 text-orange-500" />
                     {t.optimizePerformance}
                   </Button>
-                  <Button variant="outline" className="w-full justify-start gap-2" data-testid="button-security">
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start gap-2" 
+                    onClick={handleSecurityScan}
+                    disabled={generateAIMutation.isPending || !selectedProject}
+                    data-testid="button-security"
+                  >
                     <Shield className="h-4 w-4 text-green-500" />
                     {t.securityScan}
                   </Button>
+                  {!selectedProject && (
+                    <p className="text-xs text-muted-foreground text-center">
+                      {language === "ar" ? "أنشئ مشروعاً أولاً لاستخدام الذكاء الاصطناعي" : "Create a project first to use AI features"}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Monitor className="h-5 w-5" />
+                  {t.myApps}
+                </CardTitle>
+                <CardDescription>
+                  {language === "ar" ? "مشاريعك المحفوظة" : "Your saved projects"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingProjects ? (
+                  <div className="flex items-center justify-center p-8">
+                    <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : desktopProjects.length === 0 ? (
+                  <div className="text-center p-8 text-muted-foreground">
+                    <Monitor className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>{t.noApps}</p>
+                    <p className="text-sm">{t.startBuilding}</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {desktopProjects.map((project) => (
+                      <Card 
+                        key={project.id} 
+                        className={`cursor-pointer hover-elevate ${selectedProject?.id === project.id ? 'ring-2 ring-primary' : ''}`}
+                        onClick={() => setSelectedProject(project)}
+                        data-testid={`project-${project.id}`}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-3">
+                            <div 
+                              className="p-2 rounded-lg" 
+                              style={{ backgroundColor: `${project.primaryColor || '#6366f1'}20` }}
+                            >
+                              <Monitor className="h-5 w-5" style={{ color: project.primaryColor || '#6366f1' }} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium truncate">{project.name}</p>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-xs">
+                                  {project.framework}
+                                </Badge>
+                                <Badge 
+                                  variant={project.status === 'ready' ? 'default' : 'secondary'}
+                                  className="text-xs"
+                                >
+                                  {t.status[project.status as keyof typeof t.status] || project.status}
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                          {project.buildProgress !== null && project.buildProgress > 0 && project.buildProgress < 100 && (
+                            <Progress value={project.buildProgress} className="mt-2" />
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             <Card>
               <CardHeader>
@@ -459,6 +665,7 @@ export default function DesktopAppBuilder() {
                     <Card 
                       key={template.id} 
                       className="cursor-pointer hover-elevate"
+                      onClick={() => setNewApp({ ...newApp, name: language === "ar" ? template.nameAr : template.name })}
                       data-testid={`template-${template.id}`}
                     >
                       <CardContent className="p-4">
