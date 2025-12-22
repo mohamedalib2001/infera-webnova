@@ -10137,16 +10137,20 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
     }).optional(),
   });
 
-  // Analyze page with Claude AI
-  app.post("/api/sovereign/analyze-page", requireAuth, async (req, res) => {
+  // Analyze page with Claude AI - accessible to all users, AI analysis only for owner/sovereign
+  app.post("/api/sovereign/analyze-page", async (req, res) => {
     try {
-      const user = await storage.getUser(req.session.userId!);
-      if (!user || (user.role !== 'owner' && user.role !== 'sovereign')) {
-        return res.status(403).json({ error: "Sovereign access required / مطلوب صلاحية سيادية" });
-      }
+      const userId = req.session?.userId;
+      const user = userId ? await storage.getUser(userId) : null;
+      const isSovereign = user && (user.role === 'owner' || user.role === 'sovereign');
 
       const validatedData = sovereignIndicatorSchema.parse(req.body);
       const { pathname, services = [], pageMetrics = {} } = validatedData;
+      
+      // Use algorithmic analysis for non-sovereign users (works for all)
+      if (!isSovereign) {
+        return res.json(generateAlgorithmicAnalysis(pathname, services, pageMetrics));
+      }
 
       // Import Anthropic client
       const { getAnthropicClientAsync, DEFAULT_ANTHROPIC_MODEL } = await import("./ai-config");
@@ -10247,6 +10251,12 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
         { name: 'Real-time Notifications', nameAr: 'الإشعارات الفورية', type: 'automation' },
         { name: 'Sovereign Security', nameAr: 'الأمان السيادي', type: 'security' },
         { name: 'Platform Orchestrator', nameAr: 'منسق المنصات', type: 'ai' },
+        { name: 'Real-time Analytics', nameAr: 'التحليلات الفورية', type: 'analytics' },
+        { name: 'AI Predictive Insights', nameAr: 'الرؤى التنبؤية بالذكاء الاصطناعي', type: 'ai' },
+        { name: 'Historical Data Analysis', nameAr: 'تحليل البيانات التاريخية', type: 'ai' },
+        { name: 'Anomaly Detection', nameAr: 'كشف الشذوذ', type: 'ai' },
+        { name: 'Datadog Monitoring', nameAr: 'مراقبة Datadog', type: 'monitoring' },
+        { name: 'Mixpanel Analytics', nameAr: 'تحليلات Mixpanel', type: 'analytics' },
       ],
       '/builder': [
         { name: 'Code Editor', nameAr: 'محرر الكود', type: 'core' },
@@ -10280,6 +10290,7 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
       'collaboration': { speed: 80, integration: 85, response: 90 },
       'infrastructure': { speed: 78, integration: 88, response: 75 },
       'analytics': { speed: 85, integration: 82, response: 78 },
+      'monitoring': { speed: 90, integration: 94, response: 92 },
     };
 
     const analyzedServices = pageServices.map((service: any, idx: number) => {

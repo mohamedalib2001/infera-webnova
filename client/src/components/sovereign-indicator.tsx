@@ -348,7 +348,7 @@ const pageServicesMap: Record<string, { name: string; nameAr: string; type: stri
     { name: 'AI Predictive Insights', nameAr: 'الرؤى التنبؤية بالذكاء الاصطناعي', type: 'ai' },
     { name: 'Historical Data Analysis', nameAr: 'تحليل البيانات التاريخية', type: 'ai' },
     { name: 'Anomaly Detection', nameAr: 'كشف الشذوذ', type: 'ai' },
-    { name: 'Datadog Monitoring', nameAr: 'مراقبة Datadog', type: 'analytics' },
+    { name: 'Datadog Monitoring', nameAr: 'مراقبة Datadog', type: 'monitoring' },
     { name: 'Mixpanel Analytics', nameAr: 'تحليلات Mixpanel', type: 'analytics' },
   ],
   '/builder': [
@@ -423,7 +423,7 @@ const pageServicesMap: Record<string, { name: string; nameAr: string; type: stri
     { name: 'AI Predictive Insights', nameAr: 'الرؤى التنبؤية بالذكاء الاصطناعي', type: 'ai' },
     { name: 'Historical Data Analysis', nameAr: 'تحليل البيانات التاريخية', type: 'ai' },
     { name: 'Anomaly Detection', nameAr: 'كشف الشذوذ', type: 'ai' },
-    { name: 'Datadog Monitoring', nameAr: 'مراقبة Datadog', type: 'analytics' },
+    { name: 'Datadog Monitoring', nameAr: 'مراقبة Datadog', type: 'monitoring' },
     { name: 'Mixpanel Analytics', nameAr: 'تحليلات Mixpanel', type: 'analytics' },
   ],
   '/ide': [
@@ -439,7 +439,7 @@ const pageServicesMap: Record<string, { name: string; nameAr: string; type: stri
     { name: 'AI Predictive Insights', nameAr: 'الرؤى التنبؤية بالذكاء الاصطناعي', type: 'ai' },
     { name: 'Historical Data Analysis', nameAr: 'تحليل البيانات التاريخية', type: 'ai' },
     { name: 'Anomaly Detection', nameAr: 'كشف الشذوذ', type: 'ai' },
-    { name: 'Datadog Monitoring', nameAr: 'مراقبة Datadog', type: 'analytics' },
+    { name: 'Datadog Monitoring', nameAr: 'مراقبة Datadog', type: 'monitoring' },
     { name: 'Mixpanel Analytics', nameAr: 'تحليلات Mixpanel', type: 'analytics' },
     { name: 'Code Editor AI', nameAr: 'محرر الكود الذكي', type: 'ai' },
     { name: 'Live Preview Engine', nameAr: 'محرك المعاينة المباشرة', type: 'core' },
@@ -455,6 +455,7 @@ const typeScores: Record<string, { speed: number; integration: number; response:
   'collaboration': { speed: 80, integration: 85, response: 90, baseScore: 80 },
   'infrastructure': { speed: 78, integration: 88, response: 75, baseScore: 76 },
   'analytics': { speed: 85, integration: 82, response: 78, baseScore: 80 },
+  'monitoring': { speed: 90, integration: 94, response: 92, baseScore: 92 },
 };
 
 // Smart analysis algorithm - DETERMINISTIC (no Math.random)
@@ -682,6 +683,9 @@ function analyzePageIntelligently(pathname: string, _startTime: number): FullAna
       impact: 5,
     });
   }
+  
+  // Check for monitoring services
+  const hasMonitoringServices = services.some(s => s.type === 'monitoring');
   
   // Performance issues -> legacy system upgrade needed
   if (pageAnalysis.loadTime > 2000) {
@@ -988,35 +992,37 @@ function analyzePageIntelligently(pathname: string, _startTime: number): FullAna
     });
   }
   
-  // Monitoring & Observability
-  cuttingEdgeTools.push({
-    id: 'datadog-observability',
-    name: 'Datadog Full-Stack Observability',
-    nameAr: 'Datadog للمراقبة الشاملة',
-    category: 'monitoring',
-    description: 'Unified monitoring, APM, and log management platform',
-    descriptionAr: 'منصة موحدة للمراقبة وإدارة أداء التطبيقات والسجلات',
-    vendor: 'Datadog',
-    releaseYear: 2024,
-    adoptionRate: '76% of cloud-native companies',
-    impact: 7,
-    benefits: [
-      { en: 'Real-time performance monitoring', ar: 'مراقبة الأداء في الوقت الفعلي' },
-      { en: 'AI-powered anomaly detection', ar: 'اكتشاف الشذوذ بالذكاء الاصطناعي' },
-      { en: 'Unified logs, metrics, and traces', ar: 'سجلات ومقاييس وتتبعات موحدة' },
-    ],
-    integrationSteps: [
-      { en: 'Install Datadog agent', ar: 'تثبيت وكيل Datadog' },
-      { en: 'Configure APM tracing', ar: 'تكوين تتبع APM' },
-      { en: 'Setup dashboards and alerts', ar: 'إعداد لوحات التحكم والتنبيهات' },
-    ],
-    globalStandards: ['SRE Best Practices', 'MTTD/MTTR', 'SLA Management'],
-    useCases: [
-      { en: 'Infrastructure monitoring', ar: 'مراقبة البنية التحتية' },
-      { en: 'Application performance', ar: 'أداء التطبيقات' },
-      { en: 'User experience monitoring', ar: 'مراقبة تجربة المستخدم' },
-    ],
-  });
+  // Monitoring & Observability - only recommend if no monitoring services exist
+  if (!hasMonitoringServices) {
+    cuttingEdgeTools.push({
+      id: 'datadog-observability',
+      name: 'Datadog Full-Stack Observability',
+      nameAr: 'Datadog للمراقبة الشاملة',
+      category: 'monitoring',
+      description: 'Unified monitoring, APM, and log management platform',
+      descriptionAr: 'منصة موحدة للمراقبة وإدارة أداء التطبيقات والسجلات',
+      vendor: 'Datadog',
+      releaseYear: 2024,
+      adoptionRate: '76% of cloud-native companies',
+      impact: 7,
+      benefits: [
+        { en: 'Real-time performance monitoring', ar: 'مراقبة الأداء في الوقت الفعلي' },
+        { en: 'AI-powered anomaly detection', ar: 'اكتشاف الشذوذ بالذكاء الاصطناعي' },
+        { en: 'Unified logs, metrics, and traces', ar: 'سجلات ومقاييس وتتبعات موحدة' },
+      ],
+      integrationSteps: [
+        { en: 'Install Datadog agent', ar: 'تثبيت وكيل Datadog' },
+        { en: 'Configure APM tracing', ar: 'تكوين تتبع APM' },
+        { en: 'Setup dashboards and alerts', ar: 'إعداد لوحات التحكم والتنبيهات' },
+      ],
+      globalStandards: ['SRE Best Practices', 'MTTD/MTTR', 'SLA Management'],
+      useCases: [
+        { en: 'Infrastructure monitoring', ar: 'مراقبة البنية التحتية' },
+        { en: 'Application performance', ar: 'أداء التطبيقات' },
+        { en: 'User experience monitoring', ar: 'مراقبة تجربة المستخدم' },
+      ],
+    });
+  }
   
   // Analytics & BI
   if (!hasAnalyticsServices) {
