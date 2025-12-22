@@ -3656,11 +3656,17 @@ ${project.description || ""}
         response: textContent?.text || "No response generated",
       });
     } catch (error: any) {
-      console.error("Chatbot test error:", error);
-      if (error.message?.includes("API key")) {
+      console.error("Chatbot test error:", error?.message || error);
+      if (error.message?.includes("API key") || error.message?.includes("authentication")) {
         return res.status(503).json({ error: "مفتاح API غير صالح / Invalid API key" });
       }
-      res.status(500).json({ error: "فشل في اختبار الروبوت / Failed to test chatbot" });
+      if (error.message?.includes("rate limit") || error.status === 429) {
+        return res.status(429).json({ error: "تجاوز حد الطلبات / Rate limit exceeded. Please wait and try again." });
+      }
+      res.status(500).json({ 
+        error: "فشل في اختبار الروبوت / Failed to test chatbot",
+        details: error?.message || "Unknown error"
+      });
     }
   });
 
