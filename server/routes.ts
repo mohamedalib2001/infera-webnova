@@ -10645,6 +10645,85 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
                           hasAI ? 'intelligent' :
                           hasAutomation ? 'semi-intelligent' : 'traditional';
 
+    // ==================== مؤشر ديناميكية الصفحة والجاهزية للعمل بدون كود ====================
+    // Page Dynamics & Zero-Code Readiness Index - based on real page analysis
+    // Using discrete scoring: Zero-Code = 100%, Low-Code = 60%, Code-Heavy = 20%
+    const calculatePageDynamics = () => {
+      // Content Dynamics (20%) - based on CMS-like capabilities
+      const hasContentEditing = pathname.includes('builder') || pathname.includes('editor') || pathname.includes('nova');
+      const hasMediaManagement = analyzedServices.some((s: any) => s.name.includes('Media') || s.name.includes('Upload') || s.name.includes('Vision'));
+      const hasMultiLang = analyzedServices.some((s: any) => s.nameAr && s.nameAr.length > 0);
+      // Zero-Code if has content editing, Low-Code if has media/multilang, else Code-Heavy
+      const contentLevel = hasContentEditing ? 'zero-code' : (hasMediaManagement || hasMultiLang) ? 'low-code' : 'code-heavy';
+      const contentScore = contentLevel === 'zero-code' ? 100 : contentLevel === 'low-code' ? 60 : 20;
+      
+      // UI/UX Dynamics (20%) - based on drag-drop, components, themes
+      const hasDragDrop = pathname.includes('builder') || pathname.includes('visual') || pathname.includes('nova');
+      const hasComponents = analyzedServices.length >= 3;
+      // Zero-Code if drag-drop, Low-Code if has components, else Code-Heavy
+      const uiLevel = hasDragDrop ? 'zero-code' : hasComponents ? 'low-code' : 'code-heavy';
+      const uiScore = uiLevel === 'zero-code' ? 100 : uiLevel === 'low-code' ? 60 : 20;
+      
+      // Logic & Behavior Dynamics (25%) - based on rule engines, automation
+      const hasRuleEngine = analyzedServices.some((s: any) => s.type === 'automation' || s.name.includes('Policy') || s.name.includes('Rule'));
+      const hasAILogic = hasAI;
+      // Zero-Code if has AI + automation, Low-Code if has AI or automation, else Code-Heavy
+      const logicLevel = (hasAILogic && hasRuleEngine) ? 'zero-code' : (hasAILogic || hasRuleEngine) ? 'low-code' : 'code-heavy';
+      const logicScore = logicLevel === 'zero-code' ? 100 : logicLevel === 'low-code' ? 60 : 20;
+      
+      // Integration Dynamics (20%) - based on API-first, webhooks
+      const hasAPIIntegration = analyzedServices.some((s: any) => s.type === 'infrastructure' || s.name.includes('API') || s.name.includes('Integration'));
+      const hasServiceManagement = analyzedServices.some((s: any) => s.name.includes('Provider') || s.name.includes('Gateway'));
+      // Zero-Code if has API + service management, Low-Code if has API, else Code-Heavy
+      const integrationLevel = (hasAPIIntegration && hasServiceManagement) ? 'zero-code' : hasAPIIntegration ? 'low-code' : 'code-heavy';
+      const integrationScore = integrationLevel === 'zero-code' ? 100 : integrationLevel === 'low-code' ? 60 : 20;
+      
+      // Operational Dynamics (15%) - based on governance, monitoring
+      const hasPermissions = analyzedServices.some((s: any) => s.type === 'security' || s.name.includes('Auth') || s.name.includes('Role'));
+      const hasMonitoring = analyzedServices.some((s: any) => s.type === 'monitoring' || s.name.includes('Monitor') || s.name.includes('Analytics'));
+      // Zero-Code if has permissions + monitoring, Low-Code if has permissions, else Code-Heavy
+      const operationalLevel = (hasPermissions && hasMonitoring) ? 'zero-code' : hasPermissions ? 'low-code' : 'code-heavy';
+      const operationalScore = operationalLevel === 'zero-code' ? 100 : operationalLevel === 'low-code' ? 60 : 20;
+      
+      // Calculate weighted total
+      const totalScore = Math.round(
+        (contentScore * 0.20) +
+        (uiScore * 0.20) +
+        (logicScore * 0.25) +
+        (integrationScore * 0.20) +
+        (operationalScore * 0.15)
+      );
+      
+      // Determine overall classification
+      const zeroCodeCount = [contentLevel, uiLevel, logicLevel, integrationLevel, operationalLevel]
+        .filter(l => l === 'zero-code').length;
+      const codeHeavyCount = [contentLevel, uiLevel, logicLevel, integrationLevel, operationalLevel]
+        .filter(l => l === 'code-heavy').length;
+      
+      const overallClassification = zeroCodeCount >= 4 ? 'zero-code' : 
+                                    codeHeavyCount >= 3 ? 'code-heavy' : 'low-code';
+      
+      return {
+        totalScore,
+        classification: overallClassification,
+        components: {
+          content: { score: contentScore, level: contentLevel, weight: 20 },
+          ui: { score: uiScore, level: uiLevel, weight: 20 },
+          logic: { score: logicScore, level: logicLevel, weight: 25 },
+          integration: { score: integrationScore, level: integrationLevel, weight: 20 },
+          operational: { score: operationalScore, level: operationalLevel, weight: 15 },
+        },
+        operationalSovereigntyImpact: {
+          businessContinuity: totalScore >= 80,
+          operationalIndependence: totalScore >= 75,
+          reducedExternalDependency: zeroCodeCount >= 3,
+          crisisResponseSpeed: totalScore >= 85,
+        }
+      };
+    };
+    
+    const pageDynamics = calculatePageDynamics();
+
     const techLevel = avgScore >= 92 ? 'sovereign' :
                      avgScore >= 85 ? 'advanced' :
                      avgScore >= 75 ? 'good' :
@@ -10687,6 +10766,7 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
         description: techLevel === 'sovereign' ? 'Future-ready architecture' : 'Modern architecture',
         descriptionAr: techLevel === 'sovereign' ? 'بنية مستقبلية' : 'بنية حديثة',
       },
+      pageDynamics,
       finalScore,
       statusColor,
       recommendations: !hasAI ? [{

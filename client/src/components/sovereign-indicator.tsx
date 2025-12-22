@@ -147,12 +147,38 @@ interface GapAnalysis {
   cuttingEdgeTools: CuttingEdgeTool[];
 }
 
+// Page Dynamics & Zero-Code Readiness Index
+interface PageDynamicsComponent {
+  score: number;
+  level: 'zero-code' | 'low-code' | 'code-heavy';
+  weight: number;
+}
+
+interface PageDynamics {
+  totalScore: number;
+  classification: 'zero-code' | 'low-code' | 'code-heavy';
+  components: {
+    content: PageDynamicsComponent;
+    ui: PageDynamicsComponent;
+    logic: PageDynamicsComponent;
+    integration: PageDynamicsComponent;
+    operational: PageDynamicsComponent;
+  };
+  operationalSovereigntyImpact: {
+    businessContinuity: boolean;
+    operationalIndependence: boolean;
+    reducedExternalDependency: boolean;
+    crisisResponseSpeed: boolean;
+  };
+}
+
 interface FullAnalysis {
   services: ServiceAnalysis[];
   page: PageAnalysis;
   intelligence: IntelligenceAnalysis;
   issues: IssueItem[];
   techMaturity: TechMaturity;
+  pageDynamics?: PageDynamics;
   finalScore: number;
   statusColor: 'gold' | 'green' | 'yellow' | 'orange' | 'red';
   recommendations: { en: string; ar: string }[];
@@ -245,6 +271,23 @@ const translations = {
     standards: "المعايير",
     viewDetails: "عرض التفاصيل",
     hideDetails: "إخفاء التفاصيل",
+    // Page Dynamics translations
+    pageDynamics: "ديناميكية الصفحة",
+    pageDynamicsTitle: "مؤشر ديناميكية الصفحة والجاهزية للعمل بدون كود",
+    zeroCodeReady: "جاهز بدون كود",
+    lowCodeDependent: "يعتمد على كود بسيط",
+    codeHeavy: "يعتمد على كود ثقيل",
+    contentDynamics: "ديناميكية المحتوى",
+    uiDynamics: "ديناميكية الواجهة",
+    logicDynamics: "ديناميكية المنطق",
+    integrationDynamics: "ديناميكية التكامل",
+    operationalDynamics: "ديناميكية التشغيل",
+    sovereigntyImpact: "التأثير على السيادة التشغيلية",
+    businessContinuity: "استمرارية الأعمال",
+    operationalIndependence: "الاستقلال التشغيلي",
+    reducedExternalDependency: "تقليل الاعتماد الخارجي",
+    crisisResponseSpeed: "سرعة الاستجابة للأزمات",
+    dynamicsNote: "كلما ارتفعت نسبة Zero-Code، ارتفع مستوى الاستقلال الرقمي والسيادة التشغيلية",
   },
   en: {
     title: "Sovereign Intelligence Panel",
@@ -330,6 +373,23 @@ const translations = {
     standards: "Standards",
     viewDetails: "View Details",
     hideDetails: "Hide Details",
+    // Page Dynamics translations
+    pageDynamics: "Page Dynamics",
+    pageDynamicsTitle: "Page Dynamics & Zero-Code Readiness Index",
+    zeroCodeReady: "Zero-Code Ready",
+    lowCodeDependent: "Low-Code Dependent",
+    codeHeavy: "Code-Heavy",
+    contentDynamics: "Content Dynamics",
+    uiDynamics: "UI/UX Dynamics",
+    logicDynamics: "Logic & Behavior",
+    integrationDynamics: "Integration Dynamics",
+    operationalDynamics: "Operational Dynamics",
+    sovereigntyImpact: "Operational Sovereignty Impact",
+    businessContinuity: "Business Continuity",
+    operationalIndependence: "Operational Independence",
+    reducedExternalDependency: "Reduced External Dependency",
+    crisisResponseSpeed: "Crisis Response Speed",
+    dynamicsNote: "Higher Zero-Code ratio = Higher digital independence and operational sovereignty",
   }
 };
 
@@ -1336,7 +1396,7 @@ export function SovereignIndicator() {
               </div>
             ) : analysis ? (
               <Tabs defaultValue="services" className="w-full" data-testid="sovereign-panel-tabs">
-                <TabsList className="w-full grid grid-cols-6 gap-0.5 bg-white/5 p-1 rounded-none">
+                <TabsList className="w-full grid grid-cols-7 gap-0.5 bg-white/5 p-1 rounded-none">
                   <TabsTrigger value="services" data-testid="tab-services" className="text-xs text-white/70 data-[state=active]:text-white data-[state=active]:bg-white/10">
                     <Layers className="w-3 h-3" />
                   </TabsTrigger>
@@ -1345,6 +1405,9 @@ export function SovereignIndicator() {
                   </TabsTrigger>
                   <TabsTrigger value="intelligence" data-testid="tab-intelligence" className="text-xs text-white/70 data-[state=active]:text-white data-[state=active]:bg-white/10">
                     <Brain className="w-3 h-3" />
+                  </TabsTrigger>
+                  <TabsTrigger value="dynamics" data-testid="tab-dynamics" className="text-xs text-white/70 data-[state=active]:text-white data-[state=active]:bg-emerald-500/30">
+                    <Activity className="w-3 h-3" />
                   </TabsTrigger>
                   <TabsTrigger value="issues" data-testid="tab-issues" className="text-xs text-white/70 data-[state=active]:text-white data-[state=active]:bg-white/10">
                     <AlertTriangle className="w-3 h-3" />
@@ -1491,6 +1554,123 @@ export function SovereignIndicator() {
                       </div>
                     ))}
                   </div>
+                </TabsContent>
+                
+                {/* Page Dynamics & Zero-Code Readiness Tab */}
+                <TabsContent value="dynamics" className="p-4 space-y-4" data-testid="content-dynamics">
+                  {analysis.pageDynamics ? (
+                    <>
+                      {/* Main Score Display */}
+                      <div className="text-center mb-4">
+                        <div 
+                          data-testid="text-dynamics-score"
+                          className={cn(
+                            "text-4xl font-bold",
+                            analysis.pageDynamics.totalScore >= 80 ? "text-emerald-400" :
+                            analysis.pageDynamics.totalScore >= 60 ? "text-amber-400" : "text-red-400"
+                          )}
+                        >
+                          {analysis.pageDynamics.totalScore}%
+                        </div>
+                        <Badge 
+                          data-testid="badge-dynamics-classification"
+                          className={cn(
+                            "mt-2",
+                            analysis.pageDynamics.classification === 'zero-code' 
+                              ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/50" 
+                              : analysis.pageDynamics.classification === 'low-code'
+                              ? "bg-amber-500/20 text-amber-400 border-amber-500/50"
+                              : "bg-red-500/20 text-red-400 border-red-500/50"
+                          )}
+                          variant="outline"
+                        >
+                          {analysis.pageDynamics.classification === 'zero-code' ? t.zeroCodeReady :
+                           analysis.pageDynamics.classification === 'low-code' ? t.lowCodeDependent :
+                           t.codeHeavy}
+                        </Badge>
+                      </div>
+                      
+                      {/* Components Breakdown */}
+                      <div className="space-y-3">
+                        {[
+                          { key: 'content', label: t.contentDynamics, data: analysis.pageDynamics.components.content },
+                          { key: 'ui', label: t.uiDynamics, data: analysis.pageDynamics.components.ui },
+                          { key: 'logic', label: t.logicDynamics, data: analysis.pageDynamics.components.logic },
+                          { key: 'integration', label: t.integrationDynamics, data: analysis.pageDynamics.components.integration },
+                          { key: 'operational', label: t.operationalDynamics, data: analysis.pageDynamics.components.operational },
+                        ].map((item, idx) => (
+                          <div key={idx} data-testid={`dynamics-${item.key}`} className="p-3 rounded-lg bg-white/5 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-white/80 text-sm">{item.label}</span>
+                              <div className="flex items-center gap-2">
+                                <Badge 
+                                  variant="outline" 
+                                  className={cn(
+                                    "text-xs",
+                                    item.data.level === 'zero-code' 
+                                      ? "border-emerald-500/50 text-emerald-400" 
+                                      : item.data.level === 'low-code'
+                                      ? "border-amber-500/50 text-amber-400"
+                                      : "border-red-500/50 text-red-400"
+                                  )}
+                                >
+                                  {item.data.level === 'zero-code' ? t.zeroCodeReady :
+                                   item.data.level === 'low-code' ? t.lowCodeDependent : t.codeHeavy}
+                                </Badge>
+                                <span className="text-white/60 text-xs">{item.data.weight}%</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Progress 
+                                value={item.data.score} 
+                                className={cn(
+                                  "h-1.5 flex-1",
+                                  item.data.level === 'zero-code' ? "[&>div]:bg-emerald-500" :
+                                  item.data.level === 'low-code' ? "[&>div]:bg-amber-500" : "[&>div]:bg-red-500"
+                                )}
+                              />
+                              <span className="text-white/70 text-xs w-10 text-right">{item.data.score}%</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* Sovereignty Impact */}
+                      <div className="mt-4 p-3 rounded-lg bg-gradient-to-r from-purple-500/20 to-indigo-500/20 border border-purple-500/30">
+                        <h4 className="text-white/90 text-sm font-medium mb-3 flex items-center gap-2">
+                          <Shield className="w-4 h-4 text-purple-400" />
+                          {t.sovereigntyImpact}
+                        </h4>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { key: 'continuity', label: t.businessContinuity, value: analysis.pageDynamics.operationalSovereigntyImpact.businessContinuity },
+                            { key: 'independence', label: t.operationalIndependence, value: analysis.pageDynamics.operationalSovereigntyImpact.operationalIndependence },
+                            { key: 'dependency', label: t.reducedExternalDependency, value: analysis.pageDynamics.operationalSovereigntyImpact.reducedExternalDependency },
+                            { key: 'crisis', label: t.crisisResponseSpeed, value: analysis.pageDynamics.operationalSovereigntyImpact.crisisResponseSpeed },
+                          ].map((item, idx) => (
+                            <div key={idx} data-testid={`sovereignty-${item.key}`} className="flex items-center gap-2 p-2 rounded bg-white/5">
+                              {item.value ? (
+                                <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                              ) : (
+                                <XCircle className="w-4 h-4 text-red-500/50 flex-shrink-0" />
+                              )}
+                              <span className="text-white/70 text-xs">{item.label}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {/* Note */}
+                      <div className="text-center text-white/40 text-xs mt-3 italic">
+                        {t.dynamicsNote}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-8 text-white/50">
+                      <Activity className="w-12 h-12 mx-auto mb-3 text-white/30" />
+                      <p className="text-sm">{t.analyzing}</p>
+                    </div>
+                  )}
                 </TabsContent>
                 
                 {/* Issues Tab */}
