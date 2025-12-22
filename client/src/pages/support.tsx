@@ -67,6 +67,7 @@ interface KnowledgeArticle {
   title: string;
   titleAr?: string;
   content: string;
+  contentAr?: string;
   category: string;
   viewCount: number;
   helpfulVotes?: number;
@@ -138,6 +139,7 @@ export default function Support() {
     message: "",
   });
   const [knowledgeSearch, setKnowledgeSearch] = useState("");
+  const [selectedArticle, setSelectedArticle] = useState<KnowledgeArticle | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { data: sessionsData, isLoading: loadingSessions } = useQuery<{ sessions: SupportSession[] }>({
@@ -816,6 +818,7 @@ export default function Support() {
                         key={article.id}
                         className="hover-elevate cursor-pointer transition-all"
                         data-testid={`article-${article.id}`}
+                        onClick={() => setSelectedArticle(article)}
                       >
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between gap-4">
@@ -921,6 +924,35 @@ export default function Support() {
                 <CheckCircle className="w-4 h-4" />
               )}
               {language === "ar" ? "إرسال وإغلاق" : "Submit & Close"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!selectedArticle} onOpenChange={(open) => !open && setSelectedArticle(null)}>
+        <DialogContent className="sm:max-w-[700px] max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="text-xl">
+              {selectedArticle && (language === "ar" && selectedArticle.titleAr ? selectedArticle.titleAr : selectedArticle?.title)}
+            </DialogTitle>
+            <DialogDescription>
+              <Badge variant="outline" className="mt-2">
+                {selectedArticle?.category}
+              </Badge>
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[50vh] pr-4">
+            <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
+              {selectedArticle && (language === "ar" && selectedArticle.contentAr ? selectedArticle.contentAr : selectedArticle?.content)}
+            </div>
+          </ScrollArea>
+          <DialogFooter className="gap-2">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Eye className="w-4 h-4" />
+              {selectedArticle?.viewCount} {language === "ar" ? "مشاهدة" : "views"}
+            </div>
+            <Button variant="outline" onClick={() => setSelectedArticle(null)}>
+              {language === "ar" ? "إغلاق" : "Close"}
             </Button>
           </DialogFooter>
         </DialogContent>
