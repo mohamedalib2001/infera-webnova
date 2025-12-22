@@ -42,6 +42,14 @@ The platform offers an AI Chat Interface, a live preview with responsive viewpor
 *   **Sandbox Code Executor**: Securely executes code in Node.js, TypeScript, Python, PHP, Bash, Go, and Rust with security features like malicious code detection and resource limits.
 *   **Secure Terminal System**: Provides a secure terminal with whitelist-based command execution, project ownership verification, and shell injection protection.
 *   **Project Runtime Engine**: Manages project lifecycle (initialize, build, run, stop) with real filesystem operations, dependency installation, and process monitoring.
+*   **Platform Linking Unit (INFERA Engine Federation)**: Registry for 30+ INFERA group platforms with hierarchy (root_ca -> platform_ca -> service_cert -> user_cert), sovereignty tiers (root/platform/tenant/user), and platform types (central/sovereign/builder/commercial). WebNova is registered as ROOT platform (code: INFERA-WEBNOVA-001, isSystemPlatform: true).
+
+## Security Model
+*   **Role-Based Access Control**: ROOT_OWNER, sovereign, owner roles with real-time database revalidation on every request
+*   **Session Security**: Middleware always fetches fresh user data from storage, preventing privilege escalation via stale sessions
+*   **Field Protection**: Protected fields (isSystemPlatform, code, id, platformId, isDefaultProvider) cannot be modified via API
+*   **Zod Validation**: All POST routes validated with Zod schemas, PATCH routes use explicit field allowlists
+*   **Certificate Hierarchy**: Root CA uniqueness enforced, subordinate certs require parent certificate
 
 ## External Dependencies
 *   **Database**: PostgreSQL
