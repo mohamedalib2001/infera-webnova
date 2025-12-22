@@ -192,8 +192,8 @@ export function registerNovaRoutes(app: Express) {
       // Get user preferences for context
       const preferences = await storage.getNovaPreferences(userId);
       
-      // Get recent messages for context
-      const recentMessages = await storage.getSessionMessages(req.params.sessionId, 10);
+      // Get recent messages for context (last 50 messages to maintain memory)
+      const recentMessages = await storage.getRecentSessionMessages(req.params.sessionId, 50);
       
       // Get active decisions for context
       const decisions = await storage.getActiveDecisions(userId);
@@ -406,9 +406,23 @@ export function registerNovaRoutes(app: Express) {
 
   // ==================== NOVA PROJECT CONTEXT ====================
 
+  // Helper to verify project ownership
+  async function verifyProjectOwnership(projectId: string, userId: string): Promise<boolean> {
+    const project = await storage.getProject(projectId);
+    if (!project) return false;
+    return project.userId === userId;
+  }
+
   // Get project context
   app.get("/api/nova/projects/:projectId/context", requireAuth, async (req, res) => {
     try {
+      const userId = (req.user as any).id;
+      
+      // Verify ownership
+      if (!await verifyProjectOwnership(req.params.projectId, userId)) {
+        return res.status(403).json({ error: "غير مصرح بالوصول لهذا المشروع" });
+      }
+      
       const context = await storage.getNovaProjectContext(req.params.projectId);
       res.json(context || {});
     } catch (error: any) {
@@ -420,6 +434,12 @@ export function registerNovaRoutes(app: Express) {
   app.patch("/api/nova/projects/:projectId/context", requireAuth, async (req, res) => {
     try {
       const userId = (req.user as any).id;
+      
+      // Verify ownership
+      if (!await verifyProjectOwnership(req.params.projectId, userId)) {
+        return res.status(403).json({ error: "غير مصرح بالوصول لهذا المشروع" });
+      }
+      
       const updated = await storage.upsertNovaProjectContext(
         req.params.projectId,
         userId,
@@ -434,6 +454,13 @@ export function registerNovaRoutes(app: Express) {
   // Add detected conflict
   app.post("/api/nova/projects/:projectId/conflicts", requireAuth, async (req, res) => {
     try {
+      const userId = (req.user as any).id;
+      
+      // Verify ownership
+      if (!await verifyProjectOwnership(req.params.projectId, userId)) {
+        return res.status(403).json({ error: "غير مصرح بالوصول لهذا المشروع" });
+      }
+      
       const conflict = {
         id: `conflict-${Date.now()}`,
         type: req.body.type,
@@ -453,6 +480,13 @@ export function registerNovaRoutes(app: Express) {
   // Resolve conflict
   app.post("/api/nova/projects/:projectId/conflicts/:conflictId/resolve", requireAuth, async (req, res) => {
     try {
+      const userId = (req.user as any).id;
+      
+      // Verify ownership
+      if (!await verifyProjectOwnership(req.params.projectId, userId)) {
+        return res.status(403).json({ error: "غير مصرح بالوصول لهذا المشروع" });
+      }
+      
       const updated = await storage.resolveConflict(req.params.projectId, req.params.conflictId);
       res.json(updated);
     } catch (error: any) {

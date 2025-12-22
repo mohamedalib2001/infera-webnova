@@ -7122,6 +7122,15 @@ body { font-family: 'Tajawal', sans-serif; }
       .limit(limit);
   }
 
+  async getRecentSessionMessages(sessionId: string, limit = 50): Promise<NovaMessage[]> {
+    // Get most recent messages (ordered by createdAt desc), then reverse for chronological order
+    const messages = await db.select().from(novaMessages)
+      .where(eq(novaMessages.sessionId, sessionId))
+      .orderBy(desc(novaMessages.createdAt))
+      .limit(limit);
+    return messages.reverse();
+  }
+
   async updateNovaMessage(id: string, data: Partial<InsertNovaMessage>): Promise<NovaMessage | undefined> {
     const [updated] = await db.update(novaMessages)
       .set({ ...data, isEdited: true, updatedAt: new Date() } as any)
