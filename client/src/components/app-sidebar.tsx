@@ -50,6 +50,7 @@ import {
   Trash2,
   Code,
   MessageSquare,
+  Lock,
 } from "lucide-react";
 import {
   Sidebar,
@@ -330,6 +331,14 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                           <Link href="/api-keys" data-testid="nav-api-keys">
                             <Key className="h-4 w-4 text-violet-500" />
                             <span>{language === "ar" ? "مفاتيح API" : "API Keys"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/ssh-vault"}>
+                          <Link href="/ssh-vault" data-testid="nav-ssh-vault">
+                            <Lock className="h-4 w-4 text-amber-500" />
+                            <span>{language === "ar" ? "خزنة SSH" : "SSH Vault"}</span>
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
