@@ -52,13 +52,15 @@ export default function DigitalBorders() {
   const [activeTab, setActiveTab] = useState("regions");
 
   // Fetch real regions from database
-  const { data: regionsData, isLoading: regionsLoading, refetch: refetchRegions } = useQuery<{ regions: DataRegion[], stats: any }>({
+  const { data: regionsData, isLoading: regionsLoading, isError: regionsError, refetch: refetchRegions } = useQuery<{ regions: DataRegion[], stats: any }>({
     queryKey: ['/api/sovereign/data-regions'],
+    retry: 2,
   });
 
   // Fetch real policies from database
-  const { data: policiesData, isLoading: policiesLoading, refetch: refetchPolicies } = useQuery<{ policies: DataPolicy[], stats: any }>({
+  const { data: policiesData, isLoading: policiesLoading, isError: policiesError, refetch: refetchPolicies } = useQuery<{ policies: DataPolicy[], stats: any }>({
     queryKey: ['/api/sovereign/data-policies'],
+    retry: 2,
   });
 
   // Toggle policy status mutation
@@ -239,6 +241,31 @@ export default function DigitalBorders() {
                   </CardHeader>
                   <CardContent>
                     <ScrollArea className="h-[400px]">
+                      {regionsLoading ? (
+                        <div className="flex items-center justify-center h-full">
+                          <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
+                        </div>
+                      ) : regionsError ? (
+                        <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                          <AlertTriangle className="w-12 h-12 mb-2 text-red-500 opacity-70" />
+                          <p className="text-red-400">{language === "ar" ? "فشل في تحميل المناطق" : "Failed to load regions"}</p>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="mt-2"
+                            onClick={() => refetchRegions()}
+                            data-testid="button-retry-regions"
+                          >
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                            {language === "ar" ? "إعادة المحاولة" : "Retry"}
+                          </Button>
+                        </div>
+                      ) : regions.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                          <Globe className="w-12 h-12 mb-2 opacity-50" />
+                          <p>{language === "ar" ? "لا توجد مناطق" : "No regions found"}</p>
+                        </div>
+                      ) : (
                       <div className="space-y-2">
                         {regions.map((region) => (
                           <button
@@ -279,6 +306,7 @@ export default function DigitalBorders() {
                           </button>
                         ))}
                       </div>
+                      )}
                     </ScrollArea>
                   </CardContent>
                 </Card>
@@ -371,7 +399,7 @@ export default function DigitalBorders() {
             <TabsContent value="policies" className="mt-0">
               <Card className="bg-slate-900/50 border-slate-800/50">
                 <CardHeader>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
                     <CardTitle className="text-base text-white flex items-center gap-2">
                       <FileText className="w-4 h-4 text-amber-500" />
                       {language === "ar" ? "سياسات البيانات السيادية" : "Sovereign Data Policies"}
@@ -382,6 +410,31 @@ export default function DigitalBorders() {
                   </div>
                 </CardHeader>
                 <CardContent>
+                  {policiesLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
+                    </div>
+                  ) : policiesError ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                      <AlertTriangle className="w-12 h-12 mb-2 text-red-500 opacity-70" />
+                      <p className="text-red-400">{language === "ar" ? "فشل في تحميل السياسات" : "Failed to load policies"}</p>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="mt-2"
+                        onClick={() => refetchPolicies()}
+                        data-testid="button-retry-policies"
+                      >
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        {language === "ar" ? "إعادة المحاولة" : "Retry"}
+                      </Button>
+                    </div>
+                  ) : policies.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                      <FileText className="w-12 h-12 mb-2 opacity-50" />
+                      <p>{language === "ar" ? "لا توجد سياسات" : "No policies found"}</p>
+                    </div>
+                  ) : (
                   <div className="space-y-3">
                     {policies.map((policy) => {
                       const Icon = policyTypeIcons[policy.type];
@@ -416,6 +469,7 @@ export default function DigitalBorders() {
                       );
                     })}
                   </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
