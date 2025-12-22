@@ -94,7 +94,7 @@ export function registerAppBuilderRoutes(app: Express) {
         userId
       });
 
-      const [project] = await db.insert(appProjects).values(validatedData).returning();
+      const [project] = await db.insert(appProjects).values(validatedData as typeof appProjects.$inferInsert).returning();
       
       res.status(201).json(project);
     } catch (error) {

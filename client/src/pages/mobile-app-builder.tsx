@@ -213,6 +213,28 @@ interface AppProject {
   updatedAt: string;
 }
 
+interface AIGeneratedSpecs {
+  screens?: Array<{ name: string; description: string; components: string[] }>;
+  codeFiles?: Array<{ path: string; content: string; language: string }>;
+  dataModels?: Array<{ name: string; fields: string[] }>;
+  apiEndpoints?: Array<{ method: string; path: string; description: string }>;
+}
+
+function parseAISpecs(specs: unknown): AIGeneratedSpecs {
+  if (!specs) return {};
+  if (typeof specs === 'string') {
+    try {
+      return JSON.parse(specs);
+    } catch {
+      return {};
+    }
+  }
+  if (typeof specs === 'object') {
+    return specs as AIGeneratedSpecs;
+  }
+  return {};
+}
+
 export default function MobileAppBuilder() {
   const { language } = useLanguage();
   const t = translations[language];
@@ -795,13 +817,7 @@ export default function MobileAppBuilder() {
               </CardHeader>
               <CardContent>
                 <AppCodeEditor
-                  files={
-                    selectedProject?.aiGeneratedSpecs && 
-                    typeof selectedProject.aiGeneratedSpecs === 'object' &&
-                    (selectedProject.aiGeneratedSpecs as any).codeFiles
-                      ? (selectedProject.aiGeneratedSpecs as any).codeFiles
-                      : []
-                  }
+                  files={parseAISpecs(selectedProject?.aiGeneratedSpecs).codeFiles || []}
                   language={language}
                   readOnly={false}
                 />
@@ -825,13 +841,7 @@ export default function MobileAppBuilder() {
               <CardContent>
                 <AppLivePreview
                   projectName={selectedProject?.name || newApp.name || "My App"}
-                  screens={
-                    selectedProject?.aiGeneratedSpecs && 
-                    typeof selectedProject.aiGeneratedSpecs === 'object' &&
-                    (selectedProject.aiGeneratedSpecs as any).screens
-                      ? (selectedProject.aiGeneratedSpecs as any).screens
-                      : []
-                  }
+                  screens={parseAISpecs(selectedProject?.aiGeneratedSpecs).screens || []}
                   primaryColor={selectedProject?.primaryColor || newApp.primaryColor}
                   language={language}
                   type="mobile"
