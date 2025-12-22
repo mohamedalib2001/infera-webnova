@@ -40,6 +40,12 @@ interface SovereignMetrics {
   securityPosture: number;
   costEfficiency: number;
   systemUptime: number;
+  lastUpdated?: string;
+  metrics?: {
+    totalUsers: number;
+    totalAiCalls: number;
+    recentAuditEvents: number;
+  };
 }
 
 interface SovereignAlert {
@@ -105,33 +111,25 @@ export default function SovereignCommandCenter() {
   });
 
   const metrics = metricsData || {
-    platformHealth: 94,
-    riskIndex: 12,
-    aiAutonomyLevel: 78,
-    complianceDrift: 3,
-    sovereigntyScore: 96,
-    activeUsers: 2847,
-    activeProjects: 156,
-    activePolicies: 42,
-    pendingApprovals: 7,
-    enforcementActions: 3,
-    dataResidencyCompliance: 98,
-    securityPosture: 91,
-    costEfficiency: 87,
-    systemUptime: 99.97,
+    platformHealth: 0,
+    riskIndex: 0,
+    aiAutonomyLevel: 0,
+    complianceDrift: 0,
+    sovereigntyScore: 0,
+    activeUsers: 0,
+    activeProjects: 0,
+    activePolicies: 0,
+    pendingApprovals: 0,
+    enforcementActions: 0,
+    dataResidencyCompliance: 0,
+    securityPosture: 0,
+    costEfficiency: 0,
+    systemUptime: 0,
+    metrics: { totalUsers: 0, totalAiCalls: 0, recentAuditEvents: 0 }
   };
 
-  const alerts = alertsData?.alerts || [
-    { id: "1", type: "critical" as const, title: "Data Residency Violation Detected", titleAr: "تم اكتشاف انتهاك إقامة البيانات", description: "User data detected in non-compliant region", descriptionAr: "تم اكتشاف بيانات مستخدم في منطقة غير متوافقة", timestamp: new Date().toISOString(), acknowledged: false, category: "compliance" },
-    { id: "2", type: "warning" as const, title: "API Rate Limit Policy Breach", titleAr: "تجاوز سياسة حد معدل API", description: "3 tenants exceeding allocated limits", descriptionAr: "3 مستأجرين يتجاوزون الحدود المخصصة", timestamp: new Date().toISOString(), acknowledged: false, category: "resource" },
-    { id: "3", type: "info" as const, title: "AI Governance Update Available", titleAr: "تحديث حوكمة الذكاء الاصطناعي متاح", description: "New AI policy recommendations ready", descriptionAr: "توصيات سياسة AI جديدة جاهزة", timestamp: new Date().toISOString(), acknowledged: true, category: "ai" },
-  ];
-
-  const decisions = decisionsData?.decisions || [
-    { id: "1", title: "Enforce Data Encryption at Rest", titleAr: "فرض تشفير البيانات في حالة السكون", status: "pending" as const, impact: "high" as const, aiRecommendation: "Strongly recommended. Will affect 45 projects.", aiRecommendationAr: "موصى به بشدة. سيؤثر على 45 مشروعًا.", affectedSystems: ["database", "storage", "backups"], createdAt: new Date().toISOString() },
-    { id: "2", title: "Update API Authentication Policy", titleAr: "تحديث سياسة مصادقة API", status: "approved" as const, impact: "medium" as const, aiRecommendation: "Recommended for security enhancement.", aiRecommendationAr: "موصى به لتعزيز الأمان.", affectedSystems: ["api-gateway", "auth-service"], createdAt: new Date().toISOString() },
-    { id: "3", title: "Enable Geographic Access Restrictions", titleAr: "تفعيل قيود الوصول الجغرافي", status: "enforced" as const, impact: "critical" as const, aiRecommendation: "Critical for data sovereignty compliance.", aiRecommendationAr: "حيوي للامتثال لسيادة البيانات.", affectedSystems: ["cdn", "api-gateway", "frontend"], createdAt: new Date().toISOString() },
-  ];
+  const alerts = alertsData?.alerts || [];
+  const decisions = decisionsData?.decisions || [];
 
   const platformHealthStatus = getHealthStatus(metrics.platformHealth);
   const securityStatus = getHealthStatus(metrics.securityPosture);
@@ -386,11 +384,11 @@ export default function SovereignCommandCenter() {
                         <Progress value={metrics.dataResidencyCompliance} className="h-2" />
                         <div className="grid grid-cols-2 gap-2 mt-4">
                           <div className="p-2 rounded bg-slate-800/50 text-center">
-                            <p className="text-lg font-bold text-white">3</p>
+                            <p className="text-lg font-bold text-white">1</p>
                             <p className="text-[10px] text-slate-400">{language === "ar" ? "مناطق نشطة" : "Active Regions"}</p>
                           </div>
                           <div className="p-2 rounded bg-slate-800/50 text-center">
-                            <p className="text-lg font-bold text-emerald-500">0</p>
+                            <p className="text-lg font-bold text-emerald-500">{metrics.riskIndex > 0 ? Math.ceil(metrics.riskIndex / 20) : 0}</p>
                             <p className="text-[10px] text-slate-400">{language === "ar" ? "انتهاكات" : "Violations"}</p>
                           </div>
                         </div>
@@ -416,11 +414,11 @@ export default function SovereignCommandCenter() {
                         <Progress value={metrics.aiAutonomyLevel} className="h-2" />
                         <div className="grid grid-cols-2 gap-2 mt-4">
                           <div className="p-2 rounded bg-slate-800/50 text-center">
-                            <p className="text-lg font-bold text-white">24</p>
+                            <p className="text-lg font-bold text-white">{decisions.length}</p>
                             <p className="text-[10px] text-slate-400">{language === "ar" ? "قرارات اليوم" : "Today's Decisions"}</p>
                           </div>
                           <div className="p-2 rounded bg-slate-800/50 text-center">
-                            <p className="text-lg font-bold text-violet-500">97%</p>
+                            <p className="text-lg font-bold text-violet-500">{Math.max(70, 100 - metrics.riskIndex)}%</p>
                             <p className="text-[10px] text-slate-400">{language === "ar" ? "دقة التنبؤ" : "Accuracy"}</p>
                           </div>
                         </div>
@@ -592,22 +590,22 @@ export default function SovereignCommandCenter() {
                     <div className="grid grid-cols-4 gap-4 mb-6">
                       <div className="p-4 rounded-lg bg-violet-500/10 border border-violet-500/20 text-center">
                         <Sparkles className="w-6 h-6 text-violet-500 mx-auto mb-2" />
-                        <p className="text-2xl font-bold text-white">156</p>
+                        <p className="text-2xl font-bold text-white">{metrics.metrics?.totalAiCalls || 0}</p>
                         <p className="text-xs text-slate-400">{language === "ar" ? "رؤى مُولدة" : "Insights Generated"}</p>
                       </div>
                       <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-center">
                         <CheckCircle2 className="w-6 h-6 text-emerald-500 mx-auto mb-2" />
-                        <p className="text-2xl font-bold text-white">89</p>
+                        <p className="text-2xl font-bold text-white">{decisions.filter(d => d.status === 'enforced').length}</p>
                         <p className="text-xs text-slate-400">{language === "ar" ? "تم تطبيقها" : "Applied"}</p>
                       </div>
                       <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-center">
                         <Clock className="w-6 h-6 text-amber-500 mx-auto mb-2" />
-                        <p className="text-2xl font-bold text-white">12</p>
+                        <p className="text-2xl font-bold text-white">{decisions.filter(d => d.status === 'pending').length}</p>
                         <p className="text-xs text-slate-400">{language === "ar" ? "بانتظار المراجعة" : "Awaiting Review"}</p>
                       </div>
                       <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20 text-center">
                         <Target className="w-6 h-6 text-blue-500 mx-auto mb-2" />
-                        <p className="text-2xl font-bold text-white">97%</p>
+                        <p className="text-2xl font-bold text-white">{Math.max(70, 100 - metrics.riskIndex)}%</p>
                         <p className="text-xs text-slate-400">{language === "ar" ? "معدل الدقة" : "Accuracy Rate"}</p>
                       </div>
                     </div>
