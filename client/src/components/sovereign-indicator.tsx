@@ -275,6 +275,26 @@ const pageServicesMap: Record<string, { name: string; nameAr: string; type: stri
     { name: 'Security Settings', nameAr: 'إعدادات الأمان', type: 'security' },
     { name: 'Notification Settings', nameAr: 'إعدادات الإشعارات', type: 'core' },
   ],
+  '/mobile-builder': [
+    { name: 'Nova AI Engine', nameAr: 'محرك نوفا الذكي', type: 'ai' },
+    { name: 'Smart Dashboard', nameAr: 'لوحة التحكم الذكية', type: 'ai' },
+    { name: 'Blueprint Generator', nameAr: 'مولد البلوبرنت', type: 'ai' },
+    { name: 'React Native Builder', nameAr: 'منشئ React Native', type: 'core' },
+    { name: 'Flutter Builder', nameAr: 'منشئ Flutter', type: 'core' },
+    { name: 'Live Preview', nameAr: 'المعاينة المباشرة', type: 'core' },
+    { name: 'UI Generator AI', nameAr: 'مولد واجهات الذكاء الاصطناعي', type: 'ai' },
+    { name: 'Performance Optimizer', nameAr: 'محسن الأداء', type: 'ai' },
+    { name: 'Security Scanner', nameAr: 'ماسح الأمان', type: 'security' },
+    { name: 'App Store Deployment', nameAr: 'نشر متجر التطبيقات', type: 'automation' },
+  ],
+  '/desktop-apps': [
+    { name: 'Electron Builder', nameAr: 'منشئ Electron', type: 'core' },
+    { name: 'Tauri Builder', nameAr: 'منشئ Tauri', type: 'core' },
+    { name: 'Cross-Platform Compiler', nameAr: 'مترجم عبر المنصات', type: 'core' },
+    { name: 'Native API Integration', nameAr: 'تكامل API الأصلي', type: 'infrastructure' },
+    { name: 'Auto Updater', nameAr: 'المحدث التلقائي', type: 'automation' },
+    { name: 'Code Signing', nameAr: 'توقيع الكود', type: 'security' },
+  ],
 };
 
 // Deterministic scoring based on service type (no random values)
@@ -535,6 +555,8 @@ export function SovereignIndicator() {
     '/ai-settings': { ar: 'إعدادات الذكاء', en: 'AI Settings' },
     '/marketplace': { ar: 'سوق الإضافات', en: 'Marketplace' },
     '/analytics': { ar: 'التحليلات', en: 'Analytics' },
+    '/mobile-builder': { ar: 'منشئ تطبيقات الجوال', en: 'Mobile App Builder' },
+    '/desktop-apps': { ar: 'تطبيقات سطح المكتب', en: 'Desktop Apps' },
   };
   
   const getPageName = () => {
