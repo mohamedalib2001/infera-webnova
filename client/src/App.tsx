@@ -84,6 +84,7 @@ import OperationsDashboard from "@/pages/operations-dashboard";
 import BuildManager from "@/pages/build-manager";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
+import { SovereignIndicator } from "@/components/sovereign-indicator";
 
 function RedirectToAuth() {
   const [, setLocation] = useLocation();
@@ -287,6 +288,9 @@ function AppContent() {
           </div>
         </div>
       </SidebarProvider>
+      
+      {/* Sovereign Indicator - Golden Arrow (Only for owner/sovereign users) */}
+      <SovereignIndicator />
     </div>
   );
 }
