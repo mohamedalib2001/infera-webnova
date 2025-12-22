@@ -79,6 +79,104 @@ const createKnowledgeNodeSchema = z.object({
   confidence: z.number().min(0).max(1).optional(),
 });
 
+// Operations Platform Validation Schemas
+const createDeploymentConfigSchema = z.object({
+  name: z.string().optional(),
+  nameAr: z.string().optional(),
+  environment: z.enum(["development", "staging", "production"]).default("development"),
+  provider: z.string().default("hetzner"),
+  region: z.string().optional(),
+  instanceType: z.string().optional(),
+  autoScaling: z.boolean().optional(),
+  minInstances: z.number().min(1).max(10).optional(),
+  maxInstances: z.number().min(1).max(50).optional(),
+  envVars: z.record(z.string()).optional(),
+  domain: z.string().optional(),
+  customDomain: z.string().optional(),
+  sslEnabled: z.boolean().optional(),
+  cdnEnabled: z.boolean().optional(),
+  healthCheckPath: z.string().optional(),
+  autoDeploy: z.boolean().optional(),
+  deployBranch: z.string().optional(),
+});
+
+const createDeploymentSchema = z.object({
+  configId: z.string(),
+  version: z.string().min(1),
+  commitHash: z.string().optional(),
+  commitMessage: z.string().optional(),
+});
+
+// Multi-Surface Generator Validation Schemas
+const createBuildConfigSchema = z.object({
+  name: z.string().optional(),
+  nameAr: z.string().optional(),
+  platform: z.enum(["web", "android", "ios", "windows", "macos", "linux"]),
+  buildType: z.enum(["debug", "release", "production"]).default("release"),
+  appName: z.string().optional(),
+  appNameAr: z.string().optional(),
+  bundleId: z.string().optional(),
+  version: z.string().default("1.0.0"),
+  versionCode: z.number().int().positive().optional(),
+  appIcon: z.string().optional(),
+  splashScreen: z.string().optional(),
+  buildSettings: z.record(z.any()).optional(),
+  signingConfig: z.record(z.any()).optional(),
+  targetSdk: z.number().optional(),
+  minimumSdk: z.number().optional(),
+});
+
+const startBuildSchema = z.object({
+  configId: z.string(),
+  version: z.string().optional(),
+});
+
+// Unified Blueprint Validation Schema
+const createBlueprintSchema = z.object({
+  name: z.string().min(1).max(200),
+  nameAr: z.string().optional(),
+  description: z.string().optional(),
+  descriptionAr: z.string().optional(),
+  version: z.string().default("1.0.0"),
+  definition: z.object({
+    entities: z.array(z.object({
+      name: z.string(),
+      fields: z.array(z.object({
+        name: z.string(),
+        type: z.string(),
+        required: z.boolean().optional(),
+      })),
+      relationships: z.array(z.object({
+        entity: z.string(),
+        type: z.string(),
+      })).optional(),
+    })),
+    screens: z.array(z.object({
+      name: z.string(),
+      type: z.enum(["list", "detail", "form", "dashboard"]),
+      entity: z.string().optional(),
+      components: z.array(z.object({
+        type: z.string(),
+        props: z.record(z.any()).optional(),
+      })).optional(),
+    })),
+    navigation: z.object({
+      type: z.enum(["tabs", "drawer", "stack"]),
+      routes: z.array(z.object({
+        name: z.string(),
+        screen: z.string(),
+        icon: z.string().optional(),
+      })),
+    }),
+    theme: z.object({
+      primaryColor: z.string(),
+      secondaryColor: z.string(),
+      fontFamily: z.string().optional(),
+    }).optional(),
+    features: z.array(z.string()).optional(),
+  }),
+});
+
 export function registerNovaRoutes(app: Express) {
   // ==================== NOVA SESSIONS ====================
 
@@ -825,30 +923,32 @@ Format as JSON:
         return res.status(403).json({ error: "Unauthorized" });
       }
 
-      // Explicitly pick allowed fields - never spread req.body over critical identifiers
-      const { name, nameAr, environment, provider, region, instanceType, autoScaling, 
-              minInstances, maxInstances, envVars, customDomain, sslEnabled, cdnEnabled } = req.body;
+      // Validate input with Zod schema
+      const validatedData = createDeploymentConfigSchema.parse(req.body);
 
       const config = await storage.createDeploymentConfig({
         projectId,
         userId,
-        name: name || "Default Config",
-        nameAr: nameAr || "الإعداد الافتراضي",
-        environment: environment || "development",
-        provider: provider || "hetzner",
-        region,
-        instanceType,
-        autoScaling,
-        minInstances,
-        maxInstances,
-        envVars,
-        customDomain,
-        sslEnabled,
-        cdnEnabled,
+        name: validatedData.name || "Default Config",
+        nameAr: validatedData.nameAr || "الإعداد الافتراضي",
+        environment: validatedData.environment || "development",
+        provider: validatedData.provider || "hetzner",
+        region: validatedData.region,
+        instanceType: validatedData.instanceType,
+        autoScaling: validatedData.autoScaling,
+        minInstances: validatedData.minInstances,
+        maxInstances: validatedData.maxInstances,
+        envVars: validatedData.envVars,
+        customDomain: validatedData.customDomain,
+        sslEnabled: validatedData.sslEnabled,
+        cdnEnabled: validatedData.cdnEnabled,
       });
 
       res.json(config);
     } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
       res.status(500).json({ error: error.message });
     }
   });
@@ -945,31 +1045,29 @@ Format as JSON:
         return res.status(403).json({ error: "Unauthorized" });
       }
 
-      // Explicitly pick allowed fields
-      const { name, nameAr, platform, version, bundleId, appIcon, splashScreen,
-              buildSettings, signingConfig, targetSdk, minimumSdk } = req.body;
-
-      if (!platform) {
-        return res.status(400).json({ error: "Platform is required" });
-      }
+      // Validate input with Zod schema
+      const validatedData = createBuildConfigSchema.parse(req.body);
 
       const config = await storage.createBuildConfig({
         projectId,
         userId,
-        name: name || `${platform} Build`,
-        nameAr: nameAr || `بناء ${platform}`,
-        platform,
-        version: version || "1.0.0",
-        bundleId,
-        appIcon,
-        splashScreen,
-        buildSettings,
-        signingConfig,
-        targetSdk,
-        minimumSdk,
+        name: validatedData.name || `${validatedData.platform} Build`,
+        nameAr: validatedData.nameAr || `بناء ${validatedData.platform}`,
+        platform: validatedData.platform,
+        version: validatedData.version || "1.0.0",
+        bundleId: validatedData.bundleId,
+        appIcon: validatedData.appIcon,
+        splashScreen: validatedData.splashScreen,
+        buildSettings: validatedData.buildSettings,
+        signingConfig: validatedData.signingConfig,
+        targetSdk: validatedData.targetSdk,
+        minimumSdk: validatedData.minimumSdk,
       });
       res.json(config);
     } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
       res.status(500).json({ error: error.message });
     }
   });
@@ -979,19 +1077,16 @@ Format as JSON:
     try {
       const userId = (req.user as any).id;
       const { projectId } = req.params;
-      // Only accept configId and version from body
-      const { configId, version } = req.body;
-
-      if (!configId) {
-        return res.status(400).json({ error: "Config ID is required" });
-      }
+      
+      // Validate input with Zod schema
+      const validatedData = startBuildSchema.parse(req.body);
 
       const project = await storage.getProject(projectId);
       if (!project || project.userId !== userId) {
         return res.status(403).json({ error: "Unauthorized" });
       }
 
-      const config = await storage.getBuildConfig(configId);
+      const config = await storage.getBuildConfig(validatedData.configId);
       if (!config || config.projectId !== projectId) {
         return res.status(404).json({ error: "Build config not found" });
       }
@@ -999,14 +1094,17 @@ Format as JSON:
       // Explicitly construct job data - no spread
       const job = await storage.createBuildJob({
         projectId,
-        configId,
+        configId: validatedData.configId,
         userId,
         platform: config.platform,
-        version: version || config.version || "1.0.0",
+        version: validatedData.version || config.version || "1.0.0",
         status: "queued",
       });
       res.json(job);
     } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
       res.status(500).json({ error: error.message });
     }
   });
@@ -1042,25 +1140,19 @@ Format as JSON:
         return res.status(403).json({ error: "Unauthorized" });
       }
 
-      // Explicitly pick allowed fields
-      const { name, nameAr, version, definition, surfaces, isLocked } = req.body;
-
-      if (!name) {
-        return res.status(400).json({ error: "Name is required" });
-      }
+      // Validate input with Zod schema
+      const validatedData = createBlueprintSchema.parse(req.body);
 
       const blueprint = await storage.createUnifiedBlueprint({
         projectId,
         userId,
-        name,
-        nameAr: nameAr || name,
-        version: version || "1.0.0",
-        definition: definition || {},
-        surfaces: surfaces || ["web"],
-        isLocked: isLocked || false,
+        ...validatedData,
       });
       res.json(blueprint);
     } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
       res.status(500).json({ error: error.message });
     }
   });

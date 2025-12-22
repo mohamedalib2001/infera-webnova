@@ -77,6 +77,8 @@ import SidebarManager from "@/pages/sidebar-manager";
 import SovereignChat from "@/pages/sovereign-chat";
 import PlatformRegistry from "@/pages/platform-registry";
 import NovaChat from "@/pages/nova-chat";
+import OperationsDashboard from "@/pages/operations-dashboard";
+import BuildManager from "@/pages/build-manager";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 
@@ -148,6 +150,8 @@ function Router() {
       <Route path="/sovereign-chat" component={SovereignChat} />
       <Route path="/owner/platform-registry" component={PlatformRegistry} />
       <Route path="/nova" component={NovaChat} />
+      <Route path="/nova/operations" component={OperationsDashboard} />
+      <Route path="/nova/builds" component={BuildManager} />
       <Route path="/preview/:shareCode" component={Preview} />
       <Route component={NotFound} />
     </Switch>
