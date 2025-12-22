@@ -253,6 +253,43 @@ export default function Support() {
     });
   };
 
+  const formatTimeAgo = (date: string) => {
+    const now = new Date();
+    const then = new Date(date);
+    const diffMs = now.getTime() - then.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+
+    if (language === "ar") {
+      if (diffSec < 60) return "الآن";
+      if (diffMin < 60) return `منذ ${diffMin} دقيقة`;
+      if (diffHour < 24) return `منذ ${diffHour} ساعة`;
+      if (diffDay < 7) return `منذ ${diffDay} يوم`;
+      return formatDate(date);
+    } else {
+      if (diffSec < 60) return "Just now";
+      if (diffMin < 60) return `${diffMin}m ago`;
+      if (diffHour < 24) return `${diffHour}h ago`;
+      if (diffDay < 7) return `${diffDay}d ago`;
+      return formatDate(date);
+    }
+  };
+
+  const formatFullDateTime = (date: string) => {
+    const d = new Date(date);
+    const timeAgo = formatTimeAgo(date);
+    const fullDate = d.toLocaleDateString(language === "ar" ? "ar-SA" : "en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    return { fullDate, timeAgo };
+  };
+
   const getAIConfidenceLevel = (confidence: number) => {
     if (confidence >= 0.9) return { level: "high", color: "text-emerald-600", bg: "bg-emerald-500" };
     if (confidence >= 0.7) return { level: "medium", color: "text-blue-600", bg: "bg-blue-500" };
@@ -705,9 +742,13 @@ export default function Support() {
                                       </div>
                                     )}
                                     
-                                    <p className="text-[10px] text-muted-foreground mt-1 px-1">
-                                      {formatDate(message.createdAt)}
-                                    </p>
+                                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-1 px-1">
+                                      <span title={formatFullDateTime(message.createdAt).fullDate}>
+                                        {formatTimeAgo(message.createdAt)}
+                                      </span>
+                                      <span className="opacity-50">|</span>
+                                      <span>{formatDate(message.createdAt)}</span>
+                                    </div>
                                   </div>
                                 </div>
                               );
