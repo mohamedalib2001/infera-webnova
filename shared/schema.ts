@@ -119,6 +119,59 @@ export const insertOtpTokenSchema = createInsertSchema(otpTokens).omit({
 export type InsertOtpToken = z.infer<typeof insertOtpTokenSchema>;
 export type OtpToken = typeof otpTokens.$inferSelect;
 
+// ==================== LOGIN SESSIONS (تتبع جلسات تسجيل الدخول) ====================
+
+export const loginSessions = pgTable("login_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  // Session info
+  sessionId: text("session_id").notNull(), // Express session ID
+  isActive: boolean("is_active").notNull().default(true),
+  // Geolocation
+  ipAddress: text("ip_address"),
+  country: text("country"),
+  countryCode: text("country_code"),
+  city: text("city"),
+  region: text("region"),
+  timezone: text("timezone"),
+  isp: text("isp"),
+  // Device info
+  deviceType: text("device_type"), // desktop, mobile, tablet
+  browser: text("browser"),
+  browserVersion: text("browser_version"),
+  os: text("os"),
+  osVersion: text("os_version"),
+  userAgent: text("user_agent"),
+  // Activity tracking
+  loginAt: timestamp("login_at").defaultNow(),
+  logoutAt: timestamp("logout_at"),
+  lastActivityAt: timestamp("last_activity_at").defaultNow(),
+  // Session activities log
+  activities: jsonb("activities").$type<Array<{
+    action: string;
+    timestamp: string;
+    details?: string;
+    ipAddress?: string;
+  }>>().default([]),
+  // Notification status
+  loginNotificationSent: boolean("login_notification_sent").default(false),
+  logoutNotificationSent: boolean("logout_notification_sent").default(false),
+  // Auth method used
+  authMethod: text("auth_method").default("password"), // password, google, github, 2fa, recovery
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_login_sessions_user").on(table.userId),
+  index("idx_login_sessions_active").on(table.isActive),
+]);
+
+export const insertLoginSessionSchema = createInsertSchema(loginSessions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertLoginSession = z.infer<typeof insertLoginSessionSchema>;
+export type LoginSession = typeof loginSessions.$inferSelect;
+
 // ==================== SUBSCRIPTION PLANS ====================
 
 // AI Operation Modes - defines how AI functions in each plan
