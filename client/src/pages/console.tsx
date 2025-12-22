@@ -33,6 +33,13 @@ import {
   CheckCircle2,
   Circle,
   ChevronUp,
+  Wand2,
+  LayoutGrid,
+  FileCode2,
+  Lightbulb,
+  Rocket,
+  Brain,
+  ArrowRight,
 } from "lucide-react";
 
 interface ConsoleMessage {
@@ -303,45 +310,92 @@ export default function ConsolePage() {
 
       <main className="flex-1 overflow-y-auto" data-testid="container-messages">
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full px-4" data-testid="container-empty-state">
-            <div className="flex flex-col items-center text-center max-w-lg">
-              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
-                <Sparkles className="w-8 h-8 text-primary" />
+          <div className="flex flex-col items-center justify-center h-full px-4 py-8" data-testid="container-empty-state">
+            <div className="flex flex-col items-center text-center max-w-2xl w-full">
+              <div className="relative mb-8">
+                <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-primary/20 via-primary/10 to-transparent flex items-center justify-center">
+                  <Brain className="w-10 h-10 text-primary" />
+                </div>
+                <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
+                  <Sparkles className="w-3 h-3 text-primary" />
+                </div>
               </div>
-              <h2 className="text-xl font-semibold text-foreground mb-2" data-testid="text-welcome-title">
+              
+              <h2 className="text-2xl font-bold text-foreground mb-3" data-testid="text-welcome-title">
                 مرحباً بك في Console
               </h2>
-              <p className="text-sm text-muted-foreground leading-relaxed mb-8" data-testid="text-welcome-description">
+              <p className="text-muted-foreground leading-relaxed mb-10 max-w-md" data-testid="text-welcome-description">
                 اكتب ما تريد بناءه أو اسأل أي سؤال. يمكنني مساعدتك في إنشاء المواقع والتطبيقات.
               </p>
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                <Button
-                  variant="outline"
-                  size="default"
-                  onClick={() => handleSuggestionClick("أنشئ صفحة ويب")}
-                  className="h-9 px-4 text-sm"
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-xl">
+                <button
+                  onClick={() => handleSuggestionClick("أنشئ صفحة ويب احترافية مع تصميم حديث")}
+                  className="group relative flex flex-col items-start p-5 rounded-xl border border-border bg-card/50 hover-elevate text-right transition-all duration-200"
                   data-testid="button-suggestion-webpage"
                 >
-                  أنشئ صفحة ويب
-                </Button>
-                <Button
-                  variant="outline"
-                  size="default"
-                  onClick={() => handleSuggestionClick("ساعدني في التخطيط")}
-                  className="h-9 px-4 text-sm"
+                  <div className="flex items-center gap-3 mb-3 w-full">
+                    <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+                      <LayoutGrid className="w-5 h-5 text-blue-500" />
+                    </div>
+                    <span className="font-semibold text-foreground">أنشئ صفحة ويب</span>
+                    <ArrowRight className="w-4 h-4 text-muted-foreground mr-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    صفحة ويب احترافية بتصميم حديث ومتجاوب
+                  </p>
+                </button>
+
+                <button
+                  onClick={() => handleSuggestionClick("ساعدني في التخطيط لمشروع برمجي جديد")}
+                  className="group relative flex flex-col items-start p-5 rounded-xl border border-border bg-card/50 hover-elevate text-right transition-all duration-200"
                   data-testid="button-suggestion-planning"
                 >
-                  ساعدني في التخطيط
-                </Button>
-                <Button
-                  variant="outline"
-                  size="default"
-                  onClick={() => handleSuggestionClick("أنشئ موقع تجاري")}
-                  className="h-9 px-4 text-sm"
+                  <div className="flex items-center gap-3 mb-3 w-full">
+                    <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+                      <Lightbulb className="w-5 h-5 text-amber-500" />
+                    </div>
+                    <span className="font-semibold text-foreground">ساعدني في التخطيط</span>
+                    <ArrowRight className="w-4 h-4 text-muted-foreground mr-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    خطط لمشروعك مع مساعد الذكاء الاصطناعي
+                  </p>
+                </button>
+
+                <button
+                  onClick={() => handleSuggestionClick("أنشئ موقع تجاري متكامل مع نظام دفع")}
+                  className="group relative flex flex-col items-start p-5 rounded-xl border border-border bg-card/50 hover-elevate text-right transition-all duration-200"
                   data-testid="button-suggestion-business"
                 >
-                  أنشئ موقع تجاري
-                </Button>
+                  <div className="flex items-center gap-3 mb-3 w-full">
+                    <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
+                      <Rocket className="w-5 h-5 text-green-500" />
+                    </div>
+                    <span className="font-semibold text-foreground">أنشئ موقع تجاري</span>
+                    <ArrowRight className="w-4 h-4 text-muted-foreground mr-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    متجر إلكتروني متكامل مع نظام دفع وإدارة
+                  </p>
+                </button>
+
+                <button
+                  onClick={() => handleSuggestionClick("اكتب لي كود برمجي لتطبيق")}
+                  className="group relative flex flex-col items-start p-5 rounded-xl border border-border bg-card/50 hover-elevate text-right transition-all duration-200"
+                  data-testid="button-suggestion-code"
+                >
+                  <div className="flex items-center gap-3 mb-3 w-full">
+                    <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center shrink-0">
+                      <FileCode2 className="w-5 h-5 text-purple-500" />
+                    </div>
+                    <span className="font-semibold text-foreground">اكتب لي كود</span>
+                    <ArrowRight className="w-4 h-4 text-muted-foreground mr-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    توليد كود برمجي ذكي مع شرح مفصل
+                  </p>
+                </button>
               </div>
             </div>
           </div>
