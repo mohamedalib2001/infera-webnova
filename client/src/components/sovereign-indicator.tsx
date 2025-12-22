@@ -103,6 +103,31 @@ interface TechMaturity {
   descriptionAr: string;
 }
 
+// Executive Recommendation for reaching 100%
+interface ExecutiveRecommendation {
+  id: string;
+  category: 'missing_tool' | 'ai_injection' | 'legacy_upgrade' | 'service_gap' | 'integration' | 'security' | 'performance';
+  priority: 'high' | 'medium' | 'low';
+  impact: number; // How much this will increase the score (1-15 points)
+  title: string;
+  titleAr: string;
+  description: string;
+  descriptionAr: string;
+  actionSteps: { en: string; ar: string }[];
+  estimatedEffort: 'quick' | 'moderate' | 'significant';
+  globalStandard: string; // Which global standard this addresses
+}
+
+interface GapAnalysis {
+  currentScore: number;
+  targetScore: number;
+  gap: number;
+  missingServices: { name: string; nameAr: string; type: string; impact: number }[];
+  legacySystems: { name: string; nameAr: string; issue: string; issueAr: string }[];
+  aiOpportunities: { area: string; areaAr: string; benefit: string; benefitAr: string }[];
+  executiveRecommendations: ExecutiveRecommendation[];
+}
+
 interface FullAnalysis {
   services: ServiceAnalysis[];
   page: PageAnalysis;
@@ -112,6 +137,7 @@ interface FullAnalysis {
   finalScore: number;
   statusColor: 'gold' | 'green' | 'yellow' | 'orange' | 'red';
   recommendations: { en: string; ar: string }[];
+  gapAnalysis: GapAnalysis;
 }
 
 // Translations
@@ -168,6 +194,28 @@ const translations = {
     refreshAnalysis: "تحديث التحليل",
     analyzing: "جاري التحليل...",
     noIssues: "لا توجد مشاكل",
+    gapAnalysis: "تحليل الفجوات",
+    executiveRecommendations: "اقتراحات تنفيذية للوصول إلى 100%",
+    missingTools: "أدوات مفقودة",
+    aiInjection: "فرص ضخ الذكاء الاصطناعي",
+    legacyUpgrade: "أنظمة تحتاج تحديث",
+    serviceGap: "فجوة في الخدمات",
+    integrationGap: "فجوة في التكامل",
+    securityGap: "فجوة أمنية",
+    performanceGap: "فجوة في الأداء",
+    highPriority: "أولوية عالية",
+    mediumPriority: "أولوية متوسطة",
+    lowPriority: "أولوية منخفضة",
+    quickEffort: "تنفيذ سريع",
+    moderateEffort: "تنفيذ متوسط",
+    significantEffort: "تنفيذ كبير",
+    impactPoints: "نقاط التأثير",
+    globalStandard: "المعيار العالمي",
+    actionSteps: "خطوات التنفيذ",
+    currentScore: "النتيجة الحالية",
+    targetScore: "النتيجة المستهدفة",
+    gapToClose: "الفجوة للإغلاق",
+    pathTo100: "المسار للوصول إلى 100%",
   },
   en: {
     title: "Sovereign Intelligence Panel",
@@ -221,6 +269,28 @@ const translations = {
     refreshAnalysis: "Refresh Analysis",
     analyzing: "Analyzing...",
     noIssues: "No issues found",
+    gapAnalysis: "Gap Analysis",
+    executiveRecommendations: "Executive Recommendations to 100%",
+    missingTools: "Missing Tools",
+    aiInjection: "AI Injection Opportunities",
+    legacyUpgrade: "Systems Need Upgrade",
+    serviceGap: "Service Gap",
+    integrationGap: "Integration Gap",
+    securityGap: "Security Gap",
+    performanceGap: "Performance Gap",
+    highPriority: "High Priority",
+    mediumPriority: "Medium Priority",
+    lowPriority: "Low Priority",
+    quickEffort: "Quick Implementation",
+    moderateEffort: "Moderate Effort",
+    significantEffort: "Significant Effort",
+    impactPoints: "Impact Points",
+    globalStandard: "Global Standard",
+    actionSteps: "Action Steps",
+    currentScore: "Current Score",
+    targetScore: "Target Score",
+    gapToClose: "Gap to Close",
+    pathTo100: "Path to 100%",
   }
 };
 
@@ -460,6 +530,267 @@ function analyzePageIntelligently(pathname: string, _startTime: number): FullAna
     });
   }
   
+  // ==================== GAP ANALYSIS & EXECUTIVE RECOMMENDATIONS ====================
+  const gap = 100 - finalScore;
+  
+  // Missing services based on page type
+  const missingServices: GapAnalysis['missingServices'] = [];
+  const aiOpportunities: GapAnalysis['aiOpportunities'] = [];
+  const legacySystems: GapAnalysis['legacySystems'] = [];
+  const executiveRecommendations: ExecutiveRecommendation[] = [];
+  
+  // Analyze missing AI services
+  if (!hasAIServices) {
+    missingServices.push({
+      name: 'AI Analysis Engine',
+      nameAr: 'محرك التحليل الذكي',
+      type: 'ai',
+      impact: 8,
+    });
+    aiOpportunities.push({
+      area: 'Core Functionality',
+      areaAr: 'الوظائف الأساسية',
+      benefit: 'Add AI-powered analysis for intelligent decision making',
+      benefitAr: 'إضافة تحليل ذكي لاتخاذ قرارات مدعومة بالذكاء الاصطناعي',
+    });
+  }
+  
+  // Check for automation gaps
+  if (!hasAutomation) {
+    missingServices.push({
+      name: 'Process Automation',
+      nameAr: 'أتمتة العمليات',
+      type: 'automation',
+      impact: 6,
+    });
+  }
+  
+  // Check for security services
+  const hasSecurityServices = services.some(s => s.type === 'security');
+  if (!hasSecurityServices) {
+    missingServices.push({
+      name: 'Security Scanner',
+      nameAr: 'ماسح الأمان',
+      type: 'security',
+      impact: 7,
+    });
+    executiveRecommendations.push({
+      id: 'add-security',
+      category: 'security',
+      priority: 'high',
+      impact: 7,
+      title: 'Add Security Scanning Service',
+      titleAr: 'إضافة خدمة فحص الأمان',
+      description: 'Implement real-time security scanning to detect vulnerabilities',
+      descriptionAr: 'تنفيذ فحص أمني في الوقت الفعلي لاكتشاف الثغرات',
+      actionSteps: [
+        { en: 'Integrate OWASP security scanner', ar: 'دمج ماسح أمان OWASP' },
+        { en: 'Add vulnerability detection', ar: 'إضافة كشف الثغرات' },
+        { en: 'Implement security alerts', ar: 'تنفيذ تنبيهات الأمان' },
+      ],
+      estimatedEffort: 'moderate',
+      globalStandard: 'OWASP Top 10 / ISO 27001',
+    });
+  }
+  
+  // Check for analytics services
+  const hasAnalyticsServices = services.some(s => s.type === 'analytics');
+  if (!hasAnalyticsServices) {
+    missingServices.push({
+      name: 'Real-time Analytics',
+      nameAr: 'التحليلات الفورية',
+      type: 'analytics',
+      impact: 5,
+    });
+  }
+  
+  // Performance issues -> legacy system upgrade needed
+  if (pageAnalysis.loadTime > 2000) {
+    legacySystems.push({
+      name: 'Page Rendering Engine',
+      nameAr: 'محرك عرض الصفحات',
+      issue: 'Slow rendering affecting user experience',
+      issueAr: 'بطء العرض يؤثر على تجربة المستخدم',
+    });
+    executiveRecommendations.push({
+      id: 'optimize-performance',
+      category: 'performance',
+      priority: 'high',
+      impact: 5,
+      title: 'Optimize Page Performance',
+      titleAr: 'تحسين أداء الصفحة',
+      description: 'Reduce load time to under 1.5 seconds for optimal UX',
+      descriptionAr: 'تقليل وقت التحميل لأقل من 1.5 ثانية لتجربة مستخدم مثالية',
+      actionSteps: [
+        { en: 'Implement lazy loading for components', ar: 'تنفيذ التحميل الكسول للمكونات' },
+        { en: 'Optimize asset bundling', ar: 'تحسين تجميع الأصول' },
+        { en: 'Add service worker caching', ar: 'إضافة تخزين مؤقت بـ Service Worker' },
+      ],
+      estimatedEffort: 'moderate',
+      globalStandard: 'Core Web Vitals / Google PageSpeed',
+    });
+  }
+  
+  // High resource usage
+  if (pageAnalysis.resourceUsage > 75) {
+    legacySystems.push({
+      name: 'Resource Management',
+      nameAr: 'إدارة الموارد',
+      issue: 'High memory and CPU consumption',
+      issueAr: 'استهلاك عالي للذاكرة والمعالج',
+    });
+  }
+  
+  // AI injection opportunities
+  if (intelligenceAnalysis.classification !== 'sovereign-intelligent') {
+    aiOpportunities.push({
+      area: 'User Adaptation',
+      areaAr: 'التكيف مع المستخدم',
+      benefit: 'Add AI that learns from user behavior for personalized experience',
+      benefitAr: 'إضافة ذكاء اصطناعي يتعلم من سلوك المستخدم لتجربة شخصية',
+    });
+    executiveRecommendations.push({
+      id: 'ai-personalization',
+      category: 'ai_injection',
+      priority: 'high',
+      impact: 10,
+      title: 'Implement AI Personalization Engine',
+      titleAr: 'تنفيذ محرك التخصيص الذكي',
+      description: 'Add Claude AI for intelligent user experience personalization',
+      descriptionAr: 'إضافة Claude AI لتخصيص تجربة المستخدم بذكاء',
+      actionSteps: [
+        { en: 'Integrate Claude AI for behavior analysis', ar: 'دمج Claude AI لتحليل السلوك' },
+        { en: 'Build preference learning system', ar: 'بناء نظام تعلم التفضيلات' },
+        { en: 'Implement dynamic UI adaptation', ar: 'تنفيذ تكيف واجهة ديناميكي' },
+        { en: 'Add predictive recommendations', ar: 'إضافة توصيات تنبؤية' },
+      ],
+      estimatedEffort: 'significant',
+      globalStandard: 'AI/ML Best Practices / ISO 22989',
+    });
+  }
+  
+  if (!intelligenceAnalysis.usesPreviousData) {
+    aiOpportunities.push({
+      area: 'Historical Data Analysis',
+      areaAr: 'تحليل البيانات التاريخية',
+      benefit: 'Use historical patterns for predictive insights',
+      benefitAr: 'استخدام الأنماط التاريخية للرؤى التنبؤية',
+    });
+  }
+  
+  // Missing tools based on page context
+  if (pathname.includes('mobile') || pathname.includes('builder')) {
+    const hasRealDeviceTesting = services.some(s => s.name.includes('Testing') || s.name.includes('Device'));
+    if (!hasRealDeviceTesting) {
+      missingServices.push({
+        name: 'Real Device Testing',
+        nameAr: 'اختبار الأجهزة الحقيقية',
+        type: 'automation',
+        impact: 6,
+      });
+      executiveRecommendations.push({
+        id: 'device-testing',
+        category: 'missing_tool',
+        priority: 'medium',
+        impact: 6,
+        title: 'Add Real Device Testing Integration',
+        titleAr: 'إضافة تكامل اختبار الأجهزة الحقيقية',
+        description: 'Integrate AWS Device Farm or Firebase Test Lab for comprehensive testing',
+        descriptionAr: 'دمج AWS Device Farm أو Firebase Test Lab للاختبار الشامل',
+        actionSteps: [
+          { en: 'Setup device farm integration', ar: 'إعداد تكامل مزرعة الأجهزة' },
+          { en: 'Configure automated test runs', ar: 'تكوين تشغيل الاختبارات التلقائي' },
+          { en: 'Add test result analytics', ar: 'إضافة تحليلات نتائج الاختبار' },
+        ],
+        estimatedEffort: 'moderate',
+        globalStandard: 'ISTQB / IEEE 829',
+      });
+    }
+    
+    const hasCICD = services.some(s => s.name.includes('Deploy') || s.name.includes('Fastlane'));
+    if (!hasCICD) {
+      missingServices.push({
+        name: 'CI/CD Pipeline',
+        nameAr: 'خط أنابيب CI/CD',
+        type: 'automation',
+        impact: 7,
+      });
+      executiveRecommendations.push({
+        id: 'cicd-pipeline',
+        category: 'missing_tool',
+        priority: 'high',
+        impact: 7,
+        title: 'Implement Automated CI/CD Pipeline',
+        titleAr: 'تنفيذ خط أنابيب CI/CD آلي',
+        description: 'Add Fastlane integration for App Store and Google Play deployment',
+        descriptionAr: 'إضافة تكامل Fastlane للنشر على App Store وGoogle Play',
+        actionSteps: [
+          { en: 'Setup Fastlane configuration', ar: 'إعداد تكوين Fastlane' },
+          { en: 'Configure code signing', ar: 'تكوين توقيع الكود' },
+          { en: 'Add automated store deployment', ar: 'إضافة نشر آلي للمتاجر' },
+          { en: 'Implement rollback capability', ar: 'تنفيذ قدرة التراجع' },
+        ],
+        estimatedEffort: 'significant',
+        globalStandard: 'DevOps Best Practices / DORA Metrics',
+      });
+    }
+  }
+  
+  // Integration gap analysis
+  if (pageAnalysis.componentIntegration < 90) {
+    executiveRecommendations.push({
+      id: 'improve-integration',
+      category: 'integration',
+      priority: 'medium',
+      impact: 4,
+      title: 'Improve Component Integration',
+      titleAr: 'تحسين تكامل المكونات',
+      description: 'Enhance communication between services for seamless operation',
+      descriptionAr: 'تحسين التواصل بين الخدمات للعمل السلس',
+      actionSteps: [
+        { en: 'Implement event-driven architecture', ar: 'تنفيذ بنية قائمة على الأحداث' },
+        { en: 'Add shared state management', ar: 'إضافة إدارة حالة مشتركة' },
+        { en: 'Create unified API gateway', ar: 'إنشاء بوابة API موحدة' },
+      ],
+      estimatedEffort: 'moderate',
+      globalStandard: 'Microservices Architecture / API-First Design',
+    });
+  }
+  
+  // Service gaps for reaching 100%
+  if (analyzedServices.length < 8) {
+    executiveRecommendations.push({
+      id: 'expand-services',
+      category: 'service_gap',
+      priority: 'medium',
+      impact: 5,
+      title: 'Expand Service Coverage',
+      titleAr: 'توسيع تغطية الخدمات',
+      description: 'Add more specialized services to enhance functionality',
+      descriptionAr: 'إضافة المزيد من الخدمات المتخصصة لتحسين الوظائف',
+      actionSteps: [
+        { en: 'Identify missing service categories', ar: 'تحديد فئات الخدمات المفقودة' },
+        { en: 'Implement priority services', ar: 'تنفيذ الخدمات ذات الأولوية' },
+        { en: 'Integrate with existing infrastructure', ar: 'التكامل مع البنية التحتية الحالية' },
+      ],
+      estimatedEffort: 'significant',
+      globalStandard: 'Enterprise Architecture / TOGAF',
+    });
+  }
+  
+  // Sort recommendations by impact
+  executiveRecommendations.sort((a, b) => b.impact - a.impact);
+  
+  const gapAnalysis: GapAnalysis = {
+    currentScore: finalScore,
+    targetScore: 100,
+    gap,
+    missingServices,
+    legacySystems,
+    aiOpportunities,
+    executiveRecommendations,
+  };
+  
   return {
     services: analyzedServices,
     page: pageAnalysis,
@@ -469,6 +800,7 @@ function analyzePageIntelligently(pathname: string, _startTime: number): FullAna
     finalScore,
     statusColor,
     recommendations,
+    gapAnalysis,
   };
 }
 
@@ -725,7 +1057,7 @@ export function SovereignIndicator() {
               </div>
             ) : analysis ? (
               <Tabs defaultValue="services" className="w-full" data-testid="sovereign-panel-tabs">
-                <TabsList className="w-full grid grid-cols-5 gap-0.5 bg-white/5 p-1 rounded-none">
+                <TabsList className="w-full grid grid-cols-6 gap-0.5 bg-white/5 p-1 rounded-none">
                   <TabsTrigger value="services" data-testid="tab-services" className="text-xs text-white/70 data-[state=active]:text-white data-[state=active]:bg-white/10">
                     <Layers className="w-3 h-3" />
                   </TabsTrigger>
@@ -740,6 +1072,9 @@ export function SovereignIndicator() {
                   </TabsTrigger>
                   <TabsTrigger value="tech" data-testid="tab-tech" className="text-xs text-white/70 data-[state=active]:text-white data-[state=active]:bg-white/10">
                     <Cpu className="w-3 h-3" />
+                  </TabsTrigger>
+                  <TabsTrigger value="gap" data-testid="tab-gap" className="text-xs text-white/70 data-[state=active]:text-white data-[state=active]:bg-amber-500/30">
+                    <Lightbulb className="w-3 h-3" />
                   </TabsTrigger>
                 </TabsList>
                 
@@ -972,6 +1307,169 @@ export function SovereignIndicator() {
                       <span>{t.goodLevel}</span>
                       <span>{t.advancedLevel}</span>
                       <span>{t.sovereignLevel}</span>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* Gap Analysis & Executive Recommendations Tab */}
+                <TabsContent value="gap" className="p-4 space-y-4" data-testid="content-gap">
+                  {/* Score Gap Overview */}
+                  <div className="p-3 rounded-lg bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-white/80 text-sm font-medium">{t.pathTo100}</span>
+                      <Badge variant="outline" className="border-amber-400/50 text-amber-400">
+                        +{analysis.gapAnalysis.gap} {language === 'ar' ? 'نقطة' : 'points'}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-white/60">{t.currentScore}: {analysis.gapAnalysis.currentScore}</span>
+                          <span className="text-amber-400">{t.targetScore}: {analysis.gapAnalysis.targetScore}</span>
+                        </div>
+                        <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-amber-400 to-amber-600 rounded-full transition-all"
+                            style={{ width: `${analysis.gapAnalysis.currentScore}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Missing Services */}
+                  {analysis.gapAnalysis.missingServices.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-white/80 text-xs font-semibold flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3 text-red-400" />
+                        {t.missingTools}
+                      </h4>
+                      <div className="space-y-1">
+                        {analysis.gapAnalysis.missingServices.map((service, idx) => (
+                          <div key={idx} data-testid={`missing-service-${idx}`} className="flex items-center justify-between p-2 rounded bg-red-500/10 border border-red-500/20">
+                            <span className="text-white/70 text-xs">
+                              {language === 'ar' ? service.nameAr : service.name}
+                            </span>
+                            <Badge variant="outline" className="text-[10px] border-red-400/50 text-red-400">
+                              +{service.impact} {language === 'ar' ? 'نقاط' : 'pts'}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* AI Opportunities */}
+                  {analysis.gapAnalysis.aiOpportunities.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-white/80 text-xs font-semibold flex items-center gap-1">
+                        <Brain className="w-3 h-3 text-purple-400" />
+                        {t.aiInjection}
+                      </h4>
+                      <div className="space-y-1">
+                        {analysis.gapAnalysis.aiOpportunities.map((opp, idx) => (
+                          <div key={idx} data-testid={`ai-opportunity-${idx}`} className="p-2 rounded bg-purple-500/10 border border-purple-500/20">
+                            <div className="text-white/80 text-xs font-medium">
+                              {language === 'ar' ? opp.areaAr : opp.area}
+                            </div>
+                            <div className="text-white/50 text-[10px] mt-1">
+                              {language === 'ar' ? opp.benefitAr : opp.benefit}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Legacy Systems */}
+                  {analysis.gapAnalysis.legacySystems.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-white/80 text-xs font-semibold flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3 text-orange-400" />
+                        {t.legacyUpgrade}
+                      </h4>
+                      <div className="space-y-1">
+                        {analysis.gapAnalysis.legacySystems.map((sys, idx) => (
+                          <div key={idx} data-testid={`legacy-system-${idx}`} className="p-2 rounded bg-orange-500/10 border border-orange-500/20">
+                            <div className="text-white/80 text-xs font-medium">
+                              {language === 'ar' ? sys.nameAr : sys.name}
+                            </div>
+                            <div className="text-white/50 text-[10px] mt-1">
+                              {language === 'ar' ? sys.issueAr : sys.issue}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Executive Recommendations */}
+                  <div className="space-y-2">
+                    <h4 className="text-amber-400 text-xs font-semibold flex items-center gap-1">
+                      <Lightbulb className="w-3 h-3" />
+                      {t.executiveRecommendations}
+                    </h4>
+                    <div className="space-y-2">
+                      {analysis.gapAnalysis.executiveRecommendations.map((rec, idx) => (
+                        <div 
+                          key={rec.id} 
+                          data-testid={`recommendation-${idx}`}
+                          className="p-3 rounded-lg bg-white/5 border border-white/10 space-y-2"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <Badge 
+                                  variant="outline" 
+                                  className={cn(
+                                    "text-[10px]",
+                                    rec.priority === 'high' ? 'border-red-400/50 text-red-400' :
+                                    rec.priority === 'medium' ? 'border-yellow-400/50 text-yellow-400' :
+                                    'border-green-400/50 text-green-400'
+                                  )}
+                                >
+                                  {rec.priority === 'high' ? t.highPriority :
+                                   rec.priority === 'medium' ? t.mediumPriority : t.lowPriority}
+                                </Badge>
+                                <Badge variant="outline" className="text-[10px] border-blue-400/50 text-blue-400">
+                                  +{rec.impact} {t.impactPoints}
+                                </Badge>
+                              </div>
+                              <h5 className="text-white text-sm font-medium mt-1">
+                                {language === 'ar' ? rec.titleAr : rec.title}
+                              </h5>
+                              <p className="text-white/50 text-xs mt-1">
+                                {language === 'ar' ? rec.descriptionAr : rec.description}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          {/* Action Steps */}
+                          <div className="pt-2 border-t border-white/5">
+                            <div className="text-white/60 text-[10px] font-medium mb-1">{t.actionSteps}:</div>
+                            <div className="space-y-1">
+                              {rec.actionSteps.map((step, stepIdx) => (
+                                <div key={stepIdx} className="flex items-start gap-1.5 text-[10px] text-white/50">
+                                  <CheckCircle className="w-3 h-3 text-emerald-400 mt-0.5 flex-shrink-0" />
+                                  <span>{language === 'ar' ? step.ar : step.en}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          
+                          {/* Footer */}
+                          <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                            <Badge variant="outline" className="text-[10px] border-white/20 text-white/40">
+                              {rec.estimatedEffort === 'quick' ? t.quickEffort :
+                               rec.estimatedEffort === 'moderate' ? t.moderateEffort : t.significantEffort}
+                            </Badge>
+                            <div className="flex items-center gap-1 text-[10px] text-white/40">
+                              <Shield className="w-3 h-3" />
+                              {rec.globalStandard}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </TabsContent>
