@@ -123,6 +123,7 @@ const translations = {
     intelligence: "الذكاء",
     issues: "المشاكل",
     techProgress: "التقدم التقني",
+    level: "المستوى",
     recommendations: "التوصيات",
     totalServices: "إجمالي الخدمات",
     serviceEfficiency: "كفاءة الخدمة",
@@ -175,6 +176,7 @@ const translations = {
     intelligence: "Intelligence",
     issues: "Issues",
     techProgress: "Tech Progress",
+    level: "Level",
     recommendations: "Recommendations",
     totalServices: "Total Services",
     serviceEfficiency: "Service Efficiency",
@@ -582,37 +584,42 @@ export function SovereignIndicator() {
               "shadow-lg hover:shadow-xl hover:scale-105"
             )}
             style={{
-              background: 'linear-gradient(135deg, #FFD700 0%, #FFC800 50%, #FFD700 100%)',
-              boxShadow: '0 0 25px rgba(255, 215, 0, 0.6), 0 0 50px rgba(255, 215, 0, 0.3), inset 0 0 10px rgba(255, 255, 255, 0.2)',
+              background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 25%, #FFF5A0 50%, #FFD700 75%, #B8860B 100%)',
+              boxShadow: '0 0 30px rgba(212, 175, 55, 0.8), 0 0 60px rgba(255, 215, 0, 0.5), 0 0 100px rgba(184, 134, 11, 0.3), inset 0 2px 10px rgba(255, 255, 255, 0.5), inset 0 -2px 10px rgba(0,0,0,0.2)',
+              border: '2px solid rgba(255, 245, 160, 0.6)',
             }}
           >
-            {/* Arrow - Pure Gold */}
+            {/* Arrow - Royal Gold */}
             <TrendingUp 
               className={cn(
-                "w-7 h-7 text-white drop-shadow-md transition-transform",
+                "w-7 h-7 transition-transform",
                 "group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
               )}
-              style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}
-            />
-            
-            {/* Glow effect */}
-            <div 
-              className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-              style={{
-                background: 'radial-gradient(circle, rgba(255, 215, 0, 0.5) 0%, transparent 70%)',
-                filter: 'blur(10px)',
+              style={{ 
+                color: '#1a1a2e',
+                filter: 'drop-shadow(0 1px 2px rgba(255,245,160,0.8))',
               }}
             />
             
-            {/* Score badge */}
+            {/* Royal Glow effect */}
+            <div 
+              className="absolute inset-0 rounded-full opacity-50 group-hover:opacity-100 transition-opacity duration-300"
+              style={{
+                background: 'radial-gradient(circle, rgba(255, 245, 160, 0.6) 0%, rgba(212, 175, 55, 0.4) 40%, transparent 70%)',
+                filter: 'blur(15px)',
+              }}
+            />
+            
+            {/* Score badge - Royal Gold */}
             {analysis && (
               <div 
                 data-testid="badge-final-score"
-                className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-black"
+                className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
                 style={{
-                  background: 'linear-gradient(135deg, #FFD700 0%, #FFC800 100%)',
-                  border: '2px solid #FFD700',
-                  boxShadow: '0 2px 8px rgba(255, 215, 0, 0.4)',
+                  background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 50%, #FFF5A0 100%)',
+                  border: '2px solid rgba(255, 245, 160, 0.8)',
+                  boxShadow: '0 2px 12px rgba(212, 175, 55, 0.6), inset 0 1px 3px rgba(255,255,255,0.4)',
+                  color: '#1a1a2e',
                 }}
               >
                 {analysis.finalScore}
@@ -1032,6 +1039,152 @@ export function SovereignIndicator() {
                 variant="outline"
                 size="sm"
                 className="flex-1 text-xs border-amber-500/50 text-amber-400 hover:bg-amber-500/10"
+                onClick={() => {
+                  if (!analysis) return;
+                  
+                  // Generate PDF content as HTML
+                  const pdfContent = `
+<!DOCTYPE html>
+<html lang="${language}" dir="${isRtl ? 'rtl' : 'ltr'}">
+<head>
+  <meta charset="UTF-8">
+  <title>INFERA WebNova - ${t.title}</title>
+  <style>
+    @page { size: A4; margin: 20mm; }
+    body { 
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      background: linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 100%);
+      color: #fff;
+      padding: 40px;
+      min-height: 100vh;
+    }
+    .header {
+      text-align: center;
+      padding: 30px;
+      background: linear-gradient(135deg, #D4AF37 0%, #FFD700 50%, #FFF5A0 100%);
+      border-radius: 12px;
+      margin-bottom: 30px;
+    }
+    .header h1 { color: #1a1a2e; margin: 0; font-size: 28px; }
+    .header p { color: #333; margin: 10px 0 0; }
+    .score-card {
+      text-align: center;
+      padding: 30px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      margin-bottom: 30px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .score { font-size: 72px; font-weight: bold; color: #FFD700; }
+    .score-label { color: rgba(255,255,255,0.7); font-size: 18px; }
+    .section {
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .section-title { 
+      color: #FFD700; 
+      font-size: 18px; 
+      margin-bottom: 15px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding-bottom: 10px;
+    }
+    .service-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .service-name { color: #fff; }
+    .service-score { color: #FFD700; font-weight: bold; }
+    .metric-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+    }
+    .metric-label { color: rgba(255,255,255,0.7); }
+    .metric-value { color: #fff; font-weight: bold; }
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.5);
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>INFERA WebNova</h1>
+    <p>${t.title}</p>
+  </div>
+  
+  <div class="score-card">
+    <div class="score">${analysis.finalScore}/100</div>
+    <div class="score-label">${t.finalScore}</div>
+  </div>
+  
+  <div class="section">
+    <div class="section-title">${t.services} (${analysis.services.length})</div>
+    ${analysis.services.map(s => `
+      <div class="service-item">
+        <span class="service-name">${language === 'ar' ? s.nameAr : s.name}</span>
+        <span class="service-score">${s.score}%</span>
+      </div>
+    `).join('')}
+  </div>
+  
+  <div class="section">
+    <div class="section-title">${t.pageEfficiency}</div>
+    <div class="metric-row">
+      <span class="metric-label">${t.loadTime}</span>
+      <span class="metric-value">${analysis.page.loadTime}ms</span>
+    </div>
+    <div class="metric-row">
+      <span class="metric-label">${t.componentIntegration}</span>
+      <span class="metric-value">${analysis.page.componentIntegration}%</span>
+    </div>
+    <div class="metric-row">
+      <span class="metric-label">${t.deviceCompatibility}</span>
+      <span class="metric-value">${analysis.page.deviceCompatibility}%</span>
+    </div>
+    <div class="metric-row">
+      <span class="metric-label">${t.structuralSecurity}</span>
+      <span class="metric-value">${analysis.page.structuralSecurity}%</span>
+    </div>
+  </div>
+  
+  <div class="section">
+    <div class="section-title">${t.techProgress}</div>
+    <div class="metric-row">
+      <span class="metric-label">${t.level}</span>
+      <span class="metric-value">${analysis.techMaturity.level}</span>
+    </div>
+    <div class="metric-row">
+      <span class="metric-label">${t.finalScore}</span>
+      <span class="metric-value">${analysis.techMaturity.score}%</span>
+    </div>
+  </div>
+  
+  <div class="footer">
+    <p>INFERA Engine 2025 - ${new Date().toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US')}</p>
+  </div>
+</body>
+</html>
+                  `;
+                  
+                  // Open print dialog for PDF
+                  const printWindow = window.open('', '_blank');
+                  if (printWindow) {
+                    printWindow.document.write(pdfContent);
+                    printWindow.document.close();
+                    setTimeout(() => {
+                      printWindow.print();
+                    }, 500);
+                  }
+                }}
               >
                 <FileDown className="w-3 h-3 mr-1" />
                 {t.exportPdf}
