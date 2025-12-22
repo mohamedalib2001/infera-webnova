@@ -1262,10 +1262,99 @@ export async function registerRoutes(
           username: u.username,
           fullName: u.fullName,
           role: u.role,
+          email: u.email,
+          isActive: u.isActive,
         }));
       res.json(employees);
     } catch (error) {
       res.status(500).json({ error: "فشل في جلب الموظفين" });
+    }
+  });
+
+  // Create employee account (sovereign only)
+  app.post("/api/users/employees", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { username, email, fullName, password, role = 'user' } = req.body;
+      
+      if (!username || !email || !password) {
+        return res.status(400).json({ 
+          error: "اسم المستخدم والبريد وكلمة المرور مطلوبة",
+          errorEn: "Username, email and password are required"
+        });
+      }
+      
+      // Check if username or email already exists
+      const existingUser = await storage.getUserByUsername(username);
+      if (existingUser) {
+        return res.status(409).json({ 
+          error: "اسم المستخدم موجود مسبقاً",
+          errorEn: "Username already exists"
+        });
+      }
+      
+      const existingEmail = await storage.getUserByEmail(email);
+      if (existingEmail) {
+        return res.status(409).json({ 
+          error: "البريد الإلكتروني مستخدم مسبقاً",
+          errorEn: "Email already in use"
+        });
+      }
+      
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+      
+      // Create employee
+      const newUser = await storage.createUser({
+        username,
+        email,
+        fullName: fullName || username,
+        password: hashedPassword,
+        role: role === 'employee' ? 'user' : role, // Map employee to user role
+        isActive: true,
+      });
+      
+      const { password: _, ...userWithoutPassword } = newUser;
+      res.status(201).json(userWithoutPassword);
+    } catch (error) {
+      console.error("Error creating employee:", error);
+      res.status(500).json({ error: "فشل في إنشاء حساب الموظف" });
+    }
+  });
+
+  // Delete employee account (sovereign only)
+  app.delete("/api/users/employees/:id", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const employeeId = parseInt(req.params.id);
+      
+      if (isNaN(employeeId)) {
+        return res.status(400).json({ error: "معرف الموظف غير صالح" });
+      }
+      
+      // Get the employee to check their role
+      const employee = await storage.getUser(employeeId);
+      if (!employee) {
+        return res.status(404).json({ error: "الموظف غير موجود" });
+      }
+      
+      // Prevent deleting sovereign/owner accounts
+      if (employee.role === 'owner' || employee.role === 'sovereign') {
+        return res.status(403).json({ 
+          error: "لا يمكن حذف حسابات المالك أو السيادي",
+          errorEn: "Cannot delete owner or sovereign accounts"
+        });
+      }
+      
+      // Delete the employee
+      await storage.deleteUser(employeeId);
+      
+      res.json({ 
+        success: true, 
+        message: "تم حذف الموظف بنجاح",
+        messageEn: "Employee deleted successfully"
+      });
+    } catch (error) {
+      console.error("Error deleting employee:", error);
+      res.status(500).json({ error: "فشل في حذف الموظف" });
     }
   });
 
