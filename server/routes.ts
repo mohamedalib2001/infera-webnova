@@ -334,6 +334,23 @@ export async function registerRoutes(
         return res.status(401).json({ error: "بيانات الدخول غير صحيحة / Invalid credentials" });
       }
       
+      // Check if user has 2FA (TOTP) enabled
+      if (user.twoFactorEnabled) {
+        const { password: _, ...userWithoutPassword } = user;
+        req.session.pendingLogin = {
+          userId: user.id,
+          user: userWithoutPassword,
+          email: user.email,
+          twoFactorEnabled: true,
+        };
+        
+        return res.json({ 
+          requiresOtp: true,
+          twoFactorEnabled: true,
+          message: "يرجى إدخال رمز المصادقة / Please enter your authenticator code",
+        });
+      }
+      
       // Check if OTP is enabled for email method
       const otpMethod = await storage.getAuthMethodByKey("otp_email");
       const otpEnabled = otpMethod?.isActive === true;
@@ -465,6 +482,47 @@ export async function registerRoutes(
       // Check for pending login (2FA during login)
       const pendingLogin = req.session.pendingLogin;
       if (pendingLogin) {
+        // Check if this is TOTP verification
+        if (pendingLogin.twoFactorEnabled) {
+          const { authenticator } = await import("otplib");
+          const user = await storage.getUser(pendingLogin.userId);
+          
+          if (!user || !user.twoFactorSecret) {
+            return res.status(400).json({ error: "خطأ في المصادقة الثنائية / 2FA error" });
+          }
+          
+          const isValid = authenticator.verify({ token: code, secret: user.twoFactorSecret });
+          
+          if (!isValid) {
+            // Check recovery codes
+            let recoveryUsed = false;
+            if (user.twoFactorRecoveryCodes) {
+              const upperCode = code.toUpperCase();
+              if (user.twoFactorRecoveryCodes.includes(upperCode)) {
+                recoveryUsed = true;
+                const remainingCodes = user.twoFactorRecoveryCodes.filter((c: string) => c !== upperCode);
+                await storage.updateUser(user.id, { twoFactorRecoveryCodes: remainingCodes });
+              }
+            }
+            
+            if (!recoveryUsed) {
+              return res.status(400).json({ error: "رمز التحقق غير صحيح / Invalid verification code" });
+            }
+          }
+          
+          // Complete login
+          req.session.userId = pendingLogin.userId;
+          req.session.user = pendingLogin.user;
+          delete req.session.pendingLogin;
+          
+          return res.json({ 
+            success: true,
+            message: "تم تسجيل الدخول بنجاح / Login successful",
+            user: pendingLogin.user,
+          });
+        }
+        
+        // Email OTP verification
         const otpCode = await storage.getValidOtpCode(pendingLogin.userId, code);
         
         if (!otpCode) {
@@ -514,6 +572,211 @@ export async function registerRoutes(
     } catch (error) {
       console.error("OTP verification error:", error);
       res.status(500).json({ error: "فشل في التحقق / Verification failed" });
+    }
+  });
+
+  // ============ Two-Factor Authentication (TOTP) Routes ============
+  
+  // Setup 2FA - Generate TOTP secret and QR code
+  app.post("/api/auth/2fa/setup", requireAuth, async (req, res) => {
+    try {
+      const { authenticator } = await import("otplib");
+      const QRCode = await import("qrcode");
+      
+      const userId = req.session.userId || req.session.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "غير مسجل الدخول / Not logged in" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "المستخدم غير موجود / User not found" });
+      }
+      
+      // Check if already enabled
+      if (user.twoFactorEnabled) {
+        return res.status(400).json({ error: "المصادقة الثنائية مفعلة بالفعل / 2FA already enabled" });
+      }
+      
+      // Generate TOTP secret
+      const secret = authenticator.generateSecret();
+      
+      // Create otpauth URI
+      const issuer = "INFERA WebNova";
+      const accountName = user.email || user.username || "user";
+      const otpauthUrl = authenticator.keyuri(accountName, issuer, secret);
+      
+      // Generate QR code as data URL
+      const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl, {
+        width: 256,
+        margin: 2,
+        color: {
+          dark: "#000000",
+          light: "#ffffff",
+        },
+      });
+      
+      // Store secret temporarily in session (not in DB until verified)
+      req.session.pending2faSecret = secret;
+      
+      res.json({
+        success: true,
+        secret,
+        qrCode: qrCodeDataUrl,
+        otpauthUrl,
+        message: "امسح رمز QR باستخدام تطبيق المصادقة / Scan QR code with authenticator app",
+      });
+    } catch (error) {
+      console.error("2FA setup error:", error);
+      res.status(500).json({ error: "فشل في إعداد المصادقة الثنائية / 2FA setup failed" });
+    }
+  });
+  
+  // Enable 2FA - Verify TOTP code and enable
+  app.post("/api/auth/2fa/enable", requireAuth, async (req, res) => {
+    try {
+      const { authenticator } = await import("otplib");
+      const { code } = req.body;
+      
+      if (!code || code.length !== 6) {
+        return res.status(400).json({ error: "رمز التحقق غير صحيح / Invalid verification code" });
+      }
+      
+      const userId = req.session.userId || req.session.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "غير مسجل الدخول / Not logged in" });
+      }
+      
+      const pendingSecret = req.session.pending2faSecret;
+      if (!pendingSecret) {
+        return res.status(400).json({ error: "لم يتم إعداد المصادقة الثنائية / 2FA not set up. Please start setup first" });
+      }
+      
+      // Verify the TOTP code
+      const isValid = authenticator.verify({ token: code, secret: pendingSecret });
+      
+      if (!isValid) {
+        return res.status(400).json({ error: "رمز التحقق غير صحيح / Invalid verification code" });
+      }
+      
+      // Generate recovery codes
+      const crypto = await import("crypto");
+      const recoveryCodes: string[] = [];
+      for (let i = 0; i < 8; i++) {
+        recoveryCodes.push(crypto.randomBytes(4).toString("hex").toUpperCase());
+      }
+      
+      // Save to database
+      await storage.updateUser(userId, {
+        twoFactorSecret: pendingSecret,
+        twoFactorEnabled: true,
+        twoFactorRecoveryCodes: recoveryCodes,
+      });
+      
+      // Clear pending secret from session
+      delete req.session.pending2faSecret;
+      
+      // Update session user
+      if (req.session.user) {
+        req.session.user = { ...req.session.user, twoFactorEnabled: true };
+      }
+      
+      res.json({
+        success: true,
+        recoveryCodes,
+        message: "تم تفعيل المصادقة الثنائية بنجاح / 2FA enabled successfully",
+      });
+    } catch (error) {
+      console.error("2FA enable error:", error);
+      res.status(500).json({ error: "فشل في تفعيل المصادقة الثنائية / 2FA enable failed" });
+    }
+  });
+  
+  // Disable 2FA
+  app.post("/api/auth/2fa/disable", requireAuth, async (req, res) => {
+    try {
+      const { authenticator } = await import("otplib");
+      const { code, recoveryCode } = req.body;
+      
+      const userId = req.session.userId || req.session.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "غير مسجل الدخول / Not logged in" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "المستخدم غير موجود / User not found" });
+      }
+      
+      if (!user.twoFactorEnabled) {
+        return res.status(400).json({ error: "المصادقة الثنائية غير مفعلة / 2FA not enabled" });
+      }
+      
+      let isValid = false;
+      
+      // Verify with TOTP code
+      if (code && user.twoFactorSecret) {
+        isValid = authenticator.verify({ token: code, secret: user.twoFactorSecret });
+      }
+      
+      // Or verify with recovery code
+      if (!isValid && recoveryCode && user.twoFactorRecoveryCodes) {
+        const upperCode = recoveryCode.toUpperCase();
+        if (user.twoFactorRecoveryCodes.includes(upperCode)) {
+          isValid = true;
+          // Remove used recovery code
+          const remainingCodes = user.twoFactorRecoveryCodes.filter((c: string) => c !== upperCode);
+          await storage.updateUser(userId, { twoFactorRecoveryCodes: remainingCodes });
+        }
+      }
+      
+      if (!isValid) {
+        return res.status(400).json({ error: "رمز التحقق غير صحيح / Invalid verification code" });
+      }
+      
+      // Disable 2FA
+      await storage.updateUser(userId, {
+        twoFactorSecret: null,
+        twoFactorEnabled: false,
+        twoFactorRecoveryCodes: null,
+      });
+      
+      // Update session user
+      if (req.session.user) {
+        req.session.user = { ...req.session.user, twoFactorEnabled: false };
+      }
+      
+      res.json({
+        success: true,
+        message: "تم تعطيل المصادقة الثنائية / 2FA disabled successfully",
+      });
+    } catch (error) {
+      console.error("2FA disable error:", error);
+      res.status(500).json({ error: "فشل في تعطيل المصادقة الثنائية / 2FA disable failed" });
+    }
+  });
+  
+  // Get 2FA status
+  app.get("/api/auth/2fa/status", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId || req.session.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "غير مسجل الدخول / Not logged in" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "المستخدم غير موجود / User not found" });
+      }
+      
+      res.json({
+        enabled: user.twoFactorEnabled || false,
+        hasRecoveryCodes: !!(user.twoFactorRecoveryCodes && user.twoFactorRecoveryCodes.length > 0),
+        recoveryCodesCount: user.twoFactorRecoveryCodes?.length || 0,
+      });
+    } catch (error) {
+      console.error("2FA status error:", error);
+      res.status(500).json({ error: "فشل في الحصول على حالة المصادقة الثنائية / Failed to get 2FA status" });
     }
   });
 
