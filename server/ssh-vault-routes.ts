@@ -121,16 +121,23 @@ router.post("/auth/start", requireSovereignRole, async (req, res) => {
     const userId = (req.user as any).id;
     const { password } = req.body;
     
+    console.log(`[SSH Vault] Auth attempt for user ${userId}`);
+    
     if (!password) {
+      console.log(`[SSH Vault] No password provided`);
       return res.status(400).json({ error: "Password required" });
     }
     
     const user = await db.select().from(users).where(eq(users.id, userId)).limit(1);
     if (!user.length || !user[0].password) {
+      console.log(`[SSH Vault] User not found or no password set for ${userId}`);
       return res.status(400).json({ error: "User not found or no password set" });
     }
     
+    console.log(`[SSH Vault] Comparing password for user ${user[0].username}, has stored password: ${!!user[0].password}`);
     const passwordValid = await bcrypt.compare(password, user[0].password);
+    console.log(`[SSH Vault] Password valid: ${passwordValid}`);
+    
     if (!passwordValid) {
       await logVaultAction(userId, "auth_attempt", false, req, undefined, undefined, "Invalid password");
       return res.status(401).json({ error: "Invalid password" });
