@@ -160,6 +160,8 @@ export default function SettingsPage() {
   const [verificationCode, setVerificationCode] = useState("");
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [showRecoveryCodes, setShowRecoveryCodes] = useState(false);
+  const [show2faDisable, setShow2faDisable] = useState(false);
+  const [disableCode, setDisableCode] = useState("");
 
   // Notification preferences state
   const [emailNotifications, setEmailNotifications] = useState(false);
@@ -167,7 +169,7 @@ export default function SettingsPage() {
   const [twoFactor, setTwoFactor] = useState(false);
 
   // Fetch 2FA status
-  const { data: twoFaStatus, refetch: refetch2faStatus } = useQuery<{
+  const { data: twoFaStatus, refetch: refetch2faStatus, isLoading: is2faStatusLoading } = useQuery<{
     enabled: boolean;
     hasRecoveryCodes: boolean;
     recoveryCodesCount: number;
@@ -462,7 +464,9 @@ export default function SettingsPage() {
                       : "Add an extra layer of security to your account"}
                   </p>
                 </div>
-                {twoFaStatus?.enabled ? (
+                {is2faStatusLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                ) : twoFaStatus?.enabled ? (
                   <span className="text-sm font-medium text-green-600 dark:text-green-400">
                     {language === "ar" ? "مفعّل" : "Enabled"}
                   </span>
@@ -473,14 +477,11 @@ export default function SettingsPage() {
                 )}
               </div>
               
-              {twoFaStatus?.enabled ? (
+              {is2faStatusLoading ? null : twoFaStatus?.enabled ? (
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => {
-                    const code = prompt(language === "ar" ? "أدخل رمز المصادقة" : "Enter authenticator code");
-                    if (code) disable2faMutation.mutate(code);
-                  }}
+                  onClick={() => setShow2faDisable(true)}
                   disabled={disable2faMutation.isPending}
                   data-testid="button-disable-2fa"
                 >
@@ -677,6 +678,65 @@ export default function SettingsPage() {
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 language === "ar" ? "تفعيل" : "Enable"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Disable 2FA Dialog */}
+      <Dialog open={show2faDisable} onOpenChange={setShow2faDisable}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5" />
+              {language === "ar" ? "تعطيل المصادقة الثنائية" : "Disable Two-Factor Authentication"}
+            </DialogTitle>
+            <DialogDescription>
+              {language === "ar" 
+                ? "أدخل رمز التحقق من تطبيق المصادقة لتعطيل المصادقة الثنائية"
+                : "Enter the verification code from your authenticator app to disable 2FA"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>
+                {language === "ar" ? "رمز التحقق" : "Verification Code"}
+              </Label>
+              <Input
+                value={disableCode}
+                onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="000000"
+                maxLength={6}
+                className="text-center text-lg tracking-widest"
+                data-testid="input-2fa-disable-code"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShow2faDisable(false);
+                setDisableCode("");
+              }}
+            >
+              {language === "ar" ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={() => {
+                disable2faMutation.mutate(disableCode);
+                setShow2faDisable(false);
+                setDisableCode("");
+              }}
+              disabled={disableCode.length !== 6 || disable2faMutation.isPending}
+              data-testid="button-confirm-disable-2fa"
+            >
+              {disable2faMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                language === "ar" ? "تعطيل" : "Disable"
               )}
             </Button>
           </DialogFooter>
