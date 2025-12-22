@@ -55,3 +55,7 @@ export * from './federation';
 
 // Layer 9: Future Interfaces
 export * from './future-interfaces';
+
+// Quality Assurance Engine
+export * from './quality-assurance-engine';
+export { default as qualityAssuranceEngine } from './quality-assurance-engine';

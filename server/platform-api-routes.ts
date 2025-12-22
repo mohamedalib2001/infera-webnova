@@ -2139,6 +2139,94 @@ router.post('/sovereignty/project-brain/:projectId/analyze', requireAuth, async 
   }
 });
 
+// ==================== QUALITY ASSURANCE ROUTES ====================
+
+/**
+ * GET /api/platform/quality/report
+ * Generate full platform quality report
+ */
+router.get('/quality/report', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { qualityAssuranceEngine } = await import('@shared/core/kernel/quality-assurance-engine');
+    const report = await qualityAssuranceEngine.generatePlatformReport();
+    res.json(report);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/platform/quality/pages
+ * Get all platform pages with their quality info
+ */
+router.get('/quality/pages', async (req: Request, res: Response) => {
+  try {
+    const { qualityAssuranceEngine } = await import('@shared/core/kernel/quality-assurance-engine');
+    const pages = qualityAssuranceEngine.getAllPages();
+    res.json({ pages });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/platform/quality/services
+ * Get all platform services with their status
+ */
+router.get('/quality/services', async (req: Request, res: Response) => {
+  try {
+    const { qualityAssuranceEngine } = await import('@shared/core/kernel/quality-assurance-engine');
+    const services = qualityAssuranceEngine.getAllServices();
+    res.json({ services });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/platform/quality/page/:path
+ * Analyze specific page quality
+ */
+router.get('/quality/page/*', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { qualityAssuranceEngine } = await import('@shared/core/kernel/quality-assurance-engine');
+    const pagePath = '/' + (req.params[0] || '');
+    const metrics = await qualityAssuranceEngine.analyzePageQuality(pagePath);
+    res.json(metrics);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/platform/quality/service/:id
+ * Check specific service health
+ */
+router.get('/quality/service/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { qualityAssuranceEngine } = await import('@shared/core/kernel/quality-assurance-engine');
+    const health = await qualityAssuranceEngine.checkServiceHealth(req.params.id);
+    res.json(health);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/platform/quality/analyze
+ * AI-powered quality analysis
+ */
+router.post('/quality/analyze', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { qualityAssuranceEngine } = await import('@shared/core/kernel/quality-assurance-engine');
+    const { context, question } = req.body;
+    const analysis = await qualityAssuranceEngine.analyzeWithAI(context, question);
+    res.json({ analysis });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ==================== EXPORT ROUTER ====================
 export function registerPlatformApiRoutes(app: any) {
   app.use('/api/platform', router);
@@ -2150,6 +2238,7 @@ export function registerPlatformApiRoutes(app: any) {
   console.log('[Monitoring] Metrics endpoints ready at /api/platform/monitoring/*');
   console.log('[Secure Terminal] Terminal endpoints ready at /api/platform/terminal/*');
   console.log('[Sovereignty Layer] Phase 0 endpoints ready at /api/platform/sovereignty/*');
+  console.log('[Quality Assurance] Quality endpoints ready at /api/platform/quality/*');
 }
 
 export default router;
