@@ -40,34 +40,24 @@ interface AnalyticsData {
   }>;
 }
 
-const mockData: AnalyticsData = {
+// Empty state - no mock data
+const emptyData: AnalyticsData = {
   overview: {
-    totalViews: 12847,
-    uniqueVisitors: 3421,
-    avgSessionDuration: "4:32",
-    bounceRate: 34.2,
-    viewsChange: 12.5,
-    visitorsChange: 8.3,
+    totalViews: 0,
+    uniqueVisitors: 0,
+    avgSessionDuration: "0:00",
+    bounceRate: 0,
+    viewsChange: 0,
+    visitorsChange: 0,
   },
-  projects: [
-    { id: "1", name: "Financial Services Platform", views: 4521, visitors: 1234, engagement: 78 },
-    { id: "2", name: "Healthcare System", views: 3210, visitors: 987, engagement: 65 },
-    { id: "3", name: "E-Government Portal", views: 2156, visitors: 756, engagement: 82 },
-    { id: "4", name: "Education Platform", views: 1890, visitors: 543, engagement: 71 },
-  ],
+  projects: [],
   aiUsage: {
-    totalGenerations: 156,
-    tokensUsed: 245680,
-    avgResponseTime: "2.3s",
-    successRate: 98.7,
+    totalGenerations: 0,
+    tokensUsed: 0,
+    avgResponseTime: "0s",
+    successRate: 0,
   },
-  topCountries: [
-    { country: "Saudi Arabia", visitors: 1245, percentage: 36.4 },
-    { country: "UAE", visitors: 876, percentage: 25.6 },
-    { country: "Egypt", visitors: 543, percentage: 15.9 },
-    { country: "United States", visitors: 421, percentage: 12.3 },
-    { country: "United Kingdom", visitors: 336, percentage: 9.8 },
-  ],
+  topCountries: [],
 };
 
 export default function Analytics() {
@@ -81,8 +71,8 @@ export default function Analytics() {
     enabled: isAuthenticated,
   });
 
-  // Use mock data for now
-  const data = analytics || mockData;
+  // Use real data only - no mock fallback
+  const data = analytics || emptyData;
 
   if (authLoading) {
     return (
