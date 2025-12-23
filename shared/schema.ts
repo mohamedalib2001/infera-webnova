@@ -1265,6 +1265,30 @@ export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 export type AuditLog = typeof auditLogs.$inferSelect;
 
+// ==================== PERMISSION OVERRIDES ====================
+// Persistent storage for dynamic permission changes
+
+export const permissionOverrides = pgTable("permission_overrides", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(), // User whose permissions are modified
+  permissionCode: text("permission_code").notNull(), // e.g., "users:create", "ai:unlimited"
+  type: text("type").notNull(), // 'granted' or 'revoked'
+  grantedBy: varchar("granted_by").notNull(), // Who made the change (owner/sovereign)
+  reason: text("reason"), // Optional reason for the change
+  expiresAt: timestamp("expires_at"), // Optional expiration for temporary permissions
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPermissionOverrideSchema = createInsertSchema(permissionOverrides).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertPermissionOverride = z.infer<typeof insertPermissionOverrideSchema>;
+export type PermissionOverride = typeof permissionOverrides.$inferSelect;
+
 // ==================== PAYMENT METHODS ====================
 
 // Available payment provider types

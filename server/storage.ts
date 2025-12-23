@@ -501,6 +501,9 @@ import {
   taskComments,
   type TaskComment,
   type InsertTaskComment,
+  permissionOverrides,
+  type PermissionOverride,
+  type InsertPermissionOverride,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt, gte, lte, sql } from "drizzle-orm";
@@ -1182,6 +1185,15 @@ export interface IStorage {
   // White Label / Platform Branding
   getOwnerWhiteLabelSettings(): Promise<WhiteLabelSettings | undefined>;
   saveWhiteLabelSettings(userId: string, settings: InsertWhiteLabelSettings): Promise<WhiteLabelSettings>;
+  
+  // Permission Overrides (Persistent Dynamic Permissions)
+  getPermissionOverrides(userId: string): Promise<PermissionOverride[]>;
+  getAllPermissionOverrides(): Promise<PermissionOverride[]>;
+  createPermissionOverride(override: InsertPermissionOverride): Promise<PermissionOverride>;
+  deletePermissionOverride(id: string): Promise<boolean>;
+  deletePermissionOverridesByUser(userId: string): Promise<boolean>;
+  getActiveGrantedPermissions(userId: string): Promise<string[]>;
+  getActiveRevokedPermissions(userId: string): Promise<string[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -7836,6 +7848,78 @@ body { font-family: 'Tajawal', sans-serif; }
   async addTaskComment(data: InsertTaskComment): Promise<TaskComment> {
     const [created] = await db.insert(taskComments).values(data as any).returning();
     return created;
+  }
+
+  // ==================== PERMISSION OVERRIDES (تعديلات الصلاحيات الديناميكية) ====================
+
+  async getPermissionOverrides(userId: string): Promise<PermissionOverride[]> {
+    return db.select().from(permissionOverrides)
+      .where(eq(permissionOverrides.userId, userId))
+      .orderBy(desc(permissionOverrides.createdAt));
+  }
+
+  async getAllPermissionOverrides(): Promise<PermissionOverride[]> {
+    return db.select().from(permissionOverrides)
+      .orderBy(desc(permissionOverrides.createdAt));
+  }
+
+  async createPermissionOverride(override: InsertPermissionOverride): Promise<PermissionOverride> {
+    // Check if override already exists for this user+permission
+    const existing = await db.select().from(permissionOverrides)
+      .where(and(
+        eq(permissionOverrides.userId, override.userId),
+        eq(permissionOverrides.permissionCode, override.permissionCode)
+      ));
+    
+    // If exists, delete old one first
+    if (existing.length > 0) {
+      await db.delete(permissionOverrides)
+        .where(and(
+          eq(permissionOverrides.userId, override.userId),
+          eq(permissionOverrides.permissionCode, override.permissionCode)
+        ));
+    }
+    
+    const [created] = await db.insert(permissionOverrides).values(override as any).returning();
+    return created;
+  }
+
+  async deletePermissionOverride(id: string): Promise<boolean> {
+    await db.delete(permissionOverrides).where(eq(permissionOverrides.id, id));
+    return true;
+  }
+
+  async deletePermissionOverridesByUser(userId: string): Promise<boolean> {
+    await db.delete(permissionOverrides).where(eq(permissionOverrides.userId, userId));
+    return true;
+  }
+
+  async getActiveGrantedPermissions(userId: string): Promise<string[]> {
+    const now = new Date();
+    const overrides = await db.select().from(permissionOverrides)
+      .where(and(
+        eq(permissionOverrides.userId, userId),
+        eq(permissionOverrides.type, 'granted')
+      ));
+    
+    // Filter out expired permissions
+    return overrides
+      .filter(o => !o.expiresAt || new Date(o.expiresAt) > now)
+      .map(o => o.permissionCode);
+  }
+
+  async getActiveRevokedPermissions(userId: string): Promise<string[]> {
+    const now = new Date();
+    const overrides = await db.select().from(permissionOverrides)
+      .where(and(
+        eq(permissionOverrides.userId, userId),
+        eq(permissionOverrides.type, 'revoked')
+      ));
+    
+    // Filter out expired revocations
+    return overrides
+      .filter(o => !o.expiresAt || new Date(o.expiresAt) > now)
+      .map(o => o.permissionCode);
   }
 }
 

@@ -93,6 +93,7 @@ import DeviceTesting from "@/pages/device-testing";
 import PermissionControl from "@/pages/permission-control";
 import SovereignCompliance from "@/pages/sovereign-compliance";
 import StaffManagement from "@/pages/staff-management";
+import SovereignPermissions from "@/pages/sovereign-permissions";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
@@ -205,6 +206,7 @@ function AuthenticatedRouter() {
       <Route path="/permissions" component={PermissionControl} />
       <Route path="/sovereign/compliance" component={SovereignCompliance} />
       <Route path="/owner/staff" component={StaffManagement} />
+      <Route path="/owner/sovereign-permissions" component={SovereignPermissions} />
       <Route path="/preview/:shareCode" component={Preview} />
       <Route component={NotFound} />
     </Switch>

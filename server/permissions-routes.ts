@@ -1,5 +1,6 @@
 import { Express, Request, Response, NextFunction } from "express";
 import { storage } from "./storage";
+import type { InsertPermissionOverride } from "@shared/schema";
 
 // ==================== SOVEREIGN PERMISSIONS CONTROL SYSTEM ====================
 // نظام التحكم السيادي في الصلاحيات
@@ -106,10 +107,7 @@ export const ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
   ],
 };
 
-// In-memory permission overrides (would be database in production)
-const permissionOverrides: Map<string, { granted: PermissionCode[], revoked: PermissionCode[] }> = new Map();
-
-// Permission audit log
+// Permission audit log (in-memory for quick access, also stored in DB)
 const auditLog: Array<{
   id: string;
   userId: string;
@@ -129,15 +127,15 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-// Middleware: Check for specific permission
+// Middleware: Check for specific permission (async version using database)
 export function requirePermission(...permissions: PermissionCode[]) {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
     const user = req.user as any;
     if (!user) {
       return res.status(401).json({ error: "Authentication required | المصادقة مطلوبة" });
     }
     
-    const userPermissions = getUserPermissions(user.id, user.role);
+    const userPermissions = await getUserPermissionsAsync(user.id, user.role);
     const hasPermission = permissions.some(p => userPermissions.includes(p));
     
     if (!hasPermission) {
@@ -153,21 +151,29 @@ export function requirePermission(...permissions: PermissionCode[]) {
   };
 }
 
-// Get user's effective permissions
+// Get user's effective permissions (sync version for quick checks - uses role defaults only)
 function getUserPermissions(userId: string, role: string): PermissionCode[] {
+  return ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.free;
+}
+
+// Get user's effective permissions (async version with database overrides)
+async function getUserPermissionsAsync(userId: string, role: string): Promise<PermissionCode[]> {
   const rolePermissions = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.free;
-  const overrides = permissionOverrides.get(userId) || { granted: [], revoked: [] };
+  
+  // Get overrides from database
+  const grantedPerms = await storage.getActiveGrantedPermissions(userId);
+  const revokedPerms = await storage.getActiveRevokedPermissions(userId);
   
   // Start with role permissions
   let effective = [...rolePermissions];
   
   // Add granted permissions
-  overrides.granted.forEach(p => {
-    if (!effective.includes(p)) effective.push(p);
+  grantedPerms.forEach(p => {
+    if (!effective.includes(p as PermissionCode)) effective.push(p as PermissionCode);
   });
   
   // Remove revoked permissions
-  effective = effective.filter(p => !overrides.revoked.includes(p));
+  effective = effective.filter(p => !revokedPerms.includes(p));
   
   return effective;
 }
@@ -249,8 +255,10 @@ export function registerPermissionRoutes(app: Express) {
         return res.status(404).json({ error: "User not found | المستخدم غير موجود" });
       }
       
-      const permissions = getUserPermissions(targetUserId, targetUser.role);
-      const overrides = permissionOverrides.get(targetUserId) || { granted: [], revoked: [] };
+      const permissions = await getUserPermissionsAsync(targetUserId, targetUser.role);
+      const grantedPerms = await storage.getActiveGrantedPermissions(targetUserId);
+      const revokedPerms = await storage.getActiveRevokedPermissions(targetUserId);
+      const overrides = { granted: grantedPerms, revoked: revokedPerms };
       
       res.json({
         userId: targetUserId,
@@ -262,7 +270,7 @@ export function registerPermissionRoutes(app: Express) {
           code,
           ...PERMISSIONS[code as PermissionCode],
           category: code.split(":")[0],
-          isGranted: overrides.granted.includes(code as PermissionCode),
+          isGranted: grantedPerms.includes(code),
           isRevoked: false,
         })),
       });
@@ -275,8 +283,10 @@ export function registerPermissionRoutes(app: Express) {
   app.get("/api/permissions/me", requireAuth, async (req, res) => {
     try {
       const user = req.user as any;
-      const permissions = getUserPermissions(user.id, user.role);
-      const overrides = permissionOverrides.get(user.id) || { granted: [], revoked: [] };
+      const permissions = await getUserPermissionsAsync(user.id, user.role);
+      const grantedPerms = await storage.getActiveGrantedPermissions(user.id);
+      const revokedPerms = await storage.getActiveRevokedPermissions(user.id);
+      const overrides = { granted: grantedPerms, revoked: revokedPerms };
       
       res.json({
         userId: user.id,
@@ -294,7 +304,7 @@ export function registerPermissionRoutes(app: Express) {
   app.post("/api/permissions/grant", requireAuth, async (req, res) => {
     try {
       const user = req.user as any;
-      const { targetUserId, permissions } = req.body;
+      const { targetUserId, permissions, reason } = req.body;
       
       // Only owner/sovereign can grant permissions
       if (!["owner", "sovereign"].includes(user.role)) {
@@ -311,25 +321,27 @@ export function registerPermissionRoutes(app: Express) {
         return res.status(404).json({ error: "User not found | المستخدم غير موجود" });
       }
       
-      // Update overrides
-      const overrides = permissionOverrides.get(targetUserId) || { granted: [], revoked: [] };
-      permissions.forEach((p: PermissionCode) => {
-        if (!overrides.granted.includes(p)) {
-          overrides.granted.push(p);
-        }
-        // Remove from revoked if it was there
-        overrides.revoked = overrides.revoked.filter(r => r !== p);
-      });
-      permissionOverrides.set(targetUserId, overrides);
+      // Save overrides to database
+      for (const p of permissions) {
+        await storage.createPermissionOverride({
+          userId: targetUserId,
+          permissionCode: p,
+          type: 'granted',
+          grantedBy: user.id,
+          reason: reason || null,
+        });
+      }
       
       // Log audit
       logAudit(targetUserId, "permission_granted", targetUserId, permissions, user.id, req.ip);
+      
+      const effectivePermissions = await getUserPermissionsAsync(targetUserId, targetUser.role);
       
       res.json({
         success: true,
         message: "Permissions granted | تم منح الصلاحيات",
         grantedPermissions: permissions,
-        effectivePermissions: getUserPermissions(targetUserId, targetUser.role),
+        effectivePermissions,
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -340,7 +352,7 @@ export function registerPermissionRoutes(app: Express) {
   app.post("/api/permissions/revoke", requireAuth, async (req, res) => {
     try {
       const user = req.user as any;
-      const { targetUserId, permissions } = req.body;
+      const { targetUserId, permissions, reason } = req.body;
       
       // Only owner/sovereign can revoke permissions
       if (!["owner", "sovereign"].includes(user.role)) {
@@ -357,25 +369,27 @@ export function registerPermissionRoutes(app: Express) {
         return res.status(404).json({ error: "User not found | المستخدم غير موجود" });
       }
       
-      // Update overrides
-      const overrides = permissionOverrides.get(targetUserId) || { granted: [], revoked: [] };
-      permissions.forEach((p: PermissionCode) => {
-        if (!overrides.revoked.includes(p)) {
-          overrides.revoked.push(p);
-        }
-        // Remove from granted if it was there
-        overrides.granted = overrides.granted.filter(g => g !== p);
-      });
-      permissionOverrides.set(targetUserId, overrides);
+      // Save overrides to database
+      for (const p of permissions) {
+        await storage.createPermissionOverride({
+          userId: targetUserId,
+          permissionCode: p,
+          type: 'revoked',
+          grantedBy: user.id,
+          reason: reason || null,
+        });
+      }
       
       // Log audit
       logAudit(targetUserId, "permission_revoked", targetUserId, permissions, user.id, req.ip);
+      
+      const effectivePermissions = await getUserPermissionsAsync(targetUserId, targetUser.role);
       
       res.json({
         success: true,
         message: "Permissions revoked | تم سحب الصلاحيات",
         revokedPermissions: permissions,
-        effectivePermissions: getUserPermissions(targetUserId, targetUser.role),
+        effectivePermissions,
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -397,16 +411,18 @@ export function registerPermissionRoutes(app: Express) {
         return res.status(404).json({ error: "User not found | المستخدم غير موجود" });
       }
       
-      // Clear overrides
-      permissionOverrides.delete(targetUserId);
+      // Clear overrides from database
+      await storage.deletePermissionOverridesByUser(targetUserId);
       
       // Log audit
       logAudit(targetUserId, "permissions_reset", targetUserId, [], user.id, req.ip);
       
+      const effectivePermissions = await getUserPermissionsAsync(targetUserId, targetUser.role);
+      
       res.json({
         success: true,
         message: "Permissions reset to role defaults | تم إعادة تعيين الصلاحيات للافتراضي",
-        effectivePermissions: getUserPermissions(targetUserId, targetUser.role),
+        effectivePermissions,
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -419,7 +435,7 @@ export function registerPermissionRoutes(app: Express) {
       const user = req.user as any;
       const { permissions } = req.body;
       
-      const userPermissions = getUserPermissions(user.id, user.role);
+      const userPermissions = await getUserPermissionsAsync(user.id, user.role);
       const results = permissions.map((p: string) => ({
         permission: p,
         allowed: userPermissions.includes(p as PermissionCode),
@@ -474,10 +490,14 @@ export function registerPermissionRoutes(app: Express) {
         return res.status(403).json({ error: "Access denied | الوصول مرفوض" });
       }
       
+      // Get overrides count from database
+      const allOverrides = await storage.getAllPermissionOverrides();
+      const uniqueUsers = new Set(allOverrides.map(o => o.userId));
+      
       const stats = {
         totalPermissions: Object.keys(PERMISSIONS).length,
         totalRoles: Object.keys(ROLE_PERMISSIONS).length,
-        usersWithOverrides: permissionOverrides.size,
+        usersWithOverrides: uniqueUsers.size,
         auditLogEntries: auditLog.length,
         permissionsByCategory: Object.entries(PERMISSIONS).reduce((acc, [code]) => {
           const category = code.split(":")[0];
