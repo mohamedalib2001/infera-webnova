@@ -7,7 +7,7 @@ import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -77,7 +77,6 @@ export function OwnerQuickActions() {
   const { isRtl } = useLanguage();
   const [, setLocation] = useLocation();
   const t = isRtl ? translations.ar : translations.en;
-  const queryClient = useQueryClient();
 
   const [isExpanded, setIsExpanded] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -85,9 +84,6 @@ export function OwnerQuickActions() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  // Only show for sovereign/owner users
-  if (!isSovereign) return null;
 
   const chatMutation = useMutation({
     mutationFn: async (message: string) => {
@@ -138,6 +134,9 @@ export function OwnerQuickActions() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Only show for sovereign/owner users
+  if (!isSovereign) return null;
 
   const quickActions = [
     {
