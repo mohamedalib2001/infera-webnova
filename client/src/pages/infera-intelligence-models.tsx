@@ -302,6 +302,21 @@ const translations = {
     costPerMToken: "التكلفة لكل مليون رمز",
     inputCost: "الإدخال",
     outputCost: "الإخراج",
+    
+    // Webhooks
+    webhooks: "الويب هوكس",
+    webhookName: "اسم الويب هوك",
+    webhookUrl: "رابط الإرسال",
+    webhookEvents: "الأحداث",
+    webhookActive: "نشط",
+    webhookDeliveries: "التسليمات",
+    noWebhooks: "لا يوجد ويب هوكس",
+    addWebhook: "إضافة ويب هوك",
+    testWebhook: "اختبار",
+    deleteWebhook: "حذف",
+    webhookSuccess: "نجح",
+    webhookFailed: "فشل",
+    detectAnomalies: "كشف الشذوذ",
   }
 };
 
@@ -445,6 +460,19 @@ interface AnomalyAlert {
   acknowledgedAt: string | null;
 }
 
+interface Webhook {
+  id: string;
+  name: string;
+  url: string;
+  events: string[];
+  is_active: boolean;
+  last_triggered_at: string | null;
+  delivery_count: number;
+  success_count: number;
+  failure_count: number;
+  created_at: string;
+}
+
 export default function InferaIntelligenceModels() {
   const { language } = useLanguage();
   const { toast } = useToast();
@@ -576,6 +604,41 @@ export default function InferaIntelligenceModels() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/infera/alerts"] });
       toast({ title: language === "ar" ? "تم تأكيد التنبيه" : "Alert acknowledged" });
+    },
+  });
+
+  // Webhooks queries and mutations
+  const { data: webhooksData } = useQuery<{ webhooks: Webhook[] }>({
+    queryKey: ["/api/infera/webhooks"],
+  });
+  const webhooks = webhooksData?.webhooks || [];
+
+  const deleteWebhookMutation = useMutation({
+    mutationFn: async (webhookId: string) => {
+      return apiRequest("DELETE", `/api/infera/webhooks/${webhookId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/infera/webhooks"] });
+      toast({ title: language === "ar" ? "تم حذف الويب هوك" : "Webhook deleted" });
+    },
+  });
+
+  const testWebhookMutation = useMutation({
+    mutationFn: async (webhookId: string) => {
+      return apiRequest("POST", `/api/infera/webhooks/${webhookId}/test`);
+    },
+    onSuccess: () => {
+      toast({ title: language === "ar" ? "تم إرسال اختبار الويب هوك" : "Test webhook sent" });
+    },
+  });
+
+  const detectAnomaliesMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/infera/detect-anomalies");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/infera/alerts"] });
+      toast({ title: language === "ar" ? "تم كشف الشذوذ" : "Anomaly detection completed" });
     },
   });
 
@@ -1127,6 +1190,97 @@ export default function InferaIntelligenceModels() {
               </Card>
             </div>
           </div>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <CardTitle className="flex items-center gap-2">
+                  <Link2 className="h-5 w-5" />
+                  {t.webhooks}
+                </CardTitle>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => detectAnomaliesMutation.mutate()}
+                    disabled={detectAnomaliesMutation.isPending}
+                    data-testid="button-detect-anomalies"
+                  >
+                    {detectAnomaliesMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <AlertTriangle className="h-4 w-4 mr-2" />
+                    )}
+                    {t.detectAnomalies}
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {webhooks.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Link2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>{t.noWebhooks}</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {webhooks.map((webhook) => (
+                    <div 
+                      key={webhook.id}
+                      className="flex items-center justify-between p-3 border rounded-md"
+                      data-testid={`card-webhook-${webhook.id}`}
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${webhook.is_active ? 'bg-green-500' : 'bg-gray-400'}`} />
+                          <span className="font-medium">{webhook.name}</span>
+                          {webhook.events && (
+                            <Badge variant="outline" className="text-xs">
+                              {Array.isArray(webhook.events) ? webhook.events.length : 0} events
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1 truncate max-w-md">{webhook.url}</p>
+                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                          <span className="text-green-600">{webhook.success_count || 0} {t.webhookSuccess}</span>
+                          <span className="text-red-600">{webhook.failure_count || 0} {t.webhookFailed}</span>
+                          <span>{webhook.delivery_count || 0} {t.webhookDeliveries}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => testWebhookMutation.mutate(webhook.id)}
+                          disabled={testWebhookMutation.isPending}
+                          data-testid={`button-test-webhook-${webhook.id}`}
+                        >
+                          {testWebhookMutation.isPending ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Zap className="h-3 w-3" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => {
+                            if (confirm(language === "ar" ? "هل أنت متأكد من الحذف؟" : "Delete this webhook?")) {
+                              deleteWebhookMutation.mutate(webhook.id);
+                            }
+                          }}
+                          disabled={deleteWebhookMutation.isPending}
+                          data-testid={`button-delete-webhook-${webhook.id}`}
+                        >
+                          <Trash2 className="h-3 w-3 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="apikeys" className="space-y-4">
