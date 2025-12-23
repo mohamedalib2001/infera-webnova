@@ -2006,13 +2006,13 @@ export function SovereignIndicator() {
                     <div className="space-y-2">
                       {analysis.gapAnalysis.executiveRecommendations.map((rec, idx) => (
                         <div 
-                          key={rec.id} 
+                          key={rec.id || idx} 
                           data-testid={`recommendation-${idx}`}
                           className="p-3 rounded-lg bg-white/5 border border-white/10 space-y-2"
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <Badge 
                                   variant="outline" 
                                   className={cn(
@@ -2025,43 +2025,55 @@ export function SovereignIndicator() {
                                   {rec.priority === 'high' ? t.highPriority :
                                    rec.priority === 'medium' ? t.mediumPriority : t.lowPriority}
                                 </Badge>
-                                <Badge variant="outline" className="text-[10px] border-blue-400/50 text-blue-400">
-                                  +{rec.impact} {t.impactPoints}
-                                </Badge>
+                                {rec.impact && (
+                                  <Badge variant="outline" className="text-[10px] border-blue-400/50 text-blue-400">
+                                    +{rec.impact} {t.impactPoints}
+                                  </Badge>
+                                )}
                               </div>
                               <h5 className="text-white text-sm font-medium mt-1">
-                                {language === 'ar' ? rec.titleAr : rec.title}
+                                {language === 'ar' ? (rec.titleAr || rec.title) : rec.title}
                               </h5>
-                              <p className="text-white/50 text-xs mt-1">
-                                {language === 'ar' ? rec.descriptionAr : rec.description}
-                              </p>
+                              {(rec.description || rec.descriptionAr) && (
+                                <p className="text-white/50 text-xs mt-1">
+                                  {language === 'ar' ? (rec.descriptionAr || '') : (rec.description || '')}
+                                </p>
+                              )}
                             </div>
                           </div>
                           
                           {/* Action Steps */}
-                          <div className="pt-2 border-t border-white/5">
-                            <div className="text-white/60 text-[10px] font-medium mb-1">{t.actionSteps}:</div>
-                            <div className="space-y-1">
-                              {rec.actionSteps.map((step, stepIdx) => (
-                                <div key={stepIdx} className="flex items-start gap-1.5 text-[10px] text-white/50">
-                                  <CheckCircle className="w-3 h-3 text-emerald-400 mt-0.5 flex-shrink-0" />
-                                  <span>{language === 'ar' ? step.ar : step.en}</span>
-                                </div>
-                              ))}
+                          {rec.actionSteps && rec.actionSteps.length > 0 && (
+                            <div className="pt-2 border-t border-white/5">
+                              <div className="text-white/60 text-[10px] font-medium mb-1">{t.actionSteps}:</div>
+                              <div className="space-y-1">
+                                {rec.actionSteps.map((step, stepIdx) => (
+                                  <div key={stepIdx} className="flex items-start gap-1.5 text-[10px] text-white/50">
+                                    <CheckCircle className="w-3 h-3 text-emerald-400 mt-0.5 flex-shrink-0" />
+                                    <span>{language === 'ar' ? step.ar : step.en}</span>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                          </div>
+                          )}
                           
                           {/* Footer */}
-                          <div className="flex items-center justify-between pt-2 border-t border-white/5">
-                            <Badge variant="outline" className="text-[10px] border-white/20 text-white/40">
-                              {rec.estimatedEffort === 'quick' ? t.quickEffort :
-                               rec.estimatedEffort === 'moderate' ? t.moderateEffort : t.significantEffort}
-                            </Badge>
-                            <div className="flex items-center gap-1 text-[10px] text-white/40">
-                              <Shield className="w-3 h-3" />
-                              {rec.globalStandard}
+                          {(rec.estimatedEffort || rec.globalStandard) && (
+                            <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                              {rec.estimatedEffort && (
+                                <Badge variant="outline" className="text-[10px] border-white/20 text-white/40">
+                                  {rec.estimatedEffort === 'quick' ? t.quickEffort :
+                                   rec.estimatedEffort === 'moderate' ? t.moderateEffort : t.significantEffort}
+                                </Badge>
+                              )}
+                              {rec.globalStandard && (
+                                <div className="flex items-center gap-1 text-[10px] text-white/40">
+                                  <Shield className="w-3 h-3" />
+                                  {rec.globalStandard}
+                                </div>
+                              )}
                             </div>
-                          </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -2077,7 +2089,7 @@ export function SovereignIndicator() {
                       <div className="space-y-3">
                         {analysis.gapAnalysis.cuttingEdgeTools.map((tool, idx) => (
                           <div 
-                            key={tool.id} 
+                            key={tool.id || idx} 
                             data-testid={`cutting-edge-tool-${idx}`}
                             className="p-3 rounded-lg bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 space-y-2"
                           >
@@ -2086,85 +2098,105 @@ export function SovereignIndicator() {
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <Badge variant="outline" className="text-[10px] border-cyan-400/50 text-cyan-400">
-                                    {tool.category.toUpperCase()}
+                                    {(language === 'ar' ? (tool.categoryAr || tool.category) : tool.category)?.toUpperCase() || 'TOOL'}
                                   </Badge>
-                                  <Badge variant="outline" className="text-[10px] border-emerald-400/50 text-emerald-400">
-                                    +{tool.impact} {t.impactPoints}
-                                  </Badge>
-                                  <Badge variant="outline" className="text-[10px] border-white/20 text-white/50">
-                                    {tool.releaseYear}
-                                  </Badge>
+                                  {tool.impact && (
+                                    <Badge variant="outline" className="text-[10px] border-emerald-400/50 text-emerald-400">
+                                      +{tool.impact} {t.impactPoints}
+                                    </Badge>
+                                  )}
+                                  {tool.releaseYear && (
+                                    <Badge variant="outline" className="text-[10px] border-white/20 text-white/50">
+                                      {tool.releaseYear}
+                                    </Badge>
+                                  )}
                                 </div>
                                 <h5 className="text-white text-sm font-medium mt-1">
-                                  {language === 'ar' ? tool.nameAr : tool.name}
+                                  {language === 'ar' ? (tool.nameAr || tool.name) : tool.name}
                                 </h5>
-                                <p className="text-white/50 text-xs mt-1">
-                                  {language === 'ar' ? tool.descriptionAr : tool.description}
-                                </p>
+                                {(tool.description || tool.descriptionAr) && (
+                                  <p className="text-white/50 text-xs mt-1">
+                                    {language === 'ar' ? (tool.descriptionAr || '') : (tool.description || '')}
+                                  </p>
+                                )}
                               </div>
                             </div>
                             
                             {/* Vendor & Adoption */}
-                            <div className="flex items-center gap-3 text-[10px]">
-                              <div className="flex items-center gap-1 text-white/40">
-                                <Globe className="w-3 h-3" />
-                                <span>{t.vendor}: {tool.vendor}</span>
+                            {(tool.vendor || tool.adoptionRate) && (
+                              <div className="flex items-center gap-3 text-[10px]">
+                                {tool.vendor && (
+                                  <div className="flex items-center gap-1 text-white/40">
+                                    <Globe className="w-3 h-3" />
+                                    <span>{t.vendor}: {tool.vendor}</span>
+                                  </div>
+                                )}
+                                {tool.adoptionRate && (
+                                  <div className="flex items-center gap-1 text-emerald-400">
+                                    <TrendingUp className="w-3 h-3" />
+                                    <span>{tool.adoptionRate}</span>
+                                  </div>
+                                )}
                               </div>
-                              <div className="flex items-center gap-1 text-emerald-400">
-                                <TrendingUp className="w-3 h-3" />
-                                <span>{tool.adoptionRate}</span>
-                              </div>
-                            </div>
+                            )}
                             
                             {/* Benefits */}
-                            <div className="pt-2 border-t border-white/5">
-                              <div className="text-white/60 text-[10px] font-medium mb-1">{t.benefits}:</div>
-                              <div className="space-y-1">
-                                {tool.benefits.map((benefit, bIdx) => (
-                                  <div key={bIdx} className="flex items-start gap-1.5 text-[10px] text-white/50">
-                                    <CheckCircle className="w-3 h-3 text-cyan-400 mt-0.5 flex-shrink-0" />
-                                    <span>{language === 'ar' ? benefit.ar : benefit.en}</span>
-                                  </div>
-                                ))}
+                            {tool.benefits && tool.benefits.length > 0 && (
+                              <div className="pt-2 border-t border-white/5">
+                                <div className="text-white/60 text-[10px] font-medium mb-1">{t.benefits}:</div>
+                                <div className="space-y-1">
+                                  {tool.benefits.map((benefit, bIdx) => (
+                                    <div key={bIdx} className="flex items-start gap-1.5 text-[10px] text-white/50">
+                                      <CheckCircle className="w-3 h-3 text-cyan-400 mt-0.5 flex-shrink-0" />
+                                      <span>{language === 'ar' ? benefit.ar : benefit.en}</span>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
-                            </div>
+                            )}
                             
                             {/* Integration Steps */}
-                            <div className="pt-2 border-t border-white/5">
-                              <div className="text-white/60 text-[10px] font-medium mb-1">{t.integrationSteps}:</div>
-                              <div className="space-y-1">
-                                {tool.integrationSteps.map((step, sIdx) => (
-                                  <div key={sIdx} className="flex items-start gap-1.5 text-[10px] text-white/50">
-                                    <span className="text-cyan-400 font-bold">{sIdx + 1}.</span>
-                                    <span>{language === 'ar' ? step.ar : step.en}</span>
-                                  </div>
-                                ))}
+                            {tool.integrationSteps && tool.integrationSteps.length > 0 && (
+                              <div className="pt-2 border-t border-white/5">
+                                <div className="text-white/60 text-[10px] font-medium mb-1">{t.integrationSteps}:</div>
+                                <div className="space-y-1">
+                                  {tool.integrationSteps.map((step, sIdx) => (
+                                    <div key={sIdx} className="flex items-start gap-1.5 text-[10px] text-white/50">
+                                      <span className="text-cyan-400 font-bold">{sIdx + 1}.</span>
+                                      <span>{language === 'ar' ? step.ar : step.en}</span>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
-                            </div>
+                            )}
                             
                             {/* Use Cases */}
-                            <div className="pt-2 border-t border-white/5">
-                              <div className="text-white/60 text-[10px] font-medium mb-1">{t.useCases}:</div>
-                              <div className="flex flex-wrap gap-1">
-                                {tool.useCases.map((useCase, uIdx) => (
-                                  <Badge key={uIdx} variant="outline" className="text-[9px] border-white/10 text-white/40">
-                                    {language === 'ar' ? useCase.ar : useCase.en}
-                                  </Badge>
-                                ))}
+                            {tool.useCases && tool.useCases.length > 0 && (
+                              <div className="pt-2 border-t border-white/5">
+                                <div className="text-white/60 text-[10px] font-medium mb-1">{t.useCases}:</div>
+                                <div className="flex flex-wrap gap-1">
+                                  {tool.useCases.map((useCase, uIdx) => (
+                                    <Badge key={uIdx} variant="outline" className="text-[9px] border-white/10 text-white/40">
+                                      {language === 'ar' ? useCase.ar : useCase.en}
+                                    </Badge>
+                                  ))}
+                                </div>
                               </div>
-                            </div>
+                            )}
                             
                             {/* Global Standards */}
-                            <div className="flex items-center gap-2 pt-2 border-t border-white/5">
-                              <Shield className="w-3 h-3 text-amber-400" />
-                              <div className="flex flex-wrap gap-1">
-                                {tool.globalStandards.map((std, stdIdx) => (
-                                  <Badge key={stdIdx} variant="outline" className="text-[9px] border-amber-400/30 text-amber-400/70">
-                                    {std}
-                                  </Badge>
-                                ))}
+                            {tool.globalStandards && tool.globalStandards.length > 0 && (
+                              <div className="flex items-center gap-2 pt-2 border-t border-white/5">
+                                <Shield className="w-3 h-3 text-amber-400" />
+                                <div className="flex flex-wrap gap-1">
+                                  {tool.globalStandards.map((std, stdIdx) => (
+                                    <Badge key={stdIdx} variant="outline" className="text-[9px] border-amber-400/30 text-amber-400/70">
+                                      {std}
+                                    </Badge>
+                                  ))}
+                                </div>
                               </div>
-                            </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -2710,27 +2742,31 @@ export function SovereignIndicator() {
       ${t.executiveRecommendations}
       <span class="badge">${analysis.gapAnalysis.executiveRecommendations.length}</span>
     </div>
-    ${analysis.gapAnalysis.executiveRecommendations.map(rec => `
+    ${(analysis.gapAnalysis.executiveRecommendations || []).map(rec => `
       <div class="recommendation-item">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
           <div>
-            <span class="priority-badge priority-${rec.priority}">${
+            <span class="priority-badge priority-${rec.priority || 'medium'}">${
               rec.priority === 'high' ? t.highPriority :
               rec.priority === 'medium' ? t.mediumPriority : t.lowPriority
             }</span>
-            <span class="impact-badge">+${rec.impact} ${t.impactPoints}</span>
+            ${rec.impact ? `<span class="impact-badge">+${rec.impact} ${t.impactPoints}</span>` : ''}
           </div>
         </div>
-        <div class="recommendation-title">${language === 'ar' ? rec.titleAr : rec.title}</div>
-        <div class="recommendation-desc">${language === 'ar' ? rec.descriptionAr : rec.description}</div>
-        <div class="action-steps">
-          ${rec.actionSteps.map(step => `
-            <div class="action-step">${language === 'ar' ? step.ar : step.en}</div>
-          `).join('')}
-        </div>
-        <div style="margin-top: 8px; font-size: 10px; color: rgba(255,255,255,0.5);">
-          ${t.globalStandard}: ${rec.globalStandard}
-        </div>
+        <div class="recommendation-title">${language === 'ar' ? (rec.titleAr || rec.title) : rec.title}</div>
+        ${rec.description || rec.descriptionAr ? `<div class="recommendation-desc">${language === 'ar' ? (rec.descriptionAr || '') : (rec.description || '')}</div>` : ''}
+        ${rec.actionSteps && rec.actionSteps.length > 0 ? `
+          <div class="action-steps">
+            ${rec.actionSteps.map(step => `
+              <div class="action-step">${language === 'ar' ? step.ar : step.en}</div>
+            `).join('')}
+          </div>
+        ` : ''}
+        ${rec.globalStandard ? `
+          <div style="margin-top: 8px; font-size: 10px; color: rgba(255,255,255,0.5);">
+            ${t.globalStandard}: ${rec.globalStandard}
+          </div>
+        ` : ''}
       </div>
     `).join('')}
   </div>
@@ -2743,40 +2779,48 @@ export function SovereignIndicator() {
       ${t.cuttingEdgeTools}
       <span class="badge">${analysis.gapAnalysis.cuttingEdgeTools.length}</span>
     </div>
-    ${analysis.gapAnalysis.cuttingEdgeTools.map(tool => `
+    ${(analysis.gapAnalysis.cuttingEdgeTools || []).map(tool => `
       <div class="tool-item">
         <div class="tool-header">
           <div>
-            <span class="tool-name">${language === 'ar' ? tool.nameAr : tool.name}</span>
-            <div class="tool-vendor">${t.vendor}: ${tool.vendor} | ${tool.adoptionRate}</div>
+            <span class="tool-name">${language === 'ar' ? (tool.nameAr || tool.name) : tool.name}</span>
+            ${tool.vendor || tool.adoptionRate ? `<div class="tool-vendor">${tool.vendor ? `${t.vendor}: ${tool.vendor}` : ''}${tool.vendor && tool.adoptionRate ? ' | ' : ''}${tool.adoptionRate || ''}</div>` : ''}
           </div>
           <div>
-            <span class="tool-category">${tool.category}</span>
-            <span class="impact-badge" style="margin-${isRtl ? 'right' : 'left'}: 4px;">+${tool.impact}</span>
+            <span class="tool-category">${language === 'ar' ? (tool.categoryAr || tool.category) : tool.category}</span>
+            ${tool.impact ? `<span class="impact-badge" style="margin-${isRtl ? 'right' : 'left'}: 4px;">+${tool.impact}</span>` : ''}
           </div>
         </div>
-        <div style="color: rgba(255,255,255,0.7); font-size: 11px; margin: 8px 0;">
-          ${language === 'ar' ? tool.descriptionAr : tool.description}
-        </div>
-        <div class="tool-benefits">
-          <div style="color: rgba(255,255,255,0.5); font-size: 10px; margin-bottom: 4px;">${t.benefits}:</div>
-          ${tool.benefits.map(b => `
-            <div class="tool-benefit">${language === 'ar' ? b.ar : b.en}</div>
-          `).join('')}
-        </div>
-        <div style="margin-top: 8px;">
-          <div style="color: rgba(255,255,255,0.5); font-size: 10px; margin-bottom: 4px;">${t.integrationSteps}:</div>
-          ${tool.integrationSteps.map((step, i) => `
-            <div style="font-size: 11px; color: rgba(255,255,255,0.6); padding: 2px 0;">
-              <span style="color: #22d3ee; font-weight: bold;">${i + 1}.</span> ${language === 'ar' ? step.ar : step.en}
-            </div>
-          `).join('')}
-        </div>
-        <div class="standards-row">
-          ${tool.globalStandards.map(std => `
-            <span class="standard-badge">${std}</span>
-          `).join('')}
-        </div>
+        ${tool.description || tool.descriptionAr ? `
+          <div style="color: rgba(255,255,255,0.7); font-size: 11px; margin: 8px 0;">
+            ${language === 'ar' ? (tool.descriptionAr || '') : (tool.description || '')}
+          </div>
+        ` : ''}
+        ${tool.benefits && tool.benefits.length > 0 ? `
+          <div class="tool-benefits">
+            <div style="color: rgba(255,255,255,0.5); font-size: 10px; margin-bottom: 4px;">${t.benefits}:</div>
+            ${tool.benefits.map(b => `
+              <div class="tool-benefit">${language === 'ar' ? b.ar : b.en}</div>
+            `).join('')}
+          </div>
+        ` : ''}
+        ${tool.integrationSteps && tool.integrationSteps.length > 0 ? `
+          <div style="margin-top: 8px;">
+            <div style="color: rgba(255,255,255,0.5); font-size: 10px; margin-bottom: 4px;">${t.integrationSteps}:</div>
+            ${tool.integrationSteps.map((step, i) => `
+              <div style="font-size: 11px; color: rgba(255,255,255,0.6); padding: 2px 0;">
+                <span style="color: #22d3ee; font-weight: bold;">${i + 1}.</span> ${language === 'ar' ? step.ar : step.en}
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+        ${tool.globalStandards && tool.globalStandards.length > 0 ? `
+          <div class="standards-row">
+            ${tool.globalStandards.map(std => `
+              <span class="standard-badge">${std}</span>
+            `).join('')}
+          </div>
+        ` : ''}
       </div>
     `).join('')}
   </div>
