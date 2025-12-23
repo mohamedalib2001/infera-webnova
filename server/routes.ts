@@ -21678,13 +21678,24 @@ export function registerConversationRoutes(app: Express, requireAuth: any) {
   // Get command palette data (combined resources, shortcuts, recents, favorites)
   app.get("/api/navigation/command-palette", requireAuth, async (req, res) => {
     try {
-      const user = req.user as any;
+      const replitUser = req.user as any;
       const { language } = req.query;
+      
+      // Get user ID from Replit auth or session
+      let userId: string | null = null;
+      if (replitUser?.claims?.sub) {
+        userId = replitUser.claims.sub;
+      } else if (req.session?.userId) {
+        userId = req.session.userId;
+      }
+      
+      // Get the database user to get the role
+      const dbUser = userId ? await storage.getUser(userId) : null;
       
       const [resources, shortcuts, userState] = await Promise.all([
         storage.getNavigationResources(),
         storage.getNavigationShortcuts(),
-        user?.id ? storage.getNavigationUserState(user.id) : null
+        userId ? storage.getNavigationUserState(userId) : null
       ]);
       
       // Transform resources to match frontend expected format
@@ -21704,8 +21715,8 @@ export function registerConversationRoutes(app: Express, requireAuth: any) {
         priority: r.priority || 0,
       });
       
-      // Filter resources by user role
-      const userRole = user?.role || 'free';
+      // Filter resources by user role from database
+      const userRole = dbUser?.role || 'free';
       // Owner and sovereign can see all resources
       const isOwnerOrSovereign = userRole === 'owner' || userRole === 'sovereign';
       
