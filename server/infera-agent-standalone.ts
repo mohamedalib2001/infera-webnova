@@ -618,9 +618,11 @@ app.get("/", (_req: Request, res: Response) => {
   </div>
   
   <script>
+    const BASE = '/agent';
+    
     async function refreshStatus() {
       try {
-        const res = await fetch('/status');
+        const res = await fetch(BASE + '/status');
         const data = await res.json();
         
         document.getElementById('agent-status').textContent = 
@@ -641,7 +643,7 @@ app.get("/", (_req: Request, res: Response) => {
     async function restartWebNova() {
       if (!confirm('هل تريد إعادة تشغيل WebNova؟')) return;
       try {
-        const res = await fetch('/webnova/restart', { method: 'POST' });
+        const res = await fetch(BASE + '/webnova/restart', { method: 'POST' });
         const data = await res.json();
         alert(data.message || data.error);
         setTimeout(refreshStatus, 3000);
@@ -653,7 +655,7 @@ app.get("/", (_req: Request, res: Response) => {
     async function killSwitch() {
       if (!confirm('تحذير: سيتم إيقاف الـ Agent بالكامل. متأكد؟')) return;
       try {
-        const res = await fetch('/governance/kill', {
+        const res = await fetch(BASE + '/governance/kill', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ownerId: 'owner', reason: 'Emergency kill from dashboard' })
@@ -676,7 +678,7 @@ app.get("/", (_req: Request, res: Response) => {
       input.value = '';
       
       try {
-        const res = await fetch('/terminal/execute', {
+        const res = await fetch(BASE + '/terminal/execute', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ command: cmd })
@@ -691,7 +693,7 @@ app.get("/", (_req: Request, res: Response) => {
     
     async function loadLogs() {
       try {
-        const res = await fetch('/governance/logs?limit=50');
+        const res = await fetch(BASE + '/governance/logs?limit=50');
         const data = await res.json();
         const logsDiv = document.getElementById('governance-logs');
         logsDiv.innerHTML = data.logs.map(log => 
