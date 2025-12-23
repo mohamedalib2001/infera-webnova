@@ -12199,3 +12199,190 @@ export const insertNovaPermissionPresetSchema = createInsertSchema(novaPermissio
 });
 export type InsertNovaPermissionPreset = z.infer<typeof insertNovaPermissionPresetSchema>;
 export type NovaPermissionPreset = typeof novaPermissionPresets.$inferSelect;
+
+// ==================== AI ASSISTANT RELATIONSHIPS & COLLABORATION ====================
+// نظام علاقات وتعاون المساعدين الذكية
+
+// Relationship types between assistants
+export const assistantRelationshipTypes = ['supervisor', 'peer', 'subordinate', 'specialist', 'collaborator'] as const;
+export type AssistantRelationshipType = typeof assistantRelationshipTypes[number];
+
+// Relationship status
+export const relationshipStatuses = ['active', 'paused', 'terminated'] as const;
+export type RelationshipStatus = typeof relationshipStatuses[number];
+
+// Assistant Relationships - Defines how assistants work together
+export const assistantRelationships = pgTable("assistant_relationships", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // The two assistants in the relationship
+  sourceAssistantId: varchar("source_assistant_id").notNull(),
+  targetAssistantId: varchar("target_assistant_id").notNull(),
+  
+  // Relationship type
+  relationshipType: text("relationship_type").notNull(), // supervisor, peer, subordinate, specialist, collaborator
+  
+  // Status and trust
+  status: text("status").notNull().default("active"), // active, paused, terminated
+  trustScore: integer("trust_score").notNull().default(80), // 0-100
+  
+  // Communication channel
+  channelEnabled: boolean("channel_enabled").notNull().default(true),
+  
+  // Permissions in relationship
+  canDelegate: boolean("can_delegate").notNull().default(false), // Can delegate tasks
+  canOverride: boolean("can_override").notNull().default(false), // Can override decisions
+  canRequest: boolean("can_request").notNull().default(true), // Can request assistance
+  canSupervise: boolean("can_supervise").notNull().default(false), // Can supervise work
+  
+  // Scope of collaboration
+  sharedCapabilities: jsonb("shared_capabilities").$type<string[]>().default([]),
+  restrictedCapabilities: jsonb("restricted_capabilities").$type<string[]>().default([]),
+  
+  // Metadata
+  nameEn: text("name_en"),
+  nameAr: text("name_ar"),
+  descriptionEn: text("description_en"),
+  descriptionAr: text("description_ar"),
+  
+  // Sovereign control
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  modifiedBy: varchar("modified_by"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_assist_rel_source").on(table.sourceAssistantId),
+  index("IDX_assist_rel_target").on(table.targetAssistantId),
+  index("IDX_assist_rel_status").on(table.status),
+]);
+
+export const insertAssistantRelationshipSchema = createInsertSchema(assistantRelationships).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAssistantRelationship = z.infer<typeof insertAssistantRelationshipSchema>;
+export type AssistantRelationship = typeof assistantRelationships.$inferSelect;
+
+// Assistant Conversations - Communication between assistants
+export const assistantConversations = pgTable("assistant_conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Relationship or workspace context
+  relationshipId: varchar("relationship_id").references(() => assistantRelationships.id, { onDelete: "cascade" }),
+  workgroupId: varchar("workgroup_id"), // For group conversations
+  
+  // Message details
+  senderAssistantId: varchar("sender_assistant_id").notNull(),
+  receiverAssistantId: varchar("receiver_assistant_id"), // null for broadcast
+  
+  // Message content
+  messageType: text("message_type").notNull().default("text"), // text, task, request, response, status, alert
+  content: text("content").notNull(),
+  metadata: jsonb("metadata").$type<Record<string, any>>().default({}),
+  
+  // Task/Request specific
+  taskId: varchar("task_id"),
+  priority: text("priority").default("normal"), // low, normal, high, urgent
+  requiresResponse: boolean("requires_response").notNull().default(false),
+  responseDeadline: timestamp("response_deadline"),
+  
+  // Status
+  isRead: boolean("is_read").notNull().default(false),
+  isProcessed: boolean("is_processed").notNull().default(false),
+  responseId: varchar("response_id"), // Links to response message
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_assist_conv_rel").on(table.relationshipId),
+  index("IDX_assist_conv_sender").on(table.senderAssistantId),
+  index("IDX_assist_conv_receiver").on(table.receiverAssistantId),
+  index("IDX_assist_conv_time").on(table.createdAt),
+]);
+
+export const insertAssistantConversationSchema = createInsertSchema(assistantConversations).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertAssistantConversation = z.infer<typeof insertAssistantConversationSchema>;
+export type AssistantConversation = typeof assistantConversations.$inferSelect;
+
+// Assistant Workgroups - Teams of assistants for collaborative tasks
+export const assistantWorkgroups = pgTable("assistant_workgroups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Workgroup identity
+  code: text("code").notNull().unique(),
+  nameEn: text("name_en").notNull(),
+  nameAr: text("name_ar").notNull(),
+  descriptionEn: text("description_en"),
+  descriptionAr: text("description_ar"),
+  
+  // Members
+  memberIds: jsonb("member_ids").$type<string[]>().notNull().default([]),
+  leaderId: varchar("leader_id"), // Lead assistant
+  
+  // Purpose and scope
+  purpose: text("purpose"),
+  sharedCapabilities: jsonb("shared_capabilities").$type<string[]>().default([]),
+  
+  // Status
+  isActive: boolean("is_active").notNull().default(true),
+  
+  // Sovereign control
+  modifiedBy: varchar("modified_by"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_assist_wg_code").on(table.code),
+  index("IDX_assist_wg_active").on(table.isActive),
+]);
+
+export const insertAssistantWorkgroupSchema = createInsertSchema(assistantWorkgroups).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAssistantWorkgroup = z.infer<typeof insertAssistantWorkgroupSchema>;
+export type AssistantWorkgroup = typeof assistantWorkgroups.$inferSelect;
+
+// Assistant Permission Audit - Track all permission changes
+export const assistantPermissionAudit = pgTable("assistant_permission_audit", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // What changed
+  entityType: text("entity_type").notNull(), // capability, relationship, workgroup, conversation
+  entityId: varchar("entity_id").notNull(),
+  assistantId: varchar("assistant_id"),
+  
+  // Action
+  action: text("action").notNull(), // create, update, delete, enable, disable, grant, revoke
+  
+  // Change details
+  previousValue: jsonb("previous_value"),
+  newValue: jsonb("new_value"),
+  
+  // Actor
+  actorId: varchar("actor_id").notNull(), // User who made the change
+  actorRole: text("actor_role"),
+  
+  // Context
+  reason: text("reason"),
+  ipAddress: text("ip_address"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_assist_audit_entity").on(table.entityType, table.entityId),
+  index("IDX_assist_audit_assistant").on(table.assistantId),
+  index("IDX_assist_audit_actor").on(table.actorId),
+  index("IDX_assist_audit_time").on(table.createdAt),
+]);
+
+export const insertAssistantPermissionAuditSchema = createInsertSchema(assistantPermissionAudit).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertAssistantPermissionAudit = z.infer<typeof insertAssistantPermissionAuditSchema>;
+export type AssistantPermissionAudit = typeof assistantPermissionAudit.$inferSelect;
