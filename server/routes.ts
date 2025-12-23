@@ -10550,18 +10550,19 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
         // Keep default predictions if AI fails
       }
       
-      // Anomaly detection - real data based
+      // Anomaly detection - real data only (no synthetic values)
       const anomalies = {
-        activeAlerts: 0, // Will be populated from real alerts when available
-        resolvedAnomalies: 0, // Real resolved count
-        detectionAccuracy: historicalData.some(d => d > 0) ? 95 : 0,
-        avgDetectionTime: "0s",
+        activeAlerts: 0, // Real count from alerts table when available
+        resolvedAnomalies: 0, // Real resolved count when available
+        detectionAccuracy: 0, // Real accuracy from anomaly detection system when available
+        avgDetectionTime: "0ms", // Real detection time when available
       };
       
-      // Calculate real uptime from process
-      const uptimeSeconds = process.uptime();
-      const uptimePercent = Math.min(99.99, 95 + (uptimeSeconds / 86400) * 4.99); // Scale based on uptime
-      const uptimeStr = uptimePercent.toFixed(2) + "%";
+      // Real uptime from process (in seconds, no percentage calculation without real monitoring data)
+      const uptimeSeconds = Math.floor(process.uptime());
+      const uptimeHours = Math.floor(uptimeSeconds / 3600);
+      const uptimeMinutes = Math.floor((uptimeSeconds % 3600) / 60);
+      const uptimeStr = uptimeHours > 0 ? `${uptimeHours}h ${uptimeMinutes}m` : `${uptimeMinutes}m`;
       
       // Calculate real events from projects created today
       const realEventsToday = recentProjects;
@@ -10571,8 +10572,9 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
           activeUsers: activeUsers,
           userGrowth: `+${userGrowth}%`,
           uptime: uptimeStr,
-          uptimeStatus: uptimePercent > 99 ? "excellent" : uptimePercent > 95 ? "good" : "warning",
-          responseTime: 0, // Real response time if tracked
+          uptimeSeconds: uptimeSeconds, // Raw value for frontend processing
+          uptimeStatus: uptimeSeconds > 86400 ? "excellent" : uptimeSeconds > 3600 ? "good" : "starting",
+          responseTime: 0, // Real response time from monitoring when available
           responseImprovement: "0%",
           eventsToday: realEventsToday,
           eventsGrowth: "+0%",
