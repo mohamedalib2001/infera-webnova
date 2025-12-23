@@ -198,6 +198,7 @@ function AuthenticatedRouter() {
       <Route path="/backend-generator" component={BackendGenerator} />
       <Route path="/git" component={GitControl} />
       <Route path="/ai-copilot" component={AICopilot} />
+      <Route path="/infera-agent" component={InferaAgent} />
       <Route path="/testing" component={TestingGenerator} />
       <Route path="/marketplace" component={Marketplace} />
       <Route path="/collaboration" component={Collaboration} />

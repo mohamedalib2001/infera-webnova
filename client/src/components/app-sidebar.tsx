@@ -104,6 +104,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     { title: language === "ar" ? "مولّد الباك إند" : "Backend Generator", url: "/backend-generator", icon: ServerCog, testId: "nav-backend-generator" },
     { title: language === "ar" ? "التحكم بالإصدارات" : "Version Control", url: "/git", icon: GitBranch, testId: "nav-git" },
     { title: language === "ar" ? "مساعد AI Copilot" : "AI Copilot", url: "/ai-copilot", icon: Brain, testId: "nav-copilot" },
+    { title: language === "ar" ? "وكيل إنفرا" : "INFERA Agent", url: "/infera-agent", icon: Bot, testId: "nav-infera-agent" },
     { title: language === "ar" ? "مولّد الاختبارات" : "Testing Generator", url: "/testing", icon: TestTube2, testId: "nav-testing" },
     { title: language === "ar" ? "خط أنابيب CI/CD" : "CI/CD Pipeline", url: "/cicd", icon: Workflow, testId: "nav-cicd" },
     { title: language === "ar" ? "اختبار الأجهزة" : "Device Testing", url: "/device-testing", icon: Cpu, testId: "nav-device-testing" },
