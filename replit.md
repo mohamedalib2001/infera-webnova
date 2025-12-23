@@ -93,6 +93,51 @@ The platform offers an AI Chat Interface, a live preview with responsive viewpor
 *   Added 8 new tables: `execution_runtimes`, `execution_jobs`, `execution_artifacts`, `institutional_memory`, `infrastructure_inventory`, `integration_credentials`, `deployment_manifests`, `secrets_vault_entries`
 *   Seeded 10 default runtime configurations
 
+### Integration Layer (Phase 3 Complete)
+*   **Git API**: 18+ endpoints for repository management, branches, commits, files
+*   **CI/CD Pipeline**: 5 endpoints at `/api/cicd/pipelines/*` for pipeline management
+*   **Hetzner Client**: Full server management with audit logging (listServers, powerOn/Off, reboot, metrics)
+
+### Infrastructure-as-Code (Phase 4 Complete)
+*   **Terraform Configuration** (`infrastructure/terraform/`):
+    - Hetzner Cloud provider with network (10.0.0.0/16)
+    - Firewall rules (SSH, HTTP, HTTPS, k3s API, NodePort)
+    - Master and worker node provisioning
+    - Load balancer with health checks
+    - 50GB data volumes per worker
+*   **Ansible Playbooks** (`infrastructure/ansible/`):
+    - k3s cluster setup with UFW and fail2ban
+    - Helm installation (cert-manager, ingress-nginx, Longhorn)
+    - INFERA namespace creation with labels
+*   **Kubernetes Manifests** (`infrastructure/k3s/`):
+    - Deployment with HPA (3-10 replicas, CPU/memory scaling)
+    - ResourceQuota and LimitRange
+    - Ingress with Let's Encrypt TLS
+    - PostgreSQL StatefulSet with Longhorn storage
+    - Secrets management guide (SOPS, External Secrets, Sealed Secrets)
+
+### Security & Governance (Phase 5 Complete)
+*   **Secrets Vault Service** (`server/secrets-vault-service.ts`):
+    - AES-256-GCM encryption with scrypt key derivation
+    - Secret versioning with previous version retention
+    - Rotation policy support (weekly/monthly/quarterly/yearly)
+    - Access control via allowedServices/allowedRoles
+    - Comprehensive audit logging via vaultAuditLog table
+*   **Secrets Vault API** (`server/secrets-vault-routes.ts`):
+    - `POST /api/vault/secrets` - Create secret with encryption
+    - `GET /api/vault/secrets/*` - Get metadata (no value)
+    - `POST /api/vault/secrets/*/reveal` - Decrypt with confirmation
+    - `PATCH /api/vault/secrets/*` - Update with re-encryption
+    - `POST /api/vault/secrets/*/rotate` - Rotate with version history
+    - `DELETE /api/vault/secrets/*` - Delete with audit
+    - `GET /api/vault/list` - Filter by scope/project/type
+    - `GET /api/vault/stats` - Vault statistics
+    - `GET /api/vault/rotation-needed` - Secrets due for rotation
+*   **Nova Permissions System** (`server/nova-permissions.ts`):
+    - 20+ granular permissions with security levels (high/medium/low/danger)
+    - Categories: code_execution, file_operations, database_operations, api_integration
+    - Permission grants and audit logging
+
 ## External Dependencies
 *   **Database**: PostgreSQL
 *   **ORM**: Drizzle ORM
