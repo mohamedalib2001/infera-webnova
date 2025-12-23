@@ -168,10 +168,11 @@ export default function InferaAgentV2() {
     scrollToBottom();
   }, [messages]);
 
-  const { data: projectStructure = [], refetch: refetchStructure } = useQuery<FileNode[]>({
+  const { data: projectStructureData, refetch: refetchStructure } = useQuery<{ items: FileNode[] }>({
     queryKey: ["/api/infera/agent/project/structure", "."],
     refetchInterval: 10000,
   });
+  const projectStructure = projectStructureData?.items || [];
 
   const { data: workflowStatus } = useQuery({
     queryKey: ["/api/infera/agent/workflow/status"],
@@ -303,6 +304,7 @@ export default function InferaAgentV2() {
   };
 
   const renderFileTree = (nodes: FileNode[], depth = 0) => {
+    if (!nodes || !Array.isArray(nodes)) return null;
     return nodes.map((node) => (
       <div key={node.path} style={{ paddingInlineStart: depth * 12 }}>
         <div
