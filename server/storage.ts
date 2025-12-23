@@ -526,6 +526,19 @@ import {
   dynamicWorkflows,
   type DynamicWorkflow,
   type InsertDynamicWorkflow,
+  // Assistant Relationships & Collaboration
+  assistantRelationships,
+  type AssistantRelationship,
+  type InsertAssistantRelationship,
+  assistantConversations,
+  type AssistantConversation,
+  type InsertAssistantConversation,
+  assistantWorkgroups,
+  type AssistantWorkgroup,
+  type InsertAssistantWorkgroup,
+  assistantPermissionAudit,
+  type AssistantPermissionAudit,
+  type InsertAssistantPermissionAudit,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt, gte, lte, sql } from "drizzle-orm";
@@ -1278,6 +1291,38 @@ export interface IStorage {
   updateDynamicWorkflow(id: string, data: Partial<InsertDynamicWorkflow>): Promise<DynamicWorkflow | undefined>;
   toggleDynamicWorkflow(code: string, isEnabled: boolean): Promise<DynamicWorkflow | undefined>;
   deleteDynamicWorkflow(id: string): Promise<boolean>;
+  
+  // Assistant Relationships - AI assistant collaboration management
+  getAssistantRelationships(): Promise<AssistantRelationship[]>;
+  getAssistantRelationship(id: string): Promise<AssistantRelationship | undefined>;
+  getAssistantRelationshipsByAssistant(assistantId: string): Promise<AssistantRelationship[]>;
+  createAssistantRelationship(data: InsertAssistantRelationship): Promise<AssistantRelationship>;
+  updateAssistantRelationship(id: string, data: Partial<InsertAssistantRelationship>): Promise<AssistantRelationship | undefined>;
+  toggleAssistantRelationship(id: string, isEnabled: boolean): Promise<AssistantRelationship | undefined>;
+  deleteAssistantRelationship(id: string): Promise<boolean>;
+  
+  // Assistant Conversations - Communication between assistants
+  getAssistantConversations(relationshipId?: string): Promise<AssistantConversation[]>;
+  getAssistantConversation(id: string): Promise<AssistantConversation | undefined>;
+  getAssistantConversationsByAssistant(assistantId: string): Promise<AssistantConversation[]>;
+  createAssistantConversation(data: InsertAssistantConversation): Promise<AssistantConversation>;
+  markConversationAsRead(id: string): Promise<AssistantConversation | undefined>;
+  markConversationAsProcessed(id: string): Promise<AssistantConversation | undefined>;
+  deleteAssistantConversation(id: string): Promise<boolean>;
+  
+  // Assistant Workgroups - Team collaboration
+  getAssistantWorkgroups(): Promise<AssistantWorkgroup[]>;
+  getAssistantWorkgroup(id: string): Promise<AssistantWorkgroup | undefined>;
+  getAssistantWorkgroupByCode(code: string): Promise<AssistantWorkgroup | undefined>;
+  createAssistantWorkgroup(data: InsertAssistantWorkgroup): Promise<AssistantWorkgroup>;
+  updateAssistantWorkgroup(id: string, data: Partial<InsertAssistantWorkgroup>): Promise<AssistantWorkgroup | undefined>;
+  toggleAssistantWorkgroup(id: string, isActive: boolean): Promise<AssistantWorkgroup | undefined>;
+  deleteAssistantWorkgroup(id: string): Promise<boolean>;
+  
+  // Assistant Permission Audit - Track all changes
+  getAssistantPermissionAudits(limit?: number): Promise<AssistantPermissionAudit[]>;
+  getAssistantPermissionAuditsByEntity(entityType: string, entityId: string): Promise<AssistantPermissionAudit[]>;
+  createAssistantPermissionAudit(data: InsertAssistantPermissionAudit): Promise<AssistantPermissionAudit>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -8334,6 +8379,170 @@ body { font-family: 'Tajawal', sans-serif; }
   async deleteDynamicWorkflow(id: string): Promise<boolean> {
     await db.delete(dynamicWorkflows).where(eq(dynamicWorkflows.id, id));
     return true;
+  }
+
+  // ==================== Assistant Relationships ====================
+  async getAssistantRelationships(): Promise<AssistantRelationship[]> {
+    return db.select().from(assistantRelationships).orderBy(desc(assistantRelationships.createdAt));
+  }
+
+  async getAssistantRelationship(id: string): Promise<AssistantRelationship | undefined> {
+    const result = await db.select().from(assistantRelationships)
+      .where(eq(assistantRelationships.id, id));
+    return result[0];
+  }
+
+  async getAssistantRelationshipsByAssistant(assistantId: string): Promise<AssistantRelationship[]> {
+    return db.select().from(assistantRelationships)
+      .where(
+        sql`${assistantRelationships.sourceAssistantId} = ${assistantId} OR ${assistantRelationships.targetAssistantId} = ${assistantId}`
+      )
+      .orderBy(desc(assistantRelationships.createdAt));
+  }
+
+  async createAssistantRelationship(data: InsertAssistantRelationship): Promise<AssistantRelationship> {
+    const [created] = await db.insert(assistantRelationships).values(data as any).returning();
+    return created;
+  }
+
+  async updateAssistantRelationship(id: string, data: Partial<InsertAssistantRelationship>): Promise<AssistantRelationship | undefined> {
+    await db.update(assistantRelationships)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(assistantRelationships.id, id));
+    const result = await db.select().from(assistantRelationships).where(eq(assistantRelationships.id, id));
+    return result[0];
+  }
+
+  async toggleAssistantRelationship(id: string, isEnabled: boolean): Promise<AssistantRelationship | undefined> {
+    await db.update(assistantRelationships)
+      .set({ isEnabled, updatedAt: new Date() })
+      .where(eq(assistantRelationships.id, id));
+    const result = await db.select().from(assistantRelationships).where(eq(assistantRelationships.id, id));
+    return result[0];
+  }
+
+  async deleteAssistantRelationship(id: string): Promise<boolean> {
+    await db.delete(assistantRelationships).where(eq(assistantRelationships.id, id));
+    return true;
+  }
+
+  // ==================== Assistant Conversations ====================
+  async getAssistantConversations(relationshipId?: string): Promise<AssistantConversation[]> {
+    if (relationshipId) {
+      return db.select().from(assistantConversations)
+        .where(eq(assistantConversations.relationshipId, relationshipId))
+        .orderBy(desc(assistantConversations.createdAt));
+    }
+    return db.select().from(assistantConversations)
+      .orderBy(desc(assistantConversations.createdAt))
+      .limit(100);
+  }
+
+  async getAssistantConversation(id: string): Promise<AssistantConversation | undefined> {
+    const result = await db.select().from(assistantConversations)
+      .where(eq(assistantConversations.id, id));
+    return result[0];
+  }
+
+  async getAssistantConversationsByAssistant(assistantId: string): Promise<AssistantConversation[]> {
+    return db.select().from(assistantConversations)
+      .where(
+        sql`${assistantConversations.senderAssistantId} = ${assistantId} OR ${assistantConversations.receiverAssistantId} = ${assistantId}`
+      )
+      .orderBy(desc(assistantConversations.createdAt))
+      .limit(100);
+  }
+
+  async createAssistantConversation(data: InsertAssistantConversation): Promise<AssistantConversation> {
+    const [created] = await db.insert(assistantConversations).values(data as any).returning();
+    return created;
+  }
+
+  async markConversationAsRead(id: string): Promise<AssistantConversation | undefined> {
+    await db.update(assistantConversations)
+      .set({ isRead: true })
+      .where(eq(assistantConversations.id, id));
+    const result = await db.select().from(assistantConversations).where(eq(assistantConversations.id, id));
+    return result[0];
+  }
+
+  async markConversationAsProcessed(id: string): Promise<AssistantConversation | undefined> {
+    await db.update(assistantConversations)
+      .set({ isProcessed: true })
+      .where(eq(assistantConversations.id, id));
+    const result = await db.select().from(assistantConversations).where(eq(assistantConversations.id, id));
+    return result[0];
+  }
+
+  async deleteAssistantConversation(id: string): Promise<boolean> {
+    await db.delete(assistantConversations).where(eq(assistantConversations.id, id));
+    return true;
+  }
+
+  // ==================== Assistant Workgroups ====================
+  async getAssistantWorkgroups(): Promise<AssistantWorkgroup[]> {
+    return db.select().from(assistantWorkgroups).orderBy(assistantWorkgroups.nameEn);
+  }
+
+  async getAssistantWorkgroup(id: string): Promise<AssistantWorkgroup | undefined> {
+    const result = await db.select().from(assistantWorkgroups)
+      .where(eq(assistantWorkgroups.id, id));
+    return result[0];
+  }
+
+  async getAssistantWorkgroupByCode(code: string): Promise<AssistantWorkgroup | undefined> {
+    const result = await db.select().from(assistantWorkgroups)
+      .where(eq(assistantWorkgroups.code, code));
+    return result[0];
+  }
+
+  async createAssistantWorkgroup(data: InsertAssistantWorkgroup): Promise<AssistantWorkgroup> {
+    const [created] = await db.insert(assistantWorkgroups).values(data as any).returning();
+    return created;
+  }
+
+  async updateAssistantWorkgroup(id: string, data: Partial<InsertAssistantWorkgroup>): Promise<AssistantWorkgroup | undefined> {
+    await db.update(assistantWorkgroups)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(assistantWorkgroups.id, id));
+    const result = await db.select().from(assistantWorkgroups).where(eq(assistantWorkgroups.id, id));
+    return result[0];
+  }
+
+  async toggleAssistantWorkgroup(id: string, isActive: boolean): Promise<AssistantWorkgroup | undefined> {
+    await db.update(assistantWorkgroups)
+      .set({ isActive, updatedAt: new Date() })
+      .where(eq(assistantWorkgroups.id, id));
+    const result = await db.select().from(assistantWorkgroups).where(eq(assistantWorkgroups.id, id));
+    return result[0];
+  }
+
+  async deleteAssistantWorkgroup(id: string): Promise<boolean> {
+    await db.delete(assistantWorkgroups).where(eq(assistantWorkgroups.id, id));
+    return true;
+  }
+
+  // ==================== Assistant Permission Audit ====================
+  async getAssistantPermissionAudits(limit: number = 100): Promise<AssistantPermissionAudit[]> {
+    return db.select().from(assistantPermissionAudit)
+      .orderBy(desc(assistantPermissionAudit.createdAt))
+      .limit(limit);
+  }
+
+  async getAssistantPermissionAuditsByEntity(entityType: string, entityId: string): Promise<AssistantPermissionAudit[]> {
+    return db.select().from(assistantPermissionAudit)
+      .where(
+        and(
+          eq(assistantPermissionAudit.entityType, entityType),
+          eq(assistantPermissionAudit.entityId, entityId)
+        )
+      )
+      .orderBy(desc(assistantPermissionAudit.createdAt));
+  }
+
+  async createAssistantPermissionAudit(data: InsertAssistantPermissionAudit): Promise<AssistantPermissionAudit> {
+    const [created] = await db.insert(assistantPermissionAudit).values(data as any).returning();
+    return created;
   }
 }
 
