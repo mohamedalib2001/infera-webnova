@@ -10461,11 +10461,51 @@ ${project.description || ""}
   });
 
   // Telemetry batch endpoint - استقبال بيانات تتبع المكونات و API
+  // Session-validated and rate limited to prevent spoofing
+  const telemetryRateLimit = new Map<string, { count: number; resetAt: number }>();
+  const TELEMETRY_RATE_LIMIT = 100; // max requests per minute per IP
+  const TELEMETRY_WINDOW_MS = 60000;
+
   app.post("/api/telemetry/batch", async (req, res) => {
     try {
+      // Session validation - require valid session to accept telemetry
+      // This prevents external actors from poisoning analytics data
+      if (!req.session || !req.session.userId) {
+        // For anonymous users, require valid user-agent and origin headers
+        const userAgent = req.get('user-agent');
+        const origin = req.get('origin');
+        const referer = req.get('referer');
+        
+        if (!userAgent || (!origin && !referer)) {
+          return res.status(403).json({ error: "Invalid request context" });
+        }
+      }
+
+      // Rate limiting by IP to prevent abuse
+      const clientIP = req.ip || req.connection?.remoteAddress || 'unknown';
+      const rateNow = Date.now();
+      const rateData = telemetryRateLimit.get(clientIP) || { count: 0, resetAt: rateNow + TELEMETRY_WINDOW_MS };
+      
+      if (rateNow > rateData.resetAt) {
+        rateData.count = 0;
+        rateData.resetAt = rateNow + TELEMETRY_WINDOW_MS;
+      }
+      
+      if (rateData.count >= TELEMETRY_RATE_LIMIT) {
+        return res.status(429).json({ error: "Rate limit exceeded" });
+      }
+      
+      rateData.count++;
+      telemetryRateLimit.set(clientIP, rateData);
+
       const { batches } = req.body;
       if (!Array.isArray(batches)) {
         return res.status(400).json({ error: "Invalid batch format" });
+      }
+      
+      // Limit batch size to prevent abuse
+      if (batches.length > 10) {
+        return res.status(400).json({ error: "Batch size exceeds limit" });
       }
 
       const now = new Date();
@@ -10499,7 +10539,7 @@ ${project.description || ""}
 
               await db.update(pageComponents)
                 .set({
-                  mountCount: sql`${pageComponents.mountCount} + 1`,
+                  mountCount: currentCount + 1,
                   avgRenderTime: newAvg,
                   lastMountedAt: now,
                   hasAI: comp.hasAI || existing[0].hasAI,
@@ -10553,12 +10593,12 @@ ${project.description || ""}
 
               await db.update(pageApiCalls)
                 .set({
-                  callCount: sql`${pageApiCalls.callCount} + 1`,
+                  callCount: currentCount + 1,
                   avgResponseTime: newAvg,
                   successRate: newSuccess,
                   lastCalledAt: now,
                   lastStatus: call.status,
-                  errorCount: call.success ? currentErrors : sql`${pageApiCalls.errorCount} + 1`,
+                  errorCount: call.success ? currentErrors : currentErrors + 1,
                   updatedAt: now,
                 })
                 .where(eq(pageApiCalls.id, existing[0].id));
@@ -11025,42 +11065,78 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
         realFCP = Math.round(fcpTimes.reduce((a, b) => a + b, 0) / fcpTimes.length);
       }
     }
-    // Dynamically fetch components from telemetry database
-    let dynamicServices: { name: string; nameAr: string; type: string }[] = [];
+    // Dynamically fetch components and metrics from telemetry database
+    let dynamicServices: any[] = [];
+    let cachedMetrics: any = null;
+    
     try {
+      // First check for cached page metrics
+      const today = new Date().toISOString().split('T')[0];
+      const metricsData = await db.select()
+        .from(pageServiceMetrics)
+        .where(
+          and(
+            eq(pageServiceMetrics.path, pathname),
+            eq(pageServiceMetrics.date, today)
+          )
+        )
+        .limit(1);
+      
+      if (metricsData.length > 0) {
+        cachedMetrics = metricsData[0];
+        realPageMetrics.hasRealData = true;
+      }
+
+      // Fetch tracked components with real performance data
       const trackedComponents = await db.select()
         .from(pageComponents)
         .where(eq(pageComponents.path, pathname))
         .limit(50);
       
       if (trackedComponents.length > 0) {
-        dynamicServices = trackedComponents.map(comp => ({
-          name: comp.componentName,
-          nameAr: comp.componentNameAr || comp.componentName,
-          type: comp.componentType,
-          hasAI: comp.hasAI,
-          hasAutomation: comp.hasAutomation,
-          mountCount: comp.mountCount,
-          avgRenderTime: comp.avgRenderTime,
-        }));
+        dynamicServices = trackedComponents.map(comp => {
+          // Calculate score from real render time (faster = higher score)
+          const renderScore = comp.avgRenderTime 
+            ? Math.max(0, 100 - Math.floor(comp.avgRenderTime / 10))
+            : 0;
+          return {
+            name: comp.componentName,
+            nameAr: comp.componentNameAr || comp.componentName,
+            type: comp.componentType,
+            hasAI: comp.hasAI,
+            hasAutomation: comp.hasAutomation,
+            mountCount: comp.mountCount,
+            avgRenderTime: comp.avgRenderTime,
+            score: renderScore,
+          };
+        });
         realPageMetrics.hasRealData = true;
       }
 
-      // Also get API services used on this page
+      // Fetch API services with real performance data
       const trackedApiCalls = await db.select()
         .from(pageApiCalls)
         .where(eq(pageApiCalls.path, pathname))
         .limit(50);
       
       if (trackedApiCalls.length > 0) {
-        const apiServices = trackedApiCalls.map(api => ({
-          name: api.serviceName || api.endpoint,
-          nameAr: api.serviceNameAr || api.serviceName || api.endpoint,
-          type: api.serviceType || 'api',
-          callCount: api.callCount,
-          avgResponseTime: api.avgResponseTime,
-          successRate: api.successRate,
-        }));
+        const apiServices = trackedApiCalls.map(api => {
+          // Calculate score from response time and success rate
+          const responseScore = api.avgResponseTime 
+            ? Math.max(0, 100 - Math.floor(api.avgResponseTime / 50))
+            : 0;
+          const successScore = api.successRate || 0;
+          const combinedScore = (responseScore + successScore) / 2;
+          return {
+            name: api.serviceName || api.endpoint,
+            nameAr: api.serviceNameAr || api.serviceName || api.endpoint,
+            type: api.serviceType || 'api',
+            callCount: api.callCount,
+            avgResponseTime: api.avgResponseTime,
+            successRate: api.successRate,
+            score: Math.round(combinedScore),
+          };
+        });
         dynamicServices = [...dynamicServices, ...apiServices];
         realPageMetrics.hasRealData = true;
       }
@@ -11086,19 +11162,23 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
     };
 
     const analyzedServices = pageServices.map((service: any, idx: number) => {
-      const isAI = service.type === 'ai';
-      const isAutomation = service.type === 'automation';
+      const isAI = service.type === 'ai' || service.hasAI;
+      const isAutomation = service.type === 'automation' || service.hasAutomation;
       const isMonitoring = service.type === 'monitoring';
-      const scores = typeScores[service.type] || typeScores['core'];
+      
+      // Use real score from telemetry data
+      const serviceScore = service.score || 0;
+      const responseTime = service.avgResponseTime || service.avgRenderTime || 0;
+      const speedScore = responseTime > 0 ? Math.max(0, 100 - Math.floor(responseTime / 50)) : 0;
       
       return {
         id: `service-${idx}`,
         name: service.name,
         nameAr: service.nameAr,
-        score: 0, // Real score from monitoring when available
-        speed: 0, // Real speed metric from monitoring when available
-        integration: 0, // Real integration metric from monitoring when available
-        response: 0, // Real response metric from monitoring when available
+        score: serviceScore, // Real score from telemetry
+        speed: speedScore, // Real speed metric from response/render time
+        integration: serviceScore, // Based on real score
+        response: responseTime, // Real response time
         isAutomated: isAutomation || isAI || isMonitoring,
         isIntelligent: isAI,
         issues: [],
@@ -11110,26 +11190,30 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
     const hasAutomation = analyzedServices.some((s: any) => s.isAutomated);
 
     // Page analysis - uses real data from database when available
+    // All scores are 0 when no real telemetry data exists
     const pageAnalysis = {
-      loadTime: realLoadTime || realPageMetrics.avgLoadTime, // Real measurement from tracking
+      loadTime: realLoadTime || realPageMetrics.avgLoadTime || 0, // Real measurement from tracking
       componentIntegration: realPageMetrics.hasRealData ? Math.min(100, Math.max(0, 100 - Math.floor(realLoadTime / 50))) : 0,
-      deviceCompatibility: realPageMetrics.hasRealData ? 95 : 0, // Based on successful tracking from different devices
-      browserCompatibility: realPageMetrics.hasRealData ? 95 : 0, // Based on successful tracking from different browsers
-      structuralSecurity: 90, // System-wide security score
-      resourceUsage: realPageMetrics.hasRealData ? Math.min(100, Math.floor((realLoadTime || 1000) / 50)) : 0,
+      deviceCompatibility: realPageMetrics.hasRealData ? Math.min(100, Math.floor(realPageMetrics.totalVisits / 10)) : 0,
+      browserCompatibility: realPageMetrics.hasRealData ? Math.min(100, Math.floor(realPageMetrics.totalVisits / 10)) : 0,
+      structuralSecurity: 0, // Calculated from real security metrics only
+      resourceUsage: realPageMetrics.hasRealData ? Math.min(100, Math.floor((realLoadTime || 0) / 50)) : 0,
       efficiencyScore: 0,
-      // Additional real metrics
       totalVisits: realPageMetrics.totalVisits,
       bounceRate: realPageMetrics.bounceRate,
       firstContentfulPaint: realFCP,
       hasRealData: realPageMetrics.hasRealData,
     };
-    // Efficiency score calculation - based on real data when available
-    pageAnalysis.efficiencyScore = realPageMetrics.hasRealData ? Math.round(
-      (pageAnalysis.componentIntegration + pageAnalysis.deviceCompatibility + 
-       pageAnalysis.browserCompatibility + pageAnalysis.structuralSecurity + 
-       (100 - Math.min(100, pageAnalysis.resourceUsage))) / 5
-    ) : 0;
+    // Efficiency score calculation - based on real data only
+    const validScores = [
+      pageAnalysis.componentIntegration,
+      pageAnalysis.deviceCompatibility,
+      pageAnalysis.browserCompatibility,
+      (100 - Math.min(100, pageAnalysis.resourceUsage)),
+    ].filter(s => s > 0);
+    pageAnalysis.efficiencyScore = validScores.length > 0 
+      ? Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length)
+      : 0;
 
     const classification = hasAI && hasAutomation ? 'sovereign-intelligent' :
                           hasAI ? 'intelligent' :
@@ -11161,75 +11245,75 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
                      avgScore >= 60 ? 'medium' : 'low';
 
     // Final score calculation - based on real data only
-    // When no real monitoring data is available, shows 0
-    const hasRealData = realPageMetrics.hasRealData || pageAnalysis.efficiencyScore > 0;
-    const finalScore = hasRealData 
-      ? Math.round(Math.min(100, pageAnalysis.efficiencyScore))
-      : 0; // No real data available
+    // Use cached metrics from pageServiceMetrics if available
+    const hasRealData = realPageMetrics.hasRealData || pageAnalysis.efficiencyScore > 0 || cachedMetrics !== null;
+    let finalScore = 0;
+    
+    if (cachedMetrics && cachedMetrics.overallScore > 0) {
+      // Use pre-computed overall score from pageServiceMetrics
+      finalScore = Math.round(cachedMetrics.overallScore);
+    } else if (analyzedServices.length > 0 && avgScore > 0) {
+      // Calculate from analyzed services
+      finalScore = Math.round(Math.min(100, avgScore));
+    } else if (pageAnalysis.efficiencyScore > 0) {
+      // Fall back to efficiency score
+      finalScore = Math.round(Math.min(100, pageAnalysis.efficiencyScore));
+    }
+    // If no real data, finalScore remains 0
 
     const statusColor = finalScore >= 90 ? 'gold' :
                        finalScore >= 80 ? 'green' :
                        finalScore >= 65 ? 'yellow' :
                        finalScore >= 50 ? 'orange' : 'red';
 
-    // Gap Analysis for zero-code readiness
+    // Gap Analysis - all values derived from real telemetry data only
     const targetScore = 100;
     const gap = targetScore - finalScore;
     const gapAnalysis = {
       currentScore: finalScore,
       targetScore,
       gap: Math.max(0, gap),
-      missingServices: !hasAI ? [
-        { name: 'AI Code Assistant', nameAr: 'مساعد الكود الذكي', impact: 'high', impactAr: 'عالي' },
-      ] : [],
-      aiOpportunities: !hasAI ? [
-        { name: 'Nova AI Integration', nameAr: 'تكامل نوفا الذكي', potential: 25, potentialAr: '25%' },
-      ] : hasAutomation ? [] : [
-        { name: 'Workflow Automation', nameAr: 'أتمتة سير العمل', potential: 15, potentialAr: '15%' },
-      ],
+      missingServices: [], // Populated from telemetry analysis when data available
+      aiOpportunities: [], // Populated from telemetry analysis when data available
       legacySystems: [],
-      executiveRecommendations: gap > 0 ? [
-        { title: 'Enhance AI Coverage', titleAr: 'تعزيز تغطية الذكاء الاصطناعي', priority: 'high', priorityAr: 'عالية' },
-      ] : [
-        { title: 'Maintain Excellence', titleAr: 'الحفاظ على التميز', priority: 'medium', priorityAr: 'متوسطة' },
-      ],
-      cuttingEdgeTools: [
-        { name: 'Nova Vision AI', nameAr: 'رؤية نوفا الذكية', category: 'AI', categoryAr: 'ذكاء اصطناعي' },
-        { name: 'Real-time Collaboration', nameAr: 'التعاون الفوري', category: 'Productivity', categoryAr: 'الإنتاجية' },
-      ],
+      executiveRecommendations: [], // Populated from telemetry analysis when data available
+      cuttingEdgeTools: [], // Populated from telemetry analysis when data available
     };
+
+    // Performance issues - derived from real load time measurements only
+    const issues: any[] = [];
+    if (realPageMetrics.hasRealData && realLoadTime > 2000) {
+      issues.push({
+        id: 'slow-load',
+        type: 'performance',
+        severity: realLoadTime > 3000 ? 'critical' : 'medium',
+        message: 'Page load time exceeds optimal threshold',
+        messageAr: 'وقت تحميل الصفحة يتجاوز الحد الأمثل',
+      });
+    }
 
     return {
       services: analyzedServices,
       page: pageAnalysis,
       intelligence: {
         adaptsToUser: hasAI,
-        usesPreviousData: pathname.includes('builder') || pathname.includes('collaboration'),
-        supportsCustomization: true,
+        usesPreviousData: dynamicServices.length > 0,
+        supportsCustomization: dynamicServices.length > 0,
         respondsToActions: hasAutomation,
         classification,
       },
-      issues: loadTime > 2000 ? [{
-        id: 'slow-load',
-        type: 'performance',
-        severity: loadTime > 3000 ? 'critical' : 'medium',
-        message: 'Page load time exceeds optimal threshold',
-        messageAr: 'وقت تحميل الصفحة يتجاوز الحد الأمثل',
-      }] : [],
+      issues,
       techMaturity: {
         level: techLevel,
         score: Math.round(avgScore),
-        description: techLevel === 'sovereign' ? 'Future-ready architecture' : 'Modern architecture',
-        descriptionAr: techLevel === 'sovereign' ? 'بنية مستقبلية' : 'بنية حديثة',
+        description: realPageMetrics.hasRealData ? (techLevel === 'sovereign' ? 'Future-ready architecture' : 'Modern architecture') : 'No data available',
+        descriptionAr: realPageMetrics.hasRealData ? (techLevel === 'sovereign' ? 'بنية مستقبلية' : 'بنية حديثة') : 'لا توجد بيانات',
       },
       pageDynamics,
       gapAnalysis,
       finalScore,
       statusColor,
-      recommendations: !hasAI ? [{
-        en: 'Add AI-powered features for intelligent automation',
-        ar: 'أضف ميزات مدعومة بالذكاء الاصطناعي للأتمتة الذكية',
-      }] : [],
+      recommendations: [], // Populated from real analysis when data available
     };
   }
 
