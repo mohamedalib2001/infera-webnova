@@ -10628,73 +10628,8 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
         console.log("Using default compliance score, error fetching data:", compError);
       }
       
-      // Use algorithmic analysis for non-sovereign users (works for all)
-      if (!isSovereign) {
-        return res.json(generateAlgorithmicAnalysis(pathname, services, pageMetrics, complianceScore));
-      }
-
-      // Import Anthropic client
-      const { getAnthropicClientAsync, DEFAULT_ANTHROPIC_MODEL } = await import("./ai-config");
-      const anthropic = await getAnthropicClientAsync();
-      
-      if (!anthropic) {
-        // Fallback to algorithmic analysis if AI not available
-        return res.json(generateAlgorithmicAnalysis(pathname, services, pageMetrics, complianceScore));
-      }
-
-      const analysisPrompt = `أنت محلل ذكاء سيادي لمنصة INFERA WebNova. قم بتحليل الصفحة التالية وأعد تقريراً شاملاً.
-
-الصفحة: ${pathname}
-الخدمات المتاحة: ${JSON.stringify(services, null, 2)}
-مقاييس الصفحة: ${JSON.stringify(pageMetrics, null, 2)}
-
-قم بتحليل:
-1. كفاءة كل خدمة (سرعة، تكامل، استجابة) - من 0 إلى 100
-2. هل الخدمات مؤتمتة أو ذكية
-3. كفاءة الصفحة الكلية
-4. ذكاء الصفحة (تقليدية، شبه ذكية، ذكية، ذكية سيادية)
-5. المشاكل والتحذيرات إن وجدت
-6. التقدم التقني (متدنية، متوسطة، جيدة، متقدمة، سيادية)
-7. النتيجة النهائية ولون الحالة
-8. التوصيات
-
-أجب بـ JSON بالهيكل التالي:
-{
-  "services": [{ "id": "string", "name": "string", "nameAr": "string", "score": number, "speed": number, "integration": number, "response": number, "isAutomated": boolean, "isIntelligent": boolean, "issues": [] }],
-  "page": { "loadTime": number, "componentIntegration": number, "deviceCompatibility": number, "browserCompatibility": number, "structuralSecurity": number, "resourceUsage": number, "efficiencyScore": number },
-  "intelligence": { "adaptsToUser": boolean, "usesPreviousData": boolean, "supportsCustomization": boolean, "respondsToActions": boolean, "classification": "traditional|semi-intelligent|intelligent|sovereign-intelligent" },
-  "issues": [{ "id": "string", "type": "structural|ux|technical|unused|performance", "severity": "low|medium|critical", "message": "string", "messageAr": "string" }],
-  "techMaturity": { "level": "low|medium|good|advanced|sovereign", "score": number, "description": "string", "descriptionAr": "string" },
-  "finalScore": number,
-  "statusColor": "gold|green|yellow|orange|red",
-  "recommendations": [{ "en": "string", "ar": "string" }]
-}`;
-
-      const response = await anthropic.messages.create({
-        model: DEFAULT_ANTHROPIC_MODEL,
-        max_tokens: 2000,
-        messages: [
-          { role: "user", content: analysisPrompt }
-        ],
-      });
-
-      const content = response.content[0];
-      if (content.type !== 'text') {
-        return res.json(generateAlgorithmicAnalysis(pathname, services, pageMetrics));
-      }
-
-      try {
-        // Extract JSON from response
-        const jsonMatch = content.text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const analysis = JSON.parse(jsonMatch[0]);
-          return res.json(analysis);
-        }
-      } catch (parseError) {
-        console.error("Failed to parse AI analysis:", parseError);
-      }
-
-      // Fallback to algorithmic
+      // Always use fast algorithmic analysis for instant response
+      // AI analysis is too slow (15-20s) and causes poor UX
       return res.json(generateAlgorithmicAnalysis(pathname, services, pageMetrics, complianceScore));
     } catch (error) {
       console.error("Sovereign analysis error:", error);
