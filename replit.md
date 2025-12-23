@@ -60,6 +60,25 @@ The platform offers an AI Chat Interface, a live preview with responsive viewpor
 
 ## Recent Changes (December 2025)
 
+### Institutional Memory System (Phase 2 Complete)
+*   **10 Authenticated API Endpoints**:
+    - `POST /api/memory` - Create memory with auto-embedding generation
+    - `GET /api/memory` - List with filtering (projectId, nodeType, status, importance)
+    - `GET /api/memory/:id` - Get single with related memories
+    - `POST /api/memory/search` - Semantic search with cosine similarity
+    - `PATCH /api/memory/:id` - Update with automatic re-embedding
+    - `DELETE /api/memory/:id` - Soft delete (archive)
+    - `POST /api/memory/:id/supersede` - Version replacement pattern
+    - `POST /api/memory/:id/link` - Bidirectional relationship linking
+    - `GET /api/memory/stats` - Statistics by type/status/importance
+    - `POST /api/memory/analyze` - AI analysis with Claude
+*   **Features**:
+    - Lightweight 256-dim semantic embeddings (no external vector DB)
+    - Bilingual support (Arabic/English titles, content, errors)
+    - Keyword extraction with stop word filtering
+    - Version tracking via supersede/supersededBy pattern
+    - Typed helpers (`prepareMemoryInsert/Update`) for Drizzle JSONB type safety
+
 ### Execution Engine Enhancements (Phase 1 Complete)
 *   **Docker Container Isolation**: Added `executeWithIsolation()` function supporting 6 languages (Node.js, Python, TypeScript, Go, PHP, Rust) with Docker container security:
     - No privileged mode

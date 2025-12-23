@@ -167,27 +167,59 @@ Respond in JSON format:
   }
 }
 
-// ==================== MEMORY CRUD OPERATIONS ====================
+// ==================== TYPED INSERT/UPDATE HELPERS ====================
 
-// Create a new memory entry with auto-generated embedding and keywords
-async function createMemory(data: InsertInstitutionalMemory): Promise<InstitutionalMemory> {
-  // Generate embedding from title + content
+// These helpers ensure type safety when working with JSONB fields
+// They accept domain-safe inputs and return properly typed values for Drizzle
+
+type MemoryInsertInput = Omit<InsertInstitutionalMemory, 'embedding' | 'keywords'>;
+type MemoryInsertData = typeof institutionalMemory.$inferInsert;
+
+function prepareMemoryInsert(data: MemoryInsertInput): MemoryInsertData {
+  // Generate embedding and keywords from content
   const fullText = `${data.title} ${data.content} ${data.context || ''}`;
   const embedding = generateSimpleEmbedding(fullText);
   const keywords = extractKeywords(fullText);
   
-  // Build insert data with computed fields
-  // Note: Type assertion needed due to Drizzle ORM's strict insert type inference
-  // The schema correctly defines embedding/keywords as jsonb fields
-  const insertValues = {
+  // Return properly typed insert data
+  return {
     ...data,
     embedding,
     keywords,
+  } as MemoryInsertData;
+}
+
+type MemoryUpdateInput = Partial<Omit<InsertInstitutionalMemory, 'embedding' | 'keywords'>>;
+
+function prepareMemoryUpdate(
+  data: MemoryUpdateInput, 
+  existing: InstitutionalMemory
+): Partial<MemoryInsertData> {
+  const updateData: Record<string, unknown> = {
+    ...data,
+    updatedAt: new Date(),
   };
+  
+  // Regenerate embedding if content changed
+  if (data.title || data.content || data.context) {
+    const fullText = `${data.title || existing.title} ${data.content || existing.content} ${data.context || existing.context || ''}`;
+    updateData.embedding = generateSimpleEmbedding(fullText);
+    updateData.keywords = extractKeywords(fullText);
+  }
+  
+  return updateData as Partial<MemoryInsertData>;
+}
+
+// ==================== MEMORY CRUD OPERATIONS ====================
+
+// Create a new memory entry with auto-generated embedding and keywords
+async function createMemory(data: InsertInstitutionalMemory): Promise<InstitutionalMemory> {
+  // Use typed helper to prepare insert data
+  const insertData = prepareMemoryInsert(data);
   
   const [memory] = await db
     .insert(institutionalMemory)
-    .values(insertValues as typeof institutionalMemory.$inferInsert)
+    .values(insertData)
     .returning();
   
   return memory;
@@ -315,26 +347,18 @@ async function updateMemory(
   id: string,
   data: Partial<InsertInstitutionalMemory>
 ): Promise<InstitutionalMemory | null> {
-  // Build update data
-  const updateValues: Record<string, unknown> = { 
-    ...data, 
-    updatedAt: new Date() 
-  };
-  
-  // Regenerate embedding if content changed
-  if (data.title || data.content || data.context) {
-    const memory = await getMemoryById(id);
-    if (memory) {
-      const fullText = `${data.title || memory.title} ${data.content || memory.content} ${data.context || memory.context || ''}`;
-      updateValues.embedding = generateSimpleEmbedding(fullText);
-      updateValues.keywords = extractKeywords(fullText);
-    }
+  // Get existing memory to merge with updates
+  const existing = await getMemoryById(id);
+  if (!existing) {
+    return null;
   }
   
-  // Note: Type assertion needed due to Drizzle ORM's strict update type inference
+  // Use typed helper to prepare update data
+  const updateData = prepareMemoryUpdate(data, existing);
+  
   const [updated] = await db
     .update(institutionalMemory)
-    .set(updateValues as Partial<typeof institutionalMemory.$inferInsert>)
+    .set(updateData)
     .where(eq(institutionalMemory.id, id))
     .returning();
   
