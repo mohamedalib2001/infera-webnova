@@ -81,6 +81,12 @@ import {
   aiModelAuditLogs,
   aiOrchestrationRules,
   insertAiModelRegistrySchema,
+  inferaIntelligenceModels,
+  inferaApiKeys,
+  inferaApiUsageLogs,
+  inferaModelAuditLog,
+  insertInferaIntelligenceModelSchema,
+  insertInferaApiKeySchema,
 } from "@shared/schema";
 import Anthropic from "@anthropic-ai/sdk";
 import { sql } from "drizzle-orm";
@@ -2602,6 +2608,577 @@ export async function registerRoutes(
     } catch (error) {
       console.error('Failed to create orchestration rule:', error);
       res.status(500).json({ error: "Failed to create orchestration rule" });
+    }
+  });
+
+  // ==================== INFERA INTELLIGENCE MODELS UNIT ====================
+  // وحدة نماذج الذكاء الاصطناعي المملوكة لمنظومة INFERA
+  // INFERA = مصدر للذكاء الاصطناعي وليس مستهلك
+
+  // Get all INFERA Intelligence Models with stats
+  app.get("/api/sovereign/infera-models", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const models = await db.select().from(inferaIntelligenceModels)
+        .orderBy(inferaIntelligenceModels.sortOrder, inferaIntelligenceModels.displayName);
+      
+      // Calculate stats
+      const activeModels = models.filter(m => m.status === 'active').length;
+      const testingModels = models.filter(m => m.status === 'testing').length;
+      const totalRequests = models.reduce((sum, m) => sum + (m.totalRequests || 0), 0);
+      const totalTokens = models.reduce((sum, m) => sum + (m.totalTokens || 0), 0);
+      
+      // Get unique functional roles
+      const rolesSet = new Set(models.map(m => m.functionalRole));
+      const uniqueRoles = Array.from(rolesSet);
+      
+      // Get service level distribution
+      const serviceLevelDist: Record<string, number> = {};
+      models.forEach(m => {
+        serviceLevelDist[m.serviceLevel] = (serviceLevelDist[m.serviceLevel] || 0) + 1;
+      });
+      
+      res.json({
+        models,
+        stats: {
+          totalModels: models.length,
+          activeModels,
+          testingModels,
+          inactiveModels: models.length - activeModels - testingModels,
+          totalRequests,
+          totalTokens,
+          uniqueRoles,
+          serviceLevelDistribution: serviceLevelDist,
+        }
+      });
+    } catch (error) {
+      console.error('Failed to fetch INFERA models:', error);
+      res.status(500).json({ error: "Failed to fetch INFERA Intelligence Models" });
+    }
+  });
+
+  // Get single INFERA model by ID
+  app.get("/api/sovereign/infera-models/:id", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const [model] = await db.select().from(inferaIntelligenceModels)
+        .where(eq(inferaIntelligenceModels.id, id));
+      
+      if (!model) {
+        return res.status(404).json({ error: "Model not found" });
+      }
+      
+      // Get backend model info if linked
+      let backendModel = null;
+      if (model.backendModelId) {
+        const [bm] = await db.select().from(aiModelRegistry)
+          .where(eq(aiModelRegistry.id, model.backendModelId));
+        backendModel = bm || null;
+      }
+      
+      res.json({ model, backendModel });
+    } catch (error) {
+      console.error('Failed to fetch INFERA model:', error);
+      res.status(500).json({ error: "Failed to fetch INFERA model" });
+    }
+  });
+
+  // Create new INFERA Intelligence Model
+  app.post("/api/sovereign/infera-models", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const userId = (req.session as any)?.userId;
+      
+      // Generate slug from display name if not provided
+      let slug = req.body.slug;
+      if (!slug && req.body.displayName) {
+        slug = req.body.displayName.toLowerCase()
+          .replace(/[^a-z0-9\s-]/g, '')
+          .replace(/\s+/g, '-')
+          .replace(/-+/g, '-');
+      }
+      
+      const modelData = {
+        ...req.body,
+        slug,
+        createdBy: userId,
+        updatedBy: userId,
+      };
+      
+      const [model] = await db.insert(inferaIntelligenceModels).values(modelData).returning();
+      
+      // Create audit log
+      await db.insert(inferaModelAuditLog).values({
+        modelId: model.id,
+        action: 'create',
+        actionCategory: 'lifecycle',
+        newValue: model as any,
+        performedBy: userId,
+        performedByRole: 'owner',
+      });
+      
+      res.status(201).json(model);
+    } catch (error: any) {
+      console.error('Failed to create INFERA model:', error);
+      if (error.code === '23505') { // Unique constraint violation
+        return res.status(400).json({ error: "A model with this slug already exists" });
+      }
+      res.status(500).json({ error: "Failed to create INFERA model" });
+    }
+  });
+
+  // Update INFERA Intelligence Model
+  app.patch("/api/sovereign/infera-models/:id", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = (req.session as any)?.userId;
+      
+      // Get current model for audit
+      const [currentModel] = await db.select().from(inferaIntelligenceModels)
+        .where(eq(inferaIntelligenceModels.id, id));
+      
+      if (!currentModel) {
+        return res.status(404).json({ error: "Model not found" });
+      }
+      
+      // Prepare update data
+      const updateData = {
+        ...req.body,
+        updatedBy: userId,
+        updatedAt: new Date(),
+      };
+      
+      const [updated] = await db.update(inferaIntelligenceModels)
+        .set(updateData)
+        .where(eq(inferaIntelligenceModels.id, id))
+        .returning();
+      
+      // Determine what changed for audit
+      const changedFields = Object.keys(req.body).filter(
+        key => JSON.stringify((currentModel as any)[key]) !== JSON.stringify((req.body as any)[key])
+      );
+      
+      // Determine action category
+      let actionCategory = 'configuration';
+      if (changedFields.includes('displayName') || changedFields.includes('slug')) {
+        actionCategory = 'identity';
+      } else if (changedFields.includes('status')) {
+        actionCategory = 'lifecycle';
+      } else if (changedFields.includes('allowedPlans') || changedFields.includes('allowedRoles')) {
+        actionCategory = 'access';
+      }
+      
+      // Create audit log
+      await db.insert(inferaModelAuditLog).values({
+        modelId: id,
+        action: 'update',
+        actionCategory,
+        previousValue: currentModel as any,
+        newValue: updated as any,
+        changedFields,
+        performedBy: userId,
+        performedByRole: 'owner',
+      });
+      
+      res.json(updated);
+    } catch (error: any) {
+      console.error('Failed to update INFERA model:', error);
+      if (error.code === '23505') {
+        return res.status(400).json({ error: "A model with this slug already exists" });
+      }
+      res.status(500).json({ error: "Failed to update INFERA model" });
+    }
+  });
+
+  // Delete INFERA Intelligence Model
+  app.delete("/api/sovereign/infera-models/:id", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = (req.session as any)?.userId;
+      
+      // Get model for audit before deletion
+      const [model] = await db.select().from(inferaIntelligenceModels)
+        .where(eq(inferaIntelligenceModels.id, id));
+      
+      if (!model) {
+        return res.status(404).json({ error: "Model not found" });
+      }
+      
+      // Create audit log before deletion
+      await db.insert(inferaModelAuditLog).values({
+        modelId: null, // Model will be deleted
+        action: 'delete',
+        actionCategory: 'lifecycle',
+        previousValue: model as any,
+        performedBy: userId,
+        performedByRole: 'owner',
+      });
+      
+      await db.delete(inferaIntelligenceModels).where(eq(inferaIntelligenceModels.id, id));
+      
+      res.json({ success: true, message: "Model deleted successfully" });
+    } catch (error) {
+      console.error('Failed to delete INFERA model:', error);
+      res.status(500).json({ error: "Failed to delete INFERA model" });
+    }
+  });
+
+  // Toggle INFERA model status (activate/deactivate)
+  app.post("/api/sovereign/infera-models/:id/toggle", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = (req.session as any)?.userId;
+      
+      const [model] = await db.select().from(inferaIntelligenceModels)
+        .where(eq(inferaIntelligenceModels.id, id));
+      
+      if (!model) {
+        return res.status(404).json({ error: "Model not found" });
+      }
+      
+      const newStatus = model.status === 'active' ? 'inactive' : 'active';
+      
+      const [updated] = await db.update(inferaIntelligenceModels)
+        .set({ 
+          status: newStatus, 
+          updatedBy: userId,
+          updatedAt: new Date()
+        })
+        .where(eq(inferaIntelligenceModels.id, id))
+        .returning();
+      
+      // Create audit log
+      await db.insert(inferaModelAuditLog).values({
+        modelId: id,
+        action: newStatus === 'active' ? 'activate' : 'deactivate',
+        actionCategory: 'lifecycle',
+        previousValue: { status: model.status },
+        newValue: { status: newStatus },
+        changedFields: ['status'],
+        performedBy: userId,
+        performedByRole: 'owner',
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error('Failed to toggle INFERA model status:', error);
+      res.status(500).json({ error: "Failed to toggle model status" });
+    }
+  });
+
+  // Bind INFERA model to backend model
+  app.post("/api/sovereign/infera-models/:id/bind", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { backendModelId, fallbackModelId, engineBindings } = req.body;
+      const userId = (req.session as any)?.userId;
+      
+      const [model] = await db.select().from(inferaIntelligenceModels)
+        .where(eq(inferaIntelligenceModels.id, id));
+      
+      if (!model) {
+        return res.status(404).json({ error: "Model not found" });
+      }
+      
+      const updateData: any = { updatedBy: userId, updatedAt: new Date() };
+      if (backendModelId !== undefined) updateData.backendModelId = backendModelId;
+      if (fallbackModelId !== undefined) updateData.fallbackModelId = fallbackModelId;
+      if (engineBindings !== undefined) updateData.engineBindings = engineBindings;
+      
+      const [updated] = await db.update(inferaIntelligenceModels)
+        .set(updateData)
+        .where(eq(inferaIntelligenceModels.id, id))
+        .returning();
+      
+      // Create audit log
+      await db.insert(inferaModelAuditLog).values({
+        modelId: id,
+        action: 'rebind',
+        actionCategory: 'configuration',
+        previousValue: { 
+          backendModelId: model.backendModelId, 
+          fallbackModelId: model.fallbackModelId,
+          engineBindings: model.engineBindings
+        },
+        newValue: { backendModelId, fallbackModelId, engineBindings },
+        changedFields: ['backendModelId', 'fallbackModelId', 'engineBindings'].filter(f => req.body[f] !== undefined),
+        performedBy: userId,
+        performedByRole: 'owner',
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error('Failed to bind INFERA model:', error);
+      res.status(500).json({ error: "Failed to bind model to backend" });
+    }
+  });
+
+  // Get INFERA model audit log
+  app.get("/api/sovereign/infera-models/:id/audit", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { limit = '50', offset = '0' } = req.query;
+      
+      const logs = await db.select().from(inferaModelAuditLog)
+        .where(eq(inferaModelAuditLog.modelId, id))
+        .orderBy(desc(inferaModelAuditLog.createdAt))
+        .limit(parseInt(limit as string))
+        .offset(parseInt(offset as string));
+      
+      res.json(logs);
+    } catch (error) {
+      console.error('Failed to fetch INFERA model audit:', error);
+      res.status(500).json({ error: "Failed to fetch audit log" });
+    }
+  });
+
+  // ==================== INFERA API KEYS MANAGEMENT ====================
+  // إدارة مفاتيح API للعملاء
+
+  // Get all API keys
+  app.get("/api/sovereign/infera-api-keys", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const keys = await db.select({
+        id: inferaApiKeys.id,
+        name: inferaApiKeys.name,
+        description: inferaApiKeys.description,
+        keyPrefix: inferaApiKeys.keyPrefix,
+        userId: inferaApiKeys.userId,
+        organizationId: inferaApiKeys.organizationId,
+        allowedModelIds: inferaApiKeys.allowedModelIds,
+        allowedFunctionalRoles: inferaApiKeys.allowedFunctionalRoles,
+        permissions: inferaApiKeys.permissions,
+        rateLimitPerMinute: inferaApiKeys.rateLimitPerMinute,
+        rateLimitPerHour: inferaApiKeys.rateLimitPerHour,
+        rateLimitPerDay: inferaApiKeys.rateLimitPerDay,
+        maxTokensPerRequest: inferaApiKeys.maxTokensPerRequest,
+        monthlyBudgetCents: inferaApiKeys.monthlyBudgetCents,
+        currentMonthSpendCents: inferaApiKeys.currentMonthSpendCents,
+        status: inferaApiKeys.status,
+        expiresAt: inferaApiKeys.expiresAt,
+        lastUsedAt: inferaApiKeys.lastUsedAt,
+        totalRequests: inferaApiKeys.totalRequests,
+        totalTokens: inferaApiKeys.totalTokens,
+        totalCostCents: inferaApiKeys.totalCostCents,
+        createdAt: inferaApiKeys.createdAt,
+      }).from(inferaApiKeys)
+        .orderBy(desc(inferaApiKeys.createdAt));
+      
+      // Calculate stats
+      const activeKeys = keys.filter(k => k.status === 'active').length;
+      const totalRequests = keys.reduce((sum, k) => sum + (k.totalRequests || 0), 0);
+      const totalSpend = keys.reduce((sum, k) => sum + (k.totalCostCents || 0), 0);
+      
+      res.json({
+        keys,
+        stats: {
+          totalKeys: keys.length,
+          activeKeys,
+          revokedKeys: keys.filter(k => k.status === 'revoked').length,
+          expiredKeys: keys.filter(k => k.status === 'expired').length,
+          totalRequests,
+          totalSpendCents: totalSpend,
+        }
+      });
+    } catch (error) {
+      console.error('Failed to fetch API keys:', error);
+      res.status(500).json({ error: "Failed to fetch API keys" });
+    }
+  });
+
+  // Create new API key
+  app.post("/api/sovereign/infera-api-keys", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const userId = (req.session as any)?.userId;
+      
+      // Generate secure API key
+      const apiKey = `infr_${crypto.randomBytes(32).toString('hex')}`;
+      const keyPrefix = apiKey.substring(0, 12);
+      const keyHash = crypto.createHash('sha256').update(apiKey).digest('hex');
+      
+      const keyData = {
+        ...req.body,
+        keyPrefix,
+        keyHash,
+        createdBy: userId,
+      };
+      
+      const [createdKey] = await db.insert(inferaApiKeys).values(keyData).returning();
+      
+      // Return with the full key (only shown once!)
+      res.status(201).json({
+        ...createdKey,
+        apiKey, // Only returned on creation!
+        message: "Save this API key now. It will not be shown again!"
+      });
+    } catch (error) {
+      console.error('Failed to create API key:', error);
+      res.status(500).json({ error: "Failed to create API key" });
+    }
+  });
+
+  // Update API key
+  app.patch("/api/sovereign/infera-api-keys/:id", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Don't allow updating key hash or prefix
+      const { keyHash, keyPrefix, ...updateData } = req.body;
+      
+      const [updated] = await db.update(inferaApiKeys)
+        .set({ ...updateData, updatedAt: new Date() })
+        .where(eq(inferaApiKeys.id, id))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ error: "API key not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error('Failed to update API key:', error);
+      res.status(500).json({ error: "Failed to update API key" });
+    }
+  });
+
+  // Revoke API key
+  app.post("/api/sovereign/infera-api-keys/:id/revoke", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+      const userId = (req.session as any)?.userId;
+      
+      const [revoked] = await db.update(inferaApiKeys)
+        .set({
+          status: 'revoked',
+          revokedBy: userId,
+          revokedAt: new Date(),
+          revocationReason: reason || 'Revoked by owner',
+          updatedAt: new Date(),
+        })
+        .where(eq(inferaApiKeys.id, id))
+        .returning();
+      
+      if (!revoked) {
+        return res.status(404).json({ error: "API key not found" });
+      }
+      
+      res.json(revoked);
+    } catch (error) {
+      console.error('Failed to revoke API key:', error);
+      res.status(500).json({ error: "Failed to revoke API key" });
+    }
+  });
+
+  // Rotate API key (create new, revoke old)
+  app.post("/api/sovereign/infera-api-keys/:id/rotate", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = (req.session as any)?.userId;
+      
+      // Get current key
+      const [currentKey] = await db.select().from(inferaApiKeys)
+        .where(eq(inferaApiKeys.id, id));
+      
+      if (!currentKey) {
+        return res.status(404).json({ error: "API key not found" });
+      }
+      
+      // Generate new key
+      const newApiKey = `infr_${crypto.randomBytes(32).toString('hex')}`;
+      const newKeyPrefix = newApiKey.substring(0, 12);
+      const newKeyHash = crypto.createHash('sha256').update(newApiKey).digest('hex');
+      
+      // Revoke old key
+      await db.update(inferaApiKeys)
+        .set({
+          status: 'revoked',
+          revokedBy: userId,
+          revokedAt: new Date(),
+          revocationReason: 'Key rotated',
+          updatedAt: new Date(),
+        })
+        .where(eq(inferaApiKeys.id, id));
+      
+      // Create new key with same settings
+      const newKeyData = {
+        name: currentKey.name,
+        description: currentKey.description,
+        keyPrefix: newKeyPrefix,
+        keyHash: newKeyHash,
+        userId: currentKey.userId,
+        organizationId: currentKey.organizationId,
+        allowedModelIds: currentKey.allowedModelIds,
+        allowedFunctionalRoles: currentKey.allowedFunctionalRoles,
+        permissions: currentKey.permissions,
+        rateLimitPerMinute: currentKey.rateLimitPerMinute,
+        rateLimitPerHour: currentKey.rateLimitPerHour,
+        rateLimitPerDay: currentKey.rateLimitPerDay,
+        maxTokensPerRequest: currentKey.maxTokensPerRequest,
+        maxRequestsPerMonth: currentKey.maxRequestsPerMonth,
+        maxTokensPerMonth: currentKey.maxTokensPerMonth,
+        monthlyBudgetCents: currentKey.monthlyBudgetCents,
+        allowedIps: currentKey.allowedIps,
+        allowedDomains: currentKey.allowedDomains,
+        createdBy: userId,
+      };
+      
+      const [newKey] = await db.insert(inferaApiKeys).values(newKeyData).returning();
+      
+      res.status(201).json({
+        ...newKey,
+        apiKey: newApiKey,
+        message: "Key rotated successfully. Save the new key now!"
+      });
+    } catch (error) {
+      console.error('Failed to rotate API key:', error);
+      res.status(500).json({ error: "Failed to rotate API key" });
+    }
+  });
+
+  // Get API usage logs
+  app.get("/api/sovereign/infera-api-usage", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { keyId, modelId, limit = '100', offset = '0' } = req.query;
+      
+      let query = db.select().from(inferaApiUsageLogs);
+      
+      if (keyId) {
+        query = query.where(eq(inferaApiUsageLogs.apiKeyId, keyId as string)) as any;
+      }
+      if (modelId) {
+        query = query.where(eq(inferaApiUsageLogs.modelId, modelId as string)) as any;
+      }
+      
+      const logs = await query
+        .orderBy(desc(inferaApiUsageLogs.createdAt))
+        .limit(parseInt(limit as string))
+        .offset(parseInt(offset as string));
+      
+      res.json(logs);
+    } catch (error) {
+      console.error('Failed to fetch API usage logs:', error);
+      res.status(500).json({ error: "Failed to fetch usage logs" });
+    }
+  });
+
+  // Get available backend models for binding
+  app.get("/api/sovereign/infera-backend-models", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const models = await db.select({
+        id: aiModelRegistry.id,
+        name: aiModelRegistry.name,
+        nameAr: aiModelRegistry.nameAr,
+        provider: aiModelRegistry.provider,
+        modelType: aiModelRegistry.modelType,
+        status: aiModelRegistry.status,
+        capabilities: aiModelRegistry.capabilities,
+      }).from(aiModelRegistry)
+        .where(eq(aiModelRegistry.status, 'active'))
+        .orderBy(aiModelRegistry.provider, aiModelRegistry.name);
+      
+      res.json(models);
+    } catch (error) {
+      console.error('Failed to fetch backend models:', error);
+      res.status(500).json({ error: "Failed to fetch backend models" });
     }
   });
 
