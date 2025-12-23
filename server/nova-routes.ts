@@ -250,12 +250,19 @@ async function executeNovaTool(toolName: string, toolInput: any, userId: string)
   }
 }
 
-// Middleware to ensure user is authenticated
-function requireAuth(req: any, res: any, next: any) {
-  if (!req.isAuthenticated || !req.isAuthenticated() || !req.user) {
-    return res.status(401).json({ error: "غير مصرح - يجب تسجيل الدخول" });
+// Middleware to ensure user is authenticated (supports both Replit Auth and session-based auth)
+async function requireAuth(req: any, res: any, next: any) {
+  // Check Replit Auth first (passport)
+  if (req.isAuthenticated && req.isAuthenticated() && req.user) {
+    return next();
   }
-  next();
+  
+  // Fallback to traditional session auth
+  if (req.session?.userId) {
+    return next();
+  }
+  
+  return res.status(401).json({ error: "غير مصرح - يجب تسجيل الدخول" });
 }
 
 // Validation schemas
