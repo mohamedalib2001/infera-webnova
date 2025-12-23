@@ -1,0 +1,101 @@
+#cloud-config
+# INFERA WebNova - k3s Master Node Cloud-Init
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - curl
+  - wget
+  - apt-transport-https
+  - ca-certificates
+  - gnupg
+  - lsb-release
+  - ufw
+  - fail2ban
+  - unattended-upgrades
+  - jq
+  - htop
+  - vim
+
+write_files:
+  - path: /etc/sysctl.d/99-kubernetes.conf
+    content: |
+      net.bridge.bridge-nf-call-iptables = 1
+      net.bridge.bridge-nf-call-ip6tables = 1
+      net.ipv4.ip_forward = 1
+      fs.inotify.max_user_watches = 524288
+      fs.inotify.max_user_instances = 512
+    permissions: '0644'
+
+  - path: /etc/fail2ban/jail.local
+    content: |
+      [DEFAULT]
+      bantime = 3600
+      findtime = 600
+      maxretry = 5
+      
+      [sshd]
+      enabled = true
+      port = ssh
+      filter = sshd
+      logpath = /var/log/auth.log
+      maxretry = 3
+    permissions: '0644'
+
+  - path: /root/setup-k3s-master.sh
+    content: |
+      #!/bin/bash
+      set -e
+      
+      echo "Setting up k3s master node: ${node_name}"
+      
+      # Apply sysctl settings
+      sysctl --system
+      
+      # Configure firewall
+      ufw default deny incoming
+      ufw default allow outgoing
+      ufw allow ssh
+      ufw allow 6443/tcp  # k3s API
+      ufw allow 10250/tcp # kubelet
+      ufw allow 8472/udp  # flannel
+      ufw allow 51820/udp # wireguard
+      ufw allow 51821/udp # wireguard
+      ufw allow 80/tcp    # http
+      ufw allow 443/tcp   # https
+      ufw --force enable
+      
+      # Start fail2ban
+      systemctl enable fail2ban
+      systemctl start fail2ban
+      
+      %{ if is_first }
+      # Install k3s as first master
+      curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="v1.28.4+k3s1" sh -s - server \
+        --cluster-init \
+        --disable traefik \
+        --disable servicelb \
+        --flannel-backend=wireguard-native \
+        --tls-san=$(curl -s http://169.254.169.254/hetzner/v1/metadata/public-ipv4) \
+        --node-name=${node_name} \
+        --cluster-cidr=10.42.0.0/16 \
+        --service-cidr=10.43.0.0/16 \
+        --write-kubeconfig-mode=644
+      
+      # Wait for k3s to be ready
+      until kubectl get nodes &>/dev/null; do
+        echo "Waiting for k3s..."
+        sleep 5
+      done
+      
+      echo "k3s master is ready!"
+      %{ else }
+      echo "Additional master node - will join cluster via Ansible"
+      %{ endif }
+    permissions: '0755'
+
+runcmd:
+  - /root/setup-k3s-master.sh
+
+final_message: "INFERA WebNova k3s master ${node_name} ready in $UPTIME seconds"

@@ -1,0 +1,39 @@
+# INFERA WebNova - Kubernetes Namespace Configuration
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: infera
+  labels:
+    name: infera
+    platform: infera-webnova
+    environment: production
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: infera-quota
+  namespace: infera
+spec:
+  hard:
+    requests.cpu: "8"
+    requests.memory: 16Gi
+    limits.cpu: "16"
+    limits.memory: 32Gi
+    persistentvolumeclaims: "20"
+    pods: "100"
+    services: "50"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: infera-limits
+  namespace: infera
+spec:
+  limits:
+    - default:
+        cpu: "500m"
+        memory: "512Mi"
+      defaultRequest:
+        cpu: "100m"
+        memory: "128Mi"
+      type: Container
