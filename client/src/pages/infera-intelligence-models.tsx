@@ -27,8 +27,10 @@ import {
   Brain, Plus, Edit, Trash2, Power, Loader2, 
   MessageCircle, Users, Code, Hammer, BarChart3,
   Key, Activity, Shield, Settings, Link2, Copy,
-  Eye, EyeOff, RefreshCw, Clock, Zap, Crown
+  Eye, EyeOff, RefreshCw, Clock, Zap, Crown,
+  Server, AlertTriangle, Router, CheckCircle2, XCircle, TrendingUp
 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 
 const translations = {
   en: {
@@ -118,6 +120,53 @@ const translations = {
     
     auditLog: "Audit Log",
     viewAudit: "View Changes",
+    
+    // Provider Management
+    providersTab: "AI Providers",
+    providerName: "Provider",
+    providerStatus: "Status",
+    healthScore: "Health Score",
+    priority: "Priority",
+    weight: "Weight",
+    rateLimits: "Rate Limits",
+    perMinute: "Per Minute",
+    perDay: "Per Day",
+    
+    routingRules: "Routing Rules",
+    routingStrategy: "Routing Strategy",
+    reliabilityFirst: "Reliability First",
+    costOptimized: "Cost Optimized",
+    latencyOptimized: "Latency Optimized",
+    roundRobin: "Round Robin",
+    weighted: "Weighted Distribution",
+    
+    testRouting: "Test Routing",
+    runHealthCheck: "Run Health Check",
+    
+    providerPrimary: "Primary",
+    providerEnabled: "Enabled",
+    providerDisabled: "Disabled",
+    
+    alerts: "Alerts",
+    noAlerts: "No active alerts",
+    alertSeverity: "Severity",
+    critical: "Critical",
+    warning: "Warning",
+    info: "Info",
+    acknowledge: "Acknowledge",
+    
+    lastHealthCheck: "Last Health Check",
+    latencyMs: "Latency",
+    successRate: "Success Rate",
+    errorRate: "Error Rate",
+    
+    noProviders: "No AI providers configured",
+    noProvidersDesc: "Add AI providers to enable intelligent routing",
+    
+    updateProvider: "Update Provider",
+    costPerMToken: "Cost per 1M Tokens",
+    inputCost: "Input",
+    outputCost: "Output",
   },
   ar: {
     title: "نماذج INFERA الذكية",
@@ -206,6 +255,53 @@ const translations = {
     
     auditLog: "سجل التدقيق",
     viewAudit: "عرض التغييرات",
+    
+    // Provider Management
+    providersTab: "مزودو الذكاء",
+    providerName: "المزود",
+    providerStatus: "الحالة",
+    healthScore: "نقاط الصحة",
+    priority: "الأولوية",
+    weight: "الوزن",
+    rateLimits: "حدود المعدل",
+    perMinute: "في الدقيقة",
+    perDay: "في اليوم",
+    
+    routingRules: "قواعد التوجيه",
+    routingStrategy: "استراتيجية التوجيه",
+    reliabilityFirst: "الموثوقية أولاً",
+    costOptimized: "تحسين التكلفة",
+    latencyOptimized: "تحسين السرعة",
+    roundRobin: "التوزيع الدوري",
+    weighted: "التوزيع الموزون",
+    
+    testRouting: "اختبار التوجيه",
+    runHealthCheck: "فحص الصحة",
+    
+    providerPrimary: "رئيسي",
+    providerEnabled: "مفعل",
+    providerDisabled: "معطل",
+    
+    alerts: "التنبيهات",
+    noAlerts: "لا توجد تنبيهات نشطة",
+    alertSeverity: "الخطورة",
+    critical: "حرجة",
+    warning: "تحذير",
+    info: "معلومات",
+    acknowledge: "تأكيد",
+    
+    lastHealthCheck: "آخر فحص صحة",
+    latencyMs: "زمن الاستجابة",
+    successRate: "نسبة النجاح",
+    errorRate: "نسبة الخطأ",
+    
+    noProviders: "لا يوجد مزودو ذكاء اصطناعي",
+    noProvidersDesc: "أضف مزودين لتمكين التوجيه الذكي",
+    
+    updateProvider: "تحديث المزود",
+    costPerMToken: "التكلفة لكل مليون رمز",
+    inputCost: "الإدخال",
+    outputCost: "الإخراج",
   }
 };
 
@@ -301,6 +397,54 @@ interface BackendModel {
   capabilities: string[] | null;
 }
 
+interface AIProvider {
+  id: string;
+  name: string;
+  displayName: string;
+  displayNameAr: string | null;
+  status: string;
+  priority: number;
+  weight: number;
+  isPrimary: boolean;
+  isEnabled: boolean;
+  healthScore: number;
+  avgLatencyMs: number | null;
+  successRate: number | null;
+  rateLimitPerMinute: number | null;
+  rateLimitPerDay: number | null;
+  inputCostPer1mTokens: string | null;
+  outputCostPer1mTokens: string | null;
+  lastHealthCheck: string | null;
+  totalRequests: number | null;
+  totalTokens: number | null;
+  totalCost: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface RoutingRule {
+  id: string;
+  name: string;
+  description: string | null;
+  strategy: string;
+  isActive: boolean;
+  priority: number;
+  conditions: Record<string, any> | null;
+  createdAt: string;
+}
+
+interface AnomalyAlert {
+  id: string;
+  providerId: string;
+  alertType: string;
+  severity: string;
+  status: string;
+  message: string;
+  details: Record<string, any> | null;
+  createdAt: string;
+  acknowledgedAt: string | null;
+}
+
 export default function InferaIntelligenceModels() {
   const { language } = useLanguage();
   const { toast } = useToast();
@@ -365,6 +509,74 @@ export default function InferaIntelligenceModels() {
 
   const { data: backendModels } = useQuery<BackendModel[]>({
     queryKey: ["/api/sovereign/infera-backend-models"],
+  });
+
+  // Provider queries
+  const { data: providersData, isLoading: providersLoading, refetch: refetchProviders } = useQuery<{
+    providers: AIProvider[];
+  }>({
+    queryKey: ["/api/infera/providers"],
+  });
+
+  const { data: routingRulesData } = useQuery<{
+    rules: RoutingRule[];
+  }>({
+    queryKey: ["/api/infera/routing/rules"],
+  });
+
+  const { data: alertsData, refetch: refetchAlerts } = useQuery<{
+    alerts: AnomalyAlert[];
+  }>({
+    queryKey: ["/api/infera/alerts"],
+  });
+
+  const providers = providersData?.providers || [];
+  const routingRules = routingRulesData?.rules || [];
+  const alerts = alertsData?.alerts || [];
+
+  const updateProviderMutation = useMutation({
+    mutationFn: async ({ providerId, data }: { providerId: string; data: any }) => {
+      return apiRequest("PATCH", `/api/infera/providers/${providerId}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/infera/providers"] });
+      toast({ title: language === "ar" ? "تم تحديث المزود" : "Provider updated" });
+    },
+    onError: (error: any) => {
+      toast({ title: error.message || "Failed to update provider", variant: "destructive" });
+    },
+  });
+
+  const runHealthCheckMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/infera/providers/health-check");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/infera/providers"] });
+      toast({ title: language === "ar" ? "تم فحص الصحة" : "Health check completed" });
+    },
+  });
+
+  const testRoutingMutation = useMutation({
+    mutationFn: async (strategy: string) => {
+      return apiRequest("POST", "/api/infera/routing/test", { strategy });
+    },
+    onSuccess: (data: any) => {
+      toast({ 
+        title: language === "ar" ? "اختبار التوجيه" : "Routing Test",
+        description: `Selected: ${data.selectedProvider?.name || 'None'}`
+      });
+    },
+  });
+
+  const acknowledgeAlertMutation = useMutation({
+    mutationFn: async (alertId: string) => {
+      return apiRequest("POST", `/api/infera/alerts/${alertId}/acknowledge`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/infera/alerts"] });
+      toast({ title: language === "ar" ? "تم تأكيد التنبيه" : "Alert acknowledged" });
+    },
   });
 
   const createModelMutation = useMutation({
@@ -573,10 +785,14 @@ export default function InferaIntelligenceModels() {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
           <TabsTrigger value="models" data-testid="tab-models">
             <Brain className="h-4 w-4 mr-2" />
             {t.modelsTab}
+          </TabsTrigger>
+          <TabsTrigger value="providers" data-testid="tab-providers">
+            <Server className="h-4 w-4 mr-2" />
+            {t.providersTab}
           </TabsTrigger>
           <TabsTrigger value="apikeys" data-testid="tab-apikeys">
             <Key className="h-4 w-4 mr-2" />
@@ -710,6 +926,207 @@ export default function InferaIntelligenceModels() {
               })}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="providers" className="space-y-6">
+          <div className="flex justify-between items-center gap-4 flex-wrap">
+            <div className="flex gap-2 flex-wrap">
+              <Badge variant="outline">
+                <Server className="h-3 w-3 mr-1" />
+                {providers.length} {t.providersTab}
+              </Badge>
+              {alerts.filter(a => a.status === 'active').length > 0 && (
+                <Badge variant="destructive">
+                  <AlertTriangle className="h-3 w-3 mr-1" />
+                  {alerts.filter(a => a.status === 'active').length} {t.alerts}
+                </Badge>
+              )}
+            </div>
+            <Button 
+              onClick={() => runHealthCheckMutation.mutate()}
+              disabled={runHealthCheckMutation.isPending}
+              data-testid="button-health-check"
+            >
+              {runHealthCheckMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
+              {t.runHealthCheck}
+            </Button>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Server className="h-5 w-5" />
+                  {t.providersTab}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {providersLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : providers.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Server className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>{t.noProviders}</p>
+                  </div>
+                ) : (
+                  providers.map((provider) => (
+                    <div 
+                      key={provider.id}
+                      className="p-4 border rounded-md space-y-3"
+                      data-testid={`card-provider-${provider.id}`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${provider.status === 'active' ? 'bg-green-500' : 'bg-gray-400'}`} />
+                          <span className="font-medium">{provider.displayName}</span>
+                          {provider.isPrimary && (
+                            <Badge variant="secondary" className="text-xs">{t.providerPrimary}</Badge>
+                          )}
+                        </div>
+                        <Switch
+                          checked={provider.isEnabled}
+                          onCheckedChange={(checked) => 
+                            updateProviderMutation.mutate({
+                              providerId: provider.id,
+                              data: { isEnabled: checked }
+                            })
+                          }
+                          disabled={updateProviderMutation.isPending}
+                          data-testid={`switch-provider-${provider.id}`}
+                        />
+                      </div>
+                      
+                      <div className="grid grid-cols-3 gap-2 text-sm">
+                        <div>
+                          <span className="text-muted-foreground text-xs">{t.healthScore}</span>
+                          <div className="flex items-center gap-2">
+                            <Progress value={provider.healthScore} className="h-2 flex-1" />
+                            <span className="font-medium">{provider.healthScore}%</span>
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <span className="text-muted-foreground text-xs">{t.priority}</span>
+                          <p className="font-medium">{provider.priority}</p>
+                        </div>
+                        <div className="text-center">
+                          <span className="text-muted-foreground text-xs">{t.latencyMs}</span>
+                          <p className="font-medium">{provider.avgLatencyMs || '-'}ms</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span>{t.inputCost}: ${provider.inputCostPer1mTokens || '0'}</span>
+                        <span>{t.outputCost}: ${provider.outputCostPer1mTokens || '0'}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Router className="h-5 w-5" />
+                    {t.routingRules}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {routingRules.map((rule) => (
+                    <div 
+                      key={rule.id}
+                      className="flex items-center justify-between p-3 border rounded-md"
+                      data-testid={`card-rule-${rule.id}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-2 h-2 rounded-full ${rule.isActive ? 'bg-green-500' : 'bg-gray-400'}`} />
+                        <div>
+                          <p className="font-medium text-sm">{rule.name}</p>
+                          <p className="text-xs text-muted-foreground">{rule.description}</p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => testRoutingMutation.mutate(rule.strategy)}
+                        disabled={testRoutingMutation.isPending}
+                        data-testid={`button-test-rule-${rule.id}`}
+                      >
+                        {testRoutingMutation.isPending ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <TrendingUp className="h-3 w-3" />
+                        )}
+                      </Button>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5" />
+                    {t.alerts}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {alerts.filter(a => a.status === 'active').length === 0 ? (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-green-500" />
+                      <p>{t.noAlerts}</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {alerts.filter(a => a.status === 'active').slice(0, 5).map((alert) => (
+                        <div 
+                          key={alert.id}
+                          className={`p-3 border rounded-md ${
+                            alert.severity === 'critical' ? 'border-red-500 bg-red-50 dark:bg-red-950/20' :
+                            alert.severity === 'warning' ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950/20' :
+                            'border-blue-500 bg-blue-50 dark:bg-blue-950/20'
+                          }`}
+                          data-testid={`card-alert-${alert.id}`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                {alert.severity === 'critical' ? (
+                                  <XCircle className="h-4 w-4 text-red-500" />
+                                ) : alert.severity === 'warning' ? (
+                                  <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                                ) : (
+                                  <Activity className="h-4 w-4 text-blue-500" />
+                                )}
+                                <span className="font-medium text-sm">{alert.alertType}</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">{alert.message}</p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => acknowledgeAlertMutation.mutate(alert.id)}
+                              disabled={acknowledgeAlertMutation.isPending}
+                              data-testid={`button-ack-${alert.id}`}
+                            >
+                              {t.acknowledge}
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="apikeys" className="space-y-4">
