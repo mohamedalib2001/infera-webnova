@@ -176,8 +176,8 @@ export function OwnerQuickActions() {
       {/* FAB Button */}
       <div
         className={cn(
-          "fixed bottom-20 z-50 flex flex-col items-center gap-2",
-          isRtl ? "left-20" : "right-20"
+          "fixed bottom-32 z-40 flex flex-col items-center gap-2",
+          isRtl ? "left-6" : "right-6"
         )}
       >
         <AnimatePresence>
