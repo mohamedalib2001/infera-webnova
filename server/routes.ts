@@ -10584,7 +10584,7 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
       try {
         const domains = await db.select().from(sovereignComplianceDomains);
         if (domains.length > 0) {
-          const fetchedAuditLogs = await db.select().from(auditLogs).limit(200);
+          const fetchedAuditLogs = await db.select().from(auditLogsTable).limit(200);
           const fetchedUsers = await db.select().from(users);
           const fetchedProjects = await db.select().from(projects).limit(50);
           
