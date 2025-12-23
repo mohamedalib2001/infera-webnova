@@ -452,6 +452,30 @@ let agentState: AgentState = {
   permissions: [...ALLOWED_OPERATIONS],
 };
 
+// Export alias for standalone agent
+export const governanceState = {
+  get isActive() { return agentState.active; },
+  get autonomousMode() { return agentState.autonomousMode; },
+  get permissions() { return agentState.permissions; },
+  get killedAt() { return agentState.killedAt; },
+  get killedBy() { return agentState.killedBy; },
+  get killReason() { return agentState.killReason; },
+};
+
+// 10 Sovereignty Principles Summary
+export const SOVEREIGNTY_PRINCIPLES = [
+  "السيادة العليا لـ INFRA - Agent يعمل تحت سلطة المالك",
+  "نطاق الصلاحيات محدد - لا يتجاوز العمليات المسموحة",
+  "لا خارج الإطار - يعمل فقط ضمن حدود المشروع",
+  "حراسة الملفات - قائمة بيضاء صارمة للمسارات",
+  "حدود التنفيذ - الأوامر الخطرة تتطلب تأكيد",
+  "الشفافية المطلقة - تسجيل كل عملية",
+  "التطور المقيد - أي تغيير يتطلب موافقة",
+  "الاقتراح لا الفرض - Agent يقترح، المالك يقرر",
+  "فصل البيئة عن المنتج - Agent ≠ WebNova",
+  "مفتاح الإيقاف - المالك يستطيع إيقاف Agent فوراً",
+];
+
 export function getAgentState(): AgentState {
   return { ...agentState };
 }

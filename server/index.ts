@@ -9,6 +9,7 @@ import { setupAuth } from "./replitAuth";
 import { initStripeSystem } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
 import { paymentRoutes } from "./payment-routes";
+import standaloneAgentApp from "./infera-agent-standalone";
 
 const app = express();
 const httpServer = createServer(app);
@@ -59,6 +60,11 @@ app.use(
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
 app.use('/api/payments', paymentRoutes);
+
+// Mount INFERA Agent Standalone at /agent/*
+// This provides external access to agent capabilities even if WebNova UI is broken
+app.use('/agent', standaloneAgentApp);
+console.log('[INFERA Agent] Standalone routes mounted at /agent/*');
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
