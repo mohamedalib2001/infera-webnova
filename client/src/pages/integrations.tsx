@@ -55,6 +55,18 @@ import {
   Map,
   Image,
   Database,
+  Terminal,
+  Code,
+  GitBranch,
+  Server,
+  Lock,
+  Unlock,
+  Link2,
+  Laptop,
+  MonitorPlay,
+  Power,
+  ShieldCheck,
+  UserCog,
 } from "lucide-react";
 import { SiOpenai, SiStripe, SiTwilio, SiGoogle, SiAmazonaws, SiCloudflare } from "react-icons/si";
 import type { ServiceProvider, ProviderApiKey, ProviderAlert, FailoverGroup } from "@shared/schema";
@@ -179,6 +191,32 @@ export default function Integrations() {
       priority: "الأولوية",
       isPrimary: "أساسي",
       isBuiltIn: "مدمج",
+      external: "بوابة التكامل",
+      externalDesc: "إدارة أدوات التطوير الخارجية والصلاحيات الذكية",
+      replitTools: "أدوات Replit",
+      replitDesc: "أدوات التطوير السحابية والتشغيل الآمن",
+      smartPermissions: "الصلاحيات الذكية",
+      remoteDev: "التطوير عن بعد",
+      remoteDevDesc: "نشر وإدارة بيئات التطوير على Hetzner",
+      sessionActive: "جلسة نشطة",
+      sessionInactive: "غير متصل",
+      startSession: "بدء جلسة",
+      endSession: "إنهاء جلسة",
+      readOnly: "قراءة فقط",
+      readWrite: "قراءة وكتابة",
+      fullAccess: "وصول كامل",
+      codeExecution: "تنفيذ الكود",
+      fileAccess: "الوصول للملفات",
+      terminalAccess: "الوصول للطرفية",
+      gitOperations: "عمليات Git",
+      deploymentAccess: "الوصول للنشر",
+      lastActivity: "آخر نشاط",
+      connectedSince: "متصل منذ",
+      permissionLevel: "مستوى الصلاحية",
+      enableIntegration: "تفعيل التكامل",
+      disableIntegration: "تعطيل التكامل",
+      configurePermissions: "إعداد الصلاحيات",
+      viewSessions: "عرض الجلسات",
     },
     en: {
       title: "Service Providers Integration Hub",
@@ -250,6 +288,32 @@ export default function Integrations() {
       priority: "Priority",
       isPrimary: "Primary",
       isBuiltIn: "Built-in",
+      external: "Integration Gateway",
+      externalDesc: "Manage external development tools and smart permissions",
+      replitTools: "Replit Tools",
+      replitDesc: "Cloud development tools and secure execution",
+      smartPermissions: "Smart Permissions",
+      remoteDev: "Remote Development",
+      remoteDevDesc: "Deploy and manage development environments on Hetzner",
+      sessionActive: "Session Active",
+      sessionInactive: "Disconnected",
+      startSession: "Start Session",
+      endSession: "End Session",
+      readOnly: "Read Only",
+      readWrite: "Read & Write",
+      fullAccess: "Full Access",
+      codeExecution: "Code Execution",
+      fileAccess: "File Access",
+      terminalAccess: "Terminal Access",
+      gitOperations: "Git Operations",
+      deploymentAccess: "Deployment Access",
+      lastActivity: "Last Activity",
+      connectedSince: "Connected Since",
+      permissionLevel: "Permission Level",
+      enableIntegration: "Enable Integration",
+      disableIntegration: "Disable Integration",
+      configurePermissions: "Configure Permissions",
+      viewSessions: "View Sessions",
     },
   };
 
@@ -458,6 +522,10 @@ export default function Integrations() {
             <TabsTrigger value="failover" data-testid="tab-failover">
               <RotateCcw className="w-4 h-4 me-1" />
               {txt.failover}
+            </TabsTrigger>
+            <TabsTrigger value="external" data-testid="tab-external">
+              <Terminal className="w-4 h-4 me-1" />
+              {txt.external}
             </TabsTrigger>
           </TabsList>
 
@@ -760,6 +828,249 @@ export default function Integrations() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* External Integration Gateway Tab */}
+        <TabsContent value="external" className="mt-6">
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div>
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <Terminal className="w-6 h-6 text-primary" />
+                  {txt.external}
+                </h2>
+                <p className="text-sm text-muted-foreground">{txt.externalDesc}</p>
+              </div>
+            </div>
+
+            {/* Integration Tools Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Replit Tools Card */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-amber-500/10">
+                      <Code className="w-6 h-6 text-amber-500" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">{txt.replitTools}</CardTitle>
+                      <CardDescription>{txt.replitDesc}</CardDescription>
+                    </div>
+                  </div>
+                  <Badge variant="default" className="flex items-center gap-1">
+                    <Power className="w-3 h-3" />
+                    {txt.sessionActive}
+                  </Badge>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Permissions Grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Code className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm">{txt.codeExecution}</span>
+                      </div>
+                      <Badge variant="default" className="text-xs">{txt.fullAccess}</Badge>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Database className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm">{txt.fileAccess}</span>
+                      </div>
+                      <Badge variant="secondary" className="text-xs">{txt.readWrite}</Badge>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Terminal className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm">{txt.terminalAccess}</span>
+                      </div>
+                      <Badge variant="default" className="text-xs">{txt.fullAccess}</Badge>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <GitBranch className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm">{txt.gitOperations}</span>
+                      </div>
+                      <Badge variant="secondary" className="text-xs">{txt.readWrite}</Badge>
+                    </div>
+                  </div>
+
+                  {/* Session Info */}
+                  <div className="flex items-center justify-between p-3 bg-green-500/10 rounded-lg border border-green-500/20">
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                      <div>
+                        <p className="text-sm font-medium">{txt.connectedSince}</p>
+                        <p className="text-xs text-muted-foreground">{new Date().toLocaleString()}</p>
+                      </div>
+                    </div>
+                    <Button size="sm" variant="outline">
+                      <Settings className="w-4 h-4 me-1" />
+                      {txt.configurePermissions}
+                    </Button>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Button variant="outline" size="sm">
+                      <Eye className="w-4 h-4 me-1" />
+                      {txt.viewSessions}
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      <RefreshCw className="w-4 h-4 me-1" />
+                      {language === "ar" ? "تحديث الاتصال" : "Refresh Connection"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Remote Development Card */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-blue-500/10">
+                      <Server className="w-6 h-6 text-blue-500" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">{txt.remoteDev}</CardTitle>
+                      <CardDescription>{txt.remoteDevDesc}</CardDescription>
+                    </div>
+                  </div>
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    <Lock className="w-3 h-3" />
+                    {txt.sessionInactive}
+                  </Badge>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Hetzner Connection Status */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Cloud className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm">Hetzner Cloud</span>
+                      </div>
+                      <Badge variant="outline" className="text-xs">
+                        {language === "ar" ? "غير متصل" : "Not Connected"}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Laptop className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm">{txt.deploymentAccess}</span>
+                      </div>
+                      <Badge variant="outline" className="text-xs">{txt.readOnly}</Badge>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <MonitorPlay className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm">
+                          {language === "ar" ? "مراقبة الخوادم" : "Server Monitoring"}
+                        </span>
+                      </div>
+                      <Badge variant="outline" className="text-xs">{txt.readOnly}</Badge>
+                    </div>
+                  </div>
+
+                  {/* Deployment Info */}
+                  <div className="p-3 bg-muted/50 rounded-lg border border-border/50">
+                    <div className="flex items-center gap-2 mb-2">
+                      <ShieldCheck className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">
+                        {language === "ar" ? "متطلبات الاتصال" : "Connection Requirements"}
+                      </span>
+                    </div>
+                    <ul className="text-xs text-muted-foreground space-y-1 ms-6 list-disc">
+                      <li>{language === "ar" ? "رمز API لـ Hetzner" : "Hetzner API Token"}</li>
+                      <li>{language === "ar" ? "مفاتيح SSH مُعدّة" : "SSH Keys Configured"}</li>
+                      <li>{language === "ar" ? "صلاحيات المالك" : "Owner Permissions"}</li>
+                    </ul>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Button size="sm">
+                      <Link2 className="w-4 h-4 me-1" />
+                      {txt.startSession}
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      <UserCog className="w-4 h-4 me-1" />
+                      {txt.configurePermissions}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Smart Permissions Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-primary" />
+                  {txt.smartPermissions}
+                </CardTitle>
+                <CardDescription>
+                  {language === "ar" 
+                    ? "التحكم الذكي في صلاحيات التكاملات الخارجية" 
+                    : "Smart control over external integration permissions"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Permission Levels */}
+                  <div className="p-4 border rounded-lg space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Lock className="w-5 h-5 text-red-500" />
+                      <span className="font-medium">{txt.readOnly}</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {language === "ar" 
+                        ? "عرض الملفات والسجلات فقط، لا تعديل أو تنفيذ" 
+                        : "View files and logs only, no modifications or execution"}
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      <Badge variant="outline" className="text-xs">{language === "ar" ? "قراءة" : "Read"}</Badge>
+                      <Badge variant="outline" className="text-xs">{language === "ar" ? "عرض" : "View"}</Badge>
+                    </div>
+                  </div>
+
+                  <div className="p-4 border rounded-lg space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Unlock className="w-5 h-5 text-yellow-500" />
+                      <span className="font-medium">{txt.readWrite}</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {language === "ar" 
+                        ? "تعديل الملفات والإعدادات، لا تنفيذ أكواد" 
+                        : "Modify files and settings, no code execution"}
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      <Badge variant="outline" className="text-xs">{language === "ar" ? "قراءة" : "Read"}</Badge>
+                      <Badge variant="outline" className="text-xs">{language === "ar" ? "كتابة" : "Write"}</Badge>
+                      <Badge variant="outline" className="text-xs">{language === "ar" ? "تعديل" : "Modify"}</Badge>
+                    </div>
+                  </div>
+
+                  <div className="p-4 border rounded-lg space-y-3">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-5 h-5 text-green-500" />
+                      <span className="font-medium">{txt.fullAccess}</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {language === "ar" 
+                        ? "وصول كامل شامل التنفيذ والنشر والإدارة" 
+                        : "Full access including execution, deployment and management"}
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      <Badge variant="default" className="text-xs">{language === "ar" ? "كامل" : "Full"}</Badge>
+                      <Badge variant="default" className="text-xs">{language === "ar" ? "تنفيذ" : "Execute"}</Badge>
+                      <Badge variant="default" className="text-xs">{language === "ar" ? "نشر" : "Deploy"}</Badge>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
 
