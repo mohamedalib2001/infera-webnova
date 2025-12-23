@@ -726,7 +726,7 @@ export default function DynamicControlPage() {
                               </p>
                               {workflow.steps && (
                                 <p className="text-xs text-muted-foreground">
-                                  {JSON.parse(workflow.steps || '[]').length} steps
+                                  {(Array.isArray(workflow.steps) ? workflow.steps : JSON.parse(String(workflow.steps) || '[]')).length} steps
                                 </p>
                               )}
                             </div>
