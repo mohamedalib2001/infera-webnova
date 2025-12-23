@@ -1859,6 +1859,75 @@ export const insertSovereignAssistantSchema = createInsertSchema(sovereignAssist
 export type InsertSovereignAssistant = z.infer<typeof insertSovereignAssistantSchema>;
 export type SovereignAssistant = typeof sovereignAssistants.$inferSelect;
 
+// AI Assistant Capability Overrides - Dynamic control of AI assistant capabilities
+export const aiAssistantCapabilities = pgTable("ai_assistant_capabilities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  assistantId: varchar("assistant_id").notNull(), // ID of the AI assistant (sovereign or regular)
+  assistantType: text("assistant_type").notNull(), // 'nova', 'sovereign', 'ai_assistant'
+  capabilityCode: text("capability_code").notNull(), // e.g., 'code:generate', 'file:write', 'api:call'
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  modifiedBy: varchar("modified_by").notNull(), // Owner who made the change
+  reason: text("reason"), // Optional reason for the change
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAiAssistantCapabilitySchema = createInsertSchema(aiAssistantCapabilities).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAiAssistantCapability = z.infer<typeof insertAiAssistantCapabilitySchema>;
+export type AiAssistantCapability = typeof aiAssistantCapabilities.$inferSelect;
+
+// Default AI Capabilities - Master list of all AI capabilities
+export const AI_CAPABILITIES = {
+  // Code capabilities
+  "code:generate": { en: "Generate Code", ar: "توليد الكود", category: "code" },
+  "code:edit": { en: "Edit Code", ar: "تعديل الكود", category: "code" },
+  "code:execute": { en: "Execute Code", ar: "تنفيذ الكود", category: "code" },
+  "code:analyze": { en: "Analyze Code", ar: "تحليل الكود", category: "code" },
+  // File capabilities
+  "file:read": { en: "Read Files", ar: "قراءة الملفات", category: "file" },
+  "file:write": { en: "Write Files", ar: "كتابة الملفات", category: "file" },
+  "file:delete": { en: "Delete Files", ar: "حذف الملفات", category: "file" },
+  "file:upload": { en: "Upload Files", ar: "رفع الملفات", category: "file" },
+  // API capabilities
+  "api:call": { en: "Make API Calls", ar: "استدعاء API", category: "api" },
+  "api:external": { en: "External API Access", ar: "الوصول لـ API خارجي", category: "api" },
+  "api:modify_keys": { en: "Modify API Keys", ar: "تعديل مفاتيح API", category: "api" },
+  // Database capabilities
+  "db:read": { en: "Read Database", ar: "قراءة قاعدة البيانات", category: "database" },
+  "db:write": { en: "Write Database", ar: "كتابة قاعدة البيانات", category: "database" },
+  "db:delete": { en: "Delete Database Records", ar: "حذف سجلات قاعدة البيانات", category: "database" },
+  "db:migrate": { en: "Database Migrations", ar: "ترحيل قاعدة البيانات", category: "database" },
+  // Deployment capabilities
+  "deploy:preview": { en: "Deploy Preview", ar: "نشر المعاينة", category: "deployment" },
+  "deploy:production": { en: "Deploy Production", ar: "نشر الإنتاج", category: "deployment" },
+  "deploy:rollback": { en: "Rollback Deployment", ar: "التراجع عن النشر", category: "deployment" },
+  // System capabilities
+  "system:config": { en: "System Configuration", ar: "تكوين النظام", category: "system" },
+  "system:monitor": { en: "System Monitoring", ar: "مراقبة النظام", category: "system" },
+  "system:alert": { en: "Send Alerts", ar: "إرسال التنبيهات", category: "system" },
+  "system:shutdown": { en: "System Shutdown", ar: "إيقاف النظام", category: "system" },
+  // User capabilities
+  "user:view": { en: "View Users", ar: "عرض المستخدمين", category: "user" },
+  "user:manage": { en: "Manage Users", ar: "إدارة المستخدمين", category: "user" },
+  "user:impersonate": { en: "Impersonate Users", ar: "انتحال المستخدمين", category: "user" },
+  // AI capabilities
+  "ai:chat": { en: "AI Chat", ar: "محادثة AI", category: "ai" },
+  "ai:analyze": { en: "AI Analysis", ar: "تحليل AI", category: "ai" },
+  "ai:autonomous": { en: "Autonomous Actions", ar: "الإجراءات المستقلة", category: "ai" },
+  "ai:learn": { en: "Learn & Adapt", ar: "التعلم والتكيف", category: "ai" },
+  // Security capabilities
+  "security:scan": { en: "Security Scanning", ar: "فحص الأمان", category: "security" },
+  "security:audit": { en: "Security Audit", ar: "تدقيق الأمان", category: "security" },
+  "security:enforce": { en: "Enforce Security Policies", ar: "تطبيق سياسات الأمان", category: "security" },
+} as const;
+
+export type AiCapabilityCode = keyof typeof AI_CAPABILITIES;
+
 // Sovereign Commands - High-level directives from Owner
 export const sovereignCommands = pgTable("sovereign_commands", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

@@ -504,6 +504,9 @@ import {
   permissionOverrides,
   type PermissionOverride,
   type InsertPermissionOverride,
+  aiAssistantCapabilities,
+  type AiAssistantCapability,
+  type InsertAiAssistantCapability,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt, gte, lte, sql } from "drizzle-orm";
@@ -1194,6 +1197,14 @@ export interface IStorage {
   deletePermissionOverridesByUser(userId: string): Promise<boolean>;
   getActiveGrantedPermissions(userId: string): Promise<string[]>;
   getActiveRevokedPermissions(userId: string): Promise<string[]>;
+  
+  // AI Assistant Capability Control
+  getAiAssistantCapabilities(assistantId: string): Promise<AiAssistantCapability[]>;
+  getAllAiAssistantCapabilities(): Promise<AiAssistantCapability[]>;
+  setAiAssistantCapability(data: InsertAiAssistantCapability): Promise<AiAssistantCapability>;
+  deleteAiAssistantCapability(id: string): Promise<boolean>;
+  resetAiAssistantCapabilities(assistantId: string): Promise<boolean>;
+  isCapabilityEnabled(assistantId: string, capabilityCode: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -7920,6 +7931,73 @@ body { font-family: 'Tajawal', sans-serif; }
     return overrides
       .filter(o => !o.expiresAt || new Date(o.expiresAt) > now)
       .map(o => o.permissionCode);
+  }
+
+  // ==================== AI ASSISTANT CAPABILITY CONTROL ====================
+  
+  async getAiAssistantCapabilities(assistantId: string): Promise<AiAssistantCapability[]> {
+    return db.select().from(aiAssistantCapabilities)
+      .where(eq(aiAssistantCapabilities.assistantId, assistantId))
+      .orderBy(desc(aiAssistantCapabilities.createdAt));
+  }
+
+  async getAllAiAssistantCapabilities(): Promise<AiAssistantCapability[]> {
+    return db.select().from(aiAssistantCapabilities)
+      .orderBy(desc(aiAssistantCapabilities.createdAt));
+  }
+
+  async setAiAssistantCapability(data: InsertAiAssistantCapability): Promise<AiAssistantCapability> {
+    // Check if capability already exists for this assistant
+    const existing = await db.select().from(aiAssistantCapabilities)
+      .where(and(
+        eq(aiAssistantCapabilities.assistantId, data.assistantId),
+        eq(aiAssistantCapabilities.capabilityCode, data.capabilityCode)
+      ));
+    
+    if (existing.length > 0) {
+      // Update existing capability
+      await db.update(aiAssistantCapabilities)
+        .set({ 
+          isEnabled: data.isEnabled, 
+          modifiedBy: data.modifiedBy,
+          reason: data.reason,
+          updatedAt: new Date()
+        })
+        .where(eq(aiAssistantCapabilities.id, existing[0].id));
+      
+      const updated = await db.select().from(aiAssistantCapabilities)
+        .where(eq(aiAssistantCapabilities.id, existing[0].id));
+      return updated[0];
+    }
+    
+    // Create new capability override
+    const [created] = await db.insert(aiAssistantCapabilities)
+      .values(data)
+      .returning();
+    return created;
+  }
+
+  async deleteAiAssistantCapability(id: string): Promise<boolean> {
+    await db.delete(aiAssistantCapabilities).where(eq(aiAssistantCapabilities.id, id));
+    return true;
+  }
+
+  async resetAiAssistantCapabilities(assistantId: string): Promise<boolean> {
+    await db.delete(aiAssistantCapabilities).where(eq(aiAssistantCapabilities.assistantId, assistantId));
+    return true;
+  }
+
+  async isCapabilityEnabled(assistantId: string, capabilityCode: string): Promise<boolean> {
+    const capability = await db.select().from(aiAssistantCapabilities)
+      .where(and(
+        eq(aiAssistantCapabilities.assistantId, assistantId),
+        eq(aiAssistantCapabilities.capabilityCode, capabilityCode)
+      ));
+    
+    // If no override exists, capability is enabled by default
+    if (capability.length === 0) return true;
+    
+    return capability[0].isEnabled;
   }
 }
 
