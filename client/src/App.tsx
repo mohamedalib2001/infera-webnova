@@ -102,6 +102,7 @@ import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
 import { CommandPalette } from "@/components/command-palette";
+import { OwnerQuickActions } from "@/components/owner-quick-actions";
 
 function RedirectToAuth() {
   const [, setLocation] = useLocation();
@@ -327,6 +328,9 @@ function AppContent() {
       
       {/* Sovereign Indicator - Golden Arrow (Only for owner/sovereign users) */}
       <SovereignIndicator />
+      
+      {/* Owner Quick Actions - FAB for quick Nova chat access */}
+      <OwnerQuickActions />
     </div>
   );
 }
