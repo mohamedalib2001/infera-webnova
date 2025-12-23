@@ -427,6 +427,14 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                       <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/owner/assistant-governance"}>
+                          <Link href="/owner/assistant-governance" data-testid="nav-owner-assistant-governance">
+                            <Users className="h-4 w-4 text-cyan-500" />
+                            <span>{language === "ar" ? "حوكمة المساعدين" : "Assistant Governance"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
                         <SidebarMenuButton asChild isActive={location === "/owner/ai-settings"}>
                           <Link href="/owner/ai-settings" data-testid="nav-owner-ai-settings">
                             <Key className="h-4 w-4 text-amber-500" />

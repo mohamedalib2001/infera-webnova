@@ -21107,4 +21107,345 @@ export function registerConversationRoutes(app: Express, requireAuth: any) {
       res.status(500).json({ error: "Failed to fetch dynamic configuration summary" });
     }
   });
+
+  // =====================================================================
+  // AI Assistant Relationships & Collaboration Management
+  // =====================================================================
+
+  // Assistant Relationships - Sovereign owner control over AI collaboration
+  app.get("/api/assistant/relationships", requireAuth, async (req, res) => {
+    try {
+      const relationships = await storage.getAssistantRelationships();
+      res.json(relationships);
+    } catch (error) {
+      console.error("Error fetching assistant relationships:", error);
+      res.status(500).json({ error: "Failed to fetch assistant relationships" });
+    }
+  });
+
+  app.get("/api/assistant/relationships/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const relationship = await storage.getAssistantRelationship(id);
+      if (!relationship) {
+        return res.status(404).json({ error: "Relationship not found" });
+      }
+      res.json(relationship);
+    } catch (error) {
+      console.error("Error fetching assistant relationship:", error);
+      res.status(500).json({ error: "Failed to fetch assistant relationship" });
+    }
+  });
+
+  app.post("/api/assistant/relationships", requireOwner, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      const relationship = await storage.createAssistantRelationship({
+        ...req.body,
+        createdBy: userId
+      });
+      // Create audit log
+      await storage.createAssistantPermissionAudit({
+        action: 'create_relationship',
+        entityType: 'assistant_relationship',
+        entityId: relationship.id,
+        performedBy: userId!,
+        changes: req.body,
+        ipAddress: req.ip
+      });
+      res.json(relationship);
+    } catch (error) {
+      console.error("Error creating assistant relationship:", error);
+      res.status(500).json({ error: "Failed to create assistant relationship" });
+    }
+  });
+
+  app.patch("/api/assistant/relationships/:id", requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session?.userId;
+      const oldRelationship = await storage.getAssistantRelationship(id);
+      const relationship = await storage.updateAssistantRelationship(id, req.body);
+      // Create audit log
+      await storage.createAssistantPermissionAudit({
+        action: 'update_relationship',
+        entityType: 'assistant_relationship',
+        entityId: id,
+        performedBy: userId!,
+        previousState: oldRelationship as any,
+        changes: req.body,
+        ipAddress: req.ip
+      });
+      res.json(relationship);
+    } catch (error) {
+      console.error("Error updating assistant relationship:", error);
+      res.status(500).json({ error: "Failed to update assistant relationship" });
+    }
+  });
+
+  app.post("/api/assistant/relationships/:id/toggle", requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { isEnabled } = req.body;
+      const userId = req.session?.userId;
+      const relationship = await storage.toggleAssistantRelationship(id, isEnabled);
+      // Create audit log
+      await storage.createAssistantPermissionAudit({
+        action: isEnabled ? 'enable_relationship' : 'disable_relationship',
+        entityType: 'assistant_relationship',
+        entityId: id,
+        performedBy: userId!,
+        changes: { isEnabled },
+        ipAddress: req.ip
+      });
+      res.json(relationship);
+    } catch (error) {
+      console.error("Error toggling assistant relationship:", error);
+      res.status(500).json({ error: "Failed to toggle assistant relationship" });
+    }
+  });
+
+  app.delete("/api/assistant/relationships/:id", requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session?.userId;
+      const relationship = await storage.getAssistantRelationship(id);
+      await storage.deleteAssistantRelationship(id);
+      // Create audit log
+      await storage.createAssistantPermissionAudit({
+        action: 'delete_relationship',
+        entityType: 'assistant_relationship',
+        entityId: id,
+        performedBy: userId!,
+        previousState: relationship as any,
+        ipAddress: req.ip
+      });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting assistant relationship:", error);
+      res.status(500).json({ error: "Failed to delete assistant relationship" });
+    }
+  });
+
+  // Assistant Conversations - Communication tracking
+  app.get("/api/assistant/conversations", requireAuth, async (req, res) => {
+    try {
+      const { relationshipId } = req.query;
+      const conversations = await storage.getAssistantConversations(relationshipId as string | undefined);
+      res.json(conversations);
+    } catch (error) {
+      console.error("Error fetching assistant conversations:", error);
+      res.status(500).json({ error: "Failed to fetch assistant conversations" });
+    }
+  });
+
+  app.post("/api/assistant/conversations", requireOwner, async (req, res) => {
+    try {
+      const conversation = await storage.createAssistantConversation(req.body);
+      res.json(conversation);
+    } catch (error) {
+      console.error("Error creating assistant conversation:", error);
+      res.status(500).json({ error: "Failed to create assistant conversation" });
+    }
+  });
+
+  app.post("/api/assistant/conversations/:id/read", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const conversation = await storage.markConversationAsRead(id);
+      res.json(conversation);
+    } catch (error) {
+      console.error("Error marking conversation as read:", error);
+      res.status(500).json({ error: "Failed to mark conversation as read" });
+    }
+  });
+
+  app.post("/api/assistant/conversations/:id/process", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const conversation = await storage.markConversationAsProcessed(id);
+      res.json(conversation);
+    } catch (error) {
+      console.error("Error marking conversation as processed:", error);
+      res.status(500).json({ error: "Failed to mark conversation as processed" });
+    }
+  });
+
+  app.delete("/api/assistant/conversations/:id", requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteAssistantConversation(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting assistant conversation:", error);
+      res.status(500).json({ error: "Failed to delete assistant conversation" });
+    }
+  });
+
+  // Assistant Workgroups - Team collaboration
+  app.get("/api/assistant/workgroups", requireAuth, async (req, res) => {
+    try {
+      const workgroups = await storage.getAssistantWorkgroups();
+      res.json(workgroups);
+    } catch (error) {
+      console.error("Error fetching assistant workgroups:", error);
+      res.status(500).json({ error: "Failed to fetch assistant workgroups" });
+    }
+  });
+
+  app.get("/api/assistant/workgroups/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const workgroup = await storage.getAssistantWorkgroup(id);
+      if (!workgroup) {
+        return res.status(404).json({ error: "Workgroup not found" });
+      }
+      res.json(workgroup);
+    } catch (error) {
+      console.error("Error fetching assistant workgroup:", error);
+      res.status(500).json({ error: "Failed to fetch assistant workgroup" });
+    }
+  });
+
+  app.post("/api/assistant/workgroups", requireOwner, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      const workgroup = await storage.createAssistantWorkgroup({
+        ...req.body,
+        createdBy: userId
+      });
+      // Create audit log
+      await storage.createAssistantPermissionAudit({
+        action: 'create_workgroup',
+        entityType: 'assistant_workgroup',
+        entityId: workgroup.id,
+        performedBy: userId!,
+        changes: req.body,
+        ipAddress: req.ip
+      });
+      res.json(workgroup);
+    } catch (error) {
+      console.error("Error creating assistant workgroup:", error);
+      res.status(500).json({ error: "Failed to create assistant workgroup" });
+    }
+  });
+
+  app.patch("/api/assistant/workgroups/:id", requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session?.userId;
+      const oldWorkgroup = await storage.getAssistantWorkgroup(id);
+      const workgroup = await storage.updateAssistantWorkgroup(id, req.body);
+      // Create audit log
+      await storage.createAssistantPermissionAudit({
+        action: 'update_workgroup',
+        entityType: 'assistant_workgroup',
+        entityId: id,
+        performedBy: userId!,
+        previousState: oldWorkgroup as any,
+        changes: req.body,
+        ipAddress: req.ip
+      });
+      res.json(workgroup);
+    } catch (error) {
+      console.error("Error updating assistant workgroup:", error);
+      res.status(500).json({ error: "Failed to update assistant workgroup" });
+    }
+  });
+
+  app.post("/api/assistant/workgroups/:id/toggle", requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { isActive } = req.body;
+      const userId = req.session?.userId;
+      const workgroup = await storage.toggleAssistantWorkgroup(id, isActive);
+      // Create audit log
+      await storage.createAssistantPermissionAudit({
+        action: isActive ? 'activate_workgroup' : 'deactivate_workgroup',
+        entityType: 'assistant_workgroup',
+        entityId: id,
+        performedBy: userId!,
+        changes: { isActive },
+        ipAddress: req.ip
+      });
+      res.json(workgroup);
+    } catch (error) {
+      console.error("Error toggling assistant workgroup:", error);
+      res.status(500).json({ error: "Failed to toggle assistant workgroup" });
+    }
+  });
+
+  app.delete("/api/assistant/workgroups/:id", requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session?.userId;
+      const workgroup = await storage.getAssistantWorkgroup(id);
+      await storage.deleteAssistantWorkgroup(id);
+      // Create audit log
+      await storage.createAssistantPermissionAudit({
+        action: 'delete_workgroup',
+        entityType: 'assistant_workgroup',
+        entityId: id,
+        performedBy: userId!,
+        previousState: workgroup as any,
+        ipAddress: req.ip
+      });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting assistant workgroup:", error);
+      res.status(500).json({ error: "Failed to delete assistant workgroup" });
+    }
+  });
+
+  // Permission Audit - Immutable audit trail
+  app.get("/api/assistant/audit", requireOwner, async (req, res) => {
+    try {
+      const { limit, entityType, entityId } = req.query;
+      let audits;
+      if (entityType && entityId) {
+        audits = await storage.getAssistantPermissionAuditsByEntity(entityType as string, entityId as string);
+      } else {
+        audits = await storage.getAssistantPermissionAudits(Number(limit) || 100);
+      }
+      res.json(audits);
+    } catch (error) {
+      console.error("Error fetching permission audits:", error);
+      res.status(500).json({ error: "Failed to fetch permission audits" });
+    }
+  });
+
+  // Governance Summary - Overview of all AI assistant governance
+  app.get("/api/assistant/governance-summary", requireOwner, async (req, res) => {
+    try {
+      const [capabilities, relationships, workgroups, audits] = await Promise.all([
+        storage.getAiAssistantCapabilities(),
+        storage.getAssistantRelationships(),
+        storage.getAssistantWorkgroups(),
+        storage.getAssistantPermissionAudits(50)
+      ]);
+
+      const enabledCapabilities = capabilities.filter(c => c.isEnabled).length;
+      const enabledRelationships = relationships.filter(r => r.isEnabled).length;
+      const activeWorkgroups = workgroups.filter(w => w.isActive).length;
+
+      res.json({
+        summary: {
+          totalCapabilities: capabilities.length,
+          enabledCapabilities,
+          totalRelationships: relationships.length,
+          enabledRelationships,
+          totalWorkgroups: workgroups.length,
+          activeWorkgroups,
+          recentAuditActions: audits.length
+        },
+        capabilities: capabilities.slice(0, 10),
+        relationships: relationships.slice(0, 10),
+        workgroups: workgroups.slice(0, 10),
+        recentAudits: audits.slice(0, 10)
+      });
+    } catch (error) {
+      console.error("Error fetching governance summary:", error);
+      res.status(500).json({ error: "Failed to fetch governance summary" });
+    }
+  });
 }
