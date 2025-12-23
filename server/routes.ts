@@ -10735,34 +10735,33 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
     const pageServices = services.length > 0 ? services : (pageServicesMap[pathname] || pageServicesMap['/']);
     const loadTime = pageMetrics.loadTime || 1200;
 
-    // Deterministic scoring based on service type (no random values)
+    // Real-data based scoring - zeros indicate no telemetry data available
+    // These values should be populated from actual performance monitoring when available
     const typeScores: Record<string, { speed: number; integration: number; response: number }> = {
-      'ai': { speed: 92, integration: 95, response: 88 },
-      'automation': { speed: 88, integration: 90, response: 85 },
-      'core': { speed: 85, integration: 88, response: 82 },
-      'security': { speed: 82, integration: 92, response: 80 },
-      'collaboration': { speed: 80, integration: 85, response: 90 },
-      'infrastructure': { speed: 78, integration: 88, response: 75 },
-      'analytics': { speed: 85, integration: 82, response: 78 },
-      'monitoring': { speed: 90, integration: 94, response: 92 },
+      'ai': { speed: 0, integration: 0, response: 0 },
+      'automation': { speed: 0, integration: 0, response: 0 },
+      'core': { speed: 0, integration: 0, response: 0 },
+      'security': { speed: 0, integration: 0, response: 0 },
+      'collaboration': { speed: 0, integration: 0, response: 0 },
+      'infrastructure': { speed: 0, integration: 0, response: 0 },
+      'analytics': { speed: 0, integration: 0, response: 0 },
+      'monitoring': { speed: 0, integration: 0, response: 0 },
     };
 
     const analyzedServices = pageServices.map((service: any, idx: number) => {
       const isAI = service.type === 'ai';
       const isAutomation = service.type === 'automation';
       const isMonitoring = service.type === 'monitoring';
-      const isSecurity = service.type === 'security';
-      const baseScore = 80 + (isAI ? 18 : 0) + (isAutomation ? 12 : 0) + (isMonitoring ? 8 : 0) + (isSecurity ? 5 : 0) + Math.min(idx, 5);
       const scores = typeScores[service.type] || typeScores['core'];
       
       return {
         id: `service-${idx}`,
         name: service.name,
         nameAr: service.nameAr,
-        score: Math.min(100, baseScore),
-        speed: scores.speed,
-        integration: scores.integration,
-        response: scores.response,
+        score: 0, // Real score from monitoring when available
+        speed: 0, // Real speed metric from monitoring when available
+        integration: 0, // Real integration metric from monitoring when available
+        response: 0, // Real response metric from monitoring when available
         isAutomated: isAutomation || isAI || isMonitoring,
         isIntelligent: isAI,
         issues: [],
@@ -10773,127 +10772,62 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
     const hasAI = analyzedServices.some((s: any) => s.isIntelligent);
     const hasAutomation = analyzedServices.some((s: any) => s.isAutomated);
 
-    // Deterministic page analysis based on pathname
-    const pathHash = pathname.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 10;
+    // Page analysis - all zeros indicate no real monitoring data available
     const pageAnalysis = {
-      loadTime: loadTime,
-      componentIntegration: 85 + pathHash,
-      deviceCompatibility: 92 + (pathHash % 5),
-      browserCompatibility: 90 + (pathHash % 6),
-      structuralSecurity: 88 + (pathHash % 8),
-      resourceUsage: 65 + (pathHash % 15),
+      loadTime: 0, // Real measurement from monitoring when available
+      componentIntegration: 0, // Real data from monitoring when available
+      deviceCompatibility: 0, // Real data from monitoring when available
+      browserCompatibility: 0, // Real data from monitoring when available
+      structuralSecurity: 0, // Real data from monitoring when available
+      resourceUsage: 0, // Real data from monitoring when available
       efficiencyScore: 0,
     };
-    pageAnalysis.efficiencyScore = Math.round(
+    // Efficiency score is 0 when no real monitoring data is available
+    // Only calculate when real metrics exist
+    const hasRealPageMetrics = pageAnalysis.componentIntegration > 0 || 
+                               pageAnalysis.deviceCompatibility > 0 || 
+                               pageAnalysis.browserCompatibility > 0;
+    pageAnalysis.efficiencyScore = hasRealPageMetrics ? Math.round(
       (pageAnalysis.componentIntegration + pageAnalysis.deviceCompatibility + 
        pageAnalysis.browserCompatibility + pageAnalysis.structuralSecurity + 
        (100 - pageAnalysis.resourceUsage)) / 5
-    );
+    ) : 0;
 
     const classification = hasAI && hasAutomation ? 'sovereign-intelligent' :
                           hasAI ? 'intelligent' :
                           hasAutomation ? 'semi-intelligent' : 'traditional';
 
-    // ==================== مؤشر ديناميكية الصفحة والجاهزية للعمل بدون كود ====================
-    // Page Dynamics & Zero-Code Readiness Index - based on real page analysis
-    // Using discrete scoring: Zero-Code = 100%, Low-Code = 60%, Code-Heavy = 20%
-    const calculatePageDynamics = () => {
-      // Content Dynamics (20%) - based on CMS-like capabilities
-      const hasContentEditing = pathname.includes('builder') || pathname.includes('editor') || pathname.includes('nova');
-      const hasMediaManagement = analyzedServices.some((s: any) => s.name.includes('Media') || s.name.includes('Upload') || s.name.includes('Vision'));
-      const hasMultiLang = analyzedServices.some((s: any) => s.nameAr && s.nameAr.length > 0);
-      // Zero-Code if has content editing, Low-Code if has media/multilang, else Code-Heavy
-      const contentLevel = hasContentEditing ? 'zero-code' : (hasMediaManagement || hasMultiLang) ? 'low-code' : 'code-heavy';
-      const contentScore = contentLevel === 'zero-code' ? 100 : contentLevel === 'low-code' ? 60 : 20;
-      
-      // UI/UX Dynamics (20%) - based on drag-drop, components, themes
-      const hasDragDrop = pathname.includes('builder') || pathname.includes('visual') || pathname.includes('nova');
-      const hasComponents = analyzedServices.length >= 3;
-      // Zero-Code if drag-drop, Low-Code if has components, else Code-Heavy
-      const uiLevel = hasDragDrop ? 'zero-code' : hasComponents ? 'low-code' : 'code-heavy';
-      const uiScore = uiLevel === 'zero-code' ? 100 : uiLevel === 'low-code' ? 60 : 20;
-      
-      // Logic & Behavior Dynamics (25%) - based on rule engines, automation
-      const hasRuleEngine = analyzedServices.some((s: any) => s.type === 'automation' || s.name.includes('Policy') || s.name.includes('Rule'));
-      const hasAILogic = hasAI;
-      // Zero-Code if has AI + automation, Low-Code if has AI or automation, else Code-Heavy
-      const logicLevel = (hasAILogic && hasRuleEngine) ? 'zero-code' : (hasAILogic || hasRuleEngine) ? 'low-code' : 'code-heavy';
-      const logicScore = logicLevel === 'zero-code' ? 100 : logicLevel === 'low-code' ? 60 : 20;
-      
-      // Integration Dynamics (20%) - based on API-first, webhooks
-      const hasAPIIntegration = analyzedServices.some((s: any) => s.type === 'infrastructure' || s.name.includes('API') || s.name.includes('Integration'));
-      const hasServiceManagement = analyzedServices.some((s: any) => s.name.includes('Provider') || s.name.includes('Gateway'));
-      // Zero-Code if has API + service management, Low-Code if has API, else Code-Heavy
-      const integrationLevel = (hasAPIIntegration && hasServiceManagement) ? 'zero-code' : hasAPIIntegration ? 'low-code' : 'code-heavy';
-      const integrationScore = integrationLevel === 'zero-code' ? 100 : integrationLevel === 'low-code' ? 60 : 20;
-      
-      // Operational Dynamics (15%) - based on governance, monitoring
-      const hasPermissions = analyzedServices.some((s: any) => s.type === 'security' || s.name.includes('Auth') || s.name.includes('Role'));
-      const hasMonitoring = analyzedServices.some((s: any) => s.type === 'monitoring' || s.name.includes('Monitor') || s.name.includes('Analytics'));
-      // Zero-Code if has permissions + monitoring, Low-Code if has permissions, else Code-Heavy
-      const operationalLevel = (hasPermissions && hasMonitoring) ? 'zero-code' : hasPermissions ? 'low-code' : 'code-heavy';
-      const operationalScore = operationalLevel === 'zero-code' ? 100 : operationalLevel === 'low-code' ? 60 : 20;
-      
-      // Calculate weighted total
-      const totalScore = Math.round(
-        (contentScore * 0.20) +
-        (uiScore * 0.20) +
-        (logicScore * 0.25) +
-        (integrationScore * 0.20) +
-        (operationalScore * 0.15)
-      );
-      
-      // Determine overall classification
-      const zeroCodeCount = [contentLevel, uiLevel, logicLevel, integrationLevel, operationalLevel]
-        .filter(l => l === 'zero-code').length;
-      const codeHeavyCount = [contentLevel, uiLevel, logicLevel, integrationLevel, operationalLevel]
-        .filter(l => l === 'code-heavy').length;
-      
-      const overallClassification = zeroCodeCount >= 4 ? 'zero-code' : 
-                                    codeHeavyCount >= 3 ? 'code-heavy' : 'low-code';
-      
-      return {
-        totalScore,
-        classification: overallClassification,
-        components: {
-          content: { score: contentScore, level: contentLevel, weight: 20 },
-          ui: { score: uiScore, level: uiLevel, weight: 20 },
-          logic: { score: logicScore, level: logicLevel, weight: 25 },
-          integration: { score: integrationScore, level: integrationLevel, weight: 20 },
-          operational: { score: operationalScore, level: operationalLevel, weight: 15 },
-        },
-        operationalSovereigntyImpact: {
-          businessContinuity: totalScore >= 80,
-          operationalIndependence: totalScore >= 75,
-          reducedExternalDependency: zeroCodeCount >= 3,
-          crisisResponseSpeed: totalScore >= 85,
-        }
-      };
+    // Page Dynamics - requires real telemetry data to calculate
+    // When no real monitoring data is available, all scores are 0
+    const pageDynamics = {
+      totalScore: 0, // Real score from monitoring when available
+      classification: 'unknown' as const,
+      components: {
+        content: { score: 0, level: 'unknown' as const, weight: 20 },
+        ui: { score: 0, level: 'unknown' as const, weight: 20 },
+        logic: { score: 0, level: 'unknown' as const, weight: 25 },
+        integration: { score: 0, level: 'unknown' as const, weight: 20 },
+        operational: { score: 0, level: 'unknown' as const, weight: 15 },
+      },
+      operationalSovereigntyImpact: {
+        businessContinuity: false,
+        operationalIndependence: false,
+        reducedExternalDependency: false,
+        crisisResponseSpeed: false,
+      }
     };
-    
-    const pageDynamics = calculatePageDynamics();
 
     const techLevel = avgScore >= 92 ? 'sovereign' :
                      avgScore >= 85 ? 'advanced' :
                      avgScore >= 75 ? 'good' :
                      avgScore >= 60 ? 'medium' : 'low';
 
-    // Include compliance score in final calculation (weighted 15%)
-    // Count AI services for bonus - more AI services = higher score
-    const aiServiceCount = analyzedServices.filter((s: any) => s.isIntelligent).length;
-    const automatedServiceCount = analyzedServices.filter((s: any) => s.isAutomated).length;
-    const aiDensityBonus = Math.min(15, aiServiceCount * 1.5);
-    const automationBonus = Math.min(8, automatedServiceCount * 0.8);
-    
-    const complianceBonus = complianceScore * 0.12;
-    const finalScore = Math.round(Math.min(100, 
-      avgScore * 0.22 + 
-      pageAnalysis.efficiencyScore * 0.15 + 
-      complianceBonus +
-      aiDensityBonus +
-      automationBonus +
-      (classification === 'sovereign-intelligent' ? 25 : classification === 'intelligent' ? 18 : 10) +
-      (techLevel === 'sovereign' ? 18 : techLevel === 'advanced' ? 14 : 8)));
+    // Final score calculation - based on real data only
+    // When no real monitoring data is available, shows 0
+    const hasRealData = avgScore > 0 || pageAnalysis.efficiencyScore > 0;
+    const finalScore = hasRealData 
+      ? Math.round(Math.min(100, avgScore * 0.5 + pageAnalysis.efficiencyScore * 0.5))
+      : 0; // No real data available
 
     const statusColor = finalScore >= 90 ? 'gold' :
                        finalScore >= 80 ? 'green' :

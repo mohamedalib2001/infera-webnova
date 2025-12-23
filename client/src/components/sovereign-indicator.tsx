@@ -608,18 +608,19 @@ const pageServicesMap: Record<string, { name: string; nameAr: string; type: stri
   ],
 };
 
-// Deterministic scoring based on service type (no random values)
+// Real-data based scoring - zeros indicate no telemetry data available
+// These will be populated from actual performance monitoring when available
 const typeScores: Record<string, { speed: number; integration: number; response: number; baseScore: number }> = {
-  'ai': { speed: 95, integration: 98, response: 92, baseScore: 94 },
-  'automation': { speed: 92, integration: 95, response: 90, baseScore: 92 },
-  'core': { speed: 90, integration: 92, response: 88, baseScore: 88 },
-  'security': { speed: 88, integration: 95, response: 86, baseScore: 89 },
-  'collaboration': { speed: 88, integration: 92, response: 94, baseScore: 90 },
-  'infrastructure': { speed: 88, integration: 94, response: 86, baseScore: 88 },
-  'analytics': { speed: 90, integration: 88, response: 86, baseScore: 88 },
-  'monitoring': { speed: 94, integration: 98, response: 96, baseScore: 96 },
-  'devops': { speed: 94, integration: 96, response: 92, baseScore: 94 },
-  'testing': { speed: 92, integration: 94, response: 90, baseScore: 92 },
+  'ai': { speed: 0, integration: 0, response: 0, baseScore: 0 },
+  'automation': { speed: 0, integration: 0, response: 0, baseScore: 0 },
+  'core': { speed: 0, integration: 0, response: 0, baseScore: 0 },
+  'security': { speed: 0, integration: 0, response: 0, baseScore: 0 },
+  'collaboration': { speed: 0, integration: 0, response: 0, baseScore: 0 },
+  'infrastructure': { speed: 0, integration: 0, response: 0, baseScore: 0 },
+  'analytics': { speed: 0, integration: 0, response: 0, baseScore: 0 },
+  'monitoring': { speed: 0, integration: 0, response: 0, baseScore: 0 },
+  'devops': { speed: 0, integration: 0, response: 0, baseScore: 0 },
+  'testing': { speed: 0, integration: 0, response: 0, baseScore: 0 },
 };
 
 // Smart analysis algorithm - DETERMINISTIC (no Math.random)
@@ -652,14 +653,14 @@ function analyzePageIntelligently(pathname: string, _startTime: number): FullAna
     };
   });
   
-  // Page efficiency analysis - optimized for sovereign-level performance
+  // Page efficiency analysis - zeros indicate no real telemetry data available
   const pageAnalysis: PageAnalysis = {
-    loadTime: Math.min(loadTime, 1200),
-    componentIntegration: 96 + (pathHash % 4),
-    deviceCompatibility: 97 + (pathHash % 3),
-    browserCompatibility: 97 + (pathHash % 3),
-    structuralSecurity: 96 + (pathHash % 4),
-    resourceUsage: 25 + (pathHash % 8),
+    loadTime: loadTime, // Estimated based on service count (not real measurement)
+    componentIntegration: 0, // No real monitoring data
+    deviceCompatibility: 0, // No real monitoring data
+    browserCompatibility: 0, // No real monitoring data
+    structuralSecurity: 0, // No real monitoring data
+    resourceUsage: 0, // No real monitoring data
     efficiencyScore: 0,
   };
   pageAnalysis.efficiencyScore = Math.round(
