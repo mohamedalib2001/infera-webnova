@@ -12602,3 +12602,500 @@ export const insertNavigationAnalyticsSchema = createInsertSchema(navigationAnal
 });
 export type InsertNavigationAnalytics = z.infer<typeof insertNavigationAnalyticsSchema>;
 export type NavigationAnalytics = typeof navigationAnalytics.$inferSelect;
+
+// ==================== SELF-HOSTED PLATFORM INFRASTRUCTURE ====================
+// نظام البنية التحتية للمنصة المستقلة - INFERA WebNova Self-Hosted
+
+// Supported execution runtimes - البيئات التنفيذية المدعومة
+export const executionRuntimeTypes = ['nodejs', 'python', 'go', 'php', 'rust', 'typescript', 'shell'] as const;
+export type ExecutionRuntimeType = typeof executionRuntimeTypes[number];
+
+export const executionIsolationTypes = ['sandbox', 'container', 'vm'] as const;
+export type ExecutionIsolationType = typeof executionIsolationTypes[number];
+
+// Execution Runtimes Configuration - تكوين بيئات التنفيذ
+export const executionRuntimes = pgTable("execution_runtimes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Runtime info
+  name: text("name").notNull(), // e.g., "Node.js 20 LTS"
+  nameAr: text("name_ar"),
+  runtimeType: text("runtime_type").notNull(), // nodejs, python, go, php, rust, typescript
+  version: text("version").notNull(), // e.g., "20.10.0"
+  
+  // Docker configuration
+  dockerImage: text("docker_image").notNull(), // e.g., "node:20-alpine"
+  dockerRegistry: text("docker_registry").default("docker.io"),
+  
+  // Resource limits
+  defaultMemoryMB: integer("default_memory_mb").default(512),
+  maxMemoryMB: integer("max_memory_mb").default(2048),
+  defaultCpuCores: real("default_cpu_cores").default(0.5),
+  maxCpuCores: real("max_cpu_cores").default(4),
+  defaultTimeoutSeconds: integer("default_timeout_seconds").default(300),
+  maxTimeoutSeconds: integer("max_timeout_seconds").default(3600),
+  
+  // Features
+  supportedPackageManagers: jsonb("supported_package_managers").$type<string[]>().default([]),
+  preinstalledPackages: jsonb("preinstalled_packages").$type<string[]>().default([]),
+  environmentVariables: jsonb("environment_variables").$type<Record<string, string>>().default({}),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  isDefault: boolean("is_default").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_exec_runtime_type").on(table.runtimeType),
+  index("IDX_exec_runtime_active").on(table.isActive),
+]);
+
+export const insertExecutionRuntimeSchema = createInsertSchema(executionRuntimes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertExecutionRuntime = z.infer<typeof insertExecutionRuntimeSchema>;
+export type ExecutionRuntime = typeof executionRuntimes.$inferSelect;
+
+// Execution Jobs - وظائف التنفيذ المعزولة
+export const executionJobs = pgTable("execution_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Job identification
+  projectId: varchar("project_id"),
+  userId: varchar("user_id").references(() => users.id),
+  runtimeId: varchar("runtime_id").references(() => executionRuntimes.id),
+  
+  // Execution details
+  code: text("code"),
+  command: text("command"),
+  workingDirectory: text("working_directory"),
+  
+  // Isolation
+  isolationType: text("isolation_type").default("container"), // sandbox, container, vm
+  containerId: text("container_id"),
+  containerName: text("container_name"),
+  
+  // Resource allocation
+  memoryMB: integer("memory_mb").default(512),
+  cpuCores: real("cpu_cores").default(0.5),
+  timeoutSeconds: integer("timeout_seconds").default(300),
+  
+  // Status and results
+  status: text("status").default("pending"), // pending, running, completed, failed, timeout, cancelled
+  exitCode: integer("exit_code"),
+  stdout: text("stdout"),
+  stderr: text("stderr"),
+  errorMessage: text("error_message"),
+  
+  // Metrics
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  durationMs: integer("duration_ms"),
+  memoryUsedMB: integer("memory_used_mb"),
+  cpuUsedPercent: real("cpu_used_percent"),
+  
+  // Artifacts
+  artifactIds: jsonb("artifact_ids").$type<string[]>().default([]),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_exec_job_project").on(table.projectId),
+  index("IDX_exec_job_user").on(table.userId),
+  index("IDX_exec_job_status").on(table.status),
+  index("IDX_exec_job_created").on(table.createdAt),
+]);
+
+export const insertExecutionJobSchema = createInsertSchema(executionJobs).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertExecutionJob = z.infer<typeof insertExecutionJobSchema>;
+export type ExecutionJob = typeof executionJobs.$inferSelect;
+
+// Execution Artifacts - مخرجات التنفيذ
+export const executionArtifacts = pgTable("execution_artifacts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // References
+  jobId: varchar("job_id").references(() => executionJobs.id, { onDelete: "cascade" }),
+  projectId: varchar("project_id"),
+  
+  // Artifact info
+  name: text("name").notNull(),
+  type: text("type").notNull(), // log, binary, archive, report, coverage, test-results
+  mimeType: text("mime_type"),
+  sizeBytes: integer("size_bytes"),
+  
+  // Storage
+  storageType: text("storage_type").default("object"), // local, object, s3
+  storagePath: text("storage_path").notNull(),
+  storageUrl: text("storage_url"),
+  checksum: text("checksum"), // SHA256
+  
+  // Metadata
+  metadata: jsonb("metadata").$type<Record<string, any>>().default({}),
+  
+  // Retention
+  expiresAt: timestamp("expires_at"),
+  isPublic: boolean("is_public").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_exec_artifact_job").on(table.jobId),
+  index("IDX_exec_artifact_project").on(table.projectId),
+  index("IDX_exec_artifact_type").on(table.type),
+]);
+
+export const insertExecutionArtifactSchema = createInsertSchema(executionArtifacts).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertExecutionArtifact = z.infer<typeof insertExecutionArtifactSchema>;
+export type ExecutionArtifact = typeof executionArtifacts.$inferSelect;
+
+// ==================== INSTITUTIONAL MEMORY - الذاكرة المؤسسية ====================
+
+// Institutional Memory Types
+export const memoryNodeTypes = ['decision', 'architecture', 'deployment', 'incident', 'lesson', 'requirement', 'constraint'] as const;
+export type MemoryNodeType = typeof memoryNodeTypes[number];
+
+// Institutional Memory - الذاكرة المؤسسية للمشاريع
+export const institutionalMemory = pgTable("institutional_memory", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Context
+  projectId: varchar("project_id"),
+  organizationId: varchar("organization_id"),
+  
+  // Memory node info
+  nodeType: text("node_type").notNull(), // decision, architecture, deployment, incident, lesson
+  title: text("title").notNull(),
+  titleAr: text("title_ar"),
+  content: text("content").notNull(),
+  contentAr: text("content_ar"),
+  
+  // Semantic search
+  embedding: jsonb("embedding").$type<number[]>(), // Vector embedding for semantic search
+  keywords: jsonb("keywords").$type<string[]>().default([]),
+  
+  // Context and reasoning
+  context: text("context"), // What was the situation?
+  reasoning: text("reasoning"), // Why was this decision made?
+  alternatives: jsonb("alternatives").$type<Array<{ option: string; rejected_reason: string }>>().default([]),
+  consequences: jsonb("consequences").$type<string[]>().default([]),
+  
+  // References
+  relatedMemoryIds: jsonb("related_memory_ids").$type<string[]>().default([]),
+  sourceDocuments: jsonb("source_documents").$type<Array<{ name: string; url: string }>>().default([]),
+  
+  // Authorship
+  createdBy: varchar("created_by").references(() => users.id),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  
+  // Status
+  status: text("status").default("active"), // draft, active, archived, superseded
+  supersededBy: varchar("superseded_by"),
+  
+  // Importance
+  importance: text("importance").default("medium"), // critical, high, medium, low
+  confidentiality: text("confidentiality").default("internal"), // public, internal, confidential, restricted
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_inst_memory_project").on(table.projectId),
+  index("IDX_inst_memory_type").on(table.nodeType),
+  index("IDX_inst_memory_status").on(table.status),
+  index("IDX_inst_memory_importance").on(table.importance),
+]);
+
+export const insertInstitutionalMemorySchema = createInsertSchema(institutionalMemory).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertInstitutionalMemory = z.infer<typeof insertInstitutionalMemorySchema>;
+export type InstitutionalMemory = typeof institutionalMemory.$inferSelect;
+
+// ==================== INFRASTRUCTURE INVENTORY - جرد البنية التحتية ====================
+
+export const cloudProviderTypes = ['hetzner', 'aws', 'gcp', 'azure', 'digitalocean', 'self-hosted'] as const;
+export type CloudProviderType = typeof cloudProviderTypes[number];
+
+export const serverStatuses = ['provisioning', 'running', 'stopped', 'error', 'terminated', 'maintenance'] as const;
+export type ServerStatus = typeof serverStatuses[number];
+
+// Infrastructure Inventory - جرد الخوادم والموارد
+export const infrastructureInventory = pgTable("infrastructure_inventory", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Provider info
+  provider: text("provider").notNull(), // hetzner, aws, gcp, azure, digitalocean
+  providerId: varchar("provider_id").references(() => serviceProviders.id),
+  externalId: text("external_id"), // ID from the cloud provider
+  
+  // Server/Resource info
+  resourceType: text("resource_type").notNull(), // server, database, storage, network, loadbalancer
+  name: text("name").notNull(),
+  hostname: text("hostname"),
+  
+  // Location
+  region: text("region"), // e.g., "eu-central"
+  datacenter: text("datacenter"), // e.g., "fsn1-dc14"
+  country: text("country"), // e.g., "DE"
+  
+  // Specifications
+  serverType: text("server_type"), // e.g., "cx21", "t2.micro"
+  cpuCores: integer("cpu_cores"),
+  memoryGB: integer("memory_gb"),
+  diskGB: integer("disk_gb"),
+  diskType: text("disk_type"), // ssd, hdd, nvme
+  
+  // Networking
+  publicIpv4: text("public_ipv4"),
+  publicIpv6: text("public_ipv6"),
+  privateIp: text("private_ip"),
+  networkIds: jsonb("network_ids").$type<string[]>().default([]),
+  
+  // Status
+  status: text("status").default("provisioning"), // provisioning, running, stopped, error, terminated
+  healthStatus: text("health_status").default("unknown"), // healthy, degraded, unhealthy, unknown
+  lastHealthCheck: timestamp("last_health_check"),
+  
+  // OS and Software
+  osType: text("os_type"), // linux, windows
+  osImage: text("os_image"), // e.g., "ubuntu-22.04"
+  installedSoftware: jsonb("installed_software").$type<Array<{ name: string; version: string }>>().default([]),
+  
+  // Kubernetes/Docker
+  kubernetesRole: text("kubernetes_role"), // master, worker, none
+  kubernetesVersion: text("kubernetes_version"),
+  dockerVersion: text("docker_version"),
+  
+  // Cost tracking
+  hourlyPriceUSD: real("hourly_price_usd"),
+  monthlyPriceUSD: real("monthly_price_usd"),
+  
+  // Tags and metadata
+  tags: jsonb("tags").$type<Record<string, string>>().default({}),
+  metadata: jsonb("metadata").$type<Record<string, any>>().default({}),
+  
+  // Ownership
+  projectId: varchar("project_id"),
+  ownerId: varchar("owner_id").references(() => users.id),
+  
+  // Lifecycle
+  provisionedAt: timestamp("provisioned_at"),
+  terminatedAt: timestamp("terminated_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_infra_inv_provider").on(table.provider),
+  index("IDX_infra_inv_type").on(table.resourceType),
+  index("IDX_infra_inv_status").on(table.status),
+  index("IDX_infra_inv_project").on(table.projectId),
+]);
+
+export const insertInfrastructureInventorySchema = createInsertSchema(infrastructureInventory).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertInfrastructureInventory = z.infer<typeof insertInfrastructureInventorySchema>;
+export type InfrastructureInventory = typeof infrastructureInventory.$inferSelect;
+
+// ==================== INTEGRATION CREDENTIALS - بيانات اعتماد التكاملات ====================
+
+export const integrationTypes = ['git', 'cicd', 'cloud', 'registry', 'monitoring', 'secrets'] as const;
+export type IntegrationType = typeof integrationTypes[number];
+
+// Integration Credentials - بيانات اعتماد التكاملات
+export const integrationCredentials = pgTable("integration_credentials", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Integration type
+  integrationType: text("integration_type").notNull(), // git, cicd, cloud, registry, monitoring
+  provider: text("provider").notNull(), // github, gitlab, jenkins, hetzner, docker-hub
+  
+  // Credential info
+  name: text("name").notNull(),
+  description: text("description"),
+  
+  // Encrypted credentials (use server-side encryption)
+  credentialType: text("credential_type").notNull(), // token, oauth, ssh-key, username-password, api-key
+  encryptedData: text("encrypted_data").notNull(), // AES-256 encrypted JSON
+  encryptionKeyId: text("encryption_key_id"), // Reference to key used for encryption
+  
+  // Scope
+  scope: text("scope").default("project"), // global, organization, project
+  projectId: varchar("project_id"),
+  organizationId: varchar("organization_id"),
+  
+  // Access control
+  ownerId: varchar("owner_id").references(() => users.id),
+  allowedUsers: jsonb("allowed_users").$type<string[]>().default([]),
+  allowedRoles: jsonb("allowed_roles").$type<string[]>().default([]),
+  
+  // Validation
+  isValid: boolean("is_valid").default(true),
+  lastValidatedAt: timestamp("last_validated_at"),
+  validationError: text("validation_error"),
+  
+  // Rotation
+  expiresAt: timestamp("expires_at"),
+  rotatedAt: timestamp("rotated_at"),
+  rotationPolicy: text("rotation_policy"), // manual, weekly, monthly, quarterly
+  
+  // Usage tracking
+  lastUsedAt: timestamp("last_used_at"),
+  usageCount: integer("usage_count").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_integ_cred_type").on(table.integrationType),
+  index("IDX_integ_cred_provider").on(table.provider),
+  index("IDX_integ_cred_project").on(table.projectId),
+  index("IDX_integ_cred_owner").on(table.ownerId),
+]);
+
+export const insertIntegrationCredentialSchema = createInsertSchema(integrationCredentials).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertIntegrationCredential = z.infer<typeof insertIntegrationCredentialSchema>;
+export type IntegrationCredential = typeof integrationCredentials.$inferSelect;
+
+// ==================== DEPLOYMENT MANIFESTS - مخططات النشر ====================
+
+export const manifestTypes = ['terraform', 'ansible', 'kubernetes', 'docker-compose', 'helm'] as const;
+export type ManifestType = typeof manifestTypes[number];
+
+// Deployment Manifests - مخططات النشر (Terraform, Ansible, K8s)
+export const deploymentManifests = pgTable("deployment_manifests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Project reference
+  projectId: varchar("project_id"),
+  deploymentId: varchar("deployment_id").references(() => deployments.id),
+  
+  // Manifest info
+  name: text("name").notNull(),
+  manifestType: text("manifest_type").notNull(), // terraform, ansible, kubernetes, docker-compose, helm
+  version: text("version").default("1.0.0"),
+  
+  // Content
+  content: text("content").notNull(), // YAML/HCL/JSON content
+  contentHash: text("content_hash"), // SHA256 of content
+  
+  // Template variables
+  variables: jsonb("variables").$type<Record<string, any>>().default({}),
+  secrets: jsonb("secrets").$type<string[]>().default([]), // List of secret keys used
+  
+  // Target environment
+  targetEnvironment: text("target_environment").default("production"), // development, staging, production
+  targetProvider: text("target_provider"), // hetzner, aws, gcp
+  targetRegion: text("target_region"),
+  
+  // Validation
+  isValidated: boolean("is_validated").default(false),
+  validationErrors: jsonb("validation_errors").$type<string[]>().default([]),
+  lastValidatedAt: timestamp("last_validated_at"),
+  
+  // Execution history
+  lastAppliedAt: timestamp("last_applied_at"),
+  lastAppliedBy: varchar("last_applied_by").references(() => users.id),
+  applyStatus: text("apply_status"), // pending, applying, applied, failed, rolled-back
+  applyOutput: text("apply_output"),
+  
+  // State management (for Terraform)
+  stateStoragePath: text("state_storage_path"),
+  stateLocked: boolean("state_locked").default(false),
+  stateLockedBy: varchar("state_locked_by"),
+  stateLockedAt: timestamp("state_locked_at"),
+  
+  // Ownership
+  createdBy: varchar("created_by").references(() => users.id),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_deploy_manifest_project").on(table.projectId),
+  index("IDX_deploy_manifest_type").on(table.manifestType),
+  index("IDX_deploy_manifest_env").on(table.targetEnvironment),
+]);
+
+export const insertDeploymentManifestSchema = createInsertSchema(deploymentManifests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertDeploymentManifest = z.infer<typeof insertDeploymentManifestSchema>;
+export type DeploymentManifest = typeof deploymentManifests.$inferSelect;
+
+// ==================== SECRETS VAULT - خزنة الأسرار ====================
+
+// Secrets Vault Entries - إدخالات خزنة الأسرار
+export const secretsVaultEntries = pgTable("secrets_vault_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Identification
+  name: text("name").notNull(),
+  path: text("path").notNull(), // Hierarchical path e.g., "projects/myapp/database/password"
+  
+  // Encrypted value
+  encryptedValue: text("encrypted_value").notNull(),
+  encryptionMethod: text("encryption_method").default("aes-256-gcm"), // aes-256-gcm, vault-transit, sops
+  encryptionKeyId: text("encryption_key_id"),
+  
+  // Scope
+  scope: text("scope").default("project"), // global, organization, project, environment
+  projectId: varchar("project_id"),
+  environment: text("environment"), // development, staging, production
+  
+  // Metadata
+  secretType: text("secret_type").default("generic"), // generic, api-key, password, certificate, token
+  description: text("description"),
+  tags: jsonb("tags").$type<Record<string, string>>().default({}),
+  
+  // Access control
+  ownerId: varchar("owner_id").references(() => users.id),
+  allowedServices: jsonb("allowed_services").$type<string[]>().default([]),
+  allowedRoles: jsonb("allowed_roles").$type<string[]>().default([]),
+  
+  // Rotation
+  rotationPolicy: text("rotation_policy"), // none, weekly, monthly, quarterly, yearly
+  lastRotatedAt: timestamp("last_rotated_at"),
+  nextRotationAt: timestamp("next_rotation_at"),
+  rotationEnabled: boolean("rotation_enabled").default(false),
+  
+  // Versioning
+  version: integer("version").default(1),
+  previousVersions: jsonb("previous_versions").$type<Array<{ version: number; encryptedValue: string; createdAt: string }>>().default([]),
+  
+  // Audit
+  accessCount: integer("access_count").default(0),
+  lastAccessedAt: timestamp("last_accessed_at"),
+  lastAccessedBy: varchar("last_accessed_by"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_secrets_vault_path").on(table.path),
+  index("IDX_secrets_vault_project").on(table.projectId),
+  index("IDX_secrets_vault_scope").on(table.scope),
+  index("IDX_secrets_vault_type").on(table.secretType),
+]);
+
+export const insertSecretsVaultEntrySchema = createInsertSchema(secretsVaultEntries).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSecretsVaultEntry = z.infer<typeof insertSecretsVaultEntrySchema>;
+export type SecretsVaultEntry = typeof secretsVaultEntries.$inferSelect;

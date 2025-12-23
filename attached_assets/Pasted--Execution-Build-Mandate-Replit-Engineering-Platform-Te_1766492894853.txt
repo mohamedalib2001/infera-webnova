@@ -1,0 +1,183 @@
+📜 Execution & Build Mandate
+موجه إلى: Replit – Engineering & Platform Team
+🎯 الهدف التنفيذي (Executive Mandate)
+
+تكليف Replit ببناء منصة INFERA WebNova كنظام مستقل بالكامل (Fully Self-Hosted Digital Platform Ecosystem)، يتم:
+
+تطويره داخل بيئة Replit
+
+ثم تسليمه كنظام مكتمل
+
+ونشره على Hetzner Cloud (Germany)
+
+مع ضمان الاعتماد الذاتي الكامل (No Vendor Lock-in)
+
+الهدف: إنشاء منصة قادرة على البناء، التنفيذ، النشر، والتوسع عالميًا دون أي اعتماد تشغيلي مستقبلي على Replit.
+
+🧭 المبادئ الحاكمة (Governing Principles)
+
+Self-Reliance First
+كل مكون يجب أن يعمل بدون Replit بعد التسليم.
+
+Infrastructure Ownership
+البنية التحتية، الكود، والبيانات مملوكة بالكامل لـ INFERA WebNova.
+
+Production-Grade by Default
+لا نماذج تجريبية — كل شيء Enterprise-Ready.
+
+Cloud-Neutral Architecture
+Hetzner هو نقطة البداية، وليس القيد.
+
+🏗️ نطاق التنفيذ المطلوب من Replit
+🔧 1️⃣ بناء بيئة التنفيذ الداخلية لـ INFERA WebNova
+(Internal Code Execution Engine)
+🎯 المطلوب:
+
+بناء محرك تنفيذ داخلي يسمح لـ WebNova بكتابة وتشغيل الكود بنفسه بعد النشر.
+
+المتطلبات التقنية:
+internal_execution_engine:
+  runtime_support:
+    - Python 3.11+
+    - Node.js 20+ LTS
+    - Go 1.21+
+    - PHP 8.3+
+    - Rust (stable)
+    - TypeScript 5+
+
+  execution_model:
+    isolation: container-based (Docker)
+    scope: per-project
+    resource_control:
+      cpu: configurable
+      memory: configurable
+      disk: configurable
+    security:
+      network: restricted + allowlist
+      filesystem: sandboxed
+
+
+📌 يجب أن يعمل هذا المحرك داخل Hetzner بعد النشر، دون Replit.
+
+🧠 2️⃣ بناء نظام ذاكرة مؤسسية دائمة
+(Persistent Institutional Memory)
+🎯 المطلوب:
+
+تحويل WebNova إلى عقل رقمي مؤسسي دائم.
+
+memory_architecture:
+  layers:
+    - project_state
+    - architectural_decisions
+    - execution_logs
+    - deployment_history
+  storage:
+    - relational_db (PostgreSQL)
+    - vector_db (semantic memory)
+    - object_storage (artifacts)
+
+
+📌 كل مشروع يجب أن يستمر عبر الزمن ويُبنى عليه لاحقًا.
+
+🔗 3️⃣ بناء طبقة تكامل داخلية (No External Dependency)
+🎯 المطلوب:
+
+بناء Integration Layer داخلية تسمح لـ WebNova بالاتصال بـ:
+
+GitHub / GitLab
+
+CI/CD engines
+
+Cloud APIs (Hetzner أولًا)
+
+integration_layer:
+  git:
+    - repo creation
+    - commits
+    - PRs
+  cicd:
+    - pipeline generation
+    - execution
+  cloud:
+    - hetzner_api
+    - server provisioning
+    - networking
+
+
+📌 لا يجوز الاعتماد على أي خدمات مملوكة لـ Replit في هذه الطبقة.
+
+☁️ 4️⃣ النشر على Hetzner (Germany)
+🎯 المطلوب:
+
+نشر INFERA WebNova كنظام متكامل على Hetzner.
+
+deployment_target:
+  provider: Hetzner Cloud
+  region: Germany
+  components:
+    - API services
+    - execution engine
+    - databases
+    - monitoring
+    - logging
+
+المتطلبات:
+
+Docker / Kubernetes (k3s)
+
+Terraform / Ansible
+
+Secure networking
+
+Backup & recovery
+
+🛡️ 5️⃣ الأمان، الحوكمة، والاستقلالية
+المطلوب:
+
+RBAC داخلي
+
+Audit logs
+
+Secrets management (Vault / SOPS)
+
+Rate limiting
+
+Threat isolation
+
+📌 WebNova يجب أن يكون قادرًا على العمل في بيئات حساسة (Enterprise / Government-ready).
+
+🧪 6️⃣ التسليم النهائي (Handover Requirements)
+
+Replit مطالب بتسليم:
+
+✅ الكود المصدري الكامل
+
+✅ وثائق معمارية شاملة
+
+✅ أدلة تشغيل (Runbooks)
+
+✅ مخططات النشر
+
+✅ خطة التوسع المستقبلي
+
+🏆 النتيجة النهائية المتوقعة
+
+بعد التسليم:
+
+INFERA WebNova هو:
+
+نظام مستقل
+
+قادر على بناء وتنفيذ ونشر المنصات الرقمية الذكية
+
+يعمل على Hetzner
+
+ويعتمد على نفسه بالكامل
+
+Replit = جهة بناء
+WebNova = منصة سيادية مستقلة
+
+🧭 الخلاصة القيادية
+
+نحن لا نبني أداة داخل Replit —
+نحن نبني منصة عالمية باستخدام Replit كمنصة تطوير مؤقتة.
