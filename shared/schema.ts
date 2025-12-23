@@ -12386,3 +12386,219 @@ export const insertAssistantPermissionAuditSchema = createInsertSchema(assistant
 });
 export type InsertAssistantPermissionAudit = z.infer<typeof insertAssistantPermissionAuditSchema>;
 export type AssistantPermissionAudit = typeof assistantPermissionAudit.$inferSelect;
+
+// ==================== SOVEREIGN NAVIGATION SYSTEM ====================
+
+// Navigation Resources - All navigable pages/modules/actions in the platform
+export const navigationResources = pgTable("navigation_resources", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Identity
+  code: text("code").notNull().unique(), // unique identifier like "owner.dynamic-control"
+  path: text("path").notNull(), // URL path like "/owner/dynamic-control"
+  
+  // Bilingual labels
+  nameEn: text("name_en").notNull(),
+  nameAr: text("name_ar").notNull(),
+  descriptionEn: text("description_en"),
+  descriptionAr: text("description_ar"),
+  
+  // Search keywords (bilingual, comma-separated)
+  keywordsEn: text("keywords_en"),
+  keywordsAr: text("keywords_ar"),
+  
+  // Categorization
+  category: text("category").notNull(), // sovereign, ai, infrastructure, analytics, settings
+  section: text("section"), // sub-category within the main category
+  icon: text("icon"), // lucide icon name
+  
+  // Access control
+  requiredRole: text("required_role").default("owner"), // minimum role required
+  requiredPermissions: jsonb("required_permissions").$type<string[]>().default([]),
+  
+  // Ranking and display
+  priority: integer("priority").default(50), // 0-100, higher = more important
+  isQuickAction: boolean("is_quick_action").default(false),
+  isFeatured: boolean("is_featured").default(false),
+  
+  // Status
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  isSystemResource: boolean("is_system_resource").default(true), // cannot be deleted
+  
+  // Metadata
+  metadata: jsonb("metadata").$type<Record<string, any>>().default({}),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_nav_res_code").on(table.code),
+  index("IDX_nav_res_path").on(table.path),
+  index("IDX_nav_res_category").on(table.category),
+  index("IDX_nav_res_enabled").on(table.isEnabled),
+]);
+
+export const insertNavigationResourceSchema = createInsertSchema(navigationResources).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertNavigationResource = z.infer<typeof insertNavigationResourceSchema>;
+export type NavigationResource = typeof navigationResources.$inferSelect;
+
+// Navigation Shortcuts - Owner-defined quick commands
+export const navigationShortcuts = pgTable("navigation_shortcuts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Shortcut definition
+  code: text("code").notNull().unique(),
+  labelEn: text("label_en").notNull(),
+  labelAr: text("label_ar").notNull(),
+  
+  // Target
+  resourceId: varchar("resource_id").references(() => navigationResources.id),
+  targetPath: text("target_path"), // or direct path
+  actionType: text("action_type").default("navigate"), // navigate, action, modal
+  actionData: jsonb("action_data").$type<Record<string, any>>().default({}),
+  
+  // Keyboard shortcut
+  keyboardShortcut: text("keyboard_shortcut"), // e.g., "ctrl+shift+d"
+  
+  // Display
+  icon: text("icon"),
+  category: text("category").default("general"),
+  priority: integer("priority").default(50),
+  
+  // Status
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  isGlobal: boolean("is_global").default(true), // available everywhere
+  
+  // Owner control
+  createdBy: varchar("created_by"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_nav_short_code").on(table.code),
+  index("IDX_nav_short_enabled").on(table.isEnabled),
+]);
+
+export const insertNavigationShortcutSchema = createInsertSchema(navigationShortcuts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertNavigationShortcut = z.infer<typeof insertNavigationShortcutSchema>;
+export type NavigationShortcut = typeof navigationShortcuts.$inferSelect;
+
+// Navigation User State - Per-user favorites, recents, preferences
+export const navigationUserState = pgTable("navigation_user_state", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  userId: varchar("user_id").notNull(),
+  
+  // Favorites
+  favoriteResourceIds: jsonb("favorite_resource_ids").$type<string[]>().default([]),
+  
+  // Recent pages (ordered list, newest first)
+  recentResourceIds: jsonb("recent_resource_ids").$type<string[]>().default([]),
+  
+  // Personalized shortcuts
+  personalShortcuts: jsonb("personal_shortcuts").$type<{code: string, path: string, label: string}[]>().default([]),
+  
+  // Preferences
+  preferences: jsonb("preferences").$type<{
+    showRecentFirst?: boolean;
+    maxRecents?: number;
+    enableAISuggestions?: boolean;
+    defaultCategory?: string;
+  }>().default({}),
+  
+  // Last accessed
+  lastAccessedPath: text("last_accessed_path"),
+  lastAccessedAt: timestamp("last_accessed_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_nav_user_state_user").on(table.userId),
+]);
+
+export const insertNavigationUserStateSchema = createInsertSchema(navigationUserState).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertNavigationUserState = z.infer<typeof insertNavigationUserStateSchema>;
+export type NavigationUserState = typeof navigationUserState.$inferSelect;
+
+// Navigation Search History - Track search queries
+export const navigationSearchHistory = pgTable("navigation_search_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  userId: varchar("user_id").notNull(),
+  
+  // Search details
+  query: text("query").notNull(),
+  language: text("language").default("en"),
+  
+  // Results
+  resultCount: integer("result_count").default(0),
+  selectedResourceId: varchar("selected_resource_id"),
+  selectedPath: text("selected_path"),
+  
+  // Performance
+  responseTimeMs: integer("response_time_ms"),
+  
+  // Context
+  sourcePage: text("source_page"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_nav_search_user").on(table.userId),
+  index("IDX_nav_search_query").on(table.query),
+  index("IDX_nav_search_time").on(table.createdAt),
+]);
+
+export const insertNavigationSearchHistorySchema = createInsertSchema(navigationSearchHistory).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertNavigationSearchHistory = z.infer<typeof insertNavigationSearchHistorySchema>;
+export type NavigationSearchHistory = typeof navigationSearchHistory.$inferSelect;
+
+// Navigation Analytics - Aggregate usage data
+export const navigationAnalytics = pgTable("navigation_analytics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  resourceId: varchar("resource_id").references(() => navigationResources.id),
+  path: text("path").notNull(),
+  
+  // Usage metrics
+  totalVisits: integer("total_visits").default(0),
+  uniqueVisitors: integer("unique_visitors").default(0),
+  searchAppearances: integer("search_appearances").default(0),
+  searchClicks: integer("search_clicks").default(0),
+  
+  // Time-based metrics
+  date: text("date").notNull(), // YYYY-MM-DD format
+  
+  // User segments
+  byRole: jsonb("by_role").$type<Record<string, number>>().default({}),
+  
+  // Average metrics
+  avgTimeOnPage: real("avg_time_on_page"),
+  bounceRate: real("bounce_rate"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_nav_analytics_resource").on(table.resourceId),
+  index("IDX_nav_analytics_path").on(table.path),
+  index("IDX_nav_analytics_date").on(table.date),
+]);
+
+export const insertNavigationAnalyticsSchema = createInsertSchema(navigationAnalytics).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertNavigationAnalytics = z.infer<typeof insertNavigationAnalyticsSchema>;
+export type NavigationAnalytics = typeof navigationAnalytics.$inferSelect;

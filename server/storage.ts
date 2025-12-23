@@ -539,6 +539,22 @@ import {
   assistantPermissionAudit,
   type AssistantPermissionAudit,
   type InsertAssistantPermissionAudit,
+  // Sovereign Navigation System
+  navigationResources,
+  type NavigationResource,
+  type InsertNavigationResource,
+  navigationShortcuts,
+  type NavigationShortcut,
+  type InsertNavigationShortcut,
+  navigationUserState,
+  type NavigationUserState,
+  type InsertNavigationUserState,
+  navigationSearchHistory,
+  type NavigationSearchHistory,
+  type InsertNavigationSearchHistory,
+  navigationAnalytics,
+  type NavigationAnalytics,
+  type InsertNavigationAnalytics,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt, gte, lte, sql } from "drizzle-orm";
@@ -8543,6 +8559,216 @@ body { font-family: 'Tajawal', sans-serif; }
   async createAssistantPermissionAudit(data: InsertAssistantPermissionAudit): Promise<AssistantPermissionAudit> {
     const [created] = await db.insert(assistantPermissionAudit).values(data as any).returning();
     return created;
+  }
+
+  // ==================== Sovereign Navigation System ====================
+  
+  // Navigation Resources
+  async getNavigationResources(): Promise<NavigationResource[]> {
+    return db.select().from(navigationResources)
+      .where(eq(navigationResources.isEnabled, true))
+      .orderBy(desc(navigationResources.priority));
+  }
+
+  async getNavigationResourcesByCategory(category: string): Promise<NavigationResource[]> {
+    return db.select().from(navigationResources)
+      .where(
+        and(
+          eq(navigationResources.category, category),
+          eq(navigationResources.isEnabled, true)
+        )
+      )
+      .orderBy(desc(navigationResources.priority));
+  }
+
+  async getNavigationResource(id: string): Promise<NavigationResource | undefined> {
+    const result = await db.select().from(navigationResources)
+      .where(eq(navigationResources.id, id));
+    return result[0];
+  }
+
+  async getNavigationResourceByPath(path: string): Promise<NavigationResource | undefined> {
+    const result = await db.select().from(navigationResources)
+      .where(eq(navigationResources.path, path));
+    return result[0];
+  }
+
+  async searchNavigationResources(query: string, language: string = 'en'): Promise<NavigationResource[]> {
+    const lowerQuery = query.toLowerCase();
+    const resources = await db.select().from(navigationResources)
+      .where(eq(navigationResources.isEnabled, true))
+      .orderBy(desc(navigationResources.priority));
+    
+    // Fuzzy search across name, description, and keywords
+    return resources.filter(r => {
+      const nameField = language === 'ar' ? r.nameAr : r.nameEn;
+      const descField = language === 'ar' ? r.descriptionAr : r.descriptionEn;
+      const keywordsField = language === 'ar' ? r.keywordsAr : r.keywordsEn;
+      
+      return (
+        nameField?.toLowerCase().includes(lowerQuery) ||
+        descField?.toLowerCase().includes(lowerQuery) ||
+        keywordsField?.toLowerCase().includes(lowerQuery) ||
+        r.path.toLowerCase().includes(lowerQuery) ||
+        r.code.toLowerCase().includes(lowerQuery)
+      );
+    });
+  }
+
+  async createNavigationResource(data: InsertNavigationResource): Promise<NavigationResource> {
+    const [created] = await db.insert(navigationResources).values(data as any).returning();
+    return created;
+  }
+
+  async updateNavigationResource(id: string, data: Partial<InsertNavigationResource>): Promise<NavigationResource | undefined> {
+    await db.update(navigationResources)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(navigationResources.id, id));
+    const result = await db.select().from(navigationResources).where(eq(navigationResources.id, id));
+    return result[0];
+  }
+
+  async toggleNavigationResource(id: string, isEnabled: boolean): Promise<NavigationResource | undefined> {
+    await db.update(navigationResources)
+      .set({ isEnabled, updatedAt: new Date() })
+      .where(eq(navigationResources.id, id));
+    const result = await db.select().from(navigationResources).where(eq(navigationResources.id, id));
+    return result[0];
+  }
+
+  // Navigation Shortcuts
+  async getNavigationShortcuts(): Promise<NavigationShortcut[]> {
+    return db.select().from(navigationShortcuts)
+      .where(eq(navigationShortcuts.isEnabled, true))
+      .orderBy(desc(navigationShortcuts.priority));
+  }
+
+  async createNavigationShortcut(data: InsertNavigationShortcut): Promise<NavigationShortcut> {
+    const [created] = await db.insert(navigationShortcuts).values(data as any).returning();
+    return created;
+  }
+
+  async updateNavigationShortcut(id: string, data: Partial<InsertNavigationShortcut>): Promise<NavigationShortcut | undefined> {
+    await db.update(navigationShortcuts)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(navigationShortcuts.id, id));
+    const result = await db.select().from(navigationShortcuts).where(eq(navigationShortcuts.id, id));
+    return result[0];
+  }
+
+  async deleteNavigationShortcut(id: string): Promise<boolean> {
+    await db.delete(navigationShortcuts).where(eq(navigationShortcuts.id, id));
+    return true;
+  }
+
+  // Navigation User State
+  async getNavigationUserState(userId: string): Promise<NavigationUserState | undefined> {
+    const result = await db.select().from(navigationUserState)
+      .where(eq(navigationUserState.userId, userId));
+    return result[0];
+  }
+
+  async upsertNavigationUserState(userId: string, data: Partial<InsertNavigationUserState>): Promise<NavigationUserState> {
+    const existing = await this.getNavigationUserState(userId);
+    if (existing) {
+      await db.update(navigationUserState)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(navigationUserState.userId, userId));
+      const result = await db.select().from(navigationUserState).where(eq(navigationUserState.userId, userId));
+      return result[0];
+    } else {
+      const [created] = await db.insert(navigationUserState)
+        .values({ ...data, userId } as any)
+        .returning();
+      return created;
+    }
+  }
+
+  async addToRecentNavigation(userId: string, resourceId: string): Promise<void> {
+    const state = await this.getNavigationUserState(userId);
+    const maxRecents = 10;
+    
+    let recents = state?.recentResourceIds || [];
+    recents = recents.filter(id => id !== resourceId);
+    recents.unshift(resourceId);
+    recents = recents.slice(0, maxRecents);
+    
+    await this.upsertNavigationUserState(userId, { 
+      recentResourceIds: recents,
+      lastAccessedAt: new Date()
+    });
+  }
+
+  async toggleFavoriteNavigation(userId: string, resourceId: string): Promise<boolean> {
+    const state = await this.getNavigationUserState(userId);
+    let favorites = state?.favoriteResourceIds || [];
+    
+    const isFavorite = favorites.includes(resourceId);
+    if (isFavorite) {
+      favorites = favorites.filter(id => id !== resourceId);
+    } else {
+      favorites.push(resourceId);
+    }
+    
+    await this.upsertNavigationUserState(userId, { favoriteResourceIds: favorites });
+    return !isFavorite;
+  }
+
+  // Navigation Search History
+  async logNavigationSearch(data: InsertNavigationSearchHistory): Promise<NavigationSearchHistory> {
+    const [created] = await db.insert(navigationSearchHistory).values(data as any).returning();
+    return created;
+  }
+
+  async getNavigationSearchHistory(userId: string, limit: number = 20): Promise<NavigationSearchHistory[]> {
+    return db.select().from(navigationSearchHistory)
+      .where(eq(navigationSearchHistory.userId, userId))
+      .orderBy(desc(navigationSearchHistory.createdAt))
+      .limit(limit);
+  }
+
+  // Navigation Analytics
+  async trackNavigationVisit(path: string, userId: string, role: string): Promise<void> {
+    const today = new Date().toISOString().split('T')[0];
+    const resource = await this.getNavigationResourceByPath(path);
+    
+    const existing = await db.select().from(navigationAnalytics)
+      .where(
+        and(
+          eq(navigationAnalytics.path, path),
+          eq(navigationAnalytics.date, today)
+        )
+      );
+    
+    if (existing.length > 0) {
+      const byRole = (existing[0].byRole as Record<string, number>) || {};
+      byRole[role] = (byRole[role] || 0) + 1;
+      
+      await db.update(navigationAnalytics)
+        .set({
+          totalVisits: (existing[0].totalVisits || 0) + 1,
+          byRole
+        })
+        .where(eq(navigationAnalytics.id, existing[0].id));
+    } else {
+      await db.insert(navigationAnalytics).values({
+        resourceId: resource?.id,
+        path,
+        date: today,
+        totalVisits: 1,
+        byRole: { [role]: 1 }
+      } as any);
+    }
+  }
+
+  async getNavigationAnalytics(days: number = 30): Promise<NavigationAnalytics[]> {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    const startDateStr = startDate.toISOString().split('T')[0];
+    
+    return db.select().from(navigationAnalytics)
+      .where(sql`${navigationAnalytics.date} >= ${startDateStr}`)
+      .orderBy(desc(navigationAnalytics.totalVisits));
   }
 }
 

@@ -21448,4 +21448,265 @@ export function registerConversationRoutes(app: Express, requireAuth: any) {
       res.status(500).json({ error: "Failed to fetch governance summary" });
     }
   });
+
+  // ==================== Sovereign Navigation System ====================
+
+  // Get all navigation resources
+  app.get("/api/navigation/resources", requireAuth, async (req, res) => {
+    try {
+      const { category } = req.query;
+      const resources = category 
+        ? await storage.getNavigationResourcesByCategory(category as string)
+        : await storage.getNavigationResources();
+      res.json(resources);
+    } catch (error) {
+      console.error("Error fetching navigation resources:", error);
+      res.status(500).json({ error: "Failed to fetch navigation resources" });
+    }
+  });
+
+  // Search navigation resources
+  app.get("/api/navigation/search", requireAuth, async (req, res) => {
+    try {
+      const { q, language } = req.query;
+      if (!q) {
+        return res.json([]);
+      }
+      
+      const startTime = Date.now();
+      const results = await storage.searchNavigationResources(q as string, (language as string) || 'en');
+      const responseTime = Date.now() - startTime;
+      
+      // Log search for analytics
+      const user = req.user as any;
+      if (user?.id) {
+        await storage.logNavigationSearch({
+          userId: user.id,
+          query: q as string,
+          language: (language as string) || 'en',
+          resultCount: results.length,
+          responseTimeMs: responseTime
+        });
+      }
+      
+      res.json(results);
+    } catch (error) {
+      console.error("Error searching navigation:", error);
+      res.status(500).json({ error: "Failed to search navigation" });
+    }
+  });
+
+  // Create navigation resource (owner only)
+  app.post("/api/navigation/resources", requireOwner, async (req, res) => {
+    try {
+      const resource = await storage.createNavigationResource(req.body);
+      res.status(201).json(resource);
+    } catch (error) {
+      console.error("Error creating navigation resource:", error);
+      res.status(500).json({ error: "Failed to create navigation resource" });
+    }
+  });
+
+  // Update navigation resource (owner only)
+  app.patch("/api/navigation/resources/:id", requireOwner, async (req, res) => {
+    try {
+      const resource = await storage.updateNavigationResource(req.params.id, req.body);
+      if (!resource) {
+        return res.status(404).json({ error: "Resource not found" });
+      }
+      res.json(resource);
+    } catch (error) {
+      console.error("Error updating navigation resource:", error);
+      res.status(500).json({ error: "Failed to update navigation resource" });
+    }
+  });
+
+  // Toggle navigation resource (owner only)
+  app.post("/api/navigation/resources/:id/toggle", requireOwner, async (req, res) => {
+    try {
+      const { isEnabled } = req.body;
+      const resource = await storage.toggleNavigationResource(req.params.id, isEnabled);
+      if (!resource) {
+        return res.status(404).json({ error: "Resource not found" });
+      }
+      res.json(resource);
+    } catch (error) {
+      console.error("Error toggling navigation resource:", error);
+      res.status(500).json({ error: "Failed to toggle navigation resource" });
+    }
+  });
+
+  // Get navigation shortcuts
+  app.get("/api/navigation/shortcuts", requireAuth, async (req, res) => {
+    try {
+      const shortcuts = await storage.getNavigationShortcuts();
+      res.json(shortcuts);
+    } catch (error) {
+      console.error("Error fetching navigation shortcuts:", error);
+      res.status(500).json({ error: "Failed to fetch navigation shortcuts" });
+    }
+  });
+
+  // Create navigation shortcut (owner only)
+  app.post("/api/navigation/shortcuts", requireOwner, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const shortcut = await storage.createNavigationShortcut({
+        ...req.body,
+        createdBy: user?.id
+      });
+      res.status(201).json(shortcut);
+    } catch (error) {
+      console.error("Error creating navigation shortcut:", error);
+      res.status(500).json({ error: "Failed to create navigation shortcut" });
+    }
+  });
+
+  // Delete navigation shortcut (owner only)
+  app.delete("/api/navigation/shortcuts/:id", requireOwner, async (req, res) => {
+    try {
+      await storage.deleteNavigationShortcut(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting navigation shortcut:", error);
+      res.status(500).json({ error: "Failed to delete navigation shortcut" });
+    }
+  });
+
+  // Get user navigation state (favorites, recents)
+  app.get("/api/navigation/user-state", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (!user?.id) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const state = await storage.getNavigationUserState(user.id);
+      res.json(state || { favoriteResourceIds: [], recentResourceIds: [], personalShortcuts: [] });
+    } catch (error) {
+      console.error("Error fetching user navigation state:", error);
+      res.status(500).json({ error: "Failed to fetch user navigation state" });
+    }
+  });
+
+  // Track page visit
+  app.post("/api/navigation/track-visit", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { path, resourceId } = req.body;
+      
+      if (user?.id && path) {
+        // Track analytics
+        await storage.trackNavigationVisit(path, user.id, user.role || 'free');
+        
+        // Add to recents if resourceId provided
+        if (resourceId) {
+          await storage.addToRecentNavigation(user.id, resourceId);
+        }
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error tracking navigation:", error);
+      res.status(500).json({ error: "Failed to track navigation" });
+    }
+  });
+
+  // Toggle favorite
+  app.post("/api/navigation/toggle-favorite", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { resourceId } = req.body;
+      
+      if (!user?.id || !resourceId) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      
+      const isFavorite = await storage.toggleFavoriteNavigation(user.id, resourceId);
+      res.json({ isFavorite });
+    } catch (error) {
+      console.error("Error toggling favorite:", error);
+      res.status(500).json({ error: "Failed to toggle favorite" });
+    }
+  });
+
+  // Get search history
+  app.get("/api/navigation/history", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (!user?.id) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const history = await storage.getNavigationSearchHistory(user.id);
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching search history:", error);
+      res.status(500).json({ error: "Failed to fetch search history" });
+    }
+  });
+
+  // Get navigation analytics (owner only)
+  app.get("/api/navigation/analytics", requireOwner, async (req, res) => {
+    try {
+      const { days } = req.query;
+      const analytics = await storage.getNavigationAnalytics(Number(days) || 30);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching navigation analytics:", error);
+      res.status(500).json({ error: "Failed to fetch navigation analytics" });
+    }
+  });
+
+  // Get command palette data (combined resources, shortcuts, recents, favorites)
+  app.get("/api/navigation/command-palette", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { language } = req.query;
+      
+      const [resources, shortcuts, userState] = await Promise.all([
+        storage.getNavigationResources(),
+        storage.getNavigationShortcuts(),
+        user?.id ? storage.getNavigationUserState(user.id) : null
+      ]);
+      
+      // Filter resources by user role
+      const userRole = user?.role || 'free';
+      const roleHierarchy = ['free', 'basic', 'pro', 'enterprise', 'sovereign', 'admin', 'owner'];
+      const userRoleIndex = roleHierarchy.indexOf(userRole);
+      
+      const accessibleResources = resources.filter(r => {
+        const requiredIndex = roleHierarchy.indexOf(r.requiredRole || 'free');
+        return userRoleIndex >= requiredIndex;
+      });
+      
+      // Get favorite and recent resource details
+      const favoriteIds = userState?.favoriteResourceIds || [];
+      const recentIds = userState?.recentResourceIds || [];
+      
+      const favorites = accessibleResources.filter(r => favoriteIds.includes(r.id));
+      const recents = recentIds
+        .map(id => accessibleResources.find(r => r.id === id))
+        .filter(Boolean)
+        .slice(0, 5);
+      
+      // Group by category
+      const categories = [...new Set(accessibleResources.map(r => r.category))];
+      const byCategory = categories.reduce((acc, cat) => {
+        acc[cat] = accessibleResources.filter(r => r.category === cat);
+        return acc;
+      }, {} as Record<string, typeof accessibleResources>);
+      
+      res.json({
+        resources: accessibleResources,
+        shortcuts,
+        favorites,
+        recents,
+        byCategory,
+        categories,
+        userPreferences: userState?.preferences || {}
+      });
+    } catch (error) {
+      console.error("Error fetching command palette data:", error);
+      res.status(500).json({ error: "Failed to fetch command palette data" });
+    }
+  });
 }
