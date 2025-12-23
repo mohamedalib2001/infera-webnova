@@ -29,7 +29,7 @@ export function useAuth() {
     user: data?.user,
     isLoading,
     isAuthenticated: !!data?.user,
-    isSovereign: data?.user?.role === "sovereign",
+    isSovereign: data?.user?.role === "sovereign" || data?.user?.role === "owner",
     error,
     logout: logoutMutation.mutate,
     isLoggingOut: logoutMutation.isPending,
