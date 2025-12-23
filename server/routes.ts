@@ -3718,6 +3718,189 @@ export async function registerRoutes(
     });
   });
 
+  // ============ INFERA Router Engine API ============
+  const inferaRouterModule = await import('./infera-router-engine');
+  const inferaRouterEngine = inferaRouterModule.inferaRouterEngine;
+
+  // Get all AI providers with stats
+  app.get("/api/infera/providers", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const providers = await inferaRouterEngine.getProviderStats();
+      res.json({ providers });
+    } catch (error) {
+      console.error("Failed to get providers:", error);
+      res.status(500).json({ error: "Failed to get providers" });
+    }
+  });
+
+  // Get routing rules
+  app.get("/api/infera/routing-rules", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const result = await db.execute(sql`
+        SELECT * FROM infera_routing_rules 
+        WHERE is_active = true
+        ORDER BY priority ASC
+      `);
+      res.json({ rules: result.rows || [] });
+    } catch (error) {
+      console.error("Failed to get routing rules:", error);
+      res.status(500).json({ error: "Failed to get routing rules" });
+    }
+  });
+
+  // Test routing decision
+  app.post("/api/infera/routing/test", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { strategy = 'reliability_first', preferredProvider } = req.body;
+      const decision = await inferaRouterEngine.selectProvider({
+        strategy,
+        preferredProvider
+      });
+      
+      if (!decision) {
+        return res.status(404).json({ error: "No available providers" });
+      }
+      
+      res.json({
+        primaryProvider: {
+          name: decision.primaryProvider.name,
+          displayName: decision.primaryProvider.displayName,
+          healthScore: decision.primaryProvider.healthScore,
+          averageLatencyMs: decision.primaryProvider.averageLatencyMs,
+        },
+        fallbackProviders: decision.fallbackProviders.map(p => ({
+          name: p.name,
+          displayName: p.displayName,
+          healthScore: p.healthScore,
+        })),
+        routingRule: decision.routingRule?.name,
+        reason: decision.reason,
+      });
+    } catch (error) {
+      console.error("Failed to test routing:", error);
+      res.status(500).json({ error: "Failed to test routing" });
+    }
+  });
+
+  // Get provider health metrics
+  app.get("/api/infera/providers/:providerId/metrics", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { providerId } = req.params;
+      const { bucket = 'hourly', limit = '24' } = req.query;
+      
+      const result = await db.execute(sql`
+        SELECT * FROM infera_provider_health_metrics
+        WHERE provider_id = ${providerId} AND bucket = ${bucket}
+        ORDER BY timestamp DESC
+        LIMIT ${parseInt(limit as string)}
+      `);
+      
+      res.json({ metrics: result.rows || [] });
+    } catch (error) {
+      console.error("Failed to get provider metrics:", error);
+      res.status(500).json({ error: "Failed to get provider metrics" });
+    }
+  });
+
+  // Update provider settings (requires sovereign access with owner check in handler)
+  app.patch("/api/infera/providers/:providerId", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { providerId } = req.params;
+      const { priority, weight, isEnabled, isPrimary, rateLimitPerMinute, rateLimitPerDay } = req.body;
+      
+      const updateFields: string[] = [];
+      const values: any[] = [];
+      
+      if (priority !== undefined) updateFields.push(`priority = ${priority}`);
+      if (weight !== undefined) updateFields.push(`weight = ${weight}`);
+      if (isEnabled !== undefined) updateFields.push(`is_enabled = ${isEnabled}`);
+      if (isPrimary !== undefined) updateFields.push(`is_primary = ${isPrimary}`);
+      if (rateLimitPerMinute !== undefined) updateFields.push(`rate_limit_per_minute = ${rateLimitPerMinute}`);
+      if (rateLimitPerDay !== undefined) updateFields.push(`rate_limit_per_day = ${rateLimitPerDay}`);
+      
+      if (updateFields.length === 0) {
+        return res.status(400).json({ error: "No fields to update" });
+      }
+      
+      await db.execute(sql`
+        UPDATE infera_ai_providers
+        SET ${sql.raw(updateFields.join(', '))}, updated_at = NOW()
+        WHERE id = ${providerId}
+      `);
+      
+      res.json({ success: true, message: "Provider updated successfully" });
+    } catch (error) {
+      console.error("Failed to update provider:", error);
+      res.status(500).json({ error: "Failed to update provider" });
+    }
+  });
+
+  // Run health checks on all providers (requires sovereign access)
+  app.post("/api/infera/providers/health-check", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      await inferaRouterEngine.performHealthChecks();
+      const providers = await inferaRouterEngine.getProviderStats();
+      res.json({ success: true, providers });
+    } catch (error) {
+      console.error("Failed to run health checks:", error);
+      res.status(500).json({ error: "Failed to run health checks" });
+    }
+  });
+
+  // Get anomaly alerts
+  app.get("/api/infera/alerts", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { status = 'active', severity, limit = '50' } = req.query;
+      
+      let query = `SELECT * FROM infera_anomaly_alerts WHERE 1=1`;
+      if (status) query += ` AND status = '${status}'`;
+      if (severity) query += ` AND severity = '${severity}'`;
+      query += ` ORDER BY created_at DESC LIMIT ${parseInt(limit as string)}`;
+      
+      const result = await db.execute(sql.raw(query));
+      res.json({ alerts: result.rows || [] });
+    } catch (error) {
+      console.error("Failed to get alerts:", error);
+      res.status(500).json({ error: "Failed to get alerts" });
+    }
+  });
+
+  // Acknowledge an alert
+  app.post("/api/infera/alerts/:alertId/acknowledge", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { alertId } = req.params;
+      const userId = req.session?.userId;
+      
+      await db.execute(sql`
+        UPDATE infera_anomaly_alerts
+        SET status = 'acknowledged', acknowledged_by = ${userId}, acknowledged_at = NOW(), updated_at = NOW()
+        WHERE id = ${alertId}
+      `);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to acknowledge alert:", error);
+      res.status(500).json({ error: "Failed to acknowledge alert" });
+    }
+  });
+
+  // Get compliance reports
+  app.get("/api/infera/compliance-reports", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { reportType, limit = '20' } = req.query;
+      
+      let query = `SELECT * FROM infera_compliance_reports WHERE 1=1`;
+      if (reportType) query += ` AND report_type = '${reportType}'`;
+      query += ` ORDER BY created_at DESC LIMIT ${parseInt(limit as string)}`;
+      
+      const result = await db.execute(sql.raw(query));
+      res.json({ reports: result.rows || [] });
+    } catch (error) {
+      console.error("Failed to get compliance reports:", error);
+      res.status(500).json({ error: "Failed to get compliance reports" });
+    }
+  });
+
   // Get data regions - REAL DATA from database
   app.get("/api/sovereign/data-regions", requireAuth, requireSovereign, async (req, res) => {
     try {
