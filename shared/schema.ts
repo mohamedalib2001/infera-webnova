@@ -13631,3 +13631,289 @@ export const insertAiOrchestrationRuleSchema = createInsertSchema(aiOrchestratio
 });
 export type InsertAiOrchestrationRule = z.infer<typeof insertAiOrchestrationRuleSchema>;
 export type AiOrchestrationRule = typeof aiOrchestrationRules.$inferSelect;
+
+// ==================== INFERA INTELLIGENCE MODELS UNIT ====================
+// وحدة نماذج الذكاء الاصطناعي المملوكة لمنظومة INFERA
+// INFERA = مصدر للذكاء الاصطناعي وليس مستهلك
+
+// Service Levels (Dynamic)
+export const inferaServiceLevels = ['core', 'pro', 'elite', 'enterprise', 'sovereign'] as const;
+export type InferaServiceLevel = typeof inferaServiceLevels[number];
+
+// Functional Roles (Dynamic)
+export const inferaFunctionalRoles = ['chat', 'consult', 'code', 'build', 'analyze', 'assist', 'custom'] as const;
+export type InferaFunctionalRole = typeof inferaFunctionalRoles[number];
+
+// INFERA Intelligence Models - النماذج السيادية المصدَّرة باسم INFERA
+export const inferaIntelligenceModels = pgTable("infera_intelligence_models", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Dynamic Identity (قابل للتغيير بالكامل من الداشبورد)
+  displayName: text("display_name").notNull(), // e.g., "INFERA Chat", "INFERA Code"
+  displayNameAr: text("display_name_ar"),
+  slug: text("slug").notNull().unique(), // URL-friendly: infera-chat, infera-code
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  
+  // Functional Role (Dynamic - not hardcoded)
+  functionalRole: text("functional_role").notNull(), // chat, consult, code, build, analyze, or custom
+  customRole: text("custom_role"), // For custom roles
+  
+  // Service Level (Dynamic)
+  serviceLevel: text("service_level").notNull().default("core"), // core, pro, elite, enterprise, sovereign
+  
+  // Branding
+  icon: text("icon"), // Lucide icon name
+  brandColor: text("brand_color"), // Hex color for UI
+  
+  // Underlying Model (الربط بالنموذج الفعلي - مخفي عن العملاء)
+  backendModelId: varchar("backend_model_id").references(() => aiModelRegistry.id),
+  fallbackModelId: varchar("fallback_model_id").references(() => aiModelRegistry.id),
+  
+  // Intelligence Engine Binding
+  engineBindings: jsonb("engine_bindings").$type<{
+    primary: string;
+    fallbacks: string[];
+    loadBalanceWeights?: Record<string, number>;
+  }>().default({ primary: "", fallbacks: [] }),
+  
+  // Behavioral Configuration
+  systemPrompt: text("system_prompt"),
+  systemPromptAr: text("system_prompt_ar"),
+  temperature: real("temperature").default(0.7),
+  maxTokens: integer("max_tokens").default(4096),
+  topP: real("top_p").default(1),
+  frequencyPenalty: real("frequency_penalty").default(0),
+  presencePenalty: real("presence_penalty").default(0),
+  
+  // Capabilities (what this model can do)
+  capabilities: jsonb("capabilities").$type<string[]>().default([]),
+  supportedFormats: jsonb("supported_formats").$type<string[]>().default(["text"]), // text, code, json, markdown
+  
+  // Usage Policies
+  rateLimitPerMinute: integer("rate_limit_per_minute").default(60),
+  rateLimitPerDay: integer("rate_limit_per_day").default(10000),
+  maxContextLength: integer("max_context_length").default(128000),
+  
+  // Cost Configuration (for billing)
+  inputCostPer1kTokens: integer("input_cost_per_1k_tokens").default(0), // in cents
+  outputCostPer1kTokens: integer("output_cost_per_1k_tokens").default(0), // in cents
+  
+  // Access Control
+  allowedPlans: jsonb("allowed_plans").$type<string[]>().default([]),
+  allowedRoles: jsonb("allowed_roles").$type<string[]>().default([]),
+  requiresApiKey: boolean("requires_api_key").default(true),
+  isPublic: boolean("is_public").default(false),
+  
+  // Status
+  status: text("status").notNull().default("inactive"), // active, inactive, testing, deprecated
+  statusMessage: text("status_message"),
+  
+  // Display
+  sortOrder: integer("sort_order").default(0),
+  showInCatalog: boolean("show_in_catalog").default(true),
+  featuredUntil: timestamp("featured_until"),
+  
+  // Usage Statistics
+  totalRequests: integer("total_requests").default(0),
+  totalTokens: integer("total_tokens").default(0),
+  averageLatencyMs: integer("average_latency_ms").default(0),
+  lastUsedAt: timestamp("last_used_at"),
+  
+  // Metadata
+  tags: jsonb("tags").$type<string[]>().default([]),
+  metadata: jsonb("metadata").$type<Record<string, any>>().default({}),
+  
+  // Audit
+  createdBy: varchar("created_by").references(() => users.id),
+  updatedBy: varchar("updated_by"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_infera_models_role").on(table.functionalRole),
+  index("IDX_infera_models_level").on(table.serviceLevel),
+  index("IDX_infera_models_status").on(table.status),
+  index("IDX_infera_models_backend").on(table.backendModelId),
+]);
+
+export const insertInferaIntelligenceModelSchema = createInsertSchema(inferaIntelligenceModels).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertInferaIntelligenceModel = z.infer<typeof insertInferaIntelligenceModelSchema>;
+export type InferaIntelligenceModel = typeof inferaIntelligenceModels.$inferSelect;
+
+// Client API Keys - مفاتيح الوصول للعملاء
+export const inferaApiKeys = pgTable("infera_api_keys", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Key Identity
+  name: text("name").notNull(),
+  description: text("description"),
+  keyPrefix: text("key_prefix").notNull(), // First 8 chars for identification
+  keyHash: text("key_hash").notNull(), // Hashed full key
+  
+  // Owner
+  userId: varchar("user_id").references(() => users.id),
+  organizationId: varchar("organization_id"),
+  
+  // Model Access (Dynamic - linked by ID not name)
+  allowedModelIds: jsonb("allowed_model_ids").$type<string[]>().default([]), // Empty = all
+  allowedFunctionalRoles: jsonb("allowed_functional_roles").$type<string[]>().default([]), // Empty = all
+  
+  // Permissions
+  permissions: jsonb("permissions").$type<{
+    chat?: boolean;
+    completions?: boolean;
+    embeddings?: boolean;
+    images?: boolean;
+    audio?: boolean;
+    files?: boolean;
+  }>().default({ chat: true, completions: true }),
+  
+  // Rate Limits
+  rateLimitPerMinute: integer("rate_limit_per_minute").default(60),
+  rateLimitPerHour: integer("rate_limit_per_hour").default(1000),
+  rateLimitPerDay: integer("rate_limit_per_day").default(10000),
+  
+  // Usage Limits
+  maxTokensPerRequest: integer("max_tokens_per_request").default(4096),
+  maxRequestsPerMonth: integer("max_requests_per_month"),
+  maxTokensPerMonth: integer("max_tokens_per_month"),
+  
+  // Budget Control
+  monthlyBudgetCents: integer("monthly_budget_cents"),
+  currentMonthSpendCents: integer("current_month_spend_cents").default(0),
+  
+  // Status
+  status: text("status").notNull().default("active"), // active, inactive, revoked, expired
+  expiresAt: timestamp("expires_at"),
+  lastUsedAt: timestamp("last_used_at"),
+  lastUsedIp: text("last_used_ip"),
+  
+  // Usage Statistics
+  totalRequests: integer("total_requests").default(0),
+  totalTokens: integer("total_tokens").default(0),
+  totalCostCents: integer("total_cost_cents").default(0),
+  
+  // Security
+  allowedIps: jsonb("allowed_ips").$type<string[]>().default([]), // Empty = all
+  allowedDomains: jsonb("allowed_domains").$type<string[]>().default([]), // Empty = all
+  
+  // Metadata
+  metadata: jsonb("metadata").$type<Record<string, any>>().default({}),
+  
+  // Audit
+  createdBy: varchar("created_by").references(() => users.id),
+  revokedBy: varchar("revoked_by"),
+  revokedAt: timestamp("revoked_at"),
+  revocationReason: text("revocation_reason"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_infera_api_keys_user").on(table.userId),
+  index("IDX_infera_api_keys_status").on(table.status),
+  index("IDX_infera_api_keys_prefix").on(table.keyPrefix),
+]);
+
+export const insertInferaApiKeySchema = createInsertSchema(inferaApiKeys).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertInferaApiKey = z.infer<typeof insertInferaApiKeySchema>;
+export type InferaApiKey = typeof inferaApiKeys.$inferSelect;
+
+// API Usage Logs - سجل استخدام API
+export const inferaApiUsageLogs = pgTable("infera_api_usage_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Request Info
+  apiKeyId: varchar("api_key_id").references(() => inferaApiKeys.id),
+  modelId: varchar("model_id").references(() => inferaIntelligenceModels.id),
+  
+  // Request Details
+  endpoint: text("endpoint").notNull(), // /v1/chat/completions, /v1/embeddings
+  method: text("method").notNull().default("POST"),
+  requestId: text("request_id"),
+  
+  // Token Usage
+  promptTokens: integer("prompt_tokens").default(0),
+  completionTokens: integer("completion_tokens").default(0),
+  totalTokens: integer("total_tokens").default(0),
+  
+  // Cost
+  costCents: integer("cost_cents").default(0),
+  
+  // Performance
+  latencyMs: integer("latency_ms"),
+  ttfbMs: integer("ttfb_ms"), // Time to first byte
+  
+  // Status
+  statusCode: integer("status_code"),
+  errorCode: text("error_code"),
+  errorMessage: text("error_message"),
+  
+  // Client Info
+  clientIp: text("client_ip"),
+  userAgent: text("user_agent"),
+  
+  // Model Routing (what actually handled the request)
+  actualBackendModel: text("actual_backend_model"),
+  routingDecision: text("routing_decision"), // primary, fallback, load_balanced
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_infera_usage_api_key").on(table.apiKeyId),
+  index("IDX_infera_usage_model").on(table.modelId),
+  index("IDX_infera_usage_created").on(table.createdAt),
+]);
+
+export const insertInferaApiUsageLogSchema = createInsertSchema(inferaApiUsageLogs).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertInferaApiUsageLog = z.infer<typeof insertInferaApiUsageLogSchema>;
+export type InferaApiUsageLog = typeof inferaApiUsageLogs.$inferSelect;
+
+// INFERA Model Change Audit - سجل تغييرات النماذج السيادية
+export const inferaModelAuditLog = pgTable("infera_model_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Target
+  modelId: varchar("model_id").references(() => inferaIntelligenceModels.id, { onDelete: "set null" }),
+  
+  // Action
+  action: text("action").notNull(), // create, update, delete, activate, deactivate, rename, rebind
+  actionCategory: text("action_category").notNull(), // lifecycle, identity, configuration, access
+  
+  // Changes
+  previousValue: jsonb("previous_value").$type<Record<string, any>>().default({}),
+  newValue: jsonb("new_value").$type<Record<string, any>>().default({}),
+  changedFields: jsonb("changed_fields").$type<string[]>().default([]),
+  
+  // Actor
+  performedBy: varchar("performed_by").references(() => users.id),
+  performedByRole: text("performed_by_role"),
+  
+  // Context
+  reason: text("reason"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_infera_audit_model").on(table.modelId),
+  index("IDX_infera_audit_action").on(table.action),
+  index("IDX_infera_audit_created").on(table.createdAt),
+]);
+
+export const insertInferaModelAuditLogSchema = createInsertSchema(inferaModelAuditLog).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertInferaModelAuditLog = z.infer<typeof insertInferaModelAuditLogSchema>;
+export type InferaModelAuditLog = typeof inferaModelAuditLog.$inferSelect;
