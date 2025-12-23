@@ -250,15 +250,34 @@ async function executeNovaTool(toolName: string, toolInput: any, userId: string)
   }
 }
 
-// Middleware to ensure user is authenticated (supports both Replit Auth and session-based auth)
-async function requireAuth(req: any, res: any, next: any) {
+// Helper to get user ID from request (supports both Replit Auth and session-based auth)
+function getUserId(req: any): string | null {
   // Check Replit Auth first (passport)
   if (req.isAuthenticated && req.isAuthenticated() && req.user) {
-    return next();
+    const replitUser = req.user as any;
+    return replitUser.claims?.sub || replitUser.id;
   }
   
   // Fallback to traditional session auth
   if (req.session?.userId) {
+    return req.session.userId;
+  }
+  
+  return null;
+}
+
+// Middleware to ensure user is authenticated (supports both Replit Auth and session-based auth)
+async function requireAuth(req: any, res: any, next: any) {
+  const userId = getUserId(req);
+  if (userId) {
+    // Attach userId to request for downstream use
+    req.userId = userId;
+    // Also create a user-like object for backward compatibility
+    if (!req.user) {
+      req.user = { id: userId };
+    } else if (!(req.user as any).id) {
+      (req.user as any).id = userId;
+    }
     return next();
   }
   
