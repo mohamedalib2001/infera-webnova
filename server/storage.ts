@@ -507,6 +507,25 @@ import {
   aiAssistantCapabilities,
   type AiAssistantCapability,
   type InsertAiAssistantCapability,
+  // Dynamic Configuration System
+  platformSettings,
+  type PlatformSetting,
+  type InsertPlatformSetting,
+  dynamicFeatures,
+  type DynamicFeature,
+  type InsertDynamicFeature,
+  dynamicPages,
+  type DynamicPage,
+  type InsertDynamicPage,
+  dynamicComponents,
+  type DynamicComponent,
+  type InsertDynamicComponent,
+  dynamicApiEndpoints,
+  type DynamicApiEndpoint,
+  type InsertDynamicApiEndpoint,
+  dynamicWorkflows,
+  type DynamicWorkflow,
+  type InsertDynamicWorkflow,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt, gte, lte, sql } from "drizzle-orm";
@@ -1205,6 +1224,60 @@ export interface IStorage {
   deleteAiAssistantCapability(id: string): Promise<boolean>;
   resetAiAssistantCapabilities(assistantId: string): Promise<boolean>;
   isCapabilityEnabled(assistantId: string, capabilityCode: string): Promise<boolean>;
+  
+  // ==================== DYNAMIC CONFIGURATION SYSTEM ====================
+  // Platform Settings - All configurations stored dynamically
+  getPlatformSettings(): Promise<PlatformSetting[]>;
+  getPlatformSettingsByCategory(category: string): Promise<PlatformSetting[]>;
+  getPlatformSetting(key: string): Promise<PlatformSetting | undefined>;
+  setPlatformSetting(data: InsertPlatformSetting): Promise<PlatformSetting>;
+  updatePlatformSetting(id: string, data: Partial<InsertPlatformSetting>): Promise<PlatformSetting | undefined>;
+  deletePlatformSetting(id: string): Promise<boolean>;
+  
+  // Dynamic Features - Feature flags controlled by owner
+  getDynamicFeatures(): Promise<DynamicFeature[]>;
+  getDynamicFeaturesByCategory(category: string): Promise<DynamicFeature[]>;
+  getDynamicFeature(code: string): Promise<DynamicFeature | undefined>;
+  createDynamicFeature(data: InsertDynamicFeature): Promise<DynamicFeature>;
+  updateDynamicFeature(id: string, data: Partial<InsertDynamicFeature>): Promise<DynamicFeature | undefined>;
+  toggleDynamicFeature(code: string, isEnabled: boolean): Promise<DynamicFeature | undefined>;
+  deleteDynamicFeature(id: string): Promise<boolean>;
+  isFeatureEnabled(code: string): Promise<boolean>;
+  
+  // Dynamic Pages - Page configurations controlled by owner
+  getDynamicPages(): Promise<DynamicPage[]>;
+  getDynamicPagesByCategory(category: string): Promise<DynamicPage[]>;
+  getDynamicPage(pathname: string): Promise<DynamicPage | undefined>;
+  createDynamicPage(data: InsertDynamicPage): Promise<DynamicPage>;
+  updateDynamicPage(id: string, data: Partial<InsertDynamicPage>): Promise<DynamicPage | undefined>;
+  toggleDynamicPage(pathname: string, isEnabled: boolean): Promise<DynamicPage | undefined>;
+  deleteDynamicPage(id: string): Promise<boolean>;
+  
+  // Dynamic Components - UI components controlled by owner
+  getDynamicComponents(): Promise<DynamicComponent[]>;
+  getDynamicComponentsByCategory(category: string): Promise<DynamicComponent[]>;
+  getDynamicComponent(code: string): Promise<DynamicComponent | undefined>;
+  createDynamicComponent(data: InsertDynamicComponent): Promise<DynamicComponent>;
+  updateDynamicComponent(id: string, data: Partial<InsertDynamicComponent>): Promise<DynamicComponent | undefined>;
+  toggleDynamicComponent(code: string, isEnabled: boolean): Promise<DynamicComponent | undefined>;
+  deleteDynamicComponent(id: string): Promise<boolean>;
+  
+  // Dynamic API Endpoints - API configurations controlled by owner
+  getDynamicApiEndpoints(): Promise<DynamicApiEndpoint[]>;
+  getDynamicApiEndpoint(path: string): Promise<DynamicApiEndpoint | undefined>;
+  createDynamicApiEndpoint(data: InsertDynamicApiEndpoint): Promise<DynamicApiEndpoint>;
+  updateDynamicApiEndpoint(id: string, data: Partial<InsertDynamicApiEndpoint>): Promise<DynamicApiEndpoint | undefined>;
+  toggleDynamicApiEndpoint(path: string, isEnabled: boolean): Promise<DynamicApiEndpoint | undefined>;
+  deleteDynamicApiEndpoint(id: string): Promise<boolean>;
+  
+  // Dynamic Workflows - Business logic controlled by owner
+  getDynamicWorkflows(): Promise<DynamicWorkflow[]>;
+  getDynamicWorkflowsByCategory(category: string): Promise<DynamicWorkflow[]>;
+  getDynamicWorkflow(code: string): Promise<DynamicWorkflow | undefined>;
+  createDynamicWorkflow(data: InsertDynamicWorkflow): Promise<DynamicWorkflow>;
+  updateDynamicWorkflow(id: string, data: Partial<InsertDynamicWorkflow>): Promise<DynamicWorkflow | undefined>;
+  toggleDynamicWorkflow(code: string, isEnabled: boolean): Promise<DynamicWorkflow | undefined>;
+  deleteDynamicWorkflow(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -7998,6 +8071,269 @@ body { font-family: 'Tajawal', sans-serif; }
     if (capability.length === 0) return true;
     
     return capability[0].isEnabled;
+  }
+
+  // ==================== DYNAMIC CONFIGURATION SYSTEM ====================
+  
+  // Platform Settings
+  async getPlatformSettings(): Promise<PlatformSetting[]> {
+    return db.select().from(platformSettings).orderBy(platformSettings.category, platformSettings.key);
+  }
+
+  async getPlatformSettingsByCategory(category: string): Promise<PlatformSetting[]> {
+    return db.select().from(platformSettings)
+      .where(eq(platformSettings.category, category))
+      .orderBy(platformSettings.key);
+  }
+
+  async getPlatformSetting(key: string): Promise<PlatformSetting | undefined> {
+    const result = await db.select().from(platformSettings)
+      .where(eq(platformSettings.key, key));
+    return result[0];
+  }
+
+  async setPlatformSetting(data: InsertPlatformSetting): Promise<PlatformSetting> {
+    const existing = await db.select().from(platformSettings)
+      .where(eq(platformSettings.key, data.key));
+    
+    if (existing.length > 0) {
+      await db.update(platformSettings)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(platformSettings.key, data.key));
+      const updated = await db.select().from(platformSettings)
+        .where(eq(platformSettings.key, data.key));
+      return updated[0];
+    }
+    
+    const [created] = await db.insert(platformSettings).values(data as any).returning();
+    return created;
+  }
+
+  async updatePlatformSetting(id: string, data: Partial<InsertPlatformSetting>): Promise<PlatformSetting | undefined> {
+    await db.update(platformSettings)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(platformSettings.id, id));
+    const result = await db.select().from(platformSettings).where(eq(platformSettings.id, id));
+    return result[0];
+  }
+
+  async deletePlatformSetting(id: string): Promise<boolean> {
+    await db.delete(platformSettings).where(eq(platformSettings.id, id));
+    return true;
+  }
+
+  // Dynamic Features
+  async getDynamicFeatures(): Promise<DynamicFeature[]> {
+    return db.select().from(dynamicFeatures).orderBy(dynamicFeatures.category, dynamicFeatures.name);
+  }
+
+  async getDynamicFeaturesByCategory(category: string): Promise<DynamicFeature[]> {
+    return db.select().from(dynamicFeatures)
+      .where(eq(dynamicFeatures.category, category))
+      .orderBy(dynamicFeatures.name);
+  }
+
+  async getDynamicFeature(code: string): Promise<DynamicFeature | undefined> {
+    const result = await db.select().from(dynamicFeatures)
+      .where(eq(dynamicFeatures.code, code));
+    return result[0];
+  }
+
+  async createDynamicFeature(data: InsertDynamicFeature): Promise<DynamicFeature> {
+    const [created] = await db.insert(dynamicFeatures).values(data as any).returning();
+    return created;
+  }
+
+  async updateDynamicFeature(id: string, data: Partial<InsertDynamicFeature>): Promise<DynamicFeature | undefined> {
+    await db.update(dynamicFeatures)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(dynamicFeatures.id, id));
+    const result = await db.select().from(dynamicFeatures).where(eq(dynamicFeatures.id, id));
+    return result[0];
+  }
+
+  async toggleDynamicFeature(code: string, isEnabled: boolean): Promise<DynamicFeature | undefined> {
+    await db.update(dynamicFeatures)
+      .set({ isEnabled, updatedAt: new Date() })
+      .where(eq(dynamicFeatures.code, code));
+    const result = await db.select().from(dynamicFeatures).where(eq(dynamicFeatures.code, code));
+    return result[0];
+  }
+
+  async deleteDynamicFeature(id: string): Promise<boolean> {
+    await db.delete(dynamicFeatures).where(eq(dynamicFeatures.id, id));
+    return true;
+  }
+
+  async isFeatureEnabled(code: string): Promise<boolean> {
+    const feature = await this.getDynamicFeature(code);
+    return feature?.isEnabled ?? true;
+  }
+
+  // Dynamic Pages
+  async getDynamicPages(): Promise<DynamicPage[]> {
+    return db.select().from(dynamicPages).orderBy(dynamicPages.sortOrder, dynamicPages.pathname);
+  }
+
+  async getDynamicPagesByCategory(category: string): Promise<DynamicPage[]> {
+    return db.select().from(dynamicPages)
+      .where(eq(dynamicPages.category, category))
+      .orderBy(dynamicPages.sortOrder);
+  }
+
+  async getDynamicPage(pathname: string): Promise<DynamicPage | undefined> {
+    const result = await db.select().from(dynamicPages)
+      .where(eq(dynamicPages.pathname, pathname));
+    return result[0];
+  }
+
+  async createDynamicPage(data: InsertDynamicPage): Promise<DynamicPage> {
+    const [created] = await db.insert(dynamicPages).values(data as any).returning();
+    return created;
+  }
+
+  async updateDynamicPage(id: string, data: Partial<InsertDynamicPage>): Promise<DynamicPage | undefined> {
+    await db.update(dynamicPages)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(dynamicPages.id, id));
+    const result = await db.select().from(dynamicPages).where(eq(dynamicPages.id, id));
+    return result[0];
+  }
+
+  async toggleDynamicPage(pathname: string, isEnabled: boolean): Promise<DynamicPage | undefined> {
+    await db.update(dynamicPages)
+      .set({ isEnabled, updatedAt: new Date() })
+      .where(eq(dynamicPages.pathname, pathname));
+    const result = await db.select().from(dynamicPages).where(eq(dynamicPages.pathname, pathname));
+    return result[0];
+  }
+
+  async deleteDynamicPage(id: string): Promise<boolean> {
+    await db.delete(dynamicPages).where(eq(dynamicPages.id, id));
+    return true;
+  }
+
+  // Dynamic Components
+  async getDynamicComponents(): Promise<DynamicComponent[]> {
+    return db.select().from(dynamicComponents).orderBy(dynamicComponents.category, dynamicComponents.name);
+  }
+
+  async getDynamicComponentsByCategory(category: string): Promise<DynamicComponent[]> {
+    return db.select().from(dynamicComponents)
+      .where(eq(dynamicComponents.category, category))
+      .orderBy(dynamicComponents.name);
+  }
+
+  async getDynamicComponent(code: string): Promise<DynamicComponent | undefined> {
+    const result = await db.select().from(dynamicComponents)
+      .where(eq(dynamicComponents.code, code));
+    return result[0];
+  }
+
+  async createDynamicComponent(data: InsertDynamicComponent): Promise<DynamicComponent> {
+    const [created] = await db.insert(dynamicComponents).values(data as any).returning();
+    return created;
+  }
+
+  async updateDynamicComponent(id: string, data: Partial<InsertDynamicComponent>): Promise<DynamicComponent | undefined> {
+    await db.update(dynamicComponents)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(dynamicComponents.id, id));
+    const result = await db.select().from(dynamicComponents).where(eq(dynamicComponents.id, id));
+    return result[0];
+  }
+
+  async toggleDynamicComponent(code: string, isEnabled: boolean): Promise<DynamicComponent | undefined> {
+    await db.update(dynamicComponents)
+      .set({ isEnabled, updatedAt: new Date() })
+      .where(eq(dynamicComponents.code, code));
+    const result = await db.select().from(dynamicComponents).where(eq(dynamicComponents.code, code));
+    return result[0];
+  }
+
+  async deleteDynamicComponent(id: string): Promise<boolean> {
+    await db.delete(dynamicComponents).where(eq(dynamicComponents.id, id));
+    return true;
+  }
+
+  // Dynamic API Endpoints
+  async getDynamicApiEndpoints(): Promise<DynamicApiEndpoint[]> {
+    return db.select().from(dynamicApiEndpoints).orderBy(dynamicApiEndpoints.path);
+  }
+
+  async getDynamicApiEndpoint(path: string): Promise<DynamicApiEndpoint | undefined> {
+    const result = await db.select().from(dynamicApiEndpoints)
+      .where(eq(dynamicApiEndpoints.path, path));
+    return result[0];
+  }
+
+  async createDynamicApiEndpoint(data: InsertDynamicApiEndpoint): Promise<DynamicApiEndpoint> {
+    const [created] = await db.insert(dynamicApiEndpoints).values(data as any).returning();
+    return created;
+  }
+
+  async updateDynamicApiEndpoint(id: string, data: Partial<InsertDynamicApiEndpoint>): Promise<DynamicApiEndpoint | undefined> {
+    await db.update(dynamicApiEndpoints)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(dynamicApiEndpoints.id, id));
+    const result = await db.select().from(dynamicApiEndpoints).where(eq(dynamicApiEndpoints.id, id));
+    return result[0];
+  }
+
+  async toggleDynamicApiEndpoint(path: string, isEnabled: boolean): Promise<DynamicApiEndpoint | undefined> {
+    await db.update(dynamicApiEndpoints)
+      .set({ isEnabled, updatedAt: new Date() })
+      .where(eq(dynamicApiEndpoints.path, path));
+    const result = await db.select().from(dynamicApiEndpoints).where(eq(dynamicApiEndpoints.path, path));
+    return result[0];
+  }
+
+  async deleteDynamicApiEndpoint(id: string): Promise<boolean> {
+    await db.delete(dynamicApiEndpoints).where(eq(dynamicApiEndpoints.id, id));
+    return true;
+  }
+
+  // Dynamic Workflows
+  async getDynamicWorkflows(): Promise<DynamicWorkflow[]> {
+    return db.select().from(dynamicWorkflows).orderBy(dynamicWorkflows.category, dynamicWorkflows.name);
+  }
+
+  async getDynamicWorkflowsByCategory(category: string): Promise<DynamicWorkflow[]> {
+    return db.select().from(dynamicWorkflows)
+      .where(eq(dynamicWorkflows.category, category))
+      .orderBy(dynamicWorkflows.name);
+  }
+
+  async getDynamicWorkflow(code: string): Promise<DynamicWorkflow | undefined> {
+    const result = await db.select().from(dynamicWorkflows)
+      .where(eq(dynamicWorkflows.code, code));
+    return result[0];
+  }
+
+  async createDynamicWorkflow(data: InsertDynamicWorkflow): Promise<DynamicWorkflow> {
+    const [created] = await db.insert(dynamicWorkflows).values(data as any).returning();
+    return created;
+  }
+
+  async updateDynamicWorkflow(id: string, data: Partial<InsertDynamicWorkflow>): Promise<DynamicWorkflow | undefined> {
+    await db.update(dynamicWorkflows)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(dynamicWorkflows.id, id));
+    const result = await db.select().from(dynamicWorkflows).where(eq(dynamicWorkflows.id, id));
+    return result[0];
+  }
+
+  async toggleDynamicWorkflow(code: string, isEnabled: boolean): Promise<DynamicWorkflow | undefined> {
+    await db.update(dynamicWorkflows)
+      .set({ isEnabled, updatedAt: new Date() })
+      .where(eq(dynamicWorkflows.code, code));
+    const result = await db.select().from(dynamicWorkflows).where(eq(dynamicWorkflows.code, code));
+    return result[0];
+  }
+
+  async deleteDynamicWorkflow(id: string): Promise<boolean> {
+    await db.delete(dynamicWorkflows).where(eq(dynamicWorkflows.id, id));
+    return true;
   }
 }
 

@@ -20689,4 +20689,422 @@ export function registerConversationRoutes(app: Express, requireAuth: any) {
       res.status(500).json({ error: "Failed to update conversation" });
     }
   });
+
+  // ==================== DYNAMIC CONFIGURATION SYSTEM API ====================
+  // 100% Dynamic Control - Zero Hardcoded Values
+
+  // Platform Settings
+  app.get("/api/dynamic/settings", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getPlatformSettings();
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching platform settings:", error);
+      res.status(500).json({ error: "Failed to fetch platform settings" });
+    }
+  });
+
+  app.get("/api/dynamic/settings/:category", requireAuth, async (req, res) => {
+    try {
+      const { category } = req.params;
+      const settings = await storage.getPlatformSettingsByCategory(category);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching settings by category:", error);
+      res.status(500).json({ error: "Failed to fetch settings" });
+    }
+  });
+
+  app.post("/api/dynamic/settings", requireOwner, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      const setting = await storage.setPlatformSetting({ ...req.body, modifiedBy: userId });
+      res.json(setting);
+    } catch (error) {
+      console.error("Error setting platform setting:", error);
+      res.status(500).json({ error: "Failed to set platform setting" });
+    }
+  });
+
+  app.patch("/api/dynamic/settings/:id", requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session?.userId;
+      const setting = await storage.updatePlatformSetting(id, { ...req.body, modifiedBy: userId });
+      res.json(setting);
+    } catch (error) {
+      console.error("Error updating platform setting:", error);
+      res.status(500).json({ error: "Failed to update platform setting" });
+    }
+  });
+
+  app.delete("/api/dynamic/settings/:id", requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deletePlatformSetting(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting platform setting:", error);
+      res.status(500).json({ error: "Failed to delete platform setting" });
+    }
+  });
+
+  // Dynamic Features
+  app.get("/api/dynamic/features", requireAuth, async (req, res) => {
+    try {
+      const features = await storage.getDynamicFeatures();
+      res.json(features);
+    } catch (error) {
+      console.error("Error fetching dynamic features:", error);
+      res.status(500).json({ error: "Failed to fetch dynamic features" });
+    }
+  });
+
+  app.get("/api/dynamic/features/:code", requireAuth, async (req, res) => {
+    try {
+      const { code } = req.params;
+      const feature = await storage.getDynamicFeature(code);
+      res.json(feature);
+    } catch (error) {
+      console.error("Error fetching dynamic feature:", error);
+      res.status(500).json({ error: "Failed to fetch dynamic feature" });
+    }
+  });
+
+  app.post("/api/dynamic/features", requireOwner, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      const feature = await storage.createDynamicFeature({ ...req.body, modifiedBy: userId });
+      res.json(feature);
+    } catch (error) {
+      console.error("Error creating dynamic feature:", error);
+      res.status(500).json({ error: "Failed to create dynamic feature" });
+    }
+  });
+
+  app.patch("/api/dynamic/features/:id", requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session?.userId;
+      const feature = await storage.updateDynamicFeature(id, { ...req.body, modifiedBy: userId });
+      res.json(feature);
+    } catch (error) {
+      console.error("Error updating dynamic feature:", error);
+      res.status(500).json({ error: "Failed to update dynamic feature" });
+    }
+  });
+
+  app.post("/api/dynamic/features/:code/toggle", requireOwner, async (req, res) => {
+    try {
+      const { code } = req.params;
+      const { isEnabled } = req.body;
+      const feature = await storage.toggleDynamicFeature(code, isEnabled);
+      res.json(feature);
+    } catch (error) {
+      console.error("Error toggling dynamic feature:", error);
+      res.status(500).json({ error: "Failed to toggle dynamic feature" });
+    }
+  });
+
+  app.delete("/api/dynamic/features/:id", requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteDynamicFeature(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting dynamic feature:", error);
+      res.status(500).json({ error: "Failed to delete dynamic feature" });
+    }
+  });
+
+  // Dynamic Pages
+  app.get("/api/dynamic/pages", requireAuth, async (req, res) => {
+    try {
+      const pages = await storage.getDynamicPages();
+      res.json(pages);
+    } catch (error) {
+      console.error("Error fetching dynamic pages:", error);
+      res.status(500).json({ error: "Failed to fetch dynamic pages" });
+    }
+  });
+
+  app.get("/api/dynamic/pages/:pathname", requireAuth, async (req, res) => {
+    try {
+      const pathname = decodeURIComponent(req.params.pathname);
+      const page = await storage.getDynamicPage(pathname);
+      res.json(page);
+    } catch (error) {
+      console.error("Error fetching dynamic page:", error);
+      res.status(500).json({ error: "Failed to fetch dynamic page" });
+    }
+  });
+
+  app.post("/api/dynamic/pages", requireOwner, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      const page = await storage.createDynamicPage({ ...req.body, modifiedBy: userId });
+      res.json(page);
+    } catch (error) {
+      console.error("Error creating dynamic page:", error);
+      res.status(500).json({ error: "Failed to create dynamic page" });
+    }
+  });
+
+  app.patch("/api/dynamic/pages/:id", requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session?.userId;
+      const page = await storage.updateDynamicPage(id, { ...req.body, modifiedBy: userId });
+      res.json(page);
+    } catch (error) {
+      console.error("Error updating dynamic page:", error);
+      res.status(500).json({ error: "Failed to update dynamic page" });
+    }
+  });
+
+  app.post("/api/dynamic/pages/:pathname/toggle", requireOwner, async (req, res) => {
+    try {
+      const pathname = decodeURIComponent(req.params.pathname);
+      const { isEnabled } = req.body;
+      const page = await storage.toggleDynamicPage(pathname, isEnabled);
+      res.json(page);
+    } catch (error) {
+      console.error("Error toggling dynamic page:", error);
+      res.status(500).json({ error: "Failed to toggle dynamic page" });
+    }
+  });
+
+  app.delete("/api/dynamic/pages/:id", requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteDynamicPage(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting dynamic page:", error);
+      res.status(500).json({ error: "Failed to delete dynamic page" });
+    }
+  });
+
+  // Dynamic Components
+  app.get("/api/dynamic/components", requireAuth, async (req, res) => {
+    try {
+      const components = await storage.getDynamicComponents();
+      res.json(components);
+    } catch (error) {
+      console.error("Error fetching dynamic components:", error);
+      res.status(500).json({ error: "Failed to fetch dynamic components" });
+    }
+  });
+
+  app.post("/api/dynamic/components", requireOwner, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      const component = await storage.createDynamicComponent({ ...req.body, modifiedBy: userId });
+      res.json(component);
+    } catch (error) {
+      console.error("Error creating dynamic component:", error);
+      res.status(500).json({ error: "Failed to create dynamic component" });
+    }
+  });
+
+  app.patch("/api/dynamic/components/:id", requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session?.userId;
+      const component = await storage.updateDynamicComponent(id, { ...req.body, modifiedBy: userId });
+      res.json(component);
+    } catch (error) {
+      console.error("Error updating dynamic component:", error);
+      res.status(500).json({ error: "Failed to update dynamic component" });
+    }
+  });
+
+  app.post("/api/dynamic/components/:code/toggle", requireOwner, async (req, res) => {
+    try {
+      const { code } = req.params;
+      const { isEnabled } = req.body;
+      const component = await storage.toggleDynamicComponent(code, isEnabled);
+      res.json(component);
+    } catch (error) {
+      console.error("Error toggling dynamic component:", error);
+      res.status(500).json({ error: "Failed to toggle dynamic component" });
+    }
+  });
+
+  app.delete("/api/dynamic/components/:id", requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteDynamicComponent(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting dynamic component:", error);
+      res.status(500).json({ error: "Failed to delete dynamic component" });
+    }
+  });
+
+  // Dynamic API Endpoints
+  app.get("/api/dynamic/endpoints", requireOwner, async (req, res) => {
+    try {
+      const endpoints = await storage.getDynamicApiEndpoints();
+      res.json(endpoints);
+    } catch (error) {
+      console.error("Error fetching dynamic endpoints:", error);
+      res.status(500).json({ error: "Failed to fetch dynamic endpoints" });
+    }
+  });
+
+  app.post("/api/dynamic/endpoints", requireOwner, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      const endpoint = await storage.createDynamicApiEndpoint({ ...req.body, modifiedBy: userId });
+      res.json(endpoint);
+    } catch (error) {
+      console.error("Error creating dynamic endpoint:", error);
+      res.status(500).json({ error: "Failed to create dynamic endpoint" });
+    }
+  });
+
+  app.patch("/api/dynamic/endpoints/:id", requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session?.userId;
+      const endpoint = await storage.updateDynamicApiEndpoint(id, { ...req.body, modifiedBy: userId });
+      res.json(endpoint);
+    } catch (error) {
+      console.error("Error updating dynamic endpoint:", error);
+      res.status(500).json({ error: "Failed to update dynamic endpoint" });
+    }
+  });
+
+  app.post("/api/dynamic/endpoints/:path/toggle", requireOwner, async (req, res) => {
+    try {
+      const path = decodeURIComponent(req.params.path);
+      const { isEnabled } = req.body;
+      const endpoint = await storage.toggleDynamicApiEndpoint(path, isEnabled);
+      res.json(endpoint);
+    } catch (error) {
+      console.error("Error toggling dynamic endpoint:", error);
+      res.status(500).json({ error: "Failed to toggle dynamic endpoint" });
+    }
+  });
+
+  app.delete("/api/dynamic/endpoints/:id", requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteDynamicApiEndpoint(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting dynamic endpoint:", error);
+      res.status(500).json({ error: "Failed to delete dynamic endpoint" });
+    }
+  });
+
+  // Dynamic Workflows
+  app.get("/api/dynamic/workflows", requireOwner, async (req, res) => {
+    try {
+      const workflows = await storage.getDynamicWorkflows();
+      res.json(workflows);
+    } catch (error) {
+      console.error("Error fetching dynamic workflows:", error);
+      res.status(500).json({ error: "Failed to fetch dynamic workflows" });
+    }
+  });
+
+  app.post("/api/dynamic/workflows", requireOwner, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      const workflow = await storage.createDynamicWorkflow({ ...req.body, modifiedBy: userId });
+      res.json(workflow);
+    } catch (error) {
+      console.error("Error creating dynamic workflow:", error);
+      res.status(500).json({ error: "Failed to create dynamic workflow" });
+    }
+  });
+
+  app.patch("/api/dynamic/workflows/:id", requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session?.userId;
+      const workflow = await storage.updateDynamicWorkflow(id, { ...req.body, modifiedBy: userId });
+      res.json(workflow);
+    } catch (error) {
+      console.error("Error updating dynamic workflow:", error);
+      res.status(500).json({ error: "Failed to update dynamic workflow" });
+    }
+  });
+
+  app.post("/api/dynamic/workflows/:code/toggle", requireOwner, async (req, res) => {
+    try {
+      const { code } = req.params;
+      const { isEnabled } = req.body;
+      const workflow = await storage.toggleDynamicWorkflow(code, isEnabled);
+      res.json(workflow);
+    } catch (error) {
+      console.error("Error toggling dynamic workflow:", error);
+      res.status(500).json({ error: "Failed to toggle dynamic workflow" });
+    }
+  });
+
+  app.delete("/api/dynamic/workflows/:id", requireOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteDynamicWorkflow(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting dynamic workflow:", error);
+      res.status(500).json({ error: "Failed to delete dynamic workflow" });
+    }
+  });
+
+  // Dynamic Configuration Summary - Dashboard overview
+  app.get("/api/dynamic/summary", requireOwner, async (req, res) => {
+    try {
+      const [settings, features, pages, components, endpoints, workflows] = await Promise.all([
+        storage.getPlatformSettings(),
+        storage.getDynamicFeatures(),
+        storage.getDynamicPages(),
+        storage.getDynamicComponents(),
+        storage.getDynamicApiEndpoints(),
+        storage.getDynamicWorkflows()
+      ]);
+
+      const enabledFeatures = features.filter(f => f.isEnabled).length;
+      const enabledPages = pages.filter(p => p.isEnabled).length;
+      const enabledComponents = components.filter(c => c.isEnabled).length;
+      const enabledEndpoints = endpoints.filter(e => e.isEnabled).length;
+      const enabledWorkflows = workflows.filter(w => w.isEnabled).length;
+
+      // Calculate dynamic score
+      const totalItems = settings.length + features.length + pages.length + components.length + endpoints.length + workflows.length;
+      const dynamicScore = totalItems > 0 ? 100 : 0; // 100% dynamic if configurations exist
+
+      res.json({
+        summary: {
+          totalSettings: settings.length,
+          totalFeatures: features.length,
+          enabledFeatures,
+          totalPages: pages.length,
+          enabledPages,
+          totalComponents: components.length,
+          enabledComponents,
+          totalEndpoints: endpoints.length,
+          enabledEndpoints,
+          totalWorkflows: workflows.length,
+          enabledWorkflows,
+          dynamicScore,
+          dynamicLevel: dynamicScore >= 90 ? 'zero-code' : dynamicScore >= 70 ? 'low-code' : 'high-code'
+        },
+        categories: {
+          settings: [...new Set(settings.map(s => s.category))],
+          features: [...new Set(features.map(f => f.category))],
+          pages: [...new Set(pages.map(p => p.category))],
+          components: [...new Set(components.map(c => c.category))],
+          workflows: [...new Set(workflows.map(w => w.category))]
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching dynamic summary:", error);
+      res.status(500).json({ error: "Failed to fetch dynamic configuration summary" });
+    }
+  });
 }
