@@ -72,6 +72,12 @@ export default function SSHVault() {
   const [showPrivateKey, setShowPrivateKey] = useState(false);
   const [decryptPassword, setDecryptPassword] = useState("");
   const [decryptedKey, setDecryptedKey] = useState<string | null>(null);
+  
+  // Password update state
+  const [showPasswordUpdate, setShowPasswordUpdate] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
 
   const [newKey, setNewKey] = useState({
     name: "",
@@ -189,6 +195,29 @@ export default function SSHVault() {
       toast({
         title: isRtl ? "رمز غير صحيح" : "Invalid Code",
         description: isRtl ? "رمز البريد الإلكتروني غير صحيح أو منتهي" : "Invalid or expired email code",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updatePasswordMutation = useMutation({
+    mutationFn: async (data: { currentPassword: string; newPassword: string }) => {
+      return apiRequest("POST", "/api/user/change-password", data);
+    },
+    onSuccess: () => {
+      setShowPasswordUpdate(false);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+      toast({
+        title: isRtl ? "تم تحديث كلمة المرور" : "Password Updated",
+        description: isRtl ? "تم تحديث كلمة المرور بنجاح" : "Password updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: isRtl ? "فشل التحديث" : "Update Failed",
+        description: error?.message || (isRtl ? "كلمة المرور الحالية غير صحيحة" : "Current password is incorrect"),
         variant: "destructive",
       });
     },
@@ -412,6 +441,14 @@ export default function SSHVault() {
                 >
                   {startAuthMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                   {isRtl ? "تحقق" : "Verify"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full text-sm text-muted-foreground"
+                  onClick={() => setShowPasswordUpdate(true)}
+                  data-testid="button-update-password-link"
+                >
+                  {isRtl ? "تحديث كلمة المرور" : "Update Password"}
                 </Button>
               </div>
             )}
@@ -973,6 +1010,85 @@ export default function SSHVault() {
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Password Update Dialog */}
+      <Dialog open={showPasswordUpdate} onOpenChange={setShowPasswordUpdate}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="w-5 h-5" />
+              {isRtl ? "تحديث كلمة المرور" : "Update Password"}
+            </DialogTitle>
+            <DialogDescription>
+              {isRtl ? "أدخل كلمة المرور الحالية والجديدة" : "Enter your current and new password"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{isRtl ? "كلمة المرور الحالية" : "Current Password"}</Label>
+              <Input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder={isRtl ? "كلمة المرور الحالية" : "Current password"}
+                data-testid="input-current-password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{isRtl ? "كلمة المرور الجديدة" : "New Password"}</Label>
+              <Input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder={isRtl ? "كلمة المرور الجديدة" : "New password"}
+                data-testid="input-new-password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{isRtl ? "تأكيد كلمة المرور الجديدة" : "Confirm New Password"}</Label>
+              <Input
+                type="password"
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                placeholder={isRtl ? "تأكيد كلمة المرور" : "Confirm password"}
+                data-testid="input-confirm-new-password"
+              />
+              {newPassword && confirmNewPassword && newPassword !== confirmNewPassword && (
+                <p className="text-sm text-destructive">
+                  {isRtl ? "كلمات المرور غير متطابقة" : "Passwords do not match"}
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowPasswordUpdate(false);
+                setCurrentPassword("");
+                setNewPassword("");
+                setConfirmNewPassword("");
+              }}
+            >
+              {isRtl ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button
+              onClick={() => updatePasswordMutation.mutate({ currentPassword, newPassword })}
+              disabled={
+                !currentPassword ||
+                !newPassword ||
+                newPassword !== confirmNewPassword ||
+                newPassword.length < 8 ||
+                updatePasswordMutation.isPending
+              }
+              data-testid="button-confirm-update-password"
+            >
+              {updatePasswordMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              {isRtl ? "تحديث" : "Update"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
