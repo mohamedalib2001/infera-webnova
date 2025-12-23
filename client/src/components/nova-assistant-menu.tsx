@@ -37,6 +37,8 @@ import {
   Lock,
   Server,
   Loader2,
+  TrendingUp,
+  Building,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -48,43 +50,40 @@ interface SovereignAssistant {
   description: string;
   descriptionAr: string;
   type: string;
-  status: string;
+  avatar?: string;
+  isActive?: boolean;
+  isAutonomous?: boolean;
   capabilities: string[];
 }
 
-const assistantIcons: Record<string, any> = {
-  strategic: Crown,
-  security: Shield,
-  development: Code,
-  data: Database,
-  global: Globe,
-  performance: Zap,
-  intelligence: Brain,
-  deployment: Rocket,
-  operations: Settings,
-  documentation: FileText,
-  collaboration: Users,
-  analytics: BarChart,
-  compliance: Lock,
-  infrastructure: Server,
+// Map avatar field from database to Lucide icons
+const avatarIcons: Record<string, any> = {
+  brain: Brain,
+  building: Building,
+  shield: Shield,
+  lock: Lock,
+  "trending-up": TrendingUp,
+  crown: Crown,
+  code: Code,
+  database: Database,
+  globe: Globe,
+  zap: Zap,
+  rocket: Rocket,
+  settings: Settings,
+  "file-text": FileText,
+  users: Users,
+  "bar-chart": BarChart,
+  server: Server,
   default: Bot,
 };
 
-const assistantColors: Record<string, string> = {
-  strategic: "from-amber-500 to-yellow-600",
-  security: "from-red-500 to-rose-600",
-  development: "from-blue-500 to-indigo-600",
-  data: "from-emerald-500 to-green-600",
-  global: "from-cyan-500 to-teal-600",
-  performance: "from-orange-500 to-amber-600",
-  intelligence: "from-purple-500 to-violet-600",
-  deployment: "from-pink-500 to-rose-600",
-  operations: "from-slate-500 to-gray-600",
-  documentation: "from-sky-500 to-blue-600",
-  collaboration: "from-indigo-500 to-purple-600",
-  analytics: "from-teal-500 to-cyan-600",
-  compliance: "from-rose-500 to-red-600",
-  infrastructure: "from-gray-500 to-slate-600",
+// Map sovereign assistant types to gradient colors
+const typeColors: Record<string, string> = {
+  ai_governor: "from-purple-500 to-violet-600",
+  platform_architect: "from-blue-500 to-indigo-600",
+  operations_commander: "from-orange-500 to-amber-600",
+  security_guardian: "from-emerald-500 to-green-600",
+  growth_strategist: "from-pink-500 to-rose-600",
   default: "from-primary to-primary/80",
 };
 
@@ -109,67 +108,13 @@ const translations = {
   },
 };
 
-const defaultAssistants: SovereignAssistant[] = [
-  {
-    id: "nova-main",
-    name: "Nova AI",
-    nameAr: "نوفا الذكي",
-    description: "Main AI assistant for platform building",
-    descriptionAr: "المساعد الرئيسي لبناء المنصات",
-    type: "intelligence",
-    status: "active",
-    capabilities: ["code_generation", "platform_building", "conversation"],
-  },
-  {
-    id: "strategic-advisor",
-    name: "Strategic Advisor",
-    nameAr: "المستشار الاستراتيجي",
-    description: "Business strategy and planning",
-    descriptionAr: "الاستراتيجية والتخطيط",
-    type: "strategic",
-    status: "active",
-    capabilities: ["strategy", "planning", "consulting"],
-  },
-  {
-    id: "security-guardian",
-    name: "Security Guardian",
-    nameAr: "حارس الأمان",
-    description: "Security analysis and protection",
-    descriptionAr: "تحليل الأمان والحماية",
-    type: "security",
-    status: "active",
-    capabilities: ["security", "audit", "protection"],
-  },
-  {
-    id: "dev-architect",
-    name: "Dev Architect",
-    nameAr: "مهندس التطوير",
-    description: "Technical architecture and development",
-    descriptionAr: "الهندسة التقنية والتطوير",
-    type: "development",
-    status: "active",
-    capabilities: ["architecture", "development", "code_review"],
-  },
-  {
-    id: "data-analyst",
-    name: "Data Analyst",
-    nameAr: "محلل البيانات",
-    description: "Data analysis and insights",
-    descriptionAr: "تحليل البيانات والرؤى",
-    type: "data",
-    status: "active",
-    capabilities: ["analytics", "reporting", "insights"],
-  },
-  {
-    id: "compliance-officer",
-    name: "Compliance Officer",
-    nameAr: "مسؤول الامتثال",
-    description: "Regulatory compliance and governance",
-    descriptionAr: "الامتثال التنظيمي والحوكمة",
-    type: "compliance",
-    status: "active",
-    capabilities: ["compliance", "governance", "regulations"],
-  },
+// Sovereign assistant order for consistent display
+const sovereignOrder = [
+  "ai_governor",
+  "platform_architect", 
+  "operations_commander",
+  "security_guardian",
+  "growth_strategist",
 ];
 
 export function NovaAssistantMenu() {
@@ -186,11 +131,18 @@ export function NovaAssistantMenu() {
 
   if (!isAuthenticated || !isSovereign) return null;
 
-  const assistants = serverAssistants?.length ? serverAssistants : defaultAssistants;
+  // Filter active assistants and sort by sovereign order
+  const assistants = (serverAssistants || [])
+    .filter(a => a.isActive !== false)
+    .sort((a, b) => {
+      const indexA = sovereignOrder.indexOf(a.type);
+      const indexB = sovereignOrder.indexOf(b.type);
+      return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+    });
 
   const handleSelectAssistant = (assistantId: string) => {
     setIsOpen(false);
-    setLocation(`/nova?assistant=${assistantId}`);
+    setLocation(`/sovereign-chat?assistant=${assistantId}`);
   };
 
   return (
@@ -271,8 +223,8 @@ export function NovaAssistantMenu() {
               ) : (
                 <AnimatePresence>
                   {assistants.map((assistant, index) => {
-                    const Icon = assistantIcons[assistant.type] || assistantIcons.default;
-                    const gradientClass = assistantColors[assistant.type] || assistantColors.default;
+                    const Icon = avatarIcons[assistant.avatar || "default"] || avatarIcons.default;
+                    const gradientClass = typeColors[assistant.type] || typeColors.default;
                     
                     return (
                       <motion.div
@@ -308,8 +260,13 @@ export function NovaAssistantMenu() {
                               <span className="font-medium text-sm truncate">
                                 {isRtl ? assistant.nameAr : assistant.name}
                               </span>
-                              {assistant.status === "active" && (
+                              {assistant.isActive !== false && (
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                              )}
+                              {assistant.isAutonomous && (
+                                <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-amber-500/10 text-amber-500 border-amber-500/30">
+                                  {isRtl ? "ذاتي" : "Auto"}
+                                </Badge>
                               )}
                             </div>
                             <p className="text-xs text-muted-foreground truncate">
