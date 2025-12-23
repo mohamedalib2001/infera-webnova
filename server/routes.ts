@@ -12,7 +12,7 @@ import { registerDomainRoutes } from "./domain-routes";
 import { registerISDSRoutes } from "./isds-routes";
 import { registerSpomRoutes } from "./spom-routes";
 import { registerPlatformApiRoutes } from "./platform-api-routes";
-import { registerNovaRoutes } from "./nova-routes";
+import { registerNovaRoutes, registerCICDRoutes } from "./nova-routes";
 import marketplaceRoutes from "./marketplace-routes";
 import sslRoutes from "./ssl-routes";
 import sshVaultRoutes from "./ssh-vault-routes";
@@ -14509,6 +14509,9 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
   // ==================== NOVA CONVERSATION ENGINE ====================
   registerNovaRoutes(app);
   console.log("Nova Conversation Engine routes registered | تم تسجيل مسارات محرك محادثة نوفا");
+
+  // ==================== CI/CD PIPELINE & DEVICE TESTING ====================
+  registerCICDRoutes(app);
 
   // ==================== CONVERSATION HISTORY (سجل المحادثات) ====================
   registerConversationRoutes(app, requireAuth);

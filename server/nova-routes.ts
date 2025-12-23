@@ -1749,3 +1749,291 @@ function groupBy(arr: any[], key: string): Record<string, number> {
     return acc;
   }, {});
 }
+
+// ==================== CI/CD PIPELINE INTEGRATION ====================
+
+// CI/CD Pipeline Types
+interface CICDPipeline {
+  id: string;
+  projectId: string;
+  name: string;
+  status: 'idle' | 'running' | 'success' | 'failed' | 'cancelled';
+  platform: 'ios' | 'android' | 'web' | 'all';
+  stages: PipelineStage[];
+  lastRun?: Date;
+  createdAt: Date;
+}
+
+interface PipelineStage {
+  id: string;
+  name: string;
+  status: 'pending' | 'running' | 'success' | 'failed' | 'skipped';
+  duration?: number;
+  logs?: string[];
+}
+
+// In-memory storage for CI/CD (would be database in production)
+const cicdPipelines: Map<string, CICDPipeline> = new Map();
+
+// Device Testing Types
+interface DeviceTest {
+  id: string;
+  projectId: string;
+  deviceId: string;
+  deviceName: string;
+  platform: 'ios' | 'android';
+  status: 'queued' | 'running' | 'passed' | 'failed';
+  logs: string[];
+  screenshots: string[];
+  duration?: number;
+  createdAt: Date;
+}
+
+const deviceTests: Map<string, DeviceTest> = new Map();
+
+// Available device farm
+const deviceFarm = [
+  { id: 'iphone-15-pro', name: 'iPhone 15 Pro', platform: 'ios', os: '17.0', available: true },
+  { id: 'iphone-14', name: 'iPhone 14', platform: 'ios', os: '16.0', available: true },
+  { id: 'ipad-pro-m2', name: 'iPad Pro M2', platform: 'ios', os: '17.0', available: true },
+  { id: 'pixel-8-pro', name: 'Pixel 8 Pro', platform: 'android', os: '14.0', available: true },
+  { id: 'galaxy-s24', name: 'Samsung Galaxy S24', platform: 'android', os: '14.0', available: true },
+  { id: 'oneplus-12', name: 'OnePlus 12', platform: 'android', os: '14.0', available: true },
+];
+
+export function registerCICDRoutes(app: Express) {
+  // Get all pipelines for a project
+  app.get("/api/cicd/pipelines/:projectId", requireAuth, async (req, res) => {
+    try {
+      const pipelines = Array.from(cicdPipelines.values())
+        .filter(p => p.projectId === req.params.projectId);
+      res.json(pipelines);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create new pipeline
+  app.post("/api/cicd/pipelines", requireAuth, async (req, res) => {
+    try {
+      const { projectId, name, platform } = req.body;
+      
+      const pipeline: CICDPipeline = {
+        id: `pipe-${Date.now()}`,
+        projectId,
+        name: name || 'Default Pipeline',
+        status: 'idle',
+        platform: platform || 'all',
+        stages: [
+          { id: 'build', name: 'Build', status: 'pending' },
+          { id: 'test', name: 'Test', status: 'pending' },
+          { id: 'analyze', name: 'Code Analysis', status: 'pending' },
+          { id: 'deploy', name: 'Deploy', status: 'pending' },
+        ],
+        createdAt: new Date(),
+      };
+      
+      cicdPipelines.set(pipeline.id, pipeline);
+      res.json(pipeline);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Run pipeline
+  app.post("/api/cicd/pipelines/:pipelineId/run", requireAuth, async (req, res) => {
+    try {
+      const pipeline = cicdPipelines.get(req.params.pipelineId);
+      if (!pipeline) {
+        return res.status(404).json({ error: "Pipeline not found" });
+      }
+      
+      pipeline.status = 'running';
+      pipeline.lastRun = new Date();
+      pipeline.stages.forEach(s => s.status = 'pending');
+      
+      // Simulate pipeline execution
+      let stageIndex = 0;
+      const runStage = () => {
+        if (stageIndex < pipeline.stages.length) {
+          pipeline.stages[stageIndex].status = 'running';
+          setTimeout(() => {
+            pipeline.stages[stageIndex].status = 'success';
+            pipeline.stages[stageIndex].duration = Math.floor(Math.random() * 30000) + 5000;
+            stageIndex++;
+            runStage();
+          }, 2000);
+        } else {
+          pipeline.status = 'success';
+        }
+      };
+      runStage();
+      
+      res.json({ message: "Pipeline started", pipeline });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Cancel pipeline
+  app.post("/api/cicd/pipelines/:pipelineId/cancel", requireAuth, async (req, res) => {
+    try {
+      const pipeline = cicdPipelines.get(req.params.pipelineId);
+      if (!pipeline) {
+        return res.status(404).json({ error: "Pipeline not found" });
+      }
+      
+      pipeline.status = 'cancelled';
+      pipeline.stages.forEach(s => {
+        if (s.status === 'running') s.status = 'skipped';
+      });
+      
+      res.json({ message: "Pipeline cancelled", pipeline });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get pipeline status
+  app.get("/api/cicd/pipelines/:pipelineId/status", requireAuth, async (req, res) => {
+    try {
+      const pipeline = cicdPipelines.get(req.params.pipelineId);
+      if (!pipeline) {
+        return res.status(404).json({ error: "Pipeline not found" });
+      }
+      res.json(pipeline);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ==================== DEVICE TESTING ENDPOINTS ====================
+
+  // Get available devices
+  app.get("/api/device-testing/devices", requireAuth, async (req, res) => {
+    try {
+      const platform = req.query.platform as string;
+      let devices = deviceFarm;
+      if (platform && platform !== 'all') {
+        devices = deviceFarm.filter(d => d.platform === platform);
+      }
+      res.json(devices);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Start device test
+  app.post("/api/device-testing/tests", requireAuth, async (req, res) => {
+    try {
+      const { projectId, deviceId, testType } = req.body;
+      
+      const device = deviceFarm.find(d => d.id === deviceId);
+      if (!device) {
+        return res.status(404).json({ error: "Device not found" });
+      }
+      
+      const test: DeviceTest = {
+        id: `test-${Date.now()}`,
+        projectId,
+        deviceId,
+        deviceName: device.name,
+        platform: device.platform as 'ios' | 'android',
+        status: 'queued',
+        logs: [`Test queued for ${device.name}`],
+        screenshots: [],
+        createdAt: new Date(),
+      };
+      
+      deviceTests.set(test.id, test);
+      
+      // Simulate test execution
+      setTimeout(() => {
+        test.status = 'running';
+        test.logs.push('Installing app...');
+      }, 1000);
+      
+      setTimeout(() => {
+        test.logs.push('Running UI tests...');
+        test.screenshots.push(`/screenshots/${test.id}/screen1.png`);
+      }, 3000);
+      
+      setTimeout(() => {
+        test.status = 'passed';
+        test.duration = 45000;
+        test.logs.push('All tests passed!');
+        test.screenshots.push(`/screenshots/${test.id}/screen2.png`);
+      }, 6000);
+      
+      res.json(test);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get test status
+  app.get("/api/device-testing/tests/:testId", requireAuth, async (req, res) => {
+    try {
+      const test = deviceTests.get(req.params.testId);
+      if (!test) {
+        return res.status(404).json({ error: "Test not found" });
+      }
+      res.json(test);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get all tests for project
+  app.get("/api/device-testing/projects/:projectId/tests", requireAuth, async (req, res) => {
+    try {
+      const tests = Array.from(deviceTests.values())
+        .filter(t => t.projectId === req.params.projectId);
+      res.json(tests);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Stop test
+  app.post("/api/device-testing/tests/:testId/stop", requireAuth, async (req, res) => {
+    try {
+      const test = deviceTests.get(req.params.testId);
+      if (!test) {
+        return res.status(404).json({ error: "Test not found" });
+      }
+      
+      test.status = 'failed';
+      test.logs.push('Test stopped by user');
+      
+      res.json({ message: "Test stopped", test });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get device testing stats
+  app.get("/api/device-testing/stats", requireAuth, async (req, res) => {
+    try {
+      const allTests = Array.from(deviceTests.values());
+      const stats = {
+        totalTests: allTests.length,
+        passed: allTests.filter(t => t.status === 'passed').length,
+        failed: allTests.filter(t => t.status === 'failed').length,
+        running: allTests.filter(t => t.status === 'running').length,
+        queued: allTests.filter(t => t.status === 'queued').length,
+        deviceCoverage: deviceFarm.length,
+        platformBreakdown: {
+          ios: allTests.filter(t => t.platform === 'ios').length,
+          android: allTests.filter(t => t.platform === 'android').length,
+        },
+      };
+      res.json(stats);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  console.log("CI/CD Pipeline routes registered | تم تسجيل مسارات CI/CD");
+  console.log("Device Testing routes registered | تم تسجيل مسارات اختبار الأجهزة");
+}
