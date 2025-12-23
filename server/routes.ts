@@ -105,6 +105,7 @@ import {
 } from "./sovereign-context";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { registerExecutionRoutes } from "./execution-engine";
+import { inferaAgent } from "./infera-agent-controller";
 import { registerDeploymentRoutes } from "./deployment-integration";
 import { registerVisionRoutes } from "./vision-processing";
 import { registerNovaPermissionRoutes } from "./nova-permissions";
@@ -4029,6 +4030,166 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Failed to get compliance reports:", error);
       res.status(500).json({ error: "Failed to get compliance reports" });
+    }
+  });
+
+  // ==================== INFERA AGENT SYSTEM ====================
+
+  // Get all agent tasks
+  app.get("/api/infera/agent/tasks", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { limit = '20' } = req.query;
+      const tasks = await inferaAgent.getTasks(undefined, parseInt(limit as string));
+      res.json({ tasks });
+    } catch (error) {
+      console.error("Failed to get agent tasks:", error);
+      res.status(500).json({ error: "Failed to get agent tasks" });
+    }
+  });
+
+  // Get single agent task
+  app.get("/api/infera/agent/tasks/:taskId", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { taskId } = req.params;
+      const task = await inferaAgent.getTask(taskId);
+      if (!task) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+      const executions = await inferaAgent.getTaskExecutions(taskId);
+      const logs = await inferaAgent.getTaskLogs(taskId);
+      res.json({ task, executions, logs });
+    } catch (error) {
+      console.error("Failed to get agent task:", error);
+      res.status(500).json({ error: "Failed to get agent task" });
+    }
+  });
+
+  // Create new agent task
+  app.post("/api/infera/agent/tasks", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { title, description, prompt, projectId, priority } = req.body;
+      if (!prompt) {
+        return res.status(400).json({ error: "Prompt is required" });
+      }
+      const task = await inferaAgent.createTask({
+        title: title || "مهمة جديدة",
+        description,
+        prompt,
+        userId: (req as any).user?.id,
+        projectId,
+        priority,
+      });
+      res.status(201).json({ task });
+    } catch (error) {
+      console.error("Failed to create agent task:", error);
+      res.status(500).json({ error: "Failed to create agent task" });
+    }
+  });
+
+  // Execute agent task
+  app.post("/api/infera/agent/tasks/:taskId/execute", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { taskId } = req.params;
+      const task = await inferaAgent.executeTask(taskId);
+      res.json({ task });
+    } catch (error) {
+      console.error("Failed to execute agent task:", error);
+      res.status(500).json({ error: "Failed to execute agent task" });
+    }
+  });
+
+  // Plan agent task (without executing)
+  app.post("/api/infera/agent/tasks/:taskId/plan", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { taskId } = req.params;
+      const plan = await inferaAgent.planTask(taskId);
+      res.json({ plan });
+    } catch (error) {
+      console.error("Failed to plan agent task:", error);
+      res.status(500).json({ error: "Failed to plan agent task" });
+    }
+  });
+
+  // Execute single step
+  app.post("/api/infera/agent/tasks/:taskId/step/:stepIndex", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { taskId, stepIndex } = req.params;
+      const result = await inferaAgent.executeStep(taskId, parseInt(stepIndex));
+      res.json({ result });
+    } catch (error) {
+      console.error("Failed to execute step:", error);
+      res.status(500).json({ error: "Failed to execute step" });
+    }
+  });
+
+  // File operations for agent
+  app.post("/api/infera/agent/file/read", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { path: filePath } = req.body;
+      const result = await inferaAgent.executeTool("file_read", { path: filePath });
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to read file:", error);
+      res.status(500).json({ error: "Failed to read file" });
+    }
+  });
+
+  app.post("/api/infera/agent/file/write", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { path: filePath, content } = req.body;
+      const result = await inferaAgent.executeTool("file_write", { path: filePath, content });
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to write file:", error);
+      res.status(500).json({ error: "Failed to write file" });
+    }
+  });
+
+  // Terminal execution for agent
+  app.post("/api/infera/agent/terminal", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { command } = req.body;
+      const result = await inferaAgent.executeTool("terminal", { command });
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to execute terminal:", error);
+      res.status(500).json({ error: "Failed to execute terminal" });
+    }
+  });
+
+  // Search in codebase
+  app.post("/api/infera/agent/search", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { pattern, path: searchPath } = req.body;
+      const result = await inferaAgent.executeTool("search", { pattern, path: searchPath });
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to search:", error);
+      res.status(500).json({ error: "Failed to search" });
+    }
+  });
+
+  // Analyze code
+  app.post("/api/infera/agent/analyze", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { path: filePath } = req.body;
+      const result = await inferaAgent.executeTool("analyze", { path: filePath });
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to analyze:", error);
+      res.status(500).json({ error: "Failed to analyze" });
+    }
+  });
+
+  // Generate code
+  app.post("/api/infera/agent/generate", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { description, type } = req.body;
+      const result = await inferaAgent.executeTool("generate", { description, type });
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to generate:", error);
+      res.status(500).json({ error: "Failed to generate" });
     }
   });
 

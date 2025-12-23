@@ -14358,3 +14358,217 @@ export const inferaComplianceReports = pgTable("infera_compliance_reports", {
   index("IDX_infera_reports_period").on(table.periodStart, table.periodEnd),
   index("IDX_infera_reports_status").on(table.status),
 ]);
+
+// ==================== INFERA AGENT SYSTEM ====================
+// Autonomous Development Agent - The Brain of INFERA Development OS
+
+// Agent task statuses
+export const agentTaskStatuses = ['pending', 'planning', 'executing', 'reviewing', 'completed', 'failed', 'cancelled'] as const;
+export type AgentTaskStatus = typeof agentTaskStatuses[number];
+
+// Agent tool types
+export const agentToolTypes = ['file_read', 'file_write', 'file_delete', 'terminal', 'search', 'analyze', 'generate', 'preview', 'git'] as const;
+export type AgentToolType = typeof agentToolTypes[number];
+
+// Agent Tasks - The work queue for the AI agent
+export const inferaAgentTasks = pgTable("infera_agent_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Task info
+  title: text("title").notNull(),
+  description: text("description"),
+  prompt: text("prompt").notNull(),
+  
+  // Ownership
+  userId: varchar("user_id").references(() => users.id),
+  projectId: varchar("project_id").references(() => projects.id),
+  
+  // Status tracking
+  status: text("status").notNull().default("pending"),
+  priority: integer("priority").notNull().default(5),
+  
+  // Planning
+  plan: jsonb("plan").$type<{
+    steps: {
+      id: string;
+      action: string;
+      tool: string;
+      params: Record<string, any>;
+      status: string;
+      result?: any;
+      error?: string;
+    }[];
+    reasoning: string;
+  }>(),
+  
+  // Execution
+  currentStep: integer("current_step").default(0),
+  totalSteps: integer("total_steps").default(0),
+  
+  // Results
+  result: jsonb("result").$type<{
+    success: boolean;
+    summary: string;
+    filesModified: string[];
+    errors: string[];
+  }>(),
+  
+  // Context
+  context: jsonb("context").$type<{
+    files: string[];
+    relevantCode: string[];
+    previousTasks: string[];
+  }>(),
+  
+  // Timing
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_agent_tasks_user").on(table.userId),
+  index("IDX_agent_tasks_project").on(table.projectId),
+  index("IDX_agent_tasks_status").on(table.status),
+  index("IDX_agent_tasks_priority").on(table.priority),
+]);
+
+export const insertAgentTaskSchema = createInsertSchema(inferaAgentTasks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAgentTask = z.infer<typeof insertAgentTaskSchema>;
+export type AgentTask = typeof inferaAgentTasks.$inferSelect;
+
+// Agent Executions - Individual tool executions
+export const inferaAgentExecutions = pgTable("infera_agent_executions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Link to task
+  taskId: varchar("task_id").references(() => inferaAgentTasks.id, { onDelete: "cascade" }).notNull(),
+  stepIndex: integer("step_index").notNull(),
+  
+  // Execution details
+  tool: text("tool").notNull(),
+  params: jsonb("params").$type<Record<string, any>>().default({}),
+  
+  // Result
+  status: text("status").notNull().default("pending"),
+  output: jsonb("output").$type<any>(),
+  error: text("error"),
+  
+  // Timing
+  durationMs: integer("duration_ms"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_agent_exec_task").on(table.taskId),
+  index("IDX_agent_exec_tool").on(table.tool),
+  index("IDX_agent_exec_status").on(table.status),
+]);
+
+export const insertAgentExecutionSchema = createInsertSchema(inferaAgentExecutions).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertAgentExecution = z.infer<typeof insertAgentExecutionSchema>;
+export type AgentExecution = typeof inferaAgentExecutions.$inferSelect;
+
+// Agent Files - Virtual file system for the agent
+export const inferaAgentFiles = pgTable("infera_agent_files", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // File info
+  path: text("path").notNull(),
+  name: text("name").notNull(),
+  extension: text("extension"),
+  
+  // Content
+  content: text("content"),
+  contentHash: text("content_hash"),
+  
+  // Metadata
+  size: integer("size").default(0),
+  isDirectory: boolean("is_directory").notNull().default(false),
+  
+  // Project scope
+  projectId: varchar("project_id").references(() => projects.id),
+  
+  // Versioning
+  version: integer("version").notNull().default(1),
+  previousVersionId: varchar("previous_version_id"),
+  
+  // Status
+  isDeleted: boolean("is_deleted").notNull().default(false),
+  deletedAt: timestamp("deleted_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdBy: varchar("created_by"),
+}, (table) => [
+  index("IDX_agent_files_path").on(table.path),
+  index("IDX_agent_files_project").on(table.projectId),
+  index("IDX_agent_files_ext").on(table.extension),
+]);
+
+export const insertAgentFileSchema = createInsertSchema(inferaAgentFiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAgentFile = z.infer<typeof insertAgentFileSchema>;
+export type AgentFile = typeof inferaAgentFiles.$inferSelect;
+
+// Agent Logs - Detailed execution logs
+export const inferaAgentLogs = pgTable("infera_agent_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Context
+  taskId: varchar("task_id").references(() => inferaAgentTasks.id, { onDelete: "cascade" }),
+  executionId: varchar("execution_id").references(() => inferaAgentExecutions.id, { onDelete: "cascade" }),
+  
+  // Log details
+  level: text("level").notNull().default("info"),
+  message: text("message").notNull(),
+  details: jsonb("details").$type<Record<string, any>>(),
+  
+  // Source
+  source: text("source").default("agent"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_agent_logs_task").on(table.taskId),
+  index("IDX_agent_logs_exec").on(table.executionId),
+  index("IDX_agent_logs_level").on(table.level),
+  index("IDX_agent_logs_created").on(table.createdAt),
+]);
+
+export const insertAgentLogSchema = createInsertSchema(inferaAgentLogs).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertAgentLog = z.infer<typeof insertAgentLogSchema>;
+export type AgentLog = typeof inferaAgentLogs.$inferSelect;
+
+// Agent Configuration - Dynamic configuration for the agent
+export const inferaAgentConfig = pgTable("infera_agent_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Config key-value
+  key: text("key").notNull().unique(),
+  value: jsonb("value").$type<any>().notNull(),
+  
+  // Metadata
+  description: text("description"),
+  category: text("category").default("general"),
+  isSecret: boolean("is_secret").notNull().default(false),
+  
+  // Audit
+  updatedBy: varchar("updated_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_agent_config_key").on(table.key),
+  index("IDX_agent_config_category").on(table.category),
+]);
