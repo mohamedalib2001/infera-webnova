@@ -13,6 +13,7 @@ import { registerISDSRoutes } from "./isds-routes";
 import { registerSpomRoutes } from "./spom-routes";
 import { registerPlatformApiRoutes } from "./platform-api-routes";
 import { registerNovaRoutes, registerCICDRoutes } from "./nova-routes";
+import { registerPermissionRoutes } from "./permissions-routes";
 import marketplaceRoutes from "./marketplace-routes";
 import sslRoutes from "./ssl-routes";
 import sshVaultRoutes from "./ssh-vault-routes";
@@ -14512,6 +14513,9 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
 
   // ==================== CI/CD PIPELINE & DEVICE TESTING ====================
   registerCICDRoutes(app);
+
+  // ==================== PERMISSION CONTROL SYSTEM ====================
+  registerPermissionRoutes(app);
 
   // ==================== CONVERSATION HISTORY (سجل المحادثات) ====================
   registerConversationRoutes(app, requireAuth);
