@@ -1356,7 +1356,7 @@ export function SovereignIndicator() {
       const loadTime = 800 + (services.length * 50) + (pathHash * 30);
       
       try {
-        const response = await apiRequest("POST", "/api/sovereign/analyze-page", {
+        const result = await apiRequest("POST", "/api/sovereign/analyze-page", {
           pathname: location,
           services: services,
           pageMetrics: {
@@ -1368,14 +1368,13 @@ export function SovereignIndicator() {
         });
         
         if (!cancelled) {
-          const result = await response.json();
           console.log('[Sovereign] Analysis result received:', result.finalScore);
           setAnalysis(result);
           setIsAnalyzing(false);
         }
       } catch (err) {
         if (!cancelled) {
-          console.log('[Sovereign] Using fallback analysis');
+          console.log('[Sovereign] Using fallback analysis', err);
           const result = analyzePageIntelligently(location, 0);
           setAnalysis(result);
           setIsAnalyzing(false);
@@ -1399,7 +1398,7 @@ export function SovereignIndicator() {
     const loadTime = 800 + (services.length * 50) + (pathHash * 30);
     
     try {
-      const response = await apiRequest("POST", "/api/sovereign/analyze-page", {
+      const result = await apiRequest("POST", "/api/sovereign/analyze-page", {
         pathname: location,
         services: services,
         pageMetrics: {
@@ -1409,8 +1408,6 @@ export function SovereignIndicator() {
           hasRealTimeData: location.includes('collaboration') || location.includes('builder'),
         },
       });
-      
-      const result = await response.json();
       setAnalysis(result);
     } catch {
       const result = analyzePageIntelligently(location, 0);
