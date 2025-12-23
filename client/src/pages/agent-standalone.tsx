@@ -113,7 +113,7 @@ export default function AgentStandalone() {
         </div>
       </div>
 
-      <div className="flex-1 relative">
+      <div className="flex-1 relative bg-[#0a0a0a]">
         {error ? (
           <div className="flex flex-col items-center justify-center h-full gap-4">
             <AlertCircle className="h-16 w-16 text-muted-foreground" />
@@ -128,6 +128,8 @@ export default function AgentStandalone() {
             className="w-full h-full border-0"
             title="INFERA Agent Dashboard"
             data-testid="iframe-agent-dashboard"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            style={{ minHeight: 'calc(100vh - 80px)' }}
           />
         )}
       </div>
