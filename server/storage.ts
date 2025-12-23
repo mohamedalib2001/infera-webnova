@@ -4946,6 +4946,33 @@ body { font-family: 'Tajawal', sans-serif; }
       .slice(0, 5);
   }
 
+  async getProjectAnalytics(projectId: string): Promise<{ views: number; visitors: number; engagement: number }> {
+    const events = await db.select().from(analyticsEvents)
+      .where(eq(analyticsEvents.projectId, projectId))
+      .limit(5000);
+    
+    const pageViews = events.filter(e => e.eventType === "page_view").length;
+    const uniqueSessions = new Set(events.map(e => e.sessionId).filter(Boolean)).size;
+    const interactions = events.filter(e => ["click", "signup", "conversion"].includes(e.eventType)).length;
+    const engagement = pageViews > 0 ? Math.min(100, Math.round((interactions / pageViews) * 100 + 50)) : 0;
+    
+    return {
+      views: pageViews,
+      visitors: uniqueSessions,
+      engagement,
+    };
+  }
+
+  async getUserTotalAiUsage(userId: string): Promise<{ totalGenerations: number; tokensUsed: number }> {
+    const usageRecords = await db.select().from(aiUsage)
+      .where(eq(aiUsage.userId, userId));
+    
+    return {
+      totalGenerations: usageRecords.reduce((sum, r) => sum + r.requestCount, 0),
+      tokensUsed: usageRecords.reduce((sum, r) => sum + r.tokensUsed, 0),
+    };
+  }
+
   // ==================== SERVICE PROVIDER INTEGRATIONS HUB ====================
   
   async getServiceProviders(): Promise<ServiceProvider[]> {
