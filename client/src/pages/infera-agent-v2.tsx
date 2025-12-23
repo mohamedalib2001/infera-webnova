@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, memo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -88,6 +88,8 @@ const translations = {
     noTasks: "No tasks yet",
     running: "Running",
     stopped: "Stopped",
+    start: "Start",
+    stop: "Stop",
     startWorkflow: "Start",
     stopWorkflow: "Stop",
     restartWorkflow: "Restart",
@@ -117,6 +119,8 @@ const translations = {
     noTasks: "لا توجد مهام",
     running: "يعمل",
     stopped: "متوقف",
+    start: "تشغيل",
+    stop: "إيقاف",
     startWorkflow: "تشغيل",
     stopWorkflow: "إيقاف",
     restartWorkflow: "إعادة تشغيل",
@@ -187,7 +191,7 @@ I can help you:
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  // Check agent health status
+  // Check agent health status - less frequently to reduce overhead
   useEffect(() => {
     const checkHealth = async () => {
       try {
@@ -202,7 +206,7 @@ I can help you:
       }
     };
     checkHealth();
-    const interval = setInterval(checkHealth, 10000);
+    const interval = setInterval(checkHealth, 30000); // Reduced from 10s to 30s
     return () => clearInterval(interval);
   }, []);
 
@@ -216,13 +220,17 @@ I can help you:
 
   const { data: projectStructureData, refetch: refetchStructure } = useQuery<{ items: FileNode[] }>({
     queryKey: ["/api/infera/agent/project/structure", "."],
-    refetchInterval: 10000,
+    refetchInterval: 30000, // Reduced from 10s to 30s
+    staleTime: 25000,
+    refetchOnWindowFocus: false,
   });
   const projectStructure = projectStructureData?.items || [];
 
   const { data: workflowStatus } = useQuery({
     queryKey: ["/api/infera/agent/workflow/status"],
-    refetchInterval: 3000,
+    refetchInterval: 10000, // Reduced from 3s to 10s
+    staleTime: 8000,
+    refetchOnWindowFocus: false,
   });
 
   const chatMutation = useMutation({
@@ -379,7 +387,7 @@ I can help you:
     }
   };
 
-  const toggleFolder = (path: string) => {
+  const toggleFolder = useCallback((path: string) => {
     setExpandedFolders((prev) => {
       const next = new Set(prev);
       if (next.has(path)) {
@@ -389,9 +397,9 @@ I can help you:
       }
       return next;
     });
-  };
+  }, []);
 
-  const renderFileTree = (nodes: FileNode[], depth = 0) => {
+  const renderFileTree = useCallback((nodes: FileNode[], depth = 0): React.ReactNode => {
     if (!nodes || !Array.isArray(nodes)) return null;
     return nodes.map((node) => (
       <div key={node.path} style={{ paddingInlineStart: depth * 12 }}>
@@ -430,7 +438,7 @@ I can help you:
         )}
       </div>
     ));
-  };
+  }, [currentFile, expandedFolders, toggleFolder, fileReadMutation]);
 
   const getStatusIcon = (status: TaskItem["status"]) => {
     switch (status) {
