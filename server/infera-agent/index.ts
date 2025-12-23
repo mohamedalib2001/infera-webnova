@@ -225,7 +225,15 @@ const tools: Record<string, Tool> = {
     name: "list_directory",
     description: "List files and directories",
     execute: async (params: { path?: string; recursive?: boolean }) => {
-      const targetPath = params.path || ".";
+      let targetPath = params.path || ".";
+      // Handle absolute paths by making them relative
+      if (targetPath.startsWith(PROJECT_ROOT)) {
+        targetPath = targetPath.replace(PROJECT_ROOT, ".").replace(/^\.\//, "");
+      }
+      if (targetPath.startsWith("/")) {
+        targetPath = "." + targetPath;
+      }
+      
       if (!isPathSafe(targetPath)) {
         return { error: "Path not allowed" };
       }
@@ -477,6 +485,96 @@ app.get("/conversation", (req, res) => {
 app.post("/conversation/clear", (req, res) => {
   agentState.conversationHistory = [];
   res.json({ success: true });
+});
+
+// AI Chat endpoint with Claude
+app.post("/chat", async (req, res) => {
+  const { message } = req.body;
+  if (!message) {
+    return res.status(400).json({ error: "message required" });
+  }
+  
+  if (!agentState.isActive) {
+    return res.status(403).json({ error: "Agent is stopped" });
+  }
+  
+  // Add user message to history
+  agentState.conversationHistory.push({
+    role: "user",
+    content: message,
+    timestamp: new Date(),
+  });
+  
+  try {
+    const Anthropic = (await import("@anthropic-ai/sdk")).default;
+    const client = new Anthropic();
+    
+    // Build system prompt with tool descriptions
+    const systemPrompt = `أنت INFERA Agent - وكيل مهندس برمجيات مستقل يعمل خارج WebNova.
+
+لديك الأدوات التالية:
+- read_file: قراءة محتوى ملف
+- write_file: كتابة محتوى لملف
+- list_directory: عرض قائمة الملفات
+- run_command: تنفيذ أوامر Shell
+- search_files: البحث في الملفات
+
+مسار المشروع: ${PROJECT_ROOT}
+
+عند الحاجة لتنفيذ أداة، رد بصيغة JSON:
+{"tool": "tool_name", "params": {...}}
+
+المبادئ السيادية العشرة تحكم عملك. كن مفيداً ودقيقاً.`;
+
+    // Build messages
+    const messages = agentState.conversationHistory.slice(-10).map(m => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    }));
+    
+    const response = await client.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 2048,
+      system: systemPrompt,
+      messages: messages,
+    });
+    
+    const assistantMessage = response.content[0].type === "text" 
+      ? response.content[0].text 
+      : "No response";
+    
+    // Check if AI wants to use a tool
+    let finalResponse = assistantMessage;
+    try {
+      const toolMatch = assistantMessage.match(/\{"tool":\s*"(\w+)",\s*"params":\s*(\{[^}]+\})\}/);
+      if (toolMatch) {
+        const toolName = toolMatch[1];
+        const params = JSON.parse(toolMatch[2]);
+        const tool = tools[toolName];
+        
+        if (tool) {
+          const toolResult = await tool.execute(params);
+          finalResponse = assistantMessage + "\n\nنتيجة الأداة:\n" + JSON.stringify(toolResult, null, 2);
+        }
+      }
+    } catch (e) {
+      // Not a tool call, just return the message
+    }
+    
+    // Add assistant message to history
+    agentState.conversationHistory.push({
+      role: "assistant",
+      content: finalResponse,
+      timestamp: new Date(),
+    });
+    
+    logGovernance("AI_CHAT", `User: ${message.substring(0, 50)}...`, "success");
+    
+    res.json({ response: finalResponse });
+  } catch (err: any) {
+    console.error("[Agent Chat] Error:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -924,13 +1022,44 @@ function getDashboardHTML(): string {
       const text = input.value.trim();
       if (!text) return;
       
-      messages.innerHTML += '<div class="message user">' + text + '</div>';
+      messages.innerHTML += '<div class="message user">' + escapeHtml(text) + '</div>';
       input.value = '';
       messages.scrollTop = messages.scrollHeight;
       
-      // For now, echo response - AI integration will be added
-      messages.innerHTML += '<div class="message assistant">تم استلام رسالتك. سيتم تفعيل الـ AI قريباً.</div>';
+      // Show loading indicator
+      const loadingId = 'loading-' + Date.now();
+      messages.innerHTML += '<div class="message assistant" id="' + loadingId + '" style="opacity:0.6;">جارٍ التفكير...</div>';
       messages.scrollTop = messages.scrollHeight;
+      
+      try {
+        const res = await fetch('/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text })
+        });
+        const data = await res.json();
+        
+        // Remove loading and add response
+        const loadingEl = document.getElementById(loadingId);
+        if (loadingEl) loadingEl.remove();
+        
+        if (data.response) {
+          messages.innerHTML += '<div class="message assistant" style="white-space:pre-wrap;">' + escapeHtml(data.response) + '</div>';
+        } else if (data.error) {
+          messages.innerHTML += '<div class="message assistant" style="color:var(--danger);">خطأ: ' + escapeHtml(data.error) + '</div>';
+        }
+        messages.scrollTop = messages.scrollHeight;
+      } catch (e) {
+        const loadingEl = document.getElementById(loadingId);
+        if (loadingEl) loadingEl.remove();
+        messages.innerHTML += '<div class="message assistant" style="color:var(--danger);">خطأ في الاتصال</div>';
+      }
+    }
+    
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
     }
     
     // Initialize
