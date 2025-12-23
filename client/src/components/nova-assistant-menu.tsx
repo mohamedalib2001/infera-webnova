@@ -202,8 +202,26 @@ export function NovaAssistantMenu() {
           className="relative group"
           data-testid="button-nova-menu"
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-amber-500/20 to-purple-500/20 rounded-md opacity-0 group-hover:opacity-100 transition-opacity blur-sm" />
-          <Sparkles className="h-5 w-5 text-amber-500 relative z-10" />
+          <div className="absolute inset-0 rounded-md overflow-visible">
+            <div className="absolute inset-0 bg-gradient-to-r from-amber-500/30 via-purple-500/30 to-cyan-500/30 rounded-md animate-pulse" />
+            <div 
+              className="absolute -inset-1 bg-gradient-to-r from-amber-400/20 via-purple-400/20 to-amber-400/20 rounded-lg blur-md"
+              style={{
+                animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+              }}
+            />
+            <div 
+              className="absolute -inset-2 bg-gradient-to-r from-cyan-400/10 via-amber-400/10 to-purple-400/10 rounded-xl blur-lg"
+              style={{
+                animation: "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+                animationDelay: "0.5s",
+              }}
+            />
+          </div>
+          <div className="relative z-10 w-5 h-5 flex items-center justify-center">
+            <Crown className="w-4 h-4 text-amber-500 absolute animate-pulse" style={{ animationDuration: "1.5s" }} />
+            <Sparkles className="w-3 h-3 text-purple-400 absolute -top-0.5 -right-0.5 animate-ping" style={{ animationDuration: "2s" }} />
+          </div>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
