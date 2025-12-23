@@ -103,9 +103,15 @@ export function CommandPalette({ language = "en" }: CommandPaletteProps) {
   const [, navigate] = useLocation();
 
   const { data, isLoading } = useQuery<CommandPaletteData>({
-    queryKey: ["/api/navigation/command-palette", language],
+    queryKey: [`/api/navigation/command-palette?language=${language}`],
     enabled: open,
     staleTime: 30000,
+  });
+
+  const { data: searchResults, isLoading: isSearching } = useQuery<NavigationResource[]>({
+    queryKey: [`/api/navigation/search?q=${encodeURIComponent(searchQuery)}&language=${language}`],
+    enabled: open && searchQuery.length > 0,
+    staleTime: 5000,
   });
 
   const trackVisit = useMutation({
@@ -176,19 +182,7 @@ export function CommandPalette({ language = "en" }: CommandPaletteProps) {
 
   const favoriteIds = data?.favorites?.map((f) => f.id) || [];
 
-  const filteredResources = searchQuery && data?.resources
-    ? data.resources.filter((r) => {
-        const search = searchQuery.toLowerCase();
-        const title = getTitle(r).toLowerCase();
-        const desc = getDescription(r).toLowerCase();
-        const keywords = language === "ar" ? r.keywordsAr : r.keywords;
-        return (
-          title.includes(search) ||
-          desc.includes(search) ||
-          keywords?.some((k) => k.toLowerCase().includes(search))
-        );
-      })
-    : [];
+  const filteredResources = searchResults || [];
 
   return (
     <>
@@ -214,13 +208,13 @@ export function CommandPalette({ language = "en" }: CommandPaletteProps) {
           data-testid="input-command-search"
         />
         <CommandList className="max-h-[400px]">
-          {isLoading && (
+          {(isLoading || isSearching) && (
             <div className="py-6 text-center text-sm text-muted-foreground">
               {language === "ar" ? "جاري التحميل..." : "Loading..."}
             </div>
           )}
 
-          {!isLoading && (
+          {!isLoading && !isSearching && (
             <>
               <CommandEmpty>
                 {language === "ar" ? "لا توجد نتائج" : "No results found."}
