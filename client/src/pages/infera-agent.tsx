@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import Editor from "@monaco-editor/react";
 import {
   Bot,
   Send,
@@ -36,6 +37,12 @@ import {
   GitBranch,
   Plus,
   Trash2,
+  Save,
+  ExternalLink,
+  Folder,
+  FileCode,
+  FilePlus,
+  RotateCcw,
 } from "lucide-react";
 
 const translations = {
@@ -85,6 +92,21 @@ const translations = {
     steps: "Steps",
     plan: "Plan",
     result: "Result",
+    editor: "Editor",
+    preview: "Preview",
+    fileExplorer: "Files",
+    openFile: "Open File",
+    saveFile: "Save",
+    newFile: "New File",
+    filePath: "File path",
+    noFileOpen: "No file open",
+    selectFile: "Select a file to view or edit",
+    livePreview: "Live Preview",
+    previewUrl: "Preview URL",
+    refreshPreview: "Refresh",
+    filesSaved: "File saved successfully",
+    fileLoaded: "File loaded",
+    enterPath: "Enter file path...",
   },
   ar: {
     title: "عميل INFERA",
@@ -132,6 +154,21 @@ const translations = {
     steps: "الخطوات",
     plan: "الخطة",
     result: "النتيجة",
+    editor: "المحرر",
+    preview: "المعاينة",
+    fileExplorer: "الملفات",
+    openFile: "فتح ملف",
+    saveFile: "حفظ",
+    newFile: "ملف جديد",
+    filePath: "مسار الملف",
+    noFileOpen: "لا يوجد ملف مفتوح",
+    selectFile: "اختر ملف للعرض أو التعديل",
+    livePreview: "المعاينة المباشرة",
+    previewUrl: "رابط المعاينة",
+    refreshPreview: "تحديث",
+    filesSaved: "تم حفظ الملف بنجاح",
+    fileLoaded: "تم تحميل الملف",
+    enterPath: "أدخل مسار الملف...",
   },
 };
 
@@ -183,6 +220,15 @@ export default function InferaAgentPage() {
   const [terminalCommand, setTerminalCommand] = useState("");
   const [terminalOutput, setTerminalOutput] = useState<string[]>([]);
   const terminalRef = useRef<HTMLDivElement>(null);
+  
+  const [currentFilePath, setCurrentFilePath] = useState("");
+  const [currentFileContent, setCurrentFileContent] = useState("");
+  const [filePathInput, setFilePathInput] = useState("");
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [previewKey, setPreviewKey] = useState(0);
+  const [fileTree, setFileTree] = useState<any[]>([]);
+  const [isFileDirty, setIsFileDirty] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const { data: tasksData, isLoading: tasksLoading, refetch: refetchTasks } = useQuery({
     queryKey: ["/api/infera/agent/tasks"],
@@ -249,6 +295,87 @@ export default function InferaAgentPage() {
       setTerminalCommand("");
     },
   });
+
+  const fileReadMutation = useMutation({
+    mutationFn: async (path: string) => {
+      return apiRequest("POST", "/api/infera/agent/file/read", { path });
+    },
+    onSuccess: (data: any) => {
+      if (data.success) {
+        setCurrentFileContent(data.content || "");
+        setCurrentFilePath(data.path || filePathInput);
+        setIsFileDirty(false);
+        toast({ title: t.fileLoaded });
+      } else {
+        toast({ title: data.error || "Failed to read file", variant: "destructive" });
+      }
+    },
+  });
+
+  const fileWriteMutation = useMutation({
+    mutationFn: async ({ path, content }: { path: string; content: string }) => {
+      return apiRequest("POST", "/api/infera/agent/file/write", { path, content });
+    },
+    onSuccess: (data: any) => {
+      if (data.success) {
+        setIsFileDirty(false);
+        toast({ title: t.filesSaved });
+      } else {
+        toast({ title: data.error || "Failed to save file", variant: "destructive" });
+      }
+    },
+  });
+
+  const fileListMutation = useMutation({
+    mutationFn: async (path: string) => {
+      return apiRequest("POST", "/api/infera/agent/file/list", { path });
+    },
+    onSuccess: (data: any) => {
+      if (data.success && data.files) {
+        setFileTree(data.files);
+      }
+    },
+  });
+
+  const handleOpenFile = useCallback(() => {
+    if (!filePathInput.trim()) return;
+    fileReadMutation.mutate(filePathInput);
+  }, [filePathInput]);
+
+  const handleSaveFile = useCallback(() => {
+    if (!currentFilePath) return;
+    fileWriteMutation.mutate({ path: currentFilePath, content: currentFileContent });
+  }, [currentFilePath, currentFileContent]);
+
+  const handleEditorChange = (value: string | undefined) => {
+    if (value !== undefined) {
+      setCurrentFileContent(value);
+      setIsFileDirty(true);
+    }
+  };
+
+  const handleRefreshPreview = () => {
+    setPreviewKey((k) => k + 1);
+  };
+
+  const getMonacoLanguage = (path: string) => {
+    const ext = path.split(".").pop()?.toLowerCase();
+    const langMap: Record<string, string> = {
+      ts: "typescript", tsx: "typescript", js: "javascript", jsx: "javascript",
+      css: "css", html: "html", json: "json", md: "markdown", py: "python",
+      rs: "rust", go: "go", sql: "sql", sh: "shell", yml: "yaml", yaml: "yaml"
+    };
+    return langMap[ext || ""] || "plaintext";
+  };
+
+  useEffect(() => {
+    fileListMutation.mutate(".");
+  }, []);
+
+  useEffect(() => {
+    const baseUrl = window.location.origin;
+    setPreviewUrl(baseUrl);
+  }, []);
 
   const handleCreateTask = () => {
     if (!newTaskPrompt.trim()) return;
@@ -477,9 +604,15 @@ export default function InferaAgentPage() {
               </div>
 
               <Tabs defaultValue="plan" className="flex-1 flex flex-col overflow-hidden">
-                <TabsList className="mx-4 mt-4 w-fit">
+                <TabsList className="mx-4 mt-4 w-fit flex-wrap gap-1">
                   <TabsTrigger value="plan" data-testid="tab-plan">
-                    <Code className="w-4 h-4 mr-2" />{t.plan}
+                    <Cpu className="w-4 h-4 mr-2" />{t.plan}
+                  </TabsTrigger>
+                  <TabsTrigger value="editor" data-testid="tab-editor">
+                    <FileCode className="w-4 h-4 mr-2" />{t.editor}
+                  </TabsTrigger>
+                  <TabsTrigger value="preview" data-testid="tab-preview">
+                    <Eye className="w-4 h-4 mr-2" />{t.preview}
                   </TabsTrigger>
                   <TabsTrigger value="executions" data-testid="tab-executions">
                     <History className="w-4 h-4 mr-2" />{t.executions}
@@ -559,6 +692,128 @@ export default function InferaAgentPage() {
                           <p>{language === "ar" ? "اضغط 'تخطيط فقط' لإنشاء خطة التنفيذ" : "Click 'Plan Only' to create an execution plan"}</p>
                         </div>
                       )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="editor" className="flex-1 overflow-hidden m-4 mt-2">
+                  <Card className="h-full flex flex-col">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <FileCode className="w-4 h-4" />
+                          {t.editor}
+                        </CardTitle>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Input
+                            value={filePathInput}
+                            onChange={(e) => setFilePathInput(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleOpenFile()}
+                            placeholder={t.enterPath}
+                            className="w-64"
+                            data-testid="input-file-path"
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleOpenFile}
+                            disabled={fileReadMutation.isPending}
+                            data-testid="button-open-file"
+                          >
+                            {fileReadMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <FolderOpen className="w-4 h-4 mr-1" />}
+                            {t.openFile}
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={handleSaveFile}
+                            disabled={!currentFilePath || fileWriteMutation.isPending || !isFileDirty}
+                            data-testid="button-save-file"
+                          >
+                            {fileWriteMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
+                            {t.saveFile}
+                          </Button>
+                        </div>
+                      </div>
+                      {currentFilePath && (
+                        <p className="text-sm text-muted-foreground mt-2 flex items-center gap-2">
+                          <FileCode className="w-3 h-3" />
+                          {currentFilePath}
+                          {isFileDirty && <Badge variant="secondary">Modified</Badge>}
+                        </p>
+                      )}
+                    </CardHeader>
+                    <CardContent className="flex-1 overflow-hidden p-0">
+                      {currentFilePath ? (
+                        <Editor
+                          height="100%"
+                          language={getMonacoLanguage(currentFilePath)}
+                          value={currentFileContent}
+                          onChange={handleEditorChange}
+                          theme="vs-dark"
+                          options={{
+                            minimap: { enabled: true },
+                            fontSize: 14,
+                            wordWrap: "on",
+                            automaticLayout: true,
+                            scrollBeyondLastLine: false,
+                          }}
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                          <FileCode className="w-16 h-16 mb-4 opacity-30" />
+                          <p className="font-medium">{t.noFileOpen}</p>
+                          <p className="text-sm">{t.selectFile}</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="preview" className="flex-1 overflow-hidden m-4 mt-2">
+                  <Card className="h-full flex flex-col">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Eye className="w-4 h-4" />
+                          {t.livePreview}
+                        </CardTitle>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={previewUrl}
+                            onChange={(e) => setPreviewUrl(e.target.value)}
+                            placeholder={t.previewUrl}
+                            className="w-64"
+                            data-testid="input-preview-url"
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleRefreshPreview}
+                            data-testid="button-refresh-preview"
+                          >
+                            <RotateCcw className="w-4 h-4 mr-1" />
+                            {t.refreshPreview}
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => window.open(previewUrl, "_blank")}
+                            data-testid="button-open-external"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="flex-1 overflow-hidden p-0">
+                      <iframe
+                        key={previewKey}
+                        ref={iframeRef}
+                        src={previewUrl}
+                        className="w-full h-full border-0"
+                        title="Live Preview"
+                        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                      />
                     </CardContent>
                   </Card>
                 </TabsContent>

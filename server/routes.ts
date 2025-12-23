@@ -4154,6 +4154,36 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/infera/agent/file/list", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { path: dirPath } = req.body;
+      const fs = await import("fs");
+      const pathModule = await import("path");
+      const projectRoot = process.cwd();
+      const normalizedInput = pathModule.normalize(dirPath || ".").replace(/^(\.\.(\/|\\|$))+/, "");
+      const targetPath = pathModule.resolve(projectRoot, normalizedInput);
+      
+      if (!targetPath.startsWith(projectRoot)) {
+        return res.status(403).json({ success: false, error: "Access denied: Path outside project root" });
+      }
+      
+      if (!fs.existsSync(targetPath) || !fs.statSync(targetPath).isDirectory()) {
+        return res.status(404).json({ success: false, error: "Directory not found" });
+      }
+      
+      const entries = fs.readdirSync(targetPath, { withFileTypes: true });
+      const files = entries.slice(0, 100).map((entry) => ({
+        name: entry.name,
+        isDirectory: entry.isDirectory(),
+        path: pathModule.join(normalizedInput, entry.name),
+      })).filter((f) => !f.name.startsWith(".") && f.name !== "node_modules");
+      res.json({ success: true, files });
+    } catch (error) {
+      console.error("Failed to list files:", error);
+      res.status(500).json({ success: false, error: "Failed to list files" });
+    }
+  });
+
   // Terminal execution for agent
   app.post("/api/infera/agent/terminal", requireAuth, requireSovereign, async (req, res) => {
     try {
