@@ -66,7 +66,9 @@ import {
   sovereignConversations,
   conversationMessages,
   insertSovereignConversationSchema,
-  insertConversationMessageSchema
+  insertConversationMessageSchema,
+  users,
+  projects
 } from "@shared/schema";
 import Anthropic from "@anthropic-ai/sdk";
 import { sql } from "drizzle-orm";
