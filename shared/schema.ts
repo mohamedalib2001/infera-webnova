@@ -13917,3 +13917,444 @@ export const insertInferaModelAuditLogSchema = createInsertSchema(inferaModelAud
 });
 export type InsertInferaModelAuditLog = z.infer<typeof insertInferaModelAuditLogSchema>;
 export type InferaModelAuditLog = typeof inferaModelAuditLog.$inferSelect;
+
+// ========================================
+// INFERA SOVEREIGN AI EXPANSION - Phase 2
+// ========================================
+
+// 1. AI Provider Registry - سجل مزودي الذكاء الاصطناعي
+export const inferaAiProviders = pgTable("infera_ai_providers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Provider Identity
+  name: text("name").notNull().unique(), // anthropic, openai, google, meta
+  displayName: text("display_name").notNull(),
+  displayNameAr: text("display_name_ar"),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  icon: text("icon"),
+  
+  // API Configuration
+  baseUrl: text("base_url").notNull(),
+  apiVersion: text("api_version"),
+  authType: text("auth_type").notNull().default("bearer"), // bearer, api-key, oauth
+  authHeader: text("auth_header").default("Authorization"),
+  
+  // Available Models from this provider
+  availableModels: jsonb("available_models").$type<{
+    id: string;
+    name: string;
+    contextLength: number;
+    inputCostPer1k: number;
+    outputCostPer1k: number;
+  }[]>().default([]),
+  
+  // Health & Performance
+  status: text("status").notNull().default("active"), // active, degraded, down, maintenance
+  healthScore: integer("health_score").default(100), // 0-100
+  averageLatencyMs: integer("average_latency_ms").default(0),
+  successRate: real("success_rate").default(100), // percentage
+  lastHealthCheck: timestamp("last_health_check"),
+  
+  // Cost Tracking
+  totalRequestsToday: integer("total_requests_today").default(0),
+  totalCostToday: integer("total_cost_today_cents").default(0),
+  dailyBudgetCents: integer("daily_budget_cents"),
+  
+  // Priority & Routing
+  priority: integer("priority").default(1), // Lower = higher priority
+  weight: integer("weight").default(100), // For weighted load balancing
+  isEnabled: boolean("is_enabled").default(true),
+  isPrimary: boolean("is_primary").default(false),
+  
+  // Rate Limits
+  rateLimitPerMinute: integer("rate_limit_per_minute").default(60),
+  rateLimitPerDay: integer("rate_limit_per_day").default(10000),
+  currentMinuteRequests: integer("current_minute_requests").default(0),
+  lastMinuteReset: timestamp("last_minute_reset"),
+  
+  // Metadata
+  metadata: jsonb("metadata").$type<Record<string, any>>().default({}),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_infera_providers_name").on(table.name),
+  index("IDX_infera_providers_status").on(table.status),
+  index("IDX_infera_providers_priority").on(table.priority),
+]);
+
+export const insertInferaAiProviderSchema = createInsertSchema(inferaAiProviders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertInferaAiProvider = z.infer<typeof insertInferaAiProviderSchema>;
+export type InferaAiProvider = typeof inferaAiProviders.$inferSelect;
+
+// 2. Provider Health Metrics - مقاييس صحة المزودين
+export const inferaProviderHealthMetrics = pgTable("infera_provider_health_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  providerId: varchar("provider_id").notNull().references(() => inferaAiProviders.id, { onDelete: "cascade" }),
+  
+  // Time bucket
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+  bucket: text("bucket").notNull(), // minute, hour, day
+  
+  // Metrics
+  requestCount: integer("request_count").default(0),
+  successCount: integer("success_count").default(0),
+  errorCount: integer("error_count").default(0),
+  timeoutCount: integer("timeout_count").default(0),
+  
+  // Latency
+  avgLatencyMs: integer("avg_latency_ms").default(0),
+  p50LatencyMs: integer("p50_latency_ms").default(0),
+  p95LatencyMs: integer("p95_latency_ms").default(0),
+  p99LatencyMs: integer("p99_latency_ms").default(0),
+  
+  // Tokens
+  totalInputTokens: integer("total_input_tokens").default(0),
+  totalOutputTokens: integer("total_output_tokens").default(0),
+  
+  // Cost
+  totalCostCents: integer("total_cost_cents").default(0),
+  
+  // Error breakdown
+  errorBreakdown: jsonb("error_breakdown").$type<Record<string, number>>().default({}),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_infera_health_provider").on(table.providerId),
+  index("IDX_infera_health_timestamp").on(table.timestamp),
+  index("IDX_infera_health_bucket").on(table.bucket),
+]);
+
+export const insertInferaProviderHealthMetricSchema = createInsertSchema(inferaProviderHealthMetrics).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertInferaProviderHealthMetric = z.infer<typeof insertInferaProviderHealthMetricSchema>;
+export type InferaProviderHealthMetric = typeof inferaProviderHealthMetrics.$inferSelect;
+
+// 3. Routing Rules - قواعد التوجيه الذكي
+export const inferaRoutingRules = pgTable("infera_routing_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Rule Identity
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  description: text("description"),
+  
+  // Rule Type
+  ruleType: text("rule_type").notNull(), // cost_optimized, latency_optimized, reliability_first, custom
+  
+  // Conditions (when to apply this rule)
+  conditions: jsonb("conditions").$type<{
+    modelRoles?: string[]; // Apply to specific model roles
+    clientTiers?: string[]; // Apply to specific client tiers
+    timeOfDay?: { start: string; end: string }; // Time-based routing
+    loadThreshold?: number; // Apply when load exceeds threshold
+  }>().default({}),
+  
+  // Routing Configuration
+  providerOrder: jsonb("provider_order").$type<string[]>().default([]), // Ordered provider IDs
+  providerWeights: jsonb("provider_weights").$type<Record<string, number>>().default({}),
+  fallbackChain: jsonb("fallback_chain").$type<string[]>().default([]),
+  
+  // Failover Settings
+  maxRetries: integer("max_retries").default(2),
+  retryDelayMs: integer("retry_delay_ms").default(1000),
+  failoverThreshold: integer("failover_threshold").default(3), // Errors before failover
+  
+  // Load Balancing
+  loadBalanceStrategy: text("load_balance_strategy").default("round_robin"), // round_robin, weighted, least_connections
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  priority: integer("priority").default(100), // Lower = higher priority
+  
+  // Audit
+  createdBy: varchar("created_by").references(() => users.id),
+  updatedBy: varchar("updated_by"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_infera_routing_type").on(table.ruleType),
+  index("IDX_infera_routing_active").on(table.isActive),
+  index("IDX_infera_routing_priority").on(table.priority),
+]);
+
+export const insertInferaRoutingRuleSchema = createInsertSchema(inferaRoutingRules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertInferaRoutingRule = z.infer<typeof insertInferaRoutingRuleSchema>;
+export type InferaRoutingRule = typeof inferaRoutingRules.$inferSelect;
+
+// 4. Client Subscriptions - اشتراكات العملاء
+export const inferaClientSubscriptions = pgTable("infera_client_subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Client
+  userId: varchar("user_id").references(() => users.id),
+  organizationId: varchar("organization_id"),
+  apiKeyId: varchar("api_key_id").references(() => inferaApiKeys.id),
+  
+  // Stripe Integration
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  stripePriceId: text("stripe_price_id"),
+  
+  // Plan
+  plan: text("plan").notNull().default("free"), // free, starter, pro, enterprise
+  planDisplayName: text("plan_display_name"),
+  planDisplayNameAr: text("plan_display_name_ar"),
+  
+  // Plan Limits
+  monthlyRequestLimit: integer("monthly_request_limit").default(1000),
+  monthlyTokenLimit: integer("monthly_token_limit").default(100000),
+  monthlyBudgetCents: integer("monthly_budget_cents").default(0),
+  
+  // Usage This Period
+  currentPeriodStart: timestamp("current_period_start"),
+  currentPeriodEnd: timestamp("current_period_end"),
+  currentPeriodRequests: integer("current_period_requests").default(0),
+  currentPeriodTokens: integer("current_period_tokens").default(0),
+  currentPeriodSpendCents: integer("current_period_spend_cents").default(0),
+  
+  // Features
+  features: jsonb("features").$type<{
+    webhooks?: boolean;
+    prioritySupport?: boolean;
+    customModels?: boolean;
+    sla?: string;
+    analytics?: boolean;
+    multipleKeys?: boolean;
+  }>().default({}),
+  
+  // Status
+  status: text("status").notNull().default("active"), // active, past_due, canceled, paused
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false),
+  canceledAt: timestamp("canceled_at"),
+  
+  // Billing
+  billingEmail: text("billing_email"),
+  billingCycle: text("billing_cycle").default("monthly"), // monthly, yearly
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_infera_subs_user").on(table.userId),
+  index("IDX_infera_subs_stripe").on(table.stripeCustomerId),
+  index("IDX_infera_subs_plan").on(table.plan),
+  index("IDX_infera_subs_status").on(table.status),
+]);
+
+export const insertInferaClientSubscriptionSchema = createInsertSchema(inferaClientSubscriptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertInferaClientSubscription = z.infer<typeof insertInferaClientSubscriptionSchema>;
+export type InferaClientSubscription = typeof inferaClientSubscriptions.$inferSelect;
+
+// 5. Client Webhooks - ويب هوكس العملاء
+export const inferaClientWebhooks = pgTable("infera_client_webhooks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Owner
+  apiKeyId: varchar("api_key_id").notNull().references(() => inferaApiKeys.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Webhook Configuration
+  name: text("name").notNull(),
+  url: text("url").notNull(),
+  secret: text("secret").notNull(), // For signature verification
+  
+  // Events to trigger
+  events: jsonb("events").$type<string[]>().default([]),
+  // usage.threshold_reached, usage.limit_exceeded, error.rate_limit, 
+  // error.budget_exceeded, subscription.updated, key.expiring
+  
+  // Filters
+  filters: jsonb("filters").$type<{
+    models?: string[];
+    minCostCents?: number;
+    errorTypes?: string[];
+  }>().default({}),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  lastTriggeredAt: timestamp("last_triggered_at"),
+  lastSuccessAt: timestamp("last_success_at"),
+  lastFailureAt: timestamp("last_failure_at"),
+  consecutiveFailures: integer("consecutive_failures").default(0),
+  
+  // Stats
+  totalDeliveries: integer("total_deliveries").default(0),
+  successfulDeliveries: integer("successful_deliveries").default(0),
+  failedDeliveries: integer("failed_deliveries").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_infera_webhooks_key").on(table.apiKeyId),
+  index("IDX_infera_webhooks_active").on(table.isActive),
+]);
+
+export const insertInferaClientWebhookSchema = createInsertSchema(inferaClientWebhooks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertInferaClientWebhook = z.infer<typeof insertInferaClientWebhookSchema>;
+export type InferaClientWebhook = typeof inferaClientWebhooks.$inferSelect;
+
+// 6. Webhook Delivery Logs - سجل تسليم الويب هوكس
+export const inferaWebhookDeliveryLogs = pgTable("infera_webhook_delivery_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  webhookId: varchar("webhook_id").notNull().references(() => inferaClientWebhooks.id, { onDelete: "cascade" }),
+  
+  // Event
+  eventType: text("event_type").notNull(),
+  eventData: jsonb("event_data").$type<Record<string, any>>().default({}),
+  
+  // Delivery
+  attemptNumber: integer("attempt_number").default(1),
+  statusCode: integer("status_code"),
+  responseBody: text("response_body"),
+  responseTimeMs: integer("response_time_ms"),
+  
+  // Status
+  status: text("status").notNull().default("pending"), // pending, success, failed, retrying
+  errorMessage: text("error_message"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  deliveredAt: timestamp("delivered_at"),
+}, (table) => [
+  index("IDX_infera_webhook_logs_webhook").on(table.webhookId),
+  index("IDX_infera_webhook_logs_status").on(table.status),
+  index("IDX_infera_webhook_logs_created").on(table.createdAt),
+]);
+
+export const insertInferaWebhookDeliveryLogSchema = createInsertSchema(inferaWebhookDeliveryLogs).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertInferaWebhookDeliveryLog = z.infer<typeof insertInferaWebhookDeliveryLogSchema>;
+export type InferaWebhookDeliveryLog = typeof inferaWebhookDeliveryLogs.$inferSelect;
+
+// 7. Anomaly Detection Alerts - تنبيهات كشف الشذوذ
+export const inferaAnomalyAlerts = pgTable("infera_anomaly_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Alert Type
+  alertType: text("alert_type").notNull(),
+  // usage_spike, cost_anomaly, error_rate_high, latency_spike, 
+  // suspicious_pattern, rate_limit_abuse, budget_warning
+  
+  severity: text("severity").notNull().default("warning"), // info, warning, critical
+  
+  // Target
+  targetType: text("target_type").notNull(), // api_key, provider, model, system
+  targetId: varchar("target_id"),
+  
+  // Alert Details
+  title: text("title").notNull(),
+  titleAr: text("title_ar"),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  
+  // Metrics
+  detectedValue: real("detected_value"),
+  expectedValue: real("expected_value"),
+  deviationPercent: real("deviation_percent"),
+  
+  // Context
+  context: jsonb("context").$type<Record<string, any>>().default({}),
+  
+  // Status
+  status: text("status").notNull().default("active"), // active, acknowledged, resolved, dismissed
+  acknowledgedBy: varchar("acknowledged_by").references(() => users.id),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  resolvedAt: timestamp("resolved_at"),
+  resolutionNotes: text("resolution_notes"),
+  
+  // Actions Taken
+  autoActionsTaken: jsonb("auto_actions_taken").$type<string[]>().default([]),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_infera_alerts_type").on(table.alertType),
+  index("IDX_infera_alerts_severity").on(table.severity),
+  index("IDX_infera_alerts_status").on(table.status),
+  index("IDX_infera_alerts_target").on(table.targetType, table.targetId),
+  index("IDX_infera_alerts_created").on(table.createdAt),
+]);
+
+export const insertInferaAnomalyAlertSchema = createInsertSchema(inferaAnomalyAlerts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertInferaAnomalyAlert = z.infer<typeof insertInferaAnomalyAlertSchema>;
+export type InferaAnomalyAlert = typeof inferaAnomalyAlerts.$inferSelect;
+
+// 8. Compliance Reports - تقارير الامتثال
+export const inferaComplianceReports = pgTable("infera_compliance_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Report Type
+  reportType: text("report_type").notNull(), // usage_summary, security_audit, cost_analysis, compliance_check
+  reportPeriod: text("report_period").notNull(), // daily, weekly, monthly, quarterly
+  
+  // Time Range
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  
+  // Report Data
+  summary: jsonb("summary").$type<{
+    totalRequests: number;
+    totalTokens: number;
+    totalCostCents: number;
+    uniqueClients: number;
+    topModels: { id: string; name: string; requests: number }[];
+    topClients: { id: string; name: string; requests: number }[];
+  }>().default({} as any),
+  
+  metrics: jsonb("metrics").$type<Record<string, any>>().default({}),
+  findings: jsonb("findings").$type<{
+    severity: string;
+    category: string;
+    description: string;
+    recommendation: string;
+  }[]>().default([]),
+  
+  // Compliance Checks
+  complianceChecks: jsonb("compliance_checks").$type<{
+    name: string;
+    status: "passed" | "failed" | "warning";
+    details: string;
+  }[]>().default([]),
+  
+  // Status
+  status: text("status").notNull().default("generated"), // generating, generated, reviewed, archived
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  
+  // File
+  fileUrl: text("file_url"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  createdBy: varchar("created_by").references(() => users.id),
+}, (table) => [
+  index("IDX_infera_reports_type").on(table.reportType),
+  index("IDX_infera_reports_period").on(table.periodStart, table.periodEnd),
+  index("IDX_infera_reports_status").on(table.status),
+]);
