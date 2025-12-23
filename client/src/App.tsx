@@ -100,9 +100,9 @@ import DynamicControlPage from "@/pages/owner/dynamic-control";
 import NovaPermissionsPage from "@/pages/owner/nova-permissions";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
-import { SovereignIndicator } from "@/components/sovereign-indicator";
 import { CommandPalette } from "@/components/command-palette";
 import { NovaAssistantMenu } from "@/components/nova-assistant-menu";
+import { SovereignHeaderButton } from "@/components/sovereign-header-button";
 
 function RedirectToAuth() {
   const [, setLocation] = useLocation();
@@ -288,6 +288,7 @@ function AppContent() {
               </div>
               <div className="flex items-center gap-2">
                 <NovaAssistantMenu />
+                <SovereignHeaderButton />
                 <NotificationBell />
                 <LanguageToggle />
                 <ThemeToggle />
@@ -328,8 +329,6 @@ function AppContent() {
         </div>
       </SidebarProvider>
       
-      {/* Sovereign Indicator - Golden Arrow (Only for owner/sovereign users) */}
-      <SovereignIndicator />
     </div>
   );
 }
