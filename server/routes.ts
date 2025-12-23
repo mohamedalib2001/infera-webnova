@@ -21474,8 +21474,25 @@ export function registerConversationRoutes(app: Express, requireAuth: any) {
       }
       
       const startTime = Date.now();
-      const results = await storage.searchNavigationResources(q as string, (language as string) || 'en');
+      const rawResults = await storage.searchNavigationResources(q as string, (language as string) || 'en');
       const responseTime = Date.now() - startTime;
+      
+      // Transform results to match frontend expected format
+      const results = rawResults.map((r: any) => ({
+        id: r.id,
+        title: r.nameEn || r.code || 'Untitled',
+        titleAr: r.nameAr || r.nameEn || 'بدون عنوان',
+        description: r.descriptionEn || '',
+        descriptionAr: r.descriptionAr || r.descriptionEn || '',
+        path: r.path,
+        icon: r.icon || 'zap',
+        category: r.category,
+        requiredRole: r.requiredRole || 'free',
+        keywords: r.keywordsEn?.split(',').map((k: string) => k.trim()) || [],
+        keywordsAr: r.keywordsAr?.split(',').map((k: string) => k.trim()) || [],
+        isEnabled: r.isEnabled,
+        priority: r.priority || 0,
+      }));
       
       // Log search for analytics
       const user = req.user as any;
@@ -21668,15 +21685,34 @@ export function registerConversationRoutes(app: Express, requireAuth: any) {
         user?.id ? storage.getNavigationUserState(user.id) : null
       ]);
       
+      // Transform resources to match frontend expected format
+      const transformResource = (r: any) => ({
+        id: r.id,
+        title: r.nameEn || r.code || 'Untitled',
+        titleAr: r.nameAr || r.nameEn || 'بدون عنوان',
+        description: r.descriptionEn || '',
+        descriptionAr: r.descriptionAr || r.descriptionEn || '',
+        path: r.path,
+        icon: r.icon || 'zap',
+        category: r.category,
+        requiredRole: r.requiredRole || 'free',
+        keywords: r.keywordsEn?.split(',').map((k: string) => k.trim()) || [],
+        keywordsAr: r.keywordsAr?.split(',').map((k: string) => k.trim()) || [],
+        isEnabled: r.isEnabled,
+        priority: r.priority || 0,
+      });
+      
       // Filter resources by user role
       const userRole = user?.role || 'free';
       const roleHierarchy = ['free', 'basic', 'pro', 'enterprise', 'sovereign', 'admin', 'owner'];
       const userRoleIndex = roleHierarchy.indexOf(userRole);
       
-      const accessibleResources = resources.filter(r => {
-        const requiredIndex = roleHierarchy.indexOf(r.requiredRole || 'free');
-        return userRoleIndex >= requiredIndex;
-      });
+      const accessibleResources = resources
+        .filter(r => {
+          const requiredIndex = roleHierarchy.indexOf(r.requiredRole || 'free');
+          return userRoleIndex >= requiredIndex;
+        })
+        .map(transformResource);
       
       // Get favorite and recent resource details
       const favoriteIds = userState?.favoriteResourceIds || [];
