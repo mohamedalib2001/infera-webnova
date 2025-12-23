@@ -238,7 +238,7 @@ export default function OwnerAICapabilityControl() {
   });
 
   const assistants: SovereignAssistant[] = Array.isArray(assistantsData) ? assistantsData : [];
-  const capabilities: AiCapability[] = capabilitiesData?.capabilities || [];
+  const capabilities: AiCapability[] = (capabilitiesData as { capabilities?: AiCapability[] })?.capabilities || [];
 
   const getCapabilityStatus = (assistantId: string, capabilityCode: string): boolean => {
     const override = capabilities.find(
