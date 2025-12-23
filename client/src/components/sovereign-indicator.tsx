@@ -1299,8 +1299,7 @@ export function SovereignIndicator() {
   const [employeeMode, setEmployeeMode] = useState<'all' | 'specific'>('specific');
   const [selectedEmployees, setSelectedEmployees] = useState<number[]>([]);
   const [analysis, setAnalysis] = useState<FullAnalysis | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const analysisInProgress = useRef(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(true);
   
   // Fetch INFERA Engine employees only (not subscribers)
   // Employees are users with roles: sovereign, support_agent, admin (NOT free, basic, pro, enterprise)
@@ -1344,11 +1343,55 @@ export function SovereignIndicator() {
   const isSovereign = user?.role === 'owner' || user?.role === 'sovereign';
   
   // Run analysis with real API
+  useEffect(() => {
+    if (!isSovereign || !isAuthenticated) return;
+    
+    let cancelled = false;
+    
+    const fetchAnalysis = async () => {
+      setIsAnalyzing(true);
+      
+      const services = pageServicesMap[location] || pageServicesMap['/'] || [];
+      const pathHash = location.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 10;
+      const loadTime = 800 + (services.length * 50) + (pathHash * 30);
+      
+      try {
+        const response = await apiRequest("POST", "/api/sovereign/analyze-page", {
+          pathname: location,
+          services: services,
+          pageMetrics: {
+            loadTime: loadTime,
+            componentCount: document.querySelectorAll('[data-testid]').length,
+            hasAI: location.includes('ai') || location.includes('nova') || location.includes('builder'),
+            hasRealTimeData: location.includes('collaboration') || location.includes('builder'),
+          },
+        });
+        
+        if (!cancelled) {
+          const result = await response.json();
+          console.log('[Sovereign] Analysis result received:', result.finalScore);
+          setAnalysis(result);
+          setIsAnalyzing(false);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.log('[Sovereign] Using fallback analysis');
+          const result = analyzePageIntelligently(location, 0);
+          setAnalysis(result);
+          setIsAnalyzing(false);
+        }
+      }
+    };
+    
+    fetchAnalysis();
+    
+    return () => { cancelled = true; };
+  }, [location, isSovereign, isAuthenticated]);
+  
+  // Manual refresh function
   const runAnalysis = useCallback(async () => {
     if (!isSovereign || !isAuthenticated) return;
-    if (analysisInProgress.current) return;
     
-    analysisInProgress.current = true;
     setIsAnalyzing(true);
     
     const services = pageServicesMap[location] || pageServicesMap['/'] || [];
@@ -1374,16 +1417,7 @@ export function SovereignIndicator() {
       setAnalysis(result);
     } finally {
       setIsAnalyzing(false);
-      analysisInProgress.current = false;
     }
-  }, [location, isSovereign, isAuthenticated]);
-  
-  // Run analysis automatically on page load and location change
-  useEffect(() => {
-    if (isSovereign && isAuthenticated) {
-      runAnalysis();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location, isSovereign, isAuthenticated]);
   
   // Don't render if not sovereign
