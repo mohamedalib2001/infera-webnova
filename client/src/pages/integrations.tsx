@@ -68,7 +68,7 @@ import {
   ShieldCheck,
   UserCog,
 } from "lucide-react";
-import { SiOpenai, SiStripe, SiTwilio, SiGoogle, SiAmazonaws, SiCloudflare } from "react-icons/si";
+import { SiOpenai, SiStripe, SiTwilio, SiGoogle, SiAmazon, SiCloudflare } from "react-icons/si";
 import type { ServiceProvider, ProviderApiKey, ProviderAlert, FailoverGroup } from "@shared/schema";
 
 const categoryIcons: Record<string, any> = {
@@ -329,6 +329,71 @@ export default function Integrations() {
 
   const { data: failoverGroups = [] } = useQuery<FailoverGroup[]>({
     queryKey: ["/api/failover-groups"],
+  });
+
+  // External Integration Sessions
+  const { data: integrationSessionsData } = useQuery<{ success: boolean; sessions: any[] }>({
+    queryKey: ["/api/owner/integrations/sessions"],
+  });
+  const integrationSessions = integrationSessionsData?.sessions || [];
+
+  // Helper to find session by partner name
+  const getSessionByPartner = (partnerName: string) => {
+    return integrationSessions.find(s => s.partnerName === partnerName);
+  };
+
+  // Check if Replit session is active
+  const replitSession = getSessionByPartner("replit");
+  const isReplitActive = replitSession?.status === "active";
+  
+  // Check if Hetzner session is active
+  const hetznerSession = getSessionByPartner("hetzner");
+  const isHetznerActive = hetznerSession?.status === "active";
+
+  // Session activation mutation
+  const activateSessionMutation = useMutation({
+    mutationFn: async ({ sessionId, reason }: { sessionId: string; reason?: string }) => {
+      return await apiRequest("POST", `/api/owner/integrations/sessions/${sessionId}/activate`, { reason });
+    },
+    onSuccess: () => {
+      toast({ title: language === "ar" ? "تم تفعيل الجلسة" : "Session activated" });
+      queryClient.invalidateQueries({ queryKey: ["/api/owner/integrations/sessions"] });
+    },
+    onError: () => {
+      toast({ title: language === "ar" ? "فشل تفعيل الجلسة" : "Failed to activate session", variant: "destructive" });
+    },
+  });
+
+  // Session deactivation mutation
+  const deactivateSessionMutation = useMutation({
+    mutationFn: async ({ sessionId, reason }: { sessionId: string; reason?: string }) => {
+      return await apiRequest("POST", `/api/owner/integrations/sessions/${sessionId}/deactivate`, { reason });
+    },
+    onSuccess: () => {
+      toast({ title: language === "ar" ? "تم إنهاء الجلسة" : "Session deactivated" });
+      queryClient.invalidateQueries({ queryKey: ["/api/owner/integrations/sessions"] });
+    },
+    onError: () => {
+      toast({ title: language === "ar" ? "فشل إنهاء الجلسة" : "Failed to deactivate session", variant: "destructive" });
+    },
+  });
+
+  // Create session mutation
+  const createSessionMutation = useMutation({
+    mutationFn: async (sessionData: any) => {
+      return await apiRequest("POST", "/api/owner/integrations/sessions", sessionData);
+    },
+    onSuccess: () => {
+      toast({ title: language === "ar" ? "تم إنشاء الجلسة" : "Session created" });
+      queryClient.invalidateQueries({ queryKey: ["/api/owner/integrations/sessions"] });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: language === "ar" ? "فشل إنشاء الجلسة" : "Failed to create session", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
   });
 
   const initBuiltInMutation = useMutation({
@@ -858,51 +923,94 @@ export default function Integrations() {
                       <CardDescription>{txt.replitDesc}</CardDescription>
                     </div>
                   </div>
-                  <Badge variant="default" className="flex items-center gap-1">
+                  <Badge 
+                    variant={isReplitActive ? "default" : "secondary"} 
+                    className="flex items-center gap-1"
+                  >
                     <Power className="w-3 h-3" />
-                    {txt.sessionActive}
+                    {isReplitActive ? txt.sessionActive : txt.sessionInactive}
                   </Badge>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {/* Permissions Grid */}
+                  {/* Permissions Grid - Dynamic based on session */}
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <Code className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm">{txt.codeExecution}</span>
+                    {replitSession?.permissions?.map((perm: any, idx: number) => (
+                      <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          {perm.scope === 'code' && <Code className="w-4 h-4 text-muted-foreground" />}
+                          {perm.scope === 'files' && <Database className="w-4 h-4 text-muted-foreground" />}
+                          {perm.scope === 'system' && <Terminal className="w-4 h-4 text-muted-foreground" />}
+                          {!['code', 'files', 'system'].includes(perm.scope) && <GitBranch className="w-4 h-4 text-muted-foreground" />}
+                          <span className="text-sm">{perm.scope}</span>
+                        </div>
+                        <Badge 
+                          variant={perm.type === 'admin' || perm.type === 'execute' ? "default" : "secondary"} 
+                          className="text-xs"
+                        >
+                          {perm.type === 'admin' ? txt.fullAccess : perm.type === 'write' ? txt.readWrite : txt.readOnly}
+                        </Badge>
                       </div>
-                      <Badge variant="default" className="text-xs">{txt.fullAccess}</Badge>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <Database className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm">{txt.fileAccess}</span>
-                      </div>
-                      <Badge variant="secondary" className="text-xs">{txt.readWrite}</Badge>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <Terminal className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm">{txt.terminalAccess}</span>
-                      </div>
-                      <Badge variant="default" className="text-xs">{txt.fullAccess}</Badge>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <GitBranch className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm">{txt.gitOperations}</span>
-                      </div>
-                      <Badge variant="secondary" className="text-xs">{txt.readWrite}</Badge>
-                    </div>
+                    )) || (
+                      <>
+                        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <Code className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-sm">{txt.codeExecution}</span>
+                          </div>
+                          <Badge variant={isReplitActive ? "default" : "outline"} className="text-xs">
+                            {isReplitActive ? txt.fullAccess : txt.readOnly}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <Database className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-sm">{txt.fileAccess}</span>
+                          </div>
+                          <Badge variant={isReplitActive ? "secondary" : "outline"} className="text-xs">
+                            {isReplitActive ? txt.readWrite : txt.readOnly}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <Terminal className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-sm">{txt.terminalAccess}</span>
+                          </div>
+                          <Badge variant={isReplitActive ? "default" : "outline"} className="text-xs">
+                            {isReplitActive ? txt.fullAccess : txt.readOnly}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <GitBranch className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-sm">{txt.gitOperations}</span>
+                          </div>
+                          <Badge variant={isReplitActive ? "secondary" : "outline"} className="text-xs">
+                            {isReplitActive ? txt.readWrite : txt.readOnly}
+                          </Badge>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   {/* Session Info */}
-                  <div className="flex items-center justify-between p-3 bg-green-500/10 rounded-lg border border-green-500/20">
+                  <div className={`flex items-center justify-between p-3 rounded-lg border ${
+                    isReplitActive 
+                      ? "bg-green-500/10 border-green-500/20" 
+                      : "bg-muted/50 border-border/50"
+                  }`}>
                     <div className="flex items-center gap-3">
-                      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                      <div className={`w-2 h-2 rounded-full ${
+                        isReplitActive ? "bg-green-500 animate-pulse" : "bg-gray-400"
+                      }`} />
                       <div>
-                        <p className="text-sm font-medium">{txt.connectedSince}</p>
-                        <p className="text-xs text-muted-foreground">{new Date().toLocaleString()}</p>
+                        <p className="text-sm font-medium">
+                          {isReplitActive ? txt.connectedSince : txt.lastActivity}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {replitSession?.activatedAt 
+                            ? new Date(replitSession.activatedAt).toLocaleString() 
+                            : language === "ar" ? "لا توجد جلسة" : "No session"}
+                        </p>
                       </div>
                     </div>
                     <Button size="sm" variant="outline">
@@ -913,13 +1021,58 @@ export default function Integrations() {
 
                   {/* Actions */}
                   <div className="flex items-center gap-2 flex-wrap">
-                    <Button variant="outline" size="sm">
-                      <Eye className="w-4 h-4 me-1" />
-                      {txt.viewSessions}
-                    </Button>
-                    <Button variant="outline" size="sm">
+                    {isReplitActive && replitSession ? (
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
+                        onClick={() => deactivateSessionMutation.mutate({ sessionId: replitSession.id })}
+                        disabled={deactivateSessionMutation.isPending}
+                      >
+                        <Power className="w-4 h-4 me-1" />
+                        {txt.endSession}
+                      </Button>
+                    ) : (
+                      <Button 
+                        size="sm"
+                        onClick={() => {
+                          if (replitSession) {
+                            activateSessionMutation.mutate({ sessionId: replitSession.id });
+                          } else {
+                            createSessionMutation.mutate({
+                              partnerName: "replit",
+                              partnerDisplayName: "Replit",
+                              providerType: "development",
+                              purpose: "development",
+                              purposeDescription: "Replit development environment access",
+                              accessLevel: "full_access",
+                              permissions: [
+                                { type: "execute", scope: "code", resources: ["*"] },
+                                { type: "write", scope: "files", resources: ["*"] },
+                                { type: "admin", scope: "system", resources: ["terminal"] },
+                                { type: "write", scope: "git", resources: ["*"] },
+                              ],
+                              restrictions: {
+                                noAccessTo: [],
+                                maxDuration: 480,
+                                requireApproval: false,
+                                sandboxOnly: false,
+                              },
+                            });
+                          }
+                        }}
+                        disabled={activateSessionMutation.isPending || createSessionMutation.isPending}
+                      >
+                        <Link2 className="w-4 h-4 me-1" />
+                        {txt.startSession}
+                      </Button>
+                    )}
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/owner/integrations/sessions"] })}
+                    >
                       <RefreshCw className="w-4 h-4 me-1" />
-                      {language === "ar" ? "تحديث الاتصال" : "Refresh Connection"}
+                      {language === "ar" ? "تحديث" : "Refresh"}
                     </Button>
                   </div>
                 </CardContent>
@@ -937,9 +1090,12 @@ export default function Integrations() {
                       <CardDescription>{txt.remoteDevDesc}</CardDescription>
                     </div>
                   </div>
-                  <Badge variant="secondary" className="flex items-center gap-1">
-                    <Lock className="w-3 h-3" />
-                    {txt.sessionInactive}
+                  <Badge 
+                    variant={isHetznerActive ? "default" : "secondary"} 
+                    className="flex items-center gap-1"
+                  >
+                    {isHetznerActive ? <Power className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+                    {isHetznerActive ? txt.sessionActive : txt.sessionInactive}
                   </Badge>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -950,8 +1106,10 @@ export default function Integrations() {
                         <Cloud className="w-4 h-4 text-muted-foreground" />
                         <span className="text-sm">Hetzner Cloud</span>
                       </div>
-                      <Badge variant="outline" className="text-xs">
-                        {language === "ar" ? "غير متصل" : "Not Connected"}
+                      <Badge variant={isHetznerActive ? "default" : "outline"} className="text-xs">
+                        {isHetznerActive 
+                          ? (language === "ar" ? "متصل" : "Connected") 
+                          : (language === "ar" ? "غير متصل" : "Not Connected")}
                       </Badge>
                     </div>
                     <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
@@ -959,7 +1117,10 @@ export default function Integrations() {
                         <Laptop className="w-4 h-4 text-muted-foreground" />
                         <span className="text-sm">{txt.deploymentAccess}</span>
                       </div>
-                      <Badge variant="outline" className="text-xs">{txt.readOnly}</Badge>
+                      <Badge variant={isHetznerActive ? "secondary" : "outline"} className="text-xs">
+                        {hetznerSession?.accessLevel === "full_access" ? txt.fullAccess : 
+                         hetznerSession?.accessLevel === "read_write" ? txt.readWrite : txt.readOnly}
+                      </Badge>
                     </div>
                     <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                       <div className="flex items-center gap-2">
@@ -968,31 +1129,93 @@ export default function Integrations() {
                           {language === "ar" ? "مراقبة الخوادم" : "Server Monitoring"}
                         </span>
                       </div>
-                      <Badge variant="outline" className="text-xs">{txt.readOnly}</Badge>
+                      <Badge variant={isHetznerActive ? "secondary" : "outline"} className="text-xs">
+                        {isHetznerActive ? txt.readWrite : txt.readOnly}
+                      </Badge>
                     </div>
                   </div>
 
-                  {/* Deployment Info */}
-                  <div className="p-3 bg-muted/50 rounded-lg border border-border/50">
-                    <div className="flex items-center gap-2 mb-2">
-                      <ShieldCheck className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">
-                        {language === "ar" ? "متطلبات الاتصال" : "Connection Requirements"}
-                      </span>
+                  {/* Session Info or Requirements */}
+                  {isHetznerActive ? (
+                    <div className="flex items-center justify-between p-3 bg-green-500/10 rounded-lg border border-green-500/20">
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                        <div>
+                          <p className="text-sm font-medium">{txt.connectedSince}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {hetznerSession?.activatedAt 
+                              ? new Date(hetznerSession.activatedAt).toLocaleString() 
+                              : "-"}
+                          </p>
+                        </div>
+                      </div>
+                      <Button size="sm" variant="outline">
+                        <Settings className="w-4 h-4 me-1" />
+                        {txt.configurePermissions}
+                      </Button>
                     </div>
-                    <ul className="text-xs text-muted-foreground space-y-1 ms-6 list-disc">
-                      <li>{language === "ar" ? "رمز API لـ Hetzner" : "Hetzner API Token"}</li>
-                      <li>{language === "ar" ? "مفاتيح SSH مُعدّة" : "SSH Keys Configured"}</li>
-                      <li>{language === "ar" ? "صلاحيات المالك" : "Owner Permissions"}</li>
-                    </ul>
-                  </div>
+                  ) : (
+                    <div className="p-3 bg-muted/50 rounded-lg border border-border/50">
+                      <div className="flex items-center gap-2 mb-2">
+                        <ShieldCheck className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">
+                          {language === "ar" ? "متطلبات الاتصال" : "Connection Requirements"}
+                        </span>
+                      </div>
+                      <ul className="text-xs text-muted-foreground space-y-1 ms-6 list-disc">
+                        <li>{language === "ar" ? "رمز API لـ Hetzner" : "Hetzner API Token"}</li>
+                        <li>{language === "ar" ? "مفاتيح SSH مُعدّة" : "SSH Keys Configured"}</li>
+                        <li>{language === "ar" ? "صلاحيات المالك" : "Owner Permissions"}</li>
+                      </ul>
+                    </div>
+                  )}
 
                   {/* Actions */}
                   <div className="flex items-center gap-2 flex-wrap">
-                    <Button size="sm">
-                      <Link2 className="w-4 h-4 me-1" />
-                      {txt.startSession}
-                    </Button>
+                    {isHetznerActive && hetznerSession ? (
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
+                        onClick={() => deactivateSessionMutation.mutate({ sessionId: hetznerSession.id })}
+                        disabled={deactivateSessionMutation.isPending}
+                      >
+                        <Power className="w-4 h-4 me-1" />
+                        {txt.endSession}
+                      </Button>
+                    ) : (
+                      <Button 
+                        size="sm"
+                        onClick={() => {
+                          if (hetznerSession) {
+                            activateSessionMutation.mutate({ sessionId: hetznerSession.id });
+                          } else {
+                            createSessionMutation.mutate({
+                              partnerName: "hetzner",
+                              partnerDisplayName: "Hetzner Cloud",
+                              providerType: "hosting",
+                              purpose: "development",
+                              purposeDescription: "Hetzner Cloud remote development and deployment",
+                              accessLevel: "read_write",
+                              permissions: [
+                                { type: "read", scope: "servers", resources: ["*"] },
+                                { type: "write", scope: "deployment", resources: ["*"] },
+                                { type: "read", scope: "monitoring", resources: ["*"] },
+                              ],
+                              restrictions: {
+                                noAccessTo: ["billing", "account"],
+                                maxDuration: 240,
+                                requireApproval: true,
+                                sandboxOnly: false,
+                              },
+                            });
+                          }
+                        }}
+                        disabled={activateSessionMutation.isPending || createSessionMutation.isPending}
+                      >
+                        <Link2 className="w-4 h-4 me-1" />
+                        {txt.startSession}
+                      </Button>
+                    )}
                     <Button variant="outline" size="sm">
                       <UserCog className="w-4 h-4 me-1" />
                       {txt.configurePermissions}
