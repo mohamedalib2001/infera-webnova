@@ -1342,14 +1342,13 @@ export function SovereignIndicator() {
   // Check if user is sovereign (owner or sovereign role)
   const isSovereign = user?.role === 'owner' || user?.role === 'sovereign';
   
-  // Run analysis with real API (Claude AI)
+  // Run analysis with real API
   const runAnalysis = useCallback(async () => {
     if (!isSovereign || !isAuthenticated) return;
     
     setIsAnalyzing(true);
     
     const services = pageServicesMap[location] || pageServicesMap['/'] || [];
-    // Deterministic loadTime based on pathname and services (same formula as fallback)
     const pathHash = location.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 10;
     const loadTime = 800 + (services.length * 50) + (pathHash * 30);
     
@@ -1367,22 +1366,21 @@ export function SovereignIndicator() {
       
       const result = await response.json();
       setAnalysis(result);
+      setIsAnalyzing(false);
     } catch {
-      // Silent fallback to local analysis - no console error
       const result = analyzePageIntelligently(location, 0);
       setAnalysis(result);
-    } finally {
       setIsAnalyzing(false);
     }
   }, [location, isSovereign, isAuthenticated]);
   
   // Run analysis automatically on page load and location change
   useEffect(() => {
-    if (isSovereign && isAuthenticated) {
-      setAnalysis(null);
+    if (isSovereign && isAuthenticated && !isAnalyzing) {
       runAnalysis();
     }
-  }, [location, isSovereign, isAuthenticated, runAnalysis]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location, isSovereign, isAuthenticated]);
   
   // Don't render if not sovereign
   if (!isAuthenticated || !isSovereign) {
