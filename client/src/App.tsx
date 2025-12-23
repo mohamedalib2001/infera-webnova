@@ -104,6 +104,7 @@ import { SovereignIndicator } from "@/components/sovereign-indicator";
 import { CommandPalette } from "@/components/command-palette";
 import { NovaAssistantMenu } from "@/components/nova-assistant-menu";
 import { SovereignHeaderButton } from "@/components/sovereign-header-button";
+import { AIProviderTopbar } from "@/components/ai-provider-topbar";
 import { PerformanceTracker } from "@/hooks/use-performance-tracker";
 
 function RedirectToAuth() {
@@ -288,7 +289,8 @@ function AppContent() {
                 <SidebarTrigger data-testid="button-sidebar-toggle" />
                 {isAuthenticated && <CommandPalette language={isRtl ? "ar" : "en"} />}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <AIProviderTopbar />
                 <NovaAssistantMenu />
                 <SovereignHeaderButton />
                 <NotificationBell />

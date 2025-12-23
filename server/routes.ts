@@ -7377,6 +7377,81 @@ ${project.description || ""}
     }
   });
 
+  // ============ Sovereign AI Provider Icons (Topbar) ============
+  // Returns AI provider data ONLY for sovereign accounts (owner/sovereign role)
+  // Non-sovereign accounts receive null (complete absence - no placeholder)
+  app.get("/api/sovereign/ai-providers/topbar", requireAuth, async (req, res) => {
+    try {
+      const user = req.session?.user;
+      
+      // STRICT SOVEREIGNTY CHECK - Backend-first security
+      // Only owner and sovereign roles can see AI provider orchestration data
+      if (!user || (user.role !== 'owner' && user.role !== 'sovereign')) {
+        // Return null for non-sovereign - NOT an error, just no data
+        return res.json(null);
+      }
+      
+      // Get all configured AI providers with status
+      const providers = await db.select({
+        id: aiProviderConfigs.id,
+        provider: aiProviderConfigs.provider,
+        displayName: aiProviderConfigs.displayName,
+        isActive: aiProviderConfigs.isActive,
+        status: aiProviderConfigs.status,
+        isHealthy: aiProviderConfigs.isHealthy,
+        priority: aiProviderConfigs.priority,
+        defaultModel: aiProviderConfigs.defaultModel,
+        capabilities: aiProviderConfigs.capabilities,
+      }).from(aiProviderConfigs).orderBy(aiProviderConfigs.priority);
+      
+      // Get currently active provider for current operations
+      let activeProviderId: string | null = null;
+      try {
+        const { aiProviderRegistry } = await import("./ai-provider-registry");
+        const currentProvider = await aiProviderRegistry.selectProvider({ capability: 'chat' });
+        if (currentProvider) {
+          activeProviderId = currentProvider.provider;
+        }
+      } catch (e) {
+        // If registry fails, just don't set active provider
+      }
+      
+      // Return provider data with active indicator
+      const response = {
+        providers: providers.map(p => ({
+          id: p.provider,
+          name: p.displayName,
+          icon: getProviderIcon(p.provider),
+          status: p.isActive && p.isHealthy ? 'active' : p.isActive ? 'degraded' : 'available',
+          isFeeding: p.provider === activeProviderId, // Currently feeding requests
+          capabilities: p.capabilities,
+          model: p.defaultModel,
+        })),
+        activeProvider: activeProviderId,
+      };
+      
+      res.json(response);
+    } catch (error) {
+      console.error("[Sovereign Topbar] Error:", error);
+      res.status(500).json({ error: "فشل في جلب حالة المزودين" });
+    }
+  });
+  
+  // Helper function for provider icons (SVG paths or component names)
+  function getProviderIcon(provider: string): string {
+    const icons: Record<string, string> = {
+      anthropic: 'claude',
+      openai: 'openai',
+      google: 'gemini',
+      meta: 'llama',
+      replit: 'replit',
+      groq: 'groq',
+      mistral: 'mistral',
+      cohere: 'cohere',
+    };
+    return icons[provider] || 'ai';
+  }
+
   // ============ AI Usage Tracking APIs ============
 
   // Get AI usage statistics (owner only)
