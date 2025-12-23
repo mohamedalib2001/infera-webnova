@@ -1066,5 +1066,242 @@ export function registerNovaPermissionRoutes(app: Express): void {
     }
   });
   
+  // ==================== سياق Nova الكامل للمستخدم ====================
+  // يعطي Nova معرفة كاملة بصلاحياته وسياق المنصة حسب دور المستخدم
+  app.get("/api/nova/context", async (req: Request, res: Response) => {
+    try {
+      const session = (req as any).session;
+      const userId = session?.userId || session?.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: "Authentication required",
+          errorAr: "المصادقة مطلوبة",
+        });
+      }
+      
+      // Get user info
+      const { storage } = await import("./storage");
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          error: "User not found",
+          errorAr: "المستخدم غير موجود",
+        });
+      }
+      
+      const isOwner = user.role === 'owner' || user.role === 'sovereign';
+      
+      // Get user's granted permissions
+      const grants = await db
+        .select()
+        .from(novaPermissionGrants)
+        .where(and(
+          eq(novaPermissionGrants.userId, userId),
+          eq(novaPermissionGrants.isGranted, true)
+        ));
+      
+      const grantedPermissions = grants.map(g => g.permissionCode);
+      
+      // Get all permissions for context
+      const allPermissions = await db.select().from(novaPermissions);
+      
+      // Build permission map with granted status
+      const permissionMap = allPermissions.map(p => ({
+        code: p.code,
+        nameEn: p.nameEn,
+        nameAr: p.nameAr,
+        category: p.category,
+        securityLevel: p.securityLevel,
+        isGranted: grantedPermissions.includes(p.code),
+      }));
+      
+      // Platform knowledge for Nova
+      const platformKnowledge = {
+        name: "INFERA WebNova",
+        nameAr: "إنفيرا ويب نوفا",
+        description: "Sovereign Digital Operating System for building autonomous platforms",
+        descriptionAr: "نظام تشغيل رقمي سيادي لبناء منصات مستقلة",
+        
+        // Core modules Nova knows about
+        modules: {
+          ai_orchestration: { name: "AI Orchestrator", nameAr: "منسق الذكاء الاصطناعي", path: "/owner/assistant-governance" },
+          blueprint_system: { name: "Blueprint Generator", nameAr: "مولد البلوبرنت", path: "/nova" },
+          dynamic_control: { name: "Dynamic Control", nameAr: "التحكم الديناميكي", path: "/owner/dynamic-control" },
+          user_management: { name: "User Management", nameAr: "إدارة المستخدمين", path: "/sovereign" },
+          infrastructure: { name: "Infrastructure", nameAr: "البنية التحتية", path: "/owner/infrastructure" },
+          analytics: { name: "Analytics", nameAr: "التحليلات", path: "/analytics" },
+          deployment: { name: "Deployment", nameAr: "النشر", path: "/deployment" },
+          domains: { name: "Domains", nameAr: "النطاقات", path: "/domains" },
+          payments: { name: "Payments", nameAr: "المدفوعات", path: "/payments" },
+          security: { name: "Security", nameAr: "الأمان", path: "/ssh-vault" },
+          templates: { name: "Templates", nameAr: "القوالب", path: "/templates" },
+          projects: { name: "Projects", nameAr: "المشاريع", path: "/projects" },
+          builder: { name: "Visual Builder", nameAr: "المنشئ المرئي", path: "/builder" },
+          ide: { name: "Cloud IDE", nameAr: "بيئة التطوير السحابية", path: "/ide" },
+        },
+        
+        // Subscription tiers Nova understands
+        subscriptionTiers: ["free", "basic", "pro", "enterprise", "sovereign", "owner"],
+        
+        // Current user context
+        currentUser: {
+          id: userId,
+          role: user.role,
+          email: user.email,
+          fullName: user.fullName,
+          isOwner,
+          subscriptionTier: user.role,
+        },
+      };
+      
+      // Build Nova's capability context based on role
+      const novaCapabilities = {
+        // What Nova CAN do for this user
+        allowed: {
+          database: {
+            read: grantedPermissions.includes('db_read'),
+            write: grantedPermissions.includes('db_write'),
+            delete: grantedPermissions.includes('db_delete'),
+            schema: grantedPermissions.includes('db_schema'),
+          },
+          files: {
+            read: grantedPermissions.includes('read_files'),
+            create: grantedPermissions.includes('create_files'),
+            edit: grantedPermissions.includes('edit_files'),
+            delete: grantedPermissions.includes('delete_files'),
+            upload: grantedPermissions.includes('upload_files'),
+          },
+          code: {
+            executeNodejs: grantedPermissions.includes('execute_nodejs'),
+            executePython: grantedPermissions.includes('execute_python'),
+            executeShell: grantedPermissions.includes('execute_shell'),
+            installPackages: grantedPermissions.includes('install_packages'),
+          },
+          ai: {
+            chat: grantedPermissions.includes('ai_chat'),
+            codeGeneration: grantedPermissions.includes('ai_code_generation'),
+            vision: grantedPermissions.includes('ai_vision'),
+            autonomous: grantedPermissions.includes('ai_autonomous'),
+          },
+          api: {
+            read: grantedPermissions.includes('api_read'),
+            write: grantedPermissions.includes('api_write'),
+            oauth: grantedPermissions.includes('api_oauth'),
+          },
+          users: {
+            read: grantedPermissions.includes('users_read'),
+            create: grantedPermissions.includes('users_create'),
+            modify: grantedPermissions.includes('users_modify'),
+            delete: grantedPermissions.includes('users_delete'),
+          },
+          infrastructure: {
+            monitoring: grantedPermissions.includes('infra_monitoring'),
+            servers: grantedPermissions.includes('infra_servers'),
+            domains: grantedPermissions.includes('infra_domains'),
+            ssl: grantedPermissions.includes('infra_ssl'),
+          },
+          deployment: {
+            preview: grantedPermissions.includes('deploy_preview'),
+            production: grantedPermissions.includes('deploy_production'),
+            vercel: grantedPermissions.includes('deploy_vercel'),
+            netlify: grantedPermissions.includes('deploy_netlify'),
+            github: grantedPermissions.includes('deploy_github'),
+          },
+          payments: {
+            read: grantedPermissions.includes('payment_read'),
+            process: grantedPermissions.includes('payment_process'),
+            refund: grantedPermissions.includes('payment_refund'),
+          },
+          config: {
+            read: grantedPermissions.includes('config_read'),
+            modify: grantedPermissions.includes('config_modify'),
+            secretsRead: grantedPermissions.includes('secrets_read'),
+            secretsModify: grantedPermissions.includes('secrets_modify'),
+          },
+        },
+        
+        // Scope boundaries for non-owner users
+        scopeBoundaries: isOwner ? null : {
+          // For subscribers: Nova works within their subscription limits
+          projectsLimit: user.role === 'free' ? 3 : user.role === 'basic' ? 10 : user.role === 'pro' ? 50 : 200,
+          aiRequestsDaily: user.role === 'free' ? 10 : user.role === 'basic' ? 50 : user.role === 'pro' ? 200 : 500,
+          storageGB: user.role === 'free' ? 1 : user.role === 'basic' ? 5 : user.role === 'pro' ? 20 : 100,
+          canAccessOwnerFeatures: false,
+          canModifyOtherUsers: false,
+          canAccessBilling: false,
+          canDeployProduction: user.role === 'pro' || user.role === 'enterprise',
+        },
+      };
+      
+      // Build Nova's response instructions based on role
+      const responseGuidelines = isOwner ? {
+        mode: "full_sovereign",
+        modeAr: "سيادي كامل",
+        instructions: [
+          "You have FULL access to all platform capabilities",
+          "You can read/write database, manage users, deploy, and access all configurations",
+          "You can execute any code and manage infrastructure",
+          "Answer in full detail with technical depth",
+          "Proactively suggest optimizations and improvements",
+          "You can access and modify secrets and sensitive configurations",
+        ],
+        instructionsAr: [
+          "لديك وصول كامل لجميع قدرات المنصة",
+          "يمكنك قراءة/كتابة قاعدة البيانات، إدارة المستخدمين، النشر، والوصول لجميع الإعدادات",
+          "يمكنك تنفيذ أي كود وإدارة البنية التحتية",
+          "أجب بتفصيل كامل وعمق تقني",
+          "اقترح التحسينات والتطويرات بشكل استباقي",
+          "يمكنك الوصول لوتعديل الأسرار والإعدادات الحساسة",
+        ],
+      } : {
+        mode: "subscriber_scope",
+        modeAr: "نطاق المشترك",
+        instructions: [
+          `You are helping a ${user.role} tier subscriber`,
+          "Help them build their platforms within their subscription limits",
+          "Focus on their projects and platform building needs",
+          "Do not access or discuss owner-only features",
+          "Do not access other users' data or configurations",
+          "Redirect owner-level requests to upgrade their subscription",
+        ],
+        instructionsAr: [
+          `أنت تساعد مشتركاً في باقة ${user.role}`,
+          "ساعده في بناء منصاته ضمن حدود اشتراكه",
+          "ركز على مشاريعه واحتياجات بناء المنصات",
+          "لا تصل أو تناقش ميزات المالك فقط",
+          "لا تصل لبيانات أو إعدادات المستخدمين الآخرين",
+          "وجّه طلبات مستوى المالك لترقية اشتراكهم",
+        ],
+      };
+      
+      res.json({
+        success: true,
+        context: {
+          user: platformKnowledge.currentUser,
+          platform: platformKnowledge,
+          permissions: permissionMap,
+          grantedPermissionCodes: grantedPermissions,
+          capabilities: novaCapabilities,
+          guidelines: responseGuidelines,
+          stats: {
+            totalPermissions: allPermissions.length,
+            grantedCount: grantedPermissions.length,
+            grantedPercentage: Math.round((grantedPermissions.length / allPermissions.length) * 100),
+          },
+        },
+      });
+    } catch (error: any) {
+      console.error("[Nova Context] Error:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+  
   console.log("[Nova Permissions] Routes registered at /api/nova/permissions/*");
 }
