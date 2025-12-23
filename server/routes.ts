@@ -8628,6 +8628,162 @@ ${project.description || ""}
     }
   });
 
+  // ============ EMPLOYEE/STAFF MANAGEMENT APIs (OWNER ONLY) ============
+
+  // Get all staff members (employees with admin/finance/support roles)
+  app.get("/api/owner/staff", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      const staffRoles = ['admin', 'finance_admin', 'finance_manager', 'accountant', 'support_agent', 'sovereign'];
+      const staff = users.filter(u => staffRoles.includes(u.role));
+      res.json(staff);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get staff members" });
+    }
+  });
+
+  // Invite new employee (create staff account)
+  const inviteStaffSchema = z.object({
+    email: z.string().email(),
+    fullName: z.string().min(2),
+    role: z.enum(['admin', 'finance_admin', 'finance_manager', 'accountant', 'support_agent', 'sovereign']),
+    department: z.string().optional(),
+    permissions: z.array(z.string()).optional(),
+  });
+
+  app.post("/api/owner/staff/invite", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const data = inviteStaffSchema.parse(req.body);
+      
+      // Check if email already exists
+      const existingUser = await storage.getUserByEmail(data.email);
+      if (existingUser) {
+        return res.status(400).json({ error: "البريد الإلكتروني مستخدم بالفعل / Email already in use" });
+      }
+      
+      // Generate temporary password
+      const tempPassword = `Staff${Math.random().toString(36).slice(-8)}!`;
+      const bcrypt = await import("bcryptjs");
+      const hashedPassword = await bcrypt.hash(tempPassword, 10);
+      
+      // Create staff user
+      const user = await storage.createUser({
+        email: data.email,
+        fullName: data.fullName,
+        password: hashedPassword,
+        role: data.role,
+        permissions: data.permissions || [],
+        authProvider: "email",
+        status: "ACTIVE",
+        isActive: true,
+        emailVerified: false,
+      });
+      
+      // Log the action
+      await storage.createAuditLog({
+        action: "STAFF_INVITED",
+        userId: req.session.userId!,
+        targetId: user.id,
+        details: { role: data.role, email: data.email },
+        ipAddress: req.ip || "unknown",
+        userAgent: req.get("user-agent") || "unknown",
+      });
+      
+      res.json({ 
+        success: true, 
+        user: { id: user.id, email: user.email, fullName: user.fullName, role: user.role },
+        tempPassword, // Return temp password so owner can share it securely
+        message: "تم إنشاء حساب الموظف بنجاح / Staff account created successfully"
+      });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to invite staff member" });
+    }
+  });
+
+  // Update staff member role
+  app.patch("/api/owner/staff/:userId/role", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { role } = req.body;
+      
+      const staffRoles = ['admin', 'finance_admin', 'finance_manager', 'accountant', 'support_agent', 'sovereign', 'free', 'basic', 'pro', 'enterprise'];
+      if (!staffRoles.includes(role)) {
+        return res.status(400).json({ error: "Invalid role" });
+      }
+      
+      const user = await storage.updateUser(userId, { role });
+      
+      await storage.createAuditLog({
+        action: "STAFF_ROLE_CHANGED",
+        userId: req.session.userId!,
+        targetId: userId,
+        details: { newRole: role },
+        ipAddress: req.ip || "unknown",
+        userAgent: req.get("user-agent") || "unknown",
+      });
+      
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update staff role" });
+    }
+  });
+
+  // Remove staff member (deactivate or demote to free)
+  app.delete("/api/owner/staff/:userId", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { action } = req.query; // 'demote' or 'deactivate'
+      
+      if (action === 'demote') {
+        await storage.updateUser(userId, { role: 'free' });
+      } else {
+        await storage.updateUser(userId, { status: 'DEACTIVATED', isActive: false });
+      }
+      
+      await storage.createAuditLog({
+        action: action === 'demote' ? "STAFF_DEMOTED" : "STAFF_DEACTIVATED",
+        userId: req.session.userId!,
+        targetId: userId,
+        details: { action },
+        ipAddress: req.ip || "unknown",
+        userAgent: req.get("user-agent") || "unknown",
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to remove staff member" });
+    }
+  });
+
+  // Reset staff password
+  app.post("/api/owner/staff/:userId/reset-password", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      const newPassword = `Reset${Math.random().toString(36).slice(-8)}!`;
+      const bcrypt = await import("bcryptjs");
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      
+      await storage.updateUser(userId, { password: hashedPassword });
+      
+      await storage.createAuditLog({
+        action: "STAFF_PASSWORD_RESET",
+        userId: req.session.userId!,
+        targetId: userId,
+        details: {},
+        ipAddress: req.ip || "unknown",
+        userAgent: req.get("user-agent") || "unknown",
+      });
+      
+      res.json({ success: true, newPassword });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to reset password" });
+    }
+  });
+
   // ============ SOVEREIGN CONTROL PANEL APIs ============
   
   // Get all security incidents (owner only)
