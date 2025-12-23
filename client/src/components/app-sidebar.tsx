@@ -451,6 +451,14 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                       <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/owner/infera-intelligence"}>
+                          <Link href="/owner/infera-intelligence" data-testid="nav-owner-infera-intelligence">
+                            <Brain className="h-4 w-4 text-amber-500" />
+                            <span>{language === "ar" ? "نماذج INFERA" : "INFERA Models"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
                         <SidebarMenuButton asChild isActive={location === "/admin/subscriptions"}>
                           <Link href="/admin/subscriptions" data-testid="nav-admin-subscriptions">
                             <Package className="h-4 w-4 text-blue-500" />

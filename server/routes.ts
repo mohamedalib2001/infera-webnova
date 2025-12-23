@@ -3182,6 +3182,542 @@ export async function registerRoutes(
     }
   });
 
+  // ==================== INFERA INTELLIGENCE API - DYNAMIC EXPOSURE LAYER ====================
+  // طبقة عرض API الديناميكية - تحول INFERA من مستهلك AI إلى مزود AI
+  // OpenAI-compatible API for client access to INFERA AI models
+
+  // Middleware to authenticate API requests using INFERA API keys
+  const authenticateInferaApiKey = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const authHeader = req.headers.authorization;
+      
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({
+          error: {
+            message: 'Missing or invalid Authorization header. Use: Bearer infr_xxx',
+            type: 'authentication_error',
+            code: 'invalid_api_key'
+          }
+        });
+      }
+      
+      const apiKey = authHeader.substring(7);
+      if (!apiKey.startsWith('infr_')) {
+        return res.status(401).json({
+          error: {
+            message: 'Invalid API key format. INFERA API keys start with "infr_"',
+            type: 'authentication_error',
+            code: 'invalid_api_key_format'
+          }
+        });
+      }
+      
+      // Hash the key and look it up
+      const keyHash = crypto.createHash('sha256').update(apiKey).digest('hex');
+      const [apiKeyRecord] = await db.select().from(inferaApiKeys)
+        .where(eq(inferaApiKeys.keyHash, keyHash));
+      
+      if (!apiKeyRecord) {
+        return res.status(401).json({
+          error: {
+            message: 'Invalid API key',
+            type: 'authentication_error',
+            code: 'invalid_api_key'
+          }
+        });
+      }
+      
+      // Check key status
+      if (apiKeyRecord.status !== 'active') {
+        return res.status(403).json({
+          error: {
+            message: `API key is ${apiKeyRecord.status}`,
+            type: 'authentication_error',
+            code: 'api_key_inactive'
+          }
+        });
+      }
+      
+      // Check expiration
+      if (apiKeyRecord.expiresAt && new Date(apiKeyRecord.expiresAt) < new Date()) {
+        return res.status(403).json({
+          error: {
+            message: 'API key has expired',
+            type: 'authentication_error',
+            code: 'api_key_expired'
+          }
+        });
+      }
+      
+      // Check rate limits (simple per-minute check)
+      const now = new Date();
+      const oneMinuteAgo = new Date(now.getTime() - 60000);
+      const recentRequests = await db.select({ count: sql<number>`count(*)` })
+        .from(inferaApiUsageLogs)
+        .where(and(
+          eq(inferaApiUsageLogs.apiKeyId, apiKeyRecord.id),
+          sql`${inferaApiUsageLogs.createdAt} > ${oneMinuteAgo}`
+        ));
+      
+      if (apiKeyRecord.rateLimitPerMinute && recentRequests[0]?.count >= apiKeyRecord.rateLimitPerMinute) {
+        return res.status(429).json({
+          error: {
+            message: 'Rate limit exceeded. Please try again later.',
+            type: 'rate_limit_error',
+            code: 'rate_limit_exceeded'
+          }
+        });
+      }
+      
+      // Check monthly budget
+      if (apiKeyRecord.monthlyBudgetCents && apiKeyRecord.currentMonthSpendCents && 
+          apiKeyRecord.currentMonthSpendCents >= apiKeyRecord.monthlyBudgetCents) {
+        return res.status(402).json({
+          error: {
+            message: 'Monthly budget exceeded',
+            type: 'budget_error',
+            code: 'budget_exceeded'
+          }
+        });
+      }
+      
+      // Attach API key info to request
+      (req as any).inferaApiKey = apiKeyRecord;
+      
+      // Update last used
+      await db.update(inferaApiKeys)
+        .set({ lastUsedAt: new Date() })
+        .where(eq(inferaApiKeys.id, apiKeyRecord.id));
+      
+      next();
+    } catch (error) {
+      console.error('INFERA API authentication error:', error);
+      res.status(500).json({
+        error: {
+          message: 'Internal server error during authentication',
+          type: 'server_error',
+          code: 'internal_error'
+        }
+      });
+    }
+  };
+
+  // List available models for the authenticated API key
+  app.get("/v1/models", authenticateInferaApiKey, async (req, res) => {
+    try {
+      const apiKeyRecord = (req as any).inferaApiKey;
+      
+      // Get all active INFERA models
+      let models = await db.select().from(inferaIntelligenceModels)
+        .where(eq(inferaIntelligenceModels.status, 'active'));
+      
+      // Filter by allowed models if specified
+      if (apiKeyRecord.allowedModelIds && apiKeyRecord.allowedModelIds.length > 0) {
+        models = models.filter(m => apiKeyRecord.allowedModelIds.includes(m.id));
+      }
+      
+      // Filter by allowed functional roles if specified
+      if (apiKeyRecord.allowedFunctionalRoles && apiKeyRecord.allowedFunctionalRoles.length > 0) {
+        models = models.filter(m => apiKeyRecord.allowedFunctionalRoles.includes(m.functionalRole));
+      }
+      
+      // Format response in OpenAI-compatible format
+      const modelsResponse = models.map(m => ({
+        id: m.slug,
+        object: 'model',
+        created: Math.floor(new Date(m.createdAt!).getTime() / 1000),
+        owned_by: 'infera',
+        permission: [],
+        root: m.slug,
+        parent: null,
+        // INFERA-specific metadata
+        infera: {
+          display_name: m.displayName,
+          display_name_ar: m.displayNameAr,
+          description: m.description,
+          description_ar: m.descriptionAr,
+          functional_role: m.functionalRole,
+          service_level: m.serviceLevel,
+          capabilities: m.capabilities,
+        }
+      }));
+      
+      res.json({
+        object: 'list',
+        data: modelsResponse
+      });
+    } catch (error) {
+      console.error('Failed to list INFERA models:', error);
+      res.status(500).json({
+        error: {
+          message: 'Failed to list models',
+          type: 'server_error',
+          code: 'internal_error'
+        }
+      });
+    }
+  });
+
+  // Get a specific model by slug
+  app.get("/v1/models/:model", authenticateInferaApiKey, async (req, res) => {
+    try {
+      const { model: modelSlug } = req.params;
+      const apiKeyRecord = (req as any).inferaApiKey;
+      
+      const [model] = await db.select().from(inferaIntelligenceModels)
+        .where(and(
+          eq(inferaIntelligenceModels.slug, modelSlug),
+          eq(inferaIntelligenceModels.status, 'active')
+        ));
+      
+      if (!model) {
+        return res.status(404).json({
+          error: {
+            message: `Model '${modelSlug}' not found`,
+            type: 'invalid_request_error',
+            code: 'model_not_found'
+          }
+        });
+      }
+      
+      // Check access permissions
+      if (apiKeyRecord.allowedModelIds?.length > 0 && !apiKeyRecord.allowedModelIds.includes(model.id)) {
+        return res.status(403).json({
+          error: {
+            message: 'Access to this model is not allowed for your API key',
+            type: 'permission_error',
+            code: 'model_access_denied'
+          }
+        });
+      }
+      
+      res.json({
+        id: model.slug,
+        object: 'model',
+        created: Math.floor(new Date(model.createdAt!).getTime() / 1000),
+        owned_by: 'infera',
+        infera: {
+          display_name: model.displayName,
+          functional_role: model.functionalRole,
+          service_level: model.serviceLevel,
+        }
+      });
+    } catch (error) {
+      console.error('Failed to get INFERA model:', error);
+      res.status(500).json({
+        error: {
+          message: 'Failed to get model',
+          type: 'server_error',
+          code: 'internal_error'
+        }
+      });
+    }
+  });
+
+  // Chat completions endpoint - OpenAI-compatible
+  app.post("/v1/chat/completions", authenticateInferaApiKey, async (req, res) => {
+    const startTime = Date.now();
+    const requestId = crypto.randomUUID();
+    
+    try {
+      const apiKeyRecord = (req as any).inferaApiKey;
+      const { model: modelSlug, messages, temperature, max_tokens, stream = false, ...otherParams } = req.body;
+      
+      // Validate request
+      if (!modelSlug) {
+        return res.status(400).json({
+          error: {
+            message: 'Missing required parameter: model',
+            type: 'invalid_request_error',
+            code: 'missing_model'
+          }
+        });
+      }
+      
+      if (!messages || !Array.isArray(messages) || messages.length === 0) {
+        return res.status(400).json({
+          error: {
+            message: 'Missing required parameter: messages',
+            type: 'invalid_request_error',
+            code: 'missing_messages'
+          }
+        });
+      }
+      
+      // Find the INFERA model by slug
+      const [inferaModel] = await db.select().from(inferaIntelligenceModels)
+        .where(and(
+          eq(inferaIntelligenceModels.slug, modelSlug),
+          eq(inferaIntelligenceModels.status, 'active')
+        ));
+      
+      if (!inferaModel) {
+        return res.status(404).json({
+          error: {
+            message: `Model '${modelSlug}' not found or not active`,
+            type: 'invalid_request_error',
+            code: 'model_not_found'
+          }
+        });
+      }
+      
+      // Check model access permissions
+      if (apiKeyRecord.allowedModelIds?.length > 0 && !apiKeyRecord.allowedModelIds.includes(inferaModel.id)) {
+        return res.status(403).json({
+          error: {
+            message: 'Access to this model is not allowed for your API key',
+            type: 'permission_error',
+            code: 'model_access_denied'
+          }
+        });
+      }
+      
+      // Check functional role permissions
+      if (apiKeyRecord.allowedFunctionalRoles?.length > 0 && 
+          !apiKeyRecord.allowedFunctionalRoles.includes(inferaModel.functionalRole)) {
+        return res.status(403).json({
+          error: {
+            message: `Access to ${inferaModel.functionalRole} models is not allowed`,
+            type: 'permission_error',
+            code: 'role_access_denied'
+          }
+        });
+      }
+      
+      // Check max tokens per request
+      const requestMaxTokens = max_tokens || inferaModel.maxTokens || 4096;
+      if (apiKeyRecord.maxTokensPerRequest && requestMaxTokens > apiKeyRecord.maxTokensPerRequest) {
+        return res.status(400).json({
+          error: {
+            message: `max_tokens exceeds your limit of ${apiKeyRecord.maxTokensPerRequest}`,
+            type: 'invalid_request_error',
+            code: 'max_tokens_exceeded'
+          }
+        });
+      }
+      
+      // Resolve backend model ID
+      const backendModelId = inferaModel.backendModelId || 'claude-sonnet-4-20250514';
+      
+      // Prepare messages with system prompt if defined
+      const systemPrompt = inferaModel.systemPrompt || '';
+      const anthropicMessages = messages.filter((m: any) => m.role !== 'system').map((m: any) => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content
+      }));
+      
+      // Combine system prompts
+      const userSystemMessage = messages.find((m: any) => m.role === 'system')?.content || '';
+      const finalSystemPrompt = [systemPrompt, userSystemMessage].filter(Boolean).join('\n\n');
+      
+      // Call Anthropic API
+      const anthropic = new Anthropic();
+      
+      let response;
+      let inputTokens = 0;
+      let outputTokens = 0;
+      let completionText = '';
+      
+      if (stream) {
+        // Streaming response
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.setHeader('X-Request-ID', requestId);
+        
+        const streamResponse = anthropic.messages.stream({
+          model: backendModelId,
+          max_tokens: requestMaxTokens,
+          temperature: temperature ?? inferaModel.temperature ?? 0.7,
+          system: finalSystemPrompt || undefined,
+          messages: anthropicMessages,
+        });
+        
+        // Send streaming data in OpenAI format
+        for await (const event of streamResponse) {
+          if (event.type === 'content_block_delta') {
+            const delta = event.delta as any;
+            if (delta?.text) {
+              completionText += delta.text;
+              const chunk = {
+                id: `chatcmpl-${requestId}`,
+                object: 'chat.completion.chunk',
+                created: Math.floor(Date.now() / 1000),
+                model: modelSlug,
+                choices: [{
+                  index: 0,
+                  delta: { content: delta.text },
+                  finish_reason: null
+                }]
+              };
+              res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+            }
+          } else if (event.type === 'message_start') {
+            inputTokens = (event.message as any)?.usage?.input_tokens || 0;
+          } else if (event.type === 'message_delta') {
+            outputTokens = (event as any)?.usage?.output_tokens || 0;
+          }
+        }
+        
+        // Send final chunk
+        const finalChunk = {
+          id: `chatcmpl-${requestId}`,
+          object: 'chat.completion.chunk',
+          created: Math.floor(Date.now() / 1000),
+          model: modelSlug,
+          choices: [{
+            index: 0,
+            delta: {},
+            finish_reason: 'stop'
+          }]
+        };
+        res.write(`data: ${JSON.stringify(finalChunk)}\n\n`);
+        res.write('data: [DONE]\n\n');
+        res.end();
+        
+      } else {
+        // Non-streaming response
+        response = await anthropic.messages.create({
+          model: backendModelId,
+          max_tokens: requestMaxTokens,
+          temperature: temperature ?? inferaModel.temperature ?? 0.7,
+          system: finalSystemPrompt || undefined,
+          messages: anthropicMessages,
+        });
+        
+        inputTokens = response.usage?.input_tokens || 0;
+        outputTokens = response.usage?.output_tokens || 0;
+        completionText = response.content[0]?.type === 'text' ? response.content[0].text : '';
+        
+        // Format response in OpenAI format
+        const openaiResponse = {
+          id: `chatcmpl-${requestId}`,
+          object: 'chat.completion',
+          created: Math.floor(Date.now() / 1000),
+          model: modelSlug,
+          choices: [{
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: completionText
+            },
+            finish_reason: response.stop_reason === 'end_turn' ? 'stop' : response.stop_reason
+          }],
+          usage: {
+            prompt_tokens: inputTokens,
+            completion_tokens: outputTokens,
+            total_tokens: inputTokens + outputTokens
+          },
+          // INFERA-specific metadata (backend model hidden for branding abstraction)
+          infera: {
+            model_slug: modelSlug,
+            model_display_name: inferaModel.displayName,
+            functional_role: inferaModel.functionalRole,
+            service_level: inferaModel.serviceLevel,
+            request_id: requestId
+          }
+        };
+        
+        res.json(openaiResponse);
+      }
+      
+      // Calculate cost (simplified: $0.003 per 1K input tokens, $0.015 per 1K output tokens)
+      const costCents = Math.ceil((inputTokens * 0.3 + outputTokens * 1.5) / 100);
+      const responseTimeMs = Date.now() - startTime;
+      
+      // Log usage
+      await db.insert(inferaApiUsageLogs).values({
+        apiKeyId: apiKeyRecord.id,
+        modelId: inferaModel.id,
+        requestId,
+        endpoint: '/v1/chat/completions',
+        method: 'POST',
+        statusCode: 200,
+        promptTokens: inputTokens,
+        completionTokens: outputTokens,
+        totalTokens: inputTokens + outputTokens,
+        costCents,
+        latencyMs: responseTimeMs,
+        actualBackendModel: backendModelId,
+      });
+      
+      // Update API key stats
+      await db.update(inferaApiKeys)
+        .set({
+          totalRequests: sql`${inferaApiKeys.totalRequests} + 1`,
+          totalTokens: sql`${inferaApiKeys.totalTokens} + ${inputTokens + outputTokens}`,
+          totalCostCents: sql`${inferaApiKeys.totalCostCents} + ${costCents}`,
+          currentMonthSpendCents: sql`${inferaApiKeys.currentMonthSpendCents} + ${costCents}`,
+        })
+        .where(eq(inferaApiKeys.id, apiKeyRecord.id));
+      
+      // Update model stats
+      await db.update(inferaIntelligenceModels)
+        .set({
+          totalRequests: sql`${inferaIntelligenceModels.totalRequests} + 1`,
+          totalTokens: sql`${inferaIntelligenceModels.totalTokens} + ${inputTokens + outputTokens}`,
+          averageResponseTime: sql`(COALESCE(${inferaIntelligenceModels.averageResponseTime}, 0) * ${inferaIntelligenceModels.totalRequests} + ${responseTimeMs}) / (${inferaIntelligenceModels.totalRequests} + 1)`,
+          lastUsedAt: new Date(),
+        })
+        .where(eq(inferaIntelligenceModels.id, inferaModel.id));
+      
+    } catch (error: any) {
+      console.error('INFERA chat completion error:', error);
+      
+      // Log failed request
+      try {
+        const apiKeyRecord = (req as any).inferaApiKey;
+        if (apiKeyRecord) {
+          await db.insert(inferaApiUsageLogs).values({
+            apiKeyId: apiKeyRecord.id,
+            requestId,
+            endpoint: '/v1/chat/completions',
+            method: 'POST',
+            statusCode: error.status || 500,
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+            costCents: 0,
+            latencyMs: Date.now() - startTime,
+            errorMessage: error.message,
+            errorCode: error.code || 'internal_error',
+          });
+        }
+      } catch (logError) {
+        console.error('Failed to log error:', logError);
+      }
+      
+      res.status(error.status || 500).json({
+        error: {
+          message: error.message || 'An error occurred during chat completion',
+          type: error.type || 'server_error',
+          code: error.code || 'internal_error'
+        }
+      });
+    }
+  });
+
+  // Embeddings endpoint (future expansion)
+  app.post("/v1/embeddings", authenticateInferaApiKey, async (req, res) => {
+    res.status(501).json({
+      error: {
+        message: 'Embeddings endpoint coming soon',
+        type: 'not_implemented',
+        code: 'feature_not_available'
+      }
+    });
+  });
+
+  // INFERA API health check
+  app.get("/v1/health", (req, res) => {
+    res.json({
+      status: 'healthy',
+      service: 'INFERA Intelligence API',
+      version: '1.0.0',
+      timestamp: new Date().toISOString()
+    });
+  });
+
   // Get data regions - REAL DATA from database
   app.get("/api/sovereign/data-regions", requireAuth, requireSovereign, async (req, res) => {
     try {
