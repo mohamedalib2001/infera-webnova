@@ -1299,7 +1299,7 @@ export function SovereignIndicator() {
   const [employeeMode, setEmployeeMode] = useState<'all' | 'specific'>('specific');
   const [selectedEmployees, setSelectedEmployees] = useState<number[]>([]);
   const [analysis, setAnalysis] = useState<FullAnalysis | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(true);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const analysisInProgress = useRef(false);
   
   // Fetch INFERA Engine employees only (not subscribers)
@@ -1493,7 +1493,7 @@ export function SovereignIndicator() {
           
           {/* Content */}
           <ScrollArea className="h-[450px]">
-            {isAnalyzing ? (
+            {isAnalyzing && !analysis ? (
               <div className="flex flex-col items-center justify-center py-16 text-white/70">
                 <RefreshCw className="w-8 h-8 animate-spin mb-4" />
                 <p className="text-sm">{t.analyzing}</p>
