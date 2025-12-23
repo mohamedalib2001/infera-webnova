@@ -10584,17 +10584,17 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
       try {
         const domains = await db.select().from(sovereignComplianceDomains);
         if (domains.length > 0) {
-          const auditLogs = await db.select().from(auditLogsTable).limit(200);
-          const users = await db.select().from(usersTable);
-          const projects = await db.select().from(projectsTable).limit(50);
+          const fetchedAuditLogs = await db.select().from(auditLogs).limit(200);
+          const fetchedUsers = await db.select().from(users);
+          const fetchedProjects = await db.select().from(projects).limit(50);
           
           const calculateDomainScore = (code: string): number => {
             switch (code) {
-              case 'cybersecurity': return auditLogs.length > 50 ? 92 : auditLogs.length > 20 ? 88 : 80;
+              case 'cybersecurity': return fetchedAuditLogs.length > 50 ? 92 : fetchedAuditLogs.length > 20 ? 88 : 80;
               case 'data_protection': return 90;
               case 'digital_sovereignty': return 95;
-              case 'business_continuity': return Math.min(95, 80 + Math.floor(projects.length / 2));
-              case 'digital_governance': return auditLogs.length > 100 ? 90 : auditLogs.length > 50 ? 85 : 75;
+              case 'business_continuity': return Math.min(95, 80 + Math.floor(fetchedProjects.length / 2));
+              case 'digital_governance': return fetchedAuditLogs.length > 100 ? 90 : fetchedAuditLogs.length > 50 ? 85 : 75;
               case 'ai_compliance': return 85;
               case 'digital_safety': return 92;
               case 'infrastructure_ops': return process.uptime() > 86400 ? 98 : process.uptime() > 3600 ? 95 : 90;

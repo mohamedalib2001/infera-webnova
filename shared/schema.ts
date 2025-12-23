@@ -1928,6 +1928,202 @@ export const AI_CAPABILITIES = {
 
 export type AiCapabilityCode = keyof typeof AI_CAPABILITIES;
 
+// ============================================================================
+// DYNAMIC CONFIGURATION SYSTEM - 100% Dynamic Control (0% Hardcoded)
+// ============================================================================
+
+// Platform Settings - All platform configurations stored dynamically
+export const platformSettings = pgTable("platform_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  category: text("category").notNull(), // general, branding, security, ai, deployment, notifications, billing
+  key: text("key").notNull(),
+  value: text("value").notNull(),
+  valueType: text("value_type").notNull().default("string"), // string, number, boolean, json, array
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  isSystemLocked: boolean("is_system_locked").notNull().default(false), // Cannot be modified by non-owners
+  isVisible: boolean("is_visible").notNull().default(true),
+  modifiedBy: varchar("modified_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPlatformSettingSchema = createInsertSchema(platformSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertPlatformSetting = z.infer<typeof insertPlatformSettingSchema>;
+export type PlatformSetting = typeof platformSettings.$inferSelect;
+
+// Dynamic Features - Feature flags and toggles controlled by owner
+export const dynamicFeatures = pgTable("dynamic_features", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: text("code").notNull().unique(), // Feature identifier
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  category: text("category").notNull(), // ai, security, ui, integration, deployment, etc.
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  isOwnerOnly: boolean("is_owner_only").notNull().default(false), // Only visible to owner
+  isBeta: boolean("is_beta").notNull().default(false),
+  rolloutPercentage: integer("rollout_percentage").notNull().default(100), // 0-100 for gradual rollout
+  dependencies: jsonb("dependencies").$type<string[]>().default([]), // Other feature codes this depends on
+  config: jsonb("config").$type<Record<string, any>>().default({}), // Feature-specific configuration
+  modifiedBy: varchar("modified_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertDynamicFeatureSchema = createInsertSchema(dynamicFeatures).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertDynamicFeature = z.infer<typeof insertDynamicFeatureSchema>;
+export type DynamicFeature = typeof dynamicFeatures.$inferSelect;
+
+// Dynamic Pages - Page configurations controlled by owner
+export const dynamicPages = pgTable("dynamic_pages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  pathname: text("pathname").notNull().unique(), // e.g., "/dashboard", "/owner/staff"
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  isOwnerOnly: boolean("is_owner_only").notNull().default(false),
+  isSovereignOnly: boolean("is_sovereign_only").notNull().default(false),
+  requiredRole: text("required_role"), // null means public, or: user, admin, sovereign, owner
+  category: text("category").notNull(), // dashboard, settings, ai, deployment, etc.
+  icon: text("icon"), // Lucide icon name
+  sortOrder: integer("sort_order").notNull().default(0),
+  parentPath: text("parent_path"), // For nested navigation
+  // Dynamic content settings
+  dynamicScore: integer("dynamic_score").notNull().default(100), // 0-100, how dynamic the page is
+  contentSource: text("content_source").notNull().default("database"), // database, api, static, hybrid
+  cacheStrategy: text("cache_strategy").notNull().default("realtime"), // realtime, cached, static
+  // Page-specific config
+  config: jsonb("config").$type<Record<string, any>>().default({}),
+  metadata: jsonb("metadata").$type<Record<string, any>>().default({}),
+  modifiedBy: varchar("modified_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertDynamicPageSchema = createInsertSchema(dynamicPages).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertDynamicPage = z.infer<typeof insertDynamicPageSchema>;
+export type DynamicPage = typeof dynamicPages.$inferSelect;
+
+// Dynamic Components - UI components controlled by owner
+export const dynamicComponents = pgTable("dynamic_components", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: text("code").notNull().unique(), // Component identifier
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  type: text("type").notNull(), // widget, card, panel, modal, form, list, chart
+  category: text("category").notNull(), // navigation, dashboard, forms, ai, etc.
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  isOwnerOnly: boolean("is_owner_only").notNull().default(false),
+  // Configuration
+  props: jsonb("props").$type<Record<string, any>>().default({}),
+  styles: jsonb("styles").$type<Record<string, any>>().default({}),
+  layout: jsonb("layout").$type<{ position?: string; grid?: any; flex?: any }>().default({}),
+  dataSource: text("data_source"), // API endpoint or query
+  refreshInterval: integer("refresh_interval").default(0), // 0 = no auto-refresh
+  modifiedBy: varchar("modified_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertDynamicComponentSchema = createInsertSchema(dynamicComponents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertDynamicComponent = z.infer<typeof insertDynamicComponentSchema>;
+export type DynamicComponent = typeof dynamicComponents.$inferSelect;
+
+// Dynamic API Endpoints - API configurations controlled by owner
+export const dynamicApiEndpoints = pgTable("dynamic_api_endpoints", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  path: text("path").notNull().unique(), // e.g., "/api/custom/reports"
+  method: text("method").notNull().default("GET"), // GET, POST, PUT, DELETE, PATCH
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  description: text("description"),
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  isPublic: boolean("is_public").notNull().default(false),
+  requiredRole: text("required_role"), // null = any authenticated, or: user, admin, sovereign, owner
+  rateLimit: integer("rate_limit").default(100), // requests per minute
+  // Dynamic query configuration
+  queryType: text("query_type").notNull().default("select"), // select, insert, update, delete, custom
+  tableName: text("table_name"), // Target table for CRUD operations
+  allowedFields: jsonb("allowed_fields").$type<string[]>().default([]),
+  filters: jsonb("filters").$type<Record<string, any>>().default({}),
+  transformations: jsonb("transformations").$type<Record<string, any>>().default({}),
+  modifiedBy: varchar("modified_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertDynamicApiEndpointSchema = createInsertSchema(dynamicApiEndpoints).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertDynamicApiEndpoint = z.infer<typeof insertDynamicApiEndpointSchema>;
+export type DynamicApiEndpoint = typeof dynamicApiEndpoints.$inferSelect;
+
+// Dynamic Workflows - Business logic controlled by owner
+export const dynamicWorkflows = pgTable("dynamic_workflows", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: text("code").notNull().unique(),
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  description: text("description"),
+  category: text("category").notNull(), // onboarding, billing, notifications, ai, etc.
+  trigger: text("trigger").notNull(), // event, schedule, manual, api
+  triggerConfig: jsonb("trigger_config").$type<Record<string, any>>().default({}),
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  isAutonomous: boolean("is_autonomous").notNull().default(false), // Can run without approval
+  steps: jsonb("steps").$type<Array<{
+    id: string;
+    type: string;
+    action: string;
+    config: Record<string, any>;
+    conditions?: Record<string, any>;
+    onSuccess?: string;
+    onFailure?: string;
+  }>>().default([]),
+  modifiedBy: varchar("modified_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertDynamicWorkflowSchema = createInsertSchema(dynamicWorkflows).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertDynamicWorkflow = z.infer<typeof insertDynamicWorkflowSchema>;
+export type DynamicWorkflow = typeof dynamicWorkflows.$inferSelect;
+
+// ============================================================================
+
 // Sovereign Commands - High-level directives from Owner
 export const sovereignCommands = pgTable("sovereign_commands", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
