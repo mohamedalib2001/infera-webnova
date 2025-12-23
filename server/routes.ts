@@ -21706,12 +21706,22 @@ export function registerConversationRoutes(app: Express, requireAuth: any) {
       
       // Filter resources by user role
       const userRole = user?.role || 'free';
-      const roleHierarchy = ['free', 'basic', 'pro', 'enterprise', 'sovereign', 'admin', 'owner'];
-      const userRoleIndex = roleHierarchy.indexOf(userRole);
+      // Owner and sovereign can see all resources
+      const isOwnerOrSovereign = userRole === 'owner' || userRole === 'sovereign';
       
       const accessibleResources = resources
         .filter(r => {
-          const requiredIndex = roleHierarchy.indexOf(r.requiredRole || 'free');
+          // Owner and sovereign see everything
+          if (isOwnerOrSovereign) return true;
+          // Role hierarchy for permission checking
+          const roleHierarchy = ['free', 'basic', 'pro', 'enterprise', 'admin'];
+          const userRoleIndex = roleHierarchy.indexOf(userRole);
+          const requiredRole = r.requiredRole || 'free';
+          // Special roles that need exact match
+          if (['owner', 'sovereign', 'finance_admin'].includes(requiredRole)) {
+            return userRole === requiredRole;
+          }
+          const requiredIndex = roleHierarchy.indexOf(requiredRole);
           return userRoleIndex >= requiredIndex;
         })
         .map(transformResource);
