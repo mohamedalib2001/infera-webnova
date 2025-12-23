@@ -95,6 +95,7 @@ import SovereignCompliance from "@/pages/sovereign-compliance";
 import StaffManagement from "@/pages/staff-management";
 import SovereignPermissions from "@/pages/sovereign-permissions";
 import OwnerAICapabilityControl from "@/pages/owner/ai-capability-control";
+import DynamicControlPage from "@/pages/owner/dynamic-control";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
@@ -147,6 +148,7 @@ function AuthenticatedRouter() {
       <Route path="/owner/integrations" component={OwnerIntegrations} />
       <Route path="/owner/ai-sovereignty" component={OwnerAISovereignty} />
       <Route path="/owner/ai-capability-control" component={OwnerAICapabilityControl} />
+      <Route path="/owner/dynamic-control" component={DynamicControlPage} />
       <Route path="/owner/email-settings" component={OwnerEmailSettings} />
       <Route path="/owner/ai-settings" component={AISettings} />
       <Route path="/owner/ai-model-registry" component={AIModelRegistry} />
