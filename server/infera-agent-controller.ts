@@ -15,6 +15,21 @@ import * as path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { EventEmitter } from "events";
+import {
+  isPathSafe as checkPathSafe,
+  governanceMiddleware,
+  logGovernanceAction,
+  getAgentState,
+  killAgent,
+  disableAutonomousMode,
+  reactivateAgent,
+  getGovernanceLogs,
+  evaluateExecution,
+  SOVEREIGNTY,
+  OFFICIAL_STATEMENT,
+  type AgentState,
+  type GovernanceLog,
+} from "./infra-agent-governance";
 
 const execAsync = promisify(exec);
 
@@ -70,6 +85,19 @@ export class InferaAgentController extends EventEmitter {
   }
 
   private isPathSafe(targetPath: string): boolean {
+    // Use governance layer for path validation
+    const governanceCheck = checkPathSafe(targetPath);
+    if (!governanceCheck.safe) {
+      logGovernanceAction({
+        action: "FILE_ACCESS_BLOCKED",
+        reason: governanceCheck.reason || "Path validation failed",
+        result: "blocked",
+        details: { path: targetPath },
+      });
+      return false;
+    }
+    
+    // Additional local check
     const resolved = path.resolve(this.projectRoot, targetPath);
     return resolved.startsWith(this.projectRoot) && !targetPath.includes("..");
   }
@@ -324,13 +352,53 @@ export class InferaAgentController extends EventEmitter {
   }
 
   private async toolTerminal(command: string): Promise<ToolResult> {
+    // Use governance layer for execution validation
+    const execEvaluation = evaluateExecution({
+      operation: "execute_command",
+      command,
+      userId: "agent",
+      reason: "Terminal command execution",
+    });
+    
+    if (!execEvaluation.approved) {
+      logGovernanceAction({
+        action: "TERMINAL_COMMAND_BLOCKED",
+        reason: execEvaluation.reason,
+        result: execEvaluation.requiresConfirmation ? "pending" : "blocked",
+        details: { command, dangerLevel: execEvaluation.dangerLevel },
+      });
+      
+      if (execEvaluation.requiresConfirmation) {
+        return { 
+          success: false, 
+          output: null, 
+          error: `Command requires human confirmation: ${execEvaluation.reason}` 
+        };
+      }
+      return { success: false, output: null, error: execEvaluation.reason };
+    }
+
+    // Additional legacy blocklist (kept for defense in depth)
     const blockedCommands = ["rm -rf /", "sudo rm", ":(){ :|:& };:", "mkfs", "dd if="];
     const isBlocked = blockedCommands.some(bc => command.includes(bc));
     if (isBlocked) {
+      logGovernanceAction({
+        action: "TERMINAL_COMMAND_BLOCKED",
+        reason: "Legacy blocklist match",
+        result: "blocked",
+        details: { command },
+      });
       return { success: false, output: null, error: "Command blocked for security" };
     }
 
     try {
+      logGovernanceAction({
+        action: "TERMINAL_COMMAND_EXECUTED",
+        reason: "Command approved and executed",
+        result: "success",
+        details: { command },
+      });
+      
       const { stdout, stderr } = await execAsync(command, {
         cwd: this.projectRoot,
         timeout: 30000,
@@ -1025,6 +1093,69 @@ export class InferaAgentController extends EventEmitter {
       running: true, // Will be replaced with actual workflow monitoring
       uptime: process.uptime(),
     };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🛡️ Governance API Methods
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Get governance status
+  getGovernanceStatus(): { 
+    agentState: AgentState; 
+    sovereignty: typeof SOVEREIGNTY;
+    officialStatement: string;
+  } {
+    return {
+      agentState: getAgentState(),
+      sovereignty: SOVEREIGNTY,
+      officialStatement: OFFICIAL_STATEMENT,
+    };
+  }
+
+  // Get governance logs
+  getGovernanceLogs(limit = 100): GovernanceLog[] {
+    return getGovernanceLogs(limit);
+  }
+
+  // Kill switch - Owner only
+  activateKillSwitch(userId: string, userRole: string, reason: string): AgentState {
+    if (!SOVEREIGNTY.canOverrideAgent(userRole)) {
+      logGovernanceAction({
+        action: "KILL_SWITCH_DENIED",
+        reason: "Unauthorized kill switch attempt",
+        result: "blocked",
+        userId,
+      });
+      throw new Error("Only owner can activate kill switch");
+    }
+    
+    return killAgent(userId, reason);
+  }
+
+  // Disable autonomous mode - Owner only
+  disableAutonomous(userId: string, userRole: string): AgentState {
+    if (!SOVEREIGNTY.canOverrideAgent(userRole)) {
+      throw new Error("Only owner can disable autonomous mode");
+    }
+    
+    return disableAutonomousMode(userId);
+  }
+
+  // Reactivate agent - Owner only
+  reactivate(userId: string, userRole: string): AgentState {
+    if (!SOVEREIGNTY.canOverrideAgent(userRole)) {
+      throw new Error("Only owner can reactivate agent");
+    }
+    
+    return reactivateAgent(userId);
+  }
+
+  // Validate operation before execution
+  validateOperation(operation: string, userId: string, details?: Record<string, unknown>): { 
+    allowed: boolean; 
+    reason: string 
+  } {
+    return governanceMiddleware(operation, userId, details);
   }
 }
 

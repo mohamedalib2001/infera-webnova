@@ -4453,6 +4453,112 @@ export async function registerRoutes(
     }
   });
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🛡️ INFRA Agent Governance Routes - طبقة الحوكمة السيادية
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Get governance status
+  app.get("/api/infera/agent/governance/status", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const status = inferaAgent.getGovernanceStatus();
+      res.json(status);
+    } catch (error) {
+      console.error("Failed to get governance status:", error);
+      res.status(500).json({ error: "Failed to get governance status" });
+    }
+  });
+
+  // Get governance logs
+  app.get("/api/infera/agent/governance/logs", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const logs = inferaAgent.getGovernanceLogs(limit);
+      res.json({ logs });
+    } catch (error) {
+      console.error("Failed to get governance logs:", error);
+      res.status(500).json({ error: "Failed to get governance logs" });
+    }
+  });
+
+  // Kill switch - Owner only (مفتاح الإيقاف الكامل)
+  app.post("/api/infera/agent/governance/kill", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { reason } = req.body;
+      const userId = req.session?.userId || "unknown";
+      const userRole = req.session?.user?.role || "user";
+      
+      if (!reason) {
+        return res.status(400).json({ error: "Reason is required for kill switch" });
+      }
+      
+      const state = inferaAgent.activateKillSwitch(userId, userRole, reason);
+      res.json({ 
+        success: true, 
+        message: "Agent killed successfully | تم إيقاف الوكيل بنجاح",
+        state 
+      });
+    } catch (error: any) {
+      console.error("Kill switch failed:", error);
+      res.status(403).json({ error: error.message });
+    }
+  });
+
+  // Disable autonomous mode - Owner only (تعطيل الوضع المستقل)
+  app.post("/api/infera/agent/governance/disable-autonomous", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const userId = req.session?.userId || "unknown";
+      const userRole = req.session?.user?.role || "user";
+      
+      const state = inferaAgent.disableAutonomous(userId, userRole);
+      res.json({ 
+        success: true, 
+        message: "Autonomous mode disabled | تم تعطيل الوضع المستقل",
+        state 
+      });
+    } catch (error: any) {
+      console.error("Disable autonomous failed:", error);
+      res.status(403).json({ error: error.message });
+    }
+  });
+
+  // Reactivate agent - Owner only (إعادة تنشيط الوكيل)
+  app.post("/api/infera/agent/governance/reactivate", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const userId = req.session?.userId || "unknown";
+      const userRole = req.session?.user?.role || "user";
+      
+      const state = inferaAgent.reactivate(userId, userRole);
+      res.json({ 
+        success: true, 
+        message: "Agent reactivated | تم إعادة تنشيط الوكيل",
+        state 
+      });
+    } catch (error: any) {
+      console.error("Reactivate agent failed:", error);
+      res.status(403).json({ error: error.message });
+    }
+  });
+
+  // Validate operation (التحقق من العملية قبل التنفيذ)
+  app.post("/api/infera/agent/governance/validate", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { operation, details } = req.body;
+      const userId = req.session?.userId || "unknown";
+      
+      if (!operation) {
+        return res.status(400).json({ error: "Operation is required" });
+      }
+      
+      const result = inferaAgent.validateOperation(operation, userId, details);
+      res.json(result);
+    } catch (error) {
+      console.error("Validate operation failed:", error);
+      res.status(500).json({ error: "Validation failed" });
+    }
+  });
+
+  console.log("[INFRA Agent Governance] Routes registered | تم تسجيل مسارات الحوكمة");
+
   // Get data regions - REAL DATA from database
   app.get("/api/sovereign/data-regions", requireAuth, requireSovereign, async (req, res) => {
     try {

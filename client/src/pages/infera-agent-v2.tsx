@@ -144,8 +144,13 @@ export default function InferaAgentV2() {
   const [isThinking, setIsThinking] = useState(false);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [actions, setActions] = useState<ActionLog[]>([]);
-  const [currentFile, setCurrentFile] = useState<string | null>(null);
-  const [fileContent, setFileContent] = useState("");
+  
+  // Multi-tab editor state
+  const [openTabs, setOpenTabs] = useState<{ path: string; content: string; isDirty: boolean }[]>([]);
+  const [activeTabIndex, setActiveTabIndex] = useState<number>(-1);
+  const currentFile = activeTabIndex >= 0 ? openTabs[activeTabIndex]?.path : null;
+  const fileContent = activeTabIndex >= 0 ? openTabs[activeTabIndex]?.content : "";
+  
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(["."]));
   const [previewUrl, setPreviewUrl] = useState("");
   const [consoleOutput, setConsoleOutput] = useState<string[]>([]);
@@ -214,10 +219,44 @@ export default function InferaAgentV2() {
       return res.json();
     },
     onSuccess: (data, path) => {
-      setCurrentFile(path);
-      setFileContent(data.content || "");
+      // Check if tab already exists
+      const existingIndex = openTabs.findIndex((tab) => tab.path === path);
+      if (existingIndex >= 0) {
+        setActiveTabIndex(existingIndex);
+      } else {
+        // Add new tab
+        setOpenTabs((prev) => [...prev, { path, content: data.content || "", isDirty: false }]);
+        setActiveTabIndex(openTabs.length);
+      }
     },
   });
+
+  // Tab management functions
+  const closeTab = (index: number) => {
+    const tab = openTabs[index];
+    if (tab?.isDirty) {
+      if (!confirm(language === "ar" ? "هل تريد إغلاق الملف بدون حفظ؟" : "Close file without saving?")) {
+        return;
+      }
+    }
+    setOpenTabs((prev) => prev.filter((_, i) => i !== index));
+    if (activeTabIndex === index) {
+      setActiveTabIndex(Math.max(0, index - 1));
+    } else if (activeTabIndex > index) {
+      setActiveTabIndex(activeTabIndex - 1);
+    }
+    if (openTabs.length === 1) {
+      setActiveTabIndex(-1);
+    }
+  };
+
+  const updateTabContent = (content: string) => {
+    if (activeTabIndex >= 0) {
+      setOpenTabs((prev) =>
+        prev.map((tab, i) => (i === activeTabIndex ? { ...tab, content, isDirty: true } : tab))
+      );
+    }
+  };
 
   const fileSaveMutation = useMutation({
     mutationFn: async ({ path, content }: { path: string; content: string }) => {
@@ -331,13 +370,34 @@ export default function InferaAgentV2() {
         <div className="flex items-center gap-2">
           <Button
             size="sm"
+            variant={workflowRunning ? "destructive" : "default"}
+            onClick={() => {
+              setWorkflowRunning(!workflowRunning);
+              toast({ 
+                title: workflowRunning 
+                  ? (language === "ar" ? "تم إيقاف سير العمل" : "Workflow stopped")
+                  : (language === "ar" ? "تم بدء سير العمل" : "Workflow started")
+              });
+            }}
+            data-testid="button-workflow-toggle"
+          >
+            {workflowRunning ? <Square className="w-4 h-4 me-1" /> : <Play className="w-4 h-4 me-1" />}
+            {workflowRunning ? t.stop : t.start}
+          </Button>
+          <Button
+            size="sm"
             variant="outline"
             onClick={() => setLanguage(language === "ar" ? "en" : "ar")}
             data-testid="button-language-toggle"
           >
             {language === "ar" ? "EN" : "AR"}
           </Button>
-          <Button size="icon" variant="ghost" onClick={() => setLeftPanelCollapsed(!leftPanelCollapsed)}>
+          <Button 
+            size="icon" 
+            variant="ghost" 
+            onClick={() => setLeftPanelCollapsed(!leftPanelCollapsed)}
+            data-testid="button-panel-toggle"
+          >
             {leftPanelCollapsed ? <PanelLeft className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
           </Button>
         </div>
@@ -469,21 +529,21 @@ export default function InferaAgentV2() {
             <Tabs defaultValue="code" className="flex-1 flex flex-col">
               <div className="flex items-center justify-between px-2 border-b">
                 <TabsList className="bg-transparent h-10">
-                  <TabsTrigger value="code" className="gap-1 data-[state=active]:bg-muted">
+                  <TabsTrigger value="code" className="gap-1 data-[state=active]:bg-muted" data-testid="tab-code">
                     <Code className="w-4 h-4" />
                     {t.code}
                   </TabsTrigger>
-                  <TabsTrigger value="preview" className="gap-1 data-[state=active]:bg-muted">
+                  <TabsTrigger value="preview" className="gap-1 data-[state=active]:bg-muted" data-testid="tab-preview">
                     <Eye className="w-4 h-4" />
                     {t.preview}
                   </TabsTrigger>
-                  <TabsTrigger value="console" className="gap-1 data-[state=active]:bg-muted">
+                  <TabsTrigger value="console" className="gap-1 data-[state=active]:bg-muted" data-testid="tab-console">
                     <Terminal className="w-4 h-4" />
                     {t.console}
                   </TabsTrigger>
                 </TabsList>
                 <div className="flex items-center gap-1">
-                  <Button size="sm" variant="ghost" onClick={() => refetchStructure()}>
+                  <Button size="sm" variant="ghost" onClick={() => refetchStructure()} data-testid="button-refresh-files">
                     <RefreshCw className="w-4 h-4" />
                   </Button>
                 </div>
@@ -506,21 +566,50 @@ export default function InferaAgentV2() {
                   <ResizableHandle />
                   <ResizablePanel defaultSize={75}>
                     <div className="h-full flex flex-col">
-                      {currentFile && (
-                        <div className="flex items-center justify-between px-3 py-1 border-b bg-muted/30">
-                          <div className="flex items-center gap-2">
-                            <FileCode className="w-4 h-4 text-muted-foreground" />
-                            <span className="text-sm font-mono">{currentFile}</span>
+                      {openTabs.length > 0 && (
+                        <div className="flex items-center border-b bg-muted/30 overflow-x-auto">
+                          <div className="flex items-center flex-1">
+                            {openTabs.map((tab, index) => (
+                              <div
+                                key={tab.path}
+                                className={`flex items-center gap-1 px-3 py-1.5 border-e cursor-pointer text-sm ${
+                                  activeTabIndex === index ? "bg-background" : "hover-elevate"
+                                }`}
+                                onClick={() => setActiveTabIndex(index)}
+                                data-testid={`tab-file-${index}`}
+                              >
+                                <FileCode className="w-3 h-3 text-muted-foreground" />
+                                <span className="truncate max-w-32">{tab.path.split("/").pop()}</span>
+                                {tab.isDirty && <span className="text-primary">*</span>}
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="w-4 h-4 p-0 ms-1"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    closeTab(index);
+                                  }}
+                                  data-testid={`button-close-tab-${index}`}
+                                >
+                                  <span className="text-xs">x</span>
+                                </Button>
+                              </div>
+                            ))}
                           </div>
                           <Button
                             size="sm"
                             variant="ghost"
+                            className="mx-1"
                             onClick={() => {
                               if (currentFile) {
                                 fileSaveMutation.mutate({ path: currentFile, content: fileContent });
+                                setOpenTabs((prev) =>
+                                  prev.map((tab, i) => (i === activeTabIndex ? { ...tab, isDirty: false } : tab))
+                                );
                               }
                             }}
-                            disabled={fileSaveMutation.isPending}
+                            disabled={fileSaveMutation.isPending || !currentFile}
+                            data-testid="button-save-file"
                           >
                             {fileSaveMutation.isPending ? (
                               <Loader2 className="w-4 h-4 animate-spin" />
@@ -547,7 +636,7 @@ export default function InferaAgentV2() {
                                 : "plaintext"
                             }
                             value={fileContent}
-                            onChange={(value) => setFileContent(value || "")}
+                            onChange={(value) => updateTabContent(value || "")}
                             theme="vs-dark"
                             options={{
                               minimap: { enabled: false },
@@ -607,24 +696,64 @@ export default function InferaAgentV2() {
               <TabsContent value="console" className="flex-1 m-0">
                 <div className="h-full flex flex-col bg-zinc-900 text-zinc-100">
                   <div className="flex items-center gap-2 p-2 border-b border-zinc-700">
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="outline" className="text-xs" data-testid="status-workflow">
                       {t.workflowStatus}: {workflowRunning ? t.running : t.stopped}
                     </Badge>
                     <div className="flex-1" />
-                    <Button size="sm" variant="ghost" className="text-zinc-300 hover:text-white">
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="text-zinc-300"
+                      onClick={() => {
+                        setWorkflowRunning(true);
+                        setConsoleOutput(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${language === "ar" ? "بدء التشغيل..." : "Starting..."}`]);
+                      }}
+                      data-testid="button-start-workflow"
+                    >
                       <Play className="w-4 h-4 me-1" />
                       {t.startWorkflow}
                     </Button>
-                    <Button size="sm" variant="ghost" className="text-zinc-300 hover:text-white">
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="text-zinc-300"
+                      onClick={() => {
+                        setWorkflowRunning(false);
+                        setConsoleOutput(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${language === "ar" ? "تم الإيقاف" : "Stopped"}`]);
+                      }}
+                      data-testid="button-stop-workflow"
+                    >
                       <Square className="w-4 h-4 me-1" />
                       {t.stopWorkflow}
                     </Button>
-                    <Button size="sm" variant="ghost" className="text-zinc-300 hover:text-white">
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="text-zinc-300"
+                      onClick={() => {
+                        setConsoleOutput(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${language === "ar" ? "إعادة التشغيل..." : "Restarting..."}`]);
+                        setWorkflowRunning(false);
+                        setTimeout(() => {
+                          setWorkflowRunning(true);
+                          setConsoleOutput(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${language === "ar" ? "تم إعادة التشغيل بنجاح" : "Restarted successfully"}`]);
+                        }, 1000);
+                      }}
+                      data-testid="button-restart-workflow"
+                    >
                       <RotateCcw className="w-4 h-4 me-1" />
                       {t.restartWorkflow}
                     </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-zinc-300"
+                      onClick={() => setConsoleOutput([])}
+                      data-testid="button-clear-console"
+                    >
+                      {language === "ar" ? "مسح" : "Clear"}
+                    </Button>
                   </div>
-                  <ScrollArea className="flex-1 p-3 font-mono text-sm">
+                  <ScrollArea className="flex-1 p-3 font-mono text-sm" data-testid="console-output">
                     {consoleOutput.length > 0 ? (
                       consoleOutput.map((line, i) => (
                         <div key={i} className="text-zinc-300">
