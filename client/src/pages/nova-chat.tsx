@@ -102,6 +102,11 @@ export default function NovaChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isArabic = language === "ar";
 
+  // Handle assistant URL parameter
+  const urlParams = new URLSearchParams(window.location.search);
+  const assistantIdFromUrl = urlParams.get("assistant");
+  const [selectedAssistantId, setSelectedAssistantId] = useState<string | null>(assistantIdFromUrl);
+
   // Fetch sessions
   const { data: sessions = [], isLoading: sessionsLoading } = useQuery<NovaSession[]>({
     queryKey: ["/api/nova/sessions"],
@@ -120,12 +125,19 @@ export default function NovaChat() {
 
   // Create session mutation
   const createSessionMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest("POST", "/api/nova/sessions", { language });
+    mutationFn: async (assistantId?: string) => {
+      return apiRequest("POST", "/api/nova/sessions", { 
+        language,
+        assistantId: assistantId || selectedAssistantId 
+      });
     },
     onSuccess: (data: NovaSession) => {
       setSelectedSessionId(data.id);
       queryClient.invalidateQueries({ queryKey: ["/api/nova/sessions"] });
+      // Clear assistant from URL after session created
+      if (assistantIdFromUrl) {
+        window.history.replaceState({}, '', '/nova');
+      }
     },
   });
 
@@ -194,6 +206,13 @@ export default function NovaChat() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Auto-create session when assistant is selected from URL
+  useEffect(() => {
+    if (assistantIdFromUrl && !selectedSessionId && !createSessionMutation.isPending) {
+      createSessionMutation.mutate(assistantIdFromUrl);
+    }
+  }, [assistantIdFromUrl, selectedSessionId]);
 
   const handleSendMessage = () => {
     if (!messageInput.trim() || !selectedSessionId) return;
@@ -309,7 +328,7 @@ export default function NovaChat() {
             </Dialog>
           </div>
           <Button
-            onClick={() => createSessionMutation.mutate()}
+            onClick={() => createSessionMutation.mutate(undefined)}
             disabled={createSessionMutation.isPending}
             className="w-full"
             data-testid="button-new-session"
@@ -600,7 +619,7 @@ export default function NovaChat() {
               </p>
               <Button
                 size="lg"
-                onClick={() => createSessionMutation.mutate()}
+                onClick={() => createSessionMutation.mutate(undefined)}
                 disabled={createSessionMutation.isPending}
                 data-testid="button-start-conversation"
               >
