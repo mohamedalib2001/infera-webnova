@@ -9,7 +9,10 @@ import { setupAuth } from "./replitAuth";
 import { initStripeSystem } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
 import { paymentRoutes } from "./payment-routes";
-import standaloneAgentApp from "./infera-agent-standalone";
+// Start INFERA Agent on separate port (5001) - truly independent
+import("./infera-agent/index").catch(err => {
+  console.error("[INFERA Agent] Failed to start standalone agent:", err.message);
+});
 
 const app = express();
 const httpServer = createServer(app);
@@ -61,10 +64,9 @@ app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
 app.use('/api/payments', paymentRoutes);
 
-// Mount INFERA Agent Standalone at /agent/*
-// This provides external access to agent capabilities even if WebNova UI is broken
-app.use('/agent', standaloneAgentApp);
-console.log('[INFERA Agent] Standalone routes mounted at /agent/*');
+// Note: INFERA Agent now runs as truly standalone server on port 5001
+// It is NOT mounted here - it operates completely independently
+console.log('[INFERA Agent] Running as standalone server on port 5001');
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
