@@ -10,6 +10,78 @@ import { executeCommand as terminalExecute } from "./terminal-service";
 
 const anthropic = new Anthropic();
 
+// Import Nova permission checking
+import { hasPermission } from "./nova-permissions";
+
+// Tool to permission mapping - simple tools with single permission requirement
+const simpleToolPermissionMap: Record<string, string> = {
+  run_command: "execute_shell",
+  create_file: "create_files",
+  generate_platform: "ai_code_generation",
+  read_database: "db_read",
+  write_database: "db_write",
+  delete_database: "db_delete",
+};
+
+// Language-specific permission mapping for execute_code
+const languagePermissionMap: Record<string, string> = {
+  javascript: "execute_nodejs",
+  typescript: "execute_nodejs",
+  nodejs: "execute_nodejs",
+  python: "execute_python",
+  bash: "execute_shell",
+  shell: "execute_shell",
+};
+
+// Deployment permission mapping based on environment
+const deploymentPermissionMap: Record<string, string> = {
+  development: "deploy_preview",
+  staging: "deploy_preview",
+  production: "deploy_production",
+};
+
+// Check if user has required permission for a tool with context-aware checks
+async function checkToolPermission(
+  userId: string, 
+  toolName: string, 
+  toolInput?: any
+): Promise<{ allowed: boolean; missingPermission?: string }> {
+  
+  // Handle execute_code with language-specific permissions
+  if (toolName === "execute_code") {
+    const language = toolInput?.language?.toLowerCase() || "javascript";
+    const requiredPerm = languagePermissionMap[language];
+    if (!requiredPerm) {
+      return { allowed: false, missingPermission: `execute_${language}` };
+    }
+    const hasP = await hasPermission(userId, requiredPerm);
+    return hasP 
+      ? { allowed: true } 
+      : { allowed: false, missingPermission: requiredPerm };
+  }
+  
+  // Handle deploy_platform with environment-specific permissions
+  if (toolName === "deploy_platform") {
+    const environment = toolInput?.environment?.toLowerCase() || "development";
+    const requiredPerm = deploymentPermissionMap[environment] || "deploy_preview";
+    const hasP = await hasPermission(userId, requiredPerm);
+    return hasP 
+      ? { allowed: true } 
+      : { allowed: false, missingPermission: requiredPerm };
+  }
+  
+  // Handle simple tools with single permission
+  const requiredPermission = simpleToolPermissionMap[toolName];
+  if (!requiredPermission) {
+    return { allowed: true }; // No specific permission required for unknown tools
+  }
+  
+  const hasP = await hasPermission(userId, requiredPermission);
+  return hasP 
+    ? { allowed: true } 
+    : { allowed: false, missingPermission: requiredPermission };
+}
+
 // Nova Tool definitions for Claude function calling
 const novaTools: Anthropic.Tool[] = [
   {
@@ -79,9 +151,20 @@ const novaTools: Anthropic.Tool[] = [
   }
 ];
 
-// Execute Nova tool
+// Execute Nova tool with permission checking
 async function executeNovaTool(toolName: string, toolInput: any, userId: string): Promise<string> {
   try {
+    // Check permission before executing tool - pass toolInput for context-aware checks
+    const permCheck = await checkToolPermission(userId, toolName, toolInput);
+    if (!permCheck.allowed) {
+      return JSON.stringify({
+        success: false,
+        error: `Permission denied: ${permCheck.missingPermission}`,
+        errorAr: `الصلاحية مرفوضة: ${permCheck.missingPermission}`,
+        requiredPermission: permCheck.missingPermission,
+      });
+    }
+    
     switch (toolName) {
       case "execute_code": {
         const result = await sandboxExecutor.execute({

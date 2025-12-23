@@ -1131,6 +1131,7 @@ export function registerNovaPermissionRoutes(app: Express): void {
           ai_orchestration: { name: "AI Orchestrator", nameAr: "منسق الذكاء الاصطناعي", path: "/owner/assistant-governance" },
           blueprint_system: { name: "Blueprint Generator", nameAr: "مولد البلوبرنت", path: "/nova" },
           dynamic_control: { name: "Dynamic Control", nameAr: "التحكم الديناميكي", path: "/owner/dynamic-control" },
+          nova_permissions: { name: "Nova Permissions", nameAr: "صلاحيات نوفا", path: "/owner/nova-permissions" },
           user_management: { name: "User Management", nameAr: "إدارة المستخدمين", path: "/sovereign" },
           infrastructure: { name: "Infrastructure", nameAr: "البنية التحتية", path: "/owner/infrastructure" },
           analytics: { name: "Analytics", nameAr: "التحليلات", path: "/analytics" },

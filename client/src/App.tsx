@@ -97,6 +97,7 @@ import SovereignPermissions from "@/pages/sovereign-permissions";
 import OwnerAICapabilityControl from "@/pages/owner/ai-capability-control";
 import AssistantGovernancePage from "@/pages/owner/assistant-governance";
 import DynamicControlPage from "@/pages/owner/dynamic-control";
+import NovaPermissionsPage from "@/pages/owner/nova-permissions";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
@@ -152,6 +153,7 @@ function AuthenticatedRouter() {
       <Route path="/owner/ai-capability-control" component={OwnerAICapabilityControl} />
       <Route path="/owner/assistant-governance" component={AssistantGovernancePage} />
       <Route path="/owner/dynamic-control" component={DynamicControlPage} />
+      <Route path="/owner/nova-permissions" component={NovaPermissionsPage} />
       <Route path="/owner/email-settings" component={OwnerEmailSettings} />
       <Route path="/owner/ai-settings" component={AISettings} />
       <Route path="/owner/ai-model-registry" component={AIModelRegistry} />
