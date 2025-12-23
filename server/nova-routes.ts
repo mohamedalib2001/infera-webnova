@@ -1358,17 +1358,11 @@ Format as JSON:
       const config = await storage.createDeploymentConfig({
         projectId,
         userId,
-        name: validatedData.name || "Default Config",
-        nameAr: validatedData.nameAr || "الإعداد الافتراضي",
         environment: validatedData.environment || "development",
         provider: validatedData.provider || "hetzner",
-        region: validatedData.region,
-        instanceType: validatedData.instanceType,
-        autoScaling: validatedData.autoScaling,
+        customDomain: validatedData.customDomain,
         minInstances: validatedData.minInstances,
         maxInstances: validatedData.maxInstances,
-        envVars: validatedData.envVars,
-        customDomain: validatedData.customDomain,
         sslEnabled: validatedData.sslEnabled,
         cdnEnabled: validatedData.cdnEnabled,
       });
@@ -1535,17 +1529,11 @@ Format as JSON:
       const config = await storage.createBuildConfig({
         projectId,
         userId,
-        name: validatedData.name || `${validatedData.platform} Build`,
-        nameAr: validatedData.nameAr || `بناء ${validatedData.platform}`,
         platform: validatedData.platform,
+        appName: validatedData.appName || `${validatedData.platform} App`,
+        appNameAr: validatedData.appNameAr,
         version: validatedData.version || "1.0.0",
         bundleId: validatedData.bundleId,
-        appIcon: validatedData.appIcon,
-        splashScreen: validatedData.splashScreen,
-        buildSettings: validatedData.buildSettings,
-        signingConfig: validatedData.signingConfig,
-        targetSdk: validatedData.targetSdk,
-        minimumSdk: validatedData.minimumSdk,
       });
       res.json(config);
     } catch (error: any) {
