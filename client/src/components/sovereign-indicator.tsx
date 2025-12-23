@@ -8,6 +8,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
+import { useRealPageAnalyzer } from "@/hooks/use-real-page-analyzer";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
@@ -1343,28 +1344,46 @@ export function SovereignIndicator() {
   // Check if user is sovereign (owner or sovereign role)
   const isSovereign = user?.role === 'owner' || user?.role === 'sovereign';
   
-  // Run analysis with real API
+  // Use real page analyzer for actual DOM analysis
+  const { analysis: realPageAnalysis, isAnalyzing: isRealAnalyzing, refresh: refreshRealAnalysis } = useRealPageAnalyzer();
+  
+  // Run analysis with real API using real DOM data
   useEffect(() => {
     if (!isSovereign || !isAuthenticated) return;
+    if (!realPageAnalysis) return;
     
     let cancelled = false;
     
     const fetchAnalysis = async () => {
       setIsAnalyzing(true);
       
-      const services = pageServicesMap[location] || pageServicesMap['/'] || [];
-      const pathHash = location.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 10;
-      const loadTime = 800 + (services.length * 50) + (pathHash * 30);
+      // Use real services detected from DOM instead of hardcoded map
+      const realServices = realPageAnalysis.services.map(s => ({
+        name: s.name,
+        nameAr: s.nameAr,
+        type: s.type,
+      }));
       
       try {
         const result = await apiRequest("POST", "/api/sovereign/analyze-page", {
           pathname: location,
-          services: services,
+          services: realServices,
           pageMetrics: {
-            loadTime: loadTime,
-            componentCount: document.querySelectorAll('[data-testid]').length,
-            hasAI: location.includes('ai') || location.includes('nova') || location.includes('builder'),
-            hasRealTimeData: location.includes('collaboration') || location.includes('builder'),
+            loadTime: realPageAnalysis.metrics.loadTime,
+            componentCount: realPageAnalysis.metrics.componentCount,
+            interactiveElements: realPageAnalysis.metrics.interactiveElements,
+            formCount: realPageAnalysis.metrics.formCount,
+            apiCallsDetected: realPageAnalysis.metrics.apiCallsDetected,
+            resourceCount: realPageAnalysis.metrics.resourceCount,
+            memoryUsage: realPageAnalysis.metrics.memoryUsage,
+            hasAI: realPageAnalysis.detectedFeatures.hasAI,
+            hasAutomation: realPageAnalysis.detectedFeatures.hasAutomation,
+            hasRealTimeData: realPageAnalysis.detectedFeatures.hasRealTimeData,
+            hasCharts: realPageAnalysis.detectedFeatures.hasCharts,
+            hasTables: realPageAnalysis.detectedFeatures.hasTables,
+            hasEditors: realPageAnalysis.detectedFeatures.hasEditors,
+            firstContentfulPaint: realPageAnalysis.metrics.firstContentfulPaint,
+            timeToInteractive: realPageAnalysis.metrics.timeToInteractive,
           },
         });
         
@@ -1386,37 +1405,61 @@ export function SovereignIndicator() {
     fetchAnalysis();
     
     return () => { cancelled = true; };
-  }, [location, isSovereign, isAuthenticated]);
+  }, [location, isSovereign, isAuthenticated, realPageAnalysis]);
   
-  // Manual refresh function
+  // Manual refresh function - triggers real DOM re-analysis and awaits completion
   const runAnalysis = useCallback(async () => {
     if (!isSovereign || !isAuthenticated) return;
     
     setIsAnalyzing(true);
     
-    const services = pageServicesMap[location] || pageServicesMap['/'] || [];
-    const pathHash = location.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 10;
-    const loadTime = 800 + (services.length * 50) + (pathHash * 30);
-    
     try {
+      // Await the real DOM analysis to complete
+      const freshAnalysis = await refreshRealAnalysis();
+      
+      if (!freshAnalysis) {
+        setIsAnalyzing(false);
+        return;
+      }
+      
+      const realServices = freshAnalysis.services.map(s => ({
+        name: s.name,
+        nameAr: s.nameAr,
+        type: s.type,
+      }));
+      
       const result = await apiRequest("POST", "/api/sovereign/analyze-page", {
         pathname: location,
-        services: services,
+        services: realServices,
         pageMetrics: {
-          loadTime: loadTime,
-          componentCount: document.querySelectorAll('[data-testid]').length,
-          hasAI: location.includes('ai') || location.includes('nova') || location.includes('builder'),
-          hasRealTimeData: location.includes('collaboration') || location.includes('builder'),
+          loadTime: freshAnalysis.metrics.loadTime,
+          componentCount: freshAnalysis.metrics.componentCount,
+          interactiveElements: freshAnalysis.metrics.interactiveElements,
+          formCount: freshAnalysis.metrics.formCount,
+          apiCallsDetected: freshAnalysis.metrics.apiCallsDetected,
+          resourceCount: freshAnalysis.metrics.resourceCount,
+          memoryUsage: freshAnalysis.metrics.memoryUsage,
+          totalTransferSize: freshAnalysis.metrics.totalTransferSize,
+          largestContentfulPaint: freshAnalysis.metrics.largestContentfulPaint,
+          hasAI: freshAnalysis.detectedFeatures.hasAI,
+          hasAutomation: freshAnalysis.detectedFeatures.hasAutomation,
+          hasRealTimeData: freshAnalysis.detectedFeatures.hasRealTimeData,
+          hasCharts: freshAnalysis.detectedFeatures.hasCharts,
+          hasTables: freshAnalysis.detectedFeatures.hasTables,
+          hasEditors: freshAnalysis.detectedFeatures.hasEditors,
+          firstContentfulPaint: freshAnalysis.metrics.firstContentfulPaint,
+          timeToInteractive: freshAnalysis.metrics.timeToInteractive,
         },
       });
       setAnalysis(result);
-    } catch {
+    } catch (err) {
+      console.debug('[Sovereign] Manual refresh error:', err);
       const result = analyzePageIntelligently(location, 0);
       setAnalysis(result);
     } finally {
       setIsAnalyzing(false);
     }
-  }, [location, isSovereign, isAuthenticated]);
+  }, [location, isSovereign, isAuthenticated, refreshRealAnalysis]);
   
   // Don't render if not sovereign
   if (!isAuthenticated || !isSovereign) {

@@ -10983,8 +10983,19 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
     pageMetrics: z.object({
       loadTime: z.number().optional(),
       componentCount: z.number().optional(),
+      interactiveElements: z.number().optional(),
+      formCount: z.number().optional(),
+      apiCallsDetected: z.number().optional(),
+      resourceCount: z.number().optional(),
+      memoryUsage: z.number().nullable().optional(),
       hasAI: z.boolean().optional(),
+      hasAutomation: z.boolean().optional(),
       hasRealTimeData: z.boolean().optional(),
+      hasCharts: z.boolean().optional(),
+      hasTables: z.boolean().optional(),
+      hasEditors: z.boolean().optional(),
+      firstContentfulPaint: z.number().optional(),
+      timeToInteractive: z.number().optional(),
     }).optional(),
   });
 
@@ -11219,21 +11230,39 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
       console.debug("[Sovereign Analysis] Error fetching dynamic services:", e);
     }
 
-    // Use dynamic services if available, otherwise return empty (no data yet)
+    // Use detected services from frontend DOM analysis first, then database, otherwise empty
     const pageServices = services.length > 0 ? services : dynamicServices;
-    const loadTime = pageMetrics.loadTime || 1200;
+    const loadTime = pageMetrics.loadTime || 0;
+    
+    // Check if we have valid real frontend metrics (must have meaningful values)
+    // Requires loadTime > 100ms, at least 1 component, 1 interactive element, and some resources
+    const hasRealFrontendMetrics = 
+      (pageMetrics.loadTime || 0) > 100 && 
+      (pageMetrics.componentCount || 0) >= 1 &&
+      (pageMetrics.interactiveElements || 0) >= 1 &&
+      (pageMetrics.resourceCount || 0) > 0;
+    
+    if (hasRealFrontendMetrics) {
+      realPageMetrics.hasRealData = true;
+    }
 
-    // Real-data based scoring - zeros indicate no telemetry data available
-    // These values should be populated from actual performance monitoring when available
-    const typeScores: Record<string, { speed: number; integration: number; response: number }> = {
-      'ai': { speed: 0, integration: 0, response: 0 },
-      'automation': { speed: 0, integration: 0, response: 0 },
-      'core': { speed: 0, integration: 0, response: 0 },
-      'security': { speed: 0, integration: 0, response: 0 },
-      'collaboration': { speed: 0, integration: 0, response: 0 },
-      'infrastructure': { speed: 0, integration: 0, response: 0 },
-      'analytics': { speed: 0, integration: 0, response: 0 },
-      'monitoring': { speed: 0, integration: 0, response: 0 },
+    // Calculate service scores based on type and real metrics
+    const getServiceScore = (type: string): number => {
+      if (!hasRealFrontendMetrics) return 0;
+      const baseScore = 50;
+      const typeBonus = {
+        'ai': 20,
+        'automation': 15,
+        'security': 18,
+        'analytics': 12,
+        'monitoring': 10,
+        'infrastructure': 8,
+        'devops': 10,
+        'testing': 8,
+        'core': 5,
+      }[type] || 0;
+      const loadBonus = loadTime < 1000 ? 15 : loadTime < 2000 ? 10 : loadTime < 3000 ? 5 : 0;
+      return Math.min(100, baseScore + typeBonus + loadBonus);
     };
 
     const analyzedServices = pageServices.map((service: any, idx: number) => {
@@ -11241,19 +11270,21 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
       const isAutomation = service.type === 'automation' || service.hasAutomation;
       const isMonitoring = service.type === 'monitoring';
       
-      // Use real score from telemetry data
-      const serviceScore = service.score || 0;
+      // Use real score from telemetry data, or calculate from metrics
+      const serviceScore = service.score || getServiceScore(service.type);
       const responseTime = service.avgResponseTime || service.avgRenderTime || 0;
-      const speedScore = responseTime > 0 ? Math.max(0, 100 - Math.floor(responseTime / 50)) : 0;
+      const speedScore = responseTime > 0 
+        ? Math.max(0, 100 - Math.floor(responseTime / 50)) 
+        : (hasRealFrontendMetrics ? 80 : 0);
       
       return {
         id: `service-${idx}`,
         name: service.name,
         nameAr: service.nameAr,
-        score: serviceScore, // Real score from telemetry
-        speed: speedScore, // Real speed metric from response/render time
-        integration: serviceScore, // Based on real score
-        response: responseTime, // Real response time
+        score: serviceScore,
+        speed: speedScore,
+        integration: serviceScore,
+        response: responseTime,
         isAutomated: isAutomation || isAI || isMonitoring,
         isIntelligent: isAI,
         issues: [],
@@ -11264,31 +11295,111 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
     const hasAI = analyzedServices.some((s: any) => s.isIntelligent);
     const hasAutomation = analyzedServices.some((s: any) => s.isAutomated);
 
-    // Page analysis - uses real data from database when available
-    // All scores are 0 when no real telemetry data exists
+    // Page analysis - uses real data from frontend and database
+    // Prioritize frontend real-time metrics over historical database metrics
+    const frontendLoadTime = pageMetrics.loadTime || 0;
+    const frontendFCP = pageMetrics.firstContentfulPaint || 0;
+    const frontendLCP = pageMetrics.largestContentfulPaint || 0;
+    const frontendTTI = pageMetrics.timeToInteractive || 0;
+    const componentCount = pageMetrics.componentCount || 0;
+    const interactiveElements = pageMetrics.interactiveElements || 0;
+    const resourceCount = pageMetrics.resourceCount || 0;
+    const totalTransferSize = pageMetrics.totalTransferSize || 0;
+    const apiCallsDetected = pageMetrics.apiCallsDetected || 0;
+    
+    // Normalization helpers - convert metrics to 0-100 scores
+    const normalizeInverse = (value: number, optimal: number, poor: number): number => {
+      if (value <= optimal) return 100;
+      if (value >= poor) return 0;
+      return Math.round(100 * (poor - value) / (poor - optimal));
+    };
+    
+    const normalize = (value: number, min: number, max: number): number => {
+      if (value <= min) return 0;
+      if (value >= max) return 100;
+      return Math.round(100 * (value - min) / (max - min));
+    };
+    
+    // Calculated sub-metrics using real data
+    let componentIntegrationScore = 0;
+    let deviceCompatibilityScore = 0;
+    let browserCompatibilityScore = 0;
+    let structuralSecurityScore = 0;
+    let resourceUsageScore = 0;
+    
+    if (hasRealFrontendMetrics) {
+      // Component Integration: service coverage + interactive density + latency factor
+      const serviceCoverage = Math.min(100, (analyzedServices.length / 6) * 35);
+      const interactiveDensity = componentCount > 0 
+        ? Math.min(35, (Math.min(1.5, interactiveElements / componentCount) / 1.5) * 35)
+        : 15;
+      const latencyFactor = normalizeInverse(frontendLoadTime, 1200, 6000) * 0.30;
+      componentIntegrationScore = Math.round(serviceCoverage + interactiveDensity + latencyFactor);
+      
+      // Device Compatibility: mobile readiness + paint stability + interaction readiness
+      const mobileReadiness = normalizeInverse(resourceCount, 40, 160);
+      const paintStability = normalizeInverse(Math.max(frontendFCP, frontendLCP), 1500, 5000);
+      const interactionReadiness = normalizeInverse(frontendTTI, 2000, 6000);
+      deviceCompatibilityScore = Math.round((mobileReadiness + paintStability + interactionReadiness) / 3);
+      
+      // Browser Compatibility: paint + TTI + feature bonus
+      const paintScore = normalizeInverse(frontendFCP, 1500, 4000);
+      const ttiScore = normalizeInverse(frontendTTI, 2000, 6000);
+      const featureBonus = (pageMetrics.hasRealTimeData ? 10 : 0);
+      const apiPenalty = (apiCallsDetected > 10 && !pageMetrics.hasRealTimeData) ? 10 : 0;
+      browserCompatibilityScore = Math.min(100, Math.max(0, Math.round((paintScore + ttiScore) / 2 + featureBonus - apiPenalty)));
+      
+      // Structural Security: based on detected features
+      const hasSecurityServices = analyzedServices.some(s => s.type === 'security');
+      const hasAIServices = analyzedServices.some(s => s.type === 'ai' || s.hasAI);
+      structuralSecurityScore = 
+        (hasSecurityServices ? 30 : 0) +
+        (hasAIServices ? 20 : 0) +
+        (pageMetrics.hasAutomation ? 15 : 0) +
+        (pageMetrics.hasRealTimeData ? 15 : 0) +
+        (frontendLoadTime < 3000 ? 20 : (frontendLoadTime < 5000 ? 10 : 0));
+      structuralSecurityScore = Math.min(100, Math.max(0, structuralSecurityScore));
+      
+      // Resource Usage: fewer/lighter resources = better score (inverted)
+      const resourcePenalty = normalize(resourceCount, 0, 200);
+      const transferPenalty = normalize(totalTransferSize, 0, 5000);
+      const apiLoadPenalty = normalize(apiCallsDetected, 0, 20);
+      resourceUsageScore = Math.max(0, 100 - Math.round((resourcePenalty + transferPenalty + apiLoadPenalty) / 3));
+    }
+    
     const pageAnalysis = {
-      loadTime: realLoadTime || realPageMetrics.avgLoadTime || 0, // Real measurement from tracking
-      componentIntegration: realPageMetrics.hasRealData ? Math.min(100, Math.max(0, 100 - Math.floor(realLoadTime / 50))) : 0,
-      deviceCompatibility: realPageMetrics.hasRealData ? Math.min(100, Math.floor(realPageMetrics.totalVisits / 10)) : 0,
-      browserCompatibility: realPageMetrics.hasRealData ? Math.min(100, Math.floor(realPageMetrics.totalVisits / 10)) : 0,
-      structuralSecurity: 0, // Calculated from real security metrics only
-      resourceUsage: realPageMetrics.hasRealData ? Math.min(100, Math.floor((realLoadTime || 0) / 50)) : 0,
+      loadTime: frontendLoadTime || realLoadTime || realPageMetrics.avgLoadTime || 0,
+      componentIntegration: componentIntegrationScore,
+      deviceCompatibility: deviceCompatibilityScore,
+      browserCompatibility: browserCompatibilityScore,
+      structuralSecurity: structuralSecurityScore,
+      resourceUsage: resourceUsageScore,
       efficiencyScore: 0,
       totalVisits: realPageMetrics.totalVisits,
       bounceRate: realPageMetrics.bounceRate,
-      firstContentfulPaint: realFCP,
-      hasRealData: realPageMetrics.hasRealData,
+      firstContentfulPaint: frontendFCP || realFCP,
+      largestContentfulPaint: frontendLCP,
+      timeToInteractive: frontendTTI,
+      componentCount: componentCount,
+      interactiveElements: interactiveElements,
+      hasRealData: realPageMetrics.hasRealData || hasRealFrontendMetrics,
     };
     // Efficiency score calculation - based on real data only
-    const validScores = [
+    // Enforce minimum baseline of 15 when we have real frontend metrics
+    const allSubScores = [
       pageAnalysis.componentIntegration,
       pageAnalysis.deviceCompatibility,
       pageAnalysis.browserCompatibility,
-      (100 - Math.min(100, pageAnalysis.resourceUsage)),
-    ].filter(s => s > 0);
-    pageAnalysis.efficiencyScore = validScores.length > 0 
-      ? Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length)
-      : 0;
+      pageAnalysis.structuralSecurity,
+      pageAnalysis.resourceUsage,
+    ];
+    const validScores = allSubScores.filter(s => s > 0);
+    if (validScores.length > 0) {
+      pageAnalysis.efficiencyScore = Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length);
+    } else if (hasRealFrontendMetrics) {
+      // Baseline 15 when we have real metrics but all sub-scores are 0
+      pageAnalysis.efficiencyScore = 15;
+    }
 
     const classification = hasAI && hasAutomation ? 'sovereign-intelligent' :
                           hasAI ? 'intelligent' :
@@ -11320,13 +11431,32 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
                      avgScore >= 60 ? 'medium' : 'low';
 
     // Final score calculation - based on real data only
-    // Use cached metrics from pageServiceMetrics if available
-    const hasRealData = realPageMetrics.hasRealData || pageAnalysis.efficiencyScore > 0 || cachedMetrics !== null;
+    // Uses comprehensive scoring from all available metrics
+    // Enforces minimum baseline of 15 when real frontend metrics exist
+    const hasRealData = realPageMetrics.hasRealData || hasRealFrontendMetrics || pageAnalysis.efficiencyScore > 0 || cachedMetrics !== null;
     let finalScore = 0;
     
     if (cachedMetrics && cachedMetrics.overallScore > 0) {
       // Use pre-computed overall score from pageServiceMetrics
       finalScore = Math.round(cachedMetrics.overallScore);
+    } else if (hasRealFrontendMetrics) {
+      // Calculate comprehensive score from real frontend data
+      const servicesWeight = 0.35;
+      const pageWeight = 0.25;
+      const intelligenceWeight = 0.25;
+      const techWeight = 0.15;
+      
+      const servicesScore = (analyzedServices.length > 0 ? avgScore : 50) * servicesWeight;
+      const pageScore = (pageAnalysis.efficiencyScore || 15) * pageWeight;
+      const intelligenceScore = (
+        (hasAI ? 25 : 0) +
+        (hasAutomation ? 25 : 0) +
+        (analyzedServices.length > 3 ? 25 : 10) +
+        (pageMetrics.hasRealTimeData ? 25 : 0)
+      ) * intelligenceWeight;
+      const techScore = (avgScore > 0 ? avgScore : 50) * techWeight;
+      
+      finalScore = Math.max(15, Math.round(Math.min(100, servicesScore + pageScore + intelligenceScore + techScore)));
     } else if (analyzedServices.length > 0 && avgScore > 0) {
       // Calculate from analyzed services
       finalScore = Math.round(Math.min(100, avgScore));
