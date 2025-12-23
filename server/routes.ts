@@ -70,7 +70,10 @@ import {
   users,
   projects,
   analyticsEvents,
-  navigationAnalytics
+  navigationAnalytics,
+  pageComponents,
+  pageApiCalls,
+  pageServiceMetrics
 } from "@shared/schema";
 import Anthropic from "@anthropic-ai/sdk";
 import { sql } from "drizzle-orm";
@@ -10457,6 +10460,199 @@ ${project.description || ""}
     }
   });
 
+  // Telemetry batch endpoint - استقبال بيانات تتبع المكونات و API
+  app.post("/api/telemetry/batch", async (req, res) => {
+    try {
+      const { batches } = req.body;
+      if (!Array.isArray(batches)) {
+        return res.status(400).json({ error: "Invalid batch format" });
+      }
+
+      const now = new Date();
+      const today = now.toISOString().split('T')[0];
+
+      for (const batch of batches) {
+        const { path, components, apiCalls } = batch;
+        if (!path) continue;
+
+        // Track components
+        if (Array.isArray(components)) {
+          for (const comp of components) {
+            if (!comp.componentName || !comp.componentType) continue;
+
+            const existing = await db.select()
+              .from(pageComponents)
+              .where(
+                and(
+                  eq(pageComponents.path, path),
+                  eq(pageComponents.componentName, comp.componentName)
+                )
+              )
+              .limit(1);
+
+            if (existing.length > 0) {
+              const currentCount = existing[0].mountCount || 0;
+              const currentAvg = existing[0].avgRenderTime || 0;
+              const newAvg = comp.renderTime
+                ? ((currentAvg * currentCount) + comp.renderTime) / (currentCount + 1)
+                : currentAvg;
+
+              await db.update(pageComponents)
+                .set({
+                  mountCount: sql`${pageComponents.mountCount} + 1`,
+                  avgRenderTime: newAvg,
+                  lastMountedAt: now,
+                  hasAI: comp.hasAI || existing[0].hasAI,
+                  hasAutomation: comp.hasAutomation || existing[0].hasAutomation,
+                  updatedAt: now,
+                })
+                .where(eq(pageComponents.id, existing[0].id));
+            } else {
+              await db.insert(pageComponents).values({
+                path,
+                componentName: comp.componentName,
+                componentType: comp.componentType,
+                mountCount: 1,
+                avgRenderTime: comp.renderTime || null,
+                lastMountedAt: now,
+                hasAI: comp.hasAI || false,
+                hasAutomation: comp.hasAutomation || false,
+              });
+            }
+          }
+        }
+
+        // Track API calls
+        if (Array.isArray(apiCalls)) {
+          for (const call of apiCalls) {
+            if (!call.endpoint || !call.method) continue;
+
+            const serviceName = call.endpoint.replace('/api/', '').split('/')[0] || 'core';
+
+            const existing = await db.select()
+              .from(pageApiCalls)
+              .where(
+                and(
+                  eq(pageApiCalls.path, path),
+                  eq(pageApiCalls.endpoint, call.endpoint),
+                  eq(pageApiCalls.method, call.method)
+                )
+              )
+              .limit(1);
+
+            if (existing.length > 0) {
+              const currentCount = existing[0].callCount || 0;
+              const currentAvg = existing[0].avgResponseTime || 0;
+              const currentSuccess = existing[0].successRate || 0;
+              const currentErrors = existing[0].errorCount || 0;
+
+              const newAvg = call.responseTime
+                ? ((currentAvg * currentCount) + call.responseTime) / (currentCount + 1)
+                : currentAvg;
+              const newSuccess = ((currentSuccess * currentCount) + (call.success ? 100 : 0)) / (currentCount + 1);
+
+              await db.update(pageApiCalls)
+                .set({
+                  callCount: sql`${pageApiCalls.callCount} + 1`,
+                  avgResponseTime: newAvg,
+                  successRate: newSuccess,
+                  lastCalledAt: now,
+                  lastStatus: call.status,
+                  errorCount: call.success ? currentErrors : sql`${pageApiCalls.errorCount} + 1`,
+                  updatedAt: now,
+                })
+                .where(eq(pageApiCalls.id, existing[0].id));
+            } else {
+              await db.insert(pageApiCalls).values({
+                path,
+                endpoint: call.endpoint,
+                method: call.method,
+                serviceName,
+                serviceType: 'dynamic',
+                callCount: 1,
+                avgResponseTime: call.responseTime || null,
+                successRate: call.success ? 100 : 0,
+                lastCalledAt: now,
+                lastStatus: call.status,
+                errorCount: call.success ? 0 : 1,
+              });
+            }
+          }
+        }
+
+        // Update page service metrics aggregation
+        const componentStats = await db.select({
+          total: sql<number>`count(*)`,
+          aiCount: sql<number>`count(*) filter (where has_ai = true)`,
+          autoCount: sql<number>`count(*) filter (where has_automation = true)`,
+          avgRender: sql<number>`avg(avg_render_time)`,
+        }).from(pageComponents).where(eq(pageComponents.path, path));
+
+        const apiStats = await db.select({
+          total: sql<number>`count(*)`,
+          avgResponse: sql<number>`avg(avg_response_time)`,
+          avgSuccess: sql<number>`avg(success_rate)`,
+        }).from(pageApiCalls).where(eq(pageApiCalls.path, path));
+
+        const stats = componentStats[0] || { total: 0, aiCount: 0, autoCount: 0, avgRender: 0 };
+        const api = apiStats[0] || { total: 0, avgResponse: 0, avgSuccess: 0 };
+
+        // Calculate scores based on real data
+        const performanceScore = Math.max(0, 100 - ((stats.avgRender || 0) / 50));
+        const aiScore = stats.total > 0 ? (stats.aiCount / stats.total) * 100 : 0;
+        const automationScore = stats.total > 0 ? (stats.autoCount / stats.total) * 100 : 0;
+        const overallScore = (performanceScore + aiScore + automationScore + (api.avgSuccess || 0)) / 4;
+
+        const existingMetrics = await db.select()
+          .from(pageServiceMetrics)
+          .where(
+            and(
+              eq(pageServiceMetrics.path, path),
+              eq(pageServiceMetrics.date, today)
+            )
+          )
+          .limit(1);
+
+        if (existingMetrics.length > 0) {
+          await db.update(pageServiceMetrics)
+            .set({
+              overallScore,
+              performanceScore,
+              aiScore,
+              automationScore,
+              totalComponents: stats.total,
+              aiComponents: stats.aiCount,
+              automationComponents: stats.autoCount,
+              totalApiCalls: api.total,
+              avgLoadTime: stats.avgRender,
+              avgApiResponseTime: api.avgResponse,
+            })
+            .where(eq(pageServiceMetrics.id, existingMetrics[0].id));
+        } else {
+          await db.insert(pageServiceMetrics).values({
+            path,
+            date: today,
+            overallScore,
+            performanceScore,
+            aiScore,
+            automationScore,
+            totalComponents: stats.total,
+            aiComponents: stats.aiCount,
+            automationComponents: stats.autoCount,
+            totalApiCalls: api.total,
+            avgLoadTime: stats.avgRender,
+            avgApiResponseTime: api.avgResponse,
+          });
+        }
+      }
+
+      res.json({ success: true, processed: batches.length });
+    } catch (error) {
+      console.error("[Telemetry Batch] Error:", error);
+      res.status(500).json({ error: "Failed to process telemetry batch" });
+    }
+  });
+
   app.get("/api/analytics", requireAuth, async (req, res) => {
     try {
       const userId = req.session.userId!;
@@ -10829,51 +11025,51 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
         realFCP = Math.round(fcpTimes.reduce((a, b) => a + b, 0) / fcpTimes.length);
       }
     }
-    const pageServicesMap: Record<string, { name: string; nameAr: string; type: string }[]> = {
-      '/': [
-        { name: 'Nova AI Engine', nameAr: 'محرك نوفا الذكي', type: 'ai' },
-        { name: 'Smart Dashboard', nameAr: 'لوحة التحكم الذكية', type: 'ai' },
-        { name: 'Blueprint Generator', nameAr: 'مولد البلوبرنت', type: 'ai' },
-        { name: 'Nova Vision Processing', nameAr: 'معالجة الرؤية الذكية', type: 'ai' },
-        { name: 'Nova Permission Control', nameAr: 'نظام صلاحيات نوفا', type: 'ai' },
-        { name: 'Nova Execution Engine', nameAr: 'محرك تنفيذ نوفا', type: 'ai' },
-        { name: 'Deployment Integration', nameAr: 'تكامل النشر الآلي', type: 'ai' },
-        { name: 'Object Storage Engine', nameAr: 'محرك تخزين الملفات', type: 'automation' },
-        { name: 'Authentication System', nameAr: 'نظام المصادقة', type: 'security' },
-        { name: 'Multi-Domain Support', nameAr: 'دعم النطاقات المتعددة', type: 'infrastructure' },
-        { name: 'Real-time Notifications', nameAr: 'الإشعارات الفورية', type: 'automation' },
-        { name: 'Sovereign Security', nameAr: 'الأمان السيادي', type: 'security' },
-        { name: 'Platform Orchestrator', nameAr: 'منسق المنصات', type: 'ai' },
-        { name: 'Real-time Analytics', nameAr: 'التحليلات الفورية', type: 'analytics' },
-        { name: 'AI Predictive Insights', nameAr: 'الرؤى التنبؤية بالذكاء الاصطناعي', type: 'ai' },
-        { name: 'Historical Data Analysis', nameAr: 'تحليل البيانات التاريخية', type: 'ai' },
-        { name: 'Anomaly Detection', nameAr: 'كشف الشذوذ', type: 'ai' },
-        { name: 'WebSocket Provider', nameAr: 'مزود WebSocket', type: 'automation' },
-        { name: 'Service Integration Gateway', nameAr: 'بوابة تكامل الخدمات', type: 'infrastructure' },
-        { name: 'Datadog Monitoring', nameAr: 'مراقبة Datadog', type: 'monitoring' },
-        { name: 'Mixpanel Analytics', nameAr: 'تحليلات Mixpanel', type: 'analytics' },
-      ],
-      '/builder': [
-        { name: 'Code Editor', nameAr: 'محرر الكود', type: 'core' },
-        { name: 'AI Assistant', nameAr: 'مساعد الذكاء الاصطناعي', type: 'ai' },
-        { name: 'Live Preview', nameAr: 'المعاينة المباشرة', type: 'core' },
-        { name: 'Version Control', nameAr: 'التحكم بالإصدارات', type: 'core' },
-        { name: 'Auto Save', nameAr: 'الحفظ التلقائي', type: 'automation' },
-        { name: 'Nova Copilot', nameAr: 'مساعد نوفا', type: 'ai' },
-      ],
-      '/collaboration': [
-        { name: 'Real-time Comments', nameAr: 'التعليقات الفورية', type: 'collaboration' },
-        { name: 'Collaborator Management', nameAr: 'إدارة المتعاونين', type: 'collaboration' },
-        { name: 'Live Sync', nameAr: 'المزامنة المباشرة', type: 'automation' },
-      ],
-      '/nova-vision': [
-        { name: 'Image Analysis', nameAr: 'تحليل الصور', type: 'ai' },
-        { name: 'OCR Engine', nameAr: 'محرك OCR', type: 'ai' },
-        { name: 'UI to Code', nameAr: 'تحويل التصميم لكود', type: 'ai' },
-      ],
-    };
+    // Dynamically fetch components from telemetry database
+    let dynamicServices: { name: string; nameAr: string; type: string }[] = [];
+    try {
+      const trackedComponents = await db.select()
+        .from(pageComponents)
+        .where(eq(pageComponents.path, pathname))
+        .limit(50);
+      
+      if (trackedComponents.length > 0) {
+        dynamicServices = trackedComponents.map(comp => ({
+          name: comp.componentName,
+          nameAr: comp.componentNameAr || comp.componentName,
+          type: comp.componentType,
+          hasAI: comp.hasAI,
+          hasAutomation: comp.hasAutomation,
+          mountCount: comp.mountCount,
+          avgRenderTime: comp.avgRenderTime,
+        }));
+        realPageMetrics.hasRealData = true;
+      }
 
-    const pageServices = services.length > 0 ? services : (pageServicesMap[pathname] || pageServicesMap['/']);
+      // Also get API services used on this page
+      const trackedApiCalls = await db.select()
+        .from(pageApiCalls)
+        .where(eq(pageApiCalls.path, pathname))
+        .limit(50);
+      
+      if (trackedApiCalls.length > 0) {
+        const apiServices = trackedApiCalls.map(api => ({
+          name: api.serviceName || api.endpoint,
+          nameAr: api.serviceNameAr || api.serviceName || api.endpoint,
+          type: api.serviceType || 'api',
+          callCount: api.callCount,
+          avgResponseTime: api.avgResponseTime,
+          successRate: api.successRate,
+        }));
+        dynamicServices = [...dynamicServices, ...apiServices];
+        realPageMetrics.hasRealData = true;
+      }
+    } catch (e) {
+      console.debug("[Sovereign Analysis] Error fetching dynamic services:", e);
+    }
+
+    // Use dynamic services if available, otherwise return empty (no data yet)
+    const pageServices = services.length > 0 ? services : dynamicServices;
     const loadTime = pageMetrics.loadTime || 1200;
 
     // Real-data based scoring - zeros indicate no telemetry data available
