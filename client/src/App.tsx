@@ -100,6 +100,7 @@ import DynamicControlPage from "@/pages/owner/dynamic-control";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
+import { CommandPalette } from "@/components/command-palette";
 
 function RedirectToAuth() {
   const [, setLocation] = useLocation();
@@ -277,7 +278,10 @@ function AppContent() {
           )}
           <div className="flex flex-col flex-1 min-w-0">
             <header className="flex items-center justify-between gap-2 p-3 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
-              <SidebarTrigger data-testid="button-sidebar-toggle" />
+              <div className="flex items-center gap-2">
+                <SidebarTrigger data-testid="button-sidebar-toggle" />
+                {isAuthenticated && <CommandPalette language={isRtl ? "ar" : "en"} />}
+              </div>
               <div className="flex items-center gap-2">
                 <NotificationBell />
                 <LanguageToggle />
