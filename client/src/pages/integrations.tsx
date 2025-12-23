@@ -4,6 +4,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useIntegrationWebSocket } from "@/hooks/use-integration-websocket";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -119,6 +120,8 @@ export default function Integrations() {
   const [apiKeyName, setApiKeyName] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
   const [activeTab, setActiveTab] = useState("providers");
+  
+  useIntegrationWebSocket();
 
   const t = {
     ar: {

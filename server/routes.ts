@@ -17057,6 +17057,14 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
     try {
       const validatedData = insertExternalIntegrationSessionSchema.parse(req.body);
       const session = await storage.createExternalIntegrationSession(validatedData);
+      
+      try {
+        const { broadcastSessionUpdate } = await import("./integration-websocket");
+        broadcastSessionUpdate(session.id, "session_created", session);
+      } catch (wsError) {
+        console.error("[Integration WS] Broadcast error:", wsError);
+      }
+      
       res.json({ success: true, session });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -17075,6 +17083,14 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
         reason || "Owner activation"
       );
       if (!session) return res.status(404).json({ success: false, error: "Session not found" });
+      
+      try {
+        const { broadcastSessionUpdate } = await import("./integration-websocket");
+        broadcastSessionUpdate(session.id, "session_activated", session);
+      } catch (wsError) {
+        console.error("[Integration WS] Broadcast error:", wsError);
+      }
+      
       res.json({ success: true, session, message: "Integration session activated" });
     } catch (error) {
       res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to activate session" });
@@ -17090,6 +17106,14 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
         reason || "Owner deactivation"
       );
       if (!session) return res.status(404).json({ success: false, error: "Session not found" });
+      
+      try {
+        const { broadcastSessionUpdate } = await import("./integration-websocket");
+        broadcastSessionUpdate(session.id, "session_deactivated", session);
+      } catch (wsError) {
+        console.error("[Integration WS] Broadcast error:", wsError);
+      }
+      
       res.json({ success: true, session, message: "Integration session deactivated" });
     } catch (error) {
       res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to deactivate session" });
