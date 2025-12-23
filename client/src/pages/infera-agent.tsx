@@ -122,8 +122,8 @@ const translations = {
     selfImprove: "Self Improve",
     createGoal: "Create Goal",
     goalDescription: "Goal Description",
-    executing: "Executing",
-    analyzing: "Analyzing",
+    executingGoal: "Executing",
+    analyzingGoal: "Analyzing",
     noGoals: "No evolution goals",
     evolutionScore: "Evolution Score",
     suggestions: "Suggestions",
@@ -222,8 +222,8 @@ const translations = {
     selfImprove: "تحسين ذاتي",
     createGoal: "إنشاء هدف",
     goalDescription: "وصف الهدف",
-    executing: "جارٍ التنفيذ",
-    analyzing: "جارٍ التحليل",
+    executingGoal: "جارٍ التنفيذ",
+    analyzingGoal: "جارٍ التحليل",
     noGoals: "لا توجد أهداف",
     evolutionScore: "نقاط التطور",
     suggestions: "الاقتراحات",
@@ -419,7 +419,9 @@ export default function InferaAgentPage() {
 
   const { data: watcherData, refetch: refetchWatcher } = useQuery({
     queryKey: ["/api/infera/agent/watcher/status"],
-    refetchInterval: 5000,
+    refetchInterval: 30000,
+    staleTime: 25000,
+    refetchOnWindowFocus: false,
   });
 
   useEffect(() => {
@@ -450,7 +452,9 @@ export default function InferaAgentPage() {
 
   const { data: changesData, refetch: refetchChanges } = useQuery({
     queryKey: ["/api/infera/agent/watcher/changes"],
-    refetchInterval: watcherStatus.isWatching ? 3000 : false,
+    refetchInterval: watcherStatus.isWatching ? 15000 : false,
+    staleTime: 10000,
+    refetchOnWindowFocus: false,
   });
 
   useEffect(() => {

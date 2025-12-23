@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { db } from "./db";
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import {
   novaPermissions,
   novaPermissionGrants,
@@ -58,7 +58,7 @@ export const DEFAULT_PERMISSIONS: PermissionDefinition[] = [
     descriptionEn: "Run limited shell commands (ls, cat, echo, etc.)",
     descriptionAr: "تشغيل أوامر shell محدودة (ls, cat, echo, إلخ)",
     category: "code_execution",
-    securityLevel: "low",
+    securityLevel: "medium",
     defaultEnabled: false,
   },
   {
@@ -68,7 +68,7 @@ export const DEFAULT_PERMISSIONS: PermissionDefinition[] = [
     descriptionEn: "Install npm/pip packages in sandbox",
     descriptionAr: "تثبيت حزم npm/pip في البيئة المعزولة",
     category: "code_execution",
-    securityLevel: "low",
+    securityLevel: "medium",
     defaultEnabled: false,
   },
 
@@ -110,7 +110,7 @@ export const DEFAULT_PERMISSIONS: PermissionDefinition[] = [
     descriptionEn: "Remove files from project",
     descriptionAr: "حذف الملفات من المشروع",
     category: "file_operations",
-    securityLevel: "low",
+    securityLevel: "medium",
     defaultEnabled: false,
   },
   {
@@ -152,7 +152,7 @@ export const DEFAULT_PERMISSIONS: PermissionDefinition[] = [
     descriptionEn: "Execute DELETE queries",
     descriptionAr: "تنفيذ استعلامات DELETE",
     category: "database_operations",
-    securityLevel: "low",
+    securityLevel: "medium",
     defaultEnabled: false,
   },
   {
@@ -540,6 +540,8 @@ export async function initializeDefaultPermissions(): Promise<void> {
     }
     
     console.log("[Nova Permissions] Default permissions initialized");
+    // Note: High-risk permissions (execute_shell, install_packages, delete_files, db_delete)
+    // require explicit manual grants via the admin UI to maintain governance and audit trails
   } catch (error) {
     console.error("[Nova Permissions] Failed to initialize:", error);
   }

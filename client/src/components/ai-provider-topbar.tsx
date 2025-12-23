@@ -59,8 +59,9 @@ export function AIProviderTopbar() {
   const { data, isLoading } = useQuery<TopbarProviderData | null>({
     queryKey: ['/api/sovereign/ai-providers/topbar'],
     enabled: !!user && (user.role === 'owner' || user.role === 'sovereign'),
-    refetchInterval: 30000,
-    staleTime: 10000,
+    refetchInterval: 120000,
+    staleTime: 60000,
+    refetchOnWindowFocus: false,
   });
 
   const t = {

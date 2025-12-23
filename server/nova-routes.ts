@@ -214,21 +214,55 @@ async function executeNovaTool(toolName: string, toolInput: any, userId: string)
       }
       
       case "generate_platform": {
-        // Create new project
-        const project = await storage.createProject({
-          name: toolInput.name,
-          description: toolInput.description,
-          userId,
-          industry: toolInput.industry || "saas",
-          language: "ar",
-          status: "draft"
-        });
-        return JSON.stringify({
-          success: true,
-          projectId: project.id,
-          message: `Platform "${toolInput.name}" created successfully`,
-          nextSteps: ["Configure features", "Generate code", "Deploy"]
-        });
+        // Check if Anthropic API is configured FIRST before any DB operations
+        const { getAnthropicClientAsync } = await import("./ai-config");
+        const anthropicClient = await getAnthropicClientAsync();
+        
+        if (!anthropicClient) {
+          return JSON.stringify({
+            success: false,
+            error: "Anthropic API not configured. Please add ANTHROPIC_API_KEY to use platform generation.",
+            errorAr: "مزود الذكاء الاصطناعي Anthropic غير مهيأ. يرجى إضافة ANTHROPIC_API_KEY لاستخدام توليد المنصات.",
+            requiresConfiguration: true,
+            action: "Configure ANTHROPIC_API_KEY in your environment secrets"
+          });
+        }
+        
+        // Use FullStackGenerator to create complete platform with actual code
+        const { FullStackGenerator } = await import("./full-stack-generator");
+        const generator = new FullStackGenerator();
+        
+        try {
+          const result = await generator.generateProject({
+            name: toolInput.name,
+            nameAr: toolInput.name,
+            description: toolInput.description,
+            descriptionAr: toolInput.description,
+            industry: toolInput.industry || "other",
+            features: toolInput.features || ["dashboard", "users", "settings"],
+            hasAuth: true,
+            hasPayments: false,
+            language: "bilingual"
+          });
+          
+          return JSON.stringify({
+            success: true,
+            projectId: result.projectId,
+            message: `Platform "${toolInput.name}" created with ${result.files.length} files`,
+            messageAr: `تم إنشاء منصة "${toolInput.name}" مع ${result.files.length} ملف`,
+            filesGenerated: result.files.length,
+            apiEndpoints: result.apiEndpoints.length,
+            files: result.files.map(f => f.path),
+            nextSteps: ["Review generated code", "Configure settings", "Deploy"]
+          });
+        } catch (genError: any) {
+          console.error("[Nova] Platform generation error:", genError);
+          return JSON.stringify({
+            success: false,
+            error: genError.message,
+            errorAr: "حدث خطأ أثناء إنشاء المنصة"
+          });
+        }
       }
       
       case "deploy_platform": {

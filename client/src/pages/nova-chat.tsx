@@ -110,17 +110,23 @@ export default function NovaChat() {
   // Fetch sessions
   const { data: sessions = [], isLoading: sessionsLoading } = useQuery<NovaSession[]>({
     queryKey: ["/api/nova/sessions"],
+    staleTime: 60000,
+    refetchOnWindowFocus: false,
   });
 
   // Fetch messages for selected session
   const { data: messages = [], isLoading: messagesLoading } = useQuery<NovaMessage[]>({
     queryKey: ["/api/nova/sessions", selectedSessionId, "messages"],
     enabled: !!selectedSessionId,
+    staleTime: 30000,
+    refetchOnWindowFocus: false,
   });
 
   // Fetch user preferences
   const { data: preferences } = useQuery<NovaPreferences>({
     queryKey: ["/api/nova/preferences"],
+    staleTime: 300000,
+    refetchOnWindowFocus: false,
   });
 
   // Create session mutation
