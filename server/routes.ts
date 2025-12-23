@@ -29,7 +29,7 @@ import {
   getGeolocation,
   parseUserAgent,
 } from "./login-notifications";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray, desc } from "drizzle-orm";
 import { 
   insertProjectSchema, insertMessageSchema, insertProjectVersionSchema, 
   insertShareLinkSchema, insertUserSchema, insertAiModelSchema, 
@@ -73,7 +73,14 @@ import {
   navigationAnalytics,
   pageComponents,
   pageApiCalls,
-  pageServiceMetrics
+  pageServiceMetrics,
+  aiModelRegistry,
+  aiModelRuntimes,
+  aiModelIntakeJobs,
+  aiModelPolicies,
+  aiModelAuditLogs,
+  aiOrchestrationRules,
+  insertAiModelRegistrySchema,
 } from "@shared/schema";
 import Anthropic from "@anthropic-ai/sdk";
 import { sql } from "drizzle-orm";
@@ -2159,6 +2166,442 @@ export async function registerRoutes(
     } catch (error) {
       console.error('Failed to toggle AI policy:', error);
       res.status(500).json({ error: "Failed to toggle AI policy" });
+    }
+  });
+
+  // ============ AI MODEL REGISTRY - سجل نماذج الذكاء الاصطناعي ============
+
+  // Get all AI models from registry
+  app.get("/api/sovereign/ai-models", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { status, provider, modelType, intakeMethod } = req.query;
+      
+      let query = db.select().from(aiModelRegistry);
+      const conditions: any[] = [];
+      
+      if (status && typeof status === 'string') {
+        conditions.push(eq(aiModelRegistry.status, status));
+      }
+      if (provider && typeof provider === 'string') {
+        conditions.push(eq(aiModelRegistry.provider, provider));
+      }
+      if (modelType && typeof modelType === 'string') {
+        conditions.push(eq(aiModelRegistry.modelType, modelType));
+      }
+      if (intakeMethod && typeof intakeMethod === 'string') {
+        conditions.push(eq(aiModelRegistry.intakeMethod, intakeMethod));
+      }
+      
+      const models = conditions.length > 0 
+        ? await db.select().from(aiModelRegistry).where(and(...conditions)).orderBy(aiModelRegistry.sortOrder)
+        : await db.select().from(aiModelRegistry).orderBy(aiModelRegistry.sortOrder);
+      
+      // Get runtime configs for each model
+      const runtimes = await db.select().from(aiModelRuntimes);
+      const runtimeMap = new Map(runtimes.map(r => [r.modelId, r]));
+      
+      // Get active intake jobs
+      const activeJobs = await db.select().from(aiModelIntakeJobs)
+        .where(inArray(aiModelIntakeJobs.status, ['pending', 'in_progress']));
+      const jobMap = new Map(activeJobs.map(j => [j.modelId, j]));
+      
+      const enrichedModels = models.map(model => ({
+        ...model,
+        runtime: runtimeMap.get(model.id) || null,
+        activeIntakeJob: jobMap.get(model.id) || null,
+      }));
+      
+      // Calculate stats
+      const stats = {
+        total: models.length,
+        byStatus: {
+          active: models.filter(m => m.status === 'active').length,
+          ready: models.filter(m => m.status === 'ready').length,
+          pending: models.filter(m => m.status === 'pending').length,
+          error: models.filter(m => m.status === 'error').length,
+        },
+        byProvider: models.reduce((acc, m) => {
+          acc[m.provider] = (acc[m.provider] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>),
+        byIntakeMethod: models.reduce((acc, m) => {
+          acc[m.intakeMethod] = (acc[m.intakeMethod] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>),
+      };
+      
+      res.json({ models: enrichedModels, stats });
+    } catch (error) {
+      console.error('Failed to fetch AI models:', error);
+      res.status(500).json({ error: "Failed to fetch AI models" });
+    }
+  });
+
+  // Get single AI model by ID
+  app.get("/api/sovereign/ai-models/:id", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      const [model] = await db.select().from(aiModelRegistry).where(eq(aiModelRegistry.id, id));
+      if (!model) {
+        return res.status(404).json({ error: "Model not found" });
+      }
+      
+      // Get runtime config
+      const [runtime] = await db.select().from(aiModelRuntimes).where(eq(aiModelRuntimes.modelId, id));
+      
+      // Get policies
+      const policies = await db.select().from(aiModelPolicies).where(eq(aiModelPolicies.modelId, id));
+      
+      // Get recent audit logs
+      const auditLogs = await db.select().from(aiModelAuditLogs)
+        .where(eq(aiModelAuditLogs.modelId, id))
+        .orderBy(desc(aiModelAuditLogs.createdAt))
+        .limit(50);
+      
+      // Get intake jobs history
+      const intakeJobs = await db.select().from(aiModelIntakeJobs)
+        .where(eq(aiModelIntakeJobs.modelId, id))
+        .orderBy(desc(aiModelIntakeJobs.createdAt));
+      
+      res.json({ 
+        model, 
+        runtime, 
+        policies, 
+        auditLogs,
+        intakeJobs
+      });
+    } catch (error) {
+      console.error('Failed to fetch AI model:', error);
+      res.status(500).json({ error: "Failed to fetch AI model" });
+    }
+  });
+
+  // Create new AI model (register from external API)
+  app.post("/api/sovereign/ai-models", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const data = insertAiModelRegistrySchema.parse(req.body);
+      
+      // Generate slug from name
+      const slug = data.slug || data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      
+      const [newModel] = await db.insert(aiModelRegistry).values({
+        ...data,
+        slug,
+        createdBy: user.id,
+        status: data.intakeMethod === 'external_api' ? 'ready' : 'pending',
+      }).returning();
+      
+      // Create default runtime config for external API models
+      if (data.intakeMethod === 'external_api') {
+        await db.insert(aiModelRuntimes).values({
+          modelId: newModel.id,
+          engine: 'external_api',
+          isActive: true,
+        });
+      }
+      
+      // Log the action
+      await db.insert(aiModelAuditLogs).values({
+        modelId: newModel.id,
+        action: 'create',
+        actionCategory: 'lifecycle',
+        actorId: user.id,
+        actorRole: user.role,
+        newState: newModel,
+        reason: 'Model registered',
+      });
+      
+      res.status(201).json(newModel);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error('Failed to create AI model:', error);
+      res.status(500).json({ error: "Failed to create AI model" });
+    }
+  });
+
+  // Update AI model
+  app.patch("/api/sovereign/ai-models/:id", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const user = (req as any).user;
+      
+      // Get current state
+      const [currentModel] = await db.select().from(aiModelRegistry).where(eq(aiModelRegistry.id, id));
+      if (!currentModel) {
+        return res.status(404).json({ error: "Model not found" });
+      }
+      
+      const updateData = req.body;
+      const changedFields = Object.keys(updateData).filter(
+        key => JSON.stringify(updateData[key]) !== JSON.stringify((currentModel as any)[key])
+      );
+      
+      const [updated] = await db.update(aiModelRegistry)
+        .set({ ...updateData, updatedAt: new Date(), updatedBy: user.id })
+        .where(eq(aiModelRegistry.id, id))
+        .returning();
+      
+      // Log the action
+      await db.insert(aiModelAuditLogs).values({
+        modelId: id,
+        action: 'update',
+        actionCategory: 'configuration',
+        actorId: user.id,
+        actorRole: user.role,
+        previousState: currentModel,
+        newState: updated,
+        changedFields,
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error('Failed to update AI model:', error);
+      res.status(500).json({ error: "Failed to update AI model" });
+    }
+  });
+
+  // Delete AI model
+  app.delete("/api/sovereign/ai-models/:id", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const user = (req as any).user;
+      
+      const [model] = await db.select().from(aiModelRegistry).where(eq(aiModelRegistry.id, id));
+      if (!model) {
+        return res.status(404).json({ error: "Model not found" });
+      }
+      
+      // Archive instead of hard delete for audit trail
+      const [archived] = await db.update(aiModelRegistry)
+        .set({ status: 'archived', updatedAt: new Date(), updatedBy: user.id })
+        .where(eq(aiModelRegistry.id, id))
+        .returning();
+      
+      // Log the action
+      await db.insert(aiModelAuditLogs).values({
+        modelId: id,
+        action: 'delete',
+        actionCategory: 'lifecycle',
+        actorId: user.id,
+        actorRole: user.role,
+        previousState: model,
+        newState: archived,
+        reason: 'Model archived',
+      });
+      
+      res.json({ success: true, archived });
+    } catch (error) {
+      console.error('Failed to delete AI model:', error);
+      res.status(500).json({ error: "Failed to delete AI model" });
+    }
+  });
+
+  // Toggle AI model status (activate/deactivate)
+  app.post("/api/sovereign/ai-models/:id/toggle", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const user = (req as any).user;
+      
+      const [model] = await db.select().from(aiModelRegistry).where(eq(aiModelRegistry.id, id));
+      if (!model) {
+        return res.status(404).json({ error: "Model not found" });
+      }
+      
+      const newStatus = model.status === 'active' ? 'inactive' : 'active';
+      
+      const [updated] = await db.update(aiModelRegistry)
+        .set({ status: newStatus, updatedAt: new Date(), updatedBy: user.id })
+        .where(eq(aiModelRegistry.id, id))
+        .returning();
+      
+      // Update runtime if exists
+      await db.update(aiModelRuntimes)
+        .set({ isActive: newStatus === 'active', updatedAt: new Date() })
+        .where(eq(aiModelRuntimes.modelId, id));
+      
+      // Log the action
+      await db.insert(aiModelAuditLogs).values({
+        modelId: id,
+        action: newStatus === 'active' ? 'enable' : 'disable',
+        actionCategory: 'lifecycle',
+        actorId: user.id,
+        actorRole: user.role,
+        previousState: { status: model.status },
+        newState: { status: newStatus },
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error('Failed to toggle AI model:', error);
+      res.status(500).json({ error: "Failed to toggle AI model" });
+    }
+  });
+
+  // Start model intake job (import from registry like Hugging Face)
+  app.post("/api/sovereign/ai-models/intake", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const { intakeMethod, sourceUrl, sourceRegistry, sourceModelId, name, provider, modelType } = req.body;
+      
+      // Validate intake method
+      if (!['upload', 'registry_import', 'external_api'].includes(intakeMethod)) {
+        return res.status(400).json({ error: "Invalid intake method" });
+      }
+      
+      // Create the model registry entry first
+      const slug = (name as string).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      
+      const [newModel] = await db.insert(aiModelRegistry).values({
+        name,
+        slug,
+        provider: provider || 'custom',
+        modelType: modelType || 'chat',
+        intakeMethod,
+        sourceUrl,
+        registrySource: sourceRegistry,
+        status: 'pending',
+        createdBy: user.id,
+      }).returning();
+      
+      // Create intake job
+      const [intakeJob] = await db.insert(aiModelIntakeJobs).values({
+        modelId: newModel.id,
+        jobType: intakeMethod === 'registry_import' ? 'download' : intakeMethod,
+        intakeMethod,
+        sourceUrl,
+        sourceRegistry,
+        sourceModelId,
+        status: 'pending',
+        initiatedBy: user.id,
+      }).returning();
+      
+      // Log the action
+      await db.insert(aiModelAuditLogs).values({
+        modelId: newModel.id,
+        action: 'intake',
+        actionCategory: 'lifecycle',
+        actorId: user.id,
+        actorRole: user.role,
+        newState: { model: newModel, job: intakeJob },
+        reason: `Model intake initiated via ${intakeMethod}`,
+      });
+      
+      res.status(201).json({ model: newModel, job: intakeJob });
+    } catch (error) {
+      console.error('Failed to start model intake:', error);
+      res.status(500).json({ error: "Failed to start model intake" });
+    }
+  });
+
+  // Get intake job status
+  app.get("/api/sovereign/ai-models/intake/:jobId", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { jobId } = req.params;
+      
+      const [job] = await db.select().from(aiModelIntakeJobs).where(eq(aiModelIntakeJobs.id, jobId));
+      if (!job) {
+        return res.status(404).json({ error: "Intake job not found" });
+      }
+      
+      res.json(job);
+    } catch (error) {
+      console.error('Failed to fetch intake job:', error);
+      res.status(500).json({ error: "Failed to fetch intake job" });
+    }
+  });
+
+  // Update model runtime configuration
+  app.patch("/api/sovereign/ai-models/:id/runtime", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const user = (req as any).user;
+      
+      // Check model exists
+      const [model] = await db.select().from(aiModelRegistry).where(eq(aiModelRegistry.id, id));
+      if (!model) {
+        return res.status(404).json({ error: "Model not found" });
+      }
+      
+      // Check if runtime exists
+      const [existingRuntime] = await db.select().from(aiModelRuntimes).where(eq(aiModelRuntimes.modelId, id));
+      
+      let runtime;
+      if (existingRuntime) {
+        [runtime] = await db.update(aiModelRuntimes)
+          .set({ ...req.body, updatedAt: new Date() })
+          .where(eq(aiModelRuntimes.modelId, id))
+          .returning();
+      } else {
+        [runtime] = await db.insert(aiModelRuntimes).values({
+          modelId: id,
+          ...req.body,
+        }).returning();
+      }
+      
+      // Log the action
+      await db.insert(aiModelAuditLogs).values({
+        modelId: id,
+        action: 'config_change',
+        actionCategory: 'configuration',
+        actorId: user.id,
+        actorRole: user.role,
+        previousState: existingRuntime || null,
+        newState: runtime,
+        reason: 'Runtime configuration updated',
+      });
+      
+      res.json(runtime);
+    } catch (error) {
+      console.error('Failed to update runtime config:', error);
+      res.status(500).json({ error: "Failed to update runtime configuration" });
+    }
+  });
+
+  // Get AI model audit logs
+  app.get("/api/sovereign/ai-models/:id/audit", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { limit: limitStr = '50', offset: offsetStr = '0' } = req.query;
+      
+      const limitNum = Math.min(parseInt(limitStr as string) || 50, 100);
+      const offsetNum = parseInt(offsetStr as string) || 0;
+      
+      const logs = await db.select().from(aiModelAuditLogs)
+        .where(eq(aiModelAuditLogs.modelId, id))
+        .orderBy(desc(aiModelAuditLogs.createdAt))
+        .limit(limitNum)
+        .offset(offsetNum);
+      
+      res.json(logs);
+    } catch (error) {
+      console.error('Failed to fetch audit logs:', error);
+      res.status(500).json({ error: "Failed to fetch audit logs" });
+    }
+  });
+
+  // Get orchestration rules
+  app.get("/api/sovereign/ai-orchestration", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const rules = await db.select().from(aiOrchestrationRules).orderBy(desc(aiOrchestrationRules.priority));
+      res.json(rules);
+    } catch (error) {
+      console.error('Failed to fetch orchestration rules:', error);
+      res.status(500).json({ error: "Failed to fetch orchestration rules" });
+    }
+  });
+
+  // Create orchestration rule
+  app.post("/api/sovereign/ai-orchestration", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const [rule] = await db.insert(aiOrchestrationRules).values(req.body).returning();
+      res.status(201).json(rule);
+    } catch (error) {
+      console.error('Failed to create orchestration rule:', error);
+      res.status(500).json({ error: "Failed to create orchestration rule" });
     }
   });
 

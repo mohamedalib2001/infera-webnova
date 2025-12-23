@@ -28,7 +28,8 @@ import { Separator } from "@/components/ui/separator";
 import { 
   Bot, Plus, Edit, Trash2, Power, Star, RefreshCw, Loader2, 
   AlertTriangle, CheckCircle, XCircle, Shield, Settings,
-  Zap, Clock, DollarSign, Activity, AlertOctagon
+  Zap, Clock, DollarSign, Activity, AlertOctagon, Download,
+  Upload, Link, Cloud, Server, Package, Brain, Eye, Code
 } from "lucide-react";
 
 // Helper function to normalize Arabic numerals to ASCII
@@ -122,6 +123,26 @@ const translations = {
     systemReady: "AI system is ready",
     systemNotReady: "AI system has issues",
     testResolve: "Test Resolution",
+    intakeTab: "Model Intake",
+    intakeTitle: "AI Model Intake",
+    intakeDesc: "Import models from Hugging Face, upload local models, or connect external APIs",
+    uploadModel: "Upload Model",
+    importFromRegistry: "Import from Registry",
+    connectApi: "Connect External API",
+    selectMethod: "Select Intake Method",
+    modelName: "Model Name",
+    huggingfaceId: "Hugging Face Model ID",
+    huggingfaceHelp: "e.g., meta-llama/Llama-2-7b-chat-hf",
+    startImport: "Start Import",
+    intakeInProgress: "Intake in Progress",
+    viewDetails: "View Details",
+    modelType: "Model Type",
+    chatModel: "Chat / Completion",
+    codeModel: "Code Generation",
+    embeddingModel: "Embedding",
+    visionModel: "Vision / Multimodal",
+    registryEmpty: "No models in registry",
+    registryEmptyDesc: "Import your first model to get started",
   },
   ar: {
     title: "سجل نماذج الذكاء الاصطناعي",
@@ -191,6 +212,26 @@ const translations = {
     systemReady: "نظام AI جاهز",
     systemNotReady: "نظام AI يواجه مشاكل",
     testResolve: "اختبار التحليل",
+    intakeTab: "استقبال النماذج",
+    intakeTitle: "استقبال نماذج الذكاء الاصطناعي",
+    intakeDesc: "استيراد النماذج من Hugging Face أو رفع نماذج محلية أو ربط واجهات خارجية",
+    uploadModel: "رفع نموذج",
+    importFromRegistry: "استيراد من السجل",
+    connectApi: "ربط واجهة خارجية",
+    selectMethod: "اختر طريقة الاستقبال",
+    modelName: "اسم النموذج",
+    huggingfaceId: "معرف نموذج Hugging Face",
+    huggingfaceHelp: "مثال: meta-llama/Llama-2-7b-chat-hf",
+    startImport: "بدء الاستيراد",
+    intakeInProgress: "الاستقبال قيد التنفيذ",
+    viewDetails: "عرض التفاصيل",
+    modelType: "نوع النموذج",
+    chatModel: "محادثة / إكمال",
+    codeModel: "إنشاء الكود",
+    embeddingModel: "التضمين",
+    visionModel: "رؤية / متعدد الوسائط",
+    registryEmpty: "لا توجد نماذج في السجل",
+    registryEmptyDesc: "استورد أول نموذج للبدء",
   },
 };
 
@@ -249,6 +290,23 @@ interface AiGlobalSettings {
   monthlyCostLimitUsd: number;
 }
 
+interface AiModelRegistryStats {
+  total: number;
+  byStatus: {
+    active: number;
+    ready: number;
+    pending: number;
+    error: number;
+  };
+  byProvider: Record<string, number>;
+  byIntakeMethod: Record<string, number>;
+}
+
+interface AiModelRegistryResponse {
+  models: AiModel[];
+  stats: AiModelRegistryStats;
+}
+
 const defaultCapabilities = ['chat', 'code', 'reasoning', 'image', 'embedding', 'vision', 'function_calling', 'json_mode'];
 const defaultProviders = ['replit', 'anthropic', 'openai', 'google', 'meta', 'mistral', 'cohere'];
 
@@ -302,9 +360,11 @@ export default function AIModelRegistry() {
   const [localMonthlyCost, setLocalMonthlyCost] = useState<string>("");
   const [settingsInitialized, setSettingsInitialized] = useState(false);
 
-  const { data: models = [], isLoading: modelsLoading } = useQuery<AiModel[]>({
-    queryKey: ["/api/owner/ai-models"],
+  const { data: registryData, isLoading: modelsLoading } = useQuery<AiModelRegistryResponse>({
+    queryKey: ["/api/sovereign/ai-models"],
   });
+  const models = registryData?.models ?? [];
+  const registryStats = registryData?.stats;
 
   const { data: services = [], isLoading: servicesLoading } = useQuery<AiServiceConfig[]>({
     queryKey: ["/api/owner/ai-services"],
@@ -331,12 +391,12 @@ export default function AIModelRegistry() {
   const saveModelMutation = useMutation({
     mutationFn: async (data: any) => {
       if (selectedModel) {
-        return apiRequest("PUT", `/api/owner/ai-models/${selectedModel.modelId}`, data);
+        return apiRequest("PUT", `/api/sovereign/ai-models/${selectedModel.id}`, data);
       }
-      return apiRequest("POST", "/api/owner/ai-models", data);
+      return apiRequest("POST", "/api/sovereign/ai-models", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/owner/ai-models"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sovereign/ai-models"] });
       setModelDialogOpen(false);
       toast({ title: language === "ar" ? "تم الحفظ بنجاح" : "Saved successfully" });
     },
@@ -346,9 +406,9 @@ export default function AIModelRegistry() {
   });
 
   const deleteModelMutation = useMutation({
-    mutationFn: (modelId: string) => apiRequest("DELETE", `/api/owner/ai-models/${modelId}`),
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/sovereign/ai-models/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/owner/ai-models"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sovereign/ai-models"] });
       setDeleteDialogOpen(false);
       toast({ title: language === "ar" ? "تم الحذف بنجاح" : "Deleted successfully" });
     },
@@ -358,18 +418,18 @@ export default function AIModelRegistry() {
   });
 
   const toggleModelMutation = useMutation({
-    mutationFn: ({ modelId, isActive }: { modelId: string; isActive: boolean }) =>
-      apiRequest("PATCH", `/api/owner/ai-models/${modelId}/toggle`, { isActive }),
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+      apiRequest("PATCH", `/api/sovereign/ai-models/${id}/toggle`, { isActive }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/owner/ai-models"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sovereign/ai-models"] });
     },
   });
 
   const setDefaultMutation = useMutation({
-    mutationFn: (modelId: string) =>
-      apiRequest("PATCH", `/api/owner/ai-models/${modelId}/set-default`),
+    mutationFn: (id: string) =>
+      apiRequest("PATCH", `/api/sovereign/ai-models/${id}/set-default`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/owner/ai-models"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sovereign/ai-models"] });
       toast({ title: language === "ar" ? "تم تعيين النموذج الافتراضي" : "Default model set" });
     },
   });
@@ -580,6 +640,10 @@ export default function AIModelRegistry() {
             <Shield className="h-4 w-4" />
             {t.settingsTab}
           </TabsTrigger>
+          <TabsTrigger value="intake" data-testid="tab-intake">
+            <Download className="h-4 w-4" />
+            {t.intakeTab}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="models" className="space-y-4">
@@ -666,7 +730,7 @@ export default function AIModelRegistry() {
                         <Switch
                           checked={model.isActive}
                           onCheckedChange={(checked) => 
-                            toggleModelMutation.mutate({ modelId: model.modelId, isActive: checked })
+                            toggleModelMutation.mutate({ id: model.id, isActive: checked })
                           }
                           data-testid={`switch-model-active-${model.modelId}`}
                         />
@@ -679,7 +743,7 @@ export default function AIModelRegistry() {
                           <Button
                             size="icon"
                             variant="ghost"
-                            onClick={() => setDefaultMutation.mutate(model.modelId)}
+                            onClick={() => setDefaultMutation.mutate(model.id)}
                             title={t.isDefault}
                             data-testid={`button-set-default-${model.modelId}`}
                           >
@@ -1028,6 +1092,108 @@ export default function AIModelRegistry() {
             </Card>
           )}
         </TabsContent>
+
+        <TabsContent value="intake" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Download className="h-5 w-5" />
+                {t.intakeTitle}
+              </CardTitle>
+              <CardDescription>{t.intakeDesc}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className="cursor-pointer hover-elevate border-2 border-transparent hover:border-primary/20 transition-all">
+                  <CardContent className="py-6 text-center">
+                    <Upload className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
+                    <h3 className="font-medium">{t.uploadModel}</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {language === "ar" ? "رفع ملفات GGUF, Safetensors" : "Upload GGUF, Safetensors files"}
+                    </p>
+                    <Badge variant="secondary" className="mt-2">
+                      {language === "ar" ? "قريباً" : "Coming Soon"}
+                    </Badge>
+                  </CardContent>
+                </Card>
+
+                <Card className="cursor-pointer hover-elevate border-2 border-transparent hover:border-primary/20 transition-all">
+                  <CardContent className="py-6 text-center">
+                    <Cloud className="h-12 w-12 mx-auto mb-3 text-blue-500" />
+                    <h3 className="font-medium">{t.importFromRegistry}</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {language === "ar" ? "استيراد من Hugging Face" : "Import from Hugging Face"}
+                    </p>
+                    <Badge variant="secondary" className="mt-2">
+                      {language === "ar" ? "قريباً" : "Coming Soon"}
+                    </Badge>
+                  </CardContent>
+                </Card>
+
+                <Card 
+                  className="cursor-pointer hover-elevate border-2 border-transparent hover:border-primary/20 transition-all"
+                  onClick={() => setActiveTab("models")}
+                  data-testid="card-connect-api"
+                >
+                  <CardContent className="py-6 text-center">
+                    <Link className="h-12 w-12 mx-auto mb-3 text-green-500" />
+                    <h3 className="font-medium">{t.connectApi}</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {language === "ar" ? "ربط OpenAI, Anthropic, إلخ" : "Connect OpenAI, Anthropic, etc."}
+                    </p>
+                    <Badge className="mt-2">
+                      {language === "ar" ? "متاح" : "Available"}
+                    </Badge>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Separator />
+
+              <div>
+                <h3 className="font-medium mb-3 flex items-center gap-2">
+                  <Server className="h-4 w-4" />
+                  {language === "ar" ? "محركات التشغيل المدعومة" : "Supported Runtime Engines"}
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <Badge variant="outline" className="py-2 justify-center">
+                    <Package className="h-4 w-4 mr-1" /> Ollama
+                  </Badge>
+                  <Badge variant="outline" className="py-2 justify-center">
+                    <Server className="h-4 w-4 mr-1" /> vLLM
+                  </Badge>
+                  <Badge variant="outline" className="py-2 justify-center">
+                    <Brain className="h-4 w-4 mr-1" /> TGI
+                  </Badge>
+                  <Badge variant="outline" className="py-2 justify-center">
+                    <Cloud className="h-4 w-4 mr-1" /> External API
+                  </Badge>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="font-medium mb-3 flex items-center gap-2">
+                  <Bot className="h-4 w-4" />
+                  {language === "ar" ? "أنواع النماذج المدعومة" : "Supported Model Types"}
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <Badge variant="outline" className="py-2 justify-center">
+                    <Brain className="h-4 w-4 mr-1" /> {t.chatModel}
+                  </Badge>
+                  <Badge variant="outline" className="py-2 justify-center">
+                    <Code className="h-4 w-4 mr-1" /> {t.codeModel}
+                  </Badge>
+                  <Badge variant="outline" className="py-2 justify-center">
+                    <Package className="h-4 w-4 mr-1" /> {t.embeddingModel}
+                  </Badge>
+                  <Badge variant="outline" className="py-2 justify-center">
+                    <Eye className="h-4 w-4 mr-1" /> {t.visionModel}
+                  </Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       <Dialog open={modelDialogOpen} onOpenChange={setModelDialogOpen}>
@@ -1295,7 +1461,7 @@ export default function AIModelRegistry() {
             </Button>
             <Button
               variant="destructive"
-              onClick={() => selectedModel && deleteModelMutation.mutate(selectedModel.modelId)}
+              onClick={() => selectedModel && deleteModelMutation.mutate(selectedModel.id)}
               disabled={deleteModelMutation.isPending}
               data-testid="button-confirm-delete"
             >
