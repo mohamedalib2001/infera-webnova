@@ -100,6 +100,7 @@ import DynamicControlPage from "@/pages/owner/dynamic-control";
 import NovaPermissionsPage from "@/pages/owner/nova-permissions";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
+import { SovereignIndicator } from "@/components/sovereign-indicator";
 import { CommandPalette } from "@/components/command-palette";
 import { NovaAssistantMenu } from "@/components/nova-assistant-menu";
 import { SovereignHeaderButton } from "@/components/sovereign-header-button";
@@ -329,6 +330,8 @@ function AppContent() {
         </div>
       </SidebarProvider>
       
+      {/* Sovereign Analytics Panel - لوحة التحليلات السيادية */}
+      <SovereignIndicator />
     </div>
   );
 }
