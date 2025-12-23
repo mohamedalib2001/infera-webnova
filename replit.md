@@ -137,6 +137,30 @@ The platform offers an AI Chat Interface, a live preview with responsive viewpor
     - 20+ granular permissions with security levels (high/medium/low/danger)
     - Categories: code_execution, file_operations, database_operations, api_integration
     - Permission grants and audit logging
+*   **Service-to-Service Authentication**:
+    - HMAC-SHA256 signature validation via X-Service-ID, X-Service-Signature, X-Service-Timestamp headers
+    - 5-minute timestamp window to prevent replay attacks
+    - Constant-time comparison to prevent timing attacks
+    - Trusted services: execution-engine, memory-service, integration-layer, deployment-service, ai-orchestrator, platform-orchestrator
+
+### Documentation & Handover (Phase 6 Complete)
+*   **Architecture Documentation** (`docs/ARCHITECTURE.md`):
+    - Complete system architecture diagram
+    - Core modules documentation (Execution Engine, Memory, Integration, Vault)
+    - Security model and RBAC documentation
+*   **Deployment Guide** (`docs/DEPLOYMENT.md`):
+    - Step-by-step Terraform deployment
+    - Ansible playbook execution
+    - Kubernetes manifest application
+    - SSL/TLS configuration
+    - Scaling and monitoring
+    - Backup and recovery procedures
+    - Troubleshooting guide
+*   **API Reference** (`docs/API-REFERENCE.md`):
+    - Complete endpoint documentation
+    - Request/response examples
+    - Service-to-service authentication
+    - Rate limits and pagination
 
 ## External Dependencies
 *   **Database**: PostgreSQL

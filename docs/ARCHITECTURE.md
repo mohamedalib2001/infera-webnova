@@ -337,6 +337,131 @@ shared/core/
         └── command-center.ts  # 📋 Interface only
 ```
 
+## Secrets Vault (Phase 5)
+
+### Overview
+The Secrets Vault provides secure storage for sensitive data with encryption, access control, and audit logging.
+
+### Encryption
+- **Algorithm**: AES-256-GCM
+- **Key Derivation**: scrypt (N=16384, r=8, p=1)
+- **Storage**: Encrypted blob with IV, salt, and auth tag concatenated
+
+### Access Control
+1. **Owner**: ownerId matches userId
+2. **Privileged Roles**: ROOT_OWNER, sovereign, owner, admin
+3. **allowedRoles**: User's role in allowedRoles array
+4. **allowedServices**: Service identity in allowedServices array
+
+### Service-to-Service Authentication
+For machine-to-machine access, services must provide HMAC-SHA256 signatures:
+
+**Required Headers:**
+```
+X-Service-ID: execution-engine
+X-Service-Signature: HMAC-SHA256(serviceId:timestamp)
+X-Service-Timestamp: Unix timestamp (5-minute window)
+```
+
+**Trusted Services:**
+- execution-engine
+- memory-service
+- integration-layer
+- deployment-service
+- ai-orchestrator
+- platform-orchestrator
+
+**Security Features:**
+- Constant-time comparison (prevents timing attacks)
+- 5-minute timestamp window (prevents replay attacks)
+- Shared secret validation via SERVICE_AUTH_SECRET
+
+### Vault API Endpoints
+```
+POST   /api/vault/secrets            - Create secret with encryption
+GET    /api/vault/secrets/*          - Get metadata (no value)
+POST   /api/vault/secrets/*/reveal   - Decrypt with confirmation
+PATCH  /api/vault/secrets/*          - Update with re-encryption
+POST   /api/vault/secrets/*/rotate   - Rotate with version history
+DELETE /api/vault/secrets/*          - Delete with audit
+GET    /api/vault/list               - Filter by scope/project/type
+GET    /api/vault/stats              - Vault statistics
+GET    /api/vault/rotation-needed    - Secrets due for rotation
+```
+
+---
+
+## Execution Engine (Phase 1)
+
+### Supported Languages
+| Language   | Version | Docker Image          |
+|------------|---------|----------------------|
+| Node.js    | 20+     | node:20-alpine       |
+| TypeScript | 5+      | node:20-alpine       |
+| Python     | 3.11+   | python:3.11-alpine   |
+| Go         | 1.21+   | golang:1.21-alpine   |
+| PHP        | 8.3+    | php:8.3-alpine       |
+| Rust       | 1.75+   | rust:1.75-alpine     |
+
+### Execution Modes
+1. **Local Execution**: Direct execution on host (fallback)
+2. **Docker Isolation**: Secure containerized execution
+   - Network disabled by default
+   - Memory limits (256MB default)
+   - No privileged mode
+   - Read-only filesystem (except /tmp)
+
+### API Endpoints
+```
+POST /api/execution/run      - Execute code
+GET  /api/execution/status   - Get engine status
+```
+
+---
+
+## Institutional Memory (Phase 2)
+
+### Storage Model
+- PostgreSQL for structured data
+- 256-dimensional semantic embeddings (in-database)
+- JSONB for flexible metadata
+
+### Memory API Endpoints
+```
+POST   /api/memory           - Create memory
+GET    /api/memory           - List memories (with filters)
+GET    /api/memory/:id       - Get single memory
+POST   /api/memory/search    - Semantic search
+PATCH  /api/memory/:id       - Update memory
+DELETE /api/memory/:id       - Soft delete (archive)
+POST   /api/memory/:id/supersede - Version replacement
+POST   /api/memory/:id/link  - Create relationship
+GET    /api/memory/stats     - Statistics
+POST   /api/memory/analyze   - AI analysis
+```
+
+---
+
+## Infrastructure (Phase 4)
+
+### Terraform (Hetzner Cloud)
+- VPC Network (10.0.0.0/16)
+- Subnet (10.0.1.0/24)
+- Firewall (SSH, HTTP, HTTPS, k3s API, NodePort)
+- k3s Master Nodes (1-3)
+- k3s Worker Nodes (configurable)
+- Load Balancer (lb11)
+- Persistent Volumes (50GB per worker)
+
+### Kubernetes Stack
+- k3s lightweight Kubernetes
+- Longhorn distributed storage
+- cert-manager for TLS
+- ingress-nginx for routing
+- HPA for autoscaling (3-10 replicas)
+
+---
+
 ## Next Steps
 
 1. **Implement Event Bus Persistence** - Add message queue (NATS/Kafka) for production
