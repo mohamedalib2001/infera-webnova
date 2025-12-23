@@ -155,6 +155,13 @@ const translations = {
     info: "Info",
     acknowledge: "Acknowledge",
     
+    webhooks: "Webhooks",
+    noWebhooks: "No webhooks configured",
+    detectAnomalies: "Detect Anomalies",
+    webhookSuccess: "success",
+    webhookFailed: "failed",
+    webhookDeliveries: "deliveries",
+    
     lastHealthCheck: "Last Health Check",
     latencyMs: "Latency",
     successRate: "Success Rate",
@@ -289,6 +296,13 @@ const translations = {
     warning: "تحذير",
     info: "معلومات",
     acknowledge: "تأكيد",
+    
+    webhooks: "الويب هوكس",
+    noWebhooks: "لا توجد ويب هوكس مُعدة",
+    detectAnomalies: "كشف الشذوذ",
+    webhookSuccess: "ناجح",
+    webhookFailed: "فشل",
+    webhookDeliveries: "تسليمات",
     
     lastHealthCheck: "آخر فحص صحة",
     latencyMs: "زمن الاستجابة",
@@ -621,6 +635,13 @@ export default function InferaIntelligenceModels() {
       queryClient.invalidateQueries({ queryKey: ["/api/infera/webhooks"] });
       toast({ title: language === "ar" ? "تم حذف الويب هوك" : "Webhook deleted" });
     },
+    onError: (error: any) => {
+      toast({ 
+        title: language === "ar" ? "فشل حذف الويب هوك" : "Failed to delete webhook",
+        description: error.message,
+        variant: "destructive"
+      });
+    },
   });
 
   const testWebhookMutation = useMutation({
@@ -629,6 +650,13 @@ export default function InferaIntelligenceModels() {
     },
     onSuccess: () => {
       toast({ title: language === "ar" ? "تم إرسال اختبار الويب هوك" : "Test webhook sent" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: language === "ar" ? "فشل اختبار الويب هوك" : "Failed to test webhook",
+        description: error.message,
+        variant: "destructive"
+      });
     },
   });
 
@@ -639,6 +667,13 @@ export default function InferaIntelligenceModels() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/infera/alerts"] });
       toast({ title: language === "ar" ? "تم كشف الشذوذ" : "Anomaly detection completed" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: language === "ar" ? "فشل كشف الشذوذ" : "Failed to detect anomalies",
+        description: error.message,
+        variant: "destructive"
+      });
     },
   });
 
