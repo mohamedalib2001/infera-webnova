@@ -10869,6 +10869,33 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
                        finalScore >= 65 ? 'yellow' :
                        finalScore >= 50 ? 'orange' : 'red';
 
+    // Gap Analysis for zero-code readiness
+    const targetScore = 100;
+    const gap = targetScore - finalScore;
+    const gapAnalysis = {
+      currentScore: finalScore,
+      targetScore,
+      gap: Math.max(0, gap),
+      missingServices: !hasAI ? [
+        { name: 'AI Code Assistant', nameAr: 'مساعد الكود الذكي', impact: 'high', impactAr: 'عالي' },
+      ] : [],
+      aiOpportunities: !hasAI ? [
+        { name: 'Nova AI Integration', nameAr: 'تكامل نوفا الذكي', potential: 25, potentialAr: '25%' },
+      ] : hasAutomation ? [] : [
+        { name: 'Workflow Automation', nameAr: 'أتمتة سير العمل', potential: 15, potentialAr: '15%' },
+      ],
+      legacySystems: [],
+      executiveRecommendations: gap > 0 ? [
+        { title: 'Enhance AI Coverage', titleAr: 'تعزيز تغطية الذكاء الاصطناعي', priority: 'high', priorityAr: 'عالية' },
+      ] : [
+        { title: 'Maintain Excellence', titleAr: 'الحفاظ على التميز', priority: 'medium', priorityAr: 'متوسطة' },
+      ],
+      cuttingEdgeTools: [
+        { name: 'Nova Vision AI', nameAr: 'رؤية نوفا الذكية', category: 'AI', categoryAr: 'ذكاء اصطناعي' },
+        { name: 'Real-time Collaboration', nameAr: 'التعاون الفوري', category: 'Productivity', categoryAr: 'الإنتاجية' },
+      ],
+    };
+
     return {
       services: analyzedServices,
       page: pageAnalysis,
@@ -10893,6 +10920,7 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
         descriptionAr: techLevel === 'sovereign' ? 'بنية مستقبلية' : 'بنية حديثة',
       },
       pageDynamics,
+      gapAnalysis,
       finalScore,
       statusColor,
       recommendations: !hasAI ? [{
