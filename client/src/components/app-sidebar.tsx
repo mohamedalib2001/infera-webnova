@@ -606,6 +606,22 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location === "/owner/staff"}>
+                      <Link href="/owner/staff" data-testid="nav-owner-staff">
+                        <Users className="h-4 w-4 text-amber-500" />
+                        <span>{language === "ar" ? "إدارة الموظفين" : "Staff Management"}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location === "/owner/sovereign-permissions"}>
+                      <Link href="/owner/sovereign-permissions" data-testid="nav-sovereign-permissions">
+                        <Key className="h-4 w-4 text-purple-500" />
+                        <span>{language === "ar" ? "صلاحيات السياديين" : "Sovereign Permissions"}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
