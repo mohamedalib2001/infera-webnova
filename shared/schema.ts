@@ -12603,6 +12603,122 @@ export const insertNavigationAnalyticsSchema = createInsertSchema(navigationAnal
 export type InsertNavigationAnalytics = z.infer<typeof insertNavigationAnalyticsSchema>;
 export type NavigationAnalytics = typeof navigationAnalytics.$inferSelect;
 
+// ==================== PAGE TELEMETRY - تتبع المكونات والخدمات الديناميكي ====================
+
+// Page Components - تتبع المكونات الفعلية في كل صفحة
+export const pageComponents = pgTable("page_components", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  path: text("path").notNull(), // مسار الصفحة
+  componentName: text("component_name").notNull(), // اسم المكون
+  componentNameAr: text("component_name_ar"), // الاسم بالعربية
+  componentType: text("component_type").notNull(), // ai, automation, core, security, analytics, etc.
+  
+  // Performance metrics
+  mountCount: integer("mount_count").default(0), // عدد مرات التحميل
+  avgRenderTime: real("avg_render_time"), // متوسط وقت الرسم
+  lastMountedAt: timestamp("last_mounted_at"),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  hasAI: boolean("has_ai").default(false),
+  hasAutomation: boolean("has_automation").default(false),
+  
+  // Metadata
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_page_components_path").on(table.path),
+  index("IDX_page_components_name").on(table.componentName),
+  index("IDX_page_components_type").on(table.componentType),
+]);
+
+export const insertPageComponentSchema = createInsertSchema(pageComponents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertPageComponent = z.infer<typeof insertPageComponentSchema>;
+export type PageComponent = typeof pageComponents.$inferSelect;
+
+// Page API Calls - تتبع استدعاءات API الفعلية
+export const pageApiCalls = pgTable("page_api_calls", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  path: text("path").notNull(), // مسار الصفحة المستدعية
+  endpoint: text("endpoint").notNull(), // نقطة النهاية
+  method: text("method").notNull().default("GET"), // GET, POST, PUT, DELETE
+  
+  // Service classification
+  serviceName: text("service_name"), // اسم الخدمة
+  serviceNameAr: text("service_name_ar"),
+  serviceType: text("service_type"), // ai, auth, storage, analytics, etc.
+  
+  // Performance metrics
+  callCount: integer("call_count").default(0), // عدد الاستدعاءات
+  avgResponseTime: real("avg_response_time"), // متوسط وقت الاستجابة
+  successRate: real("success_rate"), // معدل النجاح
+  lastCalledAt: timestamp("last_called_at"),
+  
+  // Status tracking
+  lastStatus: integer("last_status"), // آخر رمز حالة HTTP
+  errorCount: integer("error_count").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_page_api_calls_path").on(table.path),
+  index("IDX_page_api_calls_endpoint").on(table.endpoint),
+  index("IDX_page_api_calls_service").on(table.serviceType),
+]);
+
+export const insertPageApiCallSchema = createInsertSchema(pageApiCalls).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertPageApiCall = z.infer<typeof insertPageApiCallSchema>;
+export type PageApiCall = typeof pageApiCalls.$inferSelect;
+
+// Page Service Metrics - مقاييس أداء الخدمات لكل صفحة
+export const pageServiceMetrics = pgTable("page_service_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  path: text("path").notNull(),
+  date: text("date").notNull(), // YYYY-MM-DD
+  
+  // Aggregated scores (0-100, calculated from real data)
+  overallScore: real("overall_score").default(0),
+  performanceScore: real("performance_score").default(0),
+  securityScore: real("security_score").default(0),
+  aiScore: real("ai_score").default(0),
+  automationScore: real("automation_score").default(0),
+  
+  // Counts
+  totalComponents: integer("total_components").default(0),
+  aiComponents: integer("ai_components").default(0),
+  automationComponents: integer("automation_components").default(0),
+  totalApiCalls: integer("total_api_calls").default(0),
+  
+  // Performance
+  avgLoadTime: real("avg_load_time"),
+  avgApiResponseTime: real("avg_api_response_time"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_page_service_metrics_path").on(table.path),
+  index("IDX_page_service_metrics_date").on(table.date),
+]);
+
+export const insertPageServiceMetricsSchema = createInsertSchema(pageServiceMetrics).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertPageServiceMetrics = z.infer<typeof insertPageServiceMetricsSchema>;
+export type PageServiceMetrics = typeof pageServiceMetrics.$inferSelect;
+
 // ==================== SELF-HOSTED PLATFORM INFRASTRUCTURE ====================
 // نظام البنية التحتية للمنصة المستقلة - INFERA WebNova Self-Hosted
 
