@@ -3884,6 +3884,137 @@ export async function registerRoutes(
     }
   });
 
+  // ============ WEBHOOKS API ============
+  
+  // Get all webhooks
+  app.get("/api/infera/webhooks", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const result = await db.execute(sql`
+        SELECT id, name, url, events, is_active, last_triggered_at, 
+               delivery_count, success_count, failure_count, created_at
+        FROM infera_webhooks
+        ORDER BY created_at DESC
+      `);
+      res.json({ webhooks: result.rows || [] });
+    } catch (error) {
+      console.error("Failed to get webhooks:", error);
+      res.status(500).json({ error: "Failed to get webhooks" });
+    }
+  });
+
+  // Create a new webhook
+  app.post("/api/infera/webhooks", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { name, url, events } = req.body;
+      if (!name || !url || !events) {
+        return res.status(400).json({ error: "Missing required fields: name, url, events" });
+      }
+      
+      const webhook = await inferaRouterEngine.createWebhook({
+        name,
+        url,
+        events
+      });
+      
+      res.json({ success: true, webhook });
+    } catch (error) {
+      console.error("Failed to create webhook:", error);
+      res.status(500).json({ error: "Failed to create webhook" });
+    }
+  });
+
+  // Update a webhook
+  app.patch("/api/infera/webhooks/:webhookId", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { webhookId } = req.params;
+      const { name, url, events, isActive } = req.body;
+      
+      const updates: string[] = [];
+      if (name !== undefined) updates.push(`name = '${name}'`);
+      if (url !== undefined) updates.push(`url = '${url}'`);
+      if (events !== undefined) updates.push(`events = '${JSON.stringify(events)}'`);
+      if (isActive !== undefined) updates.push(`is_active = ${isActive}`);
+      updates.push(`updated_at = NOW()`);
+      
+      await db.execute(sql.raw(`UPDATE infera_webhooks SET ${updates.join(', ')} WHERE id = '${webhookId}'`));
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to update webhook:", error);
+      res.status(500).json({ error: "Failed to update webhook" });
+    }
+  });
+
+  // Delete a webhook
+  app.delete("/api/infera/webhooks/:webhookId", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { webhookId } = req.params;
+      
+      await db.execute(sql`DELETE FROM infera_webhook_deliveries WHERE webhook_id = ${webhookId}`);
+      await db.execute(sql`DELETE FROM infera_webhooks WHERE id = ${webhookId}`);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete webhook:", error);
+      res.status(500).json({ error: "Failed to delete webhook" });
+    }
+  });
+
+  // Get webhook deliveries
+  app.get("/api/infera/webhooks/:webhookId/deliveries", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { webhookId } = req.params;
+      const { limit = '50' } = req.query;
+      
+      const result = await db.execute(sql`
+        SELECT * FROM infera_webhook_deliveries
+        WHERE webhook_id = ${webhookId}
+        ORDER BY delivered_at DESC
+        LIMIT ${parseInt(limit as string)}
+      `);
+      
+      res.json({ deliveries: result.rows || [] });
+    } catch (error) {
+      console.error("Failed to get webhook deliveries:", error);
+      res.status(500).json({ error: "Failed to get webhook deliveries" });
+    }
+  });
+
+  // Test a webhook manually
+  app.post("/api/infera/webhooks/:webhookId/test", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { webhookId } = req.params;
+      
+      const result = await db.execute(sql`SELECT * FROM infera_webhooks WHERE id = ${webhookId}`);
+      if (!result.rows || result.rows.length === 0) {
+        return res.status(404).json({ error: "Webhook not found" });
+      }
+      
+      await inferaRouterEngine.triggerWebhooks('test.ping', {
+        webhookId,
+        message: 'This is a test webhook delivery',
+        timestamp: new Date().toISOString()
+      });
+      
+      res.json({ success: true, message: 'Test webhook sent' });
+    } catch (error) {
+      console.error("Failed to test webhook:", error);
+      res.status(500).json({ error: "Failed to test webhook" });
+    }
+  });
+
+  // Run anomaly detection manually
+  app.post("/api/infera/detect-anomalies", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      await inferaRouterEngine.detectAnomalies();
+      const alerts = await inferaRouterEngine.getActiveAlerts();
+      res.json({ success: true, alerts });
+    } catch (error) {
+      console.error("Failed to detect anomalies:", error);
+      res.status(500).json({ error: "Failed to detect anomalies" });
+    }
+  });
+
   // Get compliance reports
   app.get("/api/infera/compliance-reports", requireAuth, requireSovereign, async (req, res) => {
     try {

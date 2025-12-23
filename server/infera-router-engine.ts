@@ -491,7 +491,249 @@ class InferaRouterEngine {
         console.log(`Health check passed for ${provider.name}: ${latencyMs}ms`);
       } catch (error: any) {
         await this.reportFailure(provider.name, 0, error.message);
+        await this.createAlert(provider.id, 'provider_unhealthy', 'warning', 
+          `Health check failed for ${provider.name}: ${error.message}`);
         console.error(`Health check failed for ${provider.name}:`, error.message);
+      }
+    }
+  }
+
+  async getWebhooks(): Promise<any[]> {
+    try {
+      const result = await db.execute(sql`
+        SELECT * FROM infera_webhooks 
+        WHERE is_active = true
+        ORDER BY created_at DESC
+      `);
+      return result.rows || [];
+    } catch (error) {
+      console.error("Failed to get webhooks:", error);
+      return [];
+    }
+  }
+
+  async createWebhook(data: {
+    name: string;
+    url: string;
+    events: string[];
+    secret?: string;
+    headers?: Record<string, string>;
+  }): Promise<any> {
+    try {
+      const id = crypto.randomUUID();
+      const secret = data.secret || crypto.randomBytes(32).toString('hex');
+      
+      await db.execute(sql`
+        INSERT INTO infera_webhooks (
+          id, name, url, events, secret, headers, is_active
+        ) VALUES (
+          ${id}, ${data.name}, ${data.url}, ${JSON.stringify(data.events)}, 
+          ${secret}, ${JSON.stringify(data.headers || {})}, true
+        )
+      `);
+      
+      return { id, name: data.name, url: data.url, secret };
+    } catch (error) {
+      console.error("Failed to create webhook:", error);
+      throw error;
+    }
+  }
+
+  async triggerWebhooks(event: string, payload: any): Promise<void> {
+    const webhooks = await this.getWebhooks();
+    const applicableWebhooks = webhooks.filter((wh: any) => 
+      wh.events?.includes(event) || wh.events?.includes('*')
+    );
+
+    for (const webhook of applicableWebhooks) {
+      try {
+        const timestamp = Date.now();
+        const signature = this.generateWebhookSignature(
+          JSON.stringify(payload), 
+          webhook.secret, 
+          timestamp
+        );
+        
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'X-INFERA-Signature': signature,
+          'X-INFERA-Timestamp': timestamp.toString(),
+          'X-INFERA-Event': event,
+          ...(webhook.headers || {})
+        };
+
+        const response = await fetch(webhook.url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            event,
+            timestamp: new Date().toISOString(),
+            payload
+          })
+        });
+
+        await this.recordWebhookDelivery(webhook.id, event, response.ok, response.status);
+        
+        if (!response.ok) {
+          console.error(`Webhook delivery failed for ${webhook.name}: ${response.status}`);
+        }
+      } catch (error: any) {
+        await this.recordWebhookDelivery(webhook.id, event, false, 0, error.message);
+        console.error(`Webhook error for ${webhook.name}:`, error.message);
+      }
+    }
+  }
+
+  private generateWebhookSignature(payload: string, secret: string, timestamp: number): string {
+    const signaturePayload = `${timestamp}.${payload}`;
+    return crypto.createHmac('sha256', secret).update(signaturePayload).digest('hex');
+  }
+
+  async recordWebhookDelivery(
+    webhookId: string, 
+    event: string, 
+    success: boolean, 
+    statusCode: number,
+    errorMessage?: string
+  ): Promise<void> {
+    try {
+      await db.execute(sql`
+        INSERT INTO infera_webhook_deliveries (
+          id, webhook_id, event, success, status_code, error_message, delivered_at
+        ) VALUES (
+          ${crypto.randomUUID()}, ${webhookId}, ${event}, ${success}, 
+          ${statusCode}, ${errorMessage || null}, NOW()
+        )
+      `);
+
+      await db.execute(sql`
+        UPDATE infera_webhooks
+        SET 
+          last_triggered_at = NOW(),
+          delivery_count = delivery_count + 1,
+          success_count = success_count + CASE WHEN ${success} THEN 1 ELSE 0 END,
+          failure_count = failure_count + CASE WHEN ${success} THEN 0 ELSE 1 END
+        WHERE id = ${webhookId}
+      `);
+    } catch (error) {
+      console.error("Failed to record webhook delivery:", error);
+    }
+  }
+
+  async createAlert(
+    providerId: string,
+    alertType: string,
+    severity: 'info' | 'warning' | 'critical',
+    message: string
+  ): Promise<void> {
+    try {
+      const alertId = crypto.randomUUID();
+      await db.execute(sql`
+        INSERT INTO infera_anomaly_alerts (
+          id, provider_id, alert_type, severity, message, status
+        ) VALUES (
+          ${alertId}, ${providerId}, ${alertType}, ${severity}, ${message}, 'active'
+        )
+      `);
+
+      await this.triggerWebhooks('alert.created', {
+        alertId,
+        providerId,
+        alertType,
+        severity,
+        message,
+        createdAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Failed to create alert:", error);
+    }
+  }
+
+  async acknowledgeAlert(alertId: string, acknowledgedBy?: string): Promise<void> {
+    try {
+      await db.execute(sql`
+        UPDATE infera_anomaly_alerts
+        SET 
+          status = 'acknowledged',
+          acknowledged_at = NOW(),
+          acknowledged_by = ${acknowledgedBy || 'system'}
+        WHERE id = ${alertId}
+      `);
+
+      await this.triggerWebhooks('alert.acknowledged', {
+        alertId,
+        acknowledgedBy,
+        acknowledgedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Failed to acknowledge alert:", error);
+    }
+  }
+
+  async getActiveAlerts(): Promise<any[]> {
+    try {
+      const result = await db.execute(sql`
+        SELECT 
+          a.*,
+          p.display_name as provider_name
+        FROM infera_anomaly_alerts a
+        LEFT JOIN infera_ai_providers p ON a.provider_id = p.id
+        WHERE a.status = 'active'
+        ORDER BY 
+          CASE a.severity 
+            WHEN 'critical' THEN 1 
+            WHEN 'warning' THEN 2 
+            ELSE 3 
+          END,
+          a.created_at DESC
+        LIMIT 100
+      `);
+      return result.rows || [];
+    } catch (error) {
+      console.error("Failed to get active alerts:", error);
+      return [];
+    }
+  }
+
+  async detectAnomalies(): Promise<void> {
+    const providers = await this.getActiveProviders();
+    
+    for (const provider of providers) {
+      if (provider.healthScore < 50) {
+        await this.createAlert(
+          provider.id,
+          'low_health_score',
+          'critical',
+          `Provider ${provider.displayName} health score dropped to ${provider.healthScore}%`
+        );
+      }
+      
+      if (provider.averageLatencyMs > 10000) {
+        await this.createAlert(
+          provider.id,
+          'high_latency',
+          'warning',
+          `Provider ${provider.displayName} average latency is ${provider.averageLatencyMs}ms`
+        );
+      }
+      
+      if (provider.successRate < 90) {
+        await this.createAlert(
+          provider.id,
+          'low_success_rate',
+          'warning',
+          `Provider ${provider.displayName} success rate dropped to ${provider.successRate}%`
+        );
+      }
+      
+      const minuteUsage = provider.currentMinuteRequests / provider.rateLimitPerMinute;
+      if (minuteUsage > 0.8) {
+        await this.createAlert(
+          provider.id,
+          'rate_limit_approaching',
+          'warning',
+          `Provider ${provider.displayName} at ${Math.round(minuteUsage * 100)}% of rate limit`
+        );
       }
     }
   }
