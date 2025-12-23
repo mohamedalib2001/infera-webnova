@@ -1,4 +1,5 @@
 import { getAnthropicClientAsync, DEFAULT_ANTHROPIC_MODEL } from "./ai-config";
+import { withRateLimitRetry } from "./rate-limiter";
 
 export interface GeneratedCode {
   html: string;
@@ -106,13 +107,13 @@ ${context ? `\nسياق المشروع الحالي:\n${context}` : ""}
 مهم جداً: أجب فقط بـ JSON صالح. بدون markdown أو نص إضافي.`;
 
   try {
-    const response = await anthropic.messages.create({
+    const response = await withRateLimitRetry(() => anthropic.messages.create({
       model: DEFAULT_ANTHROPIC_MODEL,
       max_tokens: 8192,
       messages: [
         { role: "user", content: `${systemPrompt}\n\nUser request: ${prompt}` },
       ],
-    });
+    }), 3);
 
     const textContent = response.content.find(c => c.type === 'text');
     if (!textContent || textContent.type !== 'text') {
@@ -329,12 +330,12 @@ export async function analyzeIntent(
   try {
     console.log("[AnalyzeIntent] Using AI to analyze intent...");
     
-    const response = await anthropic.messages.create({
+    const response = await withRateLimitRetry(() => anthropic.messages.create({
       model: DEFAULT_ANTHROPIC_MODEL,
       max_tokens: 200,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
-    });
+    }), 3);
 
     const textContent = response.content.find(c => c.type === 'text');
     if (!textContent || textContent.type !== 'text') {
@@ -509,12 +510,12 @@ You exist to THINK, REMEMBER, and CONTINUE — not to reset.
   try {
     console.log("[ConversationalResponse] Processing with", messages.length, "messages in context");
     
-    const response = await anthropic.messages.create({
+    const response = await withRateLimitRetry(() => anthropic.messages.create({
       model: DEFAULT_ANTHROPIC_MODEL,
       max_tokens: 2048,
       system: systemPrompt,
       messages: messages,
-    });
+    }), 3);
 
     const textContent = response.content.find(c => c.type === 'text');
     if (!textContent || textContent.type !== 'text') {
@@ -766,12 +767,12 @@ For non-code requests, use type "analysis" with just message and suggestions.
 Only respond with valid JSON.`;
 
   try {
-    const response = await anthropic.messages.create({
+    const response = await withRateLimitRetry(() => anthropic.messages.create({
       model: DEFAULT_ANTHROPIC_MODEL,
       max_tokens: 8000,
       system: systemPrompt,
       messages: [{ role: "user", content: contentParts }],
-    });
+    }), 3);
     
     const responseText = response.content[0].type === "text" ? response.content[0].text : "";
     
@@ -858,13 +859,13 @@ Respond with a JSON object containing:
 Important: Only respond with valid JSON. No markdown code blocks or extra text.`;
 
   try {
-    const response = await anthropic.messages.create({
+    const response = await withRateLimitRetry(() => anthropic.messages.create({
       model: DEFAULT_ANTHROPIC_MODEL,
       max_tokens: 8192,
       messages: [
         { role: "user", content: systemPrompt },
       ],
-    });
+    }), 3);
 
     const textContent = response.content.find(c => c.type === 'text');
     if (!textContent || textContent.type !== 'text') {
@@ -892,7 +893,6 @@ Important: Only respond with valid JSON. No markdown code blocks or extra text.`
     };
   } catch (error) {
     console.error("AI refinement error:", error);
-    // Return current code with error message instead of throwing
     return {
       html: currentHtml,
       css: currentCss,
