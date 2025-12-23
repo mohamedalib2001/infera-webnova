@@ -8,14 +8,328 @@ import { z } from "zod";
 
 const execAsync = promisify(exec);
 
+// ==================== Docker Container Isolation ====================
+// Docker-based execution for maximum security isolation
+
+interface DockerExecutionConfig {
+  image: string;
+  command: string[];
+  workingDir: string;
+  memoryMB: number;
+  cpuCores: number;
+  timeoutSeconds: number;
+  networkEnabled: boolean;
+  volumes: { hostPath: string; containerPath: string; readonly: boolean }[];
+  environment: Record<string, string>;
+}
+
+interface DockerExecutionResult {
+  success: boolean;
+  containerId: string;
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  executionTimeMs: number;
+  memoryUsedMB?: number;
+}
+
+// Docker runtime configurations for supported languages
+const DOCKER_RUNTIMES: Record<string, {
+  image: string;
+  fileExtension: string;
+  runCommand: (filePath: string) => string[];
+  compileCommand?: (sourcePath: string, outputPath: string) => string[];
+}> = {
+  nodejs: {
+    image: "node:20-alpine",
+    fileExtension: ".js",
+    runCommand: (f) => ["node", f],
+  },
+  python: {
+    image: "python:3.12-slim",
+    fileExtension: ".py",
+    runCommand: (f) => ["python3", f],
+  },
+  typescript: {
+    image: "node:20-alpine",
+    fileExtension: ".ts",
+    runCommand: (f) => ["npx", "tsx", f],
+  },
+  go: {
+    image: "golang:1.22-alpine",
+    fileExtension: ".go",
+    runCommand: (f) => ["go", "run", f],
+  },
+  php: {
+    image: "php:8.3-cli-alpine",
+    fileExtension: ".php",
+    runCommand: (f) => ["php", f],
+  },
+  rust: {
+    image: "rust:1.74-slim",
+    fileExtension: ".rs",
+    runCommand: (f) => ["./main"],
+    compileCommand: (src, out) => ["rustc", src, "-o", out],
+  },
+};
+
+// Check if Docker is available
+async function isDockerAvailable(): Promise<boolean> {
+  try {
+    await execAsync("docker info", { timeout: 5000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Execute code in Docker container with isolation
+async function executeInDocker(config: DockerExecutionConfig): Promise<DockerExecutionResult> {
+  const startTime = Date.now();
+  const containerName = `infera-exec-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+  
+  try {
+    // Build volume mounts
+    const volumeArgs = config.volumes.map(v => 
+      `-v "${v.hostPath}:${v.containerPath}${v.readonly ? ':ro' : ''}"`
+    ).join(" ");
+    
+    // Build environment args
+    const envArgs = Object.entries(config.environment)
+      .map(([k, v]) => `-e "${k}=${v}"`)
+      .join(" ");
+    
+    // Build resource constraints
+    const resourceArgs = [
+      `--memory=${config.memoryMB}m`,
+      `--cpus=${config.cpuCores}`,
+      config.networkEnabled ? "" : "--network=none",
+      "--rm",
+      `--name=${containerName}`,
+    ].filter(Boolean).join(" ");
+    
+    // Full docker command
+    const dockerCmd = [
+      "docker run",
+      resourceArgs,
+      volumeArgs,
+      envArgs,
+      `-w ${config.workingDir}`,
+      config.image,
+      config.command.join(" "),
+    ].join(" ");
+    
+    const { stdout, stderr } = await execAsync(dockerCmd, {
+      timeout: config.timeoutSeconds * 1000,
+      maxBuffer: RESOURCE_LIMITS.maxOutputBytes,
+    });
+    
+    return {
+      success: true,
+      containerId: containerName,
+      exitCode: 0,
+      stdout,
+      stderr,
+      executionTimeMs: Date.now() - startTime,
+    };
+  } catch (error: any) {
+    // Cleanup container if it exists
+    try {
+      await execAsync(`docker rm -f ${containerName}`, { timeout: 5000 });
+    } catch {}
+    
+    return {
+      success: false,
+      containerId: containerName,
+      exitCode: error.code || 1,
+      stdout: error.stdout || "",
+      stderr: error.stderr || error.message,
+      executionTimeMs: Date.now() - startTime,
+    };
+  }
+}
+
+// Execute code with Docker isolation if available, fallback to local
+async function executeWithIsolation(
+  language: string,
+  code: string,
+  sandboxDir: string,
+  timeout: number,
+  useDocker: boolean = false
+): Promise<{
+  success: boolean;
+  output: string;
+  error?: string;
+  executionTime: number;
+  isolationType: "docker" | "local";
+}> {
+  const runtime = DOCKER_RUNTIMES[language];
+  if (!runtime) {
+    return {
+      success: false,
+      output: "",
+      error: `Unsupported language for isolation: ${language}`,
+      executionTime: 0,
+      isolationType: "local",
+    };
+  }
+  
+  const sourceFile = `main${runtime.fileExtension}`;
+  const filePath = path.join(sandboxDir, sourceFile);
+  await fs.writeFile(filePath, code);
+  
+  // Try Docker execution if requested and available
+  if (useDocker && await isDockerAvailable()) {
+    const startTime = Date.now();
+    
+    // Compiled languages need write access for build artifacts
+    const requiresCompilation = !!runtime.compileCommand;
+    const volumeReadonly = !requiresCompilation;
+    
+    try {
+      // For compiled languages, run compile then execute
+      if (requiresCompilation && runtime.compileCommand) {
+        const compileCmd = runtime.compileCommand(`/app/${sourceFile}`, "/app/main");
+        
+        // Compile step
+        const compileResult = await executeInDocker({
+          image: runtime.image,
+          command: compileCmd,
+          workingDir: "/app",
+          memoryMB: RESOURCE_LIMITS.maxMemoryMB,
+          cpuCores: 1,
+          timeoutSeconds: timeout / 2000, // Half timeout for compilation
+          networkEnabled: false,
+          volumes: [{ hostPath: sandboxDir, containerPath: "/app", readonly: false }],
+          environment: {},
+        });
+        
+        if (!compileResult.success) {
+          return {
+            success: false,
+            output: compileResult.stdout,
+            error: `Compilation failed: ${compileResult.stderr}`,
+            executionTime: Date.now() - startTime,
+            isolationType: "docker",
+          };
+        }
+        
+        // Execute compiled binary
+        const runResult = await executeInDocker({
+          image: runtime.image,
+          command: runtime.runCommand("/app/main"),
+          workingDir: "/app",
+          memoryMB: RESOURCE_LIMITS.maxMemoryMB,
+          cpuCores: 1,
+          timeoutSeconds: timeout / 2000, // Half timeout for execution
+          networkEnabled: false,
+          volumes: [{ hostPath: sandboxDir, containerPath: "/app", readonly: false }],
+          environment: {},
+        });
+        
+        return {
+          success: runResult.success,
+          output: runResult.stdout,
+          error: runResult.stderr || undefined,
+          executionTime: Date.now() - startTime,
+          isolationType: "docker",
+        };
+      } else {
+        // Interpreted languages - direct execution
+        const result = await executeInDocker({
+          image: runtime.image,
+          command: runtime.runCommand(`/app/${sourceFile}`),
+          workingDir: "/app",
+          memoryMB: RESOURCE_LIMITS.maxMemoryMB,
+          cpuCores: 1,
+          timeoutSeconds: timeout / 1000,
+          networkEnabled: false,
+          volumes: [{ hostPath: sandboxDir, containerPath: "/app", readonly: volumeReadonly }],
+          environment: {},
+        });
+        
+        return {
+          success: result.success,
+          output: result.stdout,
+          error: result.stderr || undefined,
+          executionTime: result.executionTimeMs,
+          isolationType: "docker",
+        };
+      }
+    } catch (error: any) {
+      return {
+        success: false,
+        output: "",
+        error: `Docker execution failed: ${error.message}`,
+        executionTime: Date.now() - startTime,
+        isolationType: "docker",
+      };
+    }
+  }
+  
+  // Fallback to local execution
+  const startTime = Date.now();
+  try {
+    // For compiled languages, compile first
+    if (runtime.compileCommand) {
+      const outputPath = path.join(sandboxDir, "main");
+      const compileCmd = runtime.compileCommand(filePath, outputPath).join(" ");
+      await execAsync(compileCmd, {
+        timeout: timeout / 2,
+        cwd: sandboxDir,
+        maxBuffer: RESOURCE_LIMITS.maxOutputBytes,
+      });
+      
+      // Execute the compiled binary
+      const { stdout, stderr } = await execAsync(outputPath, {
+        timeout: timeout / 2,
+        cwd: sandboxDir,
+        maxBuffer: RESOURCE_LIMITS.maxOutputBytes,
+      });
+      
+      return {
+        success: true,
+        output: stdout,
+        error: stderr || undefined,
+        executionTime: Date.now() - startTime,
+        isolationType: "local",
+      };
+    }
+    
+    // Interpreted languages - direct execution
+    const { stdout, stderr } = await execAsync(runtime.runCommand(filePath).join(" "), {
+      timeout,
+      cwd: sandboxDir,
+      maxBuffer: RESOURCE_LIMITS.maxOutputBytes,
+    });
+    
+    return {
+      success: true,
+      output: stdout,
+      error: stderr || undefined,
+      executionTime: Date.now() - startTime,
+      isolationType: "local",
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      output: error.stdout || "",
+      error: error.stderr || error.message,
+      executionTime: Date.now() - startTime,
+      isolationType: "local",
+    };
+  }
+}
+
 // ==================== محرك التنفيذ الآمن ====================
 // Secure Execution Engine for INFERA WebNova
 
 // Execution request schema - SECURITY: No user-specified working directory
 const executeCodeSchema = z.object({
-  language: z.enum(["nodejs", "python", "shell", "typescript"]),
+  language: z.enum(["nodejs", "python", "shell", "typescript", "go", "php", "rust"]),
   code: z.string().min(1).max(50000), // Max 50KB code
-  timeout: z.number().min(1000).max(60000).default(30000),
+  timeout: z.number().min(1000).max(120000).default(30000), // Extended to 2 min for compilation
+  useDocker: z.boolean().default(false), // Enable Docker isolation if available
   // workingDir removed for security - always use sandbox
 });
 
@@ -271,6 +585,126 @@ async function executeTypeScript(code: string, sandboxDir: string, timeout: numb
   }
 }
 
+// Execute Go code
+async function executeGo(code: string, sandboxDir: string, timeout: number): Promise<{
+  success: boolean;
+  output: string;
+  error?: string;
+  executionTime: number;
+}> {
+  const startTime = Date.now();
+  const filePath = path.join(sandboxDir, "main.go");
+  
+  await fs.writeFile(filePath, code);
+  
+  try {
+    // Run Go code directly with go run
+    const { stdout, stderr } = await execAsync(`go run "${filePath}"`, {
+      timeout,
+      cwd: sandboxDir,
+      maxBuffer: RESOURCE_LIMITS.maxOutputBytes,
+      env: {
+        ...process.env,
+        GOCACHE: path.join(sandboxDir, ".cache"),
+        GOPATH: path.join(sandboxDir, ".gopath"),
+      },
+    });
+    
+    return {
+      success: true,
+      output: stdout,
+      error: stderr || undefined,
+      executionTime: Date.now() - startTime,
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      output: error.stdout || "",
+      error: error.stderr || error.message,
+      executionTime: Date.now() - startTime,
+    };
+  }
+}
+
+// Execute PHP code
+async function executePHP(code: string, sandboxDir: string, timeout: number): Promise<{
+  success: boolean;
+  output: string;
+  error?: string;
+  executionTime: number;
+}> {
+  const startTime = Date.now();
+  const filePath = path.join(sandboxDir, "script.php");
+  
+  await fs.writeFile(filePath, code);
+  
+  try {
+    const { stdout, stderr } = await execAsync(`php "${filePath}"`, {
+      timeout,
+      cwd: sandboxDir,
+      maxBuffer: RESOURCE_LIMITS.maxOutputBytes,
+    });
+    
+    return {
+      success: true,
+      output: stdout,
+      error: stderr || undefined,
+      executionTime: Date.now() - startTime,
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      output: error.stdout || "",
+      error: error.stderr || error.message,
+      executionTime: Date.now() - startTime,
+    };
+  }
+}
+
+// Execute Rust code
+async function executeRust(code: string, sandboxDir: string, timeout: number): Promise<{
+  success: boolean;
+  output: string;
+  error?: string;
+  executionTime: number;
+}> {
+  const startTime = Date.now();
+  const filePath = path.join(sandboxDir, "main.rs");
+  const binaryPath = path.join(sandboxDir, "main");
+  
+  await fs.writeFile(filePath, code);
+  
+  try {
+    // Compile Rust code
+    await execAsync(`rustc "${filePath}" -o "${binaryPath}"`, {
+      timeout: timeout / 2, // Half timeout for compilation
+      cwd: sandboxDir,
+      maxBuffer: RESOURCE_LIMITS.maxOutputBytes,
+    });
+    
+    // Execute the compiled binary
+    const { stdout, stderr } = await execAsync(`"${binaryPath}"`, {
+      timeout: timeout / 2, // Half timeout for execution
+      cwd: sandboxDir,
+      maxBuffer: RESOURCE_LIMITS.maxOutputBytes,
+    });
+    
+    return {
+      success: true,
+      output: stdout,
+      error: stderr || undefined,
+      executionTime: Date.now() - startTime,
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      output: error.stdout || "",
+      error: error.stderr || error.message,
+      executionTime: Date.now() - startTime,
+    };
+  }
+}
+
 // Install npm packages
 async function installPackages(packages: string[], sandboxDir: string): Promise<{
   success: boolean;
@@ -357,25 +791,22 @@ export function registerExecutionRoutes(app: Express): void {
       
       try {
         let result;
+        let isolationType: "docker" | "local" = "local";
         
-        switch (data.language) {
-          case "nodejs":
-            result = await executeNodeJS(data.code, sandboxDir, data.timeout);
-            break;
-          case "python":
-            result = await executePython(data.code, sandboxDir, data.timeout);
-            break;
-          case "shell":
-            result = await executeShell(data.code, sandboxDir, data.timeout);
-            break;
-          case "typescript":
-            result = await executeTypeScript(data.code, sandboxDir, data.timeout);
-            break;
-          default:
-            return res.status(400).json({
-              success: false,
-              error: `Unsupported language: ${data.language}`,
-            });
+        // Shell commands are always local-only (no Docker support)
+        if (data.language === "shell") {
+          result = await executeShell(data.code, sandboxDir, data.timeout);
+        } else {
+          // Use unified execution with isolation support for all other languages
+          const isolatedResult = await executeWithIsolation(
+            data.language,
+            data.code,
+            sandboxDir,
+            data.timeout,
+            data.useDocker
+          );
+          result = isolatedResult;
+          isolationType = isolatedResult.isolationType;
         }
         
         res.json({
@@ -385,6 +816,7 @@ export function registerExecutionRoutes(app: Express): void {
           output: result.output,
           error: result.error,
           executionTime: result.executionTime,
+          isolationType,
         });
       } finally {
         // Cleanup sandbox after short delay
@@ -478,12 +910,65 @@ export function registerExecutionRoutes(app: Express): void {
         runtimes.pip = { available: false };
       }
       
+      // Check Go
+      try {
+        const { stdout } = await execAsync("go version");
+        runtimes.go = { available: true, version: stdout.trim() };
+      } catch {
+        runtimes.go = { available: false };
+      }
+      
+      // Check PHP
+      try {
+        const { stdout } = await execAsync("php --version");
+        const firstLine = stdout.trim().split('\n')[0];
+        runtimes.php = { available: true, version: firstLine };
+      } catch {
+        runtimes.php = { available: false };
+      }
+      
+      // Check Rust
+      try {
+        const { stdout } = await execAsync("rustc --version");
+        runtimes.rust = { available: true, version: stdout.trim() };
+      } catch {
+        runtimes.rust = { available: false };
+      }
+      
+      // Check TypeScript (tsx)
+      try {
+        const { stdout } = await execAsync("npx tsx --version");
+        runtimes.typescript = { available: true, version: stdout.trim() };
+      } catch {
+        runtimes.typescript = { available: false };
+      }
+      
+      // Check Docker availability
+      const dockerAvailable = await isDockerAvailable();
+      let dockerVersion: string | undefined;
+      if (dockerAvailable) {
+        try {
+          const { stdout } = await execAsync("docker --version");
+          dockerVersion = stdout.trim();
+        } catch {}
+      }
+      
       res.json({
         status: "operational",
         statusAr: "يعمل",
         runtimes,
         limits: RESOURCE_LIMITS,
         activeProcesses: activeProcesses.size,
+        supportedLanguages: ["nodejs", "python", "typescript", "go", "php", "rust", "shell"],
+        docker: {
+          available: dockerAvailable,
+          version: dockerVersion,
+          images: Object.entries(DOCKER_RUNTIMES).map(([lang, cfg]) => ({
+            language: lang,
+            image: cfg.image,
+          })),
+        },
+        isolationModes: ["local", dockerAvailable ? "docker" : null].filter(Boolean),
       });
     } catch (error) {
       res.status(500).json({
