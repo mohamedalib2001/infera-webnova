@@ -107,6 +107,26 @@ const translations = {
     filesSaved: "File saved successfully",
     fileLoaded: "File loaded",
     enterPath: "Enter file path...",
+    watcher: "Watcher",
+    evolution: "Evolution",
+    startWatcher: "Start Watcher",
+    stopWatcher: "Stop Watcher",
+    watcherStatus: "Watcher Status",
+    watchingDirs: "Watching Directories",
+    recentChanges: "Recent Changes",
+    noChanges: "No file changes detected",
+    watcherRunning: "Watcher is running",
+    watcherStopped: "Watcher is stopped",
+    evolutionGoals: "Evolution Goals",
+    analyzeSystem: "Analyze System",
+    selfImprove: "Self Improve",
+    createGoal: "Create Goal",
+    goalDescription: "Goal Description",
+    executing: "Executing",
+    analyzing: "Analyzing",
+    noGoals: "No evolution goals",
+    evolutionScore: "Evolution Score",
+    suggestions: "Suggestions",
   },
   ar: {
     title: "عميل INFERA",
@@ -169,6 +189,26 @@ const translations = {
     filesSaved: "تم حفظ الملف بنجاح",
     fileLoaded: "تم تحميل الملف",
     enterPath: "أدخل مسار الملف...",
+    watcher: "المراقب",
+    evolution: "التطور",
+    startWatcher: "تشغيل المراقب",
+    stopWatcher: "إيقاف المراقب",
+    watcherStatus: "حالة المراقب",
+    watchingDirs: "المجلدات المراقبة",
+    recentChanges: "التغييرات الأخيرة",
+    noChanges: "لا توجد تغييرات",
+    watcherRunning: "المراقب يعمل",
+    watcherStopped: "المراقب متوقف",
+    evolutionGoals: "أهداف التطور",
+    analyzeSystem: "تحليل النظام",
+    selfImprove: "تحسين ذاتي",
+    createGoal: "إنشاء هدف",
+    goalDescription: "وصف الهدف",
+    executing: "جارٍ التنفيذ",
+    analyzing: "جارٍ التحليل",
+    noGoals: "لا توجد أهداف",
+    evolutionScore: "نقاط التطور",
+    suggestions: "الاقتراحات",
   },
 };
 
@@ -334,6 +374,108 @@ export default function InferaAgentPage() {
       if (data.success && data.files) {
         setFileTree(data.files);
       }
+    },
+  });
+
+  // Watcher state and mutations
+  const [watcherStatus, setWatcherStatus] = useState<{ isWatching: boolean; watchedPaths: string[]; changeCount: number }>({ isWatching: false, watchedPaths: [], changeCount: 0 });
+  const [fileChanges, setFileChanges] = useState<any[]>([]);
+
+  const { data: watcherData, refetch: refetchWatcher } = useQuery({
+    queryKey: ["/api/infera/agent/watcher/status"],
+    refetchInterval: 5000,
+  });
+
+  useEffect(() => {
+    if (watcherData) {
+      setWatcherStatus(watcherData as any);
+    }
+  }, [watcherData]);
+
+  const startWatcherMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/infera/agent/watcher/start", { directories: ["client/src", "server", "shared"] });
+    },
+    onSuccess: () => {
+      toast({ title: t.watcherRunning });
+      refetchWatcher();
+    },
+  });
+
+  const stopWatcherMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/infera/agent/watcher/stop", {});
+    },
+    onSuccess: () => {
+      toast({ title: t.watcherStopped });
+      refetchWatcher();
+    },
+  });
+
+  const { data: changesData, refetch: refetchChanges } = useQuery({
+    queryKey: ["/api/infera/agent/watcher/changes"],
+    refetchInterval: watcherStatus.isWatching ? 3000 : false,
+  });
+
+  useEffect(() => {
+    if (changesData && (changesData as any).changes) {
+      setFileChanges((changesData as any).changes);
+    }
+  }, [changesData]);
+
+  // Evolution state and mutations
+  const [evolutionGoals, setEvolutionGoals] = useState<any[]>([]);
+  const [evolutionAnalysis, setEvolutionAnalysis] = useState<{ suggestions: string[]; score: number } | null>(null);
+  const [newGoalDescription, setNewGoalDescription] = useState("");
+
+  const { data: goalsData, refetch: refetchGoals } = useQuery({
+    queryKey: ["/api/infera/agent/evolution/goals"],
+  });
+
+  useEffect(() => {
+    if (goalsData && (goalsData as any).goals) {
+      setEvolutionGoals((goalsData as any).goals);
+    }
+  }, [goalsData]);
+
+  const analyzeEvolutionMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/infera/agent/evolution/analyze", {});
+    },
+    onSuccess: (data: any) => {
+      setEvolutionAnalysis(data);
+      toast({ title: language === "ar" ? "اكتمل التحليل" : "Analysis complete" });
+    },
+  });
+
+  const createGoalMutation = useMutation({
+    mutationFn: async (description: string) => {
+      return apiRequest("POST", "/api/infera/agent/evolution/goal", { description, priority: 5 });
+    },
+    onSuccess: () => {
+      setNewGoalDescription("");
+      refetchGoals();
+      toast({ title: language === "ar" ? "تم إنشاء الهدف" : "Goal created" });
+    },
+  });
+
+  const executeEvolutionMutation = useMutation({
+    mutationFn: async (goalId: string) => {
+      return apiRequest("POST", `/api/infera/agent/evolution/execute/${goalId}`, {});
+    },
+    onSuccess: () => {
+      refetchGoals();
+      toast({ title: language === "ar" ? "اكتمل التطور" : "Evolution complete" });
+    },
+  });
+
+  const selfImproveMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/infera/agent/evolution/self-improve", {});
+    },
+    onSuccess: (data: any) => {
+      toast({ title: data.improved ? (language === "ar" ? "تم التحسين!" : "Improved!") : (language === "ar" ? "لا تحسينات مطلوبة" : "No improvements needed") });
+      refetchGoals();
     },
   });
 
@@ -622,6 +764,12 @@ export default function InferaAgentPage() {
                   </TabsTrigger>
                   <TabsTrigger value="terminal" data-testid="tab-terminal">
                     <Terminal className="w-4 h-4 mr-2" />{t.terminal}
+                  </TabsTrigger>
+                  <TabsTrigger value="watcher" data-testid="tab-watcher">
+                    <Eye className="w-4 h-4 mr-2" />{t.watcher}
+                  </TabsTrigger>
+                  <TabsTrigger value="evolution" data-testid="tab-evolution">
+                    <Zap className="w-4 h-4 mr-2" />{t.evolution}
                   </TabsTrigger>
                 </TabsList>
 
@@ -948,6 +1096,207 @@ export default function InferaAgentPage() {
                           )}
                         </Button>
                       </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="watcher" className="flex-1 overflow-hidden m-4 mt-2">
+                  <Card className="h-full flex flex-col">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Eye className="w-4 h-4" />
+                          {t.watcher}
+                        </CardTitle>
+                        <div className="flex items-center gap-2">
+                          {watcherStatus.isWatching ? (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => stopWatcherMutation.mutate()}
+                              disabled={stopWatcherMutation.isPending}
+                              data-testid="button-stop-watcher"
+                            >
+                              {stopWatcherMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Square className="w-4 h-4 mr-1" />}
+                              {t.stopWatcher}
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => startWatcherMutation.mutate()}
+                              disabled={startWatcherMutation.isPending}
+                              data-testid="button-start-watcher"
+                            >
+                              {startWatcherMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 mr-1" />}
+                              {t.startWatcher}
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => refetchChanges()}
+                            data-testid="button-fetch-changes"
+                          >
+                            <RefreshCw className="w-4 h-4 mr-1" />
+                            {t.refreshTasks}
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Badge variant={watcherStatus.isWatching ? "default" : "secondary"}>
+                          {watcherStatus.isWatching ? t.watcherRunning : t.watcherStopped}
+                        </Badge>
+                        <Badge variant="outline">{watcherStatus.changeCount} changes</Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="flex-1 overflow-auto">
+                      {watcherStatus.watchedPaths.length > 0 && (
+                        <div className="mb-4">
+                          <h4 className="text-sm font-medium mb-2">{t.watchingDirs}</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {watcherStatus.watchedPaths.map((p, i) => (
+                              <Badge key={i} variant="outline">{p}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <h4 className="text-sm font-medium mb-2">{t.recentChanges}</h4>
+                      {fileChanges.length === 0 ? (
+                        <div className="text-center text-muted-foreground py-8">
+                          <Eye className="w-12 h-12 mx-auto mb-2 opacity-30" />
+                          <p>{t.noChanges}</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          {fileChanges.map((change, index) => (
+                            <div key={index} className="flex items-center gap-2 p-2 rounded bg-muted text-sm">
+                              <Badge variant={change.type === "add" ? "default" : change.type === "unlink" ? "destructive" : "secondary"}>
+                                {change.type}
+                              </Badge>
+                              <span className="font-mono">{change.path}</span>
+                              <span className="text-muted-foreground ml-auto text-xs">
+                                {new Date(change.timestamp).toLocaleTimeString()}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="evolution" className="flex-1 overflow-hidden m-4 mt-2">
+                  <Card className="h-full flex flex-col">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Zap className="w-4 h-4" />
+                          {t.evolution}
+                        </CardTitle>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => analyzeEvolutionMutation.mutate()}
+                            disabled={analyzeEvolutionMutation.isPending}
+                            data-testid="button-analyze-evolution"
+                          >
+                            {analyzeEvolutionMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4 mr-1" />}
+                            {t.analyzeSystem}
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => selfImproveMutation.mutate()}
+                            disabled={selfImproveMutation.isPending}
+                            data-testid="button-self-improve"
+                          >
+                            {selfImproveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4 mr-1" />}
+                            {t.selfImprove}
+                          </Button>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="flex-1 overflow-auto">
+                      {evolutionAnalysis && (
+                        <div className="mb-4 p-4 rounded-lg bg-muted">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-medium">{t.evolutionScore}</h4>
+                            <Badge variant={evolutionAnalysis.score >= 80 ? "default" : evolutionAnalysis.score >= 50 ? "secondary" : "destructive"}>
+                              {evolutionAnalysis.score}/100
+                            </Badge>
+                          </div>
+                          {evolutionAnalysis.suggestions.length > 0 && (
+                            <div>
+                              <h5 className="text-sm font-medium mb-2">{t.suggestions}</h5>
+                              <ul className="space-y-1">
+                                {evolutionAnalysis.suggestions.map((s, i) => (
+                                  <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                                    <ChevronRight className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                                    {s}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      <div className="mb-4">
+                        <h4 className="text-sm font-medium mb-2">{t.createGoal}</h4>
+                        <div className="flex gap-2">
+                          <Input
+                            value={newGoalDescription}
+                            onChange={(e) => setNewGoalDescription(e.target.value)}
+                            placeholder={t.goalDescription}
+                            className="flex-1"
+                            data-testid="input-goal-description"
+                          />
+                          <Button
+                            size="sm"
+                            onClick={() => createGoalMutation.mutate(newGoalDescription)}
+                            disabled={!newGoalDescription.trim() || createGoalMutation.isPending}
+                            data-testid="button-create-goal"
+                          >
+                            {createGoalMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                          </Button>
+                        </div>
+                      </div>
+
+                      <h4 className="text-sm font-medium mb-2">{t.evolutionGoals}</h4>
+                      {evolutionGoals.length === 0 ? (
+                        <div className="text-center text-muted-foreground py-8">
+                          <Zap className="w-12 h-12 mx-auto mb-2 opacity-30" />
+                          <p>{t.noGoals}</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {evolutionGoals.map((goal) => (
+                            <div key={goal.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                              <div>
+                                <p className="font-medium">{goal.description}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Badge variant={goal.status === "completed" ? "default" : goal.status === "failed" ? "destructive" : "secondary"}>
+                                    {goal.status}
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">
+                                    {new Date(goal.createdAt).toLocaleString()}
+                                  </span>
+                                </div>
+                              </div>
+                              {goal.status === "pending" && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => executeEvolutionMutation.mutate(goal.id)}
+                                  disabled={executeEvolutionMutation.isPending}
+                                  data-testid={`button-execute-goal-${goal.id}`}
+                                >
+                                  {executeEvolutionMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </TabsContent>

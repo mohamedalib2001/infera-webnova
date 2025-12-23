@@ -14,8 +14,23 @@ import * as fs from "fs";
 import * as path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
+import { EventEmitter } from "events";
 
 const execAsync = promisify(exec);
+
+interface FileChange {
+  type: "add" | "change" | "unlink";
+  path: string;
+  timestamp: Date;
+}
+
+interface EvolutionGoal {
+  id: string;
+  description: string;
+  priority: number;
+  status: "pending" | "analyzing" | "planning" | "executing" | "completed" | "failed";
+  createdAt: Date;
+}
 
 const anthropic = new Anthropic();
 
@@ -42,9 +57,22 @@ interface TaskPlan {
   reasoning: string;
 }
 
-export class InferaAgentController {
+export class InferaAgentController extends EventEmitter {
   private taskId: string | null = null;
   private projectRoot: string = process.cwd();
+  private fileWatchers: Map<string, fs.FSWatcher> = new Map();
+  private fileChanges: FileChange[] = [];
+  private evolutionGoals: EvolutionGoal[] = [];
+  private isWatching: boolean = false;
+
+  constructor() {
+    super();
+  }
+
+  private isPathSafe(targetPath: string): boolean {
+    const resolved = path.resolve(this.projectRoot, targetPath);
+    return resolved.startsWith(this.projectRoot) && !targetPath.includes("..");
+  }
 
   async log(level: string, message: string, details?: any) {
     await db.insert(inferaAgentLogs).values({
@@ -492,6 +520,198 @@ export class InferaAgentController {
         target: inferaAgentConfig.key,
         set: { value, description, category, updatedAt: new Date() },
       });
+  }
+
+  // File Watcher System
+  private allowedWatchDirs = ["client/src", "server", "shared"];
+
+  startFileWatcher(directories: string[] = ["client/src", "server", "shared"]): { success: boolean; error?: string } {
+    if (this.isWatching) return { success: true };
+    
+    const safeDirs = directories.filter(dir => 
+      this.allowedWatchDirs.includes(dir) && this.isPathSafe(dir)
+    );
+
+    if (safeDirs.length === 0) {
+      return { success: false, error: "No valid directories to watch" };
+    }
+
+    this.isWatching = true;
+    
+    safeDirs.forEach(dir => {
+      const fullPath = path.resolve(this.projectRoot, dir);
+      if (!fs.existsSync(fullPath)) return;
+      
+      try {
+        const watcher = fs.watch(fullPath, { recursive: true }, (eventType, filename) => {
+          if (!filename || filename.includes("node_modules") || filename.startsWith(".")) return;
+          
+          const change: FileChange = {
+            type: eventType === "rename" ? "add" : "change",
+            path: path.join(dir, filename),
+            timestamp: new Date(),
+          };
+          
+          this.fileChanges.push(change);
+          if (this.fileChanges.length > 100) this.fileChanges.shift();
+          
+          this.emit("fileChange", change);
+          this.log("debug", `File ${eventType}: ${filename}`, { dir, filename });
+        });
+        
+        this.fileWatchers.set(fullPath, watcher);
+        this.log("info", `Watching directory: ${dir}`);
+      } catch (error) {
+        this.log("error", `Failed to watch ${dir}`, { error: String(error) });
+      }
+    });
+
+    return { success: true };
+  }
+
+  stopFileWatcher(): void {
+    this.fileWatchers.forEach((watcher, path) => {
+      try {
+        watcher.close();
+      } catch (e) {
+        this.log("error", `Failed to close watcher for ${path}`, { error: String(e) });
+      }
+    });
+    this.fileWatchers.clear();
+    this.isWatching = false;
+    this.log("info", "File watcher stopped");
+  }
+
+  getRecentFileChanges(limit: number = 50): FileChange[] {
+    return this.fileChanges.slice(-Math.min(limit, 100));
+  }
+
+  getWatcherStatus(): { isWatching: boolean; watchedPaths: string[]; changeCount: number } {
+    return {
+      isWatching: this.isWatching,
+      watchedPaths: Array.from(this.fileWatchers.keys()).map(p => path.relative(this.projectRoot, p)),
+      changeCount: this.fileChanges.length,
+    };
+  }
+
+  // Self-Evolution System
+  async analyzeForEvolution(): Promise<{ suggestions: string[]; score: number }> {
+    await this.log("info", "Analyzing platform for evolution opportunities...");
+    
+    const codebaseInfo = await this.executeTool("search", { pattern: "TODO|FIXME|HACK", path: "." });
+    const packageJson = await this.executeTool("file_read", { path: "package.json" });
+    
+    const systemPrompt = `أنت محلل التطور الذاتي لنظام INFERA WebNova.
+مهمتك تحليل النظام واقتراح تحسينات ذكية.
+
+قم بتحليل:
+1. جودة الكود والأنماط
+2. الأمان والثغرات المحتملة
+3. الأداء والتحسينات
+4. الميزات الناقصة
+5. فرص الأتمتة
+
+أجب بـ JSON:
+{
+  "score": 0-100,
+  "suggestions": ["اقتراح 1", "اقتراح 2"],
+  "priorities": [{ "description": "...", "priority": 1-10 }]
+}`;
+
+    try {
+      const response = await anthropic.messages.create({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 2048,
+        system: systemPrompt,
+        messages: [{
+          role: "user",
+          content: `معلومات النظام:
+- نتائج البحث: ${JSON.stringify(codebaseInfo.output).slice(0, 2000)}
+- Package.json: ${JSON.stringify(packageJson.output).slice(0, 1000)}
+
+قم بتحليل النظام واقتراح تحسينات.`,
+        }],
+      });
+
+      const content = response.content[0];
+      if (content.type === "text") {
+        const jsonMatch = content.text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const result = JSON.parse(jsonMatch[0]);
+          await this.log("info", "Evolution analysis complete", result);
+          return { suggestions: result.suggestions || [], score: result.score || 0 };
+        }
+      }
+    } catch (error) {
+      await this.log("error", "Evolution analysis failed", { error: String(error) });
+    }
+
+    return { suggestions: [], score: 0 };
+  }
+
+  async createEvolutionGoal(description: string, priority: number = 5): Promise<EvolutionGoal> {
+    const goal: EvolutionGoal = {
+      id: `evo-${Date.now()}`,
+      description,
+      priority,
+      status: "pending",
+      createdAt: new Date(),
+    };
+    
+    this.evolutionGoals.push(goal);
+    await this.log("info", `Evolution goal created: ${description}`, { priority });
+    
+    return goal;
+  }
+
+  async executeEvolution(goalId: string): Promise<{ success: boolean; result?: any }> {
+    const goal = this.evolutionGoals.find(g => g.id === goalId);
+    if (!goal) return { success: false };
+
+    goal.status = "analyzing";
+    await this.log("info", `Starting evolution: ${goal.description}`);
+
+    try {
+      const task = await this.createTask({
+        title: `[Evolution] ${goal.description}`,
+        prompt: `نفذ هدف التطور التالي بشكل مستقل: ${goal.description}`,
+        priority: goal.priority,
+      });
+
+      await this.planTask(task.id);
+      const result = await this.executeTask(task.id);
+      
+      goal.status = result ? "completed" : "failed";
+      return { success: !!result, result };
+    } catch (error) {
+      goal.status = "failed";
+      await this.log("error", "Evolution failed", { error: String(error) });
+      return { success: false };
+    }
+  }
+
+  getEvolutionGoals(): EvolutionGoal[] {
+    return this.evolutionGoals;
+  }
+
+  async selfImprove(): Promise<{ improved: boolean; changes: string[] }> {
+    await this.log("info", "Starting self-improvement cycle...");
+    
+    const analysis = await this.analyzeForEvolution();
+    const changes: string[] = [];
+
+    if (analysis.suggestions.length > 0 && analysis.score < 80) {
+      const topSuggestion = analysis.suggestions[0];
+      const goal = await this.createEvolutionGoal(topSuggestion, 8);
+      const result = await this.executeEvolution(goal.id);
+      
+      if (result.success) {
+        changes.push(topSuggestion);
+      }
+    }
+
+    await this.log("info", "Self-improvement cycle complete", { changes });
+    return { improved: changes.length > 0, changes };
   }
 }
 

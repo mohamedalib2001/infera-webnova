@@ -4232,6 +4232,102 @@ export async function registerRoutes(
     }
   });
 
+  // File Watcher API
+  app.post("/api/infera/agent/watcher/start", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { directories } = req.body;
+      inferaAgent.startFileWatcher(directories);
+      res.json({ success: true, message: "File watcher started" });
+    } catch (error) {
+      console.error("Failed to start watcher:", error);
+      res.status(500).json({ error: "Failed to start file watcher" });
+    }
+  });
+
+  app.post("/api/infera/agent/watcher/stop", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      inferaAgent.stopFileWatcher();
+      res.json({ success: true, message: "File watcher stopped" });
+    } catch (error) {
+      console.error("Failed to stop watcher:", error);
+      res.status(500).json({ error: "Failed to stop file watcher" });
+    }
+  });
+
+  app.get("/api/infera/agent/watcher/status", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const status = inferaAgent.getWatcherStatus();
+      res.json(status);
+    } catch (error) {
+      console.error("Failed to get watcher status:", error);
+      res.status(500).json({ error: "Failed to get watcher status" });
+    }
+  });
+
+  app.get("/api/infera/agent/watcher/changes", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const changes = inferaAgent.getRecentFileChanges(limit);
+      res.json({ changes });
+    } catch (error) {
+      console.error("Failed to get file changes:", error);
+      res.status(500).json({ error: "Failed to get file changes" });
+    }
+  });
+
+  // Self-Evolution API
+  app.post("/api/infera/agent/evolution/analyze", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const result = await inferaAgent.analyzeForEvolution();
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to analyze for evolution:", error);
+      res.status(500).json({ error: "Failed to analyze for evolution" });
+    }
+  });
+
+  app.post("/api/infera/agent/evolution/goal", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { description, priority } = req.body;
+      const goal = await inferaAgent.createEvolutionGoal(description, priority);
+      res.json(goal);
+    } catch (error) {
+      console.error("Failed to create evolution goal:", error);
+      res.status(500).json({ error: "Failed to create evolution goal" });
+    }
+  });
+
+  app.post("/api/infera/agent/evolution/execute/:goalId", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { goalId } = req.params;
+      const result = await inferaAgent.executeEvolution(goalId);
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to execute evolution:", error);
+      res.status(500).json({ error: "Failed to execute evolution" });
+    }
+  });
+
+  app.get("/api/infera/agent/evolution/goals", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const goals = inferaAgent.getEvolutionGoals();
+      res.json({ goals });
+    } catch (error) {
+      console.error("Failed to get evolution goals:", error);
+      res.status(500).json({ error: "Failed to get evolution goals" });
+    }
+  });
+
+  app.post("/api/infera/agent/evolution/self-improve", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const result = await inferaAgent.selfImprove();
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to self-improve:", error);
+      res.status(500).json({ error: "Failed to self-improve" });
+    }
+  });
+
   // Get data regions - REAL DATA from database
   app.get("/api/sovereign/data-regions", requireAuth, requireSovereign, async (req, res) => {
     try {
