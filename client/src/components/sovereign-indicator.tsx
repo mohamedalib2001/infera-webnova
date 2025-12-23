@@ -2098,7 +2098,7 @@ export function SovereignIndicator() {
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <Badge variant="outline" className="text-[10px] border-cyan-400/50 text-cyan-400">
-                                    {(language === 'ar' ? (tool.categoryAr || tool.category) : tool.category)?.toUpperCase() || 'TOOL'}
+                                    {tool.category?.toUpperCase() || 'TOOL'}
                                   </Badge>
                                   {tool.impact && (
                                     <Badge variant="outline" className="text-[10px] border-emerald-400/50 text-emerald-400">
@@ -2787,7 +2787,7 @@ export function SovereignIndicator() {
             ${tool.vendor || tool.adoptionRate ? `<div class="tool-vendor">${tool.vendor ? `${t.vendor}: ${tool.vendor}` : ''}${tool.vendor && tool.adoptionRate ? ' | ' : ''}${tool.adoptionRate || ''}</div>` : ''}
           </div>
           <div>
-            <span class="tool-category">${language === 'ar' ? (tool.categoryAr || tool.category) : tool.category}</span>
+            <span class="tool-category">${tool.category}</span>
             ${tool.impact ? `<span class="impact-badge" style="margin-${isRtl ? 'right' : 'left'}: 4px;">+${tool.impact}</span>` : ''}
           </div>
         </div>
