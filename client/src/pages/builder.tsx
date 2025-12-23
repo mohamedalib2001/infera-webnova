@@ -90,6 +90,8 @@ export default function Builder() {
   const [workflowStatus, setWorkflowStatus] = useState<'running' | 'stopped' | 'error'>('stopped');
   const [workflowLogs, setWorkflowLogs] = useState<string[]>([]);
   const [previewUrl, setPreviewUrl] = useState<string>("");
+  const [isSaving, setIsSaving] = useState(false);
+  const pendingConversationRef = useRef<{ id: string | null; creating: boolean }>({ id: null, creating: false });
   
   const bottomTools = [
     { id: 'stop', icon: Square, label: 'Stop', labelAr: 'إيقاف' },
@@ -113,8 +115,75 @@ export default function Builder() {
     }
   }, [html, css, js]);
 
+  // Enhanced auto-save on page unload
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Save current state to localStorage before leaving
+      if (messages.length > 0) {
+        const saveData = {
+          messages,
+          projectName,
+          html,
+          css,
+          js,
+          conversationId,
+          projectId,
+          timestamp: Date.now(),
+        };
+        localStorage.setItem('builder_autosave', JSON.stringify(saveData));
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [messages, projectName, html, css, js, conversationId, projectId]);
+
+  // Auto-save to localStorage every 30 seconds while working
+  useEffect(() => {
+    if (messages.length === 0) return;
+    
+    const interval = setInterval(() => {
+      const saveData = {
+        messages,
+        projectName,
+        html,
+        css,
+        js,
+        conversationId,
+        projectId,
+        timestamp: Date.now(),
+      };
+      localStorage.setItem('builder_autosave', JSON.stringify(saveData));
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, [messages, projectName, html, css, js, conversationId, projectId]);
+
   // Check for and offer to restore local backup on mount (only for new sessions)
   useEffect(() => {
+    // First try to restore from autosave (more recent)
+    const autosave = localStorage.getItem('builder_autosave');
+    if (autosave && !projectId && !conversationParam) {
+      try {
+        const data = JSON.parse(autosave);
+        // Only restore if less than 24 hours old
+        if (Date.now() - data.timestamp < 24 * 60 * 60 * 1000 && data.messages?.length > 0) {
+          setMessages(data.messages);
+          setProjectName(data.projectName || t("builder.newProject"));
+          setHtml(data.html || "");
+          setCss(data.css || "");
+          setJs(data.js || "");
+          if (data.conversationId) setConversationId(data.conversationId);
+          if (data.projectId) setProjectId(data.projectId);
+          toast({
+            title: isRtl ? "تم استعادة العمل السابق" : "Previous work restored",
+            description: isRtl ? "تم استعادة المحادثة والكود تلقائياً" : "Conversation and code restored automatically",
+          });
+          return; // Don't check other backups
+        }
+      } catch (e) { console.error("Failed to restore autosave:", e); }
+    }
+    
     if (!projectId) {
       const backup = getLocalBackup();
       if (backup && backup.messages && backup.messages.length > 0) {
@@ -376,6 +445,50 @@ export default function Builder() {
     setMessages((prev) => [...prev, userMessage]);
     setIsGenerating(true);
     setIsCodeGenerating(false);
+    setIsSaving(true);
+    
+    // Create conversation IMMEDIATELY before API call (ensures persistence even if API fails)
+    let activeConversationId = conversationId;
+    if (!activeConversationId && !pendingConversationRef.current.creating) {
+      pendingConversationRef.current.creating = true;
+      try {
+        const newConversation = await createConversationMutation.mutateAsync({
+          title: content.slice(0, 50) || "New Conversation",
+          projectId: projectId || undefined,
+        });
+        if (newConversation?.id) {
+          activeConversationId = newConversation.id;
+          setConversationId(newConversation.id);
+          pendingConversationRef.current.id = newConversation.id;
+          // Update URL immediately for resume on refresh
+          const newUrl = projectId 
+            ? `/builder/${projectId}?conversation=${newConversation.id}`
+            : `/builder?conversation=${newConversation.id}`;
+          window.history.replaceState({}, "", newUrl);
+          // Save user message immediately
+          await addConversationMessageMutation.mutateAsync({
+            conversationId: newConversation.id,
+            role: "user",
+            content,
+          });
+        }
+      } catch (e) {
+        console.error("Failed to create conversation early:", e);
+      } finally {
+        pendingConversationRef.current.creating = false;
+      }
+    } else if (activeConversationId) {
+      // Save user message to existing conversation
+      try {
+        await addConversationMessageMutation.mutateAsync({
+          conversationId: activeConversationId,
+          role: "user",
+          content,
+        });
+      } catch (e) {
+        console.error("Failed to save user message:", e);
+      }
+    }
     
     abortControllerRef.current = new AbortController();
     
@@ -426,38 +539,12 @@ export default function Builder() {
       
       setMessages((prev) => [...prev, aiMessage]);
 
-      // Track the active conversation ID (could be existing or newly created)
-      let activeConversationId = conversationId;
-
-      // Auto-save to conversation system (use original content, not display string)
+      // Save AI response to conversation (user message was already saved earlier)
+      const finalConversationId = conversationId || pendingConversationRef.current.id;
       try {
-        // Create conversation if doesn't exist
-        if (!activeConversationId) {
-          const newConversation = await createConversationMutation.mutateAsync({
-            title: content.slice(0, 50) || "New Conversation",
-            projectId: projectId || undefined,
-          });
-          if (newConversation?.id) {
-            activeConversationId = newConversation.id;
-            setConversationId(newConversation.id);
-            // Update URL to include conversation ID for resume on refresh
-            const newUrl = projectId 
-              ? `/builder/${projectId}?conversation=${newConversation.id}`
-              : `/builder?conversation=${newConversation.id}`;
-            window.history.replaceState({}, "", newUrl);
-          }
-        }
-        
-        // Save messages to conversation (use original content, not displayContent)
-        if (activeConversationId) {
+        if (finalConversationId) {
           await addConversationMessageMutation.mutateAsync({
-            conversationId: activeConversationId,
-            role: "user",
-            content, // Original content without attachment indicators
-            modelUsed: data.modelInfo?.name,
-          });
-          await addConversationMessageMutation.mutateAsync({
-            conversationId: activeConversationId,
+            conversationId: finalConversationId,
             role: "assistant",
             content: data.message,
             modelUsed: data.modelInfo?.name,
@@ -465,19 +552,19 @@ export default function Builder() {
           
           // Generate title after first exchange
           if (messages.length === 0) {
-            generateTitleMutation.mutate(activeConversationId);
+            generateTitleMutation.mutate(finalConversationId);
           }
           
           queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
+          
+          // Clear autosave after successful server save
+          localStorage.removeItem('builder_autosave');
         }
       } catch (convError) {
-        console.error("Failed to save to conversation:", convError);
-        toast({
-          title: isRtl ? "تحذير" : "Warning",
-          description: isRtl ? "فشل حفظ المحادثة. يمكنك المتابعة." : "Failed to save conversation. You can continue.",
-          variant: "default",
-        });
+        console.error("Failed to save AI response:", convError);
       }
+      
+      setIsSaving(false);
 
       // Auto-save project and messages if not already saved
       if (projectId) {
@@ -530,6 +617,7 @@ export default function Builder() {
     } finally {
       setIsGenerating(false);
       setIsCodeGenerating(false);
+      setIsSaving(false);
     }
   };
 
@@ -583,6 +671,20 @@ export default function Builder() {
         >
           <BackIcon className="h-5 w-5" />
         </Button>
+        
+        {/* Auto-save indicator */}
+        {isSaving && (
+          <Badge variant="secondary" className="gap-1 animate-pulse">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span className="text-xs">{isRtl ? "حفظ..." : "Saving..."}</span>
+          </Badge>
+        )}
+        {conversationId && !isSaving && (
+          <Badge variant="outline" className="gap-1 text-green-600 dark:text-green-400">
+            <Check className="h-3 w-3" />
+            <span className="text-xs">{isRtl ? "محفوظ" : "Saved"}</span>
+          </Badge>
+        )}
         
         <Button
           variant="default"
