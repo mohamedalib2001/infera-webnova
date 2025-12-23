@@ -4328,6 +4328,105 @@ export async function registerRoutes(
     }
   });
 
+  // Git Integration
+  app.get("/api/infera/agent/git/status", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const status = await inferaAgent.gitStatus();
+      res.json(status);
+    } catch (error) {
+      console.error("Failed to get git status:", error);
+      res.status(500).json({ error: "Failed to get git status" });
+    }
+  });
+
+  app.post("/api/infera/agent/git/commit", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { message } = req.body;
+      const result = await inferaAgent.gitCommit(message);
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to commit:", error);
+      res.status(500).json({ error: "Failed to commit" });
+    }
+  });
+
+  app.get("/api/infera/agent/git/log", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const log = await inferaAgent.gitLog(limit);
+      res.json({ commits: log });
+    } catch (error) {
+      console.error("Failed to get git log:", error);
+      res.status(500).json({ error: "Failed to get git log" });
+    }
+  });
+
+  // Project Explorer
+  app.get("/api/infera/agent/project/structure", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const dir = (req.query.dir as string) || ".";
+      const structure = await inferaAgent.getProjectStructure(dir);
+      res.json({ items: structure });
+    } catch (error) {
+      console.error("Failed to get project structure:", error);
+      res.status(500).json({ error: "Failed to get project structure" });
+    }
+  });
+
+  // Dependencies
+  app.get("/api/infera/agent/dependencies", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const deps = await inferaAgent.getDependencies();
+      res.json(deps);
+    } catch (error) {
+      console.error("Failed to get dependencies:", error);
+      res.status(500).json({ error: "Failed to get dependencies" });
+    }
+  });
+
+  app.post("/api/infera/agent/dependencies/install", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { name, dev } = req.body;
+      const result = await inferaAgent.installDependency(name, dev);
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to install dependency:", error);
+      res.status(500).json({ error: "Failed to install dependency" });
+    }
+  });
+
+  // Autonomous Loop
+  app.post("/api/infera/agent/autonomous/start", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { intervalMs } = req.body;
+      const result = await inferaAgent.startAutonomousLoop(intervalMs);
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to start autonomous loop:", error);
+      res.status(500).json({ error: "Failed to start autonomous loop" });
+    }
+  });
+
+  app.post("/api/infera/agent/autonomous/stop", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      inferaAgent.stopAutonomousLoop();
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to stop autonomous loop:", error);
+      res.status(500).json({ error: "Failed to stop autonomous loop" });
+    }
+  });
+
+  app.get("/api/infera/agent/autonomous/status", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const status = inferaAgent.getAutonomousStatus();
+      res.json(status);
+    } catch (error) {
+      console.error("Failed to get autonomous status:", error);
+      res.status(500).json({ error: "Failed to get autonomous status" });
+    }
+  });
+
   // Get data regions - REAL DATA from database
   app.get("/api/sovereign/data-regions", requireAuth, requireSovereign, async (req, res) => {
     try {

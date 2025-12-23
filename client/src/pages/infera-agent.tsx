@@ -127,6 +127,24 @@ const translations = {
     noGoals: "No evolution goals",
     evolutionScore: "Evolution Score",
     suggestions: "Suggestions",
+    git: "Git",
+    gitStatus: "Git Status",
+    gitCommit: "Commit",
+    gitLog: "History",
+    commitMessage: "Commit message",
+    branch: "Branch",
+    noChanges2: "No uncommitted changes",
+    projectExplorer: "Explorer",
+    dependencies: "Dependencies",
+    devDependencies: "Dev Dependencies",
+    installPackage: "Install Package",
+    packageName: "Package name",
+    autonomous: "Autonomous",
+    startAutonomous: "Start Autonomous",
+    stopAutonomous: "Stop Autonomous",
+    autonomousRunning: "Autonomous mode active",
+    autonomousStopped: "Autonomous mode inactive",
+    pendingGoals: "Pending Goals",
   },
   ar: {
     title: "عميل INFERA",
@@ -209,6 +227,24 @@ const translations = {
     noGoals: "لا توجد أهداف",
     evolutionScore: "نقاط التطور",
     suggestions: "الاقتراحات",
+    git: "Git",
+    gitStatus: "حالة Git",
+    gitCommit: "حفظ",
+    gitLog: "السجل",
+    commitMessage: "رسالة الحفظ",
+    branch: "الفرع",
+    noChanges2: "لا توجد تغييرات غير محفوظة",
+    projectExplorer: "المستكشف",
+    dependencies: "التبعيات",
+    devDependencies: "تبعيات التطوير",
+    installPackage: "تثبيت حزمة",
+    packageName: "اسم الحزمة",
+    autonomous: "التلقائي",
+    startAutonomous: "تشغيل الوضع التلقائي",
+    stopAutonomous: "إيقاف الوضع التلقائي",
+    autonomousRunning: "الوضع التلقائي نشط",
+    autonomousStopped: "الوضع التلقائي متوقف",
+    pendingGoals: "الأهداف المعلقة",
   },
 };
 
@@ -476,6 +512,82 @@ export default function InferaAgentPage() {
     onSuccess: (data: any) => {
       toast({ title: data.improved ? (language === "ar" ? "تم التحسين!" : "Improved!") : (language === "ar" ? "لا تحسينات مطلوبة" : "No improvements needed") });
       refetchGoals();
+    },
+  });
+
+  // Git state and mutations
+  const [commitMessage, setCommitMessage] = useState("");
+  const { data: gitStatusData, refetch: refetchGitStatus } = useQuery({
+    queryKey: ["/api/infera/agent/git/status"],
+  });
+  const gitStatus = (gitStatusData as any) || { branch: "unknown", changes: [], ahead: 0, behind: 0 };
+
+  const { data: gitLogData, refetch: refetchGitLog } = useQuery({
+    queryKey: ["/api/infera/agent/git/log"],
+  });
+  const gitCommits = ((gitLogData as any)?.commits || []) as { hash: string; message: string; date: string; author: string }[];
+
+  const gitCommitMutation = useMutation({
+    mutationFn: async (message: string) => {
+      return apiRequest("POST", "/api/infera/agent/git/commit", { message });
+    },
+    onSuccess: () => {
+      setCommitMessage("");
+      refetchGitStatus();
+      refetchGitLog();
+      toast({ title: language === "ar" ? "تم الحفظ" : "Committed" });
+    },
+  });
+
+  // Project Explorer state
+  const [explorerPath, setExplorerPath] = useState(".");
+  const { data: projectStructure, refetch: refetchStructure } = useQuery({
+    queryKey: ["/api/infera/agent/project/structure", explorerPath],
+  });
+  const projectItems = ((projectStructure as any)?.items || []) as { name: string; path: string; type: "file" | "folder" }[];
+
+  // Dependencies state
+  const [newPackageName, setNewPackageName] = useState("");
+  const { data: depsData, refetch: refetchDeps } = useQuery({
+    queryKey: ["/api/infera/agent/dependencies"],
+  });
+  const dependencies = (depsData as any) || { dependencies: {}, devDependencies: {} };
+
+  const installDepMutation = useMutation({
+    mutationFn: async ({ name, dev }: { name: string; dev: boolean }) => {
+      return apiRequest("POST", "/api/infera/agent/dependencies/install", { name, dev });
+    },
+    onSuccess: () => {
+      setNewPackageName("");
+      refetchDeps();
+      toast({ title: language === "ar" ? "تم التثبيت" : "Installed" });
+    },
+  });
+
+  // Autonomous state and mutations
+  const { data: autonomousData, refetch: refetchAutonomous } = useQuery({
+    queryKey: ["/api/infera/agent/autonomous/status"],
+    refetchInterval: 5000,
+  });
+  const autonomousStatus = (autonomousData as any) || { active: false, pendingGoals: 0 };
+
+  const startAutonomousMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/infera/agent/autonomous/start", { intervalMs: 30000 });
+    },
+    onSuccess: () => {
+      refetchAutonomous();
+      toast({ title: t.autonomousRunning });
+    },
+  });
+
+  const stopAutonomousMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/infera/agent/autonomous/stop", {});
+    },
+    onSuccess: () => {
+      refetchAutonomous();
+      toast({ title: t.autonomousStopped });
     },
   });
 
@@ -770,6 +882,15 @@ export default function InferaAgentPage() {
                   </TabsTrigger>
                   <TabsTrigger value="evolution" data-testid="tab-evolution">
                     <Zap className="w-4 h-4 mr-2" />{t.evolution}
+                  </TabsTrigger>
+                  <TabsTrigger value="git" data-testid="tab-git">
+                    <GitBranch className="w-4 h-4 mr-2" />{t.git}
+                  </TabsTrigger>
+                  <TabsTrigger value="explorer" data-testid="tab-explorer">
+                    <Folder className="w-4 h-4 mr-2" />{t.projectExplorer}
+                  </TabsTrigger>
+                  <TabsTrigger value="autonomous" data-testid="tab-autonomous">
+                    <Cpu className="w-4 h-4 mr-2" />{t.autonomous}
                   </TabsTrigger>
                 </TabsList>
 
@@ -1297,6 +1418,225 @@ export default function InferaAgentPage() {
                           ))}
                         </div>
                       )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="git" className="flex-1 overflow-hidden m-4 mt-2">
+                  <Card className="h-full flex flex-col">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <GitBranch className="w-4 h-4" />
+                          {t.git}
+                        </CardTitle>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">{t.branch}: {gitStatus.branch}</Badge>
+                          <Button size="sm" variant="outline" onClick={() => { refetchGitStatus(); refetchGitLog(); }} data-testid="button-refresh-git">
+                            <RefreshCw className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="flex-1 overflow-auto">
+                      <div className="mb-4">
+                        <h4 className="text-sm font-medium mb-2">{t.gitCommit}</h4>
+                        <div className="flex gap-2">
+                          <Input
+                            value={commitMessage}
+                            onChange={(e) => setCommitMessage(e.target.value)}
+                            placeholder={t.commitMessage}
+                            className="flex-1"
+                            data-testid="input-commit-message"
+                          />
+                          <Button
+                            size="sm"
+                            onClick={() => gitCommitMutation.mutate(commitMessage)}
+                            disabled={!commitMessage.trim() || gitCommitMutation.isPending}
+                            data-testid="button-commit"
+                          >
+                            {gitCommitMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
+                            {t.gitCommit}
+                          </Button>
+                        </div>
+                      </div>
+
+                      <h4 className="text-sm font-medium mb-2">{t.gitStatus}</h4>
+                      {gitStatus.changes.length === 0 ? (
+                        <p className="text-sm text-muted-foreground mb-4">{t.noChanges2}</p>
+                      ) : (
+                        <div className="space-y-1 mb-4">
+                          {gitStatus.changes.map((c: any, i: number) => (
+                            <div key={i} className="flex items-center gap-2 text-sm p-2 rounded bg-muted">
+                              <Badge variant={c.status === "M" ? "secondary" : c.status === "A" ? "default" : "destructive"}>
+                                {c.status}
+                              </Badge>
+                              <span className="font-mono">{c.file}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <h4 className="text-sm font-medium mb-2">{t.gitLog}</h4>
+                      <div className="space-y-1">
+                        {gitCommits.map((commit) => (
+                          <div key={commit.hash} className="flex items-center gap-2 text-sm p-2 rounded bg-muted">
+                            <Badge variant="outline" className="font-mono">{commit.hash}</Badge>
+                            <span className="flex-1 truncate">{commit.message}</span>
+                            <span className="text-muted-foreground text-xs">{commit.date}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="explorer" className="flex-1 overflow-hidden m-4 mt-2">
+                  <Card className="h-full flex flex-col">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Folder className="w-4 h-4" />
+                          {t.projectExplorer}
+                        </CardTitle>
+                        <div className="flex items-center gap-2">
+                          {explorerPath !== "." && (
+                            <Button size="sm" variant="outline" onClick={() => setExplorerPath(".")} data-testid="button-explorer-root">
+                              <RotateCcw className="w-4 h-4 mr-1" /> Root
+                            </Button>
+                          )}
+                          <Button size="sm" variant="outline" onClick={() => refetchStructure()} data-testid="button-refresh-explorer">
+                            <RefreshCw className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="font-mono mt-2">{explorerPath}</Badge>
+                    </CardHeader>
+                    <CardContent className="flex-1 overflow-auto">
+                      <div className="space-y-1">
+                        {projectItems.map((item) => (
+                          <div
+                            key={item.path}
+                            className="flex items-center gap-2 p-2 rounded hover-elevate cursor-pointer"
+                            onClick={() => {
+                              if (item.type === "folder") {
+                                setExplorerPath(item.path);
+                              } else {
+                                setFilePathInput(item.path);
+                                fileReadMutation.mutate(item.path);
+                              }
+                            }}
+                            data-testid={`explorer-item-${item.name}`}
+                          >
+                            {item.type === "folder" ? (
+                              <Folder className="w-4 h-4 text-primary" />
+                            ) : (
+                              <FileCode className="w-4 h-4 text-muted-foreground" />
+                            )}
+                            <span>{item.name}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="mt-6">
+                        <h4 className="text-sm font-medium mb-2">{t.dependencies}</h4>
+                        <div className="flex gap-2 mb-3">
+                          <Input
+                            value={newPackageName}
+                            onChange={(e) => setNewPackageName(e.target.value)}
+                            placeholder={t.packageName}
+                            className="flex-1"
+                            data-testid="input-package-name"
+                          />
+                          <Button
+                            size="sm"
+                            onClick={() => installDepMutation.mutate({ name: newPackageName, dev: false })}
+                            disabled={!newPackageName.trim() || installDepMutation.isPending}
+                            data-testid="button-install-dep"
+                          >
+                            {installDepMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                          </Button>
+                        </div>
+                        <div className="space-y-1 max-h-40 overflow-auto">
+                          {Object.entries(dependencies.dependencies).slice(0, 20).map(([name, version]) => (
+                            <div key={name} className="flex items-center justify-between text-sm p-1">
+                              <span className="font-mono">{name}</span>
+                              <Badge variant="outline" className="text-xs">{String(version)}</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="autonomous" className="flex-1 overflow-hidden m-4 mt-2">
+                  <Card className="h-full flex flex-col">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Cpu className="w-4 h-4" />
+                          {t.autonomous}
+                        </CardTitle>
+                        <div className="flex items-center gap-2">
+                          {autonomousStatus.active ? (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => stopAutonomousMutation.mutate()}
+                              disabled={stopAutonomousMutation.isPending}
+                              data-testid="button-stop-autonomous"
+                            >
+                              {stopAutonomousMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Square className="w-4 h-4 mr-1" />}
+                              {t.stopAutonomous}
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => startAutonomousMutation.mutate()}
+                              disabled={startAutonomousMutation.isPending}
+                              data-testid="button-start-autonomous"
+                            >
+                              {startAutonomousMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 mr-1" />}
+                              {t.startAutonomous}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="flex-1 overflow-auto">
+                      <div className="flex items-center gap-4 mb-6">
+                        <Badge variant={autonomousStatus.active ? "default" : "secondary"} className="text-base py-2 px-4">
+                          {autonomousStatus.active ? t.autonomousRunning : t.autonomousStopped}
+                        </Badge>
+                        <Badge variant="outline">
+                          {t.pendingGoals}: {autonomousStatus.pendingGoals}
+                        </Badge>
+                      </div>
+
+                      <div className="p-4 rounded-lg bg-muted">
+                        <h4 className="font-medium mb-2">{language === "ar" ? "كيف يعمل الوضع التلقائي" : "How Autonomous Mode Works"}</h4>
+                        <ul className="space-y-2 text-sm text-muted-foreground">
+                          <li className="flex items-start gap-2">
+                            <ChevronRight className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                            {language === "ar" 
+                              ? "يفحص النظام كل 30 ثانية للبحث عن أهداف التطور المعلقة"
+                              : "Checks every 30 seconds for pending evolution goals"}
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <ChevronRight className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                            {language === "ar"
+                              ? "ينفذ الهدف ذو الأولوية الأعلى تلقائياً"
+                              : "Automatically executes the highest priority goal"}
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <ChevronRight className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                            {language === "ar"
+                              ? "إذا لم توجد أهداف، يشغل دورة التحسين الذاتي"
+                              : "If no goals exist, runs the self-improvement cycle"}
+                          </li>
+                        </ul>
+                      </div>
                     </CardContent>
                   </Card>
                 </TabsContent>

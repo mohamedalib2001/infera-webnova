@@ -713,6 +713,228 @@ export class InferaAgentController extends EventEmitter {
     await this.log("info", "Self-improvement cycle complete", { changes });
     return { improved: changes.length > 0, changes };
   }
+
+  // Git Integration
+  async gitStatus(): Promise<{ branch: string; changes: { file: string; status: string }[]; ahead: number; behind: number }> {
+    try {
+      const { stdout: branchOut } = await execAsync("git rev-parse --abbrev-ref HEAD", { cwd: this.projectRoot });
+      const { stdout: statusOut } = await execAsync("git status --porcelain", { cwd: this.projectRoot });
+      
+      const changes = statusOut.trim().split("\n").filter(Boolean).map(line => ({
+        status: line.substring(0, 2).trim(),
+        file: line.substring(3),
+      }));
+
+      return {
+        branch: branchOut.trim(),
+        changes,
+        ahead: 0,
+        behind: 0,
+      };
+    } catch (error) {
+      await this.log("error", "Git status failed", { error: String(error) });
+      return { branch: "unknown", changes: [], ahead: 0, behind: 0 };
+    }
+  }
+
+  async gitCommit(message: string): Promise<{ success: boolean; hash?: string; error?: string }> {
+    if (!message || message.length < 3) {
+      return { success: false, error: "Commit message too short" };
+    }
+    
+    // Sanitize message: only allow alphanumeric, spaces, and basic punctuation
+    const sanitizedMessage = message.replace(/[^a-zA-Z0-9\u0600-\u06FF\s.,!?:\-_()]/g, "").substring(0, 200);
+    if (sanitizedMessage.length < 3) {
+      return { success: false, error: "Commit message contains invalid characters" };
+    }
+    
+    try {
+      const { spawn } = await import("child_process");
+      
+      // Use spawn with argument array to prevent injection
+      await new Promise<void>((resolve, reject) => {
+        const proc = spawn("git", ["add", "-A"], { cwd: this.projectRoot });
+        proc.on("close", code => code === 0 ? resolve() : reject(new Error("git add failed")));
+        proc.on("error", reject);
+      });
+      
+      const stdout = await new Promise<string>((resolve, reject) => {
+        let output = "";
+        const proc = spawn("git", ["commit", "-m", sanitizedMessage], { cwd: this.projectRoot });
+        proc.stdout.on("data", d => output += d.toString());
+        proc.stderr.on("data", d => output += d.toString());
+        proc.on("close", code => code === 0 ? resolve(output) : reject(new Error(output)));
+        proc.on("error", reject);
+      });
+      
+      const hashMatch = stdout.match(/\[[\w-]+ ([a-f0-9]+)\]/);
+      await this.log("info", `Git commit: ${sanitizedMessage}`, { hash: hashMatch?.[1] });
+      return { success: true, hash: hashMatch?.[1] };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  }
+
+  async gitLog(limit: number = 10): Promise<{ hash: string; message: string; date: string; author: string }[]> {
+    try {
+      const { stdout } = await execAsync(
+        `git log --oneline -${Math.min(limit, 50)} --format="%H|%s|%ar|%an"`,
+        { cwd: this.projectRoot }
+      );
+      
+      return stdout.trim().split("\n").filter(Boolean).map(line => {
+        const [hash, message, date, author] = line.split("|");
+        return { hash: hash.substring(0, 7), message, date, author };
+      });
+    } catch (error) {
+      return [];
+    }
+  }
+
+  // Project Explorer
+  async getProjectStructure(dir: string = "."): Promise<{ name: string; path: string; type: "file" | "folder"; children?: any[] }[]> {
+    // Normalize and validate path
+    const normalizedDir = path.normalize(dir).replace(/^(\.\.(\/|\\|$))+/, "");
+    
+    if (!this.isPathSafe(normalizedDir)) {
+      await this.log("warn", "Path traversal attempt blocked", { dir });
+      return [];
+    }
+
+    const fullPath = path.resolve(this.projectRoot, normalizedDir);
+    
+    // Double-check resolved path is within project
+    if (!fullPath.startsWith(this.projectRoot)) {
+      return [];
+    }
+    const items: any[] = [];
+    
+    try {
+      const entries = fs.readdirSync(fullPath, { withFileTypes: true });
+      const ignoreDirs = ["node_modules", ".git", "dist", ".next", ".cache", "__pycache__"];
+      
+      for (const entry of entries) {
+        if (entry.name.startsWith(".") || ignoreDirs.includes(entry.name)) continue;
+        
+        const itemPath = path.join(dir, entry.name);
+        
+        if (entry.isDirectory()) {
+          items.push({
+            name: entry.name,
+            path: itemPath,
+            type: "folder",
+          });
+        } else {
+          items.push({
+            name: entry.name,
+            path: itemPath,
+            type: "file",
+          });
+        }
+      }
+      
+      return items.sort((a, b) => {
+        if (a.type !== b.type) return a.type === "folder" ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+    } catch (error) {
+      return [];
+    }
+  }
+
+  // Dependency Management
+  async getDependencies(): Promise<{ dependencies: Record<string, string>; devDependencies: Record<string, string> }> {
+    try {
+      const pkgPath = path.join(this.projectRoot, "package.json");
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+      
+      return {
+        dependencies: pkg.dependencies || {},
+        devDependencies: pkg.devDependencies || {},
+      };
+    } catch {
+      return { dependencies: {}, devDependencies: {} };
+    }
+  }
+
+  async installDependency(name: string, dev: boolean = false): Promise<{ success: boolean; error?: string }> {
+    // Strict npm package name validation: @scope/name or name format
+    if (!name || !/^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/i.test(name)) {
+      return { success: false, error: "Invalid package name format" };
+    }
+
+    // Additional safety: no shell metacharacters
+    if (/[;&|`$(){}[\]<>\\'"!#%^*?]/.test(name)) {
+      return { success: false, error: "Package name contains forbidden characters" };
+    }
+
+    try {
+      const { spawn } = await import("child_process");
+      
+      const args = ["install", dev ? "--save-dev" : "--save", name];
+      
+      const output = await new Promise<string>((resolve, reject) => {
+        let out = "";
+        const proc = spawn("npm", args, { cwd: this.projectRoot, timeout: 120000 });
+        proc.stdout.on("data", d => out += d.toString());
+        proc.stderr.on("data", d => out += d.toString());
+        proc.on("close", code => code === 0 ? resolve(out) : reject(new Error(out)));
+        proc.on("error", reject);
+      });
+
+      await this.log("info", `Installed dependency: ${name}`, { dev });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  }
+
+  // Autonomous Loop
+  private autonomousLoopActive: boolean = false;
+  private autonomousInterval: NodeJS.Timeout | null = null;
+
+  async startAutonomousLoop(intervalMs: number = 30000): Promise<{ success: boolean }> {
+    if (this.autonomousLoopActive) return { success: true };
+    
+    this.autonomousLoopActive = true;
+    await this.log("info", "Starting autonomous development loop...");
+
+    this.autonomousInterval = setInterval(async () => {
+      if (!this.autonomousLoopActive) return;
+      
+      try {
+        // Check for pending evolution goals
+        const pendingGoals = this.evolutionGoals.filter(g => g.status === "pending");
+        if (pendingGoals.length > 0) {
+          const goal = pendingGoals.sort((a, b) => b.priority - a.priority)[0];
+          await this.executeEvolution(goal.id);
+        } else {
+          // Run self-improvement if no pending goals
+          await this.selfImprove();
+        }
+      } catch (error) {
+        await this.log("error", "Autonomous loop error", { error: String(error) });
+      }
+    }, intervalMs);
+
+    return { success: true };
+  }
+
+  stopAutonomousLoop(): void {
+    this.autonomousLoopActive = false;
+    if (this.autonomousInterval) {
+      clearInterval(this.autonomousInterval);
+      this.autonomousInterval = null;
+    }
+    this.log("info", "Autonomous loop stopped");
+  }
+
+  getAutonomousStatus(): { active: boolean; pendingGoals: number } {
+    return {
+      active: this.autonomousLoopActive,
+      pendingGoals: this.evolutionGoals.filter(g => g.status === "pending").length,
+    };
+  }
 }
 
 export const inferaAgent = new InferaAgentController();
