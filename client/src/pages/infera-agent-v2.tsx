@@ -164,18 +164,18 @@ export default function InferaAgentV2() {
   }, [messages]);
 
   const { data: projectStructure = [], refetch: refetchStructure } = useQuery<FileNode[]>({
-    queryKey: ["/api/infera-agent/project-structure", "."],
+    queryKey: ["/api/infera/agent/project/structure", "."],
     refetchInterval: 10000,
   });
 
   const { data: workflowStatus } = useQuery({
-    queryKey: ["/api/infera-agent/workflow-status"],
+    queryKey: ["/api/infera/agent/workflow/status"],
     refetchInterval: 3000,
   });
 
   const chatMutation = useMutation({
     mutationFn: async (prompt: string) => {
-      const res = await apiRequest("POST", "/api/infera-agent/chat", { prompt });
+      const res = await apiRequest("POST", "/api/infera/agent/chat", { prompt });
       return res.json();
     },
     onMutate: () => {
@@ -210,7 +210,7 @@ export default function InferaAgentV2() {
 
   const fileReadMutation = useMutation({
     mutationFn: async (path: string) => {
-      const res = await apiRequest("POST", "/api/infera-agent/file/read", { path });
+      const res = await apiRequest("POST", "/api/infera/agent/file/read", { path });
       return res.json();
     },
     onSuccess: (data, path) => {
@@ -221,7 +221,7 @@ export default function InferaAgentV2() {
 
   const fileSaveMutation = useMutation({
     mutationFn: async ({ path, content }: { path: string; content: string }) => {
-      const res = await apiRequest("POST", "/api/infera-agent/file/write", { path, content });
+      const res = await apiRequest("POST", "/api/infera/agent/file/write", { path, content });
       return res.json();
     },
     onSuccess: () => {

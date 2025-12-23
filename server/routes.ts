@@ -4427,6 +4427,32 @@ export async function registerRoutes(
     }
   });
 
+  // Chat with INFERA Agent
+  app.post("/api/infera/agent/chat", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const { prompt } = req.body;
+      if (!prompt) {
+        return res.status(400).json({ error: "Prompt is required" });
+      }
+      const result = await inferaAgent.chat(prompt);
+      res.json(result);
+    } catch (error) {
+      console.error("Chat failed:", error);
+      res.status(500).json({ error: "Chat failed" });
+    }
+  });
+
+  // Get workflow status
+  app.get("/api/infera/agent/workflow/status", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const status = inferaAgent.getWorkflowStatus();
+      res.json(status);
+    } catch (error) {
+      console.error("Failed to get workflow status:", error);
+      res.status(500).json({ error: "Failed to get workflow status" });
+    }
+  });
+
   // Get data regions - REAL DATA from database
   app.get("/api/sovereign/data-regions", requireAuth, requireSovereign, async (req, res) => {
     try {

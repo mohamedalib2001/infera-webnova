@@ -935,6 +935,97 @@ export class InferaAgentController extends EventEmitter {
       pendingGoals: this.evolutionGoals.filter(g => g.status === "pending").length,
     };
   }
+
+  // Chat with AI - main interaction method
+  async chat(prompt: string): Promise<{
+    response: string;
+    tasks?: { id: string; content: string; status: string }[];
+    actions?: { id: string; type: string; description: string; status: string }[];
+    filesModified?: string[];
+  }> {
+    await this.log("info", "Chat received", { prompt: prompt.substring(0, 100) });
+    
+    const actions: { id: string; type: string; description: string; status: string }[] = [];
+    const filesModified: string[] = [];
+
+    try {
+      const response = await anthropic.messages.create({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4096,
+        system: `أنت INFRA Agent - بيئة تطوير ذكية مستقلة داخل INFRA WebNova.
+        
+مهمتك:
+- تحليل طلبات المستخدم
+- كتابة وتعديل الكود
+- إدارة الملفات
+- تنفيذ الأوامر
+- التطور الذاتي
+
+عند الرد:
+1. اشرح ما ستفعله باختصار
+2. حدد الخطوات المطلوبة
+3. نفذ الخطوات
+4. أبلغ عن النتيجة
+
+أجب باللغة العربية دائماً.`,
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+      });
+
+      // Safely extract response content
+      let aiResponse = "";
+      if (response.content && response.content.length > 0) {
+        const firstContent = response.content[0];
+        if (firstContent && firstContent.type === "text") {
+          aiResponse = firstContent.text;
+        }
+      }
+      
+      if (!aiResponse) {
+        aiResponse = "لم أتمكن من معالجة الطلب. حاول مرة أخرى.";
+      }
+      
+      // Parse AI response for actions
+      const taskMatches = aiResponse.match(/(?:خطوة|مهمة|سأقوم بـ)\s*\d*[:.]\s*([^\n]+)/g);
+      const tasks = taskMatches?.map((match, i) => ({
+        id: `task-${Date.now()}-${i}`,
+        content: match.replace(/(?:خطوة|مهمة|سأقوم بـ)\s*\d*[:.]\s*/, "").trim(),
+        status: "pending",
+      })) || [];
+
+      await this.log("info", "Chat response generated", { 
+        responseLength: aiResponse.length,
+        tasksCount: tasks.length 
+      });
+
+      return {
+        response: aiResponse,
+        tasks,
+        actions,
+        filesModified,
+      };
+    } catch (error: any) {
+      await this.log("error", "Chat failed", { error: error.message });
+      return {
+        response: `حدث خطأ: ${error.message}`,
+        tasks: [],
+        actions: [],
+        filesModified: [],
+      };
+    }
+  }
+
+  // Get workflow status
+  getWorkflowStatus(): { running: boolean; uptime: number } {
+    return {
+      running: true, // Will be replaced with actual workflow monitoring
+      uptime: process.uptime(),
+    };
+  }
 }
 
 export const inferaAgent = new InferaAgentController();
