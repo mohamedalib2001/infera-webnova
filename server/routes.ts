@@ -4065,12 +4065,21 @@ export async function registerRoutes(
   });
 
   // Create new agent task
+  const createAgentTaskSchema = z.object({
+    title: z.string().max(200).optional(),
+    description: z.string().max(2000).optional(),
+    prompt: z.string().min(1, "Prompt is required").max(10000),
+    projectId: z.string().optional(),
+    priority: z.number().min(1).max(10).optional(),
+  });
+
   app.post("/api/infera/agent/tasks", requireAuth, requireSovereign, async (req, res) => {
     try {
-      const { title, description, prompt, projectId, priority } = req.body;
-      if (!prompt) {
-        return res.status(400).json({ error: "Prompt is required" });
+      const parsed = createAgentTaskSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.errors[0]?.message || "Invalid input" });
       }
+      const { title, description, prompt, projectId, priority } = parsed.data;
       const task = await inferaAgent.createTask({
         title: title || "مهمة جديدة",
         description,

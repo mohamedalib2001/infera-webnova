@@ -145,7 +145,7 @@ export class InferaAgentController {
       .set({ 
         plan: plan as any,
         totalSteps: plan.steps.length,
-        status: "executing"
+        status: "planned"
       })
       .where(eq(inferaAgentTasks.id, taskId));
 
@@ -401,6 +401,12 @@ export class InferaAgentController {
     this.taskId = taskId;
     
     const plan = await this.planTask(taskId);
+    
+    await db.update(inferaAgentTasks)
+      .set({ status: "executing" })
+      .where(eq(inferaAgentTasks.id, taskId));
+
+    await this.log("info", "Starting task execution...");
     
     const filesModified: string[] = [];
     const errors: string[] = [];

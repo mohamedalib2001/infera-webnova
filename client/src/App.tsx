@@ -36,6 +36,7 @@ import OwnerEmailSettings from "@/pages/owner-email-settings";
 import AISettings from "@/pages/ai-settings";
 import AIModelRegistry from "@/pages/ai-model-registry";
 import InferaIntelligenceModels from "@/pages/infera-intelligence-models";
+import InferaAgent from "@/pages/infera-agent";
 import AiAppBuilder from "@/pages/ai-app-builder";
 import IDEProjects from "@/pages/ide-projects";
 import CloudIDE from "@/pages/cloud-ide";
@@ -163,6 +164,7 @@ function AuthenticatedRouter() {
       <Route path="/owner/ai-settings" component={AISettings} />
       <Route path="/owner/ai-model-registry" component={AIModelRegistry} />
       <Route path="/owner/infera-intelligence" component={InferaIntelligenceModels} />
+      <Route path="/owner/infera-agent" component={InferaAgent} />
       <Route path="/ai-builder" component={AiAppBuilder} />
       <Route path="/ide" component={IDEProjects} />
       <Route path="/ide/:id" component={CloudIDE} />
