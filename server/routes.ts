@@ -90,6 +90,7 @@ import { registerExecutionRoutes } from "./execution-engine";
 import { registerDeploymentRoutes } from "./deployment-integration";
 import { registerVisionRoutes } from "./vision-processing";
 import { registerNovaPermissionRoutes } from "./nova-permissions";
+import { registerMemoryRoutes } from "./memory-service";
 
 // Session user type
 declare module 'express-session' {
@@ -14980,6 +14981,10 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
   // ==================== EXECUTION ENGINE - SECURE CODE EXECUTION ====================
   registerExecutionRoutes(app);
   console.log("Execution Engine routes registered | تم تسجيل مسارات محرك التنفيذ");
+
+  // ==================== INSTITUTIONAL MEMORY - KNOWLEDGE PERSISTENCE ====================
+  registerMemoryRoutes(app);
+  console.log("Institutional Memory routes registered | تم تسجيل مسارات الذاكرة المؤسسية");
 
   // ==================== DEPLOYMENT INTEGRATION - VERCEL, NETLIFY, GITHUB ====================
   registerDeploymentRoutes(app);

@@ -58,6 +58,22 @@ The platform offers an AI Chat Interface, a live preview with responsive viewpor
     - `/api/domains` filters by role, `/api/domains/system` (ROOT_OWNER only), `/api/domains/my` (user's own domains)
     - Domain registration open to all authenticated users, but system domains require sovereign role
 
+## Recent Changes (December 2025)
+
+### Execution Engine Enhancements (Phase 1 Complete)
+*   **Docker Container Isolation**: Added `executeWithIsolation()` function supporting 6 languages (Node.js, Python, TypeScript, Go, PHP, Rust) with Docker container security:
+    - No privileged mode
+    - Network disabled by default
+    - Resource limits (memory, CPU)
+    - Automatic fallback to local execution when Docker unavailable
+*   **Compiled Language Support**: Rust and Go now properly compile before execution with read-write volume mounts for build artifacts
+*   **API Updates**: `/api/execution/run` accepts `useDocker` flag; response includes `isolationType` ("docker" | "local")
+*   **Status Endpoint**: `/api/execution/status` now shows Docker availability, configured images per language, and available isolation modes
+
+### Database Schema Additions (Phase 0 Complete)
+*   Added 8 new tables: `execution_runtimes`, `execution_jobs`, `execution_artifacts`, `institutional_memory`, `infrastructure_inventory`, `integration_credentials`, `deployment_manifests`, `secrets_vault_entries`
+*   Seeded 10 default runtime configurations
+
 ## External Dependencies
 *   **Database**: PostgreSQL
 *   **ORM**: Drizzle ORM

@@ -12812,10 +12812,15 @@ export const institutionalMemory = pgTable("institutional_memory", {
   index("IDX_inst_memory_importance").on(table.importance),
 ]);
 
+// Base insert schema with computed fields explicitly defined
 export const insertInstitutionalMemorySchema = createInsertSchema(institutionalMemory).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  // Explicitly type the embedding and keywords fields for proper JSONB handling
+  embedding: z.array(z.number()).optional().nullable(),
+  keywords: z.array(z.string()).optional().default([]),
 });
 export type InsertInstitutionalMemory = z.infer<typeof insertInstitutionalMemorySchema>;
 export type InstitutionalMemory = typeof institutionalMemory.$inferSelect;
