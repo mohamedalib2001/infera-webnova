@@ -139,11 +139,38 @@ export default function InferaAgentV2() {
   const t = translations[language];
   const isRTL = language === "ar";
   
-  const [messages, setMessages] = useState<Message[]>([]);
+  // Welcome message based on language
+  const welcomeMessage: Message = {
+    id: "welcome",
+    role: "assistant",
+    content: language === "ar" 
+      ? `مرحباً! أنا **وكيل إنفرا** - مهندس برمجيات ذكي مستقل.
+
+أستطيع مساعدتك في:
+- إنشاء وتعديل الملفات والمجلدات
+- تحليل وإصلاح الأخطاء في الكود
+- تشغيل الأوامر في Terminal
+- مراجعة وتحسين المشروع
+
+**ابدأ بوصف ما تريد بناءه أو إصلاحه!**`
+      : `Hello! I'm **INFERA Agent** - your autonomous AI software engineer.
+
+I can help you:
+- Create and modify files
+- Analyze and fix code errors
+- Run terminal commands
+- Review and improve your project
+
+**Start by describing what you want to build or fix!**`,
+    timestamp: new Date(),
+  };
+
+  const [messages, setMessages] = useState<Message[]>([welcomeMessage]);
   const [inputValue, setInputValue] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [actions, setActions] = useState<ActionLog[]>([]);
+  const [agentStatus, setAgentStatus] = useState<"online" | "offline" | "checking">("checking");
   
   // Multi-tab editor state
   const [openTabs, setOpenTabs] = useState<{ path: string; content: string; isDirty: boolean }[]>([]);
@@ -159,6 +186,25 @@ export default function InferaAgentV2() {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // Check agent health status
+  useEffect(() => {
+    const checkHealth = async () => {
+      try {
+        const res = await fetch("/api/agent/health");
+        if (res.ok) {
+          setAgentStatus("online");
+        } else {
+          setAgentStatus("offline");
+        }
+      } catch {
+        setAgentStatus("offline");
+      }
+    };
+    checkHealth();
+    const interval = setInterval(checkHealth, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -181,14 +227,38 @@ export default function InferaAgentV2() {
 
   const chatMutation = useMutation({
     mutationFn: async (prompt: string) => {
-      const res = await apiRequest("POST", "/api/infera/agent/chat", { prompt });
+      // Use the standalone Agent AI chat endpoint via proxy
+      const res = await fetch("/api/agent/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: prompt }),
+      });
+      if (!res.ok) throw new Error("Chat request failed");
       return res.json();
     },
     onMutate: () => {
       setIsThinking(true);
+      // Add a "thinking" action
+      setActions((prev) => [
+        ...prev,
+        {
+          id: `thinking-${Date.now()}`,
+          type: "thinking",
+          description: language === "ar" ? "يحلل الطلب..." : "Analyzing request...",
+          timestamp: new Date(),
+          status: "running",
+        },
+      ]);
     },
     onSuccess: (data) => {
       setIsThinking(false);
+      // Update thinking action to completed
+      setActions((prev) =>
+        prev.map((a) =>
+          a.status === "running" ? { ...a, status: "completed" as const } : a
+        )
+      );
+      
       const assistantMessage: Message = {
         id: Date.now().toString(),
         role: "assistant",
@@ -197,15 +267,33 @@ export default function InferaAgentV2() {
       };
       setMessages((prev) => [...prev, assistantMessage]);
       
+      // Parse tool calls from response and add as actions
+      const toolMatch = data.response?.match(/\{"tool":\s*"([^"]+)"/);
+      if (toolMatch) {
+        setActions((prev) => [
+          ...prev,
+          {
+            id: `tool-${Date.now()}`,
+            type: "tool_call",
+            description: `${toolMatch[1]}`,
+            timestamp: new Date(),
+            status: "completed",
+          },
+        ]);
+      }
+      
       if (data.tasks) {
         setTasks(data.tasks);
       }
-      if (data.actions) {
-        setActions((prev) => [...prev, ...data.actions]);
-      }
+      refetchStructure();
     },
     onError: (error) => {
       setIsThinking(false);
+      setActions((prev) =>
+        prev.map((a) =>
+          a.status === "running" ? { ...a, status: "failed" as const } : a
+        )
+      );
       toast({
         title: "Error",
         description: String(error),
@@ -362,12 +450,33 @@ export default function InferaAgentV2() {
       <div className="flex items-center justify-between px-4 py-2 border-b bg-card">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <Bot className="w-6 h-6 text-primary" />
+            <div className="relative">
+              <Bot className="w-6 h-6 text-primary" />
+              <span 
+                className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-card ${
+                  agentStatus === "online" ? "bg-green-500 animate-pulse" : 
+                  agentStatus === "checking" ? "bg-yellow-500 animate-pulse" : "bg-red-500"
+                }`}
+              />
+            </div>
             <span className="font-semibold text-lg">{t.title}</span>
           </div>
-          <Badge variant="outline" className="text-xs">
-            {workflowRunning ? t.running : t.stopped}
+          <Badge 
+            variant={agentStatus === "online" ? "default" : "outline"} 
+            className={`text-xs ${agentStatus === "online" ? "bg-green-600" : ""}`}
+          >
+            {agentStatus === "online" 
+              ? (language === "ar" ? "متصل" : "Online") 
+              : agentStatus === "checking" 
+              ? (language === "ar" ? "جارٍ الاتصال..." : "Connecting...")
+              : (language === "ar" ? "غير متصل" : "Offline")}
           </Badge>
+          {isThinking && (
+            <Badge variant="secondary" className="text-xs animate-pulse">
+              <Sparkles className="w-3 h-3 me-1" />
+              {language === "ar" ? "يعمل..." : "Working..."}
+            </Badge>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Button
