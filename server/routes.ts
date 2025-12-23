@@ -311,6 +311,44 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
+  // ============ INFERA Agent Proxy - توجيه طلبات Agent المستقل ============
+  
+  // Proxy health check
+  app.get("/api/agent/health", async (req, res) => {
+    try {
+      const response = await fetch("http://localhost:5001/health");
+      const data = await response.json();
+      res.json(data);
+    } catch (err) {
+      res.status(503).json({ error: "Agent not available", status: "offline" });
+    }
+  });
+  
+  // Proxy main agent dashboard and API
+  app.use("/api/agent", async (req, res) => {
+    try {
+      const targetUrl = `http://localhost:5001${req.url}`;
+      const response = await fetch(targetUrl, {
+        method: req.method,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: req.method !== "GET" && req.method !== "HEAD" ? JSON.stringify(req.body) : undefined,
+      });
+      
+      const contentType = response.headers.get("content-type");
+      if (contentType?.includes("text/html")) {
+        const html = await response.text();
+        res.type("text/html").send(html);
+      } else {
+        const data = await response.json();
+        res.status(response.status).json(data);
+      }
+    } catch (err) {
+      res.status(503).json({ error: "Agent service unavailable" });
+    }
+  });
+  
   // ============ Auth Routes - INFERA نظام المصادقة ============
   
   // Register - إنشاء حساب جديد

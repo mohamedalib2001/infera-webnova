@@ -38,6 +38,7 @@ import AIModelRegistry from "@/pages/ai-model-registry";
 import InferaIntelligenceModels from "@/pages/infera-intelligence-models";
 import InferaAgent from "@/pages/infera-agent";
 import InferaAgentV2 from "@/pages/infera-agent-v2";
+import AgentStandalone from "@/pages/agent-standalone";
 import AiAppBuilder from "@/pages/ai-app-builder";
 import IDEProjects from "@/pages/ide-projects";
 import CloudIDE from "@/pages/cloud-ide";
@@ -201,6 +202,7 @@ function AuthenticatedRouter() {
       <Route path="/ai-copilot" component={AICopilot} />
       <Route path="/infera-agent" component={InferaAgentV2} />
       <Route path="/infera-agent-old" component={InferaAgent} />
+      <Route path="/agent" component={AgentStandalone} />
       <Route path="/testing" component={TestingGenerator} />
       <Route path="/marketplace" component={Marketplace} />
       <Route path="/collaboration" component={Collaboration} />
