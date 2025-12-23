@@ -104,6 +104,7 @@ import { SovereignIndicator } from "@/components/sovereign-indicator";
 import { CommandPalette } from "@/components/command-palette";
 import { NovaAssistantMenu } from "@/components/nova-assistant-menu";
 import { SovereignHeaderButton } from "@/components/sovereign-header-button";
+import { PerformanceTracker } from "@/hooks/use-performance-tracker";
 
 function RedirectToAuth() {
   const [, setLocation] = useLocation();
@@ -332,6 +333,9 @@ function AppContent() {
       
       {/* Sovereign Analytics Panel - لوحة التحليلات السيادية */}
       <SovereignIndicator />
+      
+      {/* Real Performance Tracking - تتبع الأداء الحقيقي */}
+      <PerformanceTracker />
     </div>
   );
 }
