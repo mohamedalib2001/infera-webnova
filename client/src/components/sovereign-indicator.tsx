@@ -4,7 +4,7 @@
  * يظهر فقط للحساب السيادي (owner/sovereign)
  */
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
@@ -1299,7 +1299,8 @@ export function SovereignIndicator() {
   const [employeeMode, setEmployeeMode] = useState<'all' | 'specific'>('specific');
   const [selectedEmployees, setSelectedEmployees] = useState<number[]>([]);
   const [analysis, setAnalysis] = useState<FullAnalysis | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(true);
+  const analysisInProgress = useRef(false);
   
   // Fetch INFERA Engine employees only (not subscribers)
   // Employees are users with roles: sovereign, support_agent, admin (NOT free, basic, pro, enterprise)
@@ -1345,7 +1346,9 @@ export function SovereignIndicator() {
   // Run analysis with real API
   const runAnalysis = useCallback(async () => {
     if (!isSovereign || !isAuthenticated) return;
+    if (analysisInProgress.current) return;
     
+    analysisInProgress.current = true;
     setIsAnalyzing(true);
     
     const services = pageServicesMap[location] || pageServicesMap['/'] || [];
@@ -1366,17 +1369,18 @@ export function SovereignIndicator() {
       
       const result = await response.json();
       setAnalysis(result);
-      setIsAnalyzing(false);
     } catch {
       const result = analyzePageIntelligently(location, 0);
       setAnalysis(result);
+    } finally {
       setIsAnalyzing(false);
+      analysisInProgress.current = false;
     }
   }, [location, isSovereign, isAuthenticated]);
   
   // Run analysis automatically on page load and location change
   useEffect(() => {
-    if (isSovereign && isAuthenticated && !isAnalyzing) {
+    if (isSovereign && isAuthenticated) {
       runAnalysis();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
