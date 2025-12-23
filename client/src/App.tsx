@@ -12,7 +12,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { GuestSidebar } from "@/components/guest-sidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bell } from "lucide-react";
+import { Bell, Sparkles } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import Home from "@/pages/home";
 import Landing from "@/pages/landing";
@@ -102,7 +102,6 @@ import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
 import { CommandPalette } from "@/components/command-palette";
-import { OwnerQuickActions } from "@/components/owner-quick-actions";
 
 function RedirectToAuth() {
   const [, setLocation] = useLocation();
@@ -258,6 +257,26 @@ function NotificationBell() {
   );
 }
 
+function NovaHeaderButton() {
+  const [, setLocation] = useLocation();
+  const { isSovereign, isAuthenticated } = useAuth();
+  
+  if (!isAuthenticated || !isSovereign) return null;
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={() => setLocation("/nova")}
+      className="relative text-amber-500 hover:text-amber-600"
+      data-testid="button-nova-header"
+      title="Nova AI"
+    >
+      <Sparkles className="h-5 w-5" />
+    </Button>
+  );
+}
+
 function AppContent() {
   const { isRtl } = useLanguage();
   const { isAuthenticated } = useAuth();
@@ -286,6 +305,7 @@ function AppContent() {
                 {isAuthenticated && <CommandPalette language={isRtl ? "ar" : "en"} />}
               </div>
               <div className="flex items-center gap-2">
+                <NovaHeaderButton />
                 <NotificationBell />
                 <LanguageToggle />
                 <ThemeToggle />
@@ -328,9 +348,6 @@ function AppContent() {
       
       {/* Sovereign Indicator - Golden Arrow (Only for owner/sovereign users) */}
       <SovereignIndicator />
-      
-      {/* Owner Quick Actions - FAB for quick Nova chat access */}
-      <OwnerQuickActions />
     </div>
   );
 }
