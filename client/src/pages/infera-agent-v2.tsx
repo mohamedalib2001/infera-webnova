@@ -446,7 +446,7 @@ I can help you:
   };
 
   return (
-    <div className={`h-screen flex flex-col bg-background ${isRTL ? "rtl" : "ltr"}`} dir={isRTL ? "rtl" : "ltr"}>
+    <div className={`h-[calc(100vh-60px)] flex flex-col bg-background ${isRTL ? "rtl" : "ltr"}`} dir={isRTL ? "rtl" : "ltr"}>
       <div className="flex items-center justify-between px-4 py-2 border-b bg-card">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
@@ -518,9 +518,8 @@ I can help you:
         {!leftPanelCollapsed && (
           <>
             <ResizablePanel defaultSize={30} minSize={20} maxSize={50}>
-              <div className="h-full flex flex-col border-e bg-card/50">
-                <div className="flex-1 flex flex-col overflow-hidden">
-                  <ScrollArea className="flex-1 p-4">
+              <div className="h-full flex flex-col border-e bg-card/50 overflow-hidden">
+                <ScrollArea className="flex-1 min-h-0 p-4">
                     <div className="space-y-4">
                       {messages.map((msg) => (
                         <div
@@ -601,9 +600,8 @@ I can help you:
                       </div>
                     </div>
                   )}
-                </div>
 
-                <div className="p-3 border-t">
+                <div className="p-3 border-t flex-shrink-0">
                   <div className="flex gap-2">
                     <Textarea
                       value={inputValue}
