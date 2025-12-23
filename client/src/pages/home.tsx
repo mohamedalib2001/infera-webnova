@@ -10,6 +10,7 @@ import { TemplateCard } from "@/components/template-card";
 import { TemplateDetailDialog } from "@/components/template-detail-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { SecureDeletionDialog } from "@/components/secure-deletion-dialog";
+import { CompliancePanel } from "@/components/compliance-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -103,6 +104,8 @@ export default function Home() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [showTemplateDetail, setShowTemplateDetail] = useState(false);
+  const [showCompliancePanel, setShowCompliancePanel] = useState(false);
+  const [selectedComplianceFramework, setSelectedComplianceFramework] = useState<string | undefined>(undefined);
 
   const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -234,7 +237,18 @@ export default function Home() {
                   <span className="font-medium text-sm">{t(`domain.${domain.key}`)}</span>
                   <div className="flex flex-wrap justify-center gap-1">
                     {domain.compliance.slice(0, 2).map((comp) => (
-                      <Badge key={comp} variant="secondary" className="text-xs">
+                      <Badge 
+                        key={comp} 
+                        variant="secondary" 
+                        className="text-xs cursor-pointer hover:bg-primary/20 hover:text-primary transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedComplianceFramework(comp.toLowerCase().replace(/\s+/g, '-'));
+                          setShowCompliancePanel(true);
+                        }}
+                        data-testid={`badge-compliance-${comp.toLowerCase().replace(/\s+/g, '-')}`}
+                      >
+                        <Shield className="w-3 h-3 mr-1" />
                         {comp}
                       </Badge>
                     ))}
@@ -826,6 +840,12 @@ export default function Home() {
         template={selectedTemplate}
         open={showTemplateDetail}
         onOpenChange={setShowTemplateDetail}
+      />
+
+      <CompliancePanel
+        open={showCompliancePanel}
+        onOpenChange={setShowCompliancePanel}
+        selectedFramework={selectedComplianceFramework}
       />
     </GradientBackground>
   );

@@ -88,6 +88,8 @@ import BuildManager from "@/pages/build-manager";
 import MobileAppBuilder from "@/pages/mobile-app-builder";
 import DesktopAppBuilder from "@/pages/desktop-app-builder";
 import ConversationHistory from "@/pages/conversation-history";
+import CICDPipeline from "@/pages/cicd-pipeline";
+import DeviceTesting from "@/pages/device-testing";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
@@ -195,6 +197,8 @@ function AuthenticatedRouter() {
       <Route path="/nova/builds" component={BuildManager} />
       <Route path="/mobile-builder" component={MobileAppBuilder} />
       <Route path="/desktop-builder" component={DesktopAppBuilder} />
+      <Route path="/cicd" component={CICDPipeline} />
+      <Route path="/device-testing" component={DeviceTesting} />
       <Route path="/preview/:shareCode" component={Preview} />
       <Route component={NotFound} />
     </Switch>

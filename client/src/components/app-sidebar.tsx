@@ -56,6 +56,8 @@ import {
   Briefcase,
   Smartphone,
   Monitor,
+  Workflow,
+  Cpu,
 } from "lucide-react";
 import {
   Sidebar,
@@ -103,6 +105,8 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     { title: language === "ar" ? "التحكم بالإصدارات" : "Version Control", url: "/git", icon: GitBranch, testId: "nav-git" },
     { title: language === "ar" ? "مساعد AI Copilot" : "AI Copilot", url: "/ai-copilot", icon: Brain, testId: "nav-copilot" },
     { title: language === "ar" ? "مولّد الاختبارات" : "Testing Generator", url: "/testing", icon: TestTube2, testId: "nav-testing" },
+    { title: language === "ar" ? "خط أنابيب CI/CD" : "CI/CD Pipeline", url: "/cicd", icon: Workflow, testId: "nav-cicd" },
+    { title: language === "ar" ? "اختبار الأجهزة" : "Device Testing", url: "/device-testing", icon: Cpu, testId: "nav-device-testing" },
     { title: language === "ar" ? "سوق الإضافات" : "Marketplace", url: "/marketplace", icon: Store, testId: "nav-marketplace" },
     { title: language === "ar" ? "التعاون الجماعي" : "Collaboration", url: "/collaboration", icon: Users, testId: "nav-collaboration" },
     { title: language === "ar" ? "مولّد المنصات" : "Platform Generator", url: "/platform-generator", icon: TrendingUp, testId: "nav-platform-generator" },
