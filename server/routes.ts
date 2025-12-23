@@ -11893,6 +11893,133 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
     }
   });
 
+  // ============ AI Assistant Capability Control Routes (Owner Only) ============
+  
+  // Get all AI capabilities for a specific assistant
+  app.get("/api/owner/ai-assistant-capabilities/:assistantId", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const capabilities = await storage.getAiAssistantCapabilities(req.params.assistantId);
+      res.json({ success: true, capabilities });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: "فشل في جلب قدرات المساعد / Failed to get assistant capabilities" 
+      });
+    }
+  });
+
+  // Get all AI assistant capability overrides
+  app.get("/api/owner/ai-assistant-capabilities", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const capabilities = await storage.getAllAiAssistantCapabilities();
+      res.json({ success: true, capabilities });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: "فشل في جلب قدرات المساعدين / Failed to get assistant capabilities" 
+      });
+    }
+  });
+
+  // Set/Update AI assistant capability
+  const setCapabilitySchema = z.object({
+    assistantId: z.string(),
+    capabilityCode: z.string(),
+    isEnabled: z.boolean(),
+    reason: z.string().optional(),
+  });
+  
+  app.post("/api/owner/ai-assistant-capabilities", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const validatedData = setCapabilitySchema.parse(req.body);
+      const capability = await storage.setAiAssistantCapability({
+        ...validatedData,
+        modifiedBy: req.session.userId!,
+      });
+      
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: validatedData.isEnabled ? "ai_capability_enabled" : "ai_capability_disabled",
+        entityType: "ai_assistant_capability",
+        entityId: capability.id,
+        details: { 
+          assistantId: validatedData.assistantId, 
+          capabilityCode: validatedData.capabilityCode,
+          isEnabled: validatedData.isEnabled,
+          reason: validatedData.reason,
+        },
+      });
+      
+      res.json({ success: true, capability });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "بيانات غير صالحة / Invalid data", 
+          details: error.errors 
+        });
+      }
+      res.status(500).json({ 
+        success: false, 
+        error: "فشل في تحديث قدرة المساعد / Failed to update assistant capability" 
+      });
+    }
+  });
+
+  // Delete specific capability override
+  app.delete("/api/owner/ai-assistant-capabilities/:id", requireAuth, requireOwner, async (req, res) => {
+    try {
+      await storage.deleteAiAssistantCapability(req.params.id);
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "ai_capability_override_deleted",
+        entityType: "ai_assistant_capability",
+        entityId: req.params.id,
+      });
+      res.json({ success: true, message: "تم حذف تجاوز القدرة / Capability override deleted" });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: "فشل في حذف تجاوز القدرة / Failed to delete capability override" 
+      });
+    }
+  });
+
+  // Reset all capabilities for an assistant (returns to defaults)
+  app.delete("/api/owner/ai-assistant-capabilities/reset/:assistantId", requireAuth, requireOwner, async (req, res) => {
+    try {
+      await storage.resetAiAssistantCapabilities(req.params.assistantId);
+      await storage.createAuditLog({
+        userId: req.session.userId!,
+        action: "ai_capabilities_reset",
+        entityType: "ai_assistant_capability",
+        entityId: req.params.assistantId,
+      });
+      res.json({ 
+        success: true, 
+        message: "تم إعادة تعيين جميع القدرات للإعدادات الافتراضية / All capabilities reset to defaults" 
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: "فشل في إعادة تعيين القدرات / Failed to reset capabilities" 
+      });
+    }
+  });
+
+  // Check if a specific capability is enabled for an assistant
+  app.get("/api/owner/ai-assistant-capabilities/:assistantId/:capabilityCode", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const isEnabled = await storage.isCapabilityEnabled(req.params.assistantId, req.params.capabilityCode);
+      res.json({ success: true, isEnabled });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: "فشل في التحقق من حالة القدرة / Failed to check capability status" 
+      });
+    }
+  });
+
   // ============ Sovereign Commands Routes (Owner) ============
   
   app.get("/api/owner/sovereign-commands", requireAuth, requireOwner, async (req, res) => {
