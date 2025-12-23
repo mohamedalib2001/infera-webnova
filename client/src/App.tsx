@@ -37,6 +37,7 @@ import AISettings from "@/pages/ai-settings";
 import AIModelRegistry from "@/pages/ai-model-registry";
 import InferaIntelligenceModels from "@/pages/infera-intelligence-models";
 import InferaAgent from "@/pages/infera-agent";
+import InferaAgentV2 from "@/pages/infera-agent-v2";
 import AiAppBuilder from "@/pages/ai-app-builder";
 import IDEProjects from "@/pages/ide-projects";
 import CloudIDE from "@/pages/cloud-ide";
@@ -198,7 +199,8 @@ function AuthenticatedRouter() {
       <Route path="/backend-generator" component={BackendGenerator} />
       <Route path="/git" component={GitControl} />
       <Route path="/ai-copilot" component={AICopilot} />
-      <Route path="/infera-agent" component={InferaAgent} />
+      <Route path="/infera-agent" component={InferaAgentV2} />
+      <Route path="/infera-agent-old" component={InferaAgent} />
       <Route path="/testing" component={TestingGenerator} />
       <Route path="/marketplace" component={Marketplace} />
       <Route path="/collaboration" component={Collaboration} />
