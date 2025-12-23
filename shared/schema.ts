@@ -13220,3 +13220,414 @@ export const insertSecretsVaultEntrySchema = createInsertSchema(secretsVaultEntr
 });
 export type InsertSecretsVaultEntry = z.infer<typeof insertSecretsVaultEntrySchema>;
 export type SecretsVaultEntry = typeof secretsVaultEntries.$inferSelect;
+
+// ==================== AI MODEL INTAKE & MANAGEMENT UNIT ====================
+// وحدة استقبال وإدارة نماذج الذكاء الاصطناعي
+
+// Model Intake Methods
+export const aiModelIntakeMethods = ['upload', 'registry_import', 'external_api'] as const;
+export type AiModelIntakeMethod = typeof aiModelIntakeMethods[number];
+
+// Model File Formats
+export const aiModelFormats = ['gguf', 'safetensors', 'pytorch', 'onnx', 'tensorflow', 'custom'] as const;
+export type AiModelFormat = typeof aiModelFormats[number];
+
+// Model Types
+export const aiModelTypes = ['chat', 'code', 'reasoning', 'embedding', 'vision', 'multimodal', 'custom'] as const;
+export type AiModelType = typeof aiModelTypes[number];
+
+// Runtime Engines
+export const aiRuntimeEngines = ['ollama', 'vllm', 'tgi', 'triton', 'custom', 'external_api'] as const;
+export type AiRuntimeEngine = typeof aiRuntimeEngines[number];
+
+// Model Status
+export const aiModelStatuses = ['pending', 'downloading', 'validating', 'ready', 'active', 'inactive', 'error', 'archived'] as const;
+export type AiModelStatus = typeof aiModelStatuses[number];
+
+// Extended AI Model Registry - سجل النماذج المركزي الموسع
+export const aiModelRegistry = pgTable("ai_model_registry", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Basic Info
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  slug: text("slug").notNull().unique(), // URL-friendly identifier
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  
+  // Provider & Source
+  provider: text("provider").notNull(), // anthropic, openai, meta, mistral, local, custom
+  sourceUrl: text("source_url"), // Hugging Face URL, custom URL
+  registrySource: text("registry_source"), // huggingface, ollama, custom
+  
+  // Model Type & Capabilities
+  modelType: text("model_type").notNull().default("chat"), // chat, code, reasoning, embedding, vision, multimodal
+  capabilities: jsonb("capabilities").$type<string[]>().default([]),
+  supportedLanguages: jsonb("supported_languages").$type<string[]>().default(["en"]),
+  
+  // Intake Method
+  intakeMethod: text("intake_method").notNull().default("external_api"), // upload, registry_import, external_api
+  modelFormat: text("model_format"), // gguf, safetensors, pytorch, onnx
+  
+  // File Storage (for uploaded/imported models)
+  storagePath: text("storage_path"), // Object storage path
+  storageSize: integer("storage_size"), // Size in bytes
+  checksum: text("checksum"), // SHA256 hash for verification
+  
+  // Model Specifications
+  parameterCount: text("parameter_count"), // e.g., "7B", "70B"
+  contextWindow: integer("context_window").default(4096),
+  maxOutputTokens: integer("max_output_tokens").default(4096),
+  quantization: text("quantization"), // e.g., "Q4_K_M", "Q8_0", "fp16"
+  
+  // Hardware Requirements
+  minVram: integer("min_vram"), // Minimum VRAM in GB
+  recommendedVram: integer("recommended_vram"), // Recommended VRAM in GB
+  minRam: integer("min_ram"), // Minimum RAM in GB
+  cpuOnly: boolean("cpu_only").default(false),
+  hardwareRequirements: jsonb("hardware_requirements").$type<{
+    gpu?: string;
+    vram?: number;
+    ram?: number;
+    storage?: number;
+    cpu?: string;
+  }>().default({}),
+  
+  // Licensing
+  license: text("license"), // MIT, Apache-2.0, Llama 2 Community, etc.
+  licenseUrl: text("license_url"),
+  commercialUse: boolean("commercial_use").default(true),
+  
+  // Cost Configuration (per 1M tokens)
+  inputCostPer1M: integer("input_cost_per_1m").default(0), // in cents
+  outputCostPer1M: integer("output_cost_per_1m").default(0), // in cents
+  
+  // External API Configuration (for connected providers)
+  apiEndpoint: text("api_endpoint"),
+  apiKeySecretRef: text("api_key_secret_ref"), // Reference to secrets vault
+  apiHeaders: jsonb("api_headers").$type<Record<string, string>>().default({}),
+  
+  // Status & Control
+  status: text("status").notNull().default("pending"), // pending, downloading, validating, ready, active, inactive, error, archived
+  statusMessage: text("status_message"),
+  isDefault: boolean("is_default").default(false),
+  isPublic: boolean("is_public").default(false), // Visible to all users
+  sortOrder: integer("sort_order").default(0),
+  
+  // Access Control
+  allowedPlans: jsonb("allowed_plans").$type<string[]>().default(["owner", "sovereign"]),
+  allowedUsers: jsonb("allowed_users").$type<string[]>().default([]),
+  
+  // Usage Tracking
+  totalRequests: integer("total_requests").default(0),
+  totalTokensProcessed: integer("total_tokens_processed").default(0),
+  averageLatency: integer("average_latency").default(0), // in ms
+  lastUsedAt: timestamp("last_used_at"),
+  
+  // Metadata
+  tags: jsonb("tags").$type<string[]>().default([]),
+  metadata: jsonb("metadata").$type<Record<string, any>>().default({}),
+  
+  // Audit
+  createdBy: varchar("created_by").references(() => users.id),
+  updatedBy: varchar("updated_by"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_ai_model_registry_provider").on(table.provider),
+  index("IDX_ai_model_registry_type").on(table.modelType),
+  index("IDX_ai_model_registry_status").on(table.status),
+  index("IDX_ai_model_registry_intake").on(table.intakeMethod),
+]);
+
+export const insertAiModelRegistrySchema = createInsertSchema(aiModelRegistry).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAiModelRegistry = z.infer<typeof insertAiModelRegistrySchema>;
+export type AiModelRegistry = typeof aiModelRegistry.$inferSelect;
+
+// AI Model Runtime Configurations - تكوينات تشغيل النماذج
+export const aiModelRuntimes = pgTable("ai_model_runtimes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  modelId: varchar("model_id").references(() => aiModelRegistry.id, { onDelete: "cascade" }).notNull(),
+  
+  // Runtime Engine
+  engine: text("engine").notNull().default("external_api"), // ollama, vllm, tgi, triton, custom, external_api
+  engineVersion: text("engine_version"),
+  
+  // Container Configuration
+  containerImage: text("container_image"),
+  containerTag: text("container_tag"),
+  containerPort: integer("container_port").default(8080),
+  containerEnv: jsonb("container_env").$type<Record<string, string>>().default({}),
+  
+  // Resource Allocation
+  cpuCores: integer("cpu_cores").default(4),
+  memoryMb: integer("memory_mb").default(16384), // 16GB default
+  gpuType: text("gpu_type"), // nvidia-a100, nvidia-v100, nvidia-t4
+  gpuCount: integer("gpu_count").default(0),
+  gpuMemoryMb: integer("gpu_memory_mb"),
+  
+  // Scaling Configuration
+  minReplicas: integer("min_replicas").default(0),
+  maxReplicas: integer("max_replicas").default(1),
+  scaleToZero: boolean("scale_to_zero").default(true),
+  idleTimeoutSeconds: integer("idle_timeout_seconds").default(300),
+  
+  // Performance Settings
+  maxConcurrentRequests: integer("max_concurrent_requests").default(10),
+  requestTimeoutSeconds: integer("request_timeout_seconds").default(120),
+  maxBatchSize: integer("max_batch_size").default(1),
+  
+  // Deployment
+  deploymentType: text("deployment_type").default("kubernetes"), // kubernetes, docker, standalone
+  nodeSelector: jsonb("node_selector").$type<Record<string, string>>().default({}),
+  tolerations: jsonb("tolerations").$type<Array<{ key: string; operator: string; value?: string; effect: string }>>().default([]),
+  
+  // Status
+  isActive: boolean("is_active").default(false),
+  lastHealthCheck: timestamp("last_health_check"),
+  healthStatus: text("health_status").default("unknown"), // healthy, unhealthy, unknown
+  currentReplicas: integer("current_replicas").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_ai_model_runtimes_model").on(table.modelId),
+  index("IDX_ai_model_runtimes_engine").on(table.engine),
+  index("IDX_ai_model_runtimes_active").on(table.isActive),
+]);
+
+export const insertAiModelRuntimeSchema = createInsertSchema(aiModelRuntimes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAiModelRuntime = z.infer<typeof insertAiModelRuntimeSchema>;
+export type AiModelRuntime = typeof aiModelRuntimes.$inferSelect;
+
+// AI Model Intake Jobs - مهام استقبال النماذج
+export const aiModelIntakeJobs = pgTable("ai_model_intake_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  modelId: varchar("model_id").references(() => aiModelRegistry.id, { onDelete: "cascade" }),
+  
+  // Job Type
+  jobType: text("job_type").notNull(), // upload, download, validate, deploy
+  intakeMethod: text("intake_method").notNull(), // upload, registry_import, external_api
+  
+  // Source Information
+  sourceUrl: text("source_url"),
+  sourceRegistry: text("source_registry"), // huggingface, ollama
+  sourceModelId: text("source_model_id"), // e.g., "meta-llama/Llama-2-7b"
+  
+  // Progress Tracking
+  status: text("status").notNull().default("pending"), // pending, in_progress, completed, failed, cancelled
+  progress: integer("progress").default(0), // 0-100
+  currentStep: text("current_step"),
+  totalSteps: integer("total_steps").default(1),
+  currentStepNumber: integer("current_step_number").default(0),
+  
+  // File Information
+  downloadedBytes: integer("downloaded_bytes").default(0),
+  totalBytes: integer("total_bytes"),
+  downloadSpeed: integer("download_speed"), // bytes per second
+  
+  // Validation Results
+  validationPassed: boolean("validation_passed"),
+  validationErrors: jsonb("validation_errors").$type<string[]>().default([]),
+  checksumVerified: boolean("checksum_verified"),
+  
+  // Error Handling
+  errorMessage: text("error_message"),
+  errorCode: text("error_code"),
+  retryCount: integer("retry_count").default(0),
+  maxRetries: integer("max_retries").default(3),
+  
+  // Timing
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  estimatedTimeRemaining: integer("estimated_time_remaining"), // seconds
+  
+  // Audit
+  initiatedBy: varchar("initiated_by").references(() => users.id),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_ai_model_intake_model").on(table.modelId),
+  index("IDX_ai_model_intake_status").on(table.status),
+  index("IDX_ai_model_intake_type").on(table.jobType),
+]);
+
+export const insertAiModelIntakeJobSchema = createInsertSchema(aiModelIntakeJobs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAiModelIntakeJob = z.infer<typeof insertAiModelIntakeJobSchema>;
+export type AiModelIntakeJob = typeof aiModelIntakeJobs.$inferSelect;
+
+// AI Model Policies - سياسات استخدام النماذج
+export const aiModelPolicies = pgTable("ai_model_policies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  modelId: varchar("model_id").references(() => aiModelRegistry.id, { onDelete: "cascade" }),
+  
+  // Policy Name
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  description: text("description"),
+  
+  // Rate Limits
+  requestsPerMinute: integer("requests_per_minute").default(60),
+  requestsPerHour: integer("requests_per_hour").default(1000),
+  requestsPerDay: integer("requests_per_day").default(10000),
+  tokensPerMinute: integer("tokens_per_minute").default(100000),
+  tokensPerDay: integer("tokens_per_day").default(1000000),
+  
+  // Cost Limits
+  dailyCostLimitCents: integer("daily_cost_limit_cents"),
+  monthlyCostLimitCents: integer("monthly_cost_limit_cents"),
+  
+  // Access Control
+  allowedPlans: jsonb("allowed_plans").$type<string[]>().default([]),
+  allowedUsers: jsonb("allowed_users").$type<string[]>().default([]),
+  blockedUsers: jsonb("blocked_users").$type<string[]>().default([]),
+  
+  // Feature Restrictions
+  allowStreaming: boolean("allow_streaming").default(true),
+  allowFunctionCalling: boolean("allow_function_calling").default(true),
+  allowSystemPrompt: boolean("allow_system_prompt").default(true),
+  maxInputTokens: integer("max_input_tokens"),
+  maxOutputTokens: integer("max_output_tokens"),
+  maxContextLength: integer("max_context_length"),
+  
+  // Content Filtering
+  enableContentFilter: boolean("enable_content_filter").default(true),
+  blockedTopics: jsonb("blocked_topics").$type<string[]>().default([]),
+  
+  // Priority & Routing
+  priority: integer("priority").default(0), // Higher = higher priority
+  routingWeight: integer("routing_weight").default(100), // For load balancing
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  isDefault: boolean("is_default").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_ai_model_policies_model").on(table.modelId),
+  index("IDX_ai_model_policies_active").on(table.isActive),
+]);
+
+export const insertAiModelPolicySchema = createInsertSchema(aiModelPolicies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAiModelPolicy = z.infer<typeof insertAiModelPolicySchema>;
+export type AiModelPolicy = typeof aiModelPolicies.$inferSelect;
+
+// AI Model Audit Logs - سجل تدقيق النماذج
+export const aiModelAuditLogs = pgTable("ai_model_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  modelId: varchar("model_id").references(() => aiModelRegistry.id, { onDelete: "set null" }),
+  
+  // Action Details
+  action: text("action").notNull(), // create, update, delete, enable, disable, deploy, intake, config_change, policy_change
+  actionCategory: text("action_category").notNull(), // lifecycle, configuration, security, usage, governance
+  
+  // Actor Information
+  actorId: varchar("actor_id").references(() => users.id),
+  actorRole: text("actor_role"),
+  actorIp: text("actor_ip"),
+  actorUserAgent: text("actor_user_agent"),
+  
+  // Change Details
+  previousState: jsonb("previous_state").$type<Record<string, any>>(),
+  newState: jsonb("new_state").$type<Record<string, any>>(),
+  changedFields: jsonb("changed_fields").$type<string[]>().default([]),
+  
+  // Context
+  reason: text("reason"),
+  context: jsonb("context").$type<Record<string, any>>().default({}),
+  
+  // Status
+  success: boolean("success").default(true),
+  errorMessage: text("error_message"),
+  
+  // Immutability
+  hash: text("hash"), // SHA256 hash of the log entry for tampering detection
+  previousHash: text("previous_hash"), // Hash chain for integrity
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_ai_model_audit_model").on(table.modelId),
+  index("IDX_ai_model_audit_action").on(table.action),
+  index("IDX_ai_model_audit_actor").on(table.actorId),
+  index("IDX_ai_model_audit_created").on(table.createdAt),
+]);
+
+export const insertAiModelAuditLogSchema = createInsertSchema(aiModelAuditLogs).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertAiModelAuditLog = z.infer<typeof insertAiModelAuditLogSchema>;
+export type AiModelAuditLog = typeof aiModelAuditLogs.$inferSelect;
+
+// AI Orchestration Rules - قواعد التنسيق الذكي
+export const aiOrchestrationRules = pgTable("ai_orchestration_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Rule Identity
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  description: text("description"),
+  
+  // Matching Criteria
+  matchTaskTypes: jsonb("match_task_types").$type<string[]>().default([]), // chat, code, reasoning, embedding
+  matchSensitivity: text("match_sensitivity"), // low, medium, high, critical
+  matchCostTier: text("match_cost_tier"), // free, budget, standard, premium
+  matchConditions: jsonb("match_conditions").$type<Array<{
+    field: string;
+    operator: string;
+    value: any;
+  }>>().default([]),
+  
+  // Model Selection
+  primaryModelId: varchar("primary_model_id").references(() => aiModelRegistry.id),
+  fallbackModelIds: jsonb("fallback_model_ids").$type<string[]>().default([]),
+  
+  // Routing Logic
+  routingStrategy: text("routing_strategy").default("priority"), // priority, round_robin, least_loaded, cost_optimized
+  loadBalanceWeights: jsonb("load_balance_weights").$type<Record<string, number>>().default({}),
+  
+  // Performance Requirements
+  maxLatencyMs: integer("max_latency_ms"),
+  minThroughput: integer("min_throughput"), // requests per second
+  
+  // Cost Control
+  maxCostPerRequest: integer("max_cost_per_request"), // cents
+  preferCheaper: boolean("prefer_cheaper").default(false),
+  
+  // Priority & Status
+  priority: integer("priority").default(0),
+  isActive: boolean("is_active").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_ai_orchestration_primary").on(table.primaryModelId),
+  index("IDX_ai_orchestration_active").on(table.isActive),
+]);
+
+export const insertAiOrchestrationRuleSchema = createInsertSchema(aiOrchestrationRules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAiOrchestrationRule = z.infer<typeof insertAiOrchestrationRuleSchema>;
+export type AiOrchestrationRule = typeof aiOrchestrationRules.$inferSelect;
