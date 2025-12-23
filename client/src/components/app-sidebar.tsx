@@ -58,6 +58,7 @@ import {
   Monitor,
   Workflow,
   Cpu,
+  MapPin,
 } from "lucide-react";
 import {
   Sidebar,
@@ -115,6 +116,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     { title: language === "ar" ? "منشئ الروبوتات" : "Chatbot Builder", url: "/chatbot-builder", icon: Bot, testId: "nav-chatbot" },
     { title: language === "ar" ? "تطبيقات الجوال" : "Mobile Apps", url: "/mobile-builder", icon: Smartphone, testId: "nav-mobile-builder" },
     { title: language === "ar" ? "تطبيقات سطح المكتب" : "Desktop Apps", url: "/desktop-builder", icon: Monitor, testId: "nav-desktop-builder" },
+    { title: language === "ar" ? "الخرائط" : "Maps", url: "/maps", icon: MapPin, testId: "nav-maps" },
   ];
 
   const managementItems = [

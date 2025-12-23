@@ -91,6 +91,7 @@ import OperationsDashboard from "@/pages/operations-dashboard";
 import BuildManager from "@/pages/build-manager";
 import MobileAppBuilder from "@/pages/mobile-app-builder";
 import DesktopAppBuilder from "@/pages/desktop-app-builder";
+import MapsPage from "@/pages/maps";
 import ConversationHistory from "@/pages/conversation-history";
 import CICDPipeline from "@/pages/cicd-pipeline";
 import DeviceTesting from "@/pages/device-testing";
@@ -223,6 +224,7 @@ function AuthenticatedRouter() {
       <Route path="/nova/builds" component={BuildManager} />
       <Route path="/mobile-builder" component={MobileAppBuilder} />
       <Route path="/desktop-builder" component={DesktopAppBuilder} />
+      <Route path="/maps" component={MapsPage} />
       <Route path="/cicd" component={CICDPipeline} />
       <Route path="/device-testing" component={DeviceTesting} />
       <Route path="/permissions" component={PermissionControl} />
