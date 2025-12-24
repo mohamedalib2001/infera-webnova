@@ -14,11 +14,11 @@ export const termsIntro = {
   lastUpdated: "December 2024",
   lastUpdatedAr: "ديسمبر 2024",
   welcome: "Welcome to INFERA.",
-  welcomeAr: "مرحباً بك في INFERA.",
+  welcomeAr: "مرحبًا بكم في INFERA.",
   statement: "By accessing or using any INFERA platform, service, or system, you agree to be bound by the following Terms & Conditions.",
-  statementAr: "بوصولك أو استخدامك لأي منصة أو خدمة أو نظام من INFERA، فإنك توافق على الالتزام بالشروط والأحكام التالية.",
+  statementAr: "بدخولك أو استخدامك لأي منصة أو خدمة أو نظام تابع لـ INFERA، فإنك تقرّ وتوافق على الالتزام الكامل بهذه الشروط والأحكام.",
   warning: "If you do not agree with these terms, you are not authorized to access or use INFERA.",
-  warningAr: "إذا كنت لا توافق على هذه الشروط، فأنت غير مصرح لك بالوصول أو استخدام INFERA."
+  warningAr: "في حال عدم موافقتك على هذه الشروط، فأنت غير مخوّل بالوصول إلى أو استخدام أي من خدمات INFERA."
 };
 
 export const termsSections: TermsSection[] = [
@@ -33,25 +33,25 @@ export const termsSections: TermsSection[] = [
       "Access to INFERA is granted selectively and may be revoked at any time to preserve security, sovereignty, and governance."
     ],
     contentAr: [
-      "INFERA توفر بنية تحتية رقمية سيادية مدفوعة بالذكاء الاصطناعي.",
-      "INFERA ليست تطبيقاً استهلاكياً، وليست منتج SaaS مفتوحاً، وليست سوقاً عامة.",
-      "الوصول إلى INFERA يُمنح بشكل انتقائي وقد يُلغى في أي وقت للحفاظ على الأمن والسيادة والحوكمة."
+      "توفر INFERA بنية تحتية رقمية سيادية مدعومة بالذكاء الاصطناعي.",
+      "ولا تُعد INFERA: تطبيقًا استهلاكيًا، خدمة SaaS عامة، منصة مفتوحة أو سوقًا عامًا.",
+      "يتم منح الوصول إلى INFERA بشكل انتقائي، ويجوز سحبه في أي وقت للحفاظ على الأمن والسيادة والحوكمة."
     ]
   },
   {
     id: "eligibility",
     number: 2,
     title: "Eligibility & Access",
-    titleAr: "الأهلية والوصول",
+    titleAr: "الأهلية ومنح الوصول",
     content: [
       "Access to INFERA may require: Explicit approval, Identity verification, Compliance with internal governance policies.",
       "INFERA reserves the right to: Approve or reject access without justification, Suspend or terminate accounts, Modify access levels dynamically.",
       "No user has an inherent or permanent right of access."
     ],
     contentAr: [
-      "الوصول إلى INFERA قد يتطلب: موافقة صريحة، التحقق من الهوية، الامتثال لسياسات الحوكمة الداخلية.",
-      "INFERA تحتفظ بالحق في: الموافقة أو رفض الوصول دون تبرير، تعليق أو إنهاء الحسابات، تعديل مستويات الوصول ديناميكياً.",
-      "لا يملك أي مستخدم حقاً متأصلاً أو دائماً في الوصول."
+      "قد يتطلب الوصول إلى INFERA: موافقة صريحة، التحقق من الهوية، الامتثال لسياسات الحوكمة الداخلية.",
+      "تحتفظ INFERA بالحق الكامل في: قبول أو رفض أي طلب وصول دون إبداء الأسباب، تعليق أو إنهاء الحسابات، تعديل مستويات الوصول بشكل ديناميكي.",
+      "لا يملك أي مستخدم حقًا دائمًا أو مكتسبًا في الوصول."
     ]
   },
   {
@@ -67,27 +67,28 @@ export const termsSections: TermsSection[] = [
       "Any violation may result in immediate suspension without notice."
     ],
     contentAr: [
-      "أنت توافق على عدم: محاولة تجاوز ضوابط الحوكمة أو الأمن.",
-      "الهندسة العكسية أو النسخ أو استخراج منطق النظام.",
-      "استخدام INFERA لأغراض غير قانونية أو غير أخلاقية أو معادية.",
-      "التدخل في سلامة المنصة أو توفرها.",
-      "أي انتهاك قد يؤدي إلى تعليق فوري دون إشعار."
+      "يُحظر عليك القيام بما يلي:",
+      "محاولة تجاوز أنظمة الحوكمة أو الأمان.",
+      "الهندسة العكسية أو نسخ أو استخراج منطق النظام.",
+      "استخدام المنصة لأغراض غير قانونية أو غير أخلاقية أو عدائية.",
+      "التأثير على سلامة أو توافر المنصة.",
+      "أي مخالفة قد تؤدي إلى تعليق فوري للخدمة دون إشعار مسبق."
     ]
   },
   {
     id: "ai-disclaimer",
     number: 4,
     title: "AI & Automation Disclaimer",
-    titleAr: "إخلاء مسؤولية الذكاء الاصطناعي والأتمتة",
+    titleAr: "إخلاء مسؤولية الذكاء الاصطناعي",
     content: [
       "INFERA platforms may provide AI-generated insights, recommendations, or automated actions.",
       "Such outputs: Are decision-support mechanisms, Do not replace human or sovereign authority, May evolve over time as models learn.",
       "Final responsibility for decisions always remains with the user or governing authority."
     ],
     contentAr: [
-      "منصات INFERA قد توفر رؤى مولدة بالذكاء الاصطناعي، توصيات، أو إجراءات آلية.",
-      "هذه المخرجات: هي آليات دعم القرار، لا تحل محل السلطة البشرية أو السيادية، قد تتطور مع الوقت مع تعلم النماذج.",
-      "المسؤولية النهائية عن القرارات تبقى دائماً مع المستخدم أو السلطة الحاكمة."
+      "قد توفّر منصات INFERA مخرجات أو توصيات أو أتمتة مدعومة بالذكاء الاصطناعي.",
+      "وتُعد هذه المخرجات: أدوات دعم لاتخاذ القرار، غير بديلة للسلطة البشرية أو السيادية، قابلة للتطور مع تعلم النماذج.",
+      "تظل المسؤولية النهائية عن القرارات على عاتق المستخدم أو الجهة الحاكمة."
     ]
   },
   {
@@ -100,15 +101,15 @@ export const termsSections: TermsSection[] = [
       "No license is granted except the limited right to use the platform as explicitly authorized."
     ],
     contentAr: [
-      "جميع المنصات والأنظمة والهندسات والسياسات والذكاء الأساسي داخل INFERA هي ملكية فكرية حصرية لـ INFERA.",
-      "لا يُمنح أي ترخيص باستثناء الحق المحدود في استخدام المنصة كما هو مصرح به صراحة."
+      "تُعد جميع المنصات والأنظمة والهياكل والسياسات والذكاء الكامن داخل INFERA ملكية فكرية حصرية لـ INFERA.",
+      "ولا يُمنح أي ترخيص سوى الحق المحدود في استخدام المنصة وفق ما هو مصرح به صراحة."
     ]
   },
   {
     id: "security",
     number: 6,
     title: "Security & Governance",
-    titleAr: "الأمن والحوكمة",
+    titleAr: "الأمان والحوكمة",
     content: [
       "Users acknowledge that: All activities may be monitored and logged.",
       "Access is governed by Policy Validator AI.",
@@ -116,10 +117,10 @@ export const termsSections: TermsSection[] = [
       "Security enforcement may occur automatically without prior notice."
     ],
     contentAr: [
-      "يقر المستخدمون بأن: جميع الأنشطة قد تُراقب وتُسجل.",
-      "الوصول يُحكم بواسطة مدقق السياسات الذكي.",
+      "يُقر المستخدم بأن: جميع الأنشطة قد تكون خاضعة للمراقبة والتسجيل.",
+      "الوصول محكوم بأنظمة تحقق وسياسات صارمة.",
       "قرارات الحوكمة نهائية وغير قابلة للتفاوض.",
-      "تطبيق الأمن قد يحدث تلقائياً دون إشعار مسبق."
+      "قد يتم تطبيق إجراءات الأمان تلقائيًا دون إشعار مسبق."
     ]
   },
   {
@@ -132,8 +133,8 @@ export const termsSections: TermsSection[] = [
       "INFERA shall not be liable for: Indirect or consequential damages, Loss of data due to user actions, Decisions made based on platform outputs."
     ],
     contentAr: [
-      "INFERA تُقدم \"كما هي\" و\"حسب التوفر\".",
-      "INFERA لن تكون مسؤولة عن: الأضرار غير المباشرة أو التبعية، فقدان البيانات بسبب إجراءات المستخدم، القرارات المتخذة بناءً على مخرجات المنصة."
+      "تُقدّم INFERA \"كما هي\" و\"حسب التوافر\".",
+      "ولا تتحمل INFERA أي مسؤولية عن: الأضرار غير المباشرة أو التبعية، فقدان البيانات الناتج عن تصرفات المستخدم، القرارات المتخذة بناءً على مخرجات النظام."
     ]
   },
   {
@@ -146,8 +147,8 @@ export const termsSections: TermsSection[] = [
       "Termination does not waive any rights or protections."
     ],
     contentAr: [
-      "INFERA قد تعلق أو تنهي الوصول في أي وقت لحماية: السيادة، الأمن، الامتثال، النزاهة الاستراتيجية.",
-      "الإنهاء لا يتنازل عن أي حقوق أو حماية."
+      "يجوز لـ INFERA تعليق أو إنهاء الوصول في أي وقت لحماية: السيادة، الأمن، الامتثال، السلامة الاستراتيجية.",
+      "ولا يؤدي الإنهاء إلى التنازل عن أي حقوق أو التزامات قائمة."
     ]
   },
   {
@@ -160,8 +161,8 @@ export const termsSections: TermsSection[] = [
       "INFERA operates under private governance frameworks, not public service obligations."
     ],
     contentAr: [
-      "هذه الشروط تحكمها مبادئ السيادة الرقمية والتحكم، ليس راحة المستهلك.",
-      "INFERA تعمل تحت أطر حوكمة خاصة، ليس التزامات الخدمة العامة."
+      "تخضع هذه الشروط لمبدأ السيادة الرقمية والتحكم المؤسسي، وليس لمبدأ راحة المستخدم أو الخدمة العامة.",
+      "تعمل INFERA ضمن أطر حوكمة خاصة، وليست ملزمة بالتزامات الخدمات العامة."
     ]
   },
   {
@@ -174,8 +175,8 @@ export const termsSections: TermsSection[] = [
       "Continued use constitutes acceptance of the updated Terms."
     ],
     contentAr: [
-      "INFERA قد تحدث هذه الشروط في أي وقت.",
-      "الاستمرار في الاستخدام يشكل قبولاً للشروط المحدثة."
+      "يجوز لـ INFERA تعديل هذه الشروط في أي وقت.",
+      "ويُعد الاستمرار في استخدام المنصة موافقة صريحة على التعديلات."
     ]
   },
   {
@@ -194,7 +195,7 @@ export const termsSections: TermsSection[] = [
 
 export const termsClosing = {
   statement: "By using INFERA, you acknowledge that control, governance, and long-term integrity take precedence over unrestricted access.",
-  statementAr: "باستخدامك INFERA، فإنك تقر بأن السيطرة والحوكمة والنزاهة طويلة المدى تأخذ الأسبقية على الوصول غير المقيد."
+  statementAr: "باستخدامك لمنصات INFERA، فأنت تقر بأن التحكم والحوكمة والسلامة طويلة الأمد تتقدم على الوصول غير المقيّد."
 };
 
 export const termsMeta = {
