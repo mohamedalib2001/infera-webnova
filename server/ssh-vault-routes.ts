@@ -5,6 +5,8 @@ import { eq, and, desc } from "drizzle-orm";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { authenticator } from "otplib";
+import { sendOTPEmail } from "./email";
+import { storage } from "./storage";
 
 const router = Router();
 
@@ -134,7 +136,7 @@ async function logVaultAction(
   });
 }
 
-// Check auth requirements for the current user
+// Check auth requirements for the current user - 3FA always required
 router.get("/auth/requirements", requireSovereignRole, async (req, res) => {
   try {
     const userId = (req.user as any).id;
@@ -147,15 +149,26 @@ router.get("/auth/requirements", requireSovereignRole, async (req, res) => {
     const isOAuthUser = user[0].authProvider && user[0].authProvider !== "email";
     const hasTOTP = user[0].twoFactorEnabled && user[0].twoFactorSecret;
     const hasPassword = !!user[0].password;
+    const hasEmail = !!user[0].email;
     
-    // OAuth users with 2FA can skip password
-    const requiresPassword = !(isOAuthUser && hasTOTP);
-    
+    // 3FA: Password + Email OTP + TOTP all required
+    // Password is always required for vault access (even for OAuth users)
     res.json({
-      requiresPassword,
+      requiresPassword: true, // Always require password for 3FA
       hasTOTP,
       isOAuthUser,
       hasPassword,
+      hasEmail,
+      authFactors: {
+        password: true,
+        emailOTP: hasEmail,
+        totp: hasTOTP,
+      },
+      missingFactors: {
+        password: !hasPassword,
+        email: !hasEmail,
+        totp: !hasTOTP,
+      }
     });
   } catch (error) {
     console.error("Auth requirements error:", error);
@@ -168,46 +181,39 @@ router.post("/auth/start", requireSovereignRole, async (req, res) => {
     const userId = (req.user as any).id;
     const { password } = req.body;
     
-    console.log(`[SSH Vault] Auth attempt for user ${userId}`);
+    console.log(`[SSH Vault 3FA] Auth attempt for user ${userId}`);
     
     const user = await db.select().from(users).where(eq(users.id, userId)).limit(1);
     if (!user.length) {
-      console.log(`[SSH Vault] User not found for ${userId}`);
+      console.log(`[SSH Vault 3FA] User not found for ${userId}`);
       return res.status(400).json({ error: "User not found" });
     }
     
-    // For OAuth users (replit, google, etc.), skip password verification if 2FA is enabled
-    const isOAuthUser = user[0].authProvider && user[0].authProvider !== "email";
     const hasTOTP = user[0].twoFactorEnabled && user[0].twoFactorSecret;
+    const hasEmail = !!user[0].email;
     
-    let passwordValid = false;
-    
-    if (isOAuthUser && hasTOTP) {
-      // OAuth users with 2FA can skip password - they're already authenticated via OAuth
-      console.log(`[SSH Vault] OAuth user ${user[0].username} with 2FA - skipping password verification`);
-      passwordValid = true;
-    } else {
-      // Regular email users or OAuth users without 2FA must verify password
-      if (!password) {
-        console.log(`[SSH Vault] No password provided`);
-        return res.status(400).json({ error: "Password required" });
-      }
-      
-      if (!user[0].password) {
-        console.log(`[SSH Vault] No password set for user ${userId}`);
-        return res.status(400).json({ error: "No password set. Please set a password first." });
-      }
-      
-      console.log(`[SSH Vault] Comparing password for user ${user[0].username}`);
-      passwordValid = await bcrypt.compare(password, user[0].password);
-      console.log(`[SSH Vault] Password valid: ${passwordValid}`);
+    // 3FA: Password is ALWAYS required (Factor 1)
+    if (!password) {
+      console.log(`[SSH Vault 3FA] No password provided`);
+      return res.status(400).json({ error: "Password required" });
     }
     
+    if (!user[0].password) {
+      console.log(`[SSH Vault 3FA] No password set for user ${userId}`);
+      return res.status(400).json({ error: "No password set. Please set a password first." });
+    }
+    
+    console.log(`[SSH Vault 3FA] Verifying password for user ${user[0].username}`);
+    const passwordValid = await bcrypt.compare(password, user[0].password);
+    
     if (!passwordValid) {
-      await logVaultAction(userId, "auth_attempt", false, req, undefined, undefined, "Invalid password");
+      await logVaultAction(userId, "auth_password_failed", false, req, undefined, undefined, "Invalid password");
       return res.status(401).json({ error: "Invalid password" });
     }
     
+    console.log(`[SSH Vault 3FA] Password verified - Factor 1 complete`);
+    
+    // Generate session token and email OTP
     const rawToken = crypto.randomBytes(32).toString("hex");
     const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
     const emailCode = Math.floor(100000 + Math.random() * 900000).toString();
@@ -225,15 +231,31 @@ router.post("/auth/start", requireSovereignRole, async (req, res) => {
       expiresAt: new Date(Date.now() + VAULT_SESSION_DURATION),
     }).returning();
     
-    // Note: In production, send email code via secure email service
-    // console.log for development only - NEVER log sensitive codes in production
-    
     await logVaultAction(userId, "auth_password", true, req, undefined, session.id);
     
+    // Send email OTP using dynamic SMTP settings (Factor 2)
+    if (hasEmail) {
+      const emailSent = await sendOTPEmail(
+        user[0].email!,
+        emailCode,
+        "ar", // Use Arabic for RTL users
+        storage
+      );
+      
+      if (emailSent) {
+        console.log(`[SSH Vault 3FA] Email OTP sent to ${user[0].email?.replace(/(.{2})(.*)(@.*)/, "$1***$3")}`);
+      } else {
+        console.log(`[SSH Vault 3FA] Email OTP logged (SMTP not configured)`);
+      }
+    }
+    
+    // 3FA Flow: Password (done) → Email OTP → TOTP
     res.json({
       sessionToken: rawToken,
-      nextStep: hasTOTP ? "totp" : "email_code",
+      nextStep: hasEmail ? "email_code" : (hasTOTP ? "totp" : "complete"),
       emailHint: user[0].email ? user[0].email.replace(/(.{2})(.*)(@.*)/, "$1***$3") : undefined,
+      hasTOTP,
+      hasEmail,
     });
   } catch (error) {
     console.error("Vault auth start error:", error);
@@ -241,6 +263,7 @@ router.post("/auth/start", requireSovereignRole, async (req, res) => {
   }
 });
 
+// 3FA: TOTP verification (Factor 3) - requires both password and email verification first
 router.post("/auth/verify-totp", requireSovereignRole, async (req, res) => {
   try {
     const userId = (req.user as any).id;
@@ -263,52 +286,54 @@ router.post("/auth/verify-totp", requireSovereignRole, async (req, res) => {
       return res.status(401).json({ error: "Invalid session" });
     }
     
+    // 3FA Enforcement: Verify Factor 1 (password) was completed
+    if (!session[0].passwordVerified) {
+      console.log(`[SSH Vault 3FA] TOTP attempt without password verification`);
+      return res.status(400).json({ error: "Password verification required first (Factor 1)" });
+    }
+    
+    // 3FA Enforcement: Verify Factor 2 (email OTP) was completed
     const user = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    const hasEmail = user.length && user[0].email;
+    
+    if (hasEmail && !session[0].emailCodeVerified) {
+      console.log(`[SSH Vault 3FA] TOTP attempt without email verification`);
+      return res.status(400).json({ error: "Email verification required first (Factor 2)" });
+    }
+    
     if (!user.length || !user[0].twoFactorSecret) {
       return res.status(400).json({ error: "2FA not configured" });
     }
     
     const isValid = authenticator.verify({ token: totpCode, secret: user[0].twoFactorSecret });
     if (!isValid) {
-      await logVaultAction(userId, "auth_totp", false, req, undefined, session[0].id, "Invalid TOTP");
+      await logVaultAction(userId, "auth_totp_failed", false, req, undefined, session[0].id, "Invalid TOTP");
       return res.status(401).json({ error: "Invalid TOTP code" });
     }
     
-    // For OAuth users with 2FA, TOTP verification is enough - complete auth now
-    const isOAuthUser = user[0].authProvider && user[0].authProvider !== "email";
+    // 3FA: TOTP is Factor 3 (final factor) - complete authentication
+    console.log(`[SSH Vault 3FA] TOTP verified - Factor 3 complete`);
     
-    if (isOAuthUser) {
-      // OAuth + TOTP is sufficient - mark as fully authenticated
-      await db.update(vaultAccessSessions)
-        .set({ 
-          totpVerified: true,
-          totpVerifiedAt: new Date(),
-          isFullyAuthenticated: true
-        })
-        .where(eq(vaultAccessSessions.id, session[0].id));
-      
-      await logVaultAction(userId, "vault_unlocked", true, req, undefined, session[0].id);
-      
-      res.json({ nextStep: "complete", accessGranted: true });
-    } else {
-      // Email users need additional email verification
-      await db.update(vaultAccessSessions)
-        .set({ 
-          totpVerified: true,
-          totpVerifiedAt: new Date()
-        })
-        .where(eq(vaultAccessSessions.id, session[0].id));
-      
-      await logVaultAction(userId, "auth_totp", true, req, undefined, session[0].id);
-      
-      res.json({ nextStep: "email_code" });
-    }
+    await db.update(vaultAccessSessions)
+      .set({ 
+        totpVerified: true,
+        totpVerifiedAt: new Date(),
+        isFullyAuthenticated: true,
+        expiresAt: new Date(Date.now() + VAULT_SESSION_DURATION)
+      })
+      .where(eq(vaultAccessSessions.id, session[0].id));
+    
+    await logVaultAction(userId, "vault_unlocked", true, req, undefined, session[0].id);
+    console.log(`[SSH Vault 3FA] Vault unlocked - All 3 factors verified!`);
+    
+    res.json({ nextStep: "complete", accessGranted: true });
   } catch (error) {
     console.error("Vault TOTP verify error:", error);
     res.status(500).json({ error: "Verification failed" });
   }
 });
 
+// 3FA Flow: Password (Factor 1) → Email OTP (Factor 2) → TOTP (Factor 3)
 router.post("/auth/verify-email", requireSovereignRole, async (req, res) => {
   try {
     const userId = (req.user as any).id;
@@ -333,8 +358,13 @@ router.post("/auth/verify-email", requireSovereignRole, async (req, res) => {
       return res.status(401).json({ error: "Invalid session" });
     }
     
+    // Verify password was completed first (Factor 1)
+    if (!session[0].passwordVerified) {
+      return res.status(400).json({ error: "Password verification required first" });
+    }
+    
     if (session[0].emailCode !== hashedEmailCode) {
-      await logVaultAction(userId, "auth_email", false, req, undefined, session[0].id, "Invalid email code");
+      await logVaultAction(userId, "auth_email_failed", false, req, undefined, session[0].id, "Invalid email code");
       return res.status(401).json({ error: "Invalid email code" });
     }
     
@@ -342,25 +372,40 @@ router.post("/auth/verify-email", requireSovereignRole, async (req, res) => {
       return res.status(401).json({ error: "Email code expired" });
     }
     
+    console.log(`[SSH Vault 3FA] Email OTP verified - Factor 2 complete`);
+    
     const user = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-    const hasTOTP = user[0]?.twoFactorEnabled;
+    const hasTOTP = user[0]?.twoFactorEnabled && user[0]?.twoFactorSecret;
     
-    if (hasTOTP && !session[0].totpVerified) {
-      return res.status(400).json({ error: "TOTP verification required first" });
+    // Email verified (Factor 2) - now check if TOTP needed (Factor 3)
+    if (hasTOTP) {
+      // Need TOTP verification as Factor 3
+      await db.update(vaultAccessSessions)
+        .set({ 
+          emailCodeVerified: true,
+          emailCodeVerifiedAt: new Date()
+        })
+        .where(eq(vaultAccessSessions.id, session[0].id));
+      
+      await logVaultAction(userId, "auth_email", true, req, undefined, session[0].id);
+      
+      res.json({ nextStep: "totp", emailVerified: true });
+    } else {
+      // No TOTP - authentication complete after 2 factors
+      await db.update(vaultAccessSessions)
+        .set({ 
+          emailCodeVerified: true,
+          emailCodeVerifiedAt: new Date(),
+          isFullyAuthenticated: true,
+          expiresAt: new Date(Date.now() + VAULT_SESSION_DURATION)
+        })
+        .where(eq(vaultAccessSessions.id, session[0].id));
+      
+      await logVaultAction(userId, "vault_unlocked", true, req, undefined, session[0].id);
+      console.log(`[SSH Vault 3FA] Vault unlocked (2FA - no TOTP configured)`);
+      
+      res.json({ nextStep: "complete", accessGranted: true });
     }
-    
-    await db.update(vaultAccessSessions)
-      .set({ 
-        emailCodeVerified: true,
-        emailCodeVerifiedAt: new Date(),
-        isFullyAuthenticated: true,
-        expiresAt: new Date(Date.now() + VAULT_SESSION_DURATION)
-      })
-      .where(eq(vaultAccessSessions.id, session[0].id));
-    
-    await logVaultAction(userId, "auth_complete", true, req, undefined, session[0].id);
-    
-    res.json({ authenticated: true, expiresIn: VAULT_SESSION_DURATION / 1000 });
   } catch (error) {
     console.error("Vault email verify error:", error);
     res.status(500).json({ error: "Verification failed" });

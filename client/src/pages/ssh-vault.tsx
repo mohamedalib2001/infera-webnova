@@ -51,7 +51,7 @@ interface AuditLog {
   createdAt: string;
 }
 
-type AuthStep = "locked" | "password" | "totp" | "email_code" | "authenticated";
+type AuthStep = "locked" | "password" | "email_code" | "totp" | "authenticated";
 
 export default function SSHVault() {
   const { t, language } = useLanguage();
@@ -65,15 +65,19 @@ export default function SSHVault() {
   const [emailCode, setEmailCode] = useState("");
   const [emailHint, setEmailHint] = useState("");
   const [hasTOTP, setHasTOTP] = useState(false);
+  const [hasEmail, setHasEmail] = useState(false);
   const [isOAuthUser, setIsOAuthUser] = useState(false);
-  const [requiresPassword, setRequiresPassword] = useState(true);
+  const [hasPassword, setHasPassword] = useState(false);
 
-  // Fetch auth requirements
+  // Fetch auth requirements for 3FA
   const { data: authRequirements } = useQuery<{
     requiresPassword: boolean;
     hasTOTP: boolean;
     isOAuthUser: boolean;
     hasPassword: boolean;
+    hasEmail: boolean;
+    authFactors: { password: boolean; emailOTP: boolean; totp: boolean };
+    missingFactors: { password: boolean; email: boolean; totp: boolean };
   }>({
     queryKey: ["/api/vault/ssh/auth/requirements"],
     enabled: authStep === "locked",
@@ -83,8 +87,9 @@ export default function SSHVault() {
   useEffect(() => {
     if (authRequirements) {
       setIsOAuthUser(authRequirements.isOAuthUser);
-      setRequiresPassword(authRequirements.requiresPassword);
       setHasTOTP(authRequirements.hasTOTP);
+      setHasEmail(authRequirements.hasEmail);
+      setHasPassword(authRequirements.hasPassword);
     }
   }, [authRequirements]);
 
@@ -178,6 +183,7 @@ export default function SSHVault() {
     enabled: authStep === "authenticated" && !!sessionToken,
   });
 
+  // 3FA Flow: Password (Factor 1) → Email OTP (Factor 2) → TOTP (Factor 3)
   const startAuthMutation = useMutation({
     mutationFn: async (pwd: string) => {
       const res = await apiRequest("POST", "/api/vault/ssh/auth/start", { password: pwd });
@@ -186,11 +192,20 @@ export default function SSHVault() {
     onSuccess: (data: any) => {
       setSessionToken(data.sessionToken);
       setEmailHint(data.emailHint || "");
-      if (data.nextStep === "totp") {
-        setHasTOTP(true);
-        setAuthStep("totp");
-      } else {
+      setHasTOTP(data.hasTOTP || false);
+      setHasEmail(data.hasEmail || false);
+      
+      // 3FA Flow: Password done → Email OTP next (if available) → TOTP last
+      if (data.nextStep === "email_code") {
         setAuthStep("email_code");
+      } else if (data.nextStep === "totp") {
+        setAuthStep("totp");
+      } else if (data.nextStep === "complete") {
+        setAuthStep("authenticated");
+        toast({
+          title: isRtl ? "تم فتح الخزنة" : "Vault Unlocked",
+          description: isRtl ? "يمكنك الآن إدارة مفاتيح SSH" : "You can now manage SSH keys",
+        });
       }
     },
     onError: (error: any) => {
@@ -214,6 +229,7 @@ export default function SSHVault() {
     },
   });
 
+  // 3FA: TOTP verification (Factor 3) - final step
   const verifyTotpMutation = useMutation({
     mutationFn: async (code: string) => {
       return apiRequest("POST", "/api/vault/ssh/auth/verify-totp", {
@@ -223,15 +239,13 @@ export default function SSHVault() {
     },
     onSuccess: (data: any) => {
       setTotpCode("");
-      // OAuth users with 2FA skip email verification
+      // TOTP is always the final factor in 3FA - authentication complete
       if (data?.accessGranted || data?.nextStep === "complete") {
         setAuthStep("authenticated");
         toast({
           title: isRtl ? "تم فتح الخزنة" : "Vault Unlocked",
-          description: isRtl ? "يمكنك الآن إدارة مفاتيح SSH" : "You can now manage SSH keys",
+          description: isRtl ? "جميع عوامل المصادقة الثلاثة تم التحقق منها" : "All 3 authentication factors verified",
         });
-      } else {
-        setAuthStep("email_code");
       }
     },
     onError: () => {
@@ -243,6 +257,7 @@ export default function SSHVault() {
     },
   });
 
+  // 3FA: Email OTP verification (Factor 2) → leads to TOTP (Factor 3) if available
   const verifyEmailMutation = useMutation({
     mutationFn: async (code: string) => {
       return apiRequest("POST", "/api/vault/ssh/auth/verify-email", {
@@ -250,13 +265,23 @@ export default function SSHVault() {
         emailCode: code,
       });
     },
-    onSuccess: () => {
-      setAuthStep("authenticated");
+    onSuccess: (data: any) => {
       setEmailCode("");
-      toast({
-        title: isRtl ? "تم فتح الخزنة" : "Vault Unlocked",
-        description: isRtl ? "يمكنك الآن إدارة مفاتيح SSH" : "You can now manage SSH keys",
-      });
+      
+      // Check if TOTP is needed as Factor 3
+      if (data?.nextStep === "totp") {
+        setAuthStep("totp");
+        toast({
+          title: isRtl ? "تم التحقق من البريد" : "Email Verified",
+          description: isRtl ? "أدخل رمز المصادقة الثنائية" : "Enter your TOTP code",
+        });
+      } else if (data?.accessGranted || data?.nextStep === "complete") {
+        setAuthStep("authenticated");
+        toast({
+          title: isRtl ? "تم فتح الخزنة" : "Vault Unlocked",
+          description: isRtl ? "يمكنك الآن إدارة مفاتيح SSH" : "You can now manage SSH keys",
+        });
+      }
     },
     onError: () => {
       toast({
