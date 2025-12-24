@@ -124,6 +124,7 @@ import HospitalityLanding from "@/pages/hospitality-landing";
 import FeasibilityLanding from "@/pages/feasibility-landing";
 import CVBuilderLanding from "@/pages/cvbuilder-landing";
 import JobsLanding from "@/pages/jobs-landing";
+import TrainAILanding from "@/pages/trainai-landing";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
@@ -179,6 +180,7 @@ function AuthenticatedRouter() {
       <Route path="/feasibility" component={FeasibilityLanding} />
       <Route path="/cvbuilder" component={CVBuilderLanding} />
       <Route path="/jobs" component={JobsLanding} />
+      <Route path="/trainai" component={TrainAILanding} />
       <Route path="/auth" component={Auth} />
       <Route path="/builder" component={Builder} />
       <Route path="/builder/:id" component={Builder} />
