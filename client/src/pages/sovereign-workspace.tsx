@@ -50,6 +50,7 @@ import type {
 } from "@shared/schema";
 import { platformIconsRegistry, type PlatformIconConfig } from "@/lib/platform-icons-registry";
 import { getPlatformLandingRoute, getPlatformPitchDeckRoute } from "@/lib/platform-landing-map";
+import { SovereignCore } from "@/components/sovereign-core";
 
 function findPlatformIcon(project: SovereignWorkspaceProject): PlatformIconConfig | null {
   const code = project.code?.toLowerCase().replace(/-/g, '').replace(/_/g, '');
@@ -371,6 +372,10 @@ export default function SovereignWorkspacePage() {
           <TabsTrigger value="settings" className="gap-2" data-testid="tab-settings">
             <Settings className="h-4 w-4" />
             <span className="hidden sm:inline">Settings</span>
+          </TabsTrigger>
+          <TabsTrigger value="sovereign-core" className="gap-2 bg-gradient-to-r from-violet-500/10 to-indigo-500/10 border-violet-500/30" data-testid="tab-sovereign-core">
+            <Shield className="h-4 w-4 text-violet-500" />
+            <span className="hidden sm:inline text-violet-600 dark:text-violet-400">Sovereign Core</span>
           </TabsTrigger>
         </TabsList>
 
@@ -1087,6 +1092,13 @@ export default function SovereignWorkspacePage() {
               </Card>
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="sovereign-core" className="mt-6">
+          <SovereignCore 
+            workspaceId={workspace?.id || ""} 
+            isOwner={true}
+          />
         </TabsContent>
       </Tabs>
 

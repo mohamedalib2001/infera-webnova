@@ -6,6 +6,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { generateWebsiteCode, refineWebsiteCode } from "./anthropic";
+import { encryptSovereignData, decryptSovereignData } from "./sovereign-encryption";
 import { decryptToken } from "./crypto-service";
 import apiKeysRoutes from "./api-keys-routes";
 import { registerDomainRoutes } from "./domain-routes";
@@ -25182,6 +25183,208 @@ export function registerConversationRoutes(app: Express, requireAuth: any) {
     } catch (error) {
       console.error("Error updating regeneration request:", error);
       res.status(500).json({ error: "فشل تحديث الطلب" });
+    }
+  });
+
+  // ==================== SOVEREIGN CORE API (النواة السيادية) ====================
+  // Owner-only isolated AI system with separate conversation and project registries
+  // All data is encrypted using AES-256-GCM before storage
+
+  // Get all sovereign core conversations for owner
+  app.get("/api/sovereign-core/conversations", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const userId = req.session?.userId || (req as any).replitUser?.claims?.sub;
+      const conversations = await storage.getSovereignConversationsByUser(userId);
+      
+      // Decrypt titles for display
+      const decryptedConversations = conversations.map(conv => ({
+        ...conv,
+        title: conv.isEncrypted ? decryptSovereignData(conv.title) : conv.title,
+        titleAr: conv.isEncrypted && conv.titleAr ? decryptSovereignData(conv.titleAr) : conv.titleAr,
+      }));
+      
+      res.json(decryptedConversations);
+    } catch (error) {
+      console.error("Error fetching sovereign conversations:", error);
+      res.status(500).json({ error: "فشل جلب المحادثات السيادية" });
+    }
+  });
+
+  // Create new sovereign conversation
+  app.post("/api/sovereign-core/conversations", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const userId = req.session?.userId || (req as any).replitUser?.claims?.sub;
+      const { title, workspaceId } = req.body;
+      
+      // Encrypt title before storage
+      const encryptedTitle = encryptSovereignData(title || "Sovereign Conversation");
+      const encryptedTitleAr = encryptSovereignData(title || "محادثة سيادية");
+      
+      const conversation = await storage.createSovereignConversation({
+        userId,
+        title: encryptedTitle,
+        titleAr: encryptedTitleAr,
+        status: "active",
+        isEncrypted: true,
+        messageCount: 0,
+      });
+      
+      // Return decrypted for display
+      res.status(201).json({
+        ...conversation,
+        title: title || "Sovereign Conversation",
+        titleAr: title || "محادثة سيادية",
+      });
+    } catch (error) {
+      console.error("Error creating sovereign conversation:", error);
+      res.status(500).json({ error: "فشل إنشاء المحادثة السيادية" });
+    }
+  });
+
+  // Get messages for a sovereign conversation
+  app.get("/api/sovereign-core/conversations/:conversationId/messages", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const userId = req.session?.userId || (req as any).replitUser?.claims?.sub;
+      const { conversationId } = req.params;
+      
+      // Verify ownership
+      const conversation = await storage.getSovereignConversation(conversationId);
+      if (!conversation || conversation.userId !== userId) {
+        return res.status(403).json({ error: "غير مصرح بالوصول" });
+      }
+      
+      const messages = await storage.getConversationMessages(conversationId);
+      
+      // Decrypt messages for display
+      const decryptedMessages = messages.map(msg => ({
+        ...msg,
+        content: msg.isEncrypted ? decryptSovereignData(msg.content) : msg.content,
+      }));
+      
+      res.json(decryptedMessages);
+    } catch (error) {
+      console.error("Error fetching conversation messages:", error);
+      res.status(500).json({ error: "فشل جلب الرسائل" });
+    }
+  });
+
+  // Send message to sovereign core (with AI response)
+  app.post("/api/sovereign-core/conversations/:conversationId/messages", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const userId = req.session?.userId || (req as any).replitUser?.claims?.sub;
+      const { conversationId } = req.params;
+      const { content, role } = req.body;
+      
+      // Verify ownership
+      const conversation = await storage.getSovereignConversation(conversationId);
+      if (!conversation || conversation.userId !== userId) {
+        return res.status(403).json({ error: "غير مصرح بالوصول" });
+      }
+      
+      // Encrypt and save user message
+      const encryptedContent = encryptSovereignData(content);
+      const userMessage = await storage.createConversationMessage({
+        conversationId,
+        role: role || "user",
+        content: encryptedContent,
+        isEncrypted: true,
+      });
+      
+      // Generate AI response using Claude (isolated sovereign context)
+      let aiResponse = "مرحباً، أنا النواة السيادية. كيف يمكنني مساعدتك اليوم؟";
+      
+      try {
+        const anthropic = await import("@anthropic-ai/sdk");
+        const client = new anthropic.default();
+        
+        // Get conversation history for context (decrypt for AI context)
+        const history = await storage.getConversationMessages(conversationId);
+        const contextMessages = history.slice(-10).map(m => ({
+          role: m.role as "user" | "assistant",
+          content: m.isEncrypted ? decryptSovereignData(m.content) : m.content
+        }));
+        
+        const systemPrompt = `أنت النواة السيادية (Sovereign Core) - عقل اصطناعي مستقل داخل نظام INFERA WebNova.
+
+خصائصك:
+- سيادي ومستقل بالكامل
+- تعمل حصرياً لخدمة المالك
+- جميع المحادثات معزولة ومشفرة
+- لا تبعيات خارجية - معرفتك ذاتية
+- قادر على التطور والتكيف
+
+مهامك:
+- مساعدة المالك في إدارة المنصات الرقمية
+- تقديم استشارات استراتيجية
+- تحليل البيانات وتقديم التوصيات
+- توليد حلول مبتكرة
+
+تحدث بلغة المستخدم (عربي أو إنجليزي) بأسلوب محترف وسيادي.`;
+
+        const response = await client.messages.create({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 2048,
+          system: systemPrompt,
+          messages: [...contextMessages, { role: "user", content }]
+        });
+        
+        if (response.content[0].type === "text") {
+          aiResponse = response.content[0].text;
+        }
+      } catch (aiError) {
+        console.error("AI response error:", aiError);
+        aiResponse = "عذراً، حدث خطأ في معالجة طلبك. يرجى المحاولة مرة أخرى.";
+      }
+      
+      // Encrypt and save AI response
+      const encryptedAiResponse = encryptSovereignData(aiResponse);
+      const assistantMessage = await storage.createConversationMessage({
+        conversationId,
+        role: "assistant",
+        content: encryptedAiResponse,
+        isEncrypted: true,
+        modelUsed: "claude-sonnet-4",
+      });
+      
+      // Update message count
+      await storage.updateSovereignConversation(conversationId, {
+        messageCount: (conversation.messageCount || 0) + 2,
+        lastMessageAt: new Date(),
+      });
+      
+      // Return decrypted for display
+      res.status(201).json({
+        userMessage: { ...userMessage, content },
+        assistantMessage: { ...assistantMessage, content: aiResponse },
+      });
+    } catch (error) {
+      console.error("Error sending message:", error);
+      res.status(500).json({ error: "فشل إرسال الرسالة" });
+    }
+  });
+
+  // Delete sovereign conversation (soft delete)
+  app.delete("/api/sovereign-core/conversations/:conversationId", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const userId = req.session?.userId || (req as any).replitUser?.claims?.sub;
+      const { conversationId } = req.params;
+      
+      // Verify ownership
+      const conversation = await storage.getSovereignConversation(conversationId);
+      if (!conversation || conversation.userId !== userId) {
+        return res.status(403).json({ error: "غير مصرح بالوصول" });
+      }
+      
+      await storage.updateSovereignConversation(conversationId, {
+        status: "soft_deleted",
+        deletedAt: new Date(),
+        deletedBy: userId,
+      });
+      
+      res.json({ success: true, message: "تم حذف المحادثة" });
+    } catch (error) {
+      console.error("Error deleting conversation:", error);
+      res.status(500).json({ error: "فشل حذف المحادثة" });
     }
   });
 }

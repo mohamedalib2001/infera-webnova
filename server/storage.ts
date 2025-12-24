@@ -565,9 +565,16 @@ import {
   iconRegenerationRequests,
   type IconRegenerationRequest,
   type InsertIconRegenerationRequest,
+  // Sovereign Core
+  sovereignConversations,
+  type SovereignConversation,
+  type InsertSovereignConversation,
+  conversationMessages,
+  type ConversationMessage,
+  type InsertConversationMessage,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, asc, and, gt, gte, lte, sql } from "drizzle-orm";
+import { eq, desc, asc, and, gt, gte, lte, sql, ne } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -9007,6 +9014,48 @@ body { font-family: 'Tajawal', sans-serif; }
       .where(eq(iconRegenerationRequests.id, id))
       .returning();
     return updated;
+  }
+
+  // ==================== SOVEREIGN CORE (النواة السيادية) ====================
+
+  async getSovereignConversationsByUser(userId: string): Promise<SovereignConversation[]> {
+    return db.select().from(sovereignConversations)
+      .where(and(
+        eq(sovereignConversations.userId, userId),
+        ne(sovereignConversations.status, "soft_deleted"),
+        ne(sovereignConversations.status, "permanently_deleted")
+      ))
+      .orderBy(desc(sovereignConversations.updatedAt));
+  }
+
+  async getSovereignConversation(id: string): Promise<SovereignConversation | undefined> {
+    const [conversation] = await db.select().from(sovereignConversations)
+      .where(eq(sovereignConversations.id, id));
+    return conversation;
+  }
+
+  async createSovereignConversation(data: InsertSovereignConversation): Promise<SovereignConversation> {
+    const [created] = await db.insert(sovereignConversations).values(data as any).returning();
+    return created;
+  }
+
+  async updateSovereignConversation(id: string, data: Partial<InsertSovereignConversation>): Promise<SovereignConversation | undefined> {
+    const [updated] = await db.update(sovereignConversations)
+      .set({ ...data as any, updatedAt: new Date() })
+      .where(eq(sovereignConversations.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getConversationMessages(conversationId: string): Promise<ConversationMessage[]> {
+    return db.select().from(conversationMessages)
+      .where(eq(conversationMessages.conversationId, conversationId))
+      .orderBy(asc(conversationMessages.createdAt));
+  }
+
+  async createConversationMessage(data: InsertConversationMessage): Promise<ConversationMessage> {
+    const [created] = await db.insert(conversationMessages).values(data as any).returning();
+    return created;
   }
 }
 
