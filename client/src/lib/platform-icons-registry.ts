@@ -362,6 +362,30 @@ export const platformIconsRegistry: PlatformIconConfig[] = [
       dark: "dark-bg.png"
     },
     usageContexts: ["web", "mobile", "desktop", "favicon", "store-listings"]
+  },
+  {
+    id: "infera-sovereign-finance-ai",
+    name: "INFERA Sovereign Finance AI™",
+    nameAr: "المالية السيادية INFERA",
+    category: "finance-intelligence",
+    colors: {
+      primary: "#000000", // Black Base
+      secondary: "#065F46", // Dark Emerald
+      accent: "#D4AF37"    // Gold
+    },
+    symbol: ["Financial Control Core", "Secure Value Nodes", "Sovereign Ledger Symbol"],
+    symbolAr: ["نواة التحكم المالي", "عقد القيمة الآمنة", "رمز دفتر السيادة"],
+    meaning: "Money under control, not under prediction",
+    meaningAr: "مال تحت السيطرة لا تحت التوقع",
+    iconPath: "/assets/icons/infera-sovereign-finance-ai/",
+    variants: {
+      appIcon: "app-icon.png",
+      favicon: "favicon-32.png",
+      monochrome: "mono-icon.svg",
+      light: "light-bg.png",
+      dark: "dark-bg.png"
+    },
+    usageContexts: ["web", "mobile", "desktop", "favicon", "store-listings"]
   }
 ];
 
