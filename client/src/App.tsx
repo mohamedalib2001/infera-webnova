@@ -117,6 +117,7 @@ import LegalLanding from "@/pages/legal-landing";
 import AppForgeLanding from "@/pages/appforge-landing";
 import MarketingLanding from "@/pages/marketing-landing";
 import MarketplaceLanding from "@/pages/marketplace-landing";
+import EducationLanding from "@/pages/education-landing";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
@@ -165,6 +166,7 @@ function AuthenticatedRouter() {
       <Route path="/appforge" component={AppForgeLanding} />
       <Route path="/marketing" component={MarketingLanding} />
       <Route path="/marketplace" component={MarketplaceLanding} />
+      <Route path="/education" component={EducationLanding} />
       <Route path="/auth" component={Auth} />
       <Route path="/builder" component={Builder} />
       <Route path="/builder/:id" component={Builder} />
