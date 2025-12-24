@@ -63,6 +63,7 @@ import {
   Github,
   Blocks,
   GraduationCap,
+  Clock,
 } from "lucide-react";
 import {
   Sidebar,
@@ -110,6 +111,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     { title: language === "ar" ? "Marketing AI™" : "Marketing AI™", url: "/marketing", icon: Megaphone, testId: "nav-marketing" },
     { title: language === "ar" ? "Marketplace AI™" : "Marketplace AI™", url: "/marketplace", icon: Store, testId: "nav-marketplace" },
     { title: language === "ar" ? "Education Hub™" : "Education Hub™", url: "/education", icon: GraduationCap, testId: "nav-education" },
+    { title: language === "ar" ? "Attend AI™" : "Attend AI™", url: "/attend", icon: Clock, testId: "nav-attend" },
     { title: language === "ar" ? "وحدة التحكم" : "Console", url: "/console", icon: SquareTerminal, testId: "nav-console" },
     { title: language === "ar" ? "بيئة التطوير" : "Cloud IDE", url: "/ide", icon: Terminal, testId: "nav-cloud-ide" },
     { title: language === "ar" ? "منشئ التطبيقات" : "AI App Builder", url: "/ai-builder", icon: Sparkles, testId: "nav-ai-builder" },
