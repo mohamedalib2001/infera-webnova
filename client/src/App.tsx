@@ -135,6 +135,7 @@ import PitchDeckHumanIQ from "@/pages/pitch-deck-humaniq";
 import PitchDeckLegal from "@/pages/pitch-deck-legal";
 import PitchDeckAppForge from "@/pages/pitch-deck-appforge";
 import PitchDeckMarketing from "@/pages/pitch-deck-marketing";
+import PitchDeckMarketplace from "@/pages/pitch-deck-marketplace";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
@@ -201,6 +202,7 @@ function AuthenticatedRouter() {
       <Route path="/pitch-deck/legal" component={PitchDeckLegal} />
       <Route path="/pitch-deck/appforge" component={PitchDeckAppForge} />
       <Route path="/pitch-deck/marketing" component={PitchDeckMarketing} />
+      <Route path="/pitch-deck/marketplace" component={PitchDeckMarketplace} />
       <Route path="/auth" component={Auth} />
       <Route path="/builder" component={Builder} />
       <Route path="/builder/:id" component={Builder} />
