@@ -111,6 +111,7 @@ import { registerVisionRoutes } from "./vision-processing";
 import { registerNovaPermissionRoutes } from "./nova-permissions";
 import { registerMemoryRoutes } from "./memory-service";
 import { registerOwnershipRoutes } from "./ownership-routes";
+import sidebarRoutes from "./sidebar-routes";
 
 // Session user type
 declare module 'express-session' {
@@ -18028,6 +18029,10 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
   // ==================== PLATFORM OWNERSHIP & FRANCHISE LICENSING ====================
   registerOwnershipRoutes(app);
   console.log("Platform Ownership & Licensing routes registered | تم تسجيل مسارات ملكية المنصات والتراخيص");
+
+  // ==================== DYNAMIC SIDEBAR ORGANIZATION ====================
+  app.use(sidebarRoutes);
+  console.log("Dynamic Sidebar Organization routes registered | تم تسجيل مسارات تنظيم الشريط الجانبي");
 
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 

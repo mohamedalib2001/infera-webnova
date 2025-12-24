@@ -59,6 +59,7 @@ import {
   Workflow,
   Cpu,
   MapPin,
+  Network,
 } from "lucide-react";
 import {
   Sidebar,
@@ -482,6 +483,22 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                           <Link href="/owner/deletion-management" data-testid="nav-owner-deletion-management">
                             <Trash2 className="h-4 w-4 text-red-500" />
                             <span>{language === "ar" ? "إدارة المحذوفات" : "Deletion Management"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/owner/control-center"}>
+                          <Link href="/owner/control-center" data-testid="nav-owner-control-center">
+                            <Shield className="h-4 w-4 text-emerald-500" />
+                            <span>{language === "ar" ? "مركز تحكم المالك" : "Owner Control Center"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/owner/platform-maps"}>
+                          <Link href="/owner/platform-maps" data-testid="nav-platform-maps">
+                            <Network className="h-4 w-4 text-blue-500" />
+                            <span>{language === "ar" ? "خرائط المنصة" : "Platform Maps"}</span>
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>

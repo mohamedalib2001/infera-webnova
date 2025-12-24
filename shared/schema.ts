@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, jsonb, integer, boolean, index, real } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, jsonb, integer, boolean, index, real, serial } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -15216,3 +15216,166 @@ export const insertContractDisputeSchema = createInsertSchema(contractDisputes).
 });
 export type InsertContractDispute = z.infer<typeof insertContractDisputeSchema>;
 export type ContractDispute = typeof contractDisputes.$inferSelect;
+
+// ===========================================
+// DYNAMIC SIDEBAR ORGANIZATION SYSTEM
+// Role-based visibility with owner control
+// ===========================================
+
+export const sidebarRoles = ['free', 'paid', 'owner', 'admin', 'all'] as const;
+
+export const sidebarSections = pgTable("sidebar_sections", {
+  id: serial("id").primaryKey(),
+  
+  // Section identity
+  sectionKey: text("section_key").notNull().unique(), // unique identifier like 'core', 'development', 'ai', 'owner'
+  nameEn: text("name_en").notNull(),
+  nameAr: text("name_ar").notNull(),
+  descriptionEn: text("description_en"),
+  descriptionAr: text("description_ar"),
+  icon: text("icon").notNull(), // lucide icon name
+  
+  // Visibility control
+  isVisible: boolean("is_visible").notNull().default(true),
+  visibleToRoles: text("visible_to_roles").array().notNull().default(['all']), // ['free', 'paid', 'owner', 'admin']
+  
+  // Ordering
+  displayOrder: integer("display_order").notNull().default(0),
+  
+  // Collapsible settings
+  isCollapsible: boolean("is_collapsible").notNull().default(true),
+  defaultExpanded: boolean("default_expanded").notNull().default(true),
+  
+  // Owner override
+  ownerOverrideVisible: boolean("owner_override_visible"), // null = use default, true/false = override
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_sidebar_section_key").on(table.sectionKey),
+  index("IDX_sidebar_section_order").on(table.displayOrder),
+]);
+
+export const insertSidebarSectionSchema = createInsertSchema(sidebarSections).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSidebarSection = z.infer<typeof insertSidebarSectionSchema>;
+export type SidebarSection = typeof sidebarSections.$inferSelect;
+
+export const sidebarPages = pgTable("sidebar_pages", {
+  id: serial("id").primaryKey(),
+  
+  // Page identity
+  pageKey: text("page_key").notNull().unique(), // unique identifier like 'home', 'projects', 'builder'
+  sectionKey: text("section_key").notNull().references(() => sidebarSections.sectionKey, { onDelete: "cascade" }),
+  
+  // Display info
+  nameEn: text("name_en").notNull(),
+  nameAr: text("name_ar").notNull(),
+  descriptionEn: text("description_en"),
+  descriptionAr: text("description_ar"),
+  icon: text("icon").notNull(), // lucide icon name
+  iconColor: text("icon_color"), // tailwind color class like 'text-blue-500'
+  
+  // Route info
+  path: text("path").notNull(), // e.g., '/projects', '/builder'
+  
+  // Visibility control
+  isVisible: boolean("is_visible").notNull().default(true),
+  visibleToRoles: text("visible_to_roles").array().notNull().default(['all']), // ['free', 'paid', 'owner', 'admin']
+  
+  // Ordering within section
+  displayOrder: integer("display_order").notNull().default(0),
+  
+  // Feature flags
+  requiresAuth: boolean("requires_auth").notNull().default(true),
+  requiresSubscription: boolean("requires_subscription").notNull().default(false),
+  subscriptionTier: text("subscription_tier"), // 'basic', 'pro', 'enterprise'
+  
+  // Owner override
+  ownerOverrideVisible: boolean("owner_override_visible"), // null = use default, true/false = override
+  
+  // Metadata
+  badge: text("badge"), // e.g., 'new', 'beta', 'pro'
+  badgeVariant: text("badge_variant"), // 'default', 'secondary', 'destructive', 'outline'
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_sidebar_page_key").on(table.pageKey),
+  index("IDX_sidebar_page_section").on(table.sectionKey),
+  index("IDX_sidebar_page_path").on(table.path),
+  index("IDX_sidebar_page_order").on(table.displayOrder),
+]);
+
+export const insertSidebarPageSchema = createInsertSchema(sidebarPages).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSidebarPage = z.infer<typeof insertSidebarPageSchema>;
+export type SidebarPage = typeof sidebarPages.$inferSelect;
+
+// User-specific sidebar preferences
+export const sidebarUserPreferences = pgTable("sidebar_user_preferences", {
+  id: serial("id").primaryKey(),
+  
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Collapsed sections for this user
+  collapsedSections: text("collapsed_sections").array().default([]),
+  
+  // Pinned pages
+  pinnedPages: text("pinned_pages").array().default([]),
+  
+  // Sidebar state
+  sidebarCollapsed: boolean("sidebar_collapsed").notNull().default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_sidebar_user_pref_user").on(table.userId),
+]);
+
+export const insertSidebarUserPreferenceSchema = createInsertSchema(sidebarUserPreferences).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSidebarUserPreference = z.infer<typeof insertSidebarUserPreferenceSchema>;
+export type SidebarUserPreference = typeof sidebarUserPreferences.$inferSelect;
+
+// Owner visibility overrides log
+export const sidebarVisibilityLogs = pgTable("sidebar_visibility_logs", {
+  id: serial("id").primaryKey(),
+  
+  // What was changed
+  targetType: text("target_type").notNull(), // 'section' or 'page'
+  targetKey: text("target_key").notNull(), // sectionKey or pageKey
+  
+  // Change details
+  action: text("action").notNull(), // 'show', 'hide', 'update_roles'
+  previousValue: jsonb("previous_value"),
+  newValue: jsonb("new_value"),
+  
+  // Who made the change
+  changedBy: varchar("changed_by").notNull().references(() => users.id),
+  
+  // Reason for change (optional)
+  reason: text("reason"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_sidebar_log_target").on(table.targetType, table.targetKey),
+  index("IDX_sidebar_log_changed_by").on(table.changedBy),
+  index("IDX_sidebar_log_created").on(table.createdAt),
+]);
+
+export const insertSidebarVisibilityLogSchema = createInsertSchema(sidebarVisibilityLogs).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertSidebarVisibilityLog = z.infer<typeof insertSidebarVisibilityLogSchema>;
+export type SidebarVisibilityLog = typeof sidebarVisibilityLogs.$inferSelect;
