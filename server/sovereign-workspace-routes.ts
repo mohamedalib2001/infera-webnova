@@ -1250,18 +1250,33 @@ router.get("/policies/compliance-dashboard/:platformId", requireAuth, requireWor
       pending: { en: "Pending", ar: "قيد الانتظار", color: "gray" },
     };
     
+    const categoryScores = latestCompliance?.categoryScores as Record<string, { score: number; status: string; checkedItems: number; totalItems: number }> || {};
+    const weightedScores = policyValidationEngine.calculateWeightedScores(categoryScores);
+    const forecast = await policyValidationEngine.generateStrategicForecast(platformId);
+    const currentScore = latestCompliance?.complianceScore || 0;
+    const deploymentStatus = policyValidationEngine.getDeploymentStatus(
+      currentScore, 
+      latestCompliance?.decisionStatus || "pending"
+    );
+
     res.json({
       current: latestCompliance ? {
-        complianceScore: latestCompliance.complianceScore || 0,
+        complianceScore: currentScore,
         decisionStatus: latestCompliance.decisionStatus || "pending",
         decisionLabel: decisionLabels[latestCompliance.decisionStatus || "pending"],
         riskIndex: latestCompliance.riskIndex || 0,
         evolutionReadiness: latestCompliance.evolutionReadiness || 0,
-        categoryScores: latestCompliance.categoryScores || {},
+        categoryScores,
+        weightedScores,
         aiAnalysis: latestCompliance.aiAnalysis,
         lastCheckAt: latestCompliance.lastCheckAt,
         lastCheckType: latestCompliance.lastCheckType,
-        canDeploy: latestCompliance.decisionStatus === "approved" || latestCompliance.decisionStatus === "conditional",
+        canDeploy: deploymentStatus.canDeploy,
+        isPlatformLocked: deploymentStatus.isPlatformLocked,
+        isDeployDisabled: deploymentStatus.isDeployDisabled,
+        deploymentReason: deploymentStatus.reason,
+        deploymentReasonAr: deploymentStatus.reasonAr,
+        deploymentStatusLevel: deploymentStatus.status,
       } : null,
       openViolations: violations.map(v => ({
         id: v.id,
@@ -1280,9 +1295,10 @@ router.get("/policies/compliance-dashboard/:platformId", requireAuth, requireWor
         checkedAt: h.lastCheckAt,
         checkType: h.lastCheckType,
       })),
+      forecast,
       summary: {
         totalChecks: complianceHistory.length,
-        latestScore: latestCompliance?.complianceScore || 0,
+        latestScore: currentScore,
         avgScore: complianceHistory.length > 0
           ? Math.round(complianceHistory.reduce((sum, c) => sum + (c.complianceScore || 0), 0) / complianceHistory.length)
           : 0,
@@ -1358,6 +1374,97 @@ router.patch("/policies/violations/:violationId/resolve", requireAuth, requireWo
   } catch (error) {
     console.error("[ResolveViolation] Error:", error);
     res.status(500).json({ error: "Failed to resolve violation" });
+  }
+});
+
+// Simulate policy violation - AI-driven scenario engine
+router.post("/policies/simulate-violation", requireAuth, requireWorkspaceAccess, async (req, res) => {
+  try {
+    const { platformId, scenario } = req.body;
+    
+    if (!platformId || !scenario) {
+      return res.status(400).json({ error: "Platform ID and scenario are required" });
+    }
+
+    const validScenarios = ["ai_removal", "security_breach", "vendor_lock", "static_injection", "scale_explosion", "cyber_attack"];
+    if (!validScenarios.includes(scenario)) {
+      return res.status(400).json({ error: "Invalid simulation scenario" });
+    }
+
+    const result = await policyValidationEngine.simulateViolation(platformId, scenario);
+    
+    console.log(`[PolicySimulation] Simulated ${scenario} for platform ${platformId}`);
+    res.json(result);
+  } catch (error) {
+    console.error("[PolicySimulation] Error:", error);
+    res.status(500).json({ error: "Failed to run simulation" });
+  }
+});
+
+// Get strategic forecast for a platform
+router.get("/policies/forecast/:platformId", requireAuth, requireWorkspaceAccess, async (req, res) => {
+  try {
+    const { platformId } = req.params;
+    
+    const forecast = await policyValidationEngine.generateStrategicForecast(platformId);
+    res.json(forecast);
+  } catch (error) {
+    console.error("[StrategicForecast] Error:", error);
+    res.status(500).json({ error: "Failed to generate forecast" });
+  }
+});
+
+// Check if platform can deploy (Pre-Deploy Gate) - MANDATORY SOVEREIGN GATE
+router.get("/policies/pre-deploy-check/:platformId", requireAuth, requireWorkspaceAccess, async (req, res) => {
+  try {
+    const { platformId } = req.params;
+    
+    const [latestCompliance] = await db.select()
+      .from(sovereignPolicyCompliance)
+      .where(eq(sovereignPolicyCompliance.projectId, platformId))
+      .orderBy(desc(sovereignPolicyCompliance.createdAt))
+      .limit(1);
+
+    if (!latestCompliance) {
+      return res.json({
+        canDeploy: false,
+        isDeployDisabled: true,
+        isPlatformLocked: true,
+        reason: "No compliance validation found. Run Policy Validator AI first.",
+        reasonAr: "لم يتم العثور على تحقق من الامتثال. قم بتشغيل مدقق السياسات الذكي أولاً.",
+        score: 0,
+        status: "pending",
+        deploymentStatusLevel: "blocked",
+        lastValidation: null,
+        gateEnforced: true,
+      });
+    }
+
+    const score = latestCompliance.complianceScore || 0;
+    const decisionStatus = latestCompliance.decisionStatus || "pending";
+    const deploymentStatus = policyValidationEngine.getDeploymentStatus(score, decisionStatus);
+
+    res.json({
+      canDeploy: deploymentStatus.canDeploy,
+      isDeployDisabled: deploymentStatus.isDeployDisabled,
+      isPlatformLocked: deploymentStatus.isPlatformLocked,
+      reason: deploymentStatus.reason,
+      reasonAr: deploymentStatus.reasonAr,
+      score,
+      status: decisionStatus,
+      deploymentStatusLevel: deploymentStatus.status,
+      lastValidation: latestCompliance.lastCheckAt,
+      gateEnforced: true,
+      thresholds: {
+        sovereignGrade: 95,
+        conditional: 85,
+        atRisk: 70,
+        blocked: 0,
+      },
+    });
+  } catch (error) {
+    console.error("[PreDeployCheck] Error:", error);
+    res.status(500).json({ error: "Failed to check pre-deploy status" });
   }
 });
 

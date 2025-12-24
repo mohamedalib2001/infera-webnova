@@ -162,7 +162,7 @@ export class PolicyValidationEngine {
     const isCompliant = blockingViolations.length === 0;
     
     const decisionStatus = this.calculateDecisionStatus(overallScore, blockingViolations.length);
-    const canDeploy = decisionStatus === "approved" || decisionStatus === "conditional";
+    const deploymentStatus = this.getDeploymentStatus(overallScore, decisionStatus);
     
     const riskIndex = this.calculateRiskIndex(violations, context);
     const evolutionReadiness = this.calculateEvolutionReadiness(context);
@@ -177,7 +177,7 @@ export class PolicyValidationEngine {
       violations,
       warnings,
       timestamp: new Date(),
-      canDeploy,
+      canDeploy: deploymentStatus.canDeploy,
       blockingViolations,
       decisionStatus,
       riskIndex,
@@ -619,6 +619,450 @@ export class PolicyValidationEngine {
       canDeploy: nonCompliant.length === 0,
       score: avgScore,
       criticalIssues: nonCompliant.length,
+    };
+  }
+
+  calculateWeightedScores(categoryScores: Record<string, { score: number; status: string; checkedItems: number; totalItems: number }>) {
+    const weights = {
+      aiIntelligence: 30,
+      cyberSecurity: 30,
+      scalability: 20,
+      governance: 20,
+    };
+
+    const aiScore = categoryScores.aiIntelligence?.score || 0;
+    const securityScore = categoryScores.cyberSecurity?.score || 0;
+    const archScore = categoryScores.architecture?.score || 0;
+    const dynamicsScore = categoryScores.dynamics?.score || 0;
+    const policyScore = categoryScores.policyCoverage?.score || 0;
+
+    const scalabilityScore = Math.round((archScore + dynamicsScore) / 2);
+    const governanceScore = policyScore;
+
+    return {
+      aiIntelligence: { score: aiScore, weight: weights.aiIntelligence, weighted: (aiScore * weights.aiIntelligence) / 100 },
+      cyberSecurity: { score: securityScore, weight: weights.cyberSecurity, weighted: (securityScore * weights.cyberSecurity) / 100 },
+      scalability: { score: scalabilityScore, weight: weights.scalability, weighted: (scalabilityScore * weights.scalability) / 100 },
+      governance: { score: governanceScore, weight: weights.governance, weighted: (governanceScore * weights.governance) / 100 },
+    };
+  }
+
+  async simulateViolation(platformId: string, scenario: string): Promise<{
+    scenarioName: string;
+    scenarioNameAr: string;
+    predictedScore: number;
+    currentScore: number;
+    scoreDrop: number;
+    riskEscalation: string;
+    riskEscalationAr: string;
+    riskEscalationCurve: { hour: number; risk: number }[];
+    timeToFailure: string;
+    timeToFailureAr: string;
+    recommendations: string[];
+    recommendationsAr: string[];
+    impactLevel: string;
+    impactLevelAr: string;
+    wouldLockPlatform: boolean;
+    wouldBlockDeploy: boolean;
+  }> {
+    const complianceRecords = await db.select()
+      .from(sovereignPolicyCompliance)
+      .where(eq(sovereignPolicyCompliance.projectId, platformId))
+      .orderBy(sovereignPolicyCompliance.createdAt)
+      .limit(1);
+    
+    const latestCompliance = complianceRecords.sort((a, b) => 
+      new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    )[0];
+
+    const currentScore = latestCompliance?.complianceScore || 75;
+    
+    const scenarios: Record<string, { 
+      name: string;
+      nameAr: string;
+      scoreDrop: number;
+      riskLevel: string;
+      riskLevelAr: string;
+      timeToFailure: string;
+      timeToFailureAr: string;
+      recommendations: string[];
+      recommendationsAr: string[];
+      impact: string;
+      impactAr: string;
+      riskCurveHours: number[];
+    }> = {
+      ai_removal: {
+        name: "AI Core Removal",
+        nameAr: "إزالة نواة الذكاء الاصطناعي",
+        scoreDrop: 45,
+        riskLevel: "Critical Escalation",
+        riskLevelAr: "تصاعد حرج",
+        timeToFailure: "Immediate",
+        timeToFailureAr: "فوري",
+        recommendations: [
+          "Restore AI Core Engine immediately",
+          "Implement AI Assistant for user interactions",
+          "Add Predictive Intelligence module",
+          "Enable Behavioral Analysis system",
+        ],
+        recommendationsAr: [
+          "استعادة محرك الذكاء الاصطناعي فوراً",
+          "تنفيذ مساعد الذكاء الاصطناعي للتفاعلات",
+          "إضافة وحدة الذكاء التنبؤي",
+          "تفعيل نظام التحليل السلوكي",
+        ],
+        impact: "Critical",
+        impactAr: "حرج",
+        riskCurveHours: [0, 1, 2, 4, 8, 12, 24],
+      },
+      security_breach: {
+        name: "Security Breach",
+        nameAr: "اختراق أمني",
+        scoreDrop: 40,
+        riskLevel: "Severe Escalation",
+        riskLevelAr: "تصاعد شديد",
+        timeToFailure: "< 24 hours",
+        timeToFailureAr: "أقل من 24 ساعة",
+        recommendations: [
+          "Activate Zero-Trust Architecture",
+          "Enable End-to-End Encryption",
+          "Deploy AI Threat Detection",
+          "Implement Automated Incident Response",
+        ],
+        recommendationsAr: [
+          "تفعيل بنية عدم الثقة",
+          "تمكين التشفير من طرف إلى طرف",
+          "نشر كشف التهديدات بالذكاء الاصطناعي",
+          "تنفيذ الاستجابة الآلية للحوادث",
+        ],
+        impact: "Critical",
+        impactAr: "حرج",
+        riskCurveHours: [0, 2, 6, 12, 18, 24],
+      },
+      vendor_lock: {
+        name: "Vendor Lock-in",
+        nameAr: "قفل المورد",
+        scoreDrop: 25,
+        riskLevel: "High Escalation",
+        riskLevelAr: "تصاعد عالي",
+        timeToFailure: "1-2 weeks",
+        timeToFailureAr: "1-2 أسبوع",
+        recommendations: [
+          "Migrate to cloud-agnostic architecture",
+          "Implement abstraction layers",
+          "Use open standards and protocols",
+          "Create vendor exit strategy",
+        ],
+        recommendationsAr: [
+          "الانتقال إلى بنية محايدة للسحابة",
+          "تنفيذ طبقات التجريد",
+          "استخدام المعايير والبروتوكولات المفتوحة",
+          "إنشاء استراتيجية خروج من المورد",
+        ],
+        impact: "High",
+        impactAr: "عالي",
+        riskCurveHours: [0, 24, 48, 72, 120, 168, 336],
+      },
+      static_injection: {
+        name: "Static Component Injection",
+        nameAr: "حقن مكون ثابت",
+        scoreDrop: 30,
+        riskLevel: "High Escalation",
+        riskLevelAr: "تصاعد عالي",
+        timeToFailure: "48-72 hours",
+        timeToFailureAr: "48-72 ساعة",
+        recommendations: [
+          "Remove static components immediately",
+          "Implement dynamic configuration system",
+          "Use event-driven architecture",
+          "Apply Zero-Code principles",
+        ],
+        recommendationsAr: [
+          "إزالة المكونات الثابتة فوراً",
+          "تنفيذ نظام التكوين الديناميكي",
+          "استخدام البنية الحدثية",
+          "تطبيق مبادئ Zero-Code",
+        ],
+        impact: "High",
+        impactAr: "عالي",
+        riskCurveHours: [0, 6, 12, 24, 36, 48, 72],
+      },
+      scale_explosion: {
+        name: "100x Scale Explosion",
+        nameAr: "انفجار التوسع 100x",
+        scoreDrop: 15,
+        riskLevel: "Moderate Escalation",
+        riskLevelAr: "تصاعد متوسط",
+        timeToFailure: "3-5 days",
+        timeToFailureAr: "3-5 أيام",
+        recommendations: [
+          "Enable horizontal auto-scaling",
+          "Implement load balancing",
+          "Optimize database queries",
+          "Add caching layers",
+        ],
+        recommendationsAr: [
+          "تمكين التوسع الأفقي التلقائي",
+          "تنفيذ موازنة الحمل",
+          "تحسين استعلامات قاعدة البيانات",
+          "إضافة طبقات التخزين المؤقت",
+        ],
+        impact: "Medium",
+        impactAr: "متوسط",
+        riskCurveHours: [0, 12, 24, 48, 72, 96, 120],
+      },
+      cyber_attack: {
+        name: "Cyber Attack Simulation",
+        nameAr: "محاكاة هجوم سيبراني",
+        scoreDrop: 50,
+        riskLevel: "Critical Escalation",
+        riskLevelAr: "تصاعد حرج",
+        timeToFailure: "Immediate",
+        timeToFailureAr: "فوري",
+        recommendations: [
+          "Activate security lockdown protocol",
+          "Enable AI-driven threat response",
+          "Isolate compromised components",
+          "Initiate forensic analysis",
+        ],
+        recommendationsAr: [
+          "تفعيل بروتوكول الإغلاق الأمني",
+          "تمكين الاستجابة للتهديدات بالذكاء الاصطناعي",
+          "عزل المكونات المخترقة",
+          "بدء التحليل الجنائي",
+        ],
+        impact: "Critical",
+        impactAr: "حرج",
+        riskCurveHours: [0, 0.5, 1, 2, 4, 8, 12],
+      },
+    };
+
+    const scenarioData = scenarios[scenario] || scenarios.security_breach;
+    const predictedScore = Math.max(0, currentScore - scenarioData.scoreDrop);
+    
+    const riskEscalationCurve = scenarioData.riskCurveHours.map((hour, index) => ({
+      hour,
+      risk: Math.min(100, 10 + (index * (100 - 10)) / (scenarioData.riskCurveHours.length - 1)),
+    }));
+
+    const wouldLockPlatform = predictedScore < 70;
+    const wouldBlockDeploy = predictedScore < 85;
+
+    console.log(`[PolicyValidationEngine] Simulated ${scenario}: ${currentScore} -> ${predictedScore} (Lock: ${wouldLockPlatform}, Block: ${wouldBlockDeploy})`);
+
+    return {
+      scenarioName: scenarioData.name,
+      scenarioNameAr: scenarioData.nameAr,
+      predictedScore,
+      currentScore,
+      scoreDrop: scenarioData.scoreDrop,
+      riskEscalation: scenarioData.riskLevel,
+      riskEscalationAr: scenarioData.riskLevelAr,
+      riskEscalationCurve,
+      timeToFailure: scenarioData.timeToFailure,
+      timeToFailureAr: scenarioData.timeToFailureAr,
+      recommendations: scenarioData.recommendations,
+      recommendationsAr: scenarioData.recommendationsAr,
+      impactLevel: scenarioData.impact,
+      impactLevelAr: scenarioData.impactAr,
+      wouldLockPlatform,
+      wouldBlockDeploy,
+    };
+  }
+
+  async generateStrategicForecast(platformId: string): Promise<{
+    day30: { riskLevel: string; riskLevelAr: string; score: number; threats: string[]; threatsAr: string[] };
+    day90: { riskLevel: string; riskLevelAr: string; score: number; threats: string[]; threatsAr: string[] };
+    day180: { riskLevel: string; riskLevelAr: string; score: number; threats: string[]; threatsAr: string[] };
+    sustainabilityScore: number;
+    sustainabilityStatus: string;
+    sustainabilityStatusAr: string;
+    evolutionForecast: string;
+    evolutionForecastAr: string;
+    weaknessAlerts: string[];
+    weaknessAlertsAr: string[];
+  }> {
+    const complianceHistory = await db.select()
+      .from(sovereignPolicyCompliance)
+      .where(eq(sovereignPolicyCompliance.projectId, platformId))
+      .orderBy(sovereignPolicyCompliance.createdAt)
+      .limit(10);
+
+    const violations = await db.select()
+      .from(sovereignPolicyViolations)
+      .where(eq(sovereignPolicyViolations.projectId, platformId));
+
+    const sortedHistory = complianceHistory.sort((a, b) => 
+      new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
+    const currentScore = sortedHistory[0]?.complianceScore || 75;
+    const violationCount = violations.length;
+    const criticalViolations = violations.filter(v => v.severity === "critical").length;
+
+    const trendFactor = sortedHistory.length > 1 
+      ? (sortedHistory[0]?.complianceScore || 0) - (sortedHistory[sortedHistory.length - 1]?.complianceScore || 0)
+      : 0;
+
+    const day30Score = Math.min(100, Math.max(0, currentScore + (trendFactor * 0.5) - (criticalViolations * 5)));
+    const day90Score = Math.min(100, Math.max(0, currentScore + (trendFactor * 1.5) - (violationCount * 2)));
+    const day180Score = Math.min(100, Math.max(0, currentScore + (trendFactor * 2) - (violationCount * 3)));
+
+    const getRiskLevel = (score: number): { en: string; ar: string } => {
+      if (score >= 85) return { en: "Low", ar: "منخفض" };
+      if (score >= 70) return { en: "Medium", ar: "متوسط" };
+      return { en: "High", ar: "عالي" };
+    };
+
+    const threats30: string[] = [];
+    const threats30Ar: string[] = [];
+    const threats90: string[] = [];
+    const threats90Ar: string[] = [];
+    const threats180: string[] = [];
+    const threats180Ar: string[] = [];
+    const weaknesses: string[] = [];
+    const weaknessesAr: string[] = [];
+
+    if (criticalViolations > 0) {
+      threats30.push("Unresolved critical violations may escalate");
+      threats30Ar.push("قد تتصاعد الانتهاكات الحرجة غير المحلولة");
+      weaknesses.push(`${criticalViolations} critical violation(s) require immediate attention`);
+      weaknessesAr.push(`${criticalViolations} انتهاك(ات) حرجة تتطلب اهتماماً فورياً`);
+    }
+    if (violationCount > 3) {
+      threats90.push("Accumulated violations increasing system risk");
+      threats90Ar.push("الانتهاكات المتراكمة تزيد من مخاطر النظام");
+      weaknesses.push("High violation frequency indicates systemic issues");
+      weaknessesAr.push("تردد الانتهاكات العالي يشير إلى مشاكل منهجية");
+    }
+    if (currentScore < 85) {
+      threats30.push("Current score below conditional threshold");
+      threats30Ar.push("الدرجة الحالية أقل من حد الموافقة المشروطة");
+    }
+    if (trendFactor < 0) {
+      threats90.push("Declining compliance trend detected");
+      threats90Ar.push("تم اكتشاف اتجاه امتثال متراجع");
+      weaknesses.push("Compliance trend is negative - requires intervention");
+      weaknessesAr.push("اتجاه الامتثال سلبي - يتطلب تدخلاً");
+    }
+    if (day180Score < 70) {
+      threats180.push("Long-term platform sustainability at risk");
+      threats180Ar.push("استدامة المنصة طويلة المدى في خطر");
+    }
+
+    const sustainabilityScore = Math.round(
+      (currentScore * 0.4) + 
+      ((100 - violationCount * 10) * 0.3) + 
+      ((100 - criticalViolations * 20) * 0.3)
+    );
+
+    let sustainabilityStatus = "Excellent";
+    let sustainabilityStatusAr = "ممتاز";
+    let evolutionForecast = "Platform is well-positioned for future evolution";
+    let evolutionForecastAr = "المنصة في وضع جيد للتطور المستقبلي";
+    
+    if (sustainabilityScore < 70) {
+      sustainabilityStatus = "Critical";
+      sustainabilityStatusAr = "حرج";
+      evolutionForecast = "Platform requires significant improvements before evolution";
+      evolutionForecastAr = "المنصة تتطلب تحسينات كبيرة قبل التطور";
+    } else if (sustainabilityScore < 85) {
+      sustainabilityStatus = "Moderate";
+      sustainabilityStatusAr = "متوسط";
+      evolutionForecast = "Platform has moderate evolution readiness - address weaknesses first";
+      evolutionForecastAr = "المنصة لديها استعداد متوسط للتطور - عالج نقاط الضعف أولاً";
+    }
+
+    const risk30 = getRiskLevel(day30Score);
+    const risk90 = getRiskLevel(day90Score);
+    const risk180 = getRiskLevel(day180Score);
+
+    return {
+      day30: { 
+        riskLevel: risk30.en, 
+        riskLevelAr: risk30.ar,
+        score: Math.round(day30Score), 
+        threats: threats30,
+        threatsAr: threats30Ar,
+      },
+      day90: { 
+        riskLevel: risk90.en, 
+        riskLevelAr: risk90.ar,
+        score: Math.round(day90Score), 
+        threats: threats90,
+        threatsAr: threats90Ar,
+      },
+      day180: { 
+        riskLevel: risk180.en, 
+        riskLevelAr: risk180.ar,
+        score: Math.round(day180Score), 
+        threats: threats180,
+        threatsAr: threats180Ar,
+      },
+      sustainabilityScore: Math.max(0, Math.min(100, sustainabilityScore)),
+      sustainabilityStatus,
+      sustainabilityStatusAr,
+      evolutionForecast,
+      evolutionForecastAr,
+      weaknessAlerts: weaknesses,
+      weaknessAlertsAr: weaknessesAr,
+    };
+  }
+
+  isPlatformLocked(score: number): boolean {
+    return score < 70;
+  }
+
+  canDeploy(score: number): boolean {
+    return score >= 85;
+  }
+
+  getDeploymentStatus(score: number, decisionStatus: string): {
+    canDeploy: boolean;
+    isPlatformLocked: boolean;
+    isDeployDisabled: boolean;
+    reason: string;
+    reasonAr: string;
+    status: "sovereign_grade" | "conditional" | "at_risk" | "blocked";
+  } {
+    const isPlatformLocked = score < 70 || decisionStatus === "blocked";
+    const isDeployDisabled = score < 85 || decisionStatus === "rejected" || decisionStatus === "blocked";
+    const canDeploy = score >= 85 && 
+                      !isPlatformLocked && 
+                      (decisionStatus === "approved" || decisionStatus === "conditional");
+
+    let reason = "";
+    let reasonAr = "";
+    let status: "sovereign_grade" | "conditional" | "at_risk" | "blocked" = "blocked";
+
+    if (decisionStatus === "blocked" || isPlatformLocked) {
+      status = "blocked";
+      reason = "Platform is LOCKED. Critical compliance failures or blocking violations detected. Fix all issues to unlock.";
+      reasonAr = "المنصة مقفلة. تم اكتشاف فشل امتثال حرج أو انتهاكات محظورة. أصلح جميع المشاكل لفتح القفل.";
+    } else if (decisionStatus === "rejected" || score < 85) {
+      status = "at_risk";
+      reason = "At Risk. Deploy button is disabled. Score must reach 85+ and all blocking violations must be resolved.";
+      reasonAr = "معرض للخطر. زر النشر معطل. يجب أن تصل الدرجة إلى 85+ وحل جميع الانتهاكات المحظورة.";
+    } else if (score >= 95 && decisionStatus === "approved") {
+      status = "sovereign_grade";
+      reason = "Sovereign Grade achieved. Platform is fully compliant and ready for deployment.";
+      reasonAr = "تم تحقيق الدرجة السيادية. المنصة متوافقة بالكامل وجاهزة للنشر.";
+    } else if (score >= 85 && (decisionStatus === "approved" || decisionStatus === "conditional")) {
+      status = "conditional";
+      reason = "Conditional approval. Platform can deploy but has warnings that should be addressed.";
+      reasonAr = "موافقة مشروطة. يمكن نشر المنصة لكن يوجد تحذيرات يجب معالجتها.";
+    } else {
+      status = "at_risk";
+      reason = "At Risk. Deploy button is disabled. Score must reach 85+ to enable deployment.";
+      reasonAr = "معرض للخطر. زر النشر معطل. يجب أن تصل الدرجة إلى 85+ لتفعيل النشر.";
+    }
+
+    return {
+      canDeploy,
+      isPlatformLocked,
+      isDeployDisabled,
+      reason,
+      reasonAr,
+      status,
     };
   }
 }
