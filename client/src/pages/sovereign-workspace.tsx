@@ -92,6 +92,7 @@ const statusBadgeVariants: Record<string, { variant: "default" | "secondary" | "
   staging: { variant: "outline", color: "bg-purple-500/20 text-purple-600", en: "Staging", ar: "تجريبي" },
   deploying: { variant: "outline", color: "bg-orange-500/20 text-orange-600", en: "Deploying", ar: "قيد النشر" },
   live: { variant: "default", color: "bg-green-500/20 text-green-600", en: "Live", ar: "مباشر" },
+  active: { variant: "default", color: "bg-green-500/20 text-green-600", en: "Active", ar: "نشط" },
   maintenance: { variant: "outline", color: "bg-amber-500/20 text-amber-600", en: "Maintenance", ar: "صيانة" },
   suspended: { variant: "destructive", color: "bg-red-500/20 text-red-600", en: "Suspended", ar: "معلق" },
   archived: { variant: "secondary", color: "bg-gray-500/20 text-gray-600", en: "Archived", ar: "مؤرشف" },
@@ -511,22 +512,39 @@ export default function SovereignWorkspacePage() {
                   const typeInfo = platformTypeLabels[project.platformType as SovereignPlatformType] || platformTypeLabels.custom;
                   const TypeIcon = typeInfo.icon;
                   const statusInfo = statusBadgeVariants[project.deploymentStatus] || statusBadgeVariants.draft;
+                  const platformIcon = findPlatformIcon(project);
+                  const isLive = project.deploymentStatus === "live" || project.deploymentStatus === "active";
+                  const gradientColors = platformIcon 
+                    ? { from: platformIcon.colors.primary, to: platformIcon.colors.secondary }
+                    : { from: '#0f172a', to: '#1e293b' };
                   
                   return (
-                    <Card key={project.id} data-testid={`card-platform-${project.id}`}>
+                    <Card key={project.id} className="hover-elevate relative overflow-visible" data-testid={`card-platform-${project.id}`}>
+                      {/* Live indicator - glowing green dot */}
+                      {isLive && (
+                        <div className="absolute -top-1.5 -right-1.5 z-10">
+                          <span className="relative flex h-4 w-4">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-4 w-4 bg-green-500 border-2 border-background shadow-lg shadow-green-500/50"></span>
+                          </span>
+                        </div>
+                      )}
                       <CardHeader className="pb-2">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-3">
-                            <div className="p-2 bg-primary/10 rounded-md">
-                              <TypeIcon className="h-5 w-5 text-primary" />
+                            <div 
+                              className="w-12 h-12 rounded-lg flex items-center justify-center shadow-md"
+                              style={{ background: `linear-gradient(135deg, ${gradientColors.from}, ${gradientColors.to})` }}
+                            >
+                              <TypeIcon className="h-6 w-6 text-white" />
                             </div>
                             <div>
                               <CardTitle className="text-base">{project.name}</CardTitle>
                               <CardDescription className="text-xs">{project.nameAr}</CardDescription>
                             </div>
                           </div>
-                          <Badge variant={statusInfo.variant} className="text-xs">
-                            {project.deploymentStatus}
+                          <Badge variant="secondary" className={"text-xs !border-0 " + statusInfo.color.replace("bg-", "!bg-").replace("text-", "!text-")}>
+                            {statusInfo.en} | {statusInfo.ar}
                           </Badge>
                         </div>
                       </CardHeader>
@@ -542,7 +560,7 @@ export default function SovereignWorkspacePage() {
                           </div>
                           <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Version:</span>
-                            <span>{project.version || "0.1.0"}</span>
+                            <span>{project.version || "1.0.0"}</span>
                           </div>
                           {project.deploymentUrl && (
                             <div className="flex items-center justify-between">
@@ -560,7 +578,16 @@ export default function SovereignWorkspacePage() {
                         </div>
                       </CardContent>
                       <CardFooter className="pt-2 gap-2">
-                        <Button variant="outline" size="sm" className="flex-1" data-testid={`button-view-${project.id}`}>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex-1" 
+                          onClick={() => {
+                            setPreviewProject(project);
+                            setShowPreviewDialog(true);
+                          }}
+                          data-testid={`button-view-${project.id}`}
+                        >
                           <Eye className="h-4 w-4 mr-1" />
                           View
                         </Button>
@@ -1011,9 +1038,11 @@ export default function SovereignWorkspacePage() {
                   )}
                   <div className="flex items-center justify-center gap-2 flex-wrap">
                     <Badge>{previewProject.code}</Badge>
-                    <Badge variant="outline">{platformTypeLabels[previewProject.platformType]?.en}</Badge>
-                    <Badge className={statusBadgeVariants[previewProject.status]?.color}>
-                      {statusBadgeVariants[previewProject.status]?.en}
+                    <Badge variant="outline">
+                      {platformTypeLabels[previewProject.platformType]?.en} | {platformTypeLabels[previewProject.platformType]?.ar}
+                    </Badge>
+                    <Badge variant="secondary" className={"!border-0 " + (statusBadgeVariants[previewProject.deploymentStatus]?.color || statusBadgeVariants.draft.color).replace("bg-", "!bg-").replace("text-", "!text-")}>
+                      {statusBadgeVariants[previewProject.deploymentStatus]?.en || statusBadgeVariants.draft.en} | {statusBadgeVariants[previewProject.deploymentStatus]?.ar || statusBadgeVariants.draft.ar}
                     </Badge>
                   </div>
                 </div>
