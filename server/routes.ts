@@ -325,6 +325,15 @@ export async function registerRoutes(
       res.status(503).json({ error: "Agent not available", status: "offline" });
     }
   });
+
+  app.get("/api/health", async (req, res) => {
+    res.json({
+      status: "healthy",
+      timestamp: new Date().toISOString(),
+      version: process.env.npm_package_version || "1.0.0",
+      uptime: process.uptime()
+    });
+  });
   
   // Proxy main agent dashboard and API
   app.use("/api/agent", async (req, res) => {
