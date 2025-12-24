@@ -10,11 +10,13 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { 
   Github, 
   Plus, 
@@ -22,7 +24,6 @@ import {
   GitBranch, 
   GitCommit, 
   Star, 
-  Eye, 
   GitFork,
   Lock,
   Unlock,
@@ -34,7 +35,13 @@ import {
   XCircle,
   Loader2,
   Search,
-  Filter
+  MoreVertical,
+  Trash2,
+  Settings,
+  Eye,
+  EyeOff,
+  Pencil,
+  AlertTriangle
 } from "lucide-react";
 
 interface GitHubUser {
@@ -81,7 +88,7 @@ interface GitHubCommit {
 const translations = {
   en: {
     title: "GitHub Manager",
-    subtitle: "Manage your GitHub repositories from the sovereign account",
+    subtitle: "Full control over your GitHub repositories from the sovereign account",
     connected: "Connected",
     notConnected: "Not Connected",
     repositories: "Repositories",
@@ -115,10 +122,28 @@ const translations = {
     followers: "Followers",
     following: "Following",
     publicReposCount: "Public Repos",
+    delete: "Delete",
+    deleteRepo: "Delete Repository",
+    deleteConfirmTitle: "Delete Repository",
+    deleteConfirmDesc: "Are you sure you want to delete this repository? This action cannot be undone.",
+    deleteSuccess: "Repository deleted successfully",
+    deleteError: "Error deleting repository",
+    makePrivate: "Make Private",
+    makePublic: "Make Public",
+    visibilityChanged: "Repository visibility changed",
+    visibilityError: "Error changing visibility",
+    editRepo: "Edit Repository",
+    save: "Save",
+    actions: "Actions",
+    dangerZone: "Danger Zone",
+    confirmDelete: "Type the repository name to confirm deletion",
+    settings: "Settings",
+    visibility: "Visibility",
+    repoCount: "repositories",
   },
   ar: {
     title: "مدير GitHub",
-    subtitle: "إدارة مستودعات GitHub من الحساب السيادي",
+    subtitle: "تحكم كامل في مستودعات GitHub من الحساب السيادي",
     connected: "متصل",
     notConnected: "غير متصل",
     repositories: "المستودعات",
@@ -152,6 +177,24 @@ const translations = {
     followers: "المتابعون",
     following: "يتابع",
     publicReposCount: "المستودعات العامة",
+    delete: "حذف",
+    deleteRepo: "حذف المستودع",
+    deleteConfirmTitle: "حذف المستودع",
+    deleteConfirmDesc: "هل أنت متأكد من حذف هذا المستودع؟ لا يمكن التراجع عن هذا الإجراء.",
+    deleteSuccess: "تم حذف المستودع بنجاح",
+    deleteError: "خطأ في حذف المستودع",
+    makePrivate: "جعله خاصاً",
+    makePublic: "جعله عاماً",
+    visibilityChanged: "تم تغيير خصوصية المستودع",
+    visibilityError: "خطأ في تغيير الخصوصية",
+    editRepo: "تعديل المستودع",
+    save: "حفظ",
+    actions: "الإجراءات",
+    dangerZone: "منطقة الخطر",
+    confirmDelete: "اكتب اسم المستودع للتأكيد",
+    settings: "الإعدادات",
+    visibility: "الخصوصية",
+    repoCount: "مستودع",
   }
 };
 
@@ -163,9 +206,18 @@ export default function GitHubManager() {
 
   const [selectedRepo, setSelectedRepo] = useState<GitHubRepo | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [repoToDelete, setRepoToDelete] = useState<GitHubRepo | null>(null);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "public" | "private">("all");
   const [newRepo, setNewRepo] = useState({
+    name: "",
+    description: "",
+    isPrivate: true
+  });
+  const [editRepo, setEditRepo] = useState({
     name: "",
     description: "",
     isPrivate: true
@@ -233,6 +285,82 @@ export default function GitHubManager() {
     }
   });
 
+  // Delete repository mutation
+  const deleteRepoMutation = useMutation({
+    mutationFn: async ({ owner, repo }: { owner: string; repo: string }) => {
+      return apiRequest("DELETE", `/api/github/repos/${owner}/${repo}`);
+    },
+    onSuccess: () => {
+      toast({ title: t.deleteSuccess });
+      setShowDeleteDialog(false);
+      setRepoToDelete(null);
+      setDeleteConfirmName("");
+      if (selectedRepo?.id === repoToDelete?.id) {
+        setSelectedRepo(null);
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/github/repos"] });
+    },
+    onError: (error: any) => {
+      toast({ title: t.deleteError, description: error.message, variant: "destructive" });
+    }
+  });
+
+  // Update repository mutation
+  const updateRepoMutation = useMutation({
+    mutationFn: async ({ owner, repo, data }: { owner: string; repo: string; data: { name?: string; description?: string; isPrivate?: boolean } }) => {
+      return apiRequest("PATCH", `/api/github/repos/${owner}/${repo}`, data);
+    },
+    onSuccess: () => {
+      toast({ title: t.visibilityChanged });
+      setShowEditDialog(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/github/repos"] });
+    },
+    onError: (error: any) => {
+      toast({ title: t.visibilityError, description: error.message, variant: "destructive" });
+    }
+  });
+
+  const handleToggleVisibility = (repo: GitHubRepo) => {
+    const [owner, repoName] = repo.full_name.split('/');
+    updateRepoMutation.mutate({
+      owner,
+      repo: repoName,
+      data: { isPrivate: !repo.private }
+    });
+  };
+
+  const handleDeleteRepo = () => {
+    if (repoToDelete && deleteConfirmName === repoToDelete.name) {
+      const [owner, repo] = repoToDelete.full_name.split('/');
+      deleteRepoMutation.mutate({ owner, repo });
+    }
+  };
+
+  const openEditDialog = (repo: GitHubRepo) => {
+    setEditRepo({
+      name: repo.name,
+      description: repo.description || "",
+      isPrivate: repo.private
+    });
+    setSelectedRepo(repo);
+    setShowEditDialog(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (selectedRepo) {
+      const [owner, repo] = selectedRepo.full_name.split('/');
+      updateRepoMutation.mutate({
+        owner,
+        repo,
+        data: {
+          name: editRepo.name,
+          description: editRepo.description,
+          isPrivate: editRepo.isPrivate
+        }
+      });
+    }
+  };
+
   const filteredRepos = reposData?.repos?.filter(repo => {
     const matchesSearch = repo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       repo.description?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -282,6 +410,11 @@ export default function GitHubManager() {
             <Badge variant="destructive" className="gap-1">
               <XCircle className="w-3 h-3" />
               {t.notConnected}
+            </Badge>
+          )}
+          {reposData?.repos && (
+            <Badge variant="outline">
+              {reposData.repos.length} {t.repoCount}
             </Badge>
           )}
         </div>
@@ -475,19 +608,64 @@ export default function GitHubManager() {
                   <Card 
                     key={repo.id} 
                     className={`cursor-pointer transition-colors hover-elevate ${selectedRepo?.id === repo.id ? 'ring-2 ring-primary' : ''}`}
-                    onClick={() => setSelectedRepo(repo)}
                     data-testid={`card-repo-${repo.id}`}
                   >
                     <CardContent className="p-4 space-y-3">
                       <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
+                        <div 
+                          className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer"
+                          onClick={() => setSelectedRepo(repo)}
+                        >
                           <FileCode className="w-5 h-5 text-primary flex-shrink-0" />
                           <span className="font-semibold truncate">{repo.name}</span>
                         </div>
-                        <Badge variant={repo.private ? "secondary" : "outline"} className="flex-shrink-0">
-                          {repo.private ? <Lock className="w-3 h-3 mr-1" /> : <Unlock className="w-3 h-3 mr-1" />}
-                          {repo.private ? t.private : t.public}
-                        </Badge>
+                        <div className="flex items-center gap-1">
+                          <Badge variant={repo.private ? "secondary" : "outline"} className="flex-shrink-0">
+                            {repo.private ? <Lock className="w-3 h-3 mr-1" /> : <Unlock className="w-3 h-3 mr-1" />}
+                            {repo.private ? t.private : t.public}
+                          </Badge>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-repo-menu-${repo.id}`}>
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align={isRtl ? "start" : "end"}>
+                              <DropdownMenuItem onClick={() => window.open(repo.html_url, '_blank')}>
+                                <ExternalLink className="w-4 h-4 mr-2" />
+                                {t.viewOnGitHub}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openEditDialog(repo)}>
+                                <Pencil className="w-4 h-4 mr-2" />
+                                {t.editRepo}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleToggleVisibility(repo)}>
+                                {repo.private ? (
+                                  <>
+                                    <Eye className="w-4 h-4 mr-2" />
+                                    {t.makePublic}
+                                  </>
+                                ) : (
+                                  <>
+                                    <EyeOff className="w-4 h-4 mr-2" />
+                                    {t.makePrivate}
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => {
+                                  setRepoToDelete(repo);
+                                  setShowDeleteDialog(true);
+                                }}
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                {t.delete}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </div>
                       {repo.description && (
                         <p className="text-sm text-muted-foreground line-clamp-2">{repo.description}</p>
@@ -526,13 +704,22 @@ export default function GitHubManager() {
                     <div className="flex items-center gap-2">
                       <FileCode className="w-5 h-5 text-primary" />
                       <CardTitle>{selectedRepo.name}</CardTitle>
+                      <Badge variant={selectedRepo.private ? "secondary" : "outline"}>
+                        {selectedRepo.private ? t.private : t.public}
+                      </Badge>
                     </div>
-                    <Button variant="outline" size="sm" asChild>
-                      <a href={selectedRepo.html_url} target="_blank" rel="noopener noreferrer" className="gap-1">
-                        <ExternalLink className="w-4 h-4" />
-                        {t.viewOnGitHub}
-                      </a>
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" onClick={() => openEditDialog(selectedRepo)}>
+                        <Settings className="w-4 h-4 mr-1" />
+                        {t.settings}
+                      </Button>
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={selectedRepo.html_url} target="_blank" rel="noopener noreferrer" className="gap-1">
+                          <ExternalLink className="w-4 h-4" />
+                          {t.viewOnGitHub}
+                        </a>
+                      </Button>
+                    </div>
                   </div>
                   {selectedRepo.description && (
                     <CardDescription>{selectedRepo.description}</CardDescription>
@@ -592,9 +779,9 @@ export default function GitHubManager() {
                                 <p className="text-sm font-medium line-clamp-1">{commit.commit.message}</p>
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                   <span>{commit.commit.author.name}</span>
-                                  <span>•</span>
+                                  <span>-</span>
                                   <span>{formatDate(commit.commit.author.date)}</span>
-                                  <span>•</span>
+                                  <span>-</span>
                                   <code className="text-xs bg-muted px-1 rounded">{commit.sha.substring(0, 7)}</code>
                                 </div>
                               </div>
@@ -610,6 +797,116 @@ export default function GitHubManager() {
           </div>
         </div>
       )}
+
+      {/* Edit Repository Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent dir={isRtl ? "rtl" : "ltr"}>
+          <DialogHeader>
+            <DialogTitle>{t.editRepo}</DialogTitle>
+            <DialogDescription>
+              {isRtl ? "تعديل إعدادات المستودع" : "Edit repository settings"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{t.repoName}</Label>
+              <Input
+                value={editRepo.name}
+                onChange={(e) => setEditRepo({ ...editRepo, name: e.target.value })}
+                data-testid="input-edit-repo-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{t.description}</Label>
+              <Textarea
+                value={editRepo.description}
+                onChange={(e) => setEditRepo({ ...editRepo, description: e.target.value })}
+                data-testid="input-edit-repo-description"
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <Label>{t.visibility}</Label>
+                <p className="text-xs text-muted-foreground">
+                  {editRepo.isPrivate 
+                    ? (isRtl ? "المستودع خاص ومرئي لك فقط" : "Repository is private and only visible to you")
+                    : (isRtl ? "المستودع عام ومرئي للجميع" : "Repository is public and visible to everyone")
+                  }
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">{t.public}</span>
+                <Switch
+                  checked={editRepo.isPrivate}
+                  onCheckedChange={(checked) => setEditRepo({ ...editRepo, isPrivate: checked })}
+                  data-testid="switch-edit-repo-private"
+                />
+                <span className="text-sm text-muted-foreground">{t.private}</span>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              {t.cancel}
+            </Button>
+            <Button
+              onClick={handleSaveEdit}
+              disabled={updateRepoMutation.isPending}
+              data-testid="button-submit-edit-repo"
+            >
+              {updateRepoMutation.isPending && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+              {t.save}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent dir={isRtl ? "rtl" : "ltr"}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="w-5 h-5" />
+              {t.deleteConfirmTitle}
+            </DialogTitle>
+            <DialogDescription>
+              {t.deleteConfirmDesc}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="p-3 bg-destructive/10 rounded-md border border-destructive/20">
+              <p className="text-sm font-medium">{repoToDelete?.full_name}</p>
+            </div>
+            <div className="space-y-2">
+              <Label>{t.confirmDelete}</Label>
+              <Input
+                value={deleteConfirmName}
+                onChange={(e) => setDeleteConfirmName(e.target.value)}
+                placeholder={repoToDelete?.name}
+                data-testid="input-confirm-delete"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowDeleteDialog(false);
+              setDeleteConfirmName("");
+              setRepoToDelete(null);
+            }}>
+              {t.cancel}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteRepo}
+              disabled={deleteConfirmName !== repoToDelete?.name || deleteRepoMutation.isPending}
+              data-testid="button-confirm-delete"
+            >
+              {deleteRepoMutation.isPending && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+              {t.delete}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

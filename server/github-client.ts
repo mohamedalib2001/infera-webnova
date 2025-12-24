@@ -101,3 +101,27 @@ export async function listCommits(owner: string, repo: string, options?: { sha?:
   });
   return data;
 }
+
+export async function deleteRepo(owner: string, repo: string) {
+  const client = await getUncachableGitHubClient();
+  await client.repos.delete({ owner, repo });
+  return { deleted: true };
+}
+
+export async function updateRepo(owner: string, repo: string, options: { 
+  name?: string; 
+  description?: string; 
+  private?: boolean;
+  archived?: boolean;
+}) {
+  const client = await getUncachableGitHubClient();
+  const { data } = await client.repos.update({
+    owner,
+    repo,
+    name: options.name,
+    description: options.description,
+    private: options.private,
+    archived: options.archived
+  });
+  return data;
+}

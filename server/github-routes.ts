@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { getAuthenticatedUser, listUserRepos, getRepo, createRepo, getRepoContents, listBranches, listCommits, getUncachableGitHubClient } from "./github-client";
+import { getAuthenticatedUser, listUserRepos, getRepo, createRepo, getRepoContents, listBranches, listCommits, deleteRepo, updateRepo, getUncachableGitHubClient } from "./github-client";
 
 const router = Router();
 
@@ -99,6 +99,36 @@ router.get("/repos/:owner/:repo/commits", async (req: Request, res: Response) =>
   } catch (error: any) {
     console.error("[GitHub] Error fetching commits:", error.message);
     res.status(500).json({ error: error.message || "Failed to fetch commits" });
+  }
+});
+
+// Delete repository
+router.delete("/repos/:owner/:repo", async (req: Request, res: Response) => {
+  try {
+    const { owner, repo } = req.params;
+    await deleteRepo(owner, repo);
+    res.json({ success: true, message: `Repository ${repo} deleted successfully` });
+  } catch (error: any) {
+    console.error("[GitHub] Error deleting repo:", error.message);
+    res.status(500).json({ error: error.message || "Failed to delete repository" });
+  }
+});
+
+// Update repository (visibility, name, description, archive)
+router.patch("/repos/:owner/:repo", async (req: Request, res: Response) => {
+  try {
+    const { owner, repo } = req.params;
+    const { name, description, isPrivate, archived } = req.body;
+    const updatedRepo = await updateRepo(owner, repo, {
+      name,
+      description,
+      private: isPrivate,
+      archived
+    });
+    res.json({ success: true, repo: updatedRepo });
+  } catch (error: any) {
+    console.error("[GitHub] Error updating repo:", error.message);
+    res.status(500).json({ error: error.message || "Failed to update repository" });
   }
 });
 
