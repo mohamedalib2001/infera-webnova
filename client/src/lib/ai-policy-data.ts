@@ -14,9 +14,9 @@ export const aiPolicyIntro = {
   lastUpdated: "December 2024",
   lastUpdatedAr: "ديسمبر 2024",
   statement: "At INFERA, Artificial Intelligence is not a feature. It is a governed capability operating under sovereign control, accountability, and policy enforcement.",
-  statementAr: "في INFERA، الذكاء الاصطناعي ليس ميزة. إنه قدرة محكومة تعمل تحت السيطرة السيادية والمساءلة وتطبيق السياسات.",
+  statementAr: "في INFERA، لا يُعد الذكاء الاصطناعي ميزة تقنية، بل قدرة محكومة تعمل ضمن أطر السيادة، والمساءلة، والحوكمة الصارمة.",
   description: "This AI Policy defines how AI is designed, used, restricted, and governed across all INFERA platforms.",
-  descriptionAr: "تُحدد سياسة الذكاء الاصطناعي هذه كيفية تصميم واستخدام وتقييد وحوكمة الذكاء الاصطناعي عبر جميع منصات INFERA."
+  descriptionAr: "تحدد هذه السياسة كيفية تصميم واستخدام وتقييد وحوكمة أنظمة الذكاء الاصطناعي عبر جميع منصات INFERA."
 };
 
 export const aiPolicySections: AIPolicySection[] = [
@@ -31,72 +31,72 @@ export const aiPolicySections: AIPolicySection[] = [
       "It does NOT possess autonomous sovereign authority."
     ],
     contentAr: [
-      "جميع أنظمة الذكاء الاصطناعي في INFERA تعمل تحت: السلطة البشرية والسيادية، تطبيق مدقق السياسات الذكي، قواعد حوكمة غير قابلة للتجاوز.",
-      "الذكاء الاصطناعي في INFERA مساعد وتنبؤي وتحليلي.",
-      "لا يمتلك سلطة سيادية مستقلة."
+      "تعمل جميع أنظمة الذكاء الاصطناعي داخل INFERA تحت: السلطة البشرية والسيادية، إنفاذ Policy Validator AI، سياسات غير قابلة للتجاوز.",
+      "يُستخدم الذكاء الاصطناعي للدعم والتحليل والتنبؤ.",
+      "ولا يمتلك أي سلطة سيادية مستقلة."
     ]
   },
   {
     id: "purpose",
     number: 2,
     title: "Purpose of AI Usage",
-    titleAr: "غرض استخدام الذكاء الاصطناعي",
+    titleAr: "أغراض استخدام الذكاء الاصطناعي",
     content: [
       "AI is used exclusively to: Enhance decision-making, Provide predictive insights, Automate approved workflows, Detect risks, anomalies, and patterns, Improve operational efficiency and security.",
       "AI is never used to: Replace legal, governmental, or executive authority, Act outside defined policy scopes, Perform uncontrolled or opaque decision-making."
     ],
     contentAr: [
-      "الذكاء الاصطناعي يُستخدم حصرياً لـ: تعزيز صنع القرار، توفير رؤى تنبؤية، أتمتة سير العمل المعتمد، اكتشاف المخاطر والشذوذ والأنماط، تحسين الكفاءة التشغيلية والأمن.",
-      "الذكاء الاصطناعي لا يُستخدم أبداً لـ: استبدال السلطة القانونية أو الحكومية أو التنفيذية، التصرف خارج نطاقات السياسة المحددة، اتخاذ قرارات غير منضبطة أو غير شفافة."
+      "يُستخدم الذكاء الاصطناعي حصريًا من أجل: دعم اتخاذ القرار، تقديم تحليلات وتوقعات ذكية، أتمتة سير عمل معتمدة، كشف المخاطر والأنماط والشذوذ، تحسين الكفاءة التشغيلية والأمنية.",
+      "ولا يُستخدم الذكاء الاصطناعي من أجل: استبدال القرار البشري أو السيادي، العمل خارج نطاق السياسات المعتمدة، اتخاذ قرارات غير خاضعة للإشراف."
     ]
   },
   {
     id: "transparency",
     number: 3,
     title: "AI Transparency & Explainability",
-    titleAr: "شفافية وقابلية تفسير الذكاء الاصطناعي",
+    titleAr: "الشفافية وقابلية التفسير",
     content: [
       "INFERA enforces: Traceable AI outputs, Logged AI actions and recommendations, Explainable decision support where applicable.",
       "Users and governing authorities retain the right to review AI behavior within authorized scopes."
     ],
     contentAr: [
-      "INFERA تُطبق: مخرجات ذكاء اصطناعي قابلة للتتبع، إجراءات وتوصيات مسجلة، دعم قرار قابل للتفسير حيث ينطبق.",
-      "المستخدمون والسلطات الحاكمة يحتفظون بالحق في مراجعة سلوك الذكاء الاصطناعي ضمن النطاقات المصرح بها."
+      "تلتزم INFERA بما يلي: تتبع مخرجات الذكاء الاصطناعي، تسجيل جميع التوصيات والإجراءات الذكية، تمكين التفسير عند الاقتضاء.",
+      "ويحق للجهات المخوّلة مراجعة سلوك الذكاء الاصطناعي ضمن النطاقات المصرح بها."
     ]
   },
   {
     id: "ethics",
     number: 4,
     title: "AI Data Usage & Ethics",
-    titleAr: "استخدام بيانات وأخلاقيات الذكاء الاصطناعي",
+    titleAr: "البيانات وأخلاقيات الذكاء الاصطناعي",
     content: [
       "AI systems: Use only authorized and governed data, Respect data sovereignty and privacy, Avoid bias amplification where detectable, Do not perform unauthorized learning.",
       "AI training and adaptation are subject to: Policy validation, Data governance rules, Security constraints."
     ],
     contentAr: [
-      "أنظمة الذكاء الاصطناعي: تستخدم فقط البيانات المصرح بها والمحكومة، تحترم سيادة البيانات والخصوصية، تتجنب تضخيم التحيز حيث يمكن اكتشافه، لا تقوم بتعلم غير مصرح به.",
-      "تدريب وتكيف الذكاء الاصطناعي يخضع لـ: التحقق من السياسات، قواعد حوكمة البيانات، قيود الأمن."
+      "تلتزم أنظمة الذكاء الاصطناعي بما يلي: استخدام بيانات مصرح بها فقط، احترام سيادة البيانات والخصوصية، تقليل الانحيازات قدر الإمكان، الامتناع عن التعلم غير المصرح به.",
+      "تخضع عمليات التدريب أو التكيّف للسياسات الأمنية والحوكمية المعتمدة."
     ]
   },
   {
     id: "override",
     number: 5,
     title: "Human Override & Control",
-    titleAr: "التجاوز البشري والتحكم",
+    titleAr: "التحكم البشري وإمكانية التعطيل",
     content: [
       "All AI-generated actions or recommendations: Can be overridden by authorized users, Are subject to access permissions, May be restricted or disabled by governance rules.",
       "AI never overrides: Human decisions, Sovereign authority, Legal or regulatory requirements."
     ],
     contentAr: [
-      "جميع الإجراءات أو التوصيات المولدة بالذكاء الاصطناعي: يمكن تجاوزها من المستخدمين المصرح لهم، تخضع لأذونات الوصول، قد تُقيد أو تُعطل بقواعد الحوكمة.",
-      "الذكاء الاصطناعي لا يتجاوز أبداً: القرارات البشرية، السلطة السيادية، المتطلبات القانونية أو التنظيمية."
+      "جميع مخرجات الذكاء الاصطناعي: قابلة للتجاوز من المستخدمين المخولين، خاضعة للصلاحيات، يمكن تقييدها أو تعطيلها حوكميًا.",
+      "ولا يجوز للذكاء الاصطناعي: تجاوز القرار البشري، تعطيل السلطة السيادية، مخالفة المتطلبات القانونية أو التنظيمية."
     ]
   },
   {
     id: "prohibited",
     number: 6,
     title: "Prohibited AI Uses",
-    titleAr: "الاستخدامات المحظورة للذكاء الاصطناعي",
+    titleAr: "الاستخدامات المحظورة",
     content: [
       "The following uses of AI are strictly prohibited:",
       "Autonomous decision-making without oversight",
@@ -107,41 +107,41 @@ export const aiPolicySections: AIPolicySection[] = [
       "Violations result in immediate enforcement actions."
     ],
     contentAr: [
-      "الاستخدامات التالية للذكاء الاصطناعي محظورة بشكل صارم:",
-      "اتخاذ القرارات المستقلة دون إشراف",
+      "يُحظر حظرًا تامًا استخدام الذكاء الاصطناعي في:",
+      "اتخاذ قرارات مستقلة دون إشراف",
       "المراقبة خارج النطاقات المعتمدة",
       "التلاعب السلوكي",
       "توليد مخرجات غير قانونية أو ضارة",
-      "استخدام الذكاء الاصطناعي لتجاوز ضوابط الحوكمة أو الأمن",
-      "الانتهاكات تؤدي إلى إجراءات تنفيذية فورية."
+      "تجاوز أنظمة الحوكمة أو الأمان",
+      "تؤدي أي مخالفة إلى إجراءات إنفاذ فورية."
     ]
   },
   {
     id: "monitoring",
     number: 7,
     title: "Continuous Monitoring & Evolution",
-    titleAr: "المراقبة والتطور المستمر",
+    titleAr: "المراقبة المستمرة والتطوير",
     content: [
       "AI systems are continuously: Monitored, Audited, Evaluated for risk and performance.",
       "INFERA reserves the right to: Modify AI capabilities, Restrict AI functions, Suspend AI systems to maintain safety and sovereignty."
     ],
     contentAr: [
-      "أنظمة الذكاء الاصطناعي تُراقب باستمرار، تُدقق، تُقيّم للمخاطر والأداء.",
-      "INFERA تحتفظ بالحق في: تعديل قدرات الذكاء الاصطناعي، تقييد وظائف الذكاء الاصطناعي، تعليق أنظمة الذكاء الاصطناعي للحفاظ على السلامة والسيادة."
+      "تخضع أنظمة الذكاء الاصطناعي إلى: مراقبة مستمرة، تدقيق دوري، تقييم مخاطر وأداء منتظم.",
+      "وتحتفظ INFERA بالحق في: تعديل قدرات الذكاء الاصطناعي، تقييد أو تعليق وظائفه حفاظًا على السلامة والسيادة."
     ]
   },
   {
     id: "responsibility",
     number: 8,
     title: "Responsibility & Liability",
-    titleAr: "المسؤولية والمساءلة",
+    titleAr: "المسؤولية",
     content: [
       "AI outputs are provided as decision-support tools.",
       "Final responsibility for actions and decisions remains with the user or governing authority."
     ],
     contentAr: [
-      "مخرجات الذكاء الاصطناعي تُقدم كأدوات دعم قرار.",
-      "المسؤولية النهائية عن الإجراءات والقرارات تبقى مع المستخدم أو السلطة الحاكمة."
+      "تُقدّم مخرجات الذكاء الاصطناعي كأدوات دعم للقرار.",
+      "وتبقى المسؤولية النهائية عن القرارات والإجراءات على عاتق المستخدم أو الجهة الحاكمة."
     ]
   },
   {
@@ -154,8 +154,8 @@ export const aiPolicySections: AIPolicySection[] = [
       "Continued use of INFERA constitutes acceptance of updated AI policies."
     ],
     contentAr: [
-      "قد تُحدث سياسة الذكاء الاصطناعي هذه لتعكس التغييرات التقنية أو التنظيمية أو الحوكمية.",
-      "الاستمرار في استخدام INFERA يشكل قبولاً لسياسات الذكاء الاصطناعي المحدثة."
+      "يجوز تحديث هذه السياسة لمواكبة التطورات التقنية أو التنظيمية.",
+      "ويُعد الاستمرار في استخدام المنصات موافقة صريحة على أي تحديثات."
     ]
   },
   {
@@ -167,14 +167,14 @@ export const aiPolicySections: AIPolicySection[] = [
       "For AI governance inquiries: ai-governance@infera.com"
     ],
     contentAr: [
-      "لاستفسارات حوكمة الذكاء الاصطناعي: ai-governance@infera.com"
+      "للاستفسارات المتعلقة بحوكمة الذكاء الاصطناعي: ai-governance@infera.com"
     ]
   }
 ];
 
 export const aiPolicyClosing = {
   statement: "INFERA AI operates under control, transparency, and sovereign accountability.",
-  statementAr: "ذكاء INFERA الاصطناعي يعمل تحت السيطرة والشفافية والمساءلة السيادية."
+  statementAr: "يعمل الذكاء الاصطناعي في INFERA تحت السيطرة، وبالشفافية، وبالمساءلة السيادية."
 };
 
 export const aiPolicyMeta = {
