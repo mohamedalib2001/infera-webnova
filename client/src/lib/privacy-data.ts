@@ -14,9 +14,9 @@ export const privacyIntro = {
   lastUpdated: "December 2024",
   lastUpdatedAr: "ديسمبر 2024",
   statement: "At INFERA, privacy is not a feature. It is a core principle of sovereignty, control, and trust.",
-  statementAr: "في INFERA، الخصوصية ليست ميزة. إنها مبدأ أساسي للسيادة والتحكم والثقة.",
+  statementAr: "في INFERA، الخصوصية ليست ميزة إضافية، بل مبدأ سيادي أساسي قائم على التحكم والثقة والحوكمة.",
   description: "This Privacy Policy explains how INFERA collects, uses, protects, and governs data across its sovereign AI platforms.",
-  descriptionAr: "توضح سياسة الخصوصية هذه كيف تجمع INFERA وتستخدم وتحمي وتحكم البيانات عبر منصاتها السيادية للذكاء الاصطناعي."
+  descriptionAr: "توضح هذه السياسة كيفية جمع البيانات واستخدامها وحمايتها وإدارتها عبر جميع منصات INFERA المدعومة بالذكاء الاصطناعي."
 };
 
 export const privacySections: PrivacySection[] = [
@@ -31,65 +31,65 @@ export const privacySections: PrivacySection[] = [
       "All data processing is purpose-bound and governance-controlled."
     ],
     contentAr: [
-      "INFERA مبنية على مبدأ أن ملكية البيانات تبقى مع المستخدم أو المنظمة أو السلطة السيادية.",
-      "INFERA لا: تبيع البيانات الشخصية، تسييل البيانات عبر أطراف ثالثة، تستخدم البيانات لأغراض إعلانية.",
-      "جميع معالجة البيانات مرتبطة بالغرض ومحكومة بالحوكمة."
+      "تُبنى INFERA على مبدأ أن ملكية البيانات تعود إلى المستخدم أو المؤسسة أو الجهة السيادية المعنية.",
+      "لا تقوم INFERA بما يلي: بيع البيانات الشخصية، المتاجرة بالبيانات مع أطراف ثالثة، استخدام البيانات لأغراض إعلانية.",
+      "تتم جميع عمليات معالجة البيانات ضمن أغراض محددة وتحت أطر حوكمة صارمة."
     ]
   },
   {
     id: "collection",
     number: 2,
     title: "Data We Collect",
-    titleAr: "البيانات التي نجمعها",
+    titleAr: "أنواع البيانات التي نجمعها",
     content: [
       "Depending on access level and platform usage, INFERA may collect: Identity and access information, System usage and interaction data, Operational and configuration data, Security and audit logs, AI training metadata (non-identifiable by default).",
       "Data collection is always: Minimal, Contextual, Necessary for system operation."
     ],
     contentAr: [
-      "اعتماداً على مستوى الوصول واستخدام المنصة، قد تجمع INFERA: معلومات الهوية والوصول، بيانات استخدام النظام والتفاعل، البيانات التشغيلية والتكوينية، سجلات الأمن والتدقيق، بيانات تدريب الذكاء الاصطناعي الوصفية (غير قابلة للتحديد افتراضياً).",
-      "جمع البيانات دائماً: أقل ما يمكن، سياقي، ضروري لتشغيل النظام."
+      "بحسب مستوى الوصول واستخدام المنصة، قد تقوم INFERA بجمع: بيانات الهوية والتحقق والصلاحيات، بيانات الاستخدام والتفاعل مع النظام، بيانات تشغيلية وإعدادات المنصة، سجلات الأمان والتدقيق، بيانات وصفية لتدريب الذكاء الاصطناعي (غير مُعرِّفة بالهوية افتراضيًا).",
+      "يتم جمع البيانات دائمًا بشكل: محدود، مرتبط بالغرض، ضروري لتشغيل النظام."
     ]
   },
   {
     id: "usage",
     number: 3,
     title: "How Data Is Used",
-    titleAr: "كيف تُستخدم البيانات",
+    titleAr: "كيفية استخدام البيانات",
     content: [
       "Data is used exclusively to: Operate and secure the platform, Enforce governance and policies, Improve system intelligence, Generate analytics and insights, Maintain auditability and compliance.",
       "AI systems operate within strict policy boundaries and do not act outside authorized scopes."
     ],
     contentAr: [
-      "البيانات تُستخدم حصرياً لـ: تشغيل وتأمين المنصة، تطبيق الحوكمة والسياسات، تحسين ذكاء النظام، توليد التحليلات والرؤى، الحفاظ على قابلية التدقيق والامتثال.",
-      "أنظمة الذكاء الاصطناعي تعمل ضمن حدود سياسات صارمة ولا تتصرف خارج النطاقات المصرح بها."
+      "تُستخدم البيانات حصريًا من أجل: تشغيل المنصات وتأمينها، فرض السياسات والحوكمة، تحسين الذكاء والتحليلات، توليد التقارير والرؤى، ضمان التتبع والتدقيق والامتثال.",
+      "تعمل أنظمة الذكاء الاصطناعي ضمن حدود سياسات معتمدة ولا تتجاوز الصلاحيات الممنوحة."
     ]
   },
   {
     id: "security",
     number: 4,
     title: "Data Security & Protection",
-    titleAr: "أمن وحماية البيانات",
+    titleAr: "حماية البيانات وأمنها",
     content: [
       "INFERA applies sovereign-grade security measures, including: End-to-end encryption, Zero-Trust architecture, Continuous monitoring, Automated threat detection, Access-based data segmentation.",
       "All data access is logged, auditable, and subject to governance review."
     ],
     contentAr: [
-      "INFERA تطبق إجراءات أمنية بمستوى سيادي، تشمل: التشفير من طرف إلى طرف، هندسة الثقة الصفرية، المراقبة المستمرة، الكشف الآلي عن التهديدات، تقسيم البيانات القائم على الوصول.",
-      "جميع عمليات الوصول للبيانات مسجلة وقابلة للتدقيق وتخضع لمراجعة الحوكمة."
+      "تطبّق INFERA إجراءات أمان سيادية تشمل: تشفير شامل للبيانات، بنية عدم الثقة (Zero-Trust)، مراقبة مستمرة، كشف تهديدات تلقائي، تقسيم البيانات حسب الصلاحيات.",
+      "يتم تسجيل جميع عمليات الوصول وهي قابلة للتدقيق والمراجعة الحوكمية."
     ]
   },
   {
     id: "residency",
     number: 5,
     title: "Data Residency & Localization",
-    titleAr: "إقامة البيانات والتوطين",
+    titleAr: "توطين البيانات ونطاقها الجغرافي",
     content: [
       "Where required, INFERA supports: Data residency controls, Local or national data storage, Jurisdiction-specific governance rules.",
       "INFERA does not transfer data across borders without authorization."
     ],
     contentAr: [
-      "حيث يُتطلب، تدعم INFERA: ضوابط إقامة البيانات، التخزين المحلي أو الوطني للبيانات، قواعد الحوكمة الخاصة بالولاية القضائية.",
-      "INFERA لا تنقل البيانات عبر الحدود دون تفويض."
+      "عند الاقتضاء، تدعم INFERA: توطين البيانات محليًا أو وطنيًا، تخزين البيانات ضمن نطاقات محددة، تطبيق قواعد اختصاص قضائي مخصصة.",
+      "ولا يتم نقل البيانات عبر الحدود دون تفويض صريح ومُوثّق."
     ]
   },
   {
@@ -102,8 +102,8 @@ export const privacySections: PrivacySection[] = [
       "Any authorized sharing is logged and governed."
     ],
     contentAr: [
-      "INFERA لا تشارك البيانات مع أطراف ثالثة إلا عندما: مصرح به صراحة من المستخدم أو السلطة، مطلوب بموجب القانون المعمول به، ضروري لحماية سلامة النظام.",
-      "أي مشاركة مصرح بها مسجلة ومحكومة."
+      "لا تشارك INFERA البيانات مع أطراف ثالثة إلا في الحالات التالية: وجود تفويض صريح من الجهة المالكة للبيانات، الالتزام بمتطلبات قانونية ملزمة، حماية سلامة النظام أو الأمن العام.",
+      "تخضع أي مشاركة مصرح بها للتسجيل والحوكمة الكاملة."
     ]
   },
   {
@@ -116,22 +116,22 @@ export const privacySections: PrivacySection[] = [
       "All requests are subject to security and governance validation."
     ],
     contentAr: [
-      "اعتماداً على الولاية القضائية ونموذج الحوكمة، قد يكون للمستخدمين أو السلطات الحق في: الوصول إلى بياناتهم، تصحيح الأخطاء، طلب الحذف أو التقييد، مراجعة سجلات الوصول.",
-      "جميع الطلبات تخضع للتحقق من الأمن والحوكمة."
+      "وفقًا للاختصاص القضائي ونموذج الحوكمة، قد يحق للمستخدم أو الجهة المعنية: الوصول إلى بياناته، تصحيح الأخطاء، طلب التقييد أو الحذف، مراجعة سجلات الوصول.",
+      "تخضع جميع الطلبات للتحقق الأمني والحوكمة المعتمدة."
     ]
   },
   {
     id: "ai-usage",
     number: 8,
     title: "AI & Data Usage",
-    titleAr: "الذكاء الاصطناعي واستخدام البيانات",
+    titleAr: "استخدام البيانات في الذكاء الاصطناعي",
     content: [
       "AI models may analyze data to provide intelligence and automation.",
       "AI systems: Do not make sovereign decisions, Do not override human authority, Operate under Policy Validator AI enforcement."
     ],
     contentAr: [
-      "نماذج الذكاء الاصطناعي قد تحلل البيانات لتوفير الذكاء والأتمتة.",
-      "أنظمة الذكاء الاصطناعي: لا تتخذ قرارات سيادية، لا تتجاوز السلطة البشرية، تعمل تحت تطبيق مدقق السياسات الذكي."
+      "قد تقوم أنظمة الذكاء الاصطناعي بتحليل البيانات لتقديم دعم القرار والأتمتة.",
+      "وتلتزم هذه الأنظمة بما يلي: عدم اتخاذ قرارات سيادية، عدم تجاوز السلطة البشرية، الالتزام الصارم بسياسات الحوكمة."
     ]
   },
   {
@@ -144,8 +144,8 @@ export const privacySections: PrivacySection[] = [
       "Retention policies are configurable based on organizational or sovereign requirements."
     ],
     contentAr: [
-      "البيانات تُحتفظ فقط لـ: الضرورة التشغيلية، المتطلبات القانونية أو التنظيمية، أغراض الحوكمة والتدقيق.",
-      "سياسات الاحتفاظ قابلة للتكوين بناءً على المتطلبات التنظيمية أو السيادية."
+      "يتم الاحتفاظ بالبيانات فقط للمدة اللازمة من أجل: التشغيل، المتطلبات القانونية والتنظيمية، أغراض التدقيق والحوكمة.",
+      "تُعد سياسات الاحتفاظ قابلة للتخصيص وفق متطلبات الجهات السيادية أو المؤسسية."
     ]
   },
   {
@@ -158,8 +158,8 @@ export const privacySections: PrivacySection[] = [
       "Continued use of INFERA constitutes acceptance of updates."
     ],
     contentAr: [
-      "قد تُحدث سياسة الخصوصية هذه لتعكس تطور النظام أو التغييرات التنظيمية.",
-      "الاستمرار في استخدام INFERA يشكل قبولاً للتحديثات."
+      "يجوز لـ INFERA تحديث هذه السياسة لمواكبة التطورات التقنية أو التنظيمية.",
+      "ويُعد الاستمرار في استخدام المنصات موافقة صريحة على التحديثات."
     ]
   },
   {
@@ -178,7 +178,7 @@ export const privacySections: PrivacySection[] = [
 
 export const privacyClosing = {
   statement: "INFERA protects privacy by design, by governance, and by sovereign control.",
-  statementAr: "INFERA تحمي الخصوصية بالتصميم، بالحوكمة، وبالتحكم السيادي."
+  statementAr: "تحمي INFERA الخصوصية بالتصميم، وبالحوكمة، وبالسيادة الرقمية."
 };
 
 export const privacyMeta = {
