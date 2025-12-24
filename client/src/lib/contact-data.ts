@@ -10,7 +10,7 @@ export interface ContactChannel {
 
 export const contactIntro = {
   statement: "INFERA operates under a controlled access and governance model. All communications are handled through official, validated, and purpose-specific channels.",
-  statementAr: "INFERA تعمل تحت نموذج وصول وحوكمة مُتحكم به. جميع الاتصالات تُعالج عبر قنوات رسمية ومُصادق عليها ومخصصة للغرض."
+  statementAr: "تعمل INFERA وفق نموذج تواصل خاضع للحوكمة والوصول المصرّح به فقط. تتم معالجة جميع الاتصالات من خلال قنوات رسمية ومعتمدة وبحسب الأولوية والاختصاص."
 };
 
 export const contactChannels: ContactChannel[] = [
@@ -41,58 +41,58 @@ export const contactChannels: ContactChannel[] = [
   {
     id: "billing",
     title: "Billing & Financial Matters",
-    titleAr: "الفواتير والشؤون المالية",
+    titleAr: "الشؤون المالية والفوترة",
     email: "billing@infera.com"
   }
 ];
 
 export const accessPolicy = {
-  title: "Access & Response Policy",
-  titleAr: "سياسة الوصول والاستجابة",
+  title: "Response Policy",
+  titleAr: "سياسة الاستجابة",
   items: [
-    { text: "All inquiries are logged and reviewed.", textAr: "جميع الاستفسارات مُسجلة ومُراجعة." },
-    { text: "Responses are provided based on relevance, authorization, and governance priority.", textAr: "الردود تُقدم بناءً على الصلة والتفويض وأولوية الحوكمة." },
-    { text: "Not all inquiries receive a response.", textAr: "ليس كل الاستفسارات تتلقى رداً." },
-    { text: "Unverified, unsolicited, or non-aligned requests may be ignored without notice.", textAr: "الطلبات غير المتحقق منها أو غير المطلوبة أو غير المتوافقة قد تُتجاهل دون إشعار." }
+    { text: "All inquiries are logged and reviewed.", textAr: "يتم تسجيل جميع المراسلات ومراجعتها." },
+    { text: "Responses are provided based on relevance, authorization, and governance priority.", textAr: "تُقدّم الردود بناءً على الصلة، ومستوى التفويض، وأولوية الحوكمة." },
+    { text: "Not all inquiries receive a response.", textAr: "لا تلتزم INFERA بالرد على جميع الطلبات." },
+    { text: "Unverified, unsolicited, or non-aligned requests may be ignored without notice.", textAr: "قد يتم تجاهل الطلبات غير المصرّح بها أو غير المتوافقة مع توجه المنظومة دون إشعار مسبق." }
   ]
 };
 
 export const securityNotice = {
   title: "Security Notice",
-  titleAr: "إشعار أمني",
+  titleAr: "تنبيه أمني",
   warning: "Do NOT submit:",
-  warningAr: "لا تُرسل:",
+  warningAr: "يُحظر إرسال:",
   items: [
     { text: "Sensitive personal data", textAr: "بيانات شخصية حساسة" },
-    { text: "Credentials or access keys", textAr: "بيانات اعتماد أو مفاتيح وصول" },
-    { text: "Confidential government information", textAr: "معلومات حكومية سرية" }
+    { text: "Credentials or access keys", textAr: "بيانات دخول أو مفاتيح وصول" },
+    { text: "Confidential government information", textAr: "معلومات حكومية أو سيادية سرية" }
   ],
   note: "INFERA will never request such information through unsolicited communication.",
-  noteAr: "INFERA لن تطلب مثل هذه المعلومات عبر اتصال غير مطلوب."
+  noteAr: "لن تطلب INFERA هذه المعلومات عبر أي تواصل غير مُبادَر به رسميًا."
 };
 
 export const governanceNotice = {
   title: "Governance Notice",
-  titleAr: "إشعار الحوكمة",
+  titleAr: "تنويه حوكمي",
   intro: "Contacting INFERA does not:",
-  introAr: "التواصل مع INFERA لا:",
+  introAr: "إن التواصل مع INFERA لا يعني:",
   items: [
-    { text: "Grant access to platforms", textAr: "يمنح الوصول للمنصات" },
-    { text: "Create contractual obligations", textAr: "ينشئ التزامات تعاقدية" },
-    { text: "Guarantee partnership or engagement", textAr: "يضمن شراكة أو تعامل" }
+    { text: "Grant access to platforms", textAr: "منح حق الوصول إلى أي منصة" },
+    { text: "Create contractual obligations", textAr: "إنشاء التزام تعاقدي" },
+    { text: "Guarantee partnership or engagement", textAr: "ضمان شراكة أو تعاون" }
   ],
   note: "All access and engagement require formal approval.",
-  noteAr: "جميع عمليات الوصول والتعامل تتطلب موافقة رسمية."
+  noteAr: "يخضع أي تعامل لموافقات رسمية وإجراءات معتمدة."
 };
 
 export const contactClosing = {
   statement: "INFERA communicates deliberately, securely, and with purpose.",
-  statementAr: "INFERA تتواصل بشكل متعمد وآمن وهادف."
+  statementAr: "تتواصل INFERA بهدوء، وبأمان، وبغرض واضح فقط."
 };
 
 export const contactMeta = {
   title: "Contact Us",
-  titleAr: "اتصل بنا",
+  titleAr: "تواصل معنا",
   subtitle: "Official Contact Channels",
   subtitleAr: "قنوات التواصل الرسمية"
 };
