@@ -1217,6 +1217,87 @@ router.post("/policies/pre-deploy-check", requireAuth, requireWorkspaceAccess, a
   }
 });
 
+// Get compliance dashboard data for a platform
+router.get("/policies/compliance-dashboard/:platformId", requireAuth, requireWorkspaceAccess, async (req, res) => {
+  try {
+    const { platformId } = req.params;
+    
+    const [latestCompliance] = await db.select()
+      .from(sovereignPolicyCompliance)
+      .where(eq(sovereignPolicyCompliance.projectId, platformId))
+      .orderBy(desc(sovereignPolicyCompliance.createdAt))
+      .limit(1);
+    
+    const violations = await db.select()
+      .from(sovereignPolicyViolations)
+      .where(and(
+        eq(sovereignPolicyViolations.projectId, platformId),
+        eq(sovereignPolicyViolations.status, "open")
+      ))
+      .orderBy(desc(sovereignPolicyViolations.detectedAt));
+    
+    const complianceHistory = await db.select()
+      .from(sovereignPolicyCompliance)
+      .where(eq(sovereignPolicyCompliance.projectId, platformId))
+      .orderBy(desc(sovereignPolicyCompliance.createdAt))
+      .limit(10);
+    
+    const decisionLabels: Record<string, { en: string; ar: string; color: string }> = {
+      approved: { en: "Approved", ar: "معتمد", color: "green" },
+      conditional: { en: "Conditional", ar: "مشروط", color: "yellow" },
+      rejected: { en: "Rejected", ar: "مرفوض", color: "red" },
+      blocked: { en: "Blocked", ar: "محظور", color: "red" },
+      pending: { en: "Pending", ar: "قيد الانتظار", color: "gray" },
+    };
+    
+    res.json({
+      current: latestCompliance ? {
+        complianceScore: latestCompliance.complianceScore || 0,
+        decisionStatus: latestCompliance.decisionStatus || "pending",
+        decisionLabel: decisionLabels[latestCompliance.decisionStatus || "pending"],
+        riskIndex: latestCompliance.riskIndex || 0,
+        evolutionReadiness: latestCompliance.evolutionReadiness || 0,
+        categoryScores: latestCompliance.categoryScores || {},
+        aiAnalysis: latestCompliance.aiAnalysis,
+        lastCheckAt: latestCompliance.lastCheckAt,
+        lastCheckType: latestCompliance.lastCheckType,
+        canDeploy: latestCompliance.decisionStatus === "approved" || latestCompliance.decisionStatus === "conditional",
+      } : null,
+      openViolations: violations.map(v => ({
+        id: v.id,
+        title: v.title,
+        titleAr: v.titleAr,
+        severity: v.severity,
+        category: v.policyCategory,
+        description: v.description,
+        descriptionAr: v.descriptionAr,
+        detectedAt: v.detectedAt,
+      })),
+      history: complianceHistory.map(h => ({
+        id: h.id,
+        score: h.complianceScore,
+        status: h.decisionStatus,
+        checkedAt: h.lastCheckAt,
+        checkType: h.lastCheckType,
+      })),
+      summary: {
+        totalChecks: complianceHistory.length,
+        latestScore: latestCompliance?.complianceScore || 0,
+        avgScore: complianceHistory.length > 0
+          ? Math.round(complianceHistory.reduce((sum, c) => sum + (c.complianceScore || 0), 0) / complianceHistory.length)
+          : 0,
+        openViolationCount: violations.length,
+        trend: complianceHistory.length >= 2 
+          ? (complianceHistory[0].complianceScore || 0) >= (complianceHistory[1].complianceScore || 0) ? "improving" : "declining"
+          : "stable",
+      },
+    });
+  } catch (error) {
+    console.error("[ComplianceDashboard] Error:", error);
+    res.status(500).json({ error: "Failed to get compliance dashboard" });
+  }
+});
+
 // Get validation history for a platform
 router.get("/policies/validation-history/:platformId", requireAuth, requireWorkspaceAccess, async (req, res) => {
   try {

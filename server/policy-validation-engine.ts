@@ -14,6 +14,8 @@ export interface PolicyRule {
   status: string;
 }
 
+export type DecisionStatus = "approved" | "conditional" | "rejected" | "blocked" | "pending";
+
 export interface PolicyValidationResult {
   isCompliant: boolean;
   overallScore: number;
@@ -24,6 +26,18 @@ export interface PolicyValidationResult {
   timestamp: Date;
   canDeploy: boolean;
   blockingViolations: PolicyViolation[];
+  decisionStatus: DecisionStatus;
+  riskIndex: number;
+  evolutionReadiness: number;
+  categoryBreakdown: {
+    architecture: { score: number; status: string; checkedItems: number; totalItems: number };
+    aiIntelligence: { score: number; status: string; checkedItems: number; totalItems: number };
+    cyberSecurity: { score: number; status: string; checkedItems: number; totalItems: number };
+    dynamics: { score: number; status: string; checkedItems: number; totalItems: number };
+    policyCoverage: { score: number; status: string; checkedItems: number; totalItems: number };
+  };
+  recommendations: string[];
+  recommendationsAr: string[];
 }
 
 export interface PolicyViolation {
@@ -146,7 +160,14 @@ export class PolicyValidationEngine {
     const blockingViolations = violations.filter(v => v.isBlocking);
     const overallScore = totalChecks > 0 ? Math.round((passedChecks / totalChecks) * 100) : 100;
     const isCompliant = blockingViolations.length === 0;
-    const canDeploy = isCompliant;
+    
+    const decisionStatus = this.calculateDecisionStatus(overallScore, blockingViolations.length);
+    const canDeploy = decisionStatus === "approved" || decisionStatus === "conditional";
+    
+    const riskIndex = this.calculateRiskIndex(violations, context);
+    const evolutionReadiness = this.calculateEvolutionReadiness(context);
+    const categoryBreakdown = this.calculateCategoryBreakdown(violations, context);
+    const { recommendations, recommendationsAr } = this.generateRecommendations(violations, decisionStatus);
 
     return {
       isCompliant,
@@ -158,7 +179,142 @@ export class PolicyValidationEngine {
       timestamp: new Date(),
       canDeploy,
       blockingViolations,
+      decisionStatus,
+      riskIndex,
+      evolutionReadiness,
+      categoryBreakdown,
+      recommendations,
+      recommendationsAr,
     };
+  }
+
+  private calculateDecisionStatus(score: number, blockingCount: number): DecisionStatus {
+    if (blockingCount > 0) {
+      return score < 70 ? "blocked" : "rejected";
+    }
+    if (score >= 95) return "approved";
+    if (score >= 85) return "conditional";
+    if (score >= 70) return "rejected";
+    return "blocked";
+  }
+
+  private calculateRiskIndex(violations: PolicyViolation[], context: PlatformContext): number {
+    let riskScore = 0;
+    
+    for (const v of violations) {
+      switch (v.severity) {
+        case "critical": riskScore += 25; break;
+        case "high": riskScore += 15; break;
+        case "medium": riskScore += 8; break;
+        case "low": riskScore += 3; break;
+      }
+    }
+    
+    if (!context.hasZeroTrust) riskScore += 10;
+    if (!context.hasE2EEncryption) riskScore += 10;
+    if (!context.hasThreatDetection) riskScore += 5;
+    if (context.hasVendorLockIn) riskScore += 5;
+    
+    return Math.min(100, riskScore);
+  }
+
+  private calculateEvolutionReadiness(context: PlatformContext): number {
+    let score = 0;
+    const weights = {
+      isModular: 20,
+      hasLiveScaling: 20,
+      hasZeroDowntime: 15,
+      isForwardCompatible: 15,
+      hasAICore: 10,
+      hasPredictiveModule: 10,
+      hasRedundancy: 10,
+    };
+    
+    if (context.isModular) score += weights.isModular;
+    if (context.hasLiveScaling) score += weights.hasLiveScaling;
+    if (context.hasZeroDowntime) score += weights.hasZeroDowntime;
+    if (context.isForwardCompatible) score += weights.isForwardCompatible;
+    if (context.hasAICore) score += weights.hasAICore;
+    if (context.hasPredictiveModule) score += weights.hasPredictiveModule;
+    if (context.hasRedundancy) score += weights.hasRedundancy;
+    
+    return score;
+  }
+
+  private calculateCategoryBreakdown(violations: PolicyViolation[], context: PlatformContext): {
+    architecture: { score: number; status: string; checkedItems: number; totalItems: number };
+    aiIntelligence: { score: number; status: string; checkedItems: number; totalItems: number };
+    cyberSecurity: { score: number; status: string; checkedItems: number; totalItems: number };
+    dynamics: { score: number; status: string; checkedItems: number; totalItems: number };
+    policyCoverage: { score: number; status: string; checkedItems: number; totalItems: number };
+  } {
+    const categories = {
+      architecture: { score: 100, status: "compliant", checkedItems: 0, totalItems: 3 },
+      aiIntelligence: { score: 100, status: "compliant", checkedItems: 0, totalItems: 4 },
+      cyberSecurity: { score: 100, status: "compliant", checkedItems: 0, totalItems: 5 },
+      dynamics: { score: 100, status: "compliant", checkedItems: 0, totalItems: 3 },
+      policyCoverage: { score: 100, status: "compliant", checkedItems: 0, totalItems: 3 },
+    };
+
+    if (context.isModular) categories.architecture.checkedItems++;
+    if (!context.hasVendorLockIn) categories.architecture.checkedItems++;
+    if (context.hasRedundancy) categories.architecture.checkedItems++;
+    
+    if (context.hasAICore) categories.aiIntelligence.checkedItems++;
+    if (context.hasAIAssistant) categories.aiIntelligence.checkedItems++;
+    if (context.hasPredictiveModule) categories.aiIntelligence.checkedItems++;
+    if (context.hasBehavioralAnalytics) categories.aiIntelligence.checkedItems++;
+    
+    if (context.hasZeroTrust) categories.cyberSecurity.checkedItems++;
+    if (context.hasE2EEncryption) categories.cyberSecurity.checkedItems++;
+    if (context.hasThreatDetection) categories.cyberSecurity.checkedItems++;
+    if (context.hasAutoResponse) categories.cyberSecurity.checkedItems++;
+    if (!context.hasManualOps) categories.cyberSecurity.checkedItems++;
+    
+    if (context.hasLiveScaling) categories.dynamics.checkedItems++;
+    if (context.hasZeroDowntime) categories.dynamics.checkedItems++;
+    if (context.isForwardCompatible) categories.dynamics.checkedItems++;
+    
+    if (!context.hasCRUDOnly) categories.policyCoverage.checkedItems++;
+    if (!context.hasStaticDashboard) categories.policyCoverage.checkedItems++;
+    if (!context.hasHardLimits) categories.policyCoverage.checkedItems++;
+
+    for (const key of Object.keys(categories) as Array<keyof typeof categories>) {
+      categories[key].score = Math.round((categories[key].checkedItems / categories[key].totalItems) * 100);
+      categories[key].status = categories[key].checkedItems === categories[key].totalItems ? "compliant" : 
+        categories[key].checkedItems >= categories[key].totalItems / 2 ? "partial" : "non_compliant";
+    }
+
+    return categories;
+  }
+
+  private generateRecommendations(violations: PolicyViolation[], status: DecisionStatus): { recommendations: string[]; recommendationsAr: string[] } {
+    const recommendations: string[] = [];
+    const recommendationsAr: string[] = [];
+
+    if (status === "blocked") {
+      recommendations.push("Platform has critical policy violations that must be resolved before deployment");
+      recommendationsAr.push("المنصة لديها مخالفات سياسات حرجة يجب حلها قبل النشر");
+    }
+
+    for (const v of violations.slice(0, 5)) {
+      if (v.severity === "critical" || v.severity === "high") {
+        recommendations.push(`Fix: ${v.ruleName} - ${v.description}`);
+        recommendationsAr.push(`إصلاح: ${v.ruleNameAr} - ${v.descriptionAr}`);
+      }
+    }
+
+    if (status === "conditional") {
+      recommendations.push("Review all medium-severity warnings before production release");
+      recommendationsAr.push("مراجعة جميع التحذيرات متوسطة الخطورة قبل الإطلاق للإنتاج");
+    }
+
+    if (status === "approved") {
+      recommendations.push("Platform meets all sovereign policy requirements");
+      recommendationsAr.push("المنصة تستوفي جميع متطلبات السياسات السيادية");
+    }
+
+    return { recommendations, recommendationsAr };
   }
 
   private validateRule(
@@ -393,33 +549,12 @@ export class PolicyValidationEngine {
       const overallStatus = result.isCompliant ? "compliant" : 
         result.overallScore >= 70 ? "partial" : "non_compliant";
       
-      const aiViolations = result.violations.filter(v => v.policyName.includes("AI") || v.ruleId.startsWith("ai-"));
-      const securityViolations = result.violations.filter(v => v.policyName.includes("Security") || v.ruleId.includes("trust") || v.ruleId.includes("encrypt") || v.ruleId.includes("threat"));
-      const scalabilityViolations = result.violations.filter(v => v.policyName.includes("Scalability") || v.ruleId.includes("modular") || v.ruleId.includes("limit"));
-      
-      const aiChecks = 4;
-      const securityChecks = 5;
-      const scalabilityChecks = 5;
-      
       const categoryScores = {
-        ai_intelligence: { 
-          score: Math.max(0, 100 - (aiViolations.length * 25)), 
-          status: aiViolations.length === 0 ? "compliant" : "non_compliant", 
-          checkedItems: aiChecks - aiViolations.length, 
-          totalItems: aiChecks 
-        },
-        cyber_security: { 
-          score: Math.max(0, 100 - (securityViolations.length * 20)), 
-          status: securityViolations.length === 0 ? "compliant" : "non_compliant", 
-          checkedItems: securityChecks - securityViolations.length, 
-          totalItems: securityChecks 
-        },
-        scalability: { 
-          score: Math.max(0, 100 - (scalabilityViolations.length * 20)), 
-          status: scalabilityViolations.length === 0 ? "compliant" : "non_compliant", 
-          checkedItems: scalabilityChecks - scalabilityViolations.length, 
-          totalItems: scalabilityChecks 
-        },
+        architecture: result.categoryBreakdown.architecture,
+        aiIntelligence: result.categoryBreakdown.aiIntelligence,
+        cyberSecurity: result.categoryBreakdown.cyberSecurity,
+        dynamics: result.categoryBreakdown.dynamics,
+        policyCoverage: result.categoryBreakdown.policyCoverage,
       };
       
       const [complianceRecord] = await db.insert(sovereignPolicyCompliance).values({
@@ -428,10 +563,20 @@ export class PolicyValidationEngine {
         policyVersion: "2.0",
         overallStatus,
         complianceScore: result.overallScore,
+        decisionStatus: result.decisionStatus,
+        riskIndex: result.riskIndex,
+        evolutionReadiness: result.evolutionReadiness,
         categoryScores,
         lastCheckAt: new Date(),
         lastCheckBy: userId,
-        lastCheckType: "auto",
+        lastCheckType: "ai",
+        aiAnalysis: {
+          summary: result.recommendations[0] || "No summary",
+          summaryAr: result.recommendationsAr[0] || "لا ملخص",
+          recommendations: result.recommendations,
+          riskLevel: result.riskIndex > 50 ? "high" : result.riskIndex > 25 ? "medium" : "low",
+          estimatedFixTime: result.violations.length > 3 ? "2-4 hours" : result.violations.length > 0 ? "30-60 minutes" : "None",
+        },
       }).returning();
 
       for (const violation of result.violations) {

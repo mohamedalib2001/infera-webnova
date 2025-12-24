@@ -16220,6 +16220,11 @@ export const sovereignPolicyCompliance = pgTable("sovereign_policy_compliance", 
   overallStatus: text("overall_status").notNull().default("pending_review"), // compliant, partial, non_compliant, pending_review
   complianceScore: integer("compliance_score").default(0), // 0-100
   
+  // Decision Matrix (Policy Validator AI)
+  decisionStatus: text("decision_status").notNull().default("pending"), // approved, conditional, rejected, blocked, pending
+  riskIndex: integer("risk_index").default(0), // 0-100 (lower is better)
+  evolutionReadiness: integer("evolution_readiness").default(0), // 0-100
+  
   // Category scores
   categoryScores: jsonb("category_scores").$type<Record<string, {
     score: number;
