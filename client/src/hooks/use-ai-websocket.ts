@@ -146,29 +146,34 @@ export function useAIWebSocket(autoConnect: boolean = true): UseAIWebSocketRetur
   }, []);
 
   const connect = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+    console.log("[AI WebSocket] Connect called, current state:", wsRef.current?.readyState);
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      console.log("[AI WebSocket] Already connected, skipping");
+      return;
+    }
     
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}/ws/ai`;
+    console.log("[AI WebSocket] Connecting to:", wsUrl);
     
     try {
       wsRef.current = new WebSocket(wsUrl);
       
       wsRef.current.onopen = () => {
         setState(prev => ({ ...prev, isConnected: true, error: null }));
-        console.log("[AI WebSocket] Connected");
+        console.log("[AI WebSocket] Connected successfully!");
       };
       
       wsRef.current.onmessage = handleMessage;
       
-      wsRef.current.onclose = () => {
+      wsRef.current.onclose = (event) => {
         setState(prev => ({ 
           ...prev, 
           isConnected: false, 
           isAuthenticated: false,
           connectionId: null,
         }));
-        console.log("[AI WebSocket] Disconnected");
+        console.log("[AI WebSocket] Disconnected, code:", event.code, "reason:", event.reason);
         // Auto-reconnect after 3 seconds
         setTimeout(() => {
           if (autoConnect) connect();
@@ -275,11 +280,13 @@ export function useAIWebSocket(autoConnect: boolean = true): UseAIWebSocketRetur
 
   // Connect on mount if autoConnect is true
   useEffect(() => {
+    console.log("[AI WebSocket] useEffect triggered, autoConnect:", autoConnect);
     if (autoConnect) {
       connect();
     }
     
     return () => {
+      console.log("[AI WebSocket] Cleanup, closing connection");
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;

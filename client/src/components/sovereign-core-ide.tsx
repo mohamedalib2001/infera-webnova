@@ -66,6 +66,24 @@ import {
   Braces,
   FileJson,
   Hash,
+  Rocket,
+  GitBranch,
+  Cloud,
+  Server,
+  Gauge,
+  TrendingUp,
+  Bell,
+  Crown,
+  Wand2,
+  Target,
+  Lightbulb,
+  BarChart3,
+  Globe,
+  Key,
+  FileSearch,
+  TestTube,
+  Layers,
+  Workflow,
 } from "lucide-react";
 
 interface SovereignConversation {
@@ -102,8 +120,8 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
   const { isRtl } = useLanguage();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  // WebSocket AI connection for fast streaming responses
-  const aiWs = useAIWebSocket(isOwner);
+  // WebSocket AI connection for fast streaming responses (always auto-connect)
+  const aiWs = useAIWebSocket(true);
   
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState("");
@@ -756,41 +774,24 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
         )}
 
         <ResizablePanel defaultSize={showSidebar && showRightPanel ? 54 : showSidebar || showRightPanel ? 72 : 100}>
-          <ResizablePanelGroup direction="vertical">
-            <ResizablePanel defaultSize={showBottomPanel ? 70 : 100}>
+          <ResizablePanelGroup direction="horizontal" className="h-full">
+            <ResizablePanel defaultSize={50} minSize={30}>
               <div className="h-full flex flex-col">
-                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="flex-1 flex flex-col">
-                  <div className="border-b px-2">
-                    <TabsList className="h-9 bg-transparent">
-                      <TabsTrigger value="chat" className="text-xs data-[state=active]:bg-violet-500/20" data-testid="tab-chat">
-                        <MessageSquare className="h-4 w-4 mr-1" />
-                        {text.chat}
-                      </TabsTrigger>
-                      <TabsTrigger value="code" className="text-xs data-[state=active]:bg-violet-500/20" data-testid="tab-code">
-                        <Code2 className="h-4 w-4 mr-1" />
-                        {text.code}
-                      </TabsTrigger>
-                      <TabsTrigger value="preview" className="text-xs data-[state=active]:bg-violet-500/20" data-testid="tab-preview">
-                        <Eye className="h-4 w-4 mr-1" />
-                        {text.preview}
-                      </TabsTrigger>
-                    </TabsList>
-                  </div>
-
-                  <TabsContent value="chat" className="flex-1 flex flex-col m-0 overflow-hidden">
-                    {/* AI Connection Status */}
-                    <div className="flex items-center gap-2 px-3 py-1 border-b text-xs">
-                      <div className={`w-2 h-2 rounded-full ${aiWs.isConnected && aiWs.isAuthenticated ? "bg-green-500" : aiWs.isConnected ? "bg-yellow-500" : "bg-red-500"}`} />
-                      <span className="text-muted-foreground">
-                        {aiWs.isConnected && aiWs.isAuthenticated 
-                          ? (isRtl ? "متصل بالذكاء الاصطناعي (بث مباشر)" : "AI Connected (Streaming)")
-                          : aiWs.isConnected 
-                          ? (isRtl ? "جاري المصادقة..." : "Authenticating...")
-                          : (isRtl ? "جاري الاتصال..." : "Connecting...")}
-                      </span>
-                      {aiWs.isProcessing && <Loader2 className="h-3 w-3 animate-spin text-violet-400" />}
-                    </div>
-                    <ScrollArea className="flex-1 p-4">
+                <div className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/30">
+                  <MessageSquare className="h-4 w-4 text-violet-400" />
+                  <span className="text-xs font-medium">{text.chat}</span>
+                  <div className="flex-1" />
+                  <div className={`w-2 h-2 rounded-full ${aiWs.isConnected && aiWs.isAuthenticated ? "bg-green-500" : aiWs.isConnected ? "bg-yellow-500" : "bg-red-500"}`} />
+                  <span className="text-xs text-muted-foreground">
+                    {aiWs.isConnected && aiWs.isAuthenticated 
+                      ? (isRtl ? "متصل" : "Connected")
+                      : aiWs.isConnected 
+                      ? (isRtl ? "مصادقة..." : "Auth...")
+                      : (isRtl ? "اتصال..." : "Connecting...")}
+                  </span>
+                  {aiWs.isProcessing && <Loader2 className="h-3 w-3 animate-spin text-violet-400" />}
+                </div>
+                <ScrollArea className="flex-1 p-3">
                       <div className="space-y-4" data-testid="chat-messages">
                         {loadingMessages ? (
                           <div className="flex items-center justify-center py-8">
@@ -882,9 +883,17 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                         </Button>
                       </div>
                     </div>
-                  </TabsContent>
-
-                  <TabsContent value="code" className="flex-1 m-0 overflow-hidden">
+              </div>
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+            <ResizablePanel defaultSize={50} minSize={30}>
+              <ResizablePanelGroup direction="vertical">
+                <ResizablePanel defaultSize={60} minSize={30}>
+                  <div className="h-full flex flex-col">
+                    <div className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/30">
+                      <Code2 className="h-4 w-4 text-blue-400" />
+                      <span className="text-xs font-medium">{text.code}</span>
+                    </div>
                     <div className="h-full flex flex-col">
                       <div className="flex items-center gap-1 px-2 py-1 border-b bg-muted/30 overflow-x-auto">
                         {codeFiles.map((file, idx) => (
@@ -927,108 +936,99 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                         />
                       </div>
                     </div>
-                  </TabsContent>
-
-                  <TabsContent value="preview" className="flex-1 m-0 overflow-hidden">
-                    <div className="h-full flex flex-col">
-                      <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/30">
-                        <div className="flex items-center gap-1">
-                          <Button size="icon" variant={viewport === "desktop" ? "secondary" : "ghost"} className="h-7 w-7" onClick={() => setViewport("desktop")}>
-                            <Monitor className="h-4 w-4" />
-                          </Button>
-                          <Button size="icon" variant={viewport === "tablet" ? "secondary" : "ghost"} className="h-7 w-7" onClick={() => setViewport("tablet")}>
-                            <Tablet className="h-4 w-4" />
-                          </Button>
-                          <Button size="icon" variant={viewport === "mobile" ? "secondary" : "ghost"} className="h-7 w-7" onClick={() => setViewport("mobile")}>
-                            <Smartphone className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Button size="icon" variant="ghost" className="h-7 w-7">
-                            <RefreshCw className="h-4 w-4" />
-                          </Button>
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleCopyCode}>
-                            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                          </Button>
-                          <Button size="icon" variant="ghost" className="h-7 w-7">
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          <Button size="icon" variant="ghost" className="h-7 w-7">
-                            <Maximize2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="flex-1 bg-white dark:bg-neutral-900 flex items-center justify-center p-4">
-                        <div
-                          className="h-full bg-white rounded-lg overflow-hidden shadow-lg"
-                          style={{
-                            width: viewport === "mobile" ? "375px" : viewport === "tablet" ? "768px" : "100%",
-                            maxWidth: "100%",
-                          }}
-                        >
-                          <iframe
-                            srcDoc={generatePreviewContent()}
-                            className="w-full h-full border-0"
-                            title="Preview"
-                            sandbox="allow-scripts"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </TabsContent>
-                </Tabs>
-              </div>
-            </ResizablePanel>
-
-            {showBottomPanel && (
-              <>
-                <ResizableHandle withHandle />
-                <ResizablePanel defaultSize={30} minSize={15} maxSize={50}>
-                  <div className="h-full flex flex-col bg-black/50">
-                    <div className="flex items-center gap-1 px-2 py-1 border-b border-white/10">
-                      <button
-                        onClick={() => setBottomTab("terminal")}
-                        className={`px-3 py-1 text-xs rounded ${bottomTab === "terminal" ? "bg-white/10" : "hover:bg-white/5"}`}
-                      >
-                        <Terminal className="h-3 w-3 inline mr-1" />
-                        {text.terminal}
-                      </button>
-                      <button
-                        onClick={() => setBottomTab("problems")}
-                        className={`px-3 py-1 text-xs rounded ${bottomTab === "problems" ? "bg-white/10" : "hover:bg-white/5"}`}
-                      >
-                        {text.problems}
-                      </button>
-                      <button
-                        onClick={() => setBottomTab("output")}
-                        className={`px-3 py-1 text-xs rounded ${bottomTab === "output" ? "bg-white/10" : "hover:bg-white/5"}`}
-                      >
-                        {text.output}
-                      </button>
-                    </div>
-                    <ScrollArea className="flex-1 p-2 font-mono text-xs text-green-400">
-                      {terminalOutput.map((line, i) => (
-                        <div key={i} className="py-0.5">{line}</div>
-                      ))}
-                      <div className="flex items-center gap-1 mt-1">
-                        <span className="text-violet-400">$</span>
-                        <input
-                          type="text"
-                          value={terminalInput}
-                          onChange={(e) => setTerminalInput(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && handleTerminalCommand()}
-                          className="flex-1 bg-transparent border-none outline-none text-white"
-                          placeholder="Enter command..."
-                          data-testid="input-terminal"
-                        />
-                      </div>
-                    </ScrollArea>
                   </div>
                 </ResizablePanel>
-              </>
-            )}
+                <ResizableHandle withHandle />
+                <ResizablePanel defaultSize={40} minSize={20}>
+                  <div className="h-full flex flex-col">
+                    <div className="flex items-center justify-between px-3 py-1.5 border-b bg-muted/30">
+                      <div className="flex items-center gap-2">
+                        <Eye className="h-4 w-4 text-green-400" />
+                        <span className="text-xs font-medium">{text.preview}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button size="icon" variant={viewport === "desktop" ? "secondary" : "ghost"} className="h-6 w-6" onClick={() => setViewport("desktop")}>
+                          <Monitor className="h-3 w-3" />
+                        </Button>
+                        <Button size="icon" variant={viewport === "tablet" ? "secondary" : "ghost"} className="h-6 w-6" onClick={() => setViewport("tablet")}>
+                          <Tablet className="h-3 w-3" />
+                        </Button>
+                        <Button size="icon" variant={viewport === "mobile" ? "secondary" : "ghost"} className="h-6 w-6" onClick={() => setViewport("mobile")}>
+                          <Smartphone className="h-3 w-3" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-6 w-6">
+                          <RefreshCw className="h-3 w-3" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleCopyCode}>
+                          {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="flex-1 bg-white dark:bg-neutral-900 flex items-center justify-center p-2 overflow-auto">
+                      <div
+                        className="h-full bg-white rounded-lg overflow-hidden shadow-lg"
+                        style={{
+                          width: viewport === "mobile" ? "375px" : viewport === "tablet" ? "768px" : "100%",
+                          maxWidth: "100%",
+                        }}
+                      >
+                        <iframe
+                          srcDoc={generatePreviewContent()}
+                          className="w-full h-full border-0"
+                          title="Preview"
+                          sandbox="allow-scripts"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            </ResizablePanel>
           </ResizablePanelGroup>
         </ResizablePanel>
+
+        {showBottomPanel && (
+          <div className="border-t bg-black/50">
+            <div className="flex items-center gap-1 px-2 py-1 border-b border-white/10">
+              <button
+                onClick={() => setBottomTab("terminal")}
+                className={`px-3 py-1 text-xs rounded ${bottomTab === "terminal" ? "bg-white/10" : "hover:bg-white/5"}`}
+              >
+                <Terminal className="h-3 w-3 inline mr-1" />
+                {text.terminal}
+              </button>
+              <button
+                onClick={() => setBottomTab("problems")}
+                className={`px-3 py-1 text-xs rounded ${bottomTab === "problems" ? "bg-white/10" : "hover:bg-white/5"}`}
+              >
+                {text.problems}
+              </button>
+              <button
+                onClick={() => setBottomTab("output")}
+                className={`px-3 py-1 text-xs rounded ${bottomTab === "output" ? "bg-white/10" : "hover:bg-white/5"}`}
+              >
+                {text.output}
+              </button>
+            </div>
+            <ScrollArea className="h-32 p-2 font-mono text-xs text-green-400">
+              {terminalOutput.map((line, i) => (
+                <div key={i} className="py-0.5">{line}</div>
+              ))}
+              <div className="flex items-center gap-1 mt-1">
+                <span className="text-violet-400">$</span>
+                <input
+                  type="text"
+                  value={terminalInput}
+                  onChange={(e) => setTerminalInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleTerminalCommand()}
+                  className="flex-1 bg-transparent border-none outline-none text-white"
+                  placeholder="Enter command..."
+                  data-testid="input-terminal"
+                />
+              </div>
+            </ScrollArea>
+          </div>
+        )}
 
         {showRightPanel && (
           <>
@@ -1055,132 +1055,211 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
 
                   <TabsContent value="tools" className="flex-1 m-0 overflow-hidden">
                     <ScrollArea className="h-full p-2 space-y-2">
-                      <Card className="bg-violet-500/10 border-violet-500/30 mb-2">
-                        <CardHeader className="p-3">
-                          <CardTitle className="text-sm flex items-center gap-2">
-                            <Sparkles className="h-4 w-4 text-violet-400" />
-                            {isRtl ? "أدوات الذكاء الاصطناعي" : "AI Tools"}
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-3 pt-0 space-y-2">
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="w-full justify-start text-xs"
-                            onClick={handleGenerateCode}
-                            disabled={isProcessing || aiWs.isProcessing}
-                            data-testid="button-generate-code"
-                          >
-                            <Code2 className="h-3 w-3 mr-2" />
-                            {text.generateCode}
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="w-full justify-start text-xs"
-                            onClick={handleAnalyzeCode}
-                            disabled={isProcessing || aiWs.isProcessing}
-                            data-testid="button-analyze-code"
-                          >
-                            <Activity className="h-3 w-3 mr-2" />
-                            {text.analyzeCode}
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="w-full justify-start text-xs"
-                            onClick={handleOptimizeCode}
-                            disabled={isProcessing || aiWs.isProcessing}
-                            data-testid="button-optimize-code"
-                          >
-                            <Zap className="h-3 w-3 mr-2" />
-                            {text.optimizeCode}
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="w-full justify-start text-xs"
-                            onClick={handleTestCode}
-                            disabled={isProcessing || aiWs.isProcessing}
-                            data-testid="button-test-code"
-                          >
-                            <Play className="h-3 w-3 mr-2" />
-                            {text.testCode}
-                          </Button>
-                        </CardContent>
-                      </Card>
-                      
-                      <Card className="mb-2">
-                        <CardHeader className="p-3">
-                          <CardTitle className="text-sm flex items-center gap-2">
-                            <Activity className="h-4 w-4 text-green-400" />
-                            {isRtl ? "حالة الاتصال" : "Connection Status"}
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-3 pt-0 space-y-2">
-                          <div className="flex items-center justify-between text-xs gap-2">
-                            <span className="text-muted-foreground">WebSocket</span>
-                            <Badge variant={aiWs.isConnected ? "default" : "destructive"} className="text-xs">
-                              {aiWs.isConnected ? (isRtl ? "متصل" : "Connected") : (isRtl ? "غير متصل" : "Disconnected")}
-                            </Badge>
+                      {/* Owner Welcome Card */}
+                      <Card className="bg-gradient-to-br from-amber-500/20 via-violet-500/10 to-transparent border-amber-500/30 mb-2">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-amber-500/20">
+                              <Crown className="h-4 w-4 text-amber-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "مرحباً سيدي المالك" : "Welcome, Owner"}</p>
+                              <p className="text-[10px] text-muted-foreground">Mohamed Ali Abdalla</p>
+                            </div>
                           </div>
-                          <div className="flex items-center justify-between text-xs gap-2">
-                            <span className="text-muted-foreground">{isRtl ? "المصادقة" : "Auth"}</span>
-                            <Badge variant={aiWs.isAuthenticated ? "default" : "secondary"} className="text-xs">
-                              {aiWs.isAuthenticated ? (isRtl ? "مصادق" : "Authenticated") : (isRtl ? "قيد المصادقة" : "Pending")}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center justify-between text-xs gap-2">
-                            <span className="text-muted-foreground">{isRtl ? "البث" : "Streaming"}</span>
-                            <Badge variant="outline" className="text-xs text-green-400">
-                              {isRtl ? "مفعل" : "Enabled"}
-                            </Badge>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    
-                      <Card className="mb-2">
-                        <CardHeader className="p-3">
-                          <CardTitle className="text-sm flex items-center gap-2">
-                            <Cpu className="h-4 w-4" />
-                            {isRtl ? "حالة النظام" : "System Status"}
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-3 pt-0 space-y-2">
-                          <div className="flex items-center justify-between text-xs gap-2">
-                            <span className="text-muted-foreground">CPU</span>
-                            <Badge variant="outline" className="text-xs">12%</Badge>
-                          </div>
-                          <div className="flex items-center justify-between text-xs gap-2">
-                            <span className="text-muted-foreground">{isRtl ? "الذاكرة" : "Memory"}</span>
-                            <Badge variant="outline" className="text-xs">256MB</Badge>
-                          </div>
-                          <div className="flex items-center justify-between text-xs gap-2">
-                            <span className="text-muted-foreground">{isRtl ? "التخزين" : "Storage"}</span>
-                            <Badge variant="outline" className="text-xs">1.2GB</Badge>
+                          <div className="flex items-center gap-1 text-[10px] text-green-400">
+                            <Activity className="h-3 w-3" />
+                            <span>{isRtl ? "جميع الأنظمة تعمل بكفاءة" : "All systems operational"}</span>
                           </div>
                         </CardContent>
                       </Card>
 
-                      <Card className="border-amber-500/30 bg-amber-500/5">
-                        <CardHeader className="p-3">
-                          <CardTitle className="text-sm flex items-center gap-2">
-                            <Shield className="h-4 w-4 text-amber-400" />
-                            {isRtl ? "الأمان السيادي" : "Sovereign Security"}
+                      {/* Smart AI Suggestions */}
+                      <Card className="bg-violet-500/5 border-violet-500/20 mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Lightbulb className="h-3.5 w-3.5 text-amber-400" />
+                            {isRtl ? "اقتراحات ذكية" : "Smart Suggestions"}
                           </CardTitle>
                         </CardHeader>
-                        <CardContent className="p-3 pt-0 space-y-2">
-                          <div className="flex items-center justify-between text-xs gap-2">
-                            <span className="text-muted-foreground">{isRtl ? "التشفير" : "Encryption"}</span>
-                            <Badge variant="outline" className="text-xs text-green-400">AES-256-GCM</Badge>
+                        <CardContent className="p-2 pt-0 space-y-1.5">
+                          <button className="w-full flex items-start gap-2 p-2 rounded-md bg-muted/50 hover:bg-muted text-left transition-colors">
+                            <Wand2 className="h-3.5 w-3.5 text-violet-400 mt-0.5 shrink-0" />
+                            <div>
+                              <p className="text-[11px] font-medium">{isRtl ? "تحسين الأداء" : "Optimize Performance"}</p>
+                              <p className="text-[10px] text-muted-foreground">{isRtl ? "3 تحسينات متاحة" : "3 optimizations available"}</p>
+                            </div>
+                          </button>
+                          <button className="w-full flex items-start gap-2 p-2 rounded-md bg-muted/50 hover:bg-muted text-left transition-colors">
+                            <Shield className="h-3.5 w-3.5 text-green-400 mt-0.5 shrink-0" />
+                            <div>
+                              <p className="text-[11px] font-medium">{isRtl ? "فحص أمني" : "Security Scan"}</p>
+                              <p className="text-[10px] text-muted-foreground">{isRtl ? "لم يتم العثور على ثغرات" : "No vulnerabilities found"}</p>
+                            </div>
+                          </button>
+                          <button className="w-full flex items-start gap-2 p-2 rounded-md bg-muted/50 hover:bg-muted text-left transition-colors">
+                            <Target className="h-3.5 w-3.5 text-blue-400 mt-0.5 shrink-0" />
+                            <div>
+                              <p className="text-[11px] font-medium">{isRtl ? "تلميحات الكود" : "Code Hints"}</p>
+                              <p className="text-[10px] text-muted-foreground">{isRtl ? "2 تحسينات مقترحة" : "2 improvements suggested"}</p>
+                            </div>
+                          </button>
+                        </CardContent>
+                      </Card>
+
+                      {/* Quick Actions */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Rocket className="h-3.5 w-3.5 text-orange-400" />
+                            {isRtl ? "إجراءات سريعة" : "Quick Actions"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0">
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" onClick={handleGenerateCode} disabled={isProcessing}>
+                              <Code2 className="h-4 w-4 text-violet-400" />
+                              {isRtl ? "توليد" : "Generate"}
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" onClick={handleAnalyzeCode} disabled={isProcessing}>
+                              <FileSearch className="h-4 w-4 text-blue-400" />
+                              {isRtl ? "تحليل" : "Analyze"}
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" onClick={handleTestCode} disabled={isProcessing}>
+                              <TestTube className="h-4 w-4 text-green-400" />
+                              {isRtl ? "اختبار" : "Test"}
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]">
+                              <Rocket className="h-4 w-4 text-orange-400" />
+                              {isRtl ? "نشر" : "Deploy"}
+                            </Button>
                           </div>
-                          <div className="flex items-center justify-between text-xs gap-2">
-                            <span className="text-muted-foreground">{isRtl ? "العزل" : "Isolation"}</span>
-                            <Badge variant="outline" className="text-xs text-green-400">{isRtl ? "كامل" : "Full"}</Badge>
+                        </CardContent>
+                      </Card>
+
+                      {/* Development Tools */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Layers className="h-3.5 w-3.5" />
+                            {isRtl ? "أدوات التطوير" : "Dev Tools"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          <button className="w-full flex items-center justify-between p-1.5 rounded text-xs hover:bg-muted transition-colors">
+                            <span className="flex items-center gap-2">
+                              <GitBranch className="h-3.5 w-3.5 text-orange-400" />
+                              <span>Git</span>
+                            </span>
+                            <Badge variant="outline" className="text-[10px] h-5">main</Badge>
+                          </button>
+                          <button className="w-full flex items-center justify-between p-1.5 rounded text-xs hover:bg-muted transition-colors">
+                            <span className="flex items-center gap-2">
+                              <Cloud className="h-3.5 w-3.5 text-blue-400" />
+                              <span>{isRtl ? "السحابة" : "Cloud"}</span>
+                            </span>
+                            <Badge variant="outline" className="text-[10px] h-5 text-green-400">{isRtl ? "متصل" : "Live"}</Badge>
+                          </button>
+                          <button className="w-full flex items-center justify-between p-1.5 rounded text-xs hover:bg-muted transition-colors">
+                            <span className="flex items-center gap-2">
+                              <Globe className="h-3.5 w-3.5 text-violet-400" />
+                              <span>API</span>
+                            </span>
+                            <Badge variant="outline" className="text-[10px] h-5">{isRtl ? "12 نقطة" : "12 endpoints"}</Badge>
+                          </button>
+                          <button className="w-full flex items-center justify-between p-1.5 rounded text-xs hover:bg-muted transition-colors">
+                            <span className="flex items-center gap-2">
+                              <Key className="h-3.5 w-3.5 text-amber-400" />
+                              <span>{isRtl ? "المفاتيح" : "Secrets"}</span>
+                            </span>
+                            <Badge variant="outline" className="text-[10px] h-5">{isRtl ? "آمنة" : "Secure"}</Badge>
+                          </button>
+                        </CardContent>
+                      </Card>
+
+                      {/* Real-time Metrics */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <BarChart3 className="h-3.5 w-3.5 text-cyan-400" />
+                            {isRtl ? "المقاييس الحية" : "Live Metrics"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-2">
+                          <div>
+                            <div className="flex items-center justify-between text-[10px] mb-1">
+                              <span className="text-muted-foreground">CPU</span>
+                              <span className="text-green-400">12%</span>
+                            </div>
+                            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                              <div className="h-full bg-gradient-to-r from-green-500 to-green-400 rounded-full" style={{ width: "12%" }} />
+                            </div>
                           </div>
-                          <div className="flex items-center justify-between text-xs gap-2">
-                            <span className="text-muted-foreground">{isRtl ? "الوصول" : "Access"}</span>
-                            <Badge variant="outline" className="text-xs text-violet-400">{isRtl ? "المالك فقط" : "Owner Only"}</Badge>
+                          <div>
+                            <div className="flex items-center justify-between text-[10px] mb-1">
+                              <span className="text-muted-foreground">{isRtl ? "الذاكرة" : "Memory"}</span>
+                              <span className="text-blue-400">45%</span>
+                            </div>
+                            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                              <div className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full" style={{ width: "45%" }} />
+                            </div>
+                          </div>
+                          <div>
+                            <div className="flex items-center justify-between text-[10px] mb-1">
+                              <span className="text-muted-foreground">{isRtl ? "الاستجابة" : "Response"}</span>
+                              <span className="text-violet-400">&lt;0.001s</span>
+                            </div>
+                            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                              <div className="h-full bg-gradient-to-r from-violet-500 to-violet-400 rounded-full" style={{ width: "5%" }} />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Connection Status */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Workflow className="h-3.5 w-3.5 text-green-400" />
+                            {isRtl ? "الاتصالات" : "Connections"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="flex items-center gap-1.5">
+                              <span className={`h-2 w-2 rounded-full ${aiWs.isConnected ? "bg-green-400" : "bg-red-400"} animate-pulse`} />
+                              AI WebSocket
+                            </span>
+                            <span className={aiWs.isConnected ? "text-green-400" : "text-red-400"}>
+                              {aiWs.isConnected ? (isRtl ? "متصل" : "Connected") : (isRtl ? "غير متصل" : "Disconnected")}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="flex items-center gap-1.5">
+                              <span className="h-2 w-2 rounded-full bg-green-400" />
+                              Database
+                            </span>
+                            <span className="text-green-400">{isRtl ? "متصل" : "Connected"}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="flex items-center gap-1.5">
+                              <span className="h-2 w-2 rounded-full bg-green-400" />
+                              {isRtl ? "التشفير" : "Encryption"}
+                            </span>
+                            <span className="text-amber-400">AES-256-GCM</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Sovereign Security Badge */}
+                      <Card className="border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-transparent">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2">
+                            <Shield className="h-5 w-5 text-amber-400" />
+                            <div>
+                              <p className="text-xs font-medium text-amber-400">{isRtl ? "حماية سيادية" : "Sovereign Protection"}</p>
+                              <p className="text-[10px] text-muted-foreground">{isRtl ? "صلاحيات المالك الكاملة مفعلة" : "Full owner privileges active"}</p>
+                            </div>
                           </div>
                         </CardContent>
                       </Card>

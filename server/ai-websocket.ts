@@ -416,9 +416,10 @@ async function handleMessage(ws: WebSocket, state: ConnectionState, rawData: str
 // Initialize AI WebSocket server
 export function initializeAIWebSocket(server: Server): WebSocketServer {
   const wss = new WebSocketServer({ 
-    server, 
+    server,
     path: "/ws/ai",
     maxPayload: 1024 * 1024, // 1MB max payload
+    perMessageDeflate: false, // Disable compression for faster streaming
   });
   
   console.log("[AI WebSocket] WebSocket service initialized on /ws/ai");
