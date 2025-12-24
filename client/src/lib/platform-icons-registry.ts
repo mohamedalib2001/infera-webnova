@@ -290,6 +290,30 @@ export const platformIconsRegistry: PlatformIconConfig[] = [
       dark: "dark-bg.png"
     },
     usageContexts: ["web", "mobile", "desktop", "favicon", "store-listings"]
+  },
+  {
+    id: "infera-vision-feasibility",
+    name: "INFERA VisionFeasibility™",
+    nameAr: "رؤية الجدوى INFERA",
+    category: "strategy-intelligence",
+    colors: {
+      primary: "#1E3A5F", // Midnight Blue
+      secondary: "#047857", // Deep Emerald
+      accent: "#C0C0C0"    // Silver
+    },
+    symbol: ["Strategic Vision Core", "Multi-Layer Projection", "Abstract Future Lens"],
+    symbolAr: ["نواة الرؤية الاستراتيجية", "إسقاط متعدد الطبقات", "عدسة مستقبلية مجردة"],
+    meaning: "Vision that sees beyond the numbers",
+    meaningAr: "رؤية ترى ما قبل الأرقام",
+    iconPath: "/assets/icons/infera-vision-feasibility/",
+    variants: {
+      appIcon: "app-icon.png",
+      favicon: "favicon-32.png",
+      monochrome: "mono-icon.svg",
+      light: "light-bg.png",
+      dark: "dark-bg.png"
+    },
+    usageContexts: ["web", "mobile", "desktop", "favicon", "store-listings"]
   }
 ];
 
