@@ -410,6 +410,30 @@ export const platformIconsRegistry: PlatformIconConfig[] = [
       dark: "dark-bg.png"
     },
     usageContexts: ["web", "mobile", "desktop", "favicon", "store-listings"]
+  },
+  {
+    id: "infera-smart-remote-ai",
+    name: "INFERA Smart Remote AI™",
+    nameAr: "التحكم الذكي عن بُعد INFERA",
+    category: "remote-governance",
+    colors: {
+      primary: "#2F4F4F", // Dark Slate
+      secondary: "#5B21B6", // Deep Violet
+      accent: "#F8F8FF"    // Soft White
+    },
+    symbol: ["Remote Control Core", "Device Connection Nodes", "Secure Command Ring"],
+    symbolAr: ["نواة التحكم عن بُعد", "عقد اتصال الأجهزة", "حلقة الأوامر الآمنة"],
+    meaning: "Smart control without losing grip",
+    meaningAr: "تحكم ذكي بلا فقدان سيطرة",
+    iconPath: "/assets/icons/infera-smart-remote-ai/",
+    variants: {
+      appIcon: "app-icon.png",
+      favicon: "favicon-32.png",
+      monochrome: "mono-icon.svg",
+      light: "light-bg.png",
+      dark: "dark-bg.png"
+    },
+    usageContexts: ["web", "mobile", "desktop", "favicon", "store-listings"]
   }
 ];
 
