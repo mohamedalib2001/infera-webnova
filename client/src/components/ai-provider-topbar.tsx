@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { SiOpenai, SiGoogle } from "react-icons/si";
 import { Brain, Sparkles, Cpu, Zap, Bot, CircuitBoard, MessageCircle, Users, Code, Hammer, BarChart3, Lightbulb, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getInferaAIIcon, inferaAIColors } from "./infera-ai-icons";
 
 interface AIProvider {
   id: string;
@@ -166,27 +167,31 @@ export function AIProviderTopbar() {
   };
 
   const renderInferaModel = (model: AIProvider) => {
-    const iconKey = model.icon || (providerIcons[model.id.replace('infera-', '')] ? model.id.replace('infera-', '') : 'chat');
-    const IconComponent = providerIcons[iconKey] || providerIcons[model.icon] || MessageCircle;
-    const gradient = inferaGradients[iconKey] || "from-blue-500 to-blue-600";
-    const colorClass = providerColors[iconKey] || "text-blue-500";
+    const iconKey = model.icon || model.id.replace('infera-', '').replace('infera', '') || 'core';
+    const InferaIcon = getInferaAIIcon(iconKey);
+    const accentColor = inferaAIColors[iconKey as keyof typeof inferaAIColors]?.accent || inferaAIColors.core.accent;
     
     return (
       <Tooltip key={model.id}>
         <TooltipTrigger asChild>
           <div
             className={cn(
-              "relative flex items-center justify-center h-7 w-7 rounded-md transition-all duration-300",
-              "bg-gradient-to-br",
-              gradient,
-              "shadow-sm hover:shadow-md hover:scale-105",
-              model.status === 'active' && "ring-1 ring-white/30",
+              "relative flex items-center justify-center transition-all duration-300",
+              "hover:scale-110 hover:drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]",
+              model.status === 'active' && "ring-1 ring-white/20 rounded-md",
             )}
             data-testid={`infera-model-icon-${model.id}`}
           >
-            <IconComponent className="h-4 w-4 text-white drop-shadow-sm" />
+            <InferaIcon 
+              size={28} 
+              accentColor={accentColor}
+              glowIntensity={model.status === 'active' ? 'high' : 'medium'}
+            />
             {model.status === 'active' && (
-              <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-green-400 ring-1 ring-white animate-pulse" />
+              <span 
+                className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full animate-pulse"
+                style={{ backgroundColor: accentColor, boxShadow: `0 0 6px ${accentColor}` }}
+              />
             )}
           </div>
         </TooltipTrigger>
@@ -289,7 +294,7 @@ export function AIProviderTopbar() {
       data-testid="ai-provider-topbar"
     >
       {inferaModels.length > 0 && (
-        <div className="flex items-center gap-1 px-1.5 py-1 rounded-md bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20">
+        <div className="flex items-center gap-0.5 px-1 py-0.5 rounded-lg bg-[#0A0A0F]/90 border border-white/5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]">
           {inferaModels.map(renderInferaModel)}
         </div>
       )}
