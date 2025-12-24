@@ -159,6 +159,11 @@ import SovereignReadiness from "@/pages/sovereign-readiness";
 import InvestorObjections from "@/pages/investor-objections";
 import ExitStrategy from "@/pages/exit-strategy";
 import GovernmentAdoption from "@/pages/government-adoption";
+import EconomicEngine from "@/pages/economic-engine";
+import GTMPlaybook from "@/pages/gtm-playbook";
+import TrustProof from "@/pages/trust-proof";
+import FounderNarrative from "@/pages/founder-narrative";
+import RedLineRules from "@/pages/red-line-rules";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
@@ -249,6 +254,11 @@ function AuthenticatedRouter() {
       <Route path="/investor-objections" component={InvestorObjections} />
       <Route path="/exit-strategy" component={ExitStrategy} />
       <Route path="/government-adoption" component={GovernmentAdoption} />
+      <Route path="/economic-engine" component={EconomicEngine} />
+      <Route path="/gtm-playbook" component={GTMPlaybook} />
+      <Route path="/trust-proof" component={TrustProof} />
+      <Route path="/founder-narrative" component={FounderNarrative} />
+      <Route path="/red-line-rules" component={RedLineRules} />
       <Route path="/auth" component={Auth} />
       <Route path="/builder" component={Builder} />
       <Route path="/builder/:id" component={Builder} />
