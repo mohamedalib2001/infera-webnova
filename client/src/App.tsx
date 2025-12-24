@@ -148,6 +148,11 @@ import PitchDeckTrainAI from "@/pages/pitch-deck-trainai";
 import PitchDeckSovereignFinance from "@/pages/pitch-deck-sovereignfinance";
 import PitchDeckGlobalCloud from "@/pages/pitch-deck-globalcloud";
 import PitchDeckShieldGrid from "@/pages/pitch-deck-shieldgrid";
+import PitchDeckSmartRemote from "@/pages/pitch-deck-smartremote";
+import PitchDeckMaster from "@/pages/pitch-deck-master";
+import InvestorNarrative from "@/pages/investor-narrative";
+import ExecutiveSummaries from "@/pages/executive-summaries";
+import DemoStoryboards from "@/pages/demo-storyboards";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
@@ -227,6 +232,11 @@ function AuthenticatedRouter() {
       <Route path="/pitch-deck/sovereignfinance" component={PitchDeckSovereignFinance} />
       <Route path="/pitch-deck/globalcloud" component={PitchDeckGlobalCloud} />
       <Route path="/pitch-deck/shieldgrid" component={PitchDeckShieldGrid} />
+      <Route path="/pitch-deck/smartremote" component={PitchDeckSmartRemote} />
+      <Route path="/pitch-deck/master" component={PitchDeckMaster} />
+      <Route path="/investor-narrative" component={InvestorNarrative} />
+      <Route path="/executive-summaries" component={ExecutiveSummaries} />
+      <Route path="/demo-storyboards" component={DemoStoryboards} />
       <Route path="/auth" component={Auth} />
       <Route path="/builder" component={Builder} />
       <Route path="/builder/:id" component={Builder} />
