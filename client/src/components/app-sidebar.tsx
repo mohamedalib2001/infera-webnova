@@ -61,6 +61,7 @@ import {
   MapPin,
   Network,
   Github,
+  Blocks,
 } from "lucide-react";
 import {
   Sidebar,
@@ -104,6 +105,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     { title: language === "ar" ? "Sovereign Finance™" : "Sovereign Finance™", url: "/finance", icon: Landmark, testId: "nav-finance" },
     { title: language === "ar" ? "HumanIQ™" : "HumanIQ™", url: "/humaniq", icon: Users, testId: "nav-humaniq" },
     { title: language === "ar" ? "Legal AI™" : "Legal AI™", url: "/legal", icon: Scale, testId: "nav-legal" },
+    { title: language === "ar" ? "AppForge AI™" : "AppForge AI™", url: "/appforge", icon: Blocks, testId: "nav-appforge" },
     { title: language === "ar" ? "وحدة التحكم" : "Console", url: "/console", icon: SquareTerminal, testId: "nav-console" },
     { title: language === "ar" ? "بيئة التطوير" : "Cloud IDE", url: "/ide", icon: Terminal, testId: "nav-cloud-ide" },
     { title: language === "ar" ? "منشئ التطبيقات" : "AI App Builder", url: "/ai-builder", icon: Sparkles, testId: "nav-ai-builder" },
