@@ -434,6 +434,36 @@ export const platformIconsRegistry: PlatformIconConfig[] = [
       dark: "dark-bg.png"
     },
     usageContexts: ["web", "mobile", "desktop", "favicon", "store-listings"]
+  },
+  {
+    id: "infera-webnova",
+    name: "INFERA WebNova™",
+    nameAr: "ويب نوفا INFERA",
+    category: "root-platform",
+    colors: {
+      primary: "#0B0B0B", // Dark Obsidian
+      secondary: "#3B82F6", // Quantum Blue
+      accent: "#22D3EE"    // Neon Cyan
+    },
+    symbol: ["Nova Core", "Layered Web Grid", "Creation + Governance Fusion"],
+    symbolAr: ["نواة نوفا", "شبكة ويب متعددة الطبقات", "اندماج البناء والحوكمة"],
+    meaning: "The place where platforms are born",
+    meaningAr: "المكان الذي تُولَد فيه المنصات",
+    iconPath: "/assets/icons/infera-webnova/",
+    variants: {
+      appIcon: "app-icon.png",
+      favicon: "favicon-32.png",
+      monochrome: "mono-icon.svg",
+      tabIcon: "tab-icon.svg",
+      light: "light-bg.png",
+      dark: "dark-bg.png"
+    },
+    usageContexts: ["builder-environment", "system-navigation", "infrastructure-dashboards"],
+    usageRules: {
+      allowed: ["builder environment", "system-level navigation", "infrastructure dashboards"],
+      forbidden: ["consumer product branding", "end-user interfaces"],
+      note: "Represents creation authority, not usage"
+    }
   }
 ];
 
