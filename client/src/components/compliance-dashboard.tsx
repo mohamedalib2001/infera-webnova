@@ -34,7 +34,9 @@ import {
   AlertOctagon,
   Scale,
   Gauge,
-  Timer
+  Timer,
+  Download,
+  Printer
 } from "lucide-react";
 
 interface ComplianceDashboardProps {
@@ -182,6 +184,9 @@ const translations = {
     conditionalGrade: "85-94: Conditional",
     atRiskGrade: "70-84: At Risk",
     blockedGrade: "<70: Blocked",
+    downloadPdf: "Download PDF Report",
+    downloadingPdf: "Generating PDF...",
+    printReport: "Print Report",
   },
   ar: {
     complianceDashboard: "مدقق السياسات الذكي",
@@ -251,6 +256,9 @@ const translations = {
     conditionalGrade: "85-94: مشروط",
     atRiskGrade: "70-84: معرض للخطر",
     blockedGrade: "<70: محظور",
+    downloadPdf: "تنزيل تقرير PDF",
+    downloadingPdf: "جاري إنشاء PDF...",
+    printReport: "طباعة التقرير",
   },
 };
 
@@ -326,6 +334,36 @@ export function ComplianceDashboard({ platformId, platformName, language = "en",
   const [activeTab, setActiveTab] = useState("overview");
   const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null);
   const [selectedScenario, setSelectedScenario] = useState<string | null>(null);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    setIsDownloadingPdf(true);
+    try {
+      const response = await fetch(`/api/sovereign-workspace/policies/export-pdf/${platformId}?language=${language}`, {
+        credentials: "include",
+      });
+      
+      if (!response.ok) throw new Error("Failed to generate PDF");
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `compliance-report-${platformId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error("PDF download error:", error);
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
 
   const { data, isLoading } = useQuery<ComplianceDashboardData>({
     queryKey: ["/api/sovereign-workspace/policies/compliance-dashboard", platformId],
@@ -398,23 +436,52 @@ export function ComplianceDashboard({ platformId, platformName, language = "en",
               <CardDescription>{t.sovereignGovernance} - {platformName}</CardDescription>
             </div>
           </div>
-          <Button
-            onClick={() => validateMutation.mutate()}
-            disabled={validateMutation.isPending}
-            data-testid="button-run-validation"
-          >
-            {validateMutation.isPending ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="mx-2">{t.validating}</span>
-              </>
-            ) : (
-              <>
-                <RefreshCw className="h-4 w-4" />
-                <span className="mx-2">{t.runValidation}</span>
-              </>
-            )}
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              onClick={handleDownloadPdf}
+              disabled={isDownloadingPdf || !current}
+              data-testid="button-download-pdf"
+            >
+              {isDownloadingPdf ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="mx-2">{t.downloadingPdf}</span>
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4" />
+                  <span className="mx-2">{t.downloadPdf}</span>
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handlePrint}
+              disabled={!current}
+              data-testid="button-print-report"
+            >
+              <Printer className="h-4 w-4" />
+              <span className="mx-2">{t.printReport}</span>
+            </Button>
+            <Button
+              onClick={() => validateMutation.mutate()}
+              disabled={validateMutation.isPending}
+              data-testid="button-run-validation"
+            >
+              {validateMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="mx-2">{t.validating}</span>
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4" />
+                  <span className="mx-2">{t.runValidation}</span>
+                </>
+              )}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {!current ? (

@@ -1468,4 +1468,199 @@ router.get("/policies/pre-deploy-check/:platformId", requireAuth, requireWorkspa
   }
 });
 
+// Export Compliance Report as PDF
+// Note: PDF generation uses English content for proper rendering.
+// Arabic PDF support requires custom font embedding which is a future enhancement.
+router.get("/policies/export-pdf/:platformId", requireAuth, requireWorkspaceAccess, async (req, res) => {
+  try {
+    const { platformId } = req.params;
+    
+    const PDFDocument = (await import("pdfkit")).default;
+    
+    const [latestCompliance] = await db.select()
+      .from(sovereignPolicyCompliance)
+      .where(eq(sovereignPolicyCompliance.projectId, platformId))
+      .orderBy(desc(sovereignPolicyCompliance.createdAt))
+      .limit(1);
+
+    const violations = await db.select()
+      .from(sovereignPolicyViolations)
+      .where(eq(sovereignPolicyViolations.projectId, platformId));
+
+    const [project] = await db.select()
+      .from(sovereignWorkspaceProjects)
+      .where(eq(sovereignWorkspaceProjects.id, platformId))
+      .limit(1);
+
+    const forecast = latestCompliance ? await policyValidationEngine.generateStrategicForecast(platformId) : null;
+    const categoryScores = latestCompliance?.categoryScores as Record<string, { score: number; status: string }> || {};
+    const score = latestCompliance?.complianceScore || 0;
+    const decisionStatus = latestCompliance?.decisionStatus || "pending";
+    const deploymentStatus = policyValidationEngine.getDeploymentStatus(score, decisionStatus);
+
+    const doc = new PDFDocument({ size: "A4", margin: 50 });
+    
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="compliance-report-${platformId}.pdf"`);
+    
+    doc.pipe(res);
+
+    doc.fontSize(24).fillColor("#1e40af").text("Sovereign Compliance Report", { align: "center" });
+    doc.moveDown(0.5);
+    
+    doc.fontSize(14).fillColor("#6b7280").text("Policy Validator AI - INFERA WebNova", { align: "center" });
+    doc.moveDown();
+
+    doc.fontSize(10).fillColor("#9ca3af").text(
+      `Report Date: ${new Date().toLocaleString("en-US")}`,
+      { align: "center" }
+    );
+    doc.moveDown(2);
+
+    doc.fontSize(16).fillColor("#111827").text("Platform Information");
+    doc.moveDown(0.5);
+    
+    doc.fontSize(11).fillColor("#374151");
+    doc.text(`Platform Name: ${project?.name || platformId}`);
+    doc.text(`Platform ID: ${platformId}`);
+    doc.text(`Last Check: ${latestCompliance?.lastCheckAt ? new Date(latestCompliance.lastCheckAt).toLocaleString("en-US") : "N/A"}`);
+    doc.moveDown(1.5);
+
+    doc.fontSize(16).fillColor("#111827").text("Overall Compliance Score");
+    doc.moveDown(0.5);
+    
+    const scoreColor = score >= 95 ? "#16a34a" : score >= 85 ? "#f59e0b" : score >= 70 ? "#f97316" : "#dc2626";
+    doc.fontSize(36).fillColor(scoreColor).text(`${score}%`, { align: "center" });
+    doc.moveDown(0.5);
+    
+    doc.fontSize(14).fillColor(scoreColor).text(deploymentStatus.reason, { align: "center" });
+    doc.moveDown(1.5);
+
+    doc.fontSize(16).fillColor("#111827").text("Deployment Status");
+    doc.moveDown(0.5);
+    
+    doc.fontSize(11).fillColor("#374151");
+    doc.text(`Can Deploy: ${deploymentStatus.canDeploy ? "Yes" : "No"}`);
+    doc.text(`Platform Locked: ${deploymentStatus.isPlatformLocked ? "Yes" : "No"}`);
+    doc.text(`Deploy Disabled: ${deploymentStatus.isDeployDisabled ? "Yes" : "No"}`);
+    doc.moveDown(1.5);
+
+    doc.fontSize(16).fillColor("#111827").text("Category Scores");
+    doc.moveDown(0.5);
+    
+    const categoryLabels: Record<string, string> = {
+      ai_intelligence: "AI Intelligence (30%)",
+      cyber_security: "Cyber Security (30%)",
+      scalability: "Scalability (20%)",
+      governance: "Governance (20%)",
+      zero_code: "Zero-Code Compliance",
+      dynamic_architecture: "Dynamic Architecture",
+    };
+
+    doc.fontSize(11).fillColor("#374151");
+    for (const [key, data] of Object.entries(categoryScores)) {
+      const label = categoryLabels[key] || key;
+      doc.text(`${label}: ${data.score}% (${data.status})`);
+    }
+    doc.moveDown(1.5);
+
+    if (violations.length > 0) {
+      doc.fontSize(16).fillColor("#dc2626").text(`Open Violations (${violations.length})`);
+      doc.moveDown(0.5);
+      
+      for (const v of violations.slice(0, 10)) {
+        const severityColors: Record<string, string> = {
+          critical: "#dc2626",
+          high: "#f97316",
+          medium: "#f59e0b",
+          low: "#3b82f6",
+        };
+        
+        doc.fontSize(11).fillColor(severityColors[v.severity] || "#374151");
+        doc.text(`[${v.severity.toUpperCase()}] ${v.title}`);
+        doc.fontSize(9).fillColor("#6b7280");
+        doc.text(`  ${v.description}`);
+        doc.moveDown(0.3);
+      }
+      
+      if (violations.length > 10) {
+        doc.fontSize(9).fillColor("#9ca3af").text(`... and ${violations.length - 10} more violations`);
+      }
+      doc.moveDown(1);
+    }
+
+    if (forecast) {
+      doc.addPage();
+      
+      doc.fontSize(18).fillColor("#1e40af").text("Strategic Forecast", { align: "center" });
+      doc.moveDown(1);
+
+      const forecastPeriods = [
+        { key: "day30", label: "30-Day Outlook" },
+        { key: "day90", label: "90-Day Outlook" },
+        { key: "day180", label: "180-Day Outlook" },
+      ];
+
+      for (const period of forecastPeriods) {
+        const data = (forecast as any)[period.key];
+        const riskColor = data.riskLevel === "Low" ? "#16a34a" : data.riskLevel === "Medium" ? "#f59e0b" : "#dc2626";
+        
+        doc.fontSize(14).fillColor("#111827").text(period.label);
+        doc.moveDown(0.3);
+        
+        doc.fontSize(11).fillColor(riskColor);
+        doc.text(`Risk Level: ${data.riskLevel}`);
+        doc.text(`Predicted Score: ${data.score}%`);
+        
+        if (data.threats && data.threats.length > 0) {
+          doc.fontSize(10).fillColor("#6b7280");
+          doc.text("Threats:");
+          for (const threat of data.threats) {
+            doc.text(`  - ${threat}`);
+          }
+        }
+        doc.moveDown(1);
+      }
+
+      doc.fontSize(14).fillColor("#111827").text("Sustainability Score");
+      doc.moveDown(0.3);
+      
+      const sustColor = forecast.sustainabilityScore >= 85 ? "#16a34a" : forecast.sustainabilityScore >= 70 ? "#f59e0b" : "#dc2626";
+      doc.fontSize(24).fillColor(sustColor).text(`${forecast.sustainabilityScore}%`, { align: "center" });
+      doc.fontSize(11).fillColor("#374151").text(forecast.sustainabilityStatus, { align: "center" });
+      doc.moveDown(1);
+
+      doc.fontSize(14).fillColor("#111827").text("Evolution Forecast");
+      doc.moveDown(0.3);
+      doc.fontSize(11).fillColor("#374151").text(forecast.evolutionForecast);
+      doc.moveDown(1);
+
+      if (forecast.weaknessAlerts && forecast.weaknessAlerts.length > 0) {
+        doc.fontSize(14).fillColor("#f97316").text("Weakness Alerts");
+        doc.moveDown(0.3);
+        
+        doc.fontSize(10).fillColor("#6b7280");
+        for (const alert of forecast.weaknessAlerts) {
+          doc.text(`- ${alert}`);
+        }
+      }
+    }
+
+    doc.addPage();
+    doc.fontSize(10).fillColor("#9ca3af").text(
+      "This report was generated by Policy Validator AI - INFERA WebNova. All rights reserved.",
+      { align: "center" }
+    );
+    doc.moveDown(0.5);
+    doc.text(`Report ID: ${randomBytes(8).toString("hex").toUpperCase()}`, { align: "center" });
+
+    doc.end();
+    
+    console.log(`[PDF Export] Generated compliance report for platform ${platformId}`);
+  } catch (error) {
+    console.error("[PDF Export] Error:", error);
+    res.status(500).json({ error: "Failed to generate PDF report" });
+  }
+});
+
 export default router;
