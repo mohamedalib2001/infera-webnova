@@ -314,6 +314,30 @@ export const platformIconsRegistry: PlatformIconConfig[] = [
       dark: "dark-bg.png"
     },
     usageContexts: ["web", "mobile", "desktop", "favicon", "store-listings"]
+  },
+  {
+    id: "infera-cv-builder",
+    name: "INFERA CV Builder™",
+    nameAr: "منشئ السيرة الذاتية INFERA",
+    category: "identity-intelligence",
+    colors: {
+      primary: "#6B7280", // Soft Gray
+      secondary: "#1E40AF", // Royal Blue
+      accent: "#FFFFFF"    // Clean White
+    },
+    symbol: ["Profile Card Abstract", "Structured Identity Layers", "Smart Presentation Frame"],
+    symbolAr: ["بطاقة ملف تعريف مجردة", "طبقات هوية منظمة", "إطار عرض ذكي"],
+    meaning: "A CV that presents itself intelligently",
+    meaningAr: "سيرة تُقدّم نفسها بذكاء",
+    iconPath: "/assets/icons/infera-cv-builder/",
+    variants: {
+      appIcon: "app-icon.png",
+      favicon: "favicon-32.png",
+      monochrome: "mono-icon.svg",
+      light: "light-bg.png",
+      dark: "dark-bg.png"
+    },
+    usageContexts: ["web", "mobile", "desktop", "favicon", "store-listings"]
   }
 ];
 
