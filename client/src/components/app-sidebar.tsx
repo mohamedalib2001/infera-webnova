@@ -124,6 +124,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     { title: language === "ar" ? "Jobs AI™" : "Jobs AI™", url: "/jobs", icon: Briefcase, testId: "nav-jobs" },
     { title: language === "ar" ? "TrainAI™" : "TrainAI™", url: "/trainai", icon: Award, testId: "nav-trainai" },
     { title: language === "ar" ? "GlobalCloud™" : "GlobalCloud™", url: "/globalcloud", icon: Globe, testId: "nav-globalcloud" },
+    { title: language === "ar" ? "ShieldGrid™" : "ShieldGrid™", url: "/shieldgrid", icon: Shield, testId: "nav-shieldgrid" },
     { title: language === "ar" ? "وحدة التحكم" : "Console", url: "/console", icon: SquareTerminal, testId: "nav-console" },
     { title: language === "ar" ? "بيئة التطوير" : "Cloud IDE", url: "/ide", icon: Terminal, testId: "nav-cloud-ide" },
     { title: language === "ar" ? "منشئ التطبيقات" : "AI App Builder", url: "/ai-builder", icon: Sparkles, testId: "nav-ai-builder" },
