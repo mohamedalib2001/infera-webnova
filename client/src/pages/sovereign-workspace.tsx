@@ -33,6 +33,10 @@ import {
   FileText,
   RefreshCw,
   Download,
+  Layout,
+  ExternalLink,
+  Edit3,
+  Palette,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { 
@@ -326,10 +330,14 @@ export default function SovereignWorkspacePage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="w-full sm:w-auto">
+        <TabsList className="w-full sm:w-auto flex-wrap">
           <TabsTrigger value="platforms" className="gap-2" data-testid="tab-platforms">
             <Building2 className="h-4 w-4" />
             <span className="hidden sm:inline">Platforms</span>
+          </TabsTrigger>
+          <TabsTrigger value="landing-pages" className="gap-2" data-testid="tab-landing-pages">
+            <Layout className="h-4 w-4" />
+            <span className="hidden sm:inline">Landing Pages</span>
           </TabsTrigger>
           <TabsTrigger value="team" className="gap-2" data-testid="tab-team">
             <Users className="h-4 w-4" />
@@ -556,6 +564,108 @@ export default function SovereignWorkspacePage() {
                     </Card>
                   );
                 })}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="landing-pages" className="mt-6">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h2 className="text-lg font-semibold">Platform Landing Pages | صفحات الهبوط للمنصات</h2>
+                <p className="text-sm text-muted-foreground">
+                  Manage and customize landing pages for each sovereign platform dynamically.
+                </p>
+              </div>
+            </div>
+
+            {projectsLoading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : projects.length === 0 ? (
+              <Card className="py-12">
+                <CardContent className="flex flex-col items-center justify-center">
+                  <Layout className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No Platforms Yet | لا توجد منصات</h3>
+                  <p className="text-muted-foreground text-center mb-4">
+                    Create platforms first to manage their landing pages.
+                  </p>
+                  <Button onClick={() => setNewProjectDialogOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Platform
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {projects.map((project) => (
+                  <Card key={project.id} className="overflow-hidden hover-elevate" data-testid={`card-landing-${project.id}`}>
+                    <CardHeader className="pb-3 bg-gradient-to-r from-slate-900 to-slate-800">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-md bg-white/10 flex items-center justify-center">
+                          <Globe className="h-5 w-5 text-white" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-white text-sm">{project.name}</CardTitle>
+                          <p className="text-white/60 text-xs">{project.nameAr}</p>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-4">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Platform Code:</span>
+                          <Badge variant="outline" className="text-xs">{project.code}</Badge>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Status:</span>
+                          <Badge className={statusBadgeVariants[project.status]?.color || "bg-muted"}>
+                            {project.status}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Landing Page:</span>
+                          <Badge variant={project.deploymentStatus === "deployed" ? "default" : "secondary"}>
+                            {project.deploymentStatus === "deployed" ? "Published" : "Draft"}
+                          </Badge>
+                        </div>
+                      </div>
+                    </CardContent>
+                    <CardFooter className="pt-2 gap-2 border-t bg-muted/30">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex-1"
+                        data-testid={`button-edit-landing-${project.id}`}
+                      >
+                        <Edit3 className="h-4 w-4 mr-1" />
+                        Edit
+                      </Button>
+                      <Button 
+                        variant="outline"
+                        size="sm" 
+                        className="flex-1"
+                        data-testid={`button-preview-landing-${project.id}`}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        Preview
+                      </Button>
+                      {project.deploymentUrl && (
+                        <Button 
+                          variant="default"
+                          size="sm"
+                          asChild
+                        >
+                          <a href={project.deploymentUrl} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        </Button>
+                      )}
+                    </CardFooter>
+                  </Card>
+                ))}
               </div>
             )}
           </div>
