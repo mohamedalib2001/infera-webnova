@@ -24910,4 +24910,239 @@ export function registerConversationRoutes(app: Express, requireAuth: any) {
       res.status(500).json({ error: "Failed to fetch command palette data" });
     }
   });
+
+  // ==================== PLATFORM ICON VERSION CONTROL ====================
+  // نظام إدارة إصدارات الأيقونات الديناميكي
+
+  // Get all platform icons
+  app.get("/api/sovereign/platform-icons", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const icons = await storage.getPlatformIcons();
+      res.json(icons);
+    } catch (error) {
+      console.error("Error fetching platform icons:", error);
+      res.status(500).json({ error: "فشل جلب الأيقونات" });
+    }
+  });
+
+  // Get platform icon by platform ID
+  app.get("/api/sovereign/platform-icons/:platformId", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const icon = await storage.getPlatformIconByPlatformId(req.params.platformId);
+      if (!icon) {
+        return res.status(404).json({ error: "الأيقونة غير موجودة" });
+      }
+      res.json(icon);
+    } catch (error) {
+      console.error("Error fetching platform icon:", error);
+      res.status(500).json({ error: "فشل جلب الأيقونة" });
+    }
+  });
+
+  // Get icons by category
+  app.get("/api/sovereign/platform-icons/category/:category", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const icons = await storage.getPlatformIconsByCategory(req.params.category);
+      res.json(icons);
+    } catch (error) {
+      console.error("Error fetching platform icons by category:", error);
+      res.status(500).json({ error: "فشل جلب الأيقونات بالتصنيف" });
+    }
+  });
+
+  // Create new platform icon
+  app.post("/api/sovereign/platform-icons", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const icon = await storage.createPlatformIcon(req.body);
+      res.status(201).json(icon);
+    } catch (error) {
+      console.error("Error creating platform icon:", error);
+      res.status(500).json({ error: "فشل إنشاء الأيقونة" });
+    }
+  });
+
+  // Update platform icon
+  app.patch("/api/sovereign/platform-icons/:id", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const icon = await storage.updatePlatformIcon(req.params.id, req.body);
+      if (!icon) {
+        return res.status(404).json({ error: "الأيقونة غير موجودة" });
+      }
+      res.json(icon);
+    } catch (error) {
+      console.error("Error updating platform icon:", error);
+      res.status(500).json({ error: "فشل تحديث الأيقونة" });
+    }
+  });
+
+  // Delete platform icon
+  app.delete("/api/sovereign/platform-icons/:id", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      await storage.deletePlatformIcon(req.params.id);
+      res.json({ success: true, message: "تم حذف الأيقونة" });
+    } catch (error) {
+      console.error("Error deleting platform icon:", error);
+      res.status(500).json({ error: "فشل حذف الأيقونة" });
+    }
+  });
+
+  // ===== Icon Versions =====
+
+  // Get version history for a platform icon
+  app.get("/api/sovereign/platform-icons/:platformIconId/versions", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const versions = await storage.getPlatformIconVersions(req.params.platformIconId);
+      res.json(versions);
+    } catch (error) {
+      console.error("Error fetching icon versions:", error);
+      res.status(500).json({ error: "فشل جلب سجل الإصدارات" });
+    }
+  });
+
+  // Get versions by platform ID (not icon ID)
+  app.get("/api/sovereign/platform-icons/platform/:platformId/versions", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const versions = await storage.getPlatformIconVersionsByPlatformId(req.params.platformId);
+      res.json(versions);
+    } catch (error) {
+      console.error("Error fetching icon versions by platform:", error);
+      res.status(500).json({ error: "فشل جلب سجل الإصدارات" });
+    }
+  });
+
+  // Get specific version
+  app.get("/api/sovereign/icon-versions/:id", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const version = await storage.getPlatformIconVersion(req.params.id);
+      if (!version) {
+        return res.status(404).json({ error: "الإصدار غير موجود" });
+      }
+      res.json(version);
+    } catch (error) {
+      console.error("Error fetching icon version:", error);
+      res.status(500).json({ error: "فشل جلب الإصدار" });
+    }
+  });
+
+  // Get current active version
+  app.get("/api/sovereign/platform-icons/:platformIconId/current", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const version = await storage.getCurrentIconVersion(req.params.platformIconId);
+      if (!version) {
+        return res.status(404).json({ error: "لا يوجد إصدار حالي" });
+      }
+      res.json(version);
+    } catch (error) {
+      console.error("Error fetching current icon version:", error);
+      res.status(500).json({ error: "فشل جلب الإصدار الحالي" });
+    }
+  });
+
+  // Create new icon version
+  app.post("/api/sovereign/platform-icons/:platformIconId/versions", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const userId = req.session?.userId || (req as any).replitUser?.claims?.sub;
+      const version = await storage.createPlatformIconVersion({
+        ...req.body,
+        platformIconId: req.params.platformIconId,
+        createdBy: userId
+      });
+      res.status(201).json(version);
+    } catch (error) {
+      console.error("Error creating icon version:", error);
+      res.status(500).json({ error: "فشل إنشاء الإصدار" });
+    }
+  });
+
+  // Set current version
+  app.post("/api/sovereign/platform-icons/:platformIconId/set-current/:versionId", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const version = await storage.setCurrentIconVersion(req.params.platformIconId, req.params.versionId);
+      if (!version) {
+        return res.status(404).json({ error: "الإصدار غير موجود" });
+      }
+      res.json({ success: true, version, message: "تم تعيين الإصدار الحالي" });
+    } catch (error) {
+      console.error("Error setting current icon version:", error);
+      res.status(500).json({ error: "فشل تعيين الإصدار الحالي" });
+    }
+  });
+
+  // Restore a previous version
+  app.post("/api/sovereign/platform-icons/:platformIconId/restore/:versionId", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const restoredVersion = await storage.restoreIconVersion(req.params.platformIconId, req.params.versionId);
+      if (!restoredVersion) {
+        return res.status(404).json({ error: "الإصدار غير موجود" });
+      }
+      res.json({ success: true, version: restoredVersion, message: "تم استعادة الإصدار" });
+    } catch (error) {
+      console.error("Error restoring icon version:", error);
+      res.status(500).json({ error: "فشل استعادة الإصدار" });
+    }
+  });
+
+  // ===== Icon Regeneration Requests =====
+
+  // Get regeneration requests
+  app.get("/api/sovereign/icon-regeneration-requests", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const platformIconId = req.query.platformIconId as string | undefined;
+      const requests = await storage.getIconRegenerationRequests(platformIconId);
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching regeneration requests:", error);
+      res.status(500).json({ error: "فشل جلب طلبات إعادة التوليد" });
+    }
+  });
+
+  // Get pending regeneration requests
+  app.get("/api/sovereign/icon-regeneration-requests/pending", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const requests = await storage.getPendingIconRegenerationRequests();
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching pending regeneration requests:", error);
+      res.status(500).json({ error: "فشل جلب طلبات إعادة التوليد المعلقة" });
+    }
+  });
+
+  // Create regeneration request
+  app.post("/api/sovereign/platform-icons/:platformIconId/regenerate", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const userId = req.session?.userId || (req as any).replitUser?.claims?.sub;
+      const icon = await storage.getPlatformIcon(req.params.platformIconId);
+      if (!icon) {
+        return res.status(404).json({ error: "الأيقونة غير موجودة" });
+      }
+      
+      const request = await storage.createIconRegenerationRequest({
+        platformIconId: req.params.platformIconId,
+        platformId: icon.platformId,
+        reason: req.body.reason,
+        customPrompt: req.body.customPrompt,
+        status: "pending",
+        requestedBy: userId
+      });
+      
+      res.status(201).json({ success: true, request, message: "تم إنشاء طلب إعادة التوليد" });
+    } catch (error) {
+      console.error("Error creating regeneration request:", error);
+      res.status(500).json({ error: "فشل إنشاء طلب إعادة التوليد" });
+    }
+  });
+
+  // Update regeneration request status
+  app.patch("/api/sovereign/icon-regeneration-requests/:id", requireAuth, requireSovereign, async (req, res) => {
+    try {
+      const request = await storage.updateIconRegenerationRequest(req.params.id, req.body);
+      if (!request) {
+        return res.status(404).json({ error: "الطلب غير موجود" });
+      }
+      res.json(request);
+    } catch (error) {
+      console.error("Error updating regeneration request:", error);
+      res.status(500).json({ error: "فشل تحديث الطلب" });
+    }
+  });
 }
