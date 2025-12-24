@@ -25,7 +25,8 @@ const router = Router();
 
 // Check if user is authenticated
 const requireAuth = (req: Request, res: Response, next: NextFunction) => {
-  if (!req.isAuthenticated() || !req.user) {
+  // Use the same pattern as other routes for consistent session handling
+  if (!req.isAuthenticated || !req.isAuthenticated() || !req.user) {
     return res.status(401).json({ error: "Authentication required" });
   }
   next();
@@ -35,7 +36,7 @@ const requireAuth = (req: Request, res: Response, next: NextFunction) => {
 // INFERA WebNova uses a single Sovereign Workspace per deployment
 // User must either be the workspace owner or an active member
 const requireWorkspaceAccess = async (req: Request, res: Response, next: NextFunction) => {
-  if (!req.user) {
+  if (!req.isAuthenticated || !req.isAuthenticated() || !req.user) {
     return res.status(401).json({ error: "Authentication required" });
   }
 
