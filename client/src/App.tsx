@@ -178,6 +178,7 @@ import WarRoom from "@/pages/war-room";
 import FounderFramework from "@/pages/founder-framework";
 import About from "@/pages/about";
 import Terms from "@/pages/terms";
+import Privacy from "@/pages/privacy";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
@@ -287,6 +288,7 @@ function AuthenticatedRouter() {
       <Route path="/founder-framework" component={FounderFramework} />
       <Route path="/about" component={About} />
       <Route path="/terms" component={Terms} />
+      <Route path="/privacy" component={Privacy} />
       <Route path="/auth" component={Auth} />
       <Route path="/builder" component={Builder} />
       <Route path="/builder/:id" component={Builder} />
