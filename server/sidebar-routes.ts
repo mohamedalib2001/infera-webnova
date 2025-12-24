@@ -1,16 +1,44 @@
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { db } from "./db";
 import { sidebarSections, sidebarPages, sidebarUserPreferences, sidebarVisibilityLogs } from "@shared/schema";
 import { eq, asc, and, inArray } from "drizzle-orm";
+import { storage } from "./storage";
 
 const router = Router();
+
+// Helper to check if user is owner/admin
+const isOwnerRole = (role: string | undefined): boolean => {
+  if (!role) return false;
+  return ['owner', 'sovereign', 'ROOT_OWNER', 'admin'].includes(role);
+};
+
+// Helper to get user from session or passport
+const getSessionUser = async (req: Request): Promise<any> => {
+  // First check passport (Replit Auth)
+  if (req.isAuthenticated && req.isAuthenticated() && req.user) {
+    const replitUser = req.user as any;
+    const userId = replitUser.claims?.sub || replitUser.id;
+    if (userId) {
+      const dbUser = await storage.getUser(userId);
+      return dbUser;
+    }
+  }
+  
+  // Then check session-based auth
+  if ((req.session as any)?.userId) {
+    const dbUser = await storage.getUser((req.session as any).userId);
+    return dbUser;
+  }
+  
+  return null;
+};
 
 // Get all sidebar sections with their pages (filtered by user role)
 router.get("/api/sidebar/config", async (req, res) => {
   try {
-    const user = req.user as any;
+    const user = await getSessionUser(req);
     const userRole = user?.role || 'free';
-    const isOwner = userRole === 'owner' || userRole === 'admin';
+    const isOwner = isOwnerRole(userRole);
 
     // Get all sections ordered
     const sections = await db
@@ -72,9 +100,9 @@ router.get("/api/sidebar/config", async (req, res) => {
 // Get all sections and pages for owner management (no filtering)
 router.get("/api/sidebar/admin/config", async (req, res) => {
   try {
-    const user = req.user as any;
-    if (!user || (user.role !== 'owner' && user.role !== 'admin')) {
-      return res.status(403).json({ error: "Owner access required" });
+    const user = await getSessionUser(req);
+    if (!user || !isOwnerRole(user.role)) {
+      return res.status(403).json({ error: "Owner access required | مطلوب صلاحية المالك" });
     }
 
     const sections = await db
@@ -102,9 +130,9 @@ router.get("/api/sidebar/admin/config", async (req, res) => {
 // Update section visibility
 router.patch("/api/sidebar/section/:sectionKey", async (req, res) => {
   try {
-    const user = req.user as any;
-    if (!user || (user.role !== 'owner' && user.role !== 'admin')) {
-      return res.status(403).json({ error: "Owner access required" });
+    const user = await getSessionUser(req);
+    if (!user || !isOwnerRole(user.role)) {
+      return res.status(403).json({ error: "Owner access required | مطلوب صلاحية المالك" });
     }
 
     const { sectionKey } = req.params;
@@ -154,9 +182,9 @@ router.patch("/api/sidebar/section/:sectionKey", async (req, res) => {
 // Update page visibility
 router.patch("/api/sidebar/page/:pageKey", async (req, res) => {
   try {
-    const user = req.user as any;
-    if (!user || (user.role !== 'owner' && user.role !== 'admin')) {
-      return res.status(403).json({ error: "Owner access required" });
+    const user = await getSessionUser(req);
+    if (!user || !isOwnerRole(user.role)) {
+      return res.status(403).json({ error: "Owner access required | مطلوب صلاحية المالك" });
     }
 
     const { pageKey } = req.params;
@@ -208,9 +236,9 @@ router.patch("/api/sidebar/page/:pageKey", async (req, res) => {
 // Bulk update section order
 router.post("/api/sidebar/reorder-sections", async (req, res) => {
   try {
-    const user = req.user as any;
-    if (!user || (user.role !== 'owner' && user.role !== 'admin')) {
-      return res.status(403).json({ error: "Owner access required" });
+    const user = await getSessionUser(req);
+    if (!user || !isOwnerRole(user.role)) {
+      return res.status(403).json({ error: "Owner access required | مطلوب صلاحية المالك" });
     }
 
     const { sectionKeys } = req.body; // Array of section keys in new order
@@ -232,9 +260,9 @@ router.post("/api/sidebar/reorder-sections", async (req, res) => {
 // Bulk update page order within a section
 router.post("/api/sidebar/reorder-pages", async (req, res) => {
   try {
-    const user = req.user as any;
-    if (!user || (user.role !== 'owner' && user.role !== 'admin')) {
-      return res.status(403).json({ error: "Owner access required" });
+    const user = await getSessionUser(req);
+    if (!user || !isOwnerRole(user.role)) {
+      return res.status(403).json({ error: "Owner access required | مطلوب صلاحية المالك" });
     }
 
     const { pageKeys } = req.body; // Array of page keys in new order
@@ -256,9 +284,9 @@ router.post("/api/sidebar/reorder-pages", async (req, res) => {
 // Get visibility logs
 router.get("/api/sidebar/logs", async (req, res) => {
   try {
-    const user = req.user as any;
-    if (!user || (user.role !== 'owner' && user.role !== 'admin')) {
-      return res.status(403).json({ error: "Owner access required" });
+    const user = await getSessionUser(req);
+    if (!user || !isOwnerRole(user.role)) {
+      return res.status(403).json({ error: "Owner access required | مطلوب صلاحية المالك" });
     }
 
     const logs = await db
@@ -277,9 +305,9 @@ router.get("/api/sidebar/logs", async (req, res) => {
 // Toggle section visibility (quick toggle)
 router.post("/api/sidebar/section/:sectionKey/toggle", async (req, res) => {
   try {
-    const user = req.user as any;
-    if (!user || (user.role !== 'owner' && user.role !== 'admin')) {
-      return res.status(403).json({ error: "Owner access required" });
+    const user = await getSessionUser(req);
+    if (!user || !isOwnerRole(user.role)) {
+      return res.status(403).json({ error: "Owner access required | مطلوب صلاحية المالك" });
     }
 
     const { sectionKey } = req.params;
@@ -321,9 +349,9 @@ router.post("/api/sidebar/section/:sectionKey/toggle", async (req, res) => {
 // Toggle page visibility (quick toggle)
 router.post("/api/sidebar/page/:pageKey/toggle", async (req, res) => {
   try {
-    const user = req.user as any;
-    if (!user || (user.role !== 'owner' && user.role !== 'admin')) {
-      return res.status(403).json({ error: "Owner access required" });
+    const user = await getSessionUser(req);
+    if (!user || !isOwnerRole(user.role)) {
+      return res.status(403).json({ error: "Owner access required | مطلوب صلاحية المالك" });
     }
 
     const { pageKey } = req.params;
