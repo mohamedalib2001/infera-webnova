@@ -50,23 +50,6 @@ import {
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import type { Project, Template } from "@shared/schema";
-import { SiOpenai, SiGoogle } from "react-icons/si";
-
-const inferaModels = [
-  { id: "nova-engine", name: "Nova Engine", nameAr: "محرك نوفا", icon: Brain, color: "from-violet-600 to-purple-600" },
-  { id: "smart-remote", name: "Smart Remote AI", nameAr: "الريموت الذكي", icon: Cpu, color: "from-cyan-500 to-blue-500" },
-  { id: "shieldgrid", name: "ShieldGrid", nameAr: "شبكة الحماية", icon: Shield, color: "from-emerald-500 to-green-500" },
-  { id: "finance-ai", name: "Finance AI", nameAr: "المالية الذكية", icon: Building2, color: "from-amber-500 to-orange-500" },
-  { id: "sovereign-ai", name: "Sovereign AI", nameAr: "الذكاء السيادي", icon: Landmark, color: "from-rose-500 to-pink-500" },
-  { id: "train-ai", name: "TrainAI", nameAr: "التدريب الذكي", icon: GraduationCap, color: "from-indigo-500 to-blue-600" },
-  { id: "jobs-ai", name: "Jobs AI", nameAr: "الوظائف الذكية", icon: Users, color: "from-teal-500 to-cyan-500" },
-];
-
-const externalProviders = [
-  { id: "anthropic", name: "Claude (Anthropic)", nameAr: "كلود (أنثروبيك)", icon: Brain, color: "text-orange-500" },
-  { id: "openai", name: "GPT (OpenAI)", nameAr: "جي بي تي (أوبن إيه آي)", iconComponent: SiOpenai, color: "text-green-500" },
-  { id: "gemini", name: "Gemini (Google)", nameAr: "جيميني (جوجل)", iconComponent: SiGoogle, color: "text-blue-500" },
-];
 
 const templateCategories = [
   { id: "all", label: { en: "All Templates", ar: "جميع القوالب" }, icon: LayoutGrid },
@@ -120,7 +103,6 @@ export default function Home() {
   const { user } = useAuth();
   const { toast } = useToast();
   
-  const isSovereign = user?.role === 'owner' || user?.role === 'sovereign';
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
@@ -240,66 +222,6 @@ export default function Home() {
         <p className="text-lg text-muted-foreground text-center mb-6 max-w-2xl">
           {t("home.subtitle")}
         </p>
-
-        {/* INFERA AI Models Section - نماذج الذكاء الاصطناعي */}
-        <div className="w-full max-w-5xl mb-8" data-testid="section-ai-models">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <Brain className="h-5 w-5 text-primary" />
-            <h3 className="text-sm font-medium text-muted-foreground">
-              {language === "ar" ? "نماذج الذكاء الاصطناعي" : "AI Models"}
-              {isSovereign && (
-                <span className="ms-2 text-xs text-muted-foreground/70">
-                  {language === "ar" ? "+ مزودين خارجيين" : "+ External Providers"}
-                </span>
-              )}
-            </h3>
-          </div>
-          
-          <div className="flex flex-wrap justify-center gap-3">
-            {/* INFERA Models - always visible */}
-            {inferaModels.map((model) => {
-              const Icon = model.icon;
-              return (
-                <div
-                  key={model.id}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-card/60 backdrop-blur-sm border border-border/50 hover-elevate cursor-pointer"
-                  data-testid={`model-${model.id}`}
-                >
-                  <div className={`w-8 h-8 rounded-md bg-gradient-to-br ${model.color} flex items-center justify-center`}>
-                    <Icon className="h-4 w-4 text-white" />
-                  </div>
-                  <div className="text-start">
-                    <span className="text-xs font-medium block">{model.name}</span>
-                    <span className="text-[10px] text-muted-foreground block" dir="rtl">{model.nameAr}</span>
-                  </div>
-                </div>
-              );
-            })}
-            
-            {/* External Providers - only for sovereign accounts */}
-            {isSovereign && (
-              <>
-                <div className="h-10 w-px bg-border/50 mx-2 hidden sm:block" />
-                {externalProviders.map((provider) => {
-                  const IconComponent = provider.iconComponent || provider.icon;
-                  return (
-                    <div
-                      key={provider.id}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30 border border-border/30 hover-elevate cursor-pointer"
-                      data-testid={`provider-${provider.id}`}
-                    >
-                      <IconComponent className={`h-5 w-5 ${provider.color}`} />
-                      <div className="text-start">
-                        <span className="text-xs font-medium block">{provider.name}</span>
-                        <span className="text-[10px] text-muted-foreground block" dir="rtl">{provider.nameAr}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </>
-            )}
-          </div>
-        </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 max-w-4xl w-full">
           {sovereignDomains.map((domain) => {
