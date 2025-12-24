@@ -16386,3 +16386,168 @@ export const insertSovereignPolicyTemplateSchema = createInsertSchema(sovereignP
 });
 export type InsertSovereignPolicyTemplate = z.infer<typeof insertSovereignPolicyTemplateSchema>;
 export type SovereignPolicyTemplate = typeof sovereignPolicyTemplates.$inferSelect;
+
+// ==================== PLATFORM ICON VERSION CONTROL ====================
+// نظام إدارة إصدارات الأيقونات الديناميكي
+
+// Icon generation status
+export const iconGenerationStatuses = ['pending', 'generating', 'completed', 'failed'] as const;
+export type IconGenerationStatus = typeof iconGenerationStatuses[number];
+
+// Platform Icons - Main platform icon registry with version control
+export const platformIcons = pgTable("platform_icons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  platformId: text("platform_id").notNull().unique(), // e.g., "infera-webnova"
+  
+  // Platform metadata
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  category: text("category").notNull(),
+  
+  // Color scheme
+  colors: jsonb("colors").$type<{
+    primary: string;
+    secondary: string;
+    accent: string;
+  }>().notNull(),
+  
+  // Symbol descriptions
+  symbol: jsonb("symbol").$type<string[]>().notNull(),
+  symbolAr: jsonb("symbol_ar").$type<string[]>().notNull(),
+  meaning: text("meaning").notNull(),
+  meaningAr: text("meaning_ar").notNull(),
+  
+  // Current active icon
+  currentVersionId: varchar("current_version_id"),
+  currentIconPath: text("current_icon_path"),
+  
+  // Archive path
+  iconArchivePath: text("icon_archive_path").notNull(),
+  
+  // Usage rules
+  usageContexts: jsonb("usage_contexts").$type<string[]>().default([]),
+  usageRules: jsonb("usage_rules").$type<{
+    allowed: string[];
+    forbidden: string[];
+    note?: string;
+  }>(),
+  
+  // Statistics
+  totalVersions: integer("total_versions").notNull().default(0),
+  totalRegenerations: integer("total_regenerations").notNull().default(0),
+  
+  // Status
+  isActive: boolean("is_active").notNull().default(true),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_platform_icon_platform").on(table.platformId),
+  index("IDX_platform_icon_category").on(table.category),
+]);
+
+export const insertPlatformIconSchema = createInsertSchema(platformIcons).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertPlatformIcon = z.infer<typeof insertPlatformIconSchema>;
+export type PlatformIcon = typeof platformIcons.$inferSelect;
+
+// Platform Icon Versions - Version history for each platform icon
+export const platformIconVersions = pgTable("platform_icon_versions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  platformIconId: varchar("platform_icon_id").references(() => platformIcons.id, { onDelete: "cascade" }).notNull(),
+  platformId: text("platform_id").notNull(), // Denormalized for easy querying
+  
+  // Version info
+  versionNumber: integer("version_number").notNull(),
+  versionLabel: text("version_label"), // Optional label like "v1.0", "Initial", "Redesign"
+  
+  // Icon files
+  iconFiles: jsonb("icon_files").$type<{
+    appIcon?: string;      // 1024x1024
+    favicon32?: string;    // 32x32
+    favicon16?: string;    // 16x16
+    tabIcon?: string;      // SVG
+    monochrome?: string;   // SVG mono
+    lightBg?: string;      // Light background variant
+    darkBg?: string;       // Dark background variant
+  }>().notNull(),
+  
+  // Primary icon path (main generated icon)
+  primaryIconPath: text("primary_icon_path").notNull(),
+  
+  // Generation details
+  generationPrompt: text("generation_prompt"),
+  generationStatus: text("generation_status").notNull().default("completed"),
+  
+  // Metadata
+  metadata: jsonb("metadata").$type<{
+    width?: number;
+    height?: number;
+    format?: string;
+    fileSize?: number;
+    generatedBy?: string;
+    aiModel?: string;
+  }>(),
+  
+  // Status
+  isActive: boolean("is_active").notNull().default(true),
+  isCurrent: boolean("is_current").notNull().default(false), // Is this the current version?
+  
+  // Audit
+  createdBy: varchar("created_by"),
+  restoredFrom: varchar("restored_from"), // If this version was restored from another
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_icon_version_platform").on(table.platformIconId),
+  index("IDX_icon_version_platform_id").on(table.platformId),
+  index("IDX_icon_version_current").on(table.isCurrent),
+]);
+
+export const insertPlatformIconVersionSchema = createInsertSchema(platformIconVersions).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertPlatformIconVersion = z.infer<typeof insertPlatformIconVersionSchema>;
+export type PlatformIconVersion = typeof platformIconVersions.$inferSelect;
+
+// Icon Regeneration Requests - Queue for icon regeneration
+export const iconRegenerationRequests = pgTable("icon_regeneration_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  platformIconId: varchar("platform_icon_id").references(() => platformIcons.id, { onDelete: "cascade" }).notNull(),
+  platformId: text("platform_id").notNull(),
+  
+  // Request details
+  reason: text("reason"), // Why regeneration was requested
+  customPrompt: text("custom_prompt"), // Custom prompt override
+  
+  // Status
+  status: text("status").notNull().default("pending"), // pending, processing, completed, failed
+  errorMessage: text("error_message"),
+  
+  // Result
+  resultVersionId: varchar("result_version_id").references(() => platformIconVersions.id),
+  
+  // Requester
+  requestedBy: varchar("requested_by"),
+  
+  // Timestamps
+  requestedAt: timestamp("requested_at").defaultNow(),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+}, (table) => [
+  index("IDX_regen_request_platform").on(table.platformIconId),
+  index("IDX_regen_request_status").on(table.status),
+]);
+
+export const insertIconRegenerationRequestSchema = createInsertSchema(iconRegenerationRequests).omit({
+  id: true,
+  requestedAt: true,
+});
+export type InsertIconRegenerationRequest = z.infer<typeof insertIconRegenerationRequestSchema>;
+export type IconRegenerationRequest = typeof iconRegenerationRequests.$inferSelect;
