@@ -158,11 +158,10 @@ export function SovereignCore({ workspaceId, isOwner }: SovereignCoreProps) {
 
   const createConversationMutation = useMutation({
     mutationFn: async (title: string) => {
-      const res = await apiRequest("POST", "/api/sovereign-core/conversations", {
+      return await apiRequest("POST", "/api/sovereign-core/conversations", {
         title,
         workspaceId,
       });
-      return res.json();
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/sovereign-core/conversations'] });
@@ -186,11 +185,10 @@ export function SovereignCore({ workspaceId, isOwner }: SovereignCoreProps) {
   const sendMessageMutation = useMutation({
     mutationFn: async (content: string) => {
       setIsProcessing(true);
-      const res = await apiRequest("POST", `/api/sovereign-core/conversations/${selectedConversation}/messages`, {
+      return await apiRequest("POST", `/api/sovereign-core/conversations/${selectedConversation}/messages`, {
         content,
         role: "user",
       });
-      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/sovereign-core/conversations', selectedConversation, 'messages'] });
