@@ -15379,3 +15379,279 @@ export const insertSidebarVisibilityLogSchema = createInsertSchema(sidebarVisibi
 });
 export type InsertSidebarVisibilityLog = z.infer<typeof insertSidebarVisibilityLogSchema>;
 export type SidebarVisibilityLog = typeof sidebarVisibilityLogs.$inferSelect;
+
+// ==================== COMMAND SECURITY SETTINGS ====================
+
+// Risk levels for commands
+export const commandRiskLevels = ['low', 'medium', 'high', 'critical'] as const;
+export type CommandRiskLevel = typeof commandRiskLevels[number];
+
+// Authentication factor types
+export const authFactorTypes = ['password', 'otp_email', 'totp', 'biometric', 'hardware_key'] as const;
+export type AuthFactorType = typeof authFactorTypes[number];
+
+// Command security settings - owner-controlled dynamic settings
+export const commandSecuritySettings = pgTable("command_security_settings", {
+  id: serial("id").primaryKey(),
+  
+  // Settings identifier
+  settingsKey: text("settings_key").notNull().unique().default("global"),
+  
+  // Global toggle for the security system
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  
+  // Risk level thresholds - which levels require MFA
+  lowRiskRequiresMfa: boolean("low_risk_requires_mfa").notNull().default(false),
+  mediumRiskRequiresMfa: boolean("medium_risk_requires_mfa").notNull().default(false),
+  highRiskRequiresMfa: boolean("high_risk_requires_mfa").notNull().default(true),
+  criticalRiskRequiresMfa: boolean("critical_risk_requires_mfa").notNull().default(true),
+  
+  // Available authentication factors (ordered by priority)
+  enabledFactors: jsonb("enabled_factors").$type<AuthFactorType[]>().default(['password', 'otp_email', 'totp']),
+  
+  // Factor requirements by risk level
+  lowRiskFactors: integer("low_risk_factors").notNull().default(1), // Number of factors required
+  mediumRiskFactors: integer("medium_risk_factors").notNull().default(1),
+  highRiskFactors: integer("high_risk_factors").notNull().default(2),
+  criticalRiskFactors: integer("critical_risk_factors").notNull().default(3),
+  
+  // Session duration settings (in minutes)
+  authSessionDuration: integer("auth_session_duration").notNull().default(15),
+  rememberDeviceDuration: integer("remember_device_duration").notNull().default(1440), // 24 hours
+  
+  // Lockout settings
+  maxFailedAttempts: integer("max_failed_attempts").notNull().default(5),
+  lockoutDuration: integer("lockout_duration").notNull().default(30), // minutes
+  
+  // Notification settings
+  notifyOnHighRisk: boolean("notify_on_high_risk").notNull().default(true),
+  notifyOnCritical: boolean("notify_on_critical").notNull().default(true),
+  notifyOnFailedAttempt: boolean("notify_on_failed_attempt").notNull().default(true),
+  
+  // Audit settings
+  logAllCommands: boolean("log_all_commands").notNull().default(true),
+  retentionDays: integer("retention_days").notNull().default(90),
+  
+  // Owner who last modified
+  lastModifiedBy: varchar("last_modified_by").references(() => users.id),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCommandSecuritySettingsSchema = createInsertSchema(commandSecuritySettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertCommandSecuritySettings = z.infer<typeof insertCommandSecuritySettingsSchema>;
+export type CommandSecuritySettings = typeof commandSecuritySettings.$inferSelect;
+
+// Command definitions - what commands exist and their risk levels
+export const commandDefinitions = pgTable("command_definitions", {
+  id: serial("id").primaryKey(),
+  
+  // Command identifier
+  commandKey: text("command_key").notNull().unique(), // e.g., 'delete_user', 'transfer_funds'
+  
+  // Display info
+  nameEn: text("name_en").notNull(),
+  nameAr: text("name_ar").notNull(),
+  descriptionEn: text("description_en"),
+  descriptionAr: text("description_ar"),
+  
+  // Category
+  category: text("category").notNull(), // e.g., 'user_management', 'financial', 'system'
+  
+  // Risk level
+  riskLevel: text("risk_level").notNull().default('medium'),
+  
+  // Is this command enabled
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  
+  // Override MFA requirement (null = use global settings)
+  overrideMfa: boolean("override_mfa"),
+  overrideFactorCount: integer("override_factor_count"),
+  
+  // Allowed roles for this command
+  allowedRoles: text("allowed_roles").array().notNull().default(['owner']),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_cmd_def_key").on(table.commandKey),
+  index("IDX_cmd_def_category").on(table.category),
+  index("IDX_cmd_def_risk").on(table.riskLevel),
+]);
+
+export const insertCommandDefinitionSchema = createInsertSchema(commandDefinitions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertCommandDefinition = z.infer<typeof insertCommandDefinitionSchema>;
+export type CommandDefinition = typeof commandDefinitions.$inferSelect;
+
+// Command authentication sessions - tracks active MFA sessions
+export const commandAuthSessions = pgTable("command_auth_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User who authenticated
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Which command(s) this session is valid for (null = all commands up to risk level)
+  commandKey: text("command_key"), // specific command or null for general session
+  maxRiskLevel: text("max_risk_level").notNull().default('high'), // highest risk level allowed
+  
+  // Factors used in this authentication
+  factorsCompleted: jsonb("factors_completed").$type<{
+    factor: AuthFactorType;
+    completedAt: string;
+    method?: string;
+  }[]>().notNull(),
+  
+  // Device info for remember device
+  deviceId: text("device_id"),
+  deviceInfo: jsonb("device_info").$type<{
+    userAgent?: string;
+    ip?: string;
+    fingerprint?: string;
+  }>(),
+  
+  // Session timing
+  expiresAt: timestamp("expires_at").notNull(),
+  isRemembered: boolean("is_remembered").notNull().default(false),
+  
+  // Status
+  isValid: boolean("is_valid").notNull().default(true),
+  revokedAt: timestamp("revoked_at"),
+  revokedReason: text("revoked_reason"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_cmd_auth_user").on(table.userId),
+  index("IDX_cmd_auth_expires").on(table.expiresAt),
+  index("IDX_cmd_auth_device").on(table.deviceId),
+]);
+
+export const insertCommandAuthSessionSchema = createInsertSchema(commandAuthSessions).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertCommandAuthSession = z.infer<typeof insertCommandAuthSessionSchema>;
+export type CommandAuthSession = typeof commandAuthSessions.$inferSelect;
+
+// Command execution log - audit trail
+export const commandExecutionLogs = pgTable("command_execution_logs", {
+  id: serial("id").primaryKey(),
+  
+  // Command info
+  commandKey: text("command_key").notNull(),
+  commandCategory: text("command_category"),
+  riskLevel: text("risk_level").notNull(),
+  
+  // User who executed
+  userId: varchar("user_id").notNull().references(() => users.id),
+  
+  // Authentication used
+  authSessionId: varchar("auth_session_id"),
+  factorsUsed: jsonb("factors_used").$type<AuthFactorType[]>(),
+  
+  // Execution details
+  parameters: jsonb("parameters"), // command parameters (sanitized)
+  result: text("result").notNull(), // 'success', 'failed', 'denied'
+  errorMessage: text("error_message"),
+  
+  // Client info
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  
+  // Timing
+  executedAt: timestamp("executed_at").defaultNow(),
+  durationMs: integer("duration_ms"),
+}, (table) => [
+  index("IDX_cmd_log_user").on(table.userId),
+  index("IDX_cmd_log_command").on(table.commandKey),
+  index("IDX_cmd_log_executed").on(table.executedAt),
+  index("IDX_cmd_log_result").on(table.result),
+]);
+
+export const insertCommandExecutionLogSchema = createInsertSchema(commandExecutionLogs).omit({
+  id: true,
+});
+export type InsertCommandExecutionLog = z.infer<typeof insertCommandExecutionLogSchema>;
+export type CommandExecutionLog = typeof commandExecutionLogs.$inferSelect;
+
+// ==================== INFERA AGENT CONVERSATIONS ====================
+
+// Agent conversation sessions
+export const agentConversations = pgTable("agent_conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Session info
+  sessionId: text("session_id").notNull().unique(),
+  title: text("title"), // auto-generated or user-provided
+  
+  // User who owns this conversation (null for anonymous)
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
+  
+  // Conversation state
+  isActive: boolean("is_active").notNull().default(true),
+  
+  // Stats
+  messageCount: integer("message_count").notNull().default(0),
+  tokenCount: integer("token_count").notNull().default(0),
+  
+  // Metadata
+  context: jsonb("context").$type<Record<string, any>>(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_agent_conv_session").on(table.sessionId),
+  index("IDX_agent_conv_user").on(table.userId),
+  index("IDX_agent_conv_created").on(table.createdAt),
+]);
+
+export const insertAgentConversationSchema = createInsertSchema(agentConversations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAgentConversation = z.infer<typeof insertAgentConversationSchema>;
+export type AgentConversation = typeof agentConversations.$inferSelect;
+
+// Agent conversation messages
+export const agentMessages = pgTable("agent_messages", {
+  id: serial("id").primaryKey(),
+  
+  // Conversation reference
+  conversationId: varchar("conversation_id").notNull().references(() => agentConversations.id, { onDelete: "cascade" }),
+  
+  // Message content
+  role: text("role").notNull(), // 'user' or 'assistant'
+  content: text("content").notNull(),
+  
+  // Token usage
+  inputTokens: integer("input_tokens"),
+  outputTokens: integer("output_tokens"),
+  
+  // Metadata
+  metadata: jsonb("metadata").$type<{
+    model?: string;
+    stopReason?: string;
+    executedActions?: string[];
+  }>(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_agent_msg_conv").on(table.conversationId),
+  index("IDX_agent_msg_created").on(table.createdAt),
+]);
+
+export const insertAgentMessageSchema = createInsertSchema(agentMessages).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertAgentMessage = z.infer<typeof insertAgentMessageSchema>;
+export type AgentMessage = typeof agentMessages.$inferSelect;

@@ -292,8 +292,23 @@ export default function Builder() {
     }
   }, [project]);
 
+  // Track which project/conversation we've loaded to prevent re-hydration
+  // This resets when project or conversation changes, enabling fresh loads
+  const loadedMessagesContext = useRef<string | null>(null);
+  
   useEffect(() => {
-    if (existingMessages && existingMessages.length > 0) {
+    // Create context key from project/conversation IDs
+    const contextKey = `${projectId || 'new'}-${conversationParam || 'new'}`;
+    
+    // Reset context when project/conversation changes to allow fresh hydration
+    if (loadedMessagesContext.current !== contextKey) {
+      loadedMessagesContext.current = null;
+    }
+    
+    // Only load existing messages on INITIAL mount for this context
+    // This prevents overwriting optimistic local messages from API responses
+    if (existingMessages && existingMessages.length > 0 && loadedMessagesContext.current !== contextKey) {
+      loadedMessagesContext.current = contextKey;
       const formattedMessages: ChatMessageType[] = existingMessages.map((m) => ({
         id: m.id,
         role: m.role as 'user' | 'assistant',
@@ -302,7 +317,7 @@ export default function Builder() {
       }));
       setMessages(formattedMessages);
     }
-  }, [existingMessages]);
+  }, [existingMessages, projectId, conversationParam]);
 
   useEffect(() => {
     if (template) {
@@ -434,18 +449,27 @@ export default function Builder() {
       ? `[📷 ${attachments.filter(a => a.type.startsWith("image/")).length} صورة مرفقة] ${content}`
       : content;
     
+    const userMessageId = crypto.randomUUID();
     const userMessage: ChatMessageType = {
-      id: crypto.randomUUID(),
+      id: userMessageId,
       role: "user",
       content: displayContent,
       timestamp: new Date(),
       status: "sending",
     };
     
+    // Add user message immediately to UI (optimistic update)
     setMessages((prev) => [...prev, userMessage]);
     setIsGenerating(true);
     setIsCodeGenerating(false);
     setIsSaving(true);
+    
+    // Update user message status to "sent" after a brief moment
+    setTimeout(() => {
+      setMessages(prev => prev.map(m => 
+        m.id === userMessageId ? { ...m, status: undefined } : m
+      ));
+    }, 100);
     
     // Create conversation IMMEDIATELY before API call (ensures persistence even if API fails)
     let activeConversationId = conversationId;
