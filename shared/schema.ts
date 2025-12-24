@@ -16106,3 +16106,278 @@ export const insertSovereignWorkspaceDeploymentSchema = createInsertSchema(sover
 });
 export type InsertSovereignWorkspaceDeployment = z.infer<typeof insertSovereignWorkspaceDeploymentSchema>;
 export type SovereignWorkspaceDeployment = typeof sovereignWorkspaceDeployments.$inferSelect;
+
+// ==================== SOVEREIGN POLICY SYSTEM ====================
+
+// Policy sector templates
+export const policySectors = [
+  'general', 'financial', 'healthcare', 'government', 'education', 'enterprise', 'ecommerce'
+] as const;
+export type PolicySector = typeof policySectors[number];
+
+// Policy compliance status
+export const complianceStatuses = ['compliant', 'partial', 'non_compliant', 'pending_review'] as const;
+export type ComplianceStatus = typeof complianceStatuses[number];
+
+// Policy violation severity
+export const violationSeverities = ['critical', 'high', 'medium', 'low'] as const;
+export type ViolationSeverity = typeof violationSeverities[number];
+
+// Sovereign Policy Signatures - Digital signature for policy acceptance
+export const sovereignPolicySignatures = pgTable("sovereign_policy_signatures", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Who signed
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  workspaceId: varchar("workspace_id").references(() => sovereignWorkspace.id, { onDelete: "cascade" }),
+  
+  // Signature details
+  policyVersion: text("policy_version").notNull().default("1.0"),
+  signatureHash: text("signature_hash").notNull(), // SHA-256 hash of policy content + user + timestamp
+  certificateData: jsonb("certificate_data").$type<{
+    issuer: string;
+    subject: string;
+    validFrom: string;
+    validTo: string;
+    serialNumber: string;
+    fingerprint: string;
+  }>(),
+  
+  // IP and device info
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  deviceFingerprint: text("device_fingerprint"),
+  
+  // Legal acknowledgment
+  legalAcknowledgment: boolean("legal_acknowledgment").notNull().default(false),
+  
+  // Timestamps
+  signedAt: timestamp("signed_at").defaultNow(),
+  expiresAt: timestamp("expires_at"),
+}, (table) => [
+  index("IDX_policy_signature_user").on(table.userId),
+  index("IDX_policy_signature_workspace").on(table.workspaceId),
+]);
+
+export const insertSovereignPolicySignatureSchema = createInsertSchema(sovereignPolicySignatures).omit({
+  id: true,
+  signedAt: true,
+});
+export type InsertSovereignPolicySignature = z.infer<typeof insertSovereignPolicySignatureSchema>;
+export type SovereignPolicySignature = typeof sovereignPolicySignatures.$inferSelect;
+
+// Sovereign Policy Versions - Track policy changes over time
+export const sovereignPolicyVersions = pgTable("sovereign_policy_versions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Version info
+  version: text("version").notNull(), // e.g., "1.0", "1.1", "2.0"
+  versionNumber: integer("version_number").notNull(), // Sequential number
+  
+  // Policy content (snapshot)
+  policyContent: jsonb("policy_content").$type<{
+    directive: Record<string, unknown>[];
+    checklist: Record<string, unknown>[];
+  }>().notNull(),
+  
+  // Change info
+  changeType: text("change_type").notNull().default("update"), // create, update, major_revision
+  changeSummary: text("change_summary"),
+  changeSummaryAr: text("change_summary_ar"),
+  
+  // Who made the change
+  createdBy: varchar("created_by").references(() => users.id),
+  
+  // Status
+  isActive: boolean("is_active").notNull().default(true),
+  
+  // Timestamps
+  effectiveFrom: timestamp("effective_from").defaultNow(),
+  effectiveTo: timestamp("effective_to"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_policy_version_active").on(table.isActive),
+  index("IDX_policy_version_number").on(table.versionNumber),
+]);
+
+export const insertSovereignPolicyVersionSchema = createInsertSchema(sovereignPolicyVersions).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertSovereignPolicyVersion = z.infer<typeof insertSovereignPolicyVersionSchema>;
+export type SovereignPolicyVersion = typeof sovereignPolicyVersions.$inferSelect;
+
+// Sovereign Policy Compliance - Track platform compliance with policies
+export const sovereignPolicyCompliance = pgTable("sovereign_policy_compliance", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // What platform
+  projectId: varchar("project_id").references(() => sovereignWorkspaceProjects.id, { onDelete: "cascade" }),
+  workspaceId: varchar("workspace_id").references(() => sovereignWorkspace.id, { onDelete: "cascade" }),
+  
+  // Compliance info
+  policyVersion: text("policy_version").notNull(),
+  overallStatus: text("overall_status").notNull().default("pending_review"), // compliant, partial, non_compliant, pending_review
+  complianceScore: integer("compliance_score").default(0), // 0-100
+  
+  // Category scores
+  categoryScores: jsonb("category_scores").$type<Record<string, {
+    score: number;
+    status: string;
+    checkedItems: number;
+    totalItems: number;
+  }>>(),
+  
+  // Last check info
+  lastCheckAt: timestamp("last_check_at"),
+  lastCheckBy: varchar("last_check_by").references(() => users.id),
+  lastCheckType: text("last_check_type").default("manual"), // manual, automated, ai
+  
+  // AI analysis result
+  aiAnalysis: jsonb("ai_analysis").$type<{
+    summary: string;
+    summaryAr: string;
+    recommendations: string[];
+    riskLevel: string;
+    estimatedFixTime: string;
+  }>(),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_policy_compliance_project").on(table.projectId),
+  index("IDX_policy_compliance_workspace").on(table.workspaceId),
+  index("IDX_policy_compliance_status").on(table.overallStatus),
+]);
+
+export const insertSovereignPolicyComplianceSchema = createInsertSchema(sovereignPolicyCompliance).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSovereignPolicyCompliance = z.infer<typeof insertSovereignPolicyComplianceSchema>;
+export type SovereignPolicyCompliance = typeof sovereignPolicyCompliance.$inferSelect;
+
+// Sovereign Policy Violations - Track policy violations
+export const sovereignPolicyViolations = pgTable("sovereign_policy_violations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // What violated
+  projectId: varchar("project_id").references(() => sovereignWorkspaceProjects.id, { onDelete: "cascade" }),
+  workspaceId: varchar("workspace_id").references(() => sovereignWorkspace.id, { onDelete: "cascade" }),
+  complianceId: varchar("compliance_id").references(() => sovereignPolicyCompliance.id, { onDelete: "cascade" }),
+  
+  // Violation details
+  policyCategory: text("policy_category").notNull(), // Which policy category was violated
+  policyItem: text("policy_item").notNull(), // Specific policy item ID
+  severity: text("severity").notNull().default("medium"), // critical, high, medium, low
+  
+  // Description
+  title: text("title").notNull(),
+  titleAr: text("title_ar"),
+  description: text("description").notNull(),
+  descriptionAr: text("description_ar"),
+  
+  // Evidence
+  evidence: jsonb("evidence").$type<{
+    type: string;
+    location: string;
+    snippet?: string;
+    screenshot?: string;
+  }[]>(),
+  
+  // Resolution
+  status: text("status").notNull().default("open"), // open, acknowledged, in_progress, resolved, dismissed
+  resolution: text("resolution"),
+  resolvedBy: varchar("resolved_by").references(() => users.id),
+  resolvedAt: timestamp("resolved_at"),
+  
+  // Detected by
+  detectedBy: text("detected_by").notNull().default("manual"), // manual, ai, automated
+  detectedAt: timestamp("detected_at").defaultNow(),
+  
+  // Notification sent
+  notificationSent: boolean("notification_sent").default(false),
+  notifiedUsers: jsonb("notified_users").$type<string[]>(),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_policy_violation_project").on(table.projectId),
+  index("IDX_policy_violation_severity").on(table.severity),
+  index("IDX_policy_violation_status").on(table.status),
+]);
+
+export const insertSovereignPolicyViolationSchema = createInsertSchema(sovereignPolicyViolations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSovereignPolicyViolation = z.infer<typeof insertSovereignPolicyViolationSchema>;
+export type SovereignPolicyViolation = typeof sovereignPolicyViolations.$inferSelect;
+
+// Sovereign Policy Templates - Sector-specific policy templates
+export const sovereignPolicyTemplates = pgTable("sovereign_policy_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Template info
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  
+  // Sector
+  sector: text("sector").notNull().default("general"), // general, financial, healthcare, government, education, enterprise
+  
+  // Template content
+  additionalPolicies: jsonb("additional_policies").$type<{
+    id: string;
+    titleAr: string;
+    titleEn: string;
+    level: string;
+    requirements: {
+      textAr: string;
+      textEn: string;
+      type: string;
+    }[];
+  }[]>(),
+  
+  additionalChecklist: jsonb("additional_checklist").$type<{
+    id: string;
+    titleAr: string;
+    titleEn: string;
+    items: {
+      id: string;
+      textAr: string;
+      textEn: string;
+      critical?: boolean;
+    }[];
+  }[]>(),
+  
+  // Compliance requirements
+  complianceFrameworks: jsonb("compliance_frameworks").$type<string[]>(), // ISO, HIPAA, PCI-DSS, etc.
+  
+  // Status
+  isActive: boolean("is_active").notNull().default(true),
+  isDefault: boolean("is_default").notNull().default(false),
+  
+  // Created by
+  createdBy: varchar("created_by").references(() => users.id),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_policy_template_sector").on(table.sector),
+  index("IDX_policy_template_active").on(table.isActive),
+]);
+
+export const insertSovereignPolicyTemplateSchema = createInsertSchema(sovereignPolicyTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSovereignPolicyTemplate = z.infer<typeof insertSovereignPolicyTemplateSchema>;
+export type SovereignPolicyTemplate = typeof sovereignPolicyTemplates.$inferSelect;

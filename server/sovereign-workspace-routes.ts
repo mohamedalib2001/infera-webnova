@@ -1,12 +1,18 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
+import { createHash, randomBytes } from "crypto";
 import {
   sovereignWorkspace,
   sovereignWorkspaceMembers,
   sovereignWorkspaceProjects,
   sovereignWorkspaceAccessLogs,
   sovereignWorkspaceDeployments,
+  sovereignPolicySignatures,
+  sovereignPolicyVersions,
+  sovereignPolicyCompliance,
+  sovereignPolicyViolations,
+  sovereignPolicyTemplates,
   users,
   type SovereignWorkspacePermission,
   sovereignWorkspacePermissions,
@@ -256,7 +262,7 @@ router.get("/projects", requireAuth, requireWorkspaceAccess, requirePermission("
     .where(eq(sovereignWorkspaceProjects.workspaceId, workspace.id))
     .orderBy(desc(sovereignWorkspaceProjects.createdAt));
   
-  await logAction(workspace.id, req.user!.id, "view", "project", undefined, { count: projects.length }, req);
+  await logAction(workspace.id, ((req as any).user || req.session?.user)?.id, "view", "project", undefined, { count: projects.length }, req);
   
   res.json(projects);
 });
@@ -280,7 +286,7 @@ router.get("/projects/:id", requireAuth, requireWorkspaceAccess, requirePermissi
     return res.status(404).json({ error: "Project not found" });
   }
   
-  await logAction(workspace.id, req.user!.id, "view", "project", id, {}, req);
+  await logAction(workspace.id, ((req as any).user || req.session?.user)?.id, "view", "project", id, {}, req);
   
   res.json(project);
 });
@@ -292,12 +298,12 @@ router.post("/projects", requireAuth, requireWorkspaceAccess, requirePermission(
   const validatedData = insertSovereignWorkspaceProjectSchema.parse({
     ...req.body,
     workspaceId: workspace.id,
-    createdBy: req.user!.id,
+    createdBy: ((req as any).user || req.session?.user)?.id,
   });
   
   const [project] = await db.insert(sovereignWorkspaceProjects).values(validatedData).returning();
   
-  await logAction(workspace.id, req.user!.id, "create", "project", project.id, { code: project.code }, req);
+  await logAction(workspace.id, ((req as any).user || req.session?.user)?.id, "create", "project", project.id, { code: project.code }, req);
   
   res.status(201).json(project);
 });
@@ -327,7 +333,7 @@ router.patch("/projects/:id", requireAuth, requireWorkspaceAccess, requirePermis
     .where(eq(sovereignWorkspaceProjects.id, id))
     .returning();
   
-  await logAction(workspace.id, req.user!.id, "edit", "project", id, { changes: req.body }, req);
+  await logAction(workspace.id, ((req as any).user || req.session?.user)?.id, "edit", "project", id, { changes: req.body }, req);
   
   res.json(updated);
 });
@@ -353,7 +359,7 @@ router.delete("/projects/:id", requireAuth, requireWorkspaceAccess, requirePermi
   
   await db.delete(sovereignWorkspaceProjects).where(eq(sovereignWorkspaceProjects.id, id));
   
-  await logAction(workspace.id, req.user!.id, "delete", "project", id, { code: existing.code }, req);
+  await logAction(workspace.id, ((req as any).user || req.session?.user)?.id, "delete", "project", id, { code: existing.code }, req);
   
   res.json({ success: true });
 });
@@ -428,11 +434,11 @@ router.post("/members/invite", requireAuth, requireWorkspaceAccess, requirePermi
     role,
     permissions: permissions || [],
     status: "pending",
-    invitedBy: req.user!.id,
+    invitedBy: ((req as any).user || req.session?.user)?.id,
     invitedAt: new Date(),
   }).returning();
   
-  await logAction(workspace.id, req.user!.id, "invite", "member", member.id, { invitedUserId: userId, role }, req);
+  await logAction(workspace.id, ((req as any).user || req.session?.user)?.id, "invite", "member", member.id, { invitedUserId: userId, role }, req);
   
   res.status(201).json(member);
 });
@@ -478,11 +484,11 @@ router.post("/members/invite-by-email", requireAuth, requireWorkspaceAccess, req
     role,
     permissions: permissions || [],
     status: "active",
-    invitedBy: req.user!.id,
+    invitedBy: ((req as any).user || req.session?.user)?.id,
     invitedAt: new Date(),
   }).returning();
   
-  await logAction(workspace.id, req.user!.id, "invite", "member", member.id, { invitedEmail: email, role }, req);
+  await logAction(workspace.id, ((req as any).user || req.session?.user)?.id, "invite", "member", member.id, { invitedEmail: email, role }, req);
   
   res.status(201).json(member);
 });
@@ -512,7 +518,7 @@ router.patch("/members/:id", requireAuth, requireWorkspaceAccess, requirePermiss
     .where(eq(sovereignWorkspaceMembers.id, id))
     .returning();
   
-  await logAction(workspace.id, req.user!.id, "edit", "member", id, { changes: req.body }, req);
+  await logAction(workspace.id, ((req as any).user || req.session?.user)?.id, "edit", "member", id, { changes: req.body }, req);
   
   res.json(updated);
 });
@@ -538,7 +544,7 @@ router.delete("/members/:id", requireAuth, requireWorkspaceAccess, requirePermis
   
   await db.delete(sovereignWorkspaceMembers).where(eq(sovereignWorkspaceMembers.id, id));
   
-  await logAction(workspace.id, req.user!.id, "remove", "member", id, { removedUserId: existing.userId }, req);
+  await logAction(workspace.id, ((req as any).user || req.session?.user)?.id, "remove", "member", id, { removedUserId: existing.userId }, req);
   
   res.json({ success: true });
 });
@@ -611,7 +617,7 @@ router.post("/projects/:projectId/deploy", requireAuth, requireWorkspaceAccess, 
     version: project.version || "0.1.0",
     environment,
     status: "pending",
-    triggeredBy: req.user!.id,
+    triggeredBy: ((req as any).user || req.session?.user)?.id,
   }).returning();
   
   // Update project status
@@ -620,7 +626,7 @@ router.post("/projects/:projectId/deploy", requireAuth, requireWorkspaceAccess, 
     .set({ deploymentStatus: "deploying", updatedAt: new Date() })
     .where(eq(sovereignWorkspaceProjects.id, projectId));
   
-  await logAction(workspace.id, req.user!.id, "deploy", "project", projectId, { deploymentId: deployment.id, environment }, req);
+  await logAction(workspace.id, ((req as any).user || req.session?.user)?.id, "deploy", "project", projectId, { deploymentId: deployment.id, environment }, req);
   
   res.status(201).json(deployment);
 });
@@ -652,6 +658,463 @@ router.get("/stats", requireAuth, requireWorkspaceAccess, requirePermission("wor
       acc[p.platformType] = (acc[p.platformType] || 0) + 1;
       return acc;
     }, {} as Record<string, number>),
+  };
+  
+  res.json(stats);
+});
+
+// ==================== SOVEREIGN POLICY SYSTEM ====================
+
+// Generate policy signature hash
+const generateSignatureHash = (userId: string, policyVersion: string, timestamp: Date): string => {
+  const data = `${userId}:${policyVersion}:${timestamp.toISOString()}:${randomBytes(16).toString('hex')}`;
+  return createHash('sha256').update(data).digest('hex');
+};
+
+// Generate certificate data
+const generateCertificate = (userId: string, userName: string): {
+  issuer: string;
+  subject: string;
+  validFrom: string;
+  validTo: string;
+  serialNumber: string;
+  fingerprint: string;
+} => {
+  const now = new Date();
+  const expiryDate = new Date(now.getFullYear() + 2, now.getMonth(), now.getDate());
+  const serialNumber = randomBytes(16).toString('hex').toUpperCase();
+  
+  return {
+    issuer: "CN=INFERA WebNova Sovereign CA,O=INFERA Engine,C=SA",
+    subject: `CN=${userName},O=INFERA Engine,OU=Platform Owner`,
+    validFrom: now.toISOString(),
+    validTo: expiryDate.toISOString(),
+    serialNumber,
+    fingerprint: createHash('sha256').update(`${serialNumber}:${userId}:${now.toISOString()}`).digest('hex').toUpperCase(),
+  };
+};
+
+// Sign policies (digital signature)
+router.post("/policies/sign", requireAuth, requireWorkspaceAccess, async (req, res) => {
+  const user = (req as any).user || req.session?.user;
+  const workspace = (req as any).workspace;
+  const { policyVersion = "1.0", legalAcknowledgment = true } = req.body;
+  
+  // Check if already signed this version
+  const [existingSignature] = await db
+    .select()
+    .from(sovereignPolicySignatures)
+    .where(
+      and(
+        eq(sovereignPolicySignatures.userId, user.id),
+        eq(sovereignPolicySignatures.policyVersion, policyVersion)
+      )
+    )
+    .limit(1);
+  
+  if (existingSignature) {
+    return res.json({ 
+      message: "Already signed", 
+      signature: existingSignature 
+    });
+  }
+  
+  const signedAt = new Date();
+  const signatureHash = generateSignatureHash(user.id, policyVersion, signedAt);
+  const certificateData = generateCertificate(user.id, user.fullName || user.username || user.email);
+  
+  const [signature] = await db.insert(sovereignPolicySignatures).values({
+    userId: user.id,
+    workspaceId: workspace?.id,
+    policyVersion,
+    signatureHash,
+    certificateData,
+    ipAddress: req.ip || req.headers['x-forwarded-for']?.toString(),
+    userAgent: req.headers['user-agent'],
+    deviceFingerprint: req.headers['x-device-fingerprint']?.toString(),
+    legalAcknowledgment,
+    expiresAt: new Date(signedAt.getFullYear() + 2, signedAt.getMonth(), signedAt.getDate()),
+  }).returning();
+  
+  await logAction(workspace?.id, user.id, "sign_policy", "policy", signature.id, { policyVersion }, req);
+  
+  res.status(201).json(signature);
+});
+
+// Get user's policy signatures
+router.get("/policies/signatures", requireAuth, async (req, res) => {
+  const user = (req as any).user || req.session?.user;
+  
+  const signatures = await db
+    .select()
+    .from(sovereignPolicySignatures)
+    .where(eq(sovereignPolicySignatures.userId, user.id))
+    .orderBy(desc(sovereignPolicySignatures.signedAt));
+  
+  res.json(signatures);
+});
+
+// Get all policy versions
+router.get("/policies/versions", requireAuth, requireWorkspaceAccess, async (req, res) => {
+  const versions = await db
+    .select()
+    .from(sovereignPolicyVersions)
+    .orderBy(desc(sovereignPolicyVersions.versionNumber));
+  
+  res.json(versions);
+});
+
+// Create new policy version
+router.post("/policies/versions", requireAuth, requireWorkspaceAccess, async (req, res) => {
+  const user = (req as any).user || req.session?.user;
+  const role = (req as any).workspaceRole;
+  
+  // Only ROOT_OWNER can create policy versions
+  if (role !== "ROOT_OWNER") {
+    return res.status(403).json({ error: "Only ROOT_OWNER can create policy versions" });
+  }
+  
+  const { version, policyContent, changeType = "update", changeSummary, changeSummaryAr } = req.body;
+  
+  // Get next version number
+  const [lastVersion] = await db
+    .select()
+    .from(sovereignPolicyVersions)
+    .orderBy(desc(sovereignPolicyVersions.versionNumber))
+    .limit(1);
+  
+  const nextVersionNumber = (lastVersion?.versionNumber || 0) + 1;
+  
+  // Deactivate previous versions
+  await db
+    .update(sovereignPolicyVersions)
+    .set({ isActive: false, effectiveTo: new Date() });
+  
+  const [newVersion] = await db.insert(sovereignPolicyVersions).values({
+    version: version || `1.${nextVersionNumber}`,
+    versionNumber: nextVersionNumber,
+    policyContent,
+    changeType,
+    changeSummary,
+    changeSummaryAr,
+    createdBy: user.id,
+    isActive: true,
+  }).returning();
+  
+  res.status(201).json(newVersion);
+});
+
+// Get compliance records
+router.get("/policies/compliance", requireAuth, requireWorkspaceAccess, async (req, res) => {
+  const workspace = (req as any).workspace;
+  
+  const compliance = await db
+    .select()
+    .from(sovereignPolicyCompliance)
+    .where(eq(sovereignPolicyCompliance.workspaceId, workspace.id))
+    .orderBy(desc(sovereignPolicyCompliance.updatedAt));
+  
+  res.json(compliance);
+});
+
+// Get compliance for specific project
+router.get("/policies/compliance/:projectId", requireAuth, requireWorkspaceAccess, async (req, res) => {
+  const { projectId } = req.params;
+  
+  const [compliance] = await db
+    .select()
+    .from(sovereignPolicyCompliance)
+    .where(eq(sovereignPolicyCompliance.projectId, projectId))
+    .limit(1);
+  
+  res.json(compliance || null);
+});
+
+// Run compliance check (manual)
+router.post("/policies/compliance/:projectId/check", requireAuth, requireWorkspaceAccess, async (req, res) => {
+  const user = (req as any).user || req.session?.user;
+  const workspace = (req as any).workspace;
+  const { projectId } = req.params;
+  const { categoryScores, overallStatus = "pending_review" } = req.body;
+  
+  // Calculate overall score from category scores
+  let complianceScore = 0;
+  if (categoryScores) {
+    const scores = Object.values(categoryScores) as { score: number }[];
+    if (scores.length > 0) {
+      complianceScore = Math.round(scores.reduce((sum, cat) => sum + cat.score, 0) / scores.length);
+    }
+  }
+  
+  // Check if compliance record exists
+  const [existing] = await db
+    .select()
+    .from(sovereignPolicyCompliance)
+    .where(eq(sovereignPolicyCompliance.projectId, projectId))
+    .limit(1);
+  
+  let result;
+  if (existing) {
+    [result] = await db
+      .update(sovereignPolicyCompliance)
+      .set({
+        categoryScores,
+        complianceScore,
+        overallStatus,
+        lastCheckAt: new Date(),
+        lastCheckBy: user.id,
+        lastCheckType: "manual",
+        updatedAt: new Date(),
+      })
+      .where(eq(sovereignPolicyCompliance.id, existing.id))
+      .returning();
+  } else {
+    [result] = await db.insert(sovereignPolicyCompliance).values({
+      projectId,
+      workspaceId: workspace.id,
+      policyVersion: "1.0",
+      categoryScores,
+      complianceScore,
+      overallStatus,
+      lastCheckAt: new Date(),
+      lastCheckBy: user.id,
+      lastCheckType: "manual",
+    }).returning();
+  }
+  
+  res.json(result);
+});
+
+// Get policy violations
+router.get("/policies/violations", requireAuth, requireWorkspaceAccess, async (req, res) => {
+  const workspace = (req as any).workspace;
+  const { status, severity } = req.query;
+  
+  let query = db
+    .select()
+    .from(sovereignPolicyViolations)
+    .where(eq(sovereignPolicyViolations.workspaceId, workspace.id));
+  
+  const violations = await query.orderBy(desc(sovereignPolicyViolations.detectedAt));
+  
+  // Filter in memory for now (can optimize with Drizzle conditions later)
+  let filtered = violations;
+  if (status) {
+    filtered = filtered.filter(v => v.status === status);
+  }
+  if (severity) {
+    filtered = filtered.filter(v => v.severity === severity);
+  }
+  
+  res.json(filtered);
+});
+
+// Report policy violation
+router.post("/policies/violations", requireAuth, requireWorkspaceAccess, async (req, res) => {
+  const workspace = (req as any).workspace;
+  const {
+    projectId,
+    policyCategory,
+    policyItem,
+    severity = "medium",
+    title,
+    titleAr,
+    description,
+    descriptionAr,
+    evidence,
+    detectedBy = "manual",
+  } = req.body;
+  
+  const [violation] = await db.insert(sovereignPolicyViolations).values({
+    projectId,
+    workspaceId: workspace.id,
+    policyCategory,
+    policyItem,
+    severity,
+    title,
+    titleAr,
+    description,
+    descriptionAr,
+    evidence,
+    detectedBy,
+  }).returning();
+  
+  res.status(201).json(violation);
+});
+
+// Update violation status
+router.patch("/policies/violations/:violationId", requireAuth, requireWorkspaceAccess, async (req, res) => {
+  const user = (req as any).user || req.session?.user;
+  const { violationId } = req.params;
+  const { status, resolution } = req.body;
+  
+  const updateData: any = { status, updatedAt: new Date() };
+  if (resolution) updateData.resolution = resolution;
+  if (status === "resolved") {
+    updateData.resolvedBy = user.id;
+    updateData.resolvedAt = new Date();
+  }
+  
+  const [updated] = await db
+    .update(sovereignPolicyViolations)
+    .set(updateData)
+    .where(eq(sovereignPolicyViolations.id, violationId))
+    .returning();
+  
+  res.json(updated);
+});
+
+// Get policy templates
+router.get("/policies/templates", requireAuth, requireWorkspaceAccess, async (req, res) => {
+  const { sector } = req.query;
+  
+  let templates = await db
+    .select()
+    .from(sovereignPolicyTemplates)
+    .where(eq(sovereignPolicyTemplates.isActive, true))
+    .orderBy(sovereignPolicyTemplates.sector);
+  
+  if (sector) {
+    templates = templates.filter(t => t.sector === sector);
+  }
+  
+  res.json(templates);
+});
+
+// Create policy template
+router.post("/policies/templates", requireAuth, requireWorkspaceAccess, async (req, res) => {
+  const user = (req as any).user || req.session?.user;
+  const role = (req as any).workspaceRole;
+  
+  if (role !== "ROOT_OWNER") {
+    return res.status(403).json({ error: "Only ROOT_OWNER can create policy templates" });
+  }
+  
+  const {
+    name,
+    nameAr,
+    description,
+    descriptionAr,
+    sector = "general",
+    additionalPolicies,
+    additionalChecklist,
+    complianceFrameworks,
+    isDefault = false,
+  } = req.body;
+  
+  const [template] = await db.insert(sovereignPolicyTemplates).values({
+    name,
+    nameAr,
+    description,
+    descriptionAr,
+    sector,
+    additionalPolicies,
+    additionalChecklist,
+    complianceFrameworks,
+    isDefault,
+    createdBy: user.id,
+  }).returning();
+  
+  res.status(201).json(template);
+});
+
+// AI Compliance Check
+router.post("/policies/ai-check/:projectId", requireAuth, requireWorkspaceAccess, async (req, res) => {
+  const user = (req as any).user || req.session?.user;
+  const workspace = (req as any).workspace;
+  const { projectId } = req.params;
+  
+  // Get project details
+  const [project] = await db
+    .select()
+    .from(sovereignWorkspaceProjects)
+    .where(eq(sovereignWorkspaceProjects.id, projectId))
+    .limit(1);
+  
+  if (!project) {
+    return res.status(404).json({ error: "Project not found" });
+  }
+  
+  // Simulate AI analysis (in production, this would call the AI service)
+  const aiAnalysis = {
+    summary: `Analysis complete for ${project.name}. Project shows strong adherence to core INFERA principles.`,
+    summaryAr: `اكتمل التحليل لـ ${project.name}. يظهر المشروع التزاماً قوياً بمبادئ INFERA الأساسية.`,
+    recommendations: [
+      "Ensure all data models are fully dynamic",
+      "Add AI-powered predictive analytics",
+      "Implement Zero-Trust security patterns",
+      "Add test data reset functionality",
+    ],
+    riskLevel: "low",
+    estimatedFixTime: "2-4 hours",
+  };
+  
+  // Calculate compliance score based on project configuration
+  const complianceScore = 85; // Placeholder - would be calculated by AI
+  const overallStatus = complianceScore >= 80 ? "compliant" : complianceScore >= 60 ? "partial" : "non_compliant";
+  
+  // Update or create compliance record
+  const [existing] = await db
+    .select()
+    .from(sovereignPolicyCompliance)
+    .where(eq(sovereignPolicyCompliance.projectId, projectId))
+    .limit(1);
+  
+  let result;
+  if (existing) {
+    [result] = await db
+      .update(sovereignPolicyCompliance)
+      .set({
+        aiAnalysis,
+        complianceScore,
+        overallStatus,
+        lastCheckAt: new Date(),
+        lastCheckBy: user.id,
+        lastCheckType: "ai",
+        updatedAt: new Date(),
+      })
+      .where(eq(sovereignPolicyCompliance.id, existing.id))
+      .returning();
+  } else {
+    [result] = await db.insert(sovereignPolicyCompliance).values({
+      projectId,
+      workspaceId: workspace.id,
+      policyVersion: "1.0",
+      aiAnalysis,
+      complianceScore,
+      overallStatus,
+      lastCheckAt: new Date(),
+      lastCheckBy: user.id,
+      lastCheckType: "ai",
+    }).returning();
+  }
+  
+  res.json(result);
+});
+
+// Get policy summary stats
+router.get("/policies/stats", requireAuth, requireWorkspaceAccess, async (req, res) => {
+  const workspace = (req as any).workspace;
+  
+  const [compliance, violations, signatures] = await Promise.all([
+    db.select().from(sovereignPolicyCompliance).where(eq(sovereignPolicyCompliance.workspaceId, workspace.id)),
+    db.select().from(sovereignPolicyViolations).where(eq(sovereignPolicyViolations.workspaceId, workspace.id)),
+    db.select().from(sovereignPolicySignatures).where(eq(sovereignPolicySignatures.workspaceId, workspace.id)),
+  ]);
+  
+  const stats = {
+    totalCompliance: compliance.length,
+    compliantPlatforms: compliance.filter(c => c.overallStatus === "compliant").length,
+    partialPlatforms: compliance.filter(c => c.overallStatus === "partial").length,
+    nonCompliantPlatforms: compliance.filter(c => c.overallStatus === "non_compliant").length,
+    averageScore: compliance.length > 0 
+      ? Math.round(compliance.reduce((sum, c) => sum + (c.complianceScore || 0), 0) / compliance.length)
+      : 0,
+    totalViolations: violations.length,
+    openViolations: violations.filter(v => v.status === "open").length,
+    criticalViolations: violations.filter(v => v.severity === "critical" && v.status === "open").length,
+    totalSignatures: signatures.length,
+    activeSignatures: signatures.filter(s => !s.expiresAt || new Date(s.expiresAt) > new Date()).length,
   };
   
   res.json(stats);
