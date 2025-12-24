@@ -408,6 +408,14 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                       <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/sovereign-plans"}>
+                          <Link href="/sovereign-plans" data-testid="nav-sovereign-plans">
+                            <Rocket className="h-4 w-4 text-emerald-500" />
+                            <span>{language === "ar" ? "الخطط السيادية" : "Sovereign Plans"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
                         <SidebarMenuButton asChild isActive={location === "/owner/integrations"}>
                           <Link href="/owner/integrations" data-testid="nav-owner-integrations">
                             <Link2 className="h-4 w-4 text-orange-500" />
