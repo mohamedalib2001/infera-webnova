@@ -7,6 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import {
   Server,
@@ -25,6 +30,7 @@ import {
   Zap,
   Shield,
   Globe,
+  Printer,
 } from "lucide-react";
 
 interface SovereignPlan {
@@ -87,6 +93,20 @@ interface SovereignPlan {
 
 export default function SovereignPlansPage() {
   const { toast } = useToast();
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [newPlan, setNewPlan] = useState({
+    planName: "",
+    planNameAr: "",
+    phase: "phase_1",
+    serverProvider: "hetzner",
+    serverType: "",
+    budgetMonthly: 0,
+    description: "",
+    descriptionAr: "",
+    cpu: "",
+    ram: "",
+    storage: "",
+  });
 
   const { data: plans = [], isLoading } = useQuery<SovereignPlan[]>({
     queryKey: ["/api/sovereign-plans"],
@@ -95,6 +115,155 @@ export default function SovereignPlansPage() {
   const { data: activePlan } = useQuery<SovereignPlan | null>({
     queryKey: ["/api/sovereign-plans/active/current"],
   });
+
+  const createPlanMutation = useMutation({
+    mutationFn: async (planData: typeof newPlan) => {
+      const planCode = `PLAN-${String(plans.length + 1).padStart(3, "0")}-${planData.serverType.toUpperCase()}`;
+      return apiRequest("/api/sovereign-plans", {
+        method: "POST",
+        body: JSON.stringify({
+          planCode,
+          planName: planData.planName,
+          planNameAr: planData.planNameAr,
+          phase: planData.phase,
+          status: "draft",
+          budgetMonthly: planData.budgetMonthly,
+          budgetCurrency: "EUR",
+          serverProvider: planData.serverProvider,
+          serverType: planData.serverType,
+          serverSpecs: {
+            cpu: planData.cpu,
+            ram: planData.ram,
+            storage: planData.storage,
+          },
+          description: planData.description,
+          descriptionAr: planData.descriptionAr,
+        }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sovereign-plans"] });
+      setShowAddDialog(false);
+      setNewPlan({
+        planName: "",
+        planNameAr: "",
+        phase: "phase_1",
+        serverProvider: "hetzner",
+        serverType: "",
+        budgetMonthly: 0,
+        description: "",
+        descriptionAr: "",
+        cpu: "",
+        ram: "",
+        storage: "",
+      });
+      toast({
+        title: "تم إنشاء الخطة",
+        description: "تمت إضافة الخطة الجديدة بنجاح",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "خطأ",
+        description: "فشل في إنشاء الخطة",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handlePrintPlan = (plan: SovereignPlan) => {
+    const printContent = `
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>${plan.planNameAr || plan.planName} - INFERA WebNova</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, sans-serif; padding: 40px; direction: rtl; }
+    h1 { color: #1a1a2e; border-bottom: 3px solid #4f46e5; padding-bottom: 10px; }
+    h2 { color: #4f46e5; margin-top: 30px; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+    .logo { font-size: 24px; font-weight: bold; color: #4f46e5; }
+    .date { color: #666; }
+    .section { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; }
+    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+    .item { padding: 10px; background: white; border-radius: 4px; }
+    .label { color: #666; font-size: 12px; }
+    .value { font-weight: bold; font-size: 16px; margin-top: 5px; }
+    .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; }
+    .active { background: #dcfce7; color: #166534; }
+    .draft { background: #f3f4f6; color: #374151; }
+    .cost-breakdown { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; }
+    .cost-item { background: #e0e7ff; padding: 10px 15px; border-radius: 8px; text-align: center; }
+    .footer { margin-top: 40px; text-align: center; color: #666; border-top: 1px solid #ddd; padding-top: 20px; }
+    @media print { body { padding: 20px; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">INFERA WebNova</div>
+    <div class="date">${new Date().toLocaleDateString("ar-SA")}</div>
+  </div>
+  
+  <h1>${plan.planNameAr || plan.planName}</h1>
+  <p><span class="badge ${plan.status}">${plan.status === "active" ? "نشطة" : "مسودة"}</span> | ${plan.planCode}</p>
+  
+  <div class="section">
+    <h2>مواصفات السيرفر</h2>
+    <div class="grid">
+      <div class="item"><div class="label">المزود</div><div class="value">${plan.serverProvider.toUpperCase()}</div></div>
+      <div class="item"><div class="label">النوع</div><div class="value">${plan.serverType}</div></div>
+      <div class="item"><div class="label">المعالج</div><div class="value">${plan.serverSpecs.cpu}</div></div>
+      <div class="item"><div class="label">الذاكرة</div><div class="value">${plan.serverSpecs.ram}</div></div>
+      <div class="item"><div class="label">التخزين</div><div class="value">${plan.serverSpecs.storage}</div></div>
+      ${plan.serverSpecs.gpu ? `<div class="item"><div class="label">GPU</div><div class="value">${plan.serverSpecs.gpu}</div></div>` : ""}
+    </div>
+  </div>
+  
+  ${plan.aiConfig ? `
+  <div class="section">
+    <h2>تكوين الذكاء الاصطناعي</h2>
+    <div class="grid">
+      <div class="item"><div class="label">نوع المعالجة</div><div class="value">${plan.aiConfig.inferenceType}</div></div>
+      <div class="item"><div class="label">الأدوات</div><div class="value">${plan.aiConfig.tools.join(", ")}</div></div>
+      <div class="item"><div class="label">النماذج</div><div class="value">${plan.aiConfig.models.join(", ")}</div></div>
+      ${plan.aiConfig.quantization ? `<div class="item"><div class="label">Quantization</div><div class="value">${plan.aiConfig.quantization}</div></div>` : ""}
+    </div>
+  </div>
+  ` : ""}
+  
+  ${plan.costBreakdown ? `
+  <div class="section">
+    <h2>تفاصيل التكلفة</h2>
+    <div class="cost-breakdown">
+      <div class="cost-item"><div class="label">السيرفر</div><div class="value">€${plan.costBreakdown.server}</div></div>
+      <div class="cost-item"><div class="label">التخزين</div><div class="value">€${plan.costBreakdown.storage}</div></div>
+      <div class="cost-item"><div class="label">النسخ الاحتياطي</div><div class="value">€${plan.costBreakdown.backups}</div></div>
+      <div class="cost-item"><div class="label">الإجمالي</div><div class="value" style="color: #4f46e5; font-size: 20px;">€${plan.costBreakdown.total}/شهر</div></div>
+    </div>
+  </div>
+  ` : `
+  <div class="section">
+    <h2>التكلفة الشهرية</h2>
+    <div class="value" style="font-size: 24px; color: #4f46e5;">€${plan.budgetMonthly}/شهر</div>
+  </div>
+  `}
+  
+  <div class="footer">
+    <p>INFERA WebNova - Sovereign Infrastructure Management</p>
+    <p>تاريخ الطباعة: ${new Date().toLocaleString("ar-SA")}</p>
+  </div>
+</body>
+</html>
+    `;
+    
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
 
   const launchPlanMutation = useMutation({
     mutationFn: async (planId: string) => {
@@ -145,7 +314,7 @@ export default function SovereignPlansPage() {
                 إدارة ومتابعة خطط البنية التحتية
               </p>
             </div>
-            <Button data-testid="button-add-plan" disabled>
+            <Button data-testid="button-add-plan" onClick={() => setShowAddDialog(true)}>
               <Plus className="w-4 h-4 ml-2" />
               خطة جديدة
             </Button>
@@ -169,6 +338,14 @@ export default function SovereignPlansPage() {
                   <div className="flex items-center gap-2">
                     {getStatusBadge(activePlan.status)}
                     <Badge variant="outline">{getPhaseLabel(activePlan.phase)}</Badge>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => handlePrintPlan(activePlan)}
+                      data-testid="button-print-active-plan"
+                    >
+                      <Printer className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
               </CardHeader>
@@ -456,6 +633,158 @@ export default function SovereignPlansPage() {
           </div>
         </div>
       </ScrollArea>
+
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent className="max-w-2xl" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>إضافة خطة جديدة</DialogTitle>
+            <DialogDescription>
+              أدخل تفاصيل خطة البنية التحتية الجديدة
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="planName">اسم الخطة (إنجليزي)</Label>
+                <Input
+                  id="planName"
+                  value={newPlan.planName}
+                  onChange={(e) => setNewPlan({ ...newPlan, planName: e.target.value })}
+                  placeholder="Infrastructure Plan"
+                  data-testid="input-plan-name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="planNameAr">اسم الخطة (عربي)</Label>
+                <Input
+                  id="planNameAr"
+                  value={newPlan.planNameAr}
+                  onChange={(e) => setNewPlan({ ...newPlan, planNameAr: e.target.value })}
+                  placeholder="خطة البنية التحتية"
+                  data-testid="input-plan-name-ar"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="serverProvider">مزود الخدمة</Label>
+                <Select
+                  value={newPlan.serverProvider}
+                  onValueChange={(value) => setNewPlan({ ...newPlan, serverProvider: value })}
+                >
+                  <SelectTrigger data-testid="select-server-provider">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="hetzner">Hetzner</SelectItem>
+                    <SelectItem value="aws">AWS</SelectItem>
+                    <SelectItem value="gcp">Google Cloud</SelectItem>
+                    <SelectItem value="azure">Microsoft Azure</SelectItem>
+                    <SelectItem value="digitalocean">DigitalOcean</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="serverType">نوع السيرفر</Label>
+                <Input
+                  id="serverType"
+                  value={newPlan.serverType}
+                  onChange={(e) => setNewPlan({ ...newPlan, serverType: e.target.value })}
+                  placeholder="AX52"
+                  data-testid="input-server-type"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="cpu">المعالج</Label>
+                <Input
+                  id="cpu"
+                  value={newPlan.cpu}
+                  onChange={(e) => setNewPlan({ ...newPlan, cpu: e.target.value })}
+                  placeholder="AMD Ryzen 7 5800X"
+                  data-testid="input-cpu"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ram">الذاكرة</Label>
+                <Input
+                  id="ram"
+                  value={newPlan.ram}
+                  onChange={(e) => setNewPlan({ ...newPlan, ram: e.target.value })}
+                  placeholder="128GB DDR4"
+                  data-testid="input-ram"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="storage">التخزين</Label>
+                <Input
+                  id="storage"
+                  value={newPlan.storage}
+                  onChange={(e) => setNewPlan({ ...newPlan, storage: e.target.value })}
+                  placeholder="2×1TB NVMe"
+                  data-testid="input-storage"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="phase">المرحلة</Label>
+                <Select
+                  value={newPlan.phase}
+                  onValueChange={(value) => setNewPlan({ ...newPlan, phase: value })}
+                >
+                  <SelectTrigger data-testid="select-phase">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="phase_1">المرحلة 1 - البداية</SelectItem>
+                    <SelectItem value="phase_2">المرحلة 2 - التوسع</SelectItem>
+                    <SelectItem value="phase_3">المرحلة 3 - المؤسسي</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="budgetMonthly">التكلفة الشهرية (€)</Label>
+                <Input
+                  id="budgetMonthly"
+                  type="number"
+                  value={newPlan.budgetMonthly}
+                  onChange={(e) => setNewPlan({ ...newPlan, budgetMonthly: Number(e.target.value) })}
+                  placeholder="105"
+                  data-testid="input-budget"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">الوصف</Label>
+              <Textarea
+                id="description"
+                value={newPlan.descriptionAr}
+                onChange={(e) => setNewPlan({ ...newPlan, descriptionAr: e.target.value })}
+                placeholder="وصف الخطة..."
+                data-testid="input-description"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+              إلغاء
+            </Button>
+            <Button
+              onClick={() => createPlanMutation.mutate(newPlan)}
+              disabled={createPlanMutation.isPending || !newPlan.planName || !newPlan.serverType}
+              data-testid="button-submit-plan"
+            >
+              {createPlanMutation.isPending ? "جاري الإنشاء..." : "إنشاء الخطة"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
