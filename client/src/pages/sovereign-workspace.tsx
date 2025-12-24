@@ -51,6 +51,7 @@ import type {
 import { platformIconsRegistry, type PlatformIconConfig } from "@/lib/platform-icons-registry";
 import { getPlatformLandingRoute, getPlatformPitchDeckRoute } from "@/lib/platform-landing-map";
 import { SovereignCore } from "@/components/sovereign-core";
+import { SovereignCoreIDE } from "@/components/sovereign-core-ide";
 
 function findPlatformIcon(project: SovereignWorkspaceProject): PlatformIconConfig | null {
   const code = project.code?.toLowerCase().replace(/-/g, '').replace(/_/g, '');
@@ -1095,7 +1096,7 @@ export default function SovereignWorkspacePage() {
         </TabsContent>
 
         <TabsContent value="sovereign-core" className="mt-6">
-          <SovereignCore 
+          <SovereignCoreIDE 
             workspaceId={workspace?.id || ""} 
             isOwner={true}
           />
