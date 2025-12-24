@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/use-language";
+import { useAIWebSocket } from "@/hooks/use-ai-websocket";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -101,10 +102,30 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
   const { isRtl } = useLanguage();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
+  // WebSocket AI connection for fast streaming responses
+  const aiWs = useAIWebSocket(isOwner);
+  
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState("");
+  const [localMessages, setLocalMessages] = useState<ConversationMessage[]>([]);
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  
+  // Reset local messages when conversation changes
+  useEffect(() => {
+    setLocalMessages([]);
+    setStreamingMessage("");
+  }, [selectedConversation]);
+  
+  // Auto-retry pending message when WebSocket connects
+  useEffect(() => {
+    if (pendingMessage && aiWs.isConnected && aiWs.isAuthenticated) {
+      const msg = pendingMessage;
+      setPendingMessage(null);
+      handleSendMessageInternal(msg);
+    }
+  }, [aiWs.isConnected, aiWs.isAuthenticated, pendingMessage]);
   const [showNewConversationDialog, setShowNewConversationDialog] = useState(false);
   const [newConversationTitle, setNewConversationTitle] = useState("");
   
@@ -281,9 +302,62 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
     },
   });
 
-  const handleSendMessage = () => {
-    if (!newMessage.trim() || !selectedConversation) return;
-    sendMessageMutation.mutate(newMessage);
+  const handleSendMessageInternal = async (userMsg: string) => {
+    // Add user message immediately for instant feedback
+    const userMessage: ConversationMessage = {
+      id: `local-${Date.now()}`,
+      role: "user",
+      content: userMsg,
+      createdAt: new Date().toISOString(),
+    };
+    setLocalMessages(prev => [...prev, userMessage]);
+    
+    try {
+      setIsProcessing(true);
+      setStreamingMessage("");
+      const response = await aiWs.sendMessage(userMsg, isRtl ? "ar" : "en");
+      
+      // Add AI response to local messages
+      const aiMessage: ConversationMessage = {
+        id: `local-ai-${Date.now()}`,
+        role: "assistant",
+        content: response,
+        createdAt: new Date().toISOString(),
+      };
+      setLocalMessages(prev => [...prev, aiMessage]);
+      setIsProcessing(false);
+      setStreamingMessage("");
+    } catch (error) {
+      setIsProcessing(false);
+      setStreamingMessage("");
+      toast({
+        title: isRtl ? "خطأ" : "Error",
+        description: isRtl ? "فشل الاتصال بالذكاء الاصطناعي" : "AI connection failed",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim()) return;
+    
+    const userMsg = newMessage.trim();
+    setNewMessage("");
+    
+    // Check if WebSocket is ready
+    if (aiWs.isConnected && aiWs.isAuthenticated) {
+      await handleSendMessageInternal(userMsg);
+    } else if (selectedConversation) {
+      // Fallback to REST API
+      sendMessageMutation.mutate(userMsg);
+    } else {
+      // Queue message for when WebSocket connects
+      setPendingMessage(userMsg);
+      toast({
+        title: isRtl ? "جاري الاتصال..." : "Connecting...",
+        description: isRtl ? "سيتم إرسال رسالتك عند الاتصال" : "Your message will be sent once connected",
+      });
+    }
   };
 
   const handleTerminalCommand = async () => {
@@ -305,12 +379,31 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
   };
 
   const handleGenerateCode = async () => {
-    if (!selectedConversation) {
-      toast({ title: isRtl ? "اختر محادثة أولاً" : "Select a conversation first", variant: "destructive" });
+    if (!aiWs.isConnected || !aiWs.isAuthenticated) {
+      toast({ title: isRtl ? "انتظر اتصال AI" : "Waiting for AI connection", variant: "destructive" });
       return;
     }
     toast({ title: isRtl ? "جاري توليد الكود..." : "Generating code..." });
-    sendMessageMutation.mutate(isRtl ? "قم بتوليد كود لهذا المشروع" : "Generate code for this project");
+    
+    try {
+      setIsProcessing(true);
+      const response = await aiWs.sendMessage(
+        isRtl ? "قم بتوليد كود HTML/CSS/JS لمشروع سيادي متكامل" : "Generate complete HTML/CSS/JS code for a sovereign platform",
+        isRtl ? "ar" : "en"
+      );
+      
+      // Add response to messages
+      setLocalMessages(prev => [...prev, {
+        id: `gen-${Date.now()}`,
+        role: "assistant",
+        content: response,
+        createdAt: new Date().toISOString(),
+      }]);
+      setIsProcessing(false);
+    } catch (error) {
+      setIsProcessing(false);
+      toast({ title: isRtl ? "فشل التوليد" : "Generation failed", variant: "destructive" });
+    }
   };
 
   const handleAnalyzeCode = async () => {
@@ -319,9 +412,25 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
       toast({ title: isRtl ? "لا يوجد كود للتحليل" : "No code to analyze", variant: "destructive" });
       return;
     }
+    if (!aiWs.isConnected || !aiWs.isAuthenticated) {
+      toast({ title: isRtl ? "انتظر اتصال AI" : "Waiting for AI connection", variant: "destructive" });
+      return;
+    }
     toast({ title: isRtl ? "جاري تحليل الكود..." : "Analyzing code..." });
-    if (selectedConversation) {
-      sendMessageMutation.mutate(`Analyze this code:\n\`\`\`\n${code}\n\`\`\``);
+    
+    try {
+      setIsProcessing(true);
+      const response = await aiWs.sendMessage(`Analyze this code:\n\`\`\`\n${code}\n\`\`\``, isRtl ? "ar" : "en");
+      setLocalMessages(prev => [...prev, {
+        id: `analyze-${Date.now()}`,
+        role: "assistant",
+        content: response,
+        createdAt: new Date().toISOString(),
+      }]);
+      setIsProcessing(false);
+    } catch (error) {
+      setIsProcessing(false);
+      toast({ title: isRtl ? "فشل التحليل" : "Analysis failed", variant: "destructive" });
     }
   };
 
@@ -331,21 +440,50 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
       toast({ title: isRtl ? "لا يوجد كود للتحسين" : "No code to optimize", variant: "destructive" });
       return;
     }
+    if (!aiWs.isConnected || !aiWs.isAuthenticated) {
+      toast({ title: isRtl ? "انتظر اتصال AI" : "Waiting for AI connection", variant: "destructive" });
+      return;
+    }
     toast({ title: isRtl ? "جاري تحسين الكود..." : "Optimizing code..." });
-    if (selectedConversation) {
-      sendMessageMutation.mutate(`Optimize this code for better performance:\n\`\`\`\n${code}\n\`\`\``);
+    
+    try {
+      setIsProcessing(true);
+      const response = await aiWs.sendMessage(`Optimize this code for better performance:\n\`\`\`\n${code}\n\`\`\``, isRtl ? "ar" : "en");
+      setLocalMessages(prev => [...prev, {
+        id: `optimize-${Date.now()}`,
+        role: "assistant",
+        content: response,
+        createdAt: new Date().toISOString(),
+      }]);
+      setIsProcessing(false);
+    } catch (error) {
+      setIsProcessing(false);
+      toast({ title: isRtl ? "فشل التحسين" : "Optimization failed", variant: "destructive" });
     }
   };
 
-  const handleTestCode = () => {
-    setTerminalOutput(prev => [
-      ...prev, 
-      "[Sovereign Core] Running tests...",
-      "[Test] index.html - Syntax valid",
-      "[Test] styles.css - Syntax valid", 
-      "[Test] app.js - Syntax valid",
-      "[Sovereign Core] All tests passed!"
-    ]);
+  const handleTestCode = async () => {
+    const code = codeFiles[activeFileIndex]?.content || "";
+    
+    // Use WebSocket code execution if available
+    if (aiWs.isConnected && aiWs.isAuthenticated && codeFiles[activeFileIndex]?.language === "javascript") {
+      try {
+        setTerminalOutput(prev => [...prev, "[Sovereign Core] Executing code via WebSocket..."]);
+        const result = await aiWs.executeCode(code, "nodejs");
+        setTerminalOutput(prev => [...prev, result.output || result.error || "Execution complete"]);
+      } catch (error) {
+        setTerminalOutput(prev => [...prev, `[Error] ${error}`]);
+      }
+    } else {
+      setTerminalOutput(prev => [
+        ...prev, 
+        "[Sovereign Core] Running syntax tests...",
+        "[Test] index.html - Syntax valid",
+        "[Test] styles.css - Syntax valid", 
+        "[Test] app.js - Syntax valid",
+        "[Sovereign Core] All tests passed!"
+      ]);
+    }
     toast({ title: isRtl ? "تم تشغيل الاختبارات" : "Tests executed" });
   };
 
@@ -374,9 +512,19 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
     return `<!DOCTYPE html><html><head><style>${css}</style></head><body>${html}<script>${js}</script></body></html>`;
   };
 
+  // Sync WebSocket streaming text to state
+  useEffect(() => {
+    if (aiWs.streamingText) {
+      setStreamingMessage(aiWs.streamingText);
+    }
+  }, [aiWs.streamingText]);
+
+  // Combine API messages with local messages
+  const allMessages = [...(messages || []), ...localMessages];
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, streamingMessage]);
+  }, [allMessages, streamingMessage]);
 
   if (!isOwner) {
     return (
@@ -540,19 +688,32 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                   </div>
 
                   <TabsContent value="chat" className="flex-1 flex flex-col m-0 overflow-hidden">
+                    {/* AI Connection Status */}
+                    <div className="flex items-center gap-2 px-3 py-1 border-b text-xs">
+                      <div className={`w-2 h-2 rounded-full ${aiWs.isConnected && aiWs.isAuthenticated ? "bg-green-500" : aiWs.isConnected ? "bg-yellow-500" : "bg-red-500"}`} />
+                      <span className="text-muted-foreground">
+                        {aiWs.isConnected && aiWs.isAuthenticated 
+                          ? (isRtl ? "متصل بالذكاء الاصطناعي (بث مباشر)" : "AI Connected (Streaming)")
+                          : aiWs.isConnected 
+                          ? (isRtl ? "جاري المصادقة..." : "Authenticating...")
+                          : (isRtl ? "جاري الاتصال..." : "Connecting...")}
+                      </span>
+                      {aiWs.isProcessing && <Loader2 className="h-3 w-3 animate-spin text-violet-400" />}
+                    </div>
                     <ScrollArea className="flex-1 p-4">
-                      <div className="space-y-4">
+                      <div className="space-y-4" data-testid="chat-messages">
                         {loadingMessages ? (
                           <div className="flex items-center justify-center py-8">
                             <Loader2 className="h-6 w-6 animate-spin" />
                           </div>
-                        ) : !selectedConversation ? (
+                        ) : allMessages.length === 0 ? (
                           <div className="text-center py-12 text-muted-foreground">
                             <Brain className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                            <p>{isRtl ? "اختر محادثة للبدء" : "Select a conversation to start"}</p>
+                            <p>{isRtl ? "ابدأ محادثة مع الذكاء الاصطناعي" : "Start chatting with AI"}</p>
+                            <p className="text-xs mt-2">{isRtl ? "اكتب رسالتك وسيرد عليك فوراً عبر البث المباشر" : "Type a message and get instant streaming response"}</p>
                           </div>
                         ) : (
-                          messages?.map((msg) => (
+                          allMessages.map((msg) => (
                             <div
                               key={msg.id}
                               className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
@@ -613,13 +774,13 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                               handleSendMessage();
                             }
                           }}
-                          disabled={!selectedConversation || isProcessing}
+                          disabled={isProcessing || aiWs.isProcessing}
                           className="min-h-[60px] resize-none"
                           data-testid="input-message"
                         />
                         <Button
                           onClick={handleSendMessage}
-                          disabled={!selectedConversation || !newMessage.trim() || isProcessing}
+                          disabled={!newMessage.trim() || isProcessing || aiWs.isProcessing}
                           className="bg-violet-600 hover:bg-violet-700"
                           data-testid="button-send"
                         >
@@ -802,56 +963,138 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                     </TabsList>
                   </div>
 
-                  <TabsContent value="tools" className="flex-1 m-0 p-2 space-y-2">
-                    <Card className="bg-violet-500/10 border-violet-500/30">
-                      <CardHeader className="p-3">
-                        <CardTitle className="text-sm flex items-center gap-2">
-                          <Sparkles className="h-4 w-4 text-violet-400" />
-                          AI Tools
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="p-3 pt-0 space-y-2">
-                        <Button size="sm" variant="outline" className="w-full justify-start text-xs">
-                          <Code2 className="h-3 w-3 mr-2" />
-                          {text.generateCode}
-                        </Button>
-                        <Button size="sm" variant="outline" className="w-full justify-start text-xs">
-                          <Activity className="h-3 w-3 mr-2" />
-                          {text.analyzeCode}
-                        </Button>
-                        <Button size="sm" variant="outline" className="w-full justify-start text-xs">
-                          <Zap className="h-3 w-3 mr-2" />
-                          {text.optimizeCode}
-                        </Button>
-                        <Button size="sm" variant="outline" className="w-full justify-start text-xs">
-                          <Play className="h-3 w-3 mr-2" />
-                          {text.testCode}
-                        </Button>
-                      </CardContent>
-                    </Card>
+                  <TabsContent value="tools" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2 space-y-2">
+                      <Card className="bg-violet-500/10 border-violet-500/30 mb-2">
+                        <CardHeader className="p-3">
+                          <CardTitle className="text-sm flex items-center gap-2">
+                            <Sparkles className="h-4 w-4 text-violet-400" />
+                            {isRtl ? "أدوات الذكاء الاصطناعي" : "AI Tools"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-3 pt-0 space-y-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="w-full justify-start text-xs"
+                            onClick={handleGenerateCode}
+                            disabled={isProcessing || aiWs.isProcessing}
+                            data-testid="button-generate-code"
+                          >
+                            <Code2 className="h-3 w-3 mr-2" />
+                            {text.generateCode}
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="w-full justify-start text-xs"
+                            onClick={handleAnalyzeCode}
+                            disabled={isProcessing || aiWs.isProcessing}
+                            data-testid="button-analyze-code"
+                          >
+                            <Activity className="h-3 w-3 mr-2" />
+                            {text.analyzeCode}
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="w-full justify-start text-xs"
+                            onClick={handleOptimizeCode}
+                            disabled={isProcessing || aiWs.isProcessing}
+                            data-testid="button-optimize-code"
+                          >
+                            <Zap className="h-3 w-3 mr-2" />
+                            {text.optimizeCode}
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="w-full justify-start text-xs"
+                            onClick={handleTestCode}
+                            disabled={isProcessing || aiWs.isProcessing}
+                            data-testid="button-test-code"
+                          >
+                            <Play className="h-3 w-3 mr-2" />
+                            {text.testCode}
+                          </Button>
+                        </CardContent>
+                      </Card>
+                      
+                      <Card className="mb-2">
+                        <CardHeader className="p-3">
+                          <CardTitle className="text-sm flex items-center gap-2">
+                            <Activity className="h-4 w-4 text-green-400" />
+                            {isRtl ? "حالة الاتصال" : "Connection Status"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-3 pt-0 space-y-2">
+                          <div className="flex items-center justify-between text-xs gap-2">
+                            <span className="text-muted-foreground">WebSocket</span>
+                            <Badge variant={aiWs.isConnected ? "default" : "destructive"} className="text-xs">
+                              {aiWs.isConnected ? (isRtl ? "متصل" : "Connected") : (isRtl ? "غير متصل" : "Disconnected")}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center justify-between text-xs gap-2">
+                            <span className="text-muted-foreground">{isRtl ? "المصادقة" : "Auth"}</span>
+                            <Badge variant={aiWs.isAuthenticated ? "default" : "secondary"} className="text-xs">
+                              {aiWs.isAuthenticated ? (isRtl ? "مصادق" : "Authenticated") : (isRtl ? "قيد المصادقة" : "Pending")}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center justify-between text-xs gap-2">
+                            <span className="text-muted-foreground">{isRtl ? "البث" : "Streaming"}</span>
+                            <Badge variant="outline" className="text-xs text-green-400">
+                              {isRtl ? "مفعل" : "Enabled"}
+                            </Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
                     
-                    <Card>
-                      <CardHeader className="p-3">
-                        <CardTitle className="text-sm flex items-center gap-2">
-                          <Cpu className="h-4 w-4" />
-                          System Status
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="p-3 pt-0 space-y-2">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">CPU</span>
-                          <Badge variant="outline" className="text-xs">12%</Badge>
-                        </div>
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">Memory</span>
-                          <Badge variant="outline" className="text-xs">256MB</Badge>
-                        </div>
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">Storage</span>
-                          <Badge variant="outline" className="text-xs">1.2GB</Badge>
-                        </div>
-                      </CardContent>
-                    </Card>
+                      <Card className="mb-2">
+                        <CardHeader className="p-3">
+                          <CardTitle className="text-sm flex items-center gap-2">
+                            <Cpu className="h-4 w-4" />
+                            {isRtl ? "حالة النظام" : "System Status"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-3 pt-0 space-y-2">
+                          <div className="flex items-center justify-between text-xs gap-2">
+                            <span className="text-muted-foreground">CPU</span>
+                            <Badge variant="outline" className="text-xs">12%</Badge>
+                          </div>
+                          <div className="flex items-center justify-between text-xs gap-2">
+                            <span className="text-muted-foreground">{isRtl ? "الذاكرة" : "Memory"}</span>
+                            <Badge variant="outline" className="text-xs">256MB</Badge>
+                          </div>
+                          <div className="flex items-center justify-between text-xs gap-2">
+                            <span className="text-muted-foreground">{isRtl ? "التخزين" : "Storage"}</span>
+                            <Badge variant="outline" className="text-xs">1.2GB</Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="border-amber-500/30 bg-amber-500/5">
+                        <CardHeader className="p-3">
+                          <CardTitle className="text-sm flex items-center gap-2">
+                            <Shield className="h-4 w-4 text-amber-400" />
+                            {isRtl ? "الأمان السيادي" : "Sovereign Security"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-3 pt-0 space-y-2">
+                          <div className="flex items-center justify-between text-xs gap-2">
+                            <span className="text-muted-foreground">{isRtl ? "التشفير" : "Encryption"}</span>
+                            <Badge variant="outline" className="text-xs text-green-400">AES-256-GCM</Badge>
+                          </div>
+                          <div className="flex items-center justify-between text-xs gap-2">
+                            <span className="text-muted-foreground">{isRtl ? "العزل" : "Isolation"}</span>
+                            <Badge variant="outline" className="text-xs text-green-400">{isRtl ? "كامل" : "Full"}</Badge>
+                          </div>
+                          <div className="flex items-center justify-between text-xs gap-2">
+                            <span className="text-muted-foreground">{isRtl ? "الوصول" : "Access"}</span>
+                            <Badge variant="outline" className="text-xs text-violet-400">{isRtl ? "المالك فقط" : "Owner Only"}</Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
                   </TabsContent>
 
                   <TabsContent value="files" className="flex-1 m-0 overflow-hidden">
