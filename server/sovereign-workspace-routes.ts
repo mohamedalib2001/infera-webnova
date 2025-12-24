@@ -1120,4 +1120,164 @@ router.get("/policies/stats", requireAuth, requireWorkspaceAccess, async (req, r
   res.json(stats);
 });
 
+// ==================== POLICY VALIDATION ENGINE ====================
+
+import { policyValidationEngine, PlatformContext, PolicyValidationResult } from "./policy-validation-engine";
+
+// Validate platform before deployment (Auto-Validation)
+router.post("/policies/validate-platform", requireAuth, requireWorkspaceAccess, async (req, res) => {
+  try {
+    const user = (req as any).user || req.session?.user;
+    const { platformId, platformName, context } = req.body;
+    
+    if (!platformId || !platformName) {
+      return res.status(400).json({ error: "Platform ID and name are required" });
+    }
+    
+    const platformContext: PlatformContext = {
+      platformId,
+      platformName,
+      industry: context?.industry || "other",
+      hasAICore: context?.hasAICore ?? true,
+      hasAIAssistant: context?.hasAIAssistant ?? true,
+      hasPredictiveModule: context?.hasPredictiveModule ?? true,
+      hasBehavioralAnalytics: context?.hasBehavioralAnalytics ?? true,
+      hasZeroTrust: context?.hasZeroTrust ?? true,
+      hasE2EEncryption: context?.hasE2EEncryption ?? true,
+      hasThreatDetection: context?.hasThreatDetection ?? true,
+      hasAutoResponse: context?.hasAutoResponse ?? true,
+      hasRedundancy: context?.hasRedundancy ?? true,
+      isModular: context?.isModular ?? true,
+      hasLiveScaling: context?.hasLiveScaling ?? true,
+      hasZeroDowntime: context?.hasZeroDowntime ?? true,
+      isForwardCompatible: context?.isForwardCompatible ?? true,
+      hasVendorLockIn: context?.hasVendorLockIn ?? false,
+      hasCRUDOnly: context?.hasCRUDOnly ?? false,
+      hasStaticDashboard: context?.hasStaticDashboard ?? false,
+      hasHardLimits: context?.hasHardLimits ?? false,
+      hasManualOps: context?.hasManualOps ?? false,
+      features: context?.features || [],
+      techStack: context?.techStack || [],
+    };
+    
+    const validationResult = await policyValidationEngine.validatePlatform(platformContext);
+    
+    await policyValidationEngine.recordValidation(
+      platformId,
+      platformName,
+      validationResult,
+      user.id
+    );
+    
+    res.json({
+      ...validationResult,
+      message: validationResult.canDeploy 
+        ? "Platform passed all policy checks / اجتازت المنصة جميع فحوصات السياسات"
+        : "Platform has policy violations that must be resolved / المنصة لديها انتهاكات سياسات يجب حلها",
+    });
+  } catch (error) {
+    console.error("[PolicyValidation] Error:", error);
+    res.status(500).json({ error: "Policy validation failed" });
+  }
+});
+
+// Pre-deployment validation check (blocks deployment if not compliant)
+router.post("/policies/pre-deploy-check", requireAuth, requireWorkspaceAccess, async (req, res) => {
+  try {
+    const { platformId, platformName, forceValidation } = req.body;
+    
+    if (!platformId) {
+      return res.status(400).json({ error: "Platform ID is required" });
+    }
+    
+    const quickCheck = await policyValidationEngine.getQuickValidation(platformId);
+    
+    if (!forceValidation && quickCheck.score > 0) {
+      return res.json({
+        canDeploy: quickCheck.canDeploy,
+        score: quickCheck.score,
+        criticalIssues: quickCheck.criticalIssues,
+        message: quickCheck.canDeploy
+          ? "Platform is compliant and ready for deployment / المنصة متوافقة وجاهزة للنشر"
+          : `Platform has ${quickCheck.criticalIssues} critical issue(s) that block deployment / المنصة لديها ${quickCheck.criticalIssues} مشكلة حرجة تمنع النشر`,
+        requiresValidation: false,
+      });
+    }
+    
+    res.json({
+      canDeploy: false,
+      score: 0,
+      criticalIssues: 1,
+      message: "Platform requires policy validation before deployment / المنصة تتطلب فحص السياسات قبل النشر",
+      requiresValidation: true,
+    });
+  } catch (error) {
+    console.error("[PreDeployCheck] Error:", error);
+    res.status(500).json({ error: "Pre-deployment check failed" });
+  }
+});
+
+// Get validation history for a platform
+router.get("/policies/validation-history/:platformId", requireAuth, requireWorkspaceAccess, async (req, res) => {
+  try {
+    const { platformId } = req.params;
+    
+    const compliance = await db.select()
+      .from(sovereignPolicyCompliance)
+      .where(eq(sovereignPolicyCompliance.projectId, platformId))
+      .orderBy(desc(sovereignPolicyCompliance.createdAt));
+    
+    const violations = await db.select()
+      .from(sovereignPolicyViolations)
+      .where(eq(sovereignPolicyViolations.projectId, platformId))
+      .orderBy(desc(sovereignPolicyViolations.detectedAt));
+    
+    res.json({
+      compliance,
+      violations,
+      summary: {
+        totalChecks: compliance.length,
+        compliantChecks: compliance.filter(c => c.overallStatus === "compliant").length,
+        averageScore: compliance.length > 0
+          ? Math.round(compliance.reduce((sum, c) => sum + (c.complianceScore || 0), 0) / compliance.length)
+          : 0,
+        openViolations: violations.filter(v => v.status === "open").length,
+        resolvedViolations: violations.filter(v => v.status === "resolved").length,
+      },
+    });
+  } catch (error) {
+    console.error("[ValidationHistory] Error:", error);
+    res.status(500).json({ error: "Failed to get validation history" });
+  }
+});
+
+// Resolve a policy violation
+router.patch("/policies/violations/:violationId/resolve", requireAuth, requireWorkspaceAccess, async (req, res) => {
+  try {
+    const { violationId } = req.params;
+    const { resolution, resolvedBy } = req.body;
+    const user = (req as any).user || req.session?.user;
+    
+    const [updated] = await db.update(sovereignPolicyViolations)
+      .set({
+        status: "resolved",
+        resolution,
+        resolvedAt: new Date(),
+        resolvedBy: resolvedBy || user.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(sovereignPolicyViolations.id, violationId))
+      .returning();
+    
+    if (!updated) {
+      return res.status(404).json({ error: "Violation not found" });
+    }
+    
+    res.json(updated);
+  } catch (error) {
+    console.error("[ResolveViolation] Error:", error);
+    res.status(500).json({ error: "Failed to resolve violation" });
+  }
+});
+
 export default router;

@@ -3,6 +3,7 @@ import { storage } from "./storage";
 import type { DevProject, ProjectFile, InsertProjectFile } from "@shared/schema";
 import fs from "fs/promises";
 import path from "path";
+import { policyValidationEngine, PlatformContext } from "./policy-validation-engine";
 
 export interface DeploymentConfig {
   projectId: number;
@@ -75,7 +76,39 @@ export class DeployService {
         throw new Error("Project not found");
       }
 
+      console.log(`[DeployService] Running Auto-Validation for project: ${project.name}`);
+      
       const files = await storage.getProjectFiles(config.projectId.toString());
+      const platformCapabilities = this.extractPlatformCapabilities(project, files);
+      
+      const platformContext: PlatformContext = {
+        platformId: config.projectId.toString(),
+        platformName: project.name,
+        industry: (project as any).industry || project.category || "other",
+        ...platformCapabilities,
+        features: (project as any).features || [],
+      };
+
+      const validationResult = await policyValidationEngine.validatePlatform(platformContext);
+      
+      if (!validationResult.canDeploy) {
+        console.log(`[DeployService] Policy validation failed: ${validationResult.blockingViolations.length} blocking violations`);
+        return {
+          success: false,
+          deploymentId,
+          message: `فشل النشر: المنصة لا تمتثل للسياسات السيادية (${validationResult.blockingViolations.length} مخالفات حرجة) / Deployment failed: Platform does not comply with sovereign policies (${validationResult.blockingViolations.length} critical violations)`,
+          timestamp: new Date(),
+        };
+      }
+
+      console.log(`[DeployService] Policy validation passed with score: ${validationResult.overallScore}%`);
+
+      await policyValidationEngine.recordValidation(
+        config.projectId.toString(),
+        project.name,
+        validationResult,
+        config.userId.toString()
+      );
       
       const deployPath = path.join(this.deploymentDir, deploymentId);
       await fs.mkdir(deployPath, { recursive: true });
@@ -98,7 +131,7 @@ export class DeployService {
         success: true,
         deploymentId,
         url: deployedUrl,
-        message: "تم نشر المنصة بنجاح! / Platform deployed successfully!",
+        message: `تم نشر المنصة بنجاح! (نتيجة الامتثال: ${validationResult.overallScore}%) / Platform deployed successfully! (Compliance score: ${validationResult.overallScore}%)`,
         timestamp: new Date(),
       };
 
@@ -111,6 +144,87 @@ export class DeployService {
         timestamp: new Date(),
       };
     }
+  }
+
+  private extractPlatformCapabilities(project: any, files: any[]): Omit<PlatformContext, "platformId" | "platformName" | "industry" | "features"> {
+    const fileContents = files.map(f => f.content || "").join("\n").toLowerCase();
+    const fileNames = files.map(f => f.filePath.toLowerCase()).join("\n");
+    
+    const hasAI = fileContents.includes("anthropic") || fileContents.includes("openai") || 
+                  fileContents.includes("ai-core") || fileContents.includes("aiservice") ||
+                  fileNames.includes("ai") || fileContents.includes("claude");
+    
+    const hasAssistant = fileContents.includes("assistant") || fileContents.includes("chatbot") ||
+                         fileContents.includes("chat-interface") || fileContents.includes("aiassistant");
+    
+    const hasPredictive = fileContents.includes("predict") || fileContents.includes("forecast") ||
+                          fileContents.includes("analytics") || fileContents.includes("ml");
+    
+    const hasBehavioral = fileContents.includes("behavioral") || fileContents.includes("tracking") ||
+                          fileContents.includes("user-behavior") || fileContents.includes("telemetry");
+    
+    const hasZeroTrust = fileContents.includes("zero-trust") || fileContents.includes("zerotrust") ||
+                         (fileContents.includes("jwt") && fileContents.includes("verify"));
+    
+    const hasE2E = fileContents.includes("e2e-encryption") || fileContents.includes("encrypted") ||
+                   fileContents.includes("aes") || fileContents.includes("crypto");
+    
+    const hasThreat = fileContents.includes("threat") || fileContents.includes("intrusion") ||
+                      fileContents.includes("security-monitor") || fileContents.includes("waf");
+    
+    const hasAutoResponse = fileContents.includes("auto-response") || fileContents.includes("incident-response") ||
+                            fileContents.includes("automatic-block");
+    
+    const hasRedundancy = fileContents.includes("redundancy") || fileContents.includes("replica") ||
+                          fileContents.includes("failover") || fileContents.includes("backup");
+    
+    const isModular = files.some(f => f.filePath.includes("/modules/") || f.filePath.includes("/components/")) ||
+                      fileContents.includes("plugin") || fileContents.includes("modular");
+    
+    const hasLiveScaling = fileContents.includes("auto-scale") || fileContents.includes("horizontal-scale") ||
+                           fileContents.includes("kubernetes") || fileContents.includes("k8s");
+    
+    const hasZeroDowntime = fileContents.includes("zero-downtime") || fileContents.includes("rolling-update") ||
+                            fileContents.includes("blue-green");
+    
+    const isForwardCompatible = fileContents.includes("versioning") || fileContents.includes("api/v") ||
+                                fileContents.includes("backward-compatible");
+    
+    const hasVendorLock = fileContents.includes("aws.") && !fileContents.includes("abstraction") &&
+                          !fileContents.includes("provider-agnostic");
+    
+    const isCRUDOnly = !hasAI && !hasPredictive && !hasBehavioral &&
+                       (fileContents.match(/\b(create|read|update|delete)\b/gi) || []).length > 20;
+    
+    const hasStaticDashboard = fileContents.includes("static-dashboard") || 
+                               (fileContents.includes("dashboard") && !fileContents.includes("dynamic"));
+    
+    const hasHardLimits = fileContents.includes("max_users") || fileContents.includes("hard_limit") ||
+                          fileContents.includes("capacity_limit");
+    
+    const hasManualOps = fileContents.includes("manual-intervention") || 
+                         (fileContents.includes("admin-required") && !fileContents.includes("automated"));
+
+    return {
+      hasAICore: hasAI,
+      hasAIAssistant: hasAssistant,
+      hasPredictiveModule: hasPredictive,
+      hasBehavioralAnalytics: hasBehavioral,
+      hasZeroTrust,
+      hasE2EEncryption: hasE2E,
+      hasThreatDetection: hasThreat,
+      hasAutoResponse,
+      hasRedundancy,
+      isModular,
+      hasLiveScaling,
+      hasZeroDowntime,
+      isForwardCompatible,
+      hasVendorLockIn: hasVendorLock,
+      hasCRUDOnly: isCRUDOnly,
+      hasStaticDashboard,
+      hasHardLimits,
+      hasManualOps,
+    };
   }
 
   async generateMobileApp(projectId: number): Promise<GeneratedPlatformCode["mobileCode"]> {

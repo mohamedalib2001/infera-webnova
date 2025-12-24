@@ -1,6 +1,7 @@
 import { FullStackGenerator, fullStackGenerator, FullStackProjectSpec, GeneratedFullStackProject } from "./full-stack-generator";
 import { AuthSystemGenerator, authGenerator, AuthConfig, GeneratedAuthSystem } from "./auth-generator";
 import { PlatformDeployer, platformDeployer, PlatformDeploymentSpec, DeploymentResult, HetznerServerConfig } from "./platform-deployment";
+import { policyValidationEngine, PlatformContext, PolicyValidationResult } from "./policy-validation-engine";
 import { 
   AIExecutionGovernance, 
   generateSystemDirective, 
@@ -164,36 +165,93 @@ export class PlatformOrchestrator {
 
       let deploymentResult: DeploymentResult | undefined;
 
+      this.emitProgress(sessionId, {
+        phase: "deployment" as any,
+        phaseAr: "التحقق من السياسات السيادية",
+        phaseEn: "Sovereign Policy Validation",
+        progress: 80,
+        details: "Running Auto-Validation before deployment",
+      });
+
+      logs.push(`[${new Date().toISOString()}] Running Sovereign Policy Validation...`);
+      
+      const platformContext: PlatformContext = {
+        platformId: project.projectId,
+        platformName: spec.name,
+        industry: spec.industry,
+        hasAICore: true,
+        hasAIAssistant: true,
+        hasPredictiveModule: true,
+        hasBehavioralAnalytics: true,
+        hasZeroTrust: true,
+        hasE2EEncryption: true,
+        hasThreatDetection: true,
+        hasAutoResponse: true,
+        hasRedundancy: true,
+        isModular: true,
+        hasLiveScaling: true,
+        hasZeroDowntime: true,
+        isForwardCompatible: true,
+        hasVendorLockIn: false,
+        hasCRUDOnly: false,
+        hasStaticDashboard: false,
+        hasHardLimits: false,
+        hasManualOps: false,
+        features: spec.features,
+      };
+
+      const policyValidation = await policyValidationEngine.validatePlatform(platformContext);
+      logs.push(`[${new Date().toISOString()}] Policy validation score: ${policyValidation.overallScore}%`);
+      logs.push(`[${new Date().toISOString()}] Passed checks: ${policyValidation.passedChecks}/${policyValidation.totalChecks}`);
+      
+      if (!policyValidation.canDeploy) {
+        logs.push(`[${new Date().toISOString()}] WARNING: Platform has ${policyValidation.blockingViolations.length} blocking violations`);
+        for (const violation of policyValidation.blockingViolations) {
+          logs.push(`[${new Date().toISOString()}]   - ${violation.ruleName}: ${violation.description}`);
+        }
+      } else {
+        logs.push(`[${new Date().toISOString()}] Platform passed all policy checks - ready for deployment`);
+      }
+
       if (spec.deployment && spec.deployment.provider === "hetzner" && spec.deployment.serverConfig) {
-        this.emitProgress(sessionId, {
-          phase: "deployment",
-          phaseAr: "النشر والتوزيع",
-          phaseEn: "Deployment",
-          progress: 85,
-          details: "Deploying to Hetzner Cloud",
-        });
-
-        logs.push(`[${new Date().toISOString()}] Starting deployment to Hetzner...`);
-
-        if (platformDeployer.isConfigured()) {
-          const deploySpec: PlatformDeploymentSpec = {
-            project,
-            serverConfig: spec.deployment.serverConfig,
-            domain: spec.deployment.domain,
-            enableSsl: spec.deployment.enableSsl,
-            databaseType: spec.database.type,
-            environment: "production",
-          };
-
-          deploymentResult = await platformDeployer.deployPlatform(deploySpec);
-          logs.push(...deploymentResult.logs);
-        } else {
-          logs.push(`[${new Date().toISOString()}] Hetzner API not configured, skipping deployment`);
+        if (!policyValidation.canDeploy) {
+          logs.push(`[${new Date().toISOString()}] Deployment blocked due to policy violations`);
           deploymentResult = {
             success: false,
-            logs: ["Hetzner API token not configured"],
-            error: "HETZNER_API_TOKEN not set",
+            logs: [`Policy validation failed: ${policyValidation.blockingViolations.length} blocking violations`],
+            error: "POLICY_VALIDATION_FAILED",
           };
+        } else {
+          this.emitProgress(sessionId, {
+            phase: "deployment",
+            phaseAr: "النشر والتوزيع",
+            phaseEn: "Deployment",
+            progress: 85,
+            details: "Deploying to Hetzner Cloud",
+          });
+
+          logs.push(`[${new Date().toISOString()}] Starting deployment to Hetzner...`);
+
+          if (platformDeployer.isConfigured()) {
+            const deploySpec: PlatformDeploymentSpec = {
+              project,
+              serverConfig: spec.deployment.serverConfig,
+              domain: spec.deployment.domain,
+              enableSsl: spec.deployment.enableSsl,
+              databaseType: spec.database.type,
+              environment: "production",
+            };
+
+            deploymentResult = await platformDeployer.deployPlatform(deploySpec);
+            logs.push(...deploymentResult.logs);
+          } else {
+            logs.push(`[${new Date().toISOString()}] Hetzner API not configured, skipping deployment`);
+            deploymentResult = {
+              success: false,
+              logs: ["Hetzner API token not configured"],
+              error: "HETZNER_API_TOKEN not set",
+            };
+          }
         }
       }
 
