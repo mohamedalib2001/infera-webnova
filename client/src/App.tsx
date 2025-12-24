@@ -128,6 +128,7 @@ import TrainAILanding from "@/pages/trainai-landing";
 import GlobalCloudLanding from "@/pages/globalcloud-landing";
 import ShieldGridLanding from "@/pages/shieldgrid-landing";
 import SmartRemoteLanding from "@/pages/smartremote-landing";
+import PitchDeck from "@/pages/pitch-deck";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
@@ -187,6 +188,7 @@ function AuthenticatedRouter() {
       <Route path="/globalcloud" component={GlobalCloudLanding} />
       <Route path="/shieldgrid" component={ShieldGridLanding} />
       <Route path="/smartremote" component={SmartRemoteLanding} />
+      <Route path="/pitch-deck" component={PitchDeck} />
       <Route path="/auth" component={Auth} />
       <Route path="/builder" component={Builder} />
       <Route path="/builder/:id" component={Builder} />
