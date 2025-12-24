@@ -71,6 +71,11 @@ interface GitHubRepo {
   size?: number;
   open_issues_count?: number;
   pushed_at?: string;
+  owner: {
+    login: string;
+    avatar_url: string;
+    html_url: string;
+  };
 }
 
 const PulsingDot = ({ className = "" }: { className?: string }) => (
@@ -790,11 +795,23 @@ export default function GitHubManager() {
                         </span>
                       </div>
 
-                      {/* Branch Info */}
-                      <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                      {/* Owner Info */}
+                      <div className="flex items-center gap-3 pt-2 border-t border-border/50">
+                        <a 
+                          href={repo.owner.html_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 hover-elevate rounded-md p-1 -m-1"
+                        >
+                          <Avatar className="w-6 h-6">
+                            <AvatarImage src={repo.owner.avatar_url} />
+                            <AvatarFallback className="text-[10px]">{repo.owner.login[0].toUpperCase()}</AvatarFallback>
+                          </Avatar>
+                          <span className="text-xs font-medium">@{repo.owner.login}</span>
+                        </a>
+                        <div className="flex-1" />
                         <div className="flex items-center gap-1.5 text-xs">
                           <GitBranch className="w-3.5 h-3.5 text-muted-foreground" />
-                          <span className="text-muted-foreground">{t.defaultBranch}:</span>
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0">
                             {repo.default_branch}
                           </Badge>
