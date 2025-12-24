@@ -958,7 +958,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
-  status?: 'sending' | 'queued' | 'done';
+  status?: 'sending' | 'queued' | 'done' | 'thinking';
   suggestions?: string[];
   modelInfo?: {
     name: string;

@@ -450,26 +450,37 @@ export default function Builder() {
       : content;
     
     const userMessageId = crypto.randomUUID();
+    const thinkingMessageId = crypto.randomUUID();
+    
     const userMessage: ChatMessageType = {
       id: userMessageId,
       role: "user",
       content: displayContent,
       timestamp: new Date(),
-      status: "sending",
+      status: "sending", // Show sending indicator
     };
     
-    // Add user message immediately to UI (optimistic update)
-    setMessages((prev) => [...prev, userMessage]);
+    // Add "thinking" placeholder immediately after user message
+    const thinkingMessage: ChatMessageType = {
+      id: thinkingMessageId,
+      role: "assistant",
+      content: "",
+      timestamp: new Date(),
+      status: "thinking",
+    };
+    
+    // Add BOTH user message AND thinking indicator immediately (no blocking)
+    setMessages((prev) => [...prev, userMessage, thinkingMessage]);
     setIsGenerating(true);
     setIsCodeGenerating(false);
     setIsSaving(true);
     
-    // Update user message status to "sent" after a brief moment
+    // Clear user message "sending" status after persistence starts
     setTimeout(() => {
       setMessages(prev => prev.map(m => 
         m.id === userMessageId ? { ...m, status: undefined } : m
       ));
-    }, 100);
+    }, 500);
     
     // Create conversation IMMEDIATELY before API call (ensures persistence even if API fails)
     let activeConversationId = conversationId;
@@ -553,15 +564,19 @@ export default function Builder() {
       }
       
       const aiMessage: ChatMessageType = {
-        id: crypto.randomUUID(),
+        id: thinkingMessageId, // Reuse the thinking message ID
         role: "assistant",
         content: data.message,
         timestamp: new Date(),
         suggestions: data.suggestions,
         modelInfo: data.modelInfo,
+        status: undefined, // Clear thinking status
       };
       
-      setMessages((prev) => [...prev, aiMessage]);
+      // Replace the thinking message with the actual AI response
+      setMessages((prev) => prev.map(m => 
+        m.id === thinkingMessageId ? aiMessage : m
+      ));
 
       // Save AI response to conversation (user message was already saved earlier)
       const finalConversationId = conversationId || pendingConversationRef.current.id;
@@ -632,6 +647,8 @@ export default function Builder() {
         }
       }
     } catch (error) {
+      // Remove thinking message on error
+      setMessages((prev) => prev.filter(m => m.id !== thinkingMessageId));
       const errorMessage = error instanceof Error ? error.message : t("builder.tryAgain");
       toast({
         title: t("builder.generateFailed"),

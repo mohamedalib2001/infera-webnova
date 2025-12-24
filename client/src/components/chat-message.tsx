@@ -1,7 +1,7 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { User, Sparkles, Clock, Bot } from "lucide-react";
+import { User, Sparkles, Clock, Bot, Loader2 } from "lucide-react";
 import type { ChatMessage as ChatMessageType } from "@shared/schema";
 
 interface ChatMessageProps {
@@ -12,6 +12,8 @@ interface ChatMessageProps {
 export function ChatMessage({ message, onSuggestionClick }: ChatMessageProps) {
   const isUser = message.role === "user";
   const isQueued = message.status === "queued";
+  const isThinking = message.status === "thinking";
+  const isSending = message.status === "sending";
   
   return (
     <div
@@ -25,7 +27,11 @@ export function ChatMessage({ message, onSuggestionClick }: ChatMessageProps) {
             : "bg-gradient-to-br from-violet-500 to-pink-500 text-white"
           }
         >
-          {isUser ? <User className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+          {isUser ? (
+            isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <User className="h-4 w-4" />
+          ) : (
+            isThinking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />
+          )}
         </AvatarFallback>
       </Avatar>
       
@@ -36,16 +42,33 @@ export function ChatMessage({ message, onSuggestionClick }: ChatMessageProps) {
             في الانتظار
           </Badge>
         )}
+        {isSending && (
+          <Badge variant="secondary" className="self-start text-xs gap-1 opacity-70">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            جاري الإرسال
+          </Badge>
+        )}
         <div
           className={`rounded-2xl px-4 py-3 ${
             isUser
-              ? isQueued 
+              ? isQueued || isSending
                 ? "bg-primary/70 text-primary-foreground"
                 : "bg-primary text-primary-foreground"
               : "bg-muted"
           }`}
         >
-          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+          {isThinking ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex gap-1">
+                <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+              <span>جاري التفكير...</span>
+            </div>
+          ) : (
+            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+          )}
         </div>
         
         {!isUser && message.modelInfo && (
