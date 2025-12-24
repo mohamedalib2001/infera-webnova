@@ -29,6 +29,7 @@ import {
   Layers,
   GitBranch,
 } from "lucide-react";
+import { LandingWorkspaceNav } from "@/components/landing-workspace-nav";
 
 interface Platform {
   id: string;
@@ -135,6 +136,7 @@ export default function EngineLanding() {
 
   return (
     <div className="min-h-screen bg-background overflow-hidden" dir={isRtl ? "rtl" : "ltr"}>
+      <LandingWorkspaceNav platformName="INFERA Engine™" platformNameAr="إنفيرا إنجن™" />
       <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-violet-950/30 via-background to-cyan-950/20" />
         

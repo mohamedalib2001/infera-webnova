@@ -35,6 +35,7 @@ import {
   Database,
   Bot,
 } from "lucide-react";
+import { LandingWorkspaceNav } from "@/components/landing-workspace-nav";
 
 interface Platform {
   id: string;
@@ -209,6 +210,7 @@ export default function InferaLanding() {
 
   return (
     <div className="min-h-screen bg-background overflow-hidden" dir={isRtl ? "rtl" : "ltr"}>
+      <LandingWorkspaceNav platformName="INFERA Group" platformNameAr="مجموعة إنفيرا" />
       <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0">
           <div className="absolute inset-0 bg-gradient-to-br from-violet-600/5 via-transparent to-cyan-600/5" />

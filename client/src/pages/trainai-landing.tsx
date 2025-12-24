@@ -23,6 +23,7 @@ import {
   Play,
   Trophy,
 } from "lucide-react";
+import { LandingWorkspaceNav } from "@/components/landing-workspace-nav";
 
 export default function TrainAILanding() {
   const [, setLocation] = useLocation();
@@ -128,6 +129,7 @@ export default function TrainAILanding() {
 
   return (
     <div className="min-h-screen bg-background overflow-hidden" dir={isRtl ? "rtl" : "ltr"}>
+      <LandingWorkspaceNav platformName="INFERA TrainAI™" platformNameAr="إنفيرا ترين AI™" />
       <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-950/30 via-background to-emerald-950/20" />
         

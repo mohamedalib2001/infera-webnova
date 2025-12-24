@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/hooks/use-language";
 import { motion } from "framer-motion";
+import { LandingWorkspaceNav } from "@/components/landing-workspace-nav";
 import { 
   Megaphone, 
   TrendingUp,
@@ -132,6 +133,7 @@ export default function MarketingLanding() {
 
   return (
     <div className="min-h-screen bg-background overflow-hidden" dir={isRtl ? "rtl" : "ltr"}>
+      <LandingWorkspaceNav platformName="INFERA Marketing AI™" platformNameAr="إنفيرا ماركتنج AI™" />
       <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-pink-950/30 via-background to-violet-950/20" />
         

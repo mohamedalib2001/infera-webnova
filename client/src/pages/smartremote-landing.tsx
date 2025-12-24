@@ -24,6 +24,7 @@ import {
   MousePointer,
   Keyboard,
 } from "lucide-react";
+import { LandingWorkspaceNav } from "@/components/landing-workspace-nav";
 
 export default function SmartRemoteLanding() {
   const [, setLocation] = useLocation();
@@ -122,6 +123,7 @@ export default function SmartRemoteLanding() {
 
   return (
     <div className="min-h-screen bg-background overflow-hidden" dir={isRtl ? "rtl" : "ltr"}>
+      <LandingWorkspaceNav platformName="INFERA Smart Remote AI™" platformNameAr="إنفيرا سمارت ريموت AI™" />
       <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-violet-950/30 via-background to-blue-950/20" />
         

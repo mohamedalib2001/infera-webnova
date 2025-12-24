@@ -26,6 +26,7 @@ import {
   DollarSign,
   Eye,
 } from "lucide-react";
+import { LandingWorkspaceNav } from "@/components/landing-workspace-nav";
 
 export default function AttendLanding() {
   const [, setLocation] = useLocation();
@@ -126,6 +127,7 @@ export default function AttendLanding() {
 
   return (
     <div className="min-h-screen bg-background overflow-hidden" dir={isRtl ? "rtl" : "ltr"}>
+      <LandingWorkspaceNav platformName="INFERA Attend AI™" platformNameAr="إنفيرا أتند AI™" />
       <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-cyan-950/30 via-background to-blue-950/20" />
         

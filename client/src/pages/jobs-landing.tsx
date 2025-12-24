@@ -25,6 +25,7 @@ import {
   Filter,
   LineChart,
 } from "lucide-react";
+import { LandingWorkspaceNav } from "@/components/landing-workspace-nav";
 
 export default function JobsLanding() {
   const [, setLocation] = useLocation();
@@ -123,6 +124,7 @@ export default function JobsLanding() {
 
   return (
     <div className="min-h-screen bg-background overflow-hidden" dir={isRtl ? "rtl" : "ltr"}>
+      <LandingWorkspaceNav platformName="INFERA Jobs AI™" platformNameAr="إنفيرا جوبز AI™" />
       <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-950/30 via-background to-violet-950/20" />
         

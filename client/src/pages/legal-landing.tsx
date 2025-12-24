@@ -29,6 +29,7 @@ import {
   Zap,
   Brain,
 } from "lucide-react";
+import { LandingWorkspaceNav } from "@/components/landing-workspace-nav";
 
 export default function LegalLanding() {
   const [, setLocation] = useLocation();
@@ -134,6 +135,7 @@ export default function LegalLanding() {
 
   return (
     <div className="min-h-screen bg-background overflow-hidden" dir={isRtl ? "rtl" : "ltr"}>
+      <LandingWorkspaceNav platformName="INFERA Legal AI™" platformNameAr="إنفيرا ليجال AI™" />
       <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-amber-950/30 via-background to-red-950/20" />
         

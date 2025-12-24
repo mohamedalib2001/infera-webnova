@@ -23,6 +23,7 @@ import {
   Wallet,
   PieChart,
 } from "lucide-react";
+import { LandingWorkspaceNav } from "@/components/landing-workspace-nav";
 
 export default function GlobalCloudLanding() {
   const [, setLocation] = useLocation();
@@ -129,6 +130,7 @@ export default function GlobalCloudLanding() {
 
   return (
     <div className="min-h-screen bg-background overflow-hidden" dir={isRtl ? "rtl" : "ltr"}>
+      <LandingWorkspaceNav platformName="INFERA Finance AI – GlobalCloud™" platformNameAr="إنفيرا فاينانس AI – جلوبال كلاود™" />
       <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-950/30 via-background to-emerald-950/20" />
         
