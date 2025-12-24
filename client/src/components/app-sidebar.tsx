@@ -69,6 +69,7 @@ import {
   Eye,
   FileUser,
   Award,
+  Presentation,
 } from "lucide-react";
 import {
   Sidebar,
@@ -100,6 +101,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
   const { t, language } = useLanguage();
   const { isOpen, setIsOpen, openModal } = useNewPlatformModal();
   const [growthExpanded, setGrowthExpanded] = useState(false);
+  const [pitchDeckExpanded, setPitchDeckExpanded] = useState(false);
 
   const isOwner = user?.role === "owner";
   const isAdvancedUser = user?.role === "enterprise" || user?.role === "sovereign" || isOwner;
@@ -125,6 +127,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     { title: language === "ar" ? "TrainAI™" : "TrainAI™", url: "/trainai", icon: Award, testId: "nav-trainai" },
     { title: language === "ar" ? "GlobalCloud™" : "GlobalCloud™", url: "/globalcloud", icon: Globe, testId: "nav-globalcloud" },
     { title: language === "ar" ? "ShieldGrid™" : "ShieldGrid™", url: "/shieldgrid", icon: Shield, testId: "nav-shieldgrid" },
+    { title: language === "ar" ? "Smart Remote™" : "Smart Remote™", url: "/smartremote", icon: Smartphone, testId: "nav-smartremote" },
     { title: language === "ar" ? "وحدة التحكم" : "Console", url: "/console", icon: SquareTerminal, testId: "nav-console" },
     { title: language === "ar" ? "بيئة التطوير" : "Cloud IDE", url: "/ide", icon: Terminal, testId: "nav-cloud-ide" },
     { title: language === "ar" ? "منشئ التطبيقات" : "AI App Builder", url: "/ai-builder", icon: Sparkles, testId: "nav-ai-builder" },
@@ -160,6 +163,18 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     { title: language === "ar" ? "محسّن SEO" : "SEO Optimizer", url: "/seo-optimizer", icon: Search, testId: "nav-seo" },
     { title: language === "ar" ? "التحليلات" : "Analytics", url: "/analytics", icon: BarChart3, testId: "nav-analytics" },
     { title: language === "ar" ? "التسويق" : "Marketing", url: "/marketing", icon: Megaphone, testId: "nav-marketing" },
+  ];
+
+  const pitchDeckItems = [
+    { title: language === "ar" ? "نظرة عامة" : "Overview", url: "/pitch-deck", icon: LayoutDashboard, testId: "nav-pitch-overview" },
+    { title: language === "ar" ? "رؤية المنصة" : "Platform Vision", url: "/pitch-deck/vision", icon: Eye, testId: "nav-pitch-vision" },
+    { title: language === "ar" ? "المشكلة والحل" : "Problem & Solution", url: "/pitch-deck/solution", icon: Lightbulb, testId: "nav-pitch-solution" },
+    { title: language === "ar" ? "نموذج العمل" : "Business Model", url: "/pitch-deck/business", icon: TrendingUp, testId: "nav-pitch-business" },
+    { title: language === "ar" ? "التحليل المالي" : "Financial Analysis", url: "/pitch-deck/financials", icon: LineChart, testId: "nav-pitch-financials" },
+    { title: language === "ar" ? "الفريق" : "Team", url: "/pitch-deck/team", icon: Users, testId: "nav-pitch-team" },
+    { title: language === "ar" ? "خارطة الطريق" : "Roadmap", url: "/pitch-deck/roadmap", icon: Workflow, testId: "nav-pitch-roadmap" },
+    { title: language === "ar" ? "المستثمرين" : "Investors", url: "/pitch-deck/investors", icon: Landmark, testId: "nav-pitch-investors" },
+    { title: language === "ar" ? "تصدير PDF" : "Export PDF", url: "/pitch-deck/export", icon: FileText, testId: "nav-pitch-export" },
   ];
 
   const roleLabels: Record<string, { ar: string; en: string; color: "secondary" | "default" | "destructive" }> = {
@@ -281,6 +296,29 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
               <CollapsibleContent>
                 <SidebarGroupContent>
                   {renderNavItems(growthItems)}
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </Collapsible>
+          </SidebarGroup>
+
+          <SidebarGroup>
+            <Collapsible open={pitchDeckExpanded} onOpenChange={setPitchDeckExpanded}>
+              <CollapsibleTrigger asChild>
+                <SidebarGroupLabel className="flex items-center gap-1 cursor-pointer w-full justify-between pr-2 text-violet-600 dark:text-violet-400">
+                  <span className="flex items-center gap-1">
+                    <Presentation className="h-3 w-3" />
+                    {language === "ar" ? "عرض المستثمرين" : "Pitch Deck"}
+                  </span>
+                  {pitchDeckExpanded ? (
+                    <ChevronDown className="h-3 w-3" />
+                  ) : (
+                    <ChevronRight className="h-3 w-3" />
+                  )}
+                </SidebarGroupLabel>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  {renderNavItems(pitchDeckItems)}
                 </SidebarGroupContent>
               </CollapsibleContent>
             </Collapsible>
