@@ -70,16 +70,16 @@ const platformTypeLabels: Record<SovereignPlatformType, { en: string; ar: string
   custom: { en: "Custom", ar: "مخصص", icon: Code2 },
 };
 
-const statusBadgeVariants: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; color: string }> = {
-  draft: { variant: "secondary", color: "bg-muted" },
-  building: { variant: "outline", color: "bg-yellow-500/20 text-yellow-600" },
-  testing: { variant: "outline", color: "bg-blue-500/20 text-blue-600" },
-  staging: { variant: "outline", color: "bg-purple-500/20 text-purple-600" },
-  deploying: { variant: "outline", color: "bg-orange-500/20 text-orange-600" },
-  live: { variant: "default", color: "bg-green-500/20 text-green-600" },
-  maintenance: { variant: "outline", color: "bg-amber-500/20 text-amber-600" },
-  suspended: { variant: "destructive", color: "bg-red-500/20 text-red-600" },
-  archived: { variant: "secondary", color: "bg-gray-500/20 text-gray-600" },
+const statusBadgeVariants: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; color: string; en: string; ar: string }> = {
+  draft: { variant: "secondary", color: "bg-muted", en: "Draft", ar: "مسودة" },
+  building: { variant: "outline", color: "bg-yellow-500/20 text-yellow-600", en: "Building", ar: "قيد البناء" },
+  testing: { variant: "outline", color: "bg-blue-500/20 text-blue-600", en: "Testing", ar: "قيد الاختبار" },
+  staging: { variant: "outline", color: "bg-purple-500/20 text-purple-600", en: "Staging", ar: "تجريبي" },
+  deploying: { variant: "outline", color: "bg-orange-500/20 text-orange-600", en: "Deploying", ar: "قيد النشر" },
+  live: { variant: "default", color: "bg-green-500/20 text-green-600", en: "Live", ar: "مباشر" },
+  maintenance: { variant: "outline", color: "bg-amber-500/20 text-amber-600", en: "Maintenance", ar: "صيانة" },
+  suspended: { variant: "destructive", color: "bg-red-500/20 text-red-600", en: "Suspended", ar: "معلق" },
+  archived: { variant: "secondary", color: "bg-gray-500/20 text-gray-600", en: "Archived", ar: "مؤرشف" },
 };
 
 type SovereignWorkspaceRole = "SOVEREIGN_ADMIN" | "SOVEREIGN_OPERATOR" | "AUDITOR";
@@ -576,6 +576,7 @@ export default function SovereignWorkspacePage() {
                 <h2 className="text-lg font-semibold">Platform Landing Pages | صفحات الهبوط للمنصات</h2>
                 <p className="text-sm text-muted-foreground">
                   Manage and customize landing pages for each sovereign platform dynamically.
+                  <span className="block text-muted-foreground/80" dir="rtl">إدارة وتخصيص صفحات الهبوط لكل منصة سيادية ديناميكياً.</span>
                 </p>
               </div>
             </div>
@@ -588,84 +589,92 @@ export default function SovereignWorkspacePage() {
               <Card className="py-12">
                 <CardContent className="flex flex-col items-center justify-center">
                   <Layout className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No Platforms Yet | لا توجد منصات</h3>
+                  <h3 className="text-lg font-medium mb-2">No Platforms Yet | لا توجد منصات بعد</h3>
                   <p className="text-muted-foreground text-center mb-4">
                     Create platforms first to manage their landing pages.
+                    <span className="block" dir="rtl">أنشئ منصات أولاً لإدارة صفحات الهبوط الخاصة بها.</span>
                   </p>
-                  <Button onClick={() => setNewProjectDialogOpen(true)}>
+                  <Button onClick={() => setNewProjectDialogOpen(true)} data-testid="button-create-platform-empty">
                     <Plus className="h-4 w-4 mr-2" />
-                    Create Platform
+                    Create Platform | إنشاء منصة
                   </Button>
                 </CardContent>
               </Card>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {projects.map((project) => (
-                  <Card key={project.id} className="overflow-hidden hover-elevate" data-testid={`card-landing-${project.id}`}>
-                    <CardHeader className="pb-3 bg-gradient-to-r from-slate-900 to-slate-800">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-md bg-white/10 flex items-center justify-center">
-                          <Globe className="h-5 w-5 text-white" />
+                {projects.map((project) => {
+                  const PlatformIcon = platformTypeLabels[project.platformType]?.icon || Globe;
+                  return (
+                    <Card key={project.id} className="overflow-hidden hover-elevate" data-testid={`card-landing-${project.id}`}>
+                      <CardHeader className="pb-3 bg-gradient-to-r from-slate-900 to-slate-800">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-md bg-white/10 flex items-center justify-center">
+                            <PlatformIcon className="h-5 w-5 text-white" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-white text-sm">{project.name}</CardTitle>
+                            <p className="text-white/60 text-xs" dir="rtl">{project.nameAr}</p>
+                          </div>
                         </div>
-                        <div>
-                          <CardTitle className="text-white text-sm">{project.name}</CardTitle>
-                          <p className="text-white/60 text-xs">{project.nameAr}</p>
+                      </CardHeader>
+                      <CardContent className="p-4">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-muted-foreground">Platform Code | رمز المنصة:</span>
+                            <Badge variant="outline" className="text-xs">{project.code}</Badge>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-muted-foreground">Status | الحالة:</span>
+                            <Badge className={statusBadgeVariants[project.status]?.color || "bg-muted"}>
+                              {statusBadgeVariants[project.status]?.en || project.status} | {statusBadgeVariants[project.status]?.ar || project.status}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-muted-foreground">Landing Page | صفحة الهبوط:</span>
+                            <Badge variant={project.deploymentStatus === "deployed" ? "default" : "secondary"}>
+                              {project.deploymentStatus === "deployed" ? "Published | منشورة" : "Draft | مسودة"}
+                            </Badge>
+                          </div>
                         </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="p-4">
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground">Platform Code:</span>
-                          <Badge variant="outline" className="text-xs">{project.code}</Badge>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground">Status:</span>
-                          <Badge className={statusBadgeVariants[project.status]?.color || "bg-muted"}>
-                            {project.status}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground">Landing Page:</span>
-                          <Badge variant={project.deploymentStatus === "deployed" ? "default" : "secondary"}>
-                            {project.deploymentStatus === "deployed" ? "Published" : "Draft"}
-                          </Badge>
-                        </div>
-                      </div>
-                    </CardContent>
-                    <CardFooter className="pt-2 gap-2 border-t bg-muted/30">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="flex-1"
-                        data-testid={`button-edit-landing-${project.id}`}
-                      >
-                        <Edit3 className="h-4 w-4 mr-1" />
-                        Edit
-                      </Button>
-                      <Button 
-                        variant="outline"
-                        size="sm" 
-                        className="flex-1"
-                        data-testid={`button-preview-landing-${project.id}`}
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        Preview
-                      </Button>
-                      {project.deploymentUrl && (
+                      </CardContent>
+                      <CardFooter className="pt-2 gap-2 border-t bg-muted/30">
                         <Button 
-                          variant="default"
-                          size="sm"
-                          asChild
+                          variant="outline" 
+                          size="sm" 
+                          className="flex-1"
+                          data-testid={`button-edit-landing-${project.id}`}
                         >
-                          <a href={project.deploymentUrl} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
+                          <Edit3 className="h-4 w-4 mr-1" />
+                          Edit | تحرير
                         </Button>
-                      )}
-                    </CardFooter>
-                  </Card>
-                ))}
+                        <Button 
+                          variant="outline"
+                          size="sm" 
+                          className="flex-1"
+                          data-testid={`button-preview-landing-${project.id}`}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          Preview | معاينة
+                        </Button>
+                        <Button 
+                          variant={project.deploymentUrl ? "default" : "secondary"}
+                          size="sm"
+                          asChild={!!project.deploymentUrl}
+                          disabled={!project.deploymentUrl}
+                          data-testid={`button-view-landing-${project.id}`}
+                        >
+                          {project.deploymentUrl ? (
+                            <a href={project.deploymentUrl} target="_blank" rel="noopener noreferrer">
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          ) : (
+                            <ExternalLink className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </div>
