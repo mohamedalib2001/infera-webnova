@@ -60,6 +60,7 @@ import {
   Cpu,
   MapPin,
   Network,
+  Github,
 } from "lucide-react";
 import {
   Sidebar,
@@ -355,6 +356,14 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                           <Link href="/ssh-vault" data-testid="nav-ssh-vault">
                             <Lock className="h-4 w-4 text-amber-500" />
                             <span>{language === "ar" ? "خزنة SSH" : "SSH Vault"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/github"}>
+                          <Link href="/github" data-testid="nav-github">
+                            <Github className="h-4 w-4" />
+                            <span>{language === "ar" ? "إدارة GitHub" : "GitHub Manager"}</span>
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
