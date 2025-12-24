@@ -3,6 +3,17 @@
 ## Overview
 INFERA WebNova is a **Core Operating System** designed to act as a "digital platform factory." It autonomously generates and manages sovereign digital platforms without manual rebuilds, utilizing a Blueprint-First approach, Event-Driven Architecture, and Autonomous Governance with AI Orchestration. The system supports multi-tenant isolation and targets diverse sectors (Financial, Healthcare, Government, Education, Enterprise) with a focus on compliance (PCI-DSS, HIPAA, GDPR). Its purpose is to create a robust, self-managing ecosystem for digital platforms.
 
+## Platform Owner Information
+*   **Full Name**: MOHAMED ALI ABDALLA MOHAMED
+*   **Username**: mohamedalib2001
+*   **Title**: Founder & CEO at Infra Engine | Building AI-powered digital platforms & SaaS ecosystems
+*   **Email**: mohamed.ali.b2001@gmail.com
+*   **Phone (Egypt)**: +201026363528
+*   **Phone (Saudi Arabia)**: +966544803384
+*   **GitHub**: mohamedalib2001
+*   **Company**: Infra Engine
+*   **Platform**: INFERA WebNova
+
 ## User Preferences
 I want iterative development.
 Ask before making major changes.

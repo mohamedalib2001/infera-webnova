@@ -41,17 +41,29 @@ import {
   Eye,
   EyeOff,
   Pencil,
-  AlertTriangle
+  AlertTriangle,
+  Building2,
+  MapPin,
+  Link2,
+  Mail,
+  Calendar
 } from "lucide-react";
 
 interface GitHubUser {
   login: string;
   name: string;
   avatar_url: string;
+  html_url: string;
   bio?: string;
   public_repos: number;
   followers: number;
   following: number;
+  company?: string;
+  location?: string;
+  blog?: string;
+  twitter_username?: string;
+  email?: string;
+  created_at?: string;
 }
 
 interface GitHubRepo {
@@ -489,43 +501,109 @@ export default function GitHubManager() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* User Profile Card */}
           <Card className="lg:col-span-1">
-            <CardHeader>
-              <CardTitle className="text-lg">{t.profile}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="pt-6 space-y-4">
               {userLoading ? (
                 <div className="space-y-4">
-                  <Skeleton className="w-20 h-20 rounded-full mx-auto" />
-                  <Skeleton className="h-4 w-32 mx-auto" />
-                  <Skeleton className="h-4 w-24 mx-auto" />
+                  <Skeleton className="w-24 h-24 rounded-full mx-auto" />
+                  <Skeleton className="h-5 w-40 mx-auto" />
+                  <Skeleton className="h-4 w-28 mx-auto" />
+                  <Skeleton className="h-16 w-full" />
                 </div>
               ) : userData?.user ? (
-                <div className="text-center space-y-4">
-                  <Avatar className="w-20 h-20 mx-auto">
-                    <AvatarImage src={userData.user.avatar_url} />
-                    <AvatarFallback>{userData.user.login[0].toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <h3 className="font-semibold">{userData.user.name || userData.user.login}</h3>
-                    <p className="text-sm text-muted-foreground">@{userData.user.login}</p>
+                <div className="space-y-4">
+                  {/* Avatar with Online Status */}
+                  <div className="relative w-24 h-24 mx-auto">
+                    <Avatar className="w-24 h-24 border-4 border-background shadow-lg">
+                      <AvatarImage src={userData.user.avatar_url} />
+                      <AvatarFallback className="text-2xl">{userData.user.login[0].toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <span className="absolute bottom-1 right-1 flex h-4 w-4">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-4 w-4 bg-green-500 border-2 border-background"></span>
+                    </span>
                   </div>
+
+                  {/* Name & Username */}
+                  <div className="text-center">
+                    <h3 className="font-bold text-lg">{userData.user.name || userData.user.login}</h3>
+                    <a 
+                      href={userData.user.html_url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-sm text-primary hover:underline"
+                    >
+                      @{userData.user.login}
+                    </a>
+                  </div>
+
+                  {/* Bio */}
                   {userData.user.bio && (
-                    <p className="text-sm text-muted-foreground">{userData.user.bio}</p>
+                    <p className="text-sm text-muted-foreground text-center leading-relaxed">{userData.user.bio}</p>
                   )}
-                  <div className="flex justify-center gap-4 text-sm">
-                    <div className="text-center">
-                      <div className="font-bold">{userData.user.public_repos}</div>
-                      <div className="text-muted-foreground text-xs">{t.publicReposCount}</div>
+
+                  {/* Details */}
+                  <div className="space-y-2 pt-2 border-t">
+                    {userData.user.company && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Building2 className="w-4 h-4 text-muted-foreground" />
+                        <span>{userData.user.company}</span>
+                      </div>
+                    )}
+                    {userData.user.location && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <MapPin className="w-4 h-4 text-muted-foreground" />
+                        <span>{userData.user.location}</span>
+                      </div>
+                    )}
+                    {userData.user.email && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Mail className="w-4 h-4 text-muted-foreground" />
+                        <a href={`mailto:${userData.user.email}`} className="text-primary hover:underline truncate">
+                          {userData.user.email}
+                        </a>
+                      </div>
+                    )}
+                    {userData.user.blog && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Link2 className="w-4 h-4 text-muted-foreground" />
+                        <a href={userData.user.blog.startsWith('http') ? userData.user.blog : `https://${userData.user.blog}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
+                          {userData.user.blog}
+                        </a>
+                      </div>
+                    )}
+                    {userData.user.twitter_username && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <ExternalLink className="w-4 h-4 text-sky-500" />
+                        <a href={`https://twitter.com/${userData.user.twitter_username}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                          @{userData.user.twitter_username}
+                        </a>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Stats */}
+                  <div className="grid grid-cols-3 gap-2 pt-3 border-t">
+                    <div className="text-center p-2 bg-muted/30 rounded-lg">
+                      <div className="font-bold text-lg">{userData.user.public_repos}</div>
+                      <div className="text-muted-foreground text-[10px]">{t.publicReposCount}</div>
                     </div>
-                    <div className="text-center">
-                      <div className="font-bold">{userData.user.followers}</div>
-                      <div className="text-muted-foreground text-xs">{t.followers}</div>
+                    <div className="text-center p-2 bg-muted/30 rounded-lg">
+                      <div className="font-bold text-lg">{userData.user.followers}</div>
+                      <div className="text-muted-foreground text-[10px]">{t.followers}</div>
                     </div>
-                    <div className="text-center">
-                      <div className="font-bold">{userData.user.following}</div>
-                      <div className="text-muted-foreground text-xs">{t.following}</div>
+                    <div className="text-center p-2 bg-muted/30 rounded-lg">
+                      <div className="font-bold text-lg">{userData.user.following}</div>
+                      <div className="text-muted-foreground text-[10px]">{t.following}</div>
                     </div>
                   </div>
+
+                  {/* View Profile Button */}
+                  <Button variant="outline" className="w-full gap-2" asChild>
+                    <a href={userData.user.html_url} target="_blank" rel="noopener noreferrer">
+                      <Github className="w-4 h-4" />
+                      {t.viewOnGitHub}
+                    </a>
+                  </Button>
                 </div>
               ) : null}
             </CardContent>
