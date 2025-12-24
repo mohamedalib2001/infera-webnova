@@ -134,6 +134,35 @@ async function logVaultAction(
   });
 }
 
+// Check auth requirements for the current user
+router.get("/auth/requirements", requireSovereignRole, async (req, res) => {
+  try {
+    const userId = (req.user as any).id;
+    const user = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    
+    if (!user.length) {
+      return res.status(400).json({ error: "User not found" });
+    }
+    
+    const isOAuthUser = user[0].authProvider && user[0].authProvider !== "email";
+    const hasTOTP = user[0].twoFactorEnabled && user[0].twoFactorSecret;
+    const hasPassword = !!user[0].password;
+    
+    // OAuth users with 2FA can skip password
+    const requiresPassword = !(isOAuthUser && hasTOTP);
+    
+    res.json({
+      requiresPassword,
+      hasTOTP,
+      isOAuthUser,
+      hasPassword,
+    });
+  } catch (error) {
+    console.error("Auth requirements error:", error);
+    res.status(500).json({ error: "Failed to get auth requirements" });
+  }
+});
+
 router.post("/auth/start", requireSovereignRole, async (req, res) => {
   try {
     const userId = (req.user as any).id;
@@ -141,20 +170,38 @@ router.post("/auth/start", requireSovereignRole, async (req, res) => {
     
     console.log(`[SSH Vault] Auth attempt for user ${userId}`);
     
-    if (!password) {
-      console.log(`[SSH Vault] No password provided`);
-      return res.status(400).json({ error: "Password required" });
-    }
-    
     const user = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-    if (!user.length || !user[0].password) {
-      console.log(`[SSH Vault] User not found or no password set for ${userId}`);
-      return res.status(400).json({ error: "User not found or no password set" });
+    if (!user.length) {
+      console.log(`[SSH Vault] User not found for ${userId}`);
+      return res.status(400).json({ error: "User not found" });
     }
     
-    console.log(`[SSH Vault] Comparing password for user ${user[0].username}, has stored password: ${!!user[0].password}`);
-    const passwordValid = await bcrypt.compare(password, user[0].password);
-    console.log(`[SSH Vault] Password valid: ${passwordValid}`);
+    // For OAuth users (replit, google, etc.), skip password verification if 2FA is enabled
+    const isOAuthUser = user[0].authProvider && user[0].authProvider !== "email";
+    const hasTOTP = user[0].twoFactorEnabled && user[0].twoFactorSecret;
+    
+    let passwordValid = false;
+    
+    if (isOAuthUser && hasTOTP) {
+      // OAuth users with 2FA can skip password - they're already authenticated via OAuth
+      console.log(`[SSH Vault] OAuth user ${user[0].username} with 2FA - skipping password verification`);
+      passwordValid = true;
+    } else {
+      // Regular email users or OAuth users without 2FA must verify password
+      if (!password) {
+        console.log(`[SSH Vault] No password provided`);
+        return res.status(400).json({ error: "Password required" });
+      }
+      
+      if (!user[0].password) {
+        console.log(`[SSH Vault] No password set for user ${userId}`);
+        return res.status(400).json({ error: "No password set. Please set a password first." });
+      }
+      
+      console.log(`[SSH Vault] Comparing password for user ${user[0].username}`);
+      passwordValid = await bcrypt.compare(password, user[0].password);
+      console.log(`[SSH Vault] Password valid: ${passwordValid}`);
+    }
     
     if (!passwordValid) {
       await logVaultAction(userId, "auth_attempt", false, req, undefined, undefined, "Invalid password");
@@ -182,8 +229,6 @@ router.post("/auth/start", requireSovereignRole, async (req, res) => {
     // console.log for development only - NEVER log sensitive codes in production
     
     await logVaultAction(userId, "auth_password", true, req, undefined, session.id);
-    
-    const hasTOTP = user[0].twoFactorEnabled;
     
     res.json({
       sessionToken: rawToken,
