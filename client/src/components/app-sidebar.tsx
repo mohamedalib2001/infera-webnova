@@ -416,6 +416,14 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                       <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/sovereign-workspace"}>
+                          <Link href="/sovereign-workspace" data-testid="nav-sovereign-workspace">
+                            <Shield className="h-4 w-4 text-purple-600" />
+                            <span>{language === "ar" ? "مساحة العمل السيادية" : "Sovereign Workspace"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
                         <SidebarMenuButton asChild isActive={location === "/owner/integrations"}>
                           <Link href="/owner/integrations" data-testid="nav-owner-integrations">
                             <Link2 className="h-4 w-4 text-orange-500" />
