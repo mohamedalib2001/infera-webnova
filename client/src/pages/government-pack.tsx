@@ -72,10 +72,32 @@ export default function GovernmentPack() {
                   </div>
                 ))}
               </div>
-              <div className="p-4 rounded-lg bg-slate-500/10 border border-slate-500/20 text-center">
+              <div className="p-4 rounded-lg bg-slate-500/10 border border-slate-500/20 text-center mb-4">
                 <p className="text-sm text-slate-700 dark:text-slate-300 font-medium italic">
                   "{isRtl ? governmentPackMeta.principleAr : governmentPackMeta.principle}"
                 </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/20">
+                  <h4 className="text-xs font-semibold text-red-600 mb-2">{isRtl ? "القيود" : "Restrictions"}</h4>
+                  <div className="flex flex-wrap gap-1">
+                    {(isRtl ? governmentPackMeta.restrictionsAr : governmentPackMeta.restrictions).map((r, i) => (
+                      <Badge key={i} variant="outline" className="text-xs border-red-500/30 text-red-600">
+                        {r}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+                  <h4 className="text-xs font-semibold text-emerald-600 mb-2">{isRtl ? "نبرة الوثيقة" : "Document Tone"}</h4>
+                  <div className="flex flex-wrap gap-1">
+                    {(isRtl ? governmentPackMeta.toneGuidelinesAr : governmentPackMeta.toneGuidelines).map((t, i) => (
+                      <Badge key={i} variant="outline" className="text-xs border-emerald-500/30 text-emerald-600">
+                        {t}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>

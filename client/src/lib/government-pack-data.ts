@@ -450,7 +450,31 @@ export const governmentPackMeta = {
     { audience: "Defense / Cyber / Finance Agencies", audienceAr: "وكالات الدفاع / السيبرانية / المالية" }
   ],
   principle: "This pack reduces fear, not sells ambition.",
-  principleAr: "هذه الحزمة تقلل الخوف، ولا تبيع الطموح."
+  principleAr: "هذه الحزمة تقلل الخوف، ولا تبيع الطموح.",
+  restrictions: [
+    "No investor language",
+    "No valuation or revenue talk",
+    "No competitive bragging",
+    "No market leadership claims"
+  ],
+  restrictionsAr: [
+    "لا لغة مستثمرين",
+    "لا حديث عن التقييم أو الإيرادات",
+    "لا تفاخر تنافسي",
+    "لا ادعاءات قيادة السوق"
+  ],
+  toneGuidelines: [
+    "Assurance-focused",
+    "Stability-first",
+    "Control-centric",
+    "Non-commercial"
+  ],
+  toneGuidelinesAr: [
+    "تركيز على الضمان",
+    "الاستقرار أولاً",
+    "تمحور حول التحكم",
+    "غير تجاري"
+  ]
 };
 
 export const adoptionPhases = [
