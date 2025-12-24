@@ -266,6 +266,30 @@ export const platformIconsRegistry: PlatformIconConfig[] = [
       dark: "dark-bg.png"
     },
     usageContexts: ["web", "mobile", "desktop", "favicon", "store-listings"]
+  },
+  {
+    id: "infera-hospitality-ai",
+    name: "INFERA Hospitality AI™",
+    nameAr: "ضيافة INFERA الذكية",
+    category: "hospitality-intelligence",
+    colors: {
+      primary: "#1E3A5F", // Deep Navy
+      secondary: "#D4AF37", // Warm Gold
+      accent: "#F9FAFB"    // Soft White
+    },
+    symbol: ["Experience Core", "Service Flow Lines", "Abstract Welcome Node"],
+    symbolAr: ["نواة التجربة", "خطوط تدفق الخدمة", "عقدة ترحيب مجردة"],
+    meaning: "Service that senses before being requested",
+    meaningAr: "خدمة تشعر قبل أن تُطلب",
+    iconPath: "/assets/icons/infera-hospitality-ai/",
+    variants: {
+      appIcon: "app-icon.png",
+      favicon: "favicon-32.png",
+      monochrome: "mono-icon.svg",
+      light: "light-bg.png",
+      dark: "dark-bg.png"
+    },
+    usageContexts: ["web", "mobile", "desktop", "favicon", "store-listings"]
   }
 ];
 
