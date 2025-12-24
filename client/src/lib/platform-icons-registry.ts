@@ -242,6 +242,30 @@ export const platformIconsRegistry: PlatformIconConfig[] = [
       dark: "dark-bg.png"
     },
     usageContexts: ["web", "mobile", "desktop", "favicon", "store-listings"]
+  },
+  {
+    id: "infera-train-ai",
+    name: "INFERA TrainAI™",
+    nameAr: "التدريب الذكي INFERA",
+    category: "training-intelligence",
+    colors: {
+      primary: "#374151", // Dark Graphite
+      secondary: "#0D9488", // Deep Teal
+      accent: "#F9FAFB"    // Soft White
+    },
+    symbol: ["Capability Core", "Progressive Learning Rings", "Structured Growth Layers"],
+    symbolAr: ["نواة القدرة", "حلقات تعلم تقدمية", "طبقات نمو منظمة"],
+    meaning: "Training that builds capability, not certificates",
+    meaningAr: "تدريب يصنع القدرة لا الشهادة",
+    iconPath: "/assets/icons/infera-train-ai/",
+    variants: {
+      appIcon: "app-icon.png",
+      favicon: "favicon-32.png",
+      monochrome: "mono-icon.svg",
+      light: "light-bg.png",
+      dark: "dark-bg.png"
+    },
+    usageContexts: ["web", "mobile", "desktop", "favicon", "store-listings"]
   }
 ];
 
