@@ -15655,3 +15655,139 @@ export const insertAgentMessageSchema = createInsertSchema(agentMessages).omit({
 });
 export type InsertAgentMessage = z.infer<typeof insertAgentMessageSchema>;
 export type AgentMessage = typeof agentMessages.$inferSelect;
+
+// ==================== SOVEREIGN INFRASTRUCTURE PLANS ====================
+
+// Plan status types
+export const planStatuses = ['draft', 'active', 'completed', 'suspended', 'archived'] as const;
+export type PlanStatus = typeof planStatuses[number];
+
+// Plan phase types
+export const planPhases = ['phase_1', 'phase_2', 'phase_3', 'phase_4', 'phase_5'] as const;
+export type PlanPhase = typeof planPhases[number];
+
+// Sovereign infrastructure plans table
+export const sovereignPlans = pgTable("sovereign_plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Plan identification
+  planCode: text("plan_code").notNull().unique(), // e.g., "PLAN-001-AX52"
+  planName: text("plan_name").notNull(), // e.g., "AX52 Scale-Ready Starter"
+  planNameAr: text("plan_name_ar"), // Arabic name
+  
+  // Plan phase and status
+  phase: text("phase").notNull().default('phase_1'), // phase_1, phase_2, etc.
+  status: text("status").notNull().default('draft'), // draft, active, completed, suspended
+  
+  // Budget and costs
+  budgetMonthly: real("budget_monthly").notNull(), // Monthly budget in EUR
+  budgetCurrency: text("budget_currency").notNull().default('EUR'),
+  budgetMonthlyLocal: real("budget_monthly_local"), // In local currency (SAR)
+  localCurrency: text("local_currency").default('SAR'),
+  
+  // Server specifications
+  serverProvider: text("server_provider").notNull().default('hetzner'), // hetzner, aws, gcp
+  serverType: text("server_type").notNull(), // e.g., "AX52"
+  serverSpecs: jsonb("server_specs").$type<{
+    cpu: string;
+    ram: string;
+    storage: string;
+    gpu?: string;
+    bandwidth?: string;
+  }>().notNull(),
+  
+  // AI Configuration
+  aiConfig: jsonb("ai_config").$type<{
+    inferenceType: 'cpu' | 'gpu' | 'hybrid';
+    tools: string[]; // e.g., ['ollama', 'llama.cpp', 'vllm']
+    models: string[]; // e.g., ['mistral-7b', 'llama-3-8b']
+    quantization?: string; // e.g., 'Q4_K_M'
+  }>(),
+  
+  // Additional services
+  additionalServices: jsonb("additional_services").$type<{
+    objectStorage?: { size: string; cost: number };
+    backups?: { type: string; cost: number };
+    traffic?: { included: string; cost: number };
+    ssl?: { provider: string; cost: number };
+    domain?: { name?: string; cost: number };
+  }>(),
+  
+  // Cost breakdown
+  costBreakdown: jsonb("cost_breakdown").$type<{
+    server: number;
+    storage: number;
+    backups: number;
+    traffic: number;
+    domain: number;
+    other: number;
+    total: number;
+  }>(),
+  
+  // Scaling roadmap
+  scalingRoadmap: jsonb("scaling_roadmap").$type<{
+    nextPhase?: string;
+    triggerConditions?: string[];
+    estimatedCost?: number;
+    capabilities?: string[];
+  }[]>(),
+  
+  // Documentation and notes
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  notes: text("notes"),
+  
+  // Approval workflow
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  
+  // Launch date
+  launchedAt: timestamp("launched_at"),
+  
+  // Audit trail
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_sovereign_plan_code").on(table.planCode),
+  index("IDX_sovereign_plan_status").on(table.status),
+  index("IDX_sovereign_plan_phase").on(table.phase),
+]);
+
+export const insertSovereignPlanSchema = createInsertSchema(sovereignPlans).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSovereignPlan = z.infer<typeof insertSovereignPlanSchema>;
+export type SovereignPlan = typeof sovereignPlans.$inferSelect;
+
+// Plan milestones/checkpoints
+export const planMilestones = pgTable("plan_milestones", {
+  id: serial("id").primaryKey(),
+  
+  planId: varchar("plan_id").notNull().references(() => sovereignPlans.id, { onDelete: "cascade" }),
+  
+  // Milestone info
+  title: text("title").notNull(),
+  titleAr: text("title_ar"),
+  description: text("description"),
+  
+  // Status
+  isCompleted: boolean("is_completed").notNull().default(false),
+  completedAt: timestamp("completed_at"),
+  
+  // Order
+  sortOrder: integer("sort_order").notNull().default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_milestone_plan").on(table.planId),
+]);
+
+export const insertPlanMilestoneSchema = createInsertSchema(planMilestones).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertPlanMilestone = z.infer<typeof insertPlanMilestoneSchema>;
+export type PlanMilestone = typeof planMilestones.$inferSelect;
