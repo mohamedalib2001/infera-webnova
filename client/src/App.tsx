@@ -140,6 +140,7 @@ import PitchDeckEducation from "@/pages/pitch-deck-education";
 import PitchDeckAttend from "@/pages/pitch-deck-attend";
 import PitchDeckSmartDocs from "@/pages/pitch-deck-smartdocs";
 import PitchDeckHospitality from "@/pages/pitch-deck-hospitality";
+import PitchDeckSmartMemory from "@/pages/pitch-deck-smartmemory";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
@@ -211,6 +212,7 @@ function AuthenticatedRouter() {
       <Route path="/pitch-deck/attend" component={PitchDeckAttend} />
       <Route path="/pitch-deck/smartdocs" component={PitchDeckSmartDocs} />
       <Route path="/pitch-deck/hospitality" component={PitchDeckHospitality} />
+      <Route path="/pitch-deck/smartmemory" component={PitchDeckSmartMemory} />
       <Route path="/auth" component={Auth} />
       <Route path="/builder" component={Builder} />
       <Route path="/builder/:id" component={Builder} />
