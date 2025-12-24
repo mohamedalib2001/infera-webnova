@@ -1,6 +1,7 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -106,9 +107,12 @@ const roleLabels: Record<SovereignWorkspaceRole, { en: string; ar: string; descr
 
 export default function SovereignWorkspacePage() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("platforms");
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
   const [inviteMemberDialogOpen, setInviteMemberDialogOpen] = useState(false);
+  const [previewProject, setPreviewProject] = useState<SovereignWorkspaceProject | null>(null);
+  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const [inviteForm, setInviteForm] = useState({
     email: "",
     role: "SOVEREIGN_OPERATOR" as SovereignWorkspaceRole,
@@ -619,7 +623,6 @@ export default function SovereignWorkspacePage() {
                 {projects.map((project) => {
                   const platformIcon = findPlatformIcon(project);
                   const FallbackIcon = platformTypeLabels[project.platformType]?.icon || Globe;
-                  const iconSrc = platformIcon ? `${platformIcon.iconPath}${platformIcon.variants.appIcon}` : null;
                   const gradientColors = platformIcon 
                     ? { from: platformIcon.colors.primary, to: platformIcon.colors.secondary }
                     : { from: '#0f172a', to: '#1e293b' };
@@ -632,18 +635,7 @@ export default function SovereignWorkspacePage() {
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-12 h-12 rounded-md bg-white/10 flex items-center justify-center overflow-hidden">
-                            {iconSrc ? (
-                              <img 
-                                src={iconSrc} 
-                                alt={project.name}
-                                className="w-10 h-10 object-contain"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                }}
-                              />
-                            ) : null}
-                            <FallbackIcon className={`h-6 w-6 text-white ${iconSrc ? 'hidden' : ''}`} />
+                            <FallbackIcon className="h-6 w-6 text-white" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <CardTitle className="text-white text-sm truncate">{project.name}</CardTitle>
@@ -676,6 +668,7 @@ export default function SovereignWorkspacePage() {
                           variant="outline" 
                           size="sm" 
                           className="flex-1"
+                          onClick={() => setLocation(`/builder?projectId=${project.id}`)}
                           data-testid={`button-edit-landing-${project.id}`}
                         >
                           <Edit3 className="h-4 w-4 mr-1" />
@@ -685,6 +678,10 @@ export default function SovereignWorkspacePage() {
                           variant="outline"
                           size="sm" 
                           className="flex-1"
+                          onClick={() => {
+                            setPreviewProject(project);
+                            setShowPreviewDialog(true);
+                          }}
                           data-testid={`button-preview-landing-${project.id}`}
                         >
                           <Eye className="h-4 w-4 mr-1" />
@@ -978,6 +975,71 @@ export default function SovereignWorkspacePage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Preview Landing Page Dialog */}
+      <Dialog open={showPreviewDialog} onOpenChange={setShowPreviewDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              {previewProject?.name} | {previewProject?.nameAr}
+            </DialogTitle>
+            <DialogDescription>
+              Preview landing page before publishing
+              <span className="block" dir="rtl">معاينة صفحة الهبوط قبل النشر</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 min-h-[400px] border rounded-lg bg-background overflow-auto">
+            {previewProject ? (
+              <div className="p-6">
+                <div className="text-center space-y-4">
+                  <div 
+                    className="w-20 h-20 mx-auto rounded-xl flex items-center justify-center"
+                    style={{ 
+                      background: `linear-gradient(135deg, ${findPlatformIcon(previewProject)?.colors.primary || '#0f172a'}, ${findPlatformIcon(previewProject)?.colors.secondary || '#1e293b'})`
+                    }}
+                  >
+                    {(() => {
+                      const FallbackIcon = platformTypeLabels[previewProject.platformType]?.icon || Globe;
+                      return <FallbackIcon className="h-10 w-10 text-white" />;
+                    })()}
+                  </div>
+                  <h2 className="text-2xl font-bold">{previewProject.name}</h2>
+                  <p className="text-lg text-muted-foreground" dir="rtl">{previewProject.nameAr}</p>
+                  {previewProject.description && (
+                    <p className="text-muted-foreground max-w-xl mx-auto">{previewProject.description}</p>
+                  )}
+                  <div className="flex items-center justify-center gap-2 flex-wrap">
+                    <Badge>{previewProject.code}</Badge>
+                    <Badge variant="outline">{platformTypeLabels[previewProject.platformType]?.en}</Badge>
+                    <Badge className={statusBadgeVariants[previewProject.status]?.color}>
+                      {statusBadgeVariants[previewProject.status]?.en}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                No platform selected
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowPreviewDialog(false)}>
+              Close | إغلاق
+            </Button>
+            {previewProject && (
+              <Button onClick={() => {
+                setShowPreviewDialog(false);
+                setLocation(`/builder?projectId=${previewProject.id}`);
+              }}>
+                <Edit3 className="h-4 w-4 mr-2" />
+                Edit | تحرير
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
