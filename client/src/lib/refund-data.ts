@@ -14,7 +14,7 @@ export const refundIntro = {
   lastUpdated: "December 2024",
   lastUpdatedAr: "ديسمبر 2024",
   statement: "INFERA operates as a sovereign digital infrastructure. Accordingly, refund policies are governed by access type, service scope, and contractual agreements.",
-  statementAr: "INFERA تعمل كبنية تحتية رقمية سيادية. وبناءً على ذلك، تُحكم سياسات الاسترداد بنوع الوصول ونطاق الخدمة والاتفاقيات التعاقدية."
+  statementAr: "تعمل INFERA كبنية تحتية رقمية سيادية، وبناءً عليه تخضع سياسات الاسترجاع لطبيعة الوصول، ونطاق الخدمة، والاتفاقيات التعاقدية المعتمدة."
 };
 
 export const refundSections: RefundSection[] = [
@@ -29,16 +29,16 @@ export const refundSections: RefundSection[] = [
       "Refunds are therefore limited and conditional."
     ],
     contentAr: [
-      "INFERA لا تعمل كخدمة استهلاكية.",
-      "معظم الخدمات تُوفر بناءً على الوصول المعتمد والتكوين وإعداد الحوكمة.",
-      "الاسترداد لذلك محدود ومشروط."
+      "لا تُعد INFERA خدمة استهلاكية عامة.",
+      "يتم توفير معظم الخدمات بناءً على موافقات مسبقة وتهيئة حوكمية وتقنية خاصة.",
+      "وبالتالي، فإن عمليات الاسترجاع محدودة وتخضع لشروط صارمة."
     ]
   },
   {
     id: "non-refundable",
     number: 2,
     title: "Non-Refundable Services",
-    titleAr: "الخدمات غير القابلة للاسترداد",
+    titleAr: "الخدمات غير القابلة للاسترجاع",
     content: [
       "The following are strictly non-refundable:",
       "Sovereign or enterprise licenses",
@@ -50,21 +50,21 @@ export const refundSections: RefundSection[] = [
       "Once access is granted or a system is activated, the service is considered delivered."
     ],
     contentAr: [
-      "التالي غير قابل للاسترداد بشكل صارم:",
+      "تُعد الخدمات التالية غير قابلة للاسترجاع بشكل نهائي:",
       "التراخيص السيادية أو المؤسسية",
-      "المنصات أو الوحدات المفعّلة",
-      "التكوينات أو عمليات النشر المخصصة",
-      "البيئات التجريبية بمجرد تفعيلها",
-      "الخدمات القائمة على الاستخدام أو الاستهلاك",
-      "الخدمات التي تتضمن تهيئة أو تدريب نموذج الذكاء الاصطناعي",
-      "بمجرد منح الوصول أو تفعيل النظام، تُعتبر الخدمة مُسلّمة."
+      "الوحدات أو المنصات التي تم تفعيلها",
+      "الإعدادات أو التخصيصات الخاصة",
+      "بيئات التشغيل التجريبية بعد تفعيلها",
+      "الخدمات القائمة على الاستهلاك أو الاستخدام",
+      "أي خدمة تتضمن تهيئة أو تدريب نماذج ذكاء اصطناعي",
+      "بمجرد منح الوصول أو تفعيل النظام، تُعد الخدمة مقدّمة بالكامل."
     ]
   },
   {
     id: "conditional",
     number: 3,
     title: "Conditional Refunds",
-    titleAr: "الاسترداد المشروط",
+    titleAr: "حالات الاسترجاع المشروط",
     content: [
       "Refunds may be considered ONLY if:",
       "Access was granted in error",
@@ -73,11 +73,11 @@ export const refundSections: RefundSection[] = [
       "Any refund request must be submitted within a defined review window and is subject to validation."
     ],
     contentAr: [
-      "قد يُنظر في الاسترداد فقط إذا:",
-      "تم منح الوصول عن طريق الخطأ",
-      "تم تكرار الدفع",
-      "فشل تقني من جانب INFERA منع الوصول الأولي بالكامل",
-      "أي طلب استرداد يجب تقديمه خلال نافذة مراجعة محددة ويخضع للتحقق."
+      "قد يتم النظر في طلبات الاسترجاع فقط في الحالات التالية:",
+      "منح الوصول عن طريق الخطأ",
+      "تكرار عملية الدفع",
+      "وجود خلل تقني من جانب INFERA حال دون الوصول الأولي للخدمة بشكل كامل",
+      "يجب تقديم طلب الاسترجاع خلال فترة مراجعة محددة ويخضع الطلب للتدقيق والتحقق."
     ]
   },
   {
@@ -90,60 +90,60 @@ export const refundSections: RefundSection[] = [
       "Approval of one request does not establish precedent."
     ],
     contentAr: [
-      "جميع طلبات الاسترداد: تُراجع يدوياً، تُقيّم وفق قواعد الحوكمة والأمن، تُوافق أو تُرفض وفق تقدير INFERA وحده.",
-      "الموافقة على طلب واحد لا تُنشئ سابقة."
+      "تخضع جميع طلبات الاسترجاع لما يلي: مراجعة يدوية، تقييم وفق سياسات الحوكمة والأمن، قبول أو رفض حسب تقدير INFERA المطلق.",
+      "ولا يُعد قبول أي طلب سابقة أو التزامًا مستقبليًا."
     ]
   },
   {
     id: "termination",
     number: 5,
     title: "Termination & Suspension",
-    titleAr: "الإنهاء والتعليق",
+    titleAr: "التعليق أو الإنهاء",
     content: [
       "Account suspension or termination due to policy violations, security concerns, or governance decisions does not entitle the user to a refund."
     ],
     contentAr: [
-      "تعليق أو إنهاء الحساب بسبب انتهاكات السياسة أو المخاوف الأمنية أو قرارات الحوكمة لا يُخوّل المستخدم الاسترداد."
+      "لا يترتب على تعليق أو إنهاء الحساب بسبب مخالفة السياسات أو المخاطر الأمنية أو قرارات الحوكمة أي حق في الاسترجاع."
     ]
   },
   {
     id: "contractual",
     number: 6,
     title: "Contractual Overrides",
-    titleAr: "التجاوزات التعاقدية",
+    titleAr: "أولوية الاتفاقيات التعاقدية",
     content: [
       "If a separate written agreement exists (e.g., enterprise or government contract), refund terms in that agreement override this policy."
     ],
     contentAr: [
-      "إذا وُجدت اتفاقية مكتوبة منفصلة (مثل عقد مؤسسي أو حكومي)، فإن شروط الاسترداد في تلك الاتفاقية تتجاوز هذه السياسة."
+      "في حال وجود اتفاقية مكتوبة منفصلة (مثل عقود الجهات الحكومية أو المؤسسات)، تسري شروط الاسترجاع الواردة فيها بدلًا من هذه السياسة."
     ]
   },
   {
     id: "process",
     number: 7,
     title: "Process & Contact",
-    titleAr: "العملية والتواصل",
+    titleAr: "آلية تقديم الطلبات",
     content: [
       "Refund requests must be submitted through: billing@infera.com",
       "Requests must include: Account identifier, Service details, Reason for request.",
       "Incomplete requests may not be reviewed."
     ],
     contentAr: [
-      "طلبات الاسترداد يجب تقديمها عبر: billing@infera.com",
-      "الطلبات يجب أن تتضمن: معرف الحساب، تفاصيل الخدمة، سبب الطلب.",
-      "الطلبات غير المكتملة قد لا تُراجع."
+      "يجب إرسال طلبات الاسترجاع إلى: billing@infera.com",
+      "ويجب أن يتضمن الطلب: معرف الحساب، تفاصيل الخدمة، سبب طلب الاسترجاع.",
+      "قد لا يتم النظر في الطلبات غير المكتملة."
     ]
   }
 ];
 
 export const refundClosing = {
   statement: "INFERA prioritizes governance integrity and system stability over transactional convenience.",
-  statementAr: "INFERA تُعطي الأولوية لنزاهة الحوكمة واستقرار النظام على الراحة التعاملية."
+  statementAr: "تعطي INFERA الأولوية لسلامة الحوكمة واستقرار المنظومة على حساب الراحة الإجرائية."
 };
 
 export const refundMeta = {
   title: "Refund Policy",
-  titleAr: "سياسة الاسترداد",
+  titleAr: "سياسة الاسترجاع",
   subtitle: "Sovereign Refund Policy",
-  subtitleAr: "سياسة استرداد سيادية"
+  subtitleAr: "سياسة استرجاع سيادية"
 };
