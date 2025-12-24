@@ -9827,55 +9827,94 @@ ${project.description || ""}
   });
 
   // ============ Sovereign AI Provider Icons (Topbar) ============
-  // Returns AI provider data ONLY for sovereign accounts (owner/sovereign role)
-  // Non-sovereign accounts receive null (complete absence - no placeholder)
+  // Returns AI provider data based on user role:
+  // - Owner/Sovereign: See INFERA models + external AI providers
+  // - Regular users: See only INFERA models (5 core models)
   app.get("/api/sovereign/ai-providers/topbar", requireAuth, async (req, res) => {
     try {
       const user = req.session?.user;
       
-      // STRICT SOVEREIGNTY CHECK - Backend-first security
-      // Only owner and sovereign roles can see AI provider orchestration data
-      if (!user || (user.role !== 'owner' && user.role !== 'sovereign')) {
-        // Return null for non-sovereign - NOT an error, just no data
+      if (!user) {
         return res.json(null);
       }
       
-      // Get all configured AI providers with status
-      const providers = await db.select({
-        id: aiProviderConfigs.id,
-        provider: aiProviderConfigs.provider,
-        displayName: aiProviderConfigs.displayName,
-        isActive: aiProviderConfigs.isActive,
-        status: aiProviderConfigs.status,
-        isHealthy: aiProviderConfigs.isHealthy,
-        priority: aiProviderConfigs.priority,
-        defaultModel: aiProviderConfigs.defaultModel,
-        capabilities: aiProviderConfigs.capabilities,
-      }).from(aiProviderConfigs).orderBy(aiProviderConfigs.priority);
+      const isSovereign = user.role === 'owner' || user.role === 'sovereign';
       
-      // Get currently active provider for current operations
+      // Get INFERA Intelligence Models - always visible to all users
+      const inferaModelsData = await db.select({
+        id: inferaIntelligenceModels.id,
+        displayName: inferaIntelligenceModels.displayName,
+        displayNameAr: inferaIntelligenceModels.displayNameAr,
+        slug: inferaIntelligenceModels.slug,
+        functionalRole: inferaIntelligenceModels.functionalRole,
+        serviceLevel: inferaIntelligenceModels.serviceLevel,
+        icon: inferaIntelligenceModels.icon,
+        brandColor: inferaIntelligenceModels.brandColor,
+        status: inferaIntelligenceModels.status,
+      }).from(inferaIntelligenceModels)
+        .where(eq(inferaIntelligenceModels.status, 'active'))
+        .orderBy(inferaIntelligenceModels.sortOrder);
+      
+      // Map INFERA models to topbar format
+      const inferaModels = inferaModelsData.map(m => ({
+        id: m.slug || m.id,
+        name: m.displayName,
+        nameAr: m.displayNameAr,
+        icon: m.icon || m.functionalRole || 'chat',
+        status: m.status === 'active' ? 'active' : 'available',
+        isFeeding: false,
+        capabilities: [m.functionalRole],
+        model: null,
+        type: 'infera' as const,
+        brandColor: m.brandColor,
+        serviceLevel: m.serviceLevel,
+      }));
+      
+      // External providers - only for sovereign users
+      let externalProviders: any[] = [];
       let activeProviderId: string | null = null;
-      try {
-        const { aiProviderRegistry } = await import("./ai-provider-registry");
-        const currentProvider = await aiProviderRegistry.selectProvider({ capability: 'chat' });
-        if (currentProvider) {
-          activeProviderId = currentProvider.provider;
-        }
-      } catch (e) {
-        // If registry fails, just don't set active provider
-      }
       
-      // Return provider data with active indicator
-      const response = {
-        providers: providers.map(p => ({
+      if (isSovereign) {
+        // Get all configured AI providers with status
+        const providers = await db.select({
+          id: aiProviderConfigs.id,
+          provider: aiProviderConfigs.provider,
+          displayName: aiProviderConfigs.displayName,
+          isActive: aiProviderConfigs.isActive,
+          status: aiProviderConfigs.status,
+          isHealthy: aiProviderConfigs.isHealthy,
+          priority: aiProviderConfigs.priority,
+          defaultModel: aiProviderConfigs.defaultModel,
+          capabilities: aiProviderConfigs.capabilities,
+        }).from(aiProviderConfigs).orderBy(aiProviderConfigs.priority);
+        
+        // Get currently active provider for current operations
+        try {
+          const { aiProviderRegistry } = await import("./ai-provider-registry");
+          const currentProvider = await aiProviderRegistry.selectProvider({ capability: 'chat' });
+          if (currentProvider) {
+            activeProviderId = currentProvider.provider;
+          }
+        } catch (e) {
+          // If registry fails, just don't set active provider
+        }
+        
+        externalProviders = providers.map(p => ({
           id: p.provider,
           name: p.displayName,
           icon: getProviderIcon(p.provider),
           status: p.isActive && p.isHealthy ? 'active' : p.isActive ? 'degraded' : 'available',
-          isFeeding: p.provider === activeProviderId, // Currently feeding requests
+          isFeeding: p.provider === activeProviderId,
           capabilities: p.capabilities,
           model: p.defaultModel,
-        })),
+          type: 'external' as const,
+        }));
+      }
+      
+      // Return combined data
+      const response = {
+        inferaModels,
+        providers: externalProviders,
         activeProvider: activeProviderId,
       };
       
