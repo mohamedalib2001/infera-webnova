@@ -555,6 +555,16 @@ import {
   navigationAnalytics,
   type NavigationAnalytics,
   type InsertNavigationAnalytics,
+  // Platform Icon Version Control
+  platformIcons,
+  type PlatformIcon,
+  type InsertPlatformIcon,
+  platformIconVersions,
+  type PlatformIconVersion,
+  type InsertPlatformIconVersion,
+  iconRegenerationRequests,
+  type IconRegenerationRequest,
+  type InsertIconRegenerationRequest,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt, gte, lte, sql } from "drizzle-orm";
@@ -1339,6 +1349,31 @@ export interface IStorage {
   getAssistantPermissionAudits(limit?: number): Promise<AssistantPermissionAudit[]>;
   getAssistantPermissionAuditsByEntity(entityType: string, entityId: string): Promise<AssistantPermissionAudit[]>;
   createAssistantPermissionAudit(data: InsertAssistantPermissionAudit): Promise<AssistantPermissionAudit>;
+  
+  // ==================== PLATFORM ICON VERSION CONTROL ====================
+  // Platform Icons - سجل الأيقونات الديناميكي
+  getPlatformIcons(): Promise<PlatformIcon[]>;
+  getPlatformIcon(id: string): Promise<PlatformIcon | undefined>;
+  getPlatformIconByPlatformId(platformId: string): Promise<PlatformIcon | undefined>;
+  getPlatformIconsByCategory(category: string): Promise<PlatformIcon[]>;
+  createPlatformIcon(data: InsertPlatformIcon): Promise<PlatformIcon>;
+  updatePlatformIcon(id: string, data: Partial<InsertPlatformIcon>): Promise<PlatformIcon | undefined>;
+  deletePlatformIcon(id: string): Promise<boolean>;
+  
+  // Platform Icon Versions - إصدارات الأيقونات
+  getPlatformIconVersions(platformIconId: string): Promise<PlatformIconVersion[]>;
+  getPlatformIconVersionsByPlatformId(platformId: string): Promise<PlatformIconVersion[]>;
+  getPlatformIconVersion(id: string): Promise<PlatformIconVersion | undefined>;
+  getCurrentIconVersion(platformIconId: string): Promise<PlatformIconVersion | undefined>;
+  createPlatformIconVersion(data: InsertPlatformIconVersion): Promise<PlatformIconVersion>;
+  setCurrentIconVersion(platformIconId: string, versionId: string): Promise<PlatformIconVersion | undefined>;
+  restoreIconVersion(platformIconId: string, versionId: string): Promise<PlatformIconVersion | undefined>;
+  
+  // Icon Regeneration Requests - طلبات إعادة توليد الأيقونات
+  getIconRegenerationRequests(platformIconId?: string): Promise<IconRegenerationRequest[]>;
+  getPendingIconRegenerationRequests(): Promise<IconRegenerationRequest[]>;
+  createIconRegenerationRequest(data: InsertIconRegenerationRequest): Promise<IconRegenerationRequest>;
+  updateIconRegenerationRequest(id: string, data: Partial<InsertIconRegenerationRequest>): Promise<IconRegenerationRequest | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -8796,6 +8831,182 @@ body { font-family: 'Tajawal', sans-serif; }
     return db.select().from(navigationAnalytics)
       .where(sql`${navigationAnalytics.date} >= ${startDateStr}`)
       .orderBy(desc(navigationAnalytics.totalVisits));
+  }
+
+  // ==================== PLATFORM ICON VERSION CONTROL ====================
+  // نظام إدارة إصدارات الأيقونات الديناميكي
+
+  // Platform Icons
+  async getPlatformIcons(): Promise<PlatformIcon[]> {
+    return db.select().from(platformIcons).orderBy(asc(platformIcons.name));
+  }
+
+  async getPlatformIcon(id: string): Promise<PlatformIcon | undefined> {
+    const [result] = await db.select().from(platformIcons).where(eq(platformIcons.id, id));
+    return result;
+  }
+
+  async getPlatformIconByPlatformId(platformId: string): Promise<PlatformIcon | undefined> {
+    const [result] = await db.select().from(platformIcons).where(eq(platformIcons.platformId, platformId));
+    return result;
+  }
+
+  async getPlatformIconsByCategory(category: string): Promise<PlatformIcon[]> {
+    return db.select().from(platformIcons).where(eq(platformIcons.category, category));
+  }
+
+  async createPlatformIcon(data: InsertPlatformIcon): Promise<PlatformIcon> {
+    const [created] = await db.insert(platformIcons).values(data as any).returning();
+    return created;
+  }
+
+  async updatePlatformIcon(id: string, data: Partial<InsertPlatformIcon>): Promise<PlatformIcon | undefined> {
+    const [updated] = await db.update(platformIcons)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(platformIcons.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deletePlatformIcon(id: string): Promise<boolean> {
+    const result = await db.delete(platformIcons).where(eq(platformIcons.id, id));
+    return true;
+  }
+
+  // Platform Icon Versions
+  async getPlatformIconVersions(platformIconId: string): Promise<PlatformIconVersion[]> {
+    return db.select().from(platformIconVersions)
+      .where(eq(platformIconVersions.platformIconId, platformIconId))
+      .orderBy(desc(platformIconVersions.versionNumber));
+  }
+
+  async getPlatformIconVersionsByPlatformId(platformId: string): Promise<PlatformIconVersion[]> {
+    return db.select().from(platformIconVersions)
+      .where(eq(platformIconVersions.platformId, platformId))
+      .orderBy(desc(platformIconVersions.versionNumber));
+  }
+
+  async getPlatformIconVersion(id: string): Promise<PlatformIconVersion | undefined> {
+    const [result] = await db.select().from(platformIconVersions).where(eq(platformIconVersions.id, id));
+    return result;
+  }
+
+  async getCurrentIconVersion(platformIconId: string): Promise<PlatformIconVersion | undefined> {
+    const [result] = await db.select().from(platformIconVersions)
+      .where(and(
+        eq(platformIconVersions.platformIconId, platformIconId),
+        eq(platformIconVersions.isCurrent, true)
+      ));
+    return result;
+  }
+
+  async createPlatformIconVersion(data: InsertPlatformIconVersion): Promise<PlatformIconVersion> {
+    // Get the next version number
+    const existingVersions = await db.select().from(platformIconVersions)
+      .where(eq(platformIconVersions.platformIconId, data.platformIconId));
+    const nextVersionNumber = existingVersions.length + 1;
+    
+    const [created] = await db.insert(platformIconVersions)
+      .values({ ...data, versionNumber: nextVersionNumber } as any)
+      .returning();
+    
+    // Update total versions count in platform icon
+    await db.update(platformIcons)
+      .set({ totalVersions: nextVersionNumber, updatedAt: new Date() })
+      .where(eq(platformIcons.id, data.platformIconId));
+    
+    return created;
+  }
+
+  async setCurrentIconVersion(platformIconId: string, versionId: string): Promise<PlatformIconVersion | undefined> {
+    // First, unset all current versions for this platform
+    await db.update(platformIconVersions)
+      .set({ isCurrent: false })
+      .where(eq(platformIconVersions.platformIconId, platformIconId));
+    
+    // Set the specified version as current
+    const [updated] = await db.update(platformIconVersions)
+      .set({ isCurrent: true })
+      .where(eq(platformIconVersions.id, versionId))
+      .returning();
+    
+    // Update platform icon with current version reference
+    if (updated) {
+      await db.update(platformIcons)
+        .set({ 
+          currentVersionId: versionId, 
+          currentIconPath: updated.primaryIconPath,
+          updatedAt: new Date()
+        })
+        .where(eq(platformIcons.id, platformIconId));
+    }
+    
+    return updated;
+  }
+
+  async restoreIconVersion(platformIconId: string, versionId: string): Promise<PlatformIconVersion | undefined> {
+    const sourceVersion = await this.getPlatformIconVersion(versionId);
+    if (!sourceVersion) return undefined;
+    
+    // Create a new version as a copy of the restored version
+    const restoredVersion = await this.createPlatformIconVersion({
+      platformIconId,
+      platformId: sourceVersion.platformId,
+      versionNumber: 0, // Will be set automatically
+      versionLabel: `Restored from v${sourceVersion.versionNumber}`,
+      iconFiles: sourceVersion.iconFiles,
+      primaryIconPath: sourceVersion.primaryIconPath,
+      generationPrompt: sourceVersion.generationPrompt,
+      generationStatus: "completed",
+      metadata: sourceVersion.metadata,
+      isActive: true,
+      isCurrent: false,
+      restoredFrom: versionId,
+    });
+    
+    // Set the restored version as current
+    await this.setCurrentIconVersion(platformIconId, restoredVersion.id);
+    
+    return restoredVersion;
+  }
+
+  // Icon Regeneration Requests
+  async getIconRegenerationRequests(platformIconId?: string): Promise<IconRegenerationRequest[]> {
+    if (platformIconId) {
+      return db.select().from(iconRegenerationRequests)
+        .where(eq(iconRegenerationRequests.platformIconId, platformIconId))
+        .orderBy(desc(iconRegenerationRequests.requestedAt));
+    }
+    return db.select().from(iconRegenerationRequests)
+      .orderBy(desc(iconRegenerationRequests.requestedAt));
+  }
+
+  async getPendingIconRegenerationRequests(): Promise<IconRegenerationRequest[]> {
+    return db.select().from(iconRegenerationRequests)
+      .where(eq(iconRegenerationRequests.status, "pending"))
+      .orderBy(asc(iconRegenerationRequests.requestedAt));
+  }
+
+  async createIconRegenerationRequest(data: InsertIconRegenerationRequest): Promise<IconRegenerationRequest> {
+    const [created] = await db.insert(iconRegenerationRequests).values(data as any).returning();
+    
+    // Update regeneration count
+    await db.update(platformIcons)
+      .set({ 
+        totalRegenerations: sql`${platformIcons.totalRegenerations} + 1`,
+        updatedAt: new Date()
+      })
+      .where(eq(platformIcons.id, data.platformIconId));
+    
+    return created;
+  }
+
+  async updateIconRegenerationRequest(id: string, data: Partial<InsertIconRegenerationRequest>): Promise<IconRegenerationRequest | undefined> {
+    const [updated] = await db.update(iconRegenerationRequests)
+      .set(data as any)
+      .where(eq(iconRegenerationRequests.id, id))
+      .returning();
+    return updated;
   }
 }
 
