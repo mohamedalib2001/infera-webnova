@@ -46,6 +46,20 @@ import type {
   SovereignWorkspaceAccessLog,
   SovereignPlatformType,
 } from "@shared/schema";
+import { platformIconsRegistry, type PlatformIconConfig } from "@/lib/platform-icons-registry";
+
+function findPlatformIcon(project: SovereignWorkspaceProject): PlatformIconConfig | null {
+  const code = project.code?.toLowerCase().replace(/-/g, '').replace(/_/g, '');
+  const name = project.name?.toLowerCase().replace(/\s+/g, '');
+  
+  return platformIconsRegistry.find(icon => {
+    const iconId = icon.id.toLowerCase().replace(/-/g, '');
+    const iconName = icon.name.toLowerCase().replace(/\s+/g, '').replace(/™/g, '');
+    return iconId.includes(code) || code.includes(iconId) ||
+           iconName.includes(name) || name.includes(iconName) ||
+           iconId.includes(name) || name.includes(iconId);
+  }) || null;
+}
 
 const platformTypeLabels: Record<SovereignPlatformType, { en: string; ar: string; icon: any }> = {
   ecommerce: { en: "E-Commerce", ar: "تجارة إلكترونية", icon: Globe },
@@ -603,17 +617,37 @@ export default function SovereignWorkspacePage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {projects.map((project) => {
-                  const PlatformIcon = platformTypeLabels[project.platformType]?.icon || Globe;
+                  const platformIcon = findPlatformIcon(project);
+                  const FallbackIcon = platformTypeLabels[project.platformType]?.icon || Globe;
+                  const iconSrc = platformIcon ? `${platformIcon.iconPath}${platformIcon.variants.appIcon}` : null;
+                  const gradientColors = platformIcon 
+                    ? { from: platformIcon.colors.primary, to: platformIcon.colors.secondary }
+                    : { from: '#0f172a', to: '#1e293b' };
+                  
                   return (
                     <Card key={project.id} className="overflow-hidden hover-elevate" data-testid={`card-landing-${project.id}`}>
-                      <CardHeader className="pb-3 bg-gradient-to-r from-slate-900 to-slate-800">
+                      <CardHeader 
+                        className="pb-3"
+                        style={{ background: `linear-gradient(to right, ${gradientColors.from}, ${gradientColors.to})` }}
+                      >
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-md bg-white/10 flex items-center justify-center">
-                            <PlatformIcon className="h-5 w-5 text-white" />
+                          <div className="w-12 h-12 rounded-md bg-white/10 flex items-center justify-center overflow-hidden">
+                            {iconSrc ? (
+                              <img 
+                                src={iconSrc} 
+                                alt={project.name}
+                                className="w-10 h-10 object-contain"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                }}
+                              />
+                            ) : null}
+                            <FallbackIcon className={`h-6 w-6 text-white ${iconSrc ? 'hidden' : ''}`} />
                           </div>
-                          <div>
-                            <CardTitle className="text-white text-sm">{project.name}</CardTitle>
-                            <p className="text-white/60 text-xs" dir="rtl">{project.nameAr}</p>
+                          <div className="flex-1 min-w-0">
+                            <CardTitle className="text-white text-sm truncate">{project.name}</CardTitle>
+                            <p className="text-white/60 text-xs truncate" dir="rtl">{project.nameAr}</p>
                           </div>
                         </div>
                       </CardHeader>
