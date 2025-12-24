@@ -2,6 +2,10 @@ import { WebSocketServer, WebSocket } from "ws";
 import type { Server } from "http";
 import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
+import { db } from "./db";
+import { conversationMessages, sovereignConversations } from "@shared/schema";
+import { encryptSovereignData } from "./sovereign-encryption";
+import { eq, sql } from "drizzle-orm";
 
 // ==================== نظام WebSocket للتواصل الحي مع AI ====================
 // AI WebSocket Communication System for INFERA WebNova
@@ -50,6 +54,7 @@ const chatRequestSchema = z.object({
   type: z.literal(MessageType.CHAT_REQUEST),
   requestId: z.string(),
   message: z.string().min(1).max(32000),
+  conversationId: z.string().optional(), // For persistent storage
   context: z.object({
     projectId: z.string().optional(),
     currentFile: z.string().optional(),
@@ -57,6 +62,39 @@ const chatRequestSchema = z.object({
   }).optional(),
   stream: z.boolean().default(true),
 });
+
+// Save message to database with encryption
+async function persistMessage(
+  conversationId: string,
+  content: string,
+  role: "user" | "assistant",
+  tokenCount?: number
+): Promise<string | null> {
+  try {
+    const encryptedContent = encryptSovereignData(content);
+    const result = await db.insert(conversationMessages).values({
+      conversationId,
+      role,
+      content: encryptedContent,
+      isEncrypted: true,
+      tokenCount: tokenCount || content.length,
+      createdAt: new Date(),
+    }).returning({ id: conversationMessages.id });
+    
+    // Update conversation message count
+    await db.update(sovereignConversations)
+      .set({
+        messageCount: sql`${sovereignConversations.messageCount} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(eq(sovereignConversations.id, conversationId));
+    
+    return result[0]?.id || null;
+  } catch (err) {
+    console.error("[AI WebSocket] Failed to persist message:", err);
+    return null;
+  }
+}
 
 const codeExecuteSchema = z.object({
   type: z.literal(MessageType.CODE_EXECUTE),
@@ -119,6 +157,20 @@ async function processChatRequest(
   
   state.isProcessing = true;
   
+  // Persist user message to database if conversationId provided (server-side encryption)
+  let userMessageId: string | null = null;
+  if (data.conversationId) {
+    userMessageId = await persistMessage(data.conversationId, data.message, "user");
+    if (userMessageId) {
+      sendMessage(ws, {
+        type: "message_ack",
+        requestId: data.requestId,
+        messageId: userMessageId,
+        role: "user",
+      });
+    }
+  }
+  
   const systemPrompt = data.context?.language === "en" 
     ? `You are WebNova AI, an intelligent assistant for the INFERA WebNova platform. 
        You help developers build digital platforms, write code, debug issues, and deploy applications.
@@ -161,13 +213,25 @@ async function processChatRequest(
         }
       }
       
-      // Send completion
+      // Persist assistant response to database (server-side encryption)
+      let assistantMessageId: string | null = null;
       const finalMessage = await stream.finalMessage();
+      if (data.conversationId && fullResponse) {
+        assistantMessageId = await persistMessage(
+          data.conversationId, 
+          fullResponse, 
+          "assistant",
+          finalMessage.usage?.output_tokens
+        );
+      }
+      
+      // Send completion with message ack
       sendMessage(ws, {
         type: MessageType.CHAT_COMPLETE,
         requestId: data.requestId,
         response: fullResponse,
         usage: finalMessage.usage,
+        messageId: assistantMessageId,
       });
     } else {
       // Non-streaming response
@@ -179,12 +243,25 @@ async function processChatRequest(
       });
       
       const textContent = response.content.find(c => c.type === "text");
+      const responseText = textContent?.text || "";
+      
+      // Persist assistant response to database
+      let assistantMessageId: string | null = null;
+      if (data.conversationId && responseText) {
+        assistantMessageId = await persistMessage(
+          data.conversationId, 
+          responseText, 
+          "assistant",
+          response.usage?.output_tokens
+        );
+      }
       
       sendMessage(ws, {
         type: MessageType.CHAT_RESPONSE,
         requestId: data.requestId,
-        response: textContent?.text || "",
+        response: responseText,
         usage: response.usage,
+        messageId: assistantMessageId,
       });
     }
   } catch (error: any) {

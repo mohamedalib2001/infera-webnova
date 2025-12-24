@@ -31,7 +31,7 @@ export interface AIWebSocketState {
 }
 
 export interface UseAIWebSocketReturn extends AIWebSocketState {
-  sendMessage: (message: string, language?: "ar" | "en") => Promise<string>;
+  sendMessage: (message: string, language?: "ar" | "en", conversationId?: string) => Promise<string>;
   executeCode: (code: string, language: "nodejs" | "python" | "typescript" | "shell") => Promise<any>;
   connect: () => void;
   disconnect: () => void;
@@ -192,7 +192,11 @@ export function useAIWebSocket(autoConnect: boolean = true): UseAIWebSocketRetur
     }
   }, []);
 
-  const sendMessage = useCallback(async (message: string, language: "ar" | "en" = "ar"): Promise<string> => {
+  const sendMessage = useCallback(async (
+    message: string, 
+    language: "ar" | "en" = "ar",
+    conversationId?: string
+  ): Promise<string> => {
     return new Promise((resolve, reject) => {
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         reject(new Error("WebSocket not connected"));
@@ -214,6 +218,7 @@ export function useAIWebSocket(autoConnect: boolean = true): UseAIWebSocketRetur
         type: AIMessageType.CHAT_REQUEST,
         requestId,
         message,
+        conversationId, // Pass conversationId for server-side persistence
         context: { language },
         stream: true,
       }));

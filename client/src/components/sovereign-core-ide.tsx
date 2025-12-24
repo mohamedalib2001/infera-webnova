@@ -302,10 +302,74 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
     },
   });
 
+  // Ref to prevent duplicate conversation creation
+  const isCreatingConversationRef = useRef(false);
+
+  // Auto-create conversation if none exists (uses encrypted REST API)
+  const ensureConversation = async (): Promise<string | null> => {
+    if (selectedConversation) return selectedConversation;
+    if (isCreatingConversationRef.current) return null;
+    
+    isCreatingConversationRef.current = true;
+    
+    try {
+      const title = isRtl 
+        ? `جلسة ${new Date().toLocaleDateString('ar-SA')} ${new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}`
+        : `Session ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      
+      const data = await apiRequest("POST", "/api/sovereign-core/conversations", {
+        title,
+        workspaceId,
+      });
+      
+      setSelectedConversation(data.id);
+      queryClient.invalidateQueries({ queryKey: ['/api/sovereign-core/conversations'] });
+      
+      toast({
+        title: isRtl ? "تم حفظ الجلسة تلقائياً" : "Session Auto-Saved",
+        description: isRtl ? "يتم حفظ محادثتك تلقائياً" : "Your conversation is being saved automatically",
+      });
+      
+      isCreatingConversationRef.current = false;
+      return data.id;
+    } catch (err) {
+      console.error("[Auto-save] Failed to create conversation:", err);
+      isCreatingConversationRef.current = false;
+      return null;
+    }
+  };
+
+  // Save message using encrypted REST API (proper server-side encryption)
+  const persistMessage = async (conversationId: string, content: string, role: "user" | "assistant") => {
+    try {
+      await apiRequest("POST", `/api/sovereign-core/conversations/${conversationId}/messages`, {
+        content,
+        role,
+      });
+      // Refresh messages from server to ensure proper data
+      queryClient.invalidateQueries({ queryKey: ['/api/sovereign-core/conversations', conversationId, 'messages'] });
+    } catch (err) {
+      console.error("[Auto-save] Failed to persist message:", err);
+    }
+  };
+
   const handleSendMessageInternal = async (userMsg: string) => {
-    // Add user message immediately for instant feedback
+    // Auto-create conversation for persistence FIRST (required for server-side save)
+    const convId = await ensureConversation();
+    
+    if (!convId) {
+      toast({
+        title: isRtl ? "فشل الحفظ" : "Save Failed",
+        description: isRtl ? "تعذر إنشاء جلسة. حاول مرة أخرى." : "Could not create session. Please try again.",
+        variant: "destructive",
+      });
+      return; // Don't proceed without a conversationId - messages would be lost
+    }
+    
+    // Add user message immediately for instant feedback (optimistic UI)
+    const tempUserMsgId = `local-${Date.now()}`;
     const userMessage: ConversationMessage = {
-      id: `local-${Date.now()}`,
+      id: tempUserMsgId,
       role: "user",
       content: userMsg,
       createdAt: new Date().toISOString(),
@@ -315,9 +379,11 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
     try {
       setIsProcessing(true);
       setStreamingMessage("");
-      const response = await aiWs.sendMessage(userMsg, isRtl ? "ar" : "en");
       
-      // Add AI response to local messages
+      // Pass conversationId to WebSocket - server handles all persistence with encryption
+      const response = await aiWs.sendMessage(userMsg, isRtl ? "ar" : "en", convId);
+      
+      // Add AI response to local messages (for immediate display)
       const aiMessage: ConversationMessage = {
         id: `local-ai-${Date.now()}`,
         role: "assistant",
@@ -327,6 +393,14 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
       setLocalMessages(prev => [...prev, aiMessage]);
       setIsProcessing(false);
       setStreamingMessage("");
+      
+      // Server persists both user and assistant messages with encryption
+      // Refresh messages from server and clear local buffer to prevent duplicates
+      queryClient.invalidateQueries({ queryKey: ['/api/sovereign-core/conversations', convId, 'messages'] });
+      // Clear local messages after server sync (slight delay for smooth UX)
+      setTimeout(() => {
+        setLocalMessages([]);
+      }, 500);
     } catch (error) {
       setIsProcessing(false);
       setStreamingMessage("");
@@ -519,8 +593,24 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
     }
   }, [aiWs.streamingText]);
 
-  // Combine API messages with local messages
-  const allMessages = [...(messages || []), ...localMessages];
+  // Auto-load last conversation on mount
+  useEffect(() => {
+    if (conversations && conversations.length > 0 && !selectedConversation) {
+      setSelectedConversation(conversations[0].id);
+    }
+  }, [conversations, selectedConversation]);
+
+  // Combine API messages with local messages (filter duplicates by checking content)
+  const allMessages = (() => {
+    const serverMsgs = messages || [];
+    // Only include local messages that aren't already in server messages
+    const uniqueLocalMsgs = localMessages.filter(local => 
+      !serverMsgs.some(server => 
+        server.content === local.content && server.role === local.role
+      )
+    );
+    return [...serverMsgs, ...uniqueLocalMsgs];
+  })();
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
