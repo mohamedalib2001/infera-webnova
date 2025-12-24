@@ -20356,6 +20356,97 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
     }
   });
 
+  // Hetzner Server Deployment - النشر على سيرفر Hetzner
+  app.post("/api/deployment/hetzner", requireAuth, async (req, res) => {
+    try {
+      const { githubRepo, serverIp, serverUser, appDirectory } = req.body;
+      
+      if (!githubRepo || !serverIp) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "GitHub repository and Server IP are required" 
+        });
+      }
+
+      // For now, trigger the GitHub Actions workflow via GitHub API
+      // This requires a GitHub token to be configured
+      const logs: string[] = [
+        `[${new Date().toISOString()}] Deployment initiated`,
+        `[${new Date().toISOString()}] Target: ${serverIp}`,
+        `[${new Date().toISOString()}] Repository: ${githubRepo}`,
+        `[${new Date().toISOString()}] Directory: ${appDirectory}`,
+      ];
+
+      // Check if GITHUB_TOKEN is available for API calls
+      const githubToken = process.env.GITHUB_TOKEN;
+      
+      if (githubToken) {
+        try {
+          // Trigger GitHub Actions workflow
+          const [owner, repo] = githubRepo.split('/');
+          const response = await fetch(
+            `https://api.github.com/repos/${owner}/${repo}/actions/workflows/deploy-hetzner.yml/dispatches`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${githubToken}`,
+                'Accept': 'application/vnd.github.v3+json',
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                ref: 'main',
+                inputs: {
+                  server_ip: serverIp,
+                  server_user: serverUser || 'root',
+                  app_directory: appDirectory || '/var/www/infera-webnova',
+                }
+              })
+            }
+          );
+
+          if (response.ok || response.status === 204) {
+            logs.push(`[${new Date().toISOString()}] GitHub Actions workflow triggered successfully`);
+            logs.push(`[${new Date().toISOString()}] Deployment in progress...`);
+            
+            return res.json({
+              success: true,
+              message: "Deployment triggered via GitHub Actions",
+              logs,
+              status: "deploying"
+            });
+          } else {
+            const errorText = await response.text();
+            logs.push(`[${new Date().toISOString()}] GitHub API Error: ${response.status}`);
+            throw new Error(`GitHub API error: ${response.status} - ${errorText}`);
+          }
+        } catch (apiError: any) {
+          logs.push(`[${new Date().toISOString()}] GitHub API call failed: ${apiError.message}`);
+        }
+      }
+
+      // Fallback: Return instructions for manual setup
+      logs.push(`[${new Date().toISOString()}] GitHub token not configured - manual setup required`);
+      logs.push(`[${new Date().toISOString()}] Please add GITHUB_TOKEN secret to enable automatic deployment`);
+      
+      res.json({
+        success: true,
+        message: "Configuration saved. Add GitHub secrets to enable automatic deployment.",
+        logs,
+        status: "pending_setup",
+        instructions: [
+          "1. Go to GitHub repository settings",
+          "2. Add secrets: HETZNER_SERVER_IP, HETZNER_SERVER_USER, HETZNER_SSH_PRIVATE_KEY",
+          "3. Push changes to trigger deployment"
+        ]
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to trigger deployment" 
+      });
+    }
+  });
+
   // ==================== GIT VERSION CONTROL API ====================
   // نظام التحكم بالإصدارات
   

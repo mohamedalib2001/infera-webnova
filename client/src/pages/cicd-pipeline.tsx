@@ -8,6 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { 
   GitBranch, Play, Pause, CheckCircle2, XCircle, Clock,
@@ -152,12 +155,41 @@ const mockDeploymentTargets: DeploymentTarget[] = [
   },
 ];
 
+interface HetznerConfig {
+  githubRepo: string;
+  serverIp: string;
+  serverUser: string;
+  appDirectory: string;
+}
+
+interface DeploymentStatus {
+  status: 'idle' | 'deploying' | 'success' | 'failed';
+  message: string;
+  timestamp?: string;
+  logs: string[];
+}
+
 export default function CICDPipeline() {
   const { language } = useLanguage();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("pipelines");
   const [selectedPipeline, setSelectedPipeline] = useState<Pipeline | null>(null);
   const isRtl = language === "ar";
+  
+  const [hetznerConfig, setHetznerConfig] = useState<HetznerConfig>({
+    githubRepo: "mohamedalib2001/infera-webnova",
+    serverIp: "",
+    serverUser: "root",
+    appDirectory: "/var/www/infera-webnova"
+  });
+  
+  const [deploymentStatus, setDeploymentStatus] = useState<DeploymentStatus>({
+    status: 'idle',
+    message: '',
+    logs: []
+  });
+  
+  const [showConfigDialog, setShowConfigDialog] = useState(false);
 
   const triggerPipelineMutation = useMutation({
     mutationFn: async (branch: string) => {
@@ -189,6 +221,66 @@ export default function CICDPipeline() {
       });
     },
   });
+
+  const hetznerDeployMutation = useMutation({
+    mutationFn: async () => {
+      setDeploymentStatus({
+        status: 'deploying',
+        message: isRtl ? 'جاري النشر على السيرفر...' : 'Deploying to server...',
+        logs: [
+          `[${new Date().toLocaleTimeString()}] Starting deployment to Hetzner server...`,
+          `[${new Date().toLocaleTimeString()}] Target: ${hetznerConfig.serverIp}`,
+        ]
+      });
+      return apiRequest('POST', '/api/deployment/hetzner', hetznerConfig);
+    },
+    onSuccess: (data: any) => {
+      const serverLogs = data?.logs || [];
+      const serverMessage = data?.message || (isRtl ? 'تم النشر بنجاح!' : 'Deployment successful!');
+      const serverInstructions = data?.instructions || [];
+      
+      setDeploymentStatus(prev => ({
+        status: data?.status === 'pending_setup' ? 'idle' : 'success',
+        message: serverMessage,
+        timestamp: new Date().toISOString(),
+        logs: [
+          ...prev.logs,
+          ...serverLogs,
+          ...serverInstructions.map((i: string) => `[INFO] ${i}`),
+          `[${new Date().toLocaleTimeString()}] Process completed`
+        ]
+      }));
+      toast({
+        title: isRtl ? "تم النشر" : "Deployment Triggered",
+        description: serverMessage
+      });
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.message || (isRtl ? 'فشل النشر' : 'Deployment failed');
+      setDeploymentStatus(prev => ({
+        status: 'failed',
+        message: errorMessage,
+        logs: [
+          ...prev.logs,
+          `[${new Date().toLocaleTimeString()}] ERROR: ${errorMessage}`
+        ]
+      }));
+      toast({
+        title: isRtl ? "فشل النشر" : "Deployment Failed",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const saveHetznerConfig = () => {
+    localStorage.setItem('hetzner_config', JSON.stringify(hetznerConfig));
+    setShowConfigDialog(false);
+    toast({
+      title: isRtl ? "تم الحفظ" : "Saved",
+      description: isRtl ? "تم حفظ إعدادات السيرفر" : "Server configuration saved"
+    });
+  };
 
   const getStatusBadge = (status: string) => {
     const configs: Record<string, { className: string; icon: React.ReactNode; label: string; labelAr: string }> = {
@@ -369,6 +461,10 @@ export default function CICDPipeline() {
               <TabsTrigger value="fastlane" className="gap-2">
                 <Smartphone className="w-4 h-4" />
                 {isRtl ? "Fastlane" : "Fastlane"}
+              </TabsTrigger>
+              <TabsTrigger value="hetzner" className="gap-2">
+                <Server className="w-4 h-4" />
+                {isRtl ? "سيرفر Hetzner" : "Hetzner Server"}
               </TabsTrigger>
             </TabsList>
 
@@ -597,10 +693,232 @@ export default function CICDPipeline() {
                   </CardContent>
                 </Card>
               </TabsContent>
+
+              <TabsContent value="hetzner" className="mt-0">
+                <div className="space-y-6">
+                  <Card className="bg-slate-800/50 border-slate-700/50">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-blue-500/20">
+                            <Server className="w-6 h-6 text-blue-500" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-white">
+                              {isRtl ? "النشر على سيرفر Hetzner" : "Hetzner Server Deployment"}
+                            </CardTitle>
+                            <CardDescription>
+                              {isRtl ? "نشر التطبيق مباشرة على السيرفر" : "Deploy application directly to your server"}
+                            </CardDescription>
+                          </div>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => setShowConfigDialog(true)}
+                          data-testid="button-hetzner-settings"
+                        >
+                          <Settings className="w-4 h-4 mr-2" />
+                          {isRtl ? "الإعدادات" : "Settings"}
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 gap-4 mb-6">
+                        <div className="p-4 rounded-lg bg-slate-700/30">
+                          <p className="text-sm text-slate-400 mb-1">{isRtl ? "المستودع" : "Repository"}</p>
+                          <p className="text-white font-mono text-sm">{hetznerConfig.githubRepo || "Not configured"}</p>
+                        </div>
+                        <div className="p-4 rounded-lg bg-slate-700/30">
+                          <p className="text-sm text-slate-400 mb-1">{isRtl ? "السيرفر" : "Server"}</p>
+                          <p className="text-white font-mono text-sm">{hetznerConfig.serverIp || "Not configured"}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4">
+                        <Button
+                          onClick={() => hetznerDeployMutation.mutate()}
+                          disabled={hetznerDeployMutation.isPending || !hetznerConfig.serverIp}
+                          className="gap-2"
+                          data-testid="button-deploy-hetzner"
+                        >
+                          {hetznerDeployMutation.isPending ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Rocket className="w-4 h-4" />
+                          )}
+                          {isRtl ? "نشر الآن" : "Deploy Now"}
+                        </Button>
+                        
+                        {!hetznerConfig.serverIp && (
+                          <p className="text-sm text-amber-500 flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4" />
+                            {isRtl ? "يرجى إعداد السيرفر أولاً" : "Please configure server first"}
+                          </p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {deploymentStatus.status !== 'idle' && (
+                    <Card className="bg-slate-800/50 border-slate-700/50">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-3 text-white">
+                          <Activity className="w-5 h-5 text-blue-500" />
+                          {isRtl ? "حالة النشر" : "Deployment Status"}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex items-center gap-3 mb-4">
+                          {deploymentStatus.status === 'deploying' && (
+                            <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">
+                              <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                              {isRtl ? "جاري النشر..." : "Deploying..."}
+                            </Badge>
+                          )}
+                          {deploymentStatus.status === 'success' && (
+                            <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              {isRtl ? "تم النشر بنجاح" : "Deployed Successfully"}
+                            </Badge>
+                          )}
+                          {deploymentStatus.status === 'failed' && (
+                            <Badge className="bg-red-500/20 text-red-400 border-red-500/30">
+                              <XCircle className="w-3 h-3 mr-1" />
+                              {isRtl ? "فشل النشر" : "Deployment Failed"}
+                            </Badge>
+                          )}
+                          <span className="text-sm text-slate-400">{deploymentStatus.message}</span>
+                        </div>
+                        
+                        <div className="bg-slate-900 rounded-lg p-4 font-mono text-sm max-h-60 overflow-auto">
+                          {deploymentStatus.logs.map((log, i) => (
+                            <div key={i} className="text-slate-300">{log}</div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  <Card className="bg-slate-800/50 border-slate-700/50">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-3 text-white">
+                        <FileText className="w-5 h-5 text-amber-500" />
+                        {isRtl ? "دليل الإعداد" : "Setup Guide"}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4 text-slate-300">
+                        <div className="flex items-start gap-3">
+                          <Badge variant="outline" className="mt-0.5">1</Badge>
+                          <div>
+                            <p className="font-medium">{isRtl ? "أدخل عنوان IP السيرفر" : "Enter Server IP Address"}</p>
+                            <p className="text-sm text-slate-400">{isRtl ? "اضغط على الإعدادات وأدخل عنوان IP" : "Click Settings and enter your server IP"}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <Badge variant="outline" className="mt-0.5">2</Badge>
+                          <div>
+                            <p className="font-medium">{isRtl ? "أعد SSH Key" : "Setup SSH Key"}</p>
+                            <p className="text-sm text-slate-400">{isRtl ? "أضف مفتاح SSH في GitHub Secrets" : "Add SSH key in GitHub Secrets"}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <Badge variant="outline" className="mt-0.5">3</Badge>
+                          <div>
+                            <p className="font-medium">{isRtl ? "اضغط نشر الآن" : "Click Deploy Now"}</p>
+                            <p className="text-sm text-slate-400">{isRtl ? "سيتم نشر التطبيق تلقائياً" : "Application will be deployed automatically"}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
             </ScrollArea>
           </Tabs>
         </main>
       </div>
+
+      <Dialog open={showConfigDialog} onOpenChange={setShowConfigDialog}>
+        <DialogContent className="bg-slate-800 border-slate-700">
+          <DialogHeader>
+            <DialogTitle className="text-white">
+              {isRtl ? "إعدادات سيرفر Hetzner" : "Hetzner Server Settings"}
+            </DialogTitle>
+            <DialogDescription>
+              {isRtl ? "أدخل بيانات السيرفر للنشر التلقائي" : "Enter server details for automatic deployment"}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="githubRepo" className="text-slate-300">
+                {isRtl ? "مستودع GitHub" : "GitHub Repository"}
+              </Label>
+              <Input
+                id="githubRepo"
+                value={hetznerConfig.githubRepo}
+                onChange={(e) => setHetznerConfig({...hetznerConfig, githubRepo: e.target.value})}
+                placeholder="username/repository"
+                className="bg-slate-700 border-slate-600 text-white"
+                data-testid="input-github-repo"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="serverIp" className="text-slate-300">
+                {isRtl ? "عنوان IP السيرفر" : "Server IP Address"}
+              </Label>
+              <Input
+                id="serverIp"
+                value={hetznerConfig.serverIp}
+                onChange={(e) => setHetznerConfig({...hetznerConfig, serverIp: e.target.value})}
+                placeholder="123.45.67.89"
+                className="bg-slate-700 border-slate-600 text-white"
+                data-testid="input-server-ip"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="serverUser" className="text-slate-300">
+                {isRtl ? "اسم المستخدم" : "Server User"}
+              </Label>
+              <Input
+                id="serverUser"
+                value={hetznerConfig.serverUser}
+                onChange={(e) => setHetznerConfig({...hetznerConfig, serverUser: e.target.value})}
+                placeholder="root"
+                className="bg-slate-700 border-slate-600 text-white"
+                data-testid="input-server-user"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="appDirectory" className="text-slate-300">
+                {isRtl ? "مجلد التطبيق" : "Application Directory"}
+              </Label>
+              <Input
+                id="appDirectory"
+                value={hetznerConfig.appDirectory}
+                onChange={(e) => setHetznerConfig({...hetznerConfig, appDirectory: e.target.value})}
+                placeholder="/var/www/myapp"
+                className="bg-slate-700 border-slate-600 text-white"
+                data-testid="input-app-directory"
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowConfigDialog(false)}>
+              {isRtl ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button onClick={saveHetznerConfig} data-testid="button-save-config">
+              {isRtl ? "حفظ" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
