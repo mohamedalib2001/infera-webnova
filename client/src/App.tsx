@@ -110,6 +110,7 @@ import NovaPermissionsPage from "@/pages/owner/nova-permissions";
 import OwnerControlCenter from "@/pages/owner-control-center";
 import InferaLanding from "@/pages/infera-landing";
 import EngineControlLanding from "@/pages/engine-control-landing";
+import EngineLanding from "@/pages/engine-landing";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
@@ -151,6 +152,7 @@ function AuthenticatedRouter() {
       <Route path="/" component={Home} />
       <Route path="/infera-group" component={InferaLanding} />
       <Route path="/engine-control" component={EngineControlLanding} />
+      <Route path="/engine" component={EngineLanding} />
       <Route path="/auth" component={Auth} />
       <Route path="/builder" component={Builder} />
       <Route path="/builder/:id" component={Builder} />

@@ -99,6 +99,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
   const buildItems = [
     { title: language === "ar" ? "الرئيسية" : "Home", url: "/", icon: Home, testId: "nav-home" },
     { title: language === "ar" ? "مجموعة INFERA" : "INFERA Group", url: "/infera-group", icon: Globe, testId: "nav-infera-group" },
+    { title: language === "ar" ? "Engine™" : "Engine™", url: "/engine", icon: Brain, testId: "nav-engine" },
     { title: language === "ar" ? "Engine Control™" : "Engine Control™", url: "/engine-control", icon: Crown, testId: "nav-engine-control" },
     { title: language === "ar" ? "وحدة التحكم" : "Console", url: "/console", icon: SquareTerminal, testId: "nav-console" },
     { title: language === "ar" ? "بيئة التطوير" : "Cloud IDE", url: "/ide", icon: Terminal, testId: "nav-cloud-ide" },
