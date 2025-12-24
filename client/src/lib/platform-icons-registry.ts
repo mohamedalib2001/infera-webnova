@@ -98,6 +98,126 @@ export const platformIconsRegistry: PlatformIconConfig[] = [
       dark: "dark-bg.png"
     },
     usageContexts: ["web", "mobile", "desktop", "favicon", "store-listings"]
+  },
+  {
+    id: "infera-humaniq",
+    name: "INFERA HumanIQ™",
+    nameAr: "العقل المؤسسي INFERA",
+    category: "hr-intelligence",
+    colors: {
+      primary: "#1E40AF", // Royal Blue
+      secondary: "#4B5563", // Graphite Gray
+      accent: "#D4AF37"    // Soft Gold
+    },
+    symbol: ["Human Silhouette Abstracted into Neural Lines", "Balanced Nodes", "Authority without softness"],
+    symbolAr: ["شكل بشري مجرد بخطوط عصبية", "عقد متوازنة", "سلطة بدون ليونة"],
+    meaning: "Intelligence that manages humans without eliminating their humanity",
+    meaningAr: "ذكاء يدير البشر بدون أن يُلغي إنسانيتهم",
+    iconPath: "/assets/icons/infera-humaniq/",
+    variants: {
+      appIcon: "app-icon.png",
+      favicon: "favicon-32.png",
+      monochrome: "mono-icon.svg",
+      light: "light-bg.png",
+      dark: "dark-bg.png"
+    },
+    usageContexts: ["web", "mobile", "desktop", "favicon", "store-listings"]
+  },
+  {
+    id: "infera-legal-ai",
+    name: "INFERA Legal AI™",
+    nameAr: "الذكاء القانوني INFERA",
+    category: "legal-compliance",
+    colors: {
+      primary: "#7C2D12", // Deep Burgundy
+      secondary: "#1F2937", // Charcoal Black
+      accent: "#C0C0C0"    // Silver
+    },
+    symbol: ["Abstract Scale of Justice", "Contract Nodes", "Legal Grid / Clause Matrix"],
+    symbolAr: ["ميزان عدالة مجرد", "عقد تعاقدية", "شبكة قانونية / مصفوفة بنود"],
+    meaning: "Law that never sleeps and never errs",
+    meaningAr: "قانون لا ينام ولا يخطئ",
+    iconPath: "/assets/icons/infera-legal-ai/",
+    variants: {
+      appIcon: "app-icon.png",
+      favicon: "favicon-32.png",
+      monochrome: "mono-icon.svg",
+      light: "light-bg.png",
+      dark: "dark-bg.png"
+    },
+    usageContexts: ["web", "mobile", "desktop", "favicon", "store-listings"]
+  },
+  {
+    id: "infera-marketing-ai",
+    name: "INFERA Marketing AI™",
+    nameAr: "الذكاء التسويقي INFERA",
+    category: "marketing-intelligence",
+    colors: {
+      primary: "#374151", // Dark Graphite
+      secondary: "#EC4899", // Neon Magenta
+      accent: "#F9FAFB"    // Soft White
+    },
+    symbol: ["Predictive Signal Waves", "Abstract Growth Vector", "Data Pulse"],
+    symbolAr: ["موجات إشارة تنبؤية", "متجه نمو مجرد", "نبض البيانات"],
+    meaning: "Intelligence that sees the market before it moves",
+    meaningAr: "ذكاء يرى السوق قبل أن يتحرك",
+    iconPath: "/assets/icons/infera-marketing-ai/",
+    variants: {
+      appIcon: "app-icon.png",
+      favicon: "favicon-32.png",
+      monochrome: "mono-icon.svg",
+      light: "light-bg.png",
+      dark: "dark-bg.png"
+    },
+    usageContexts: ["web", "mobile", "desktop", "favicon", "store-listings"]
+  },
+  {
+    id: "infera-marketplace-ai",
+    name: "INFERA Marketplace AI™",
+    nameAr: "السوق الذكي INFERA",
+    category: "commerce-intelligence",
+    colors: {
+      primary: "#0F0F0F", // Deep Black
+      secondary: "#047857", // Emerald Teal
+      accent: "#C0C0C0"    // Silver
+    },
+    symbol: ["Intelligent Commerce Grid", "Product Nodes Connected by AI", "Abstract Market Network"],
+    symbolAr: ["شبكة تجارة ذكية", "عقد منتجات متصلة بالذكاء", "شبكة سوق مجردة"],
+    meaning: "A market that understands before it suggests",
+    meaningAr: "سوق يفهم قبل أن يُقترح",
+    iconPath: "/assets/icons/infera-marketplace-ai/",
+    variants: {
+      appIcon: "app-icon.png",
+      favicon: "favicon-32.png",
+      monochrome: "mono-icon.svg",
+      light: "light-bg.png",
+      dark: "dark-bg.png"
+    },
+    usageContexts: ["web", "mobile", "desktop", "favicon", "store-listings"]
+  },
+  {
+    id: "infera-ai-education-hub",
+    name: "INFERA AI Education Hub™",
+    nameAr: "مركز التعليم الذكي INFERA",
+    category: "education-intelligence",
+    colors: {
+      primary: "#312E81", // Deep Indigo
+      secondary: "#22D3EE", // Soft Cyan
+      accent: "#FFFFFF"    // White
+    },
+    symbol: ["Knowledge Core", "Adaptive Learning Layers", "Abstract Open Structure"],
+    symbolAr: ["نواة المعرفة", "طبقات تعلم تكيفية", "هيكل مفتوح مجرد"],
+    meaning: "Education that adapts to the mind",
+    meaningAr: "تعليم يتكيّف مع العقل",
+    iconPath: "/assets/icons/infera-ai-education-hub/",
+    variants: {
+      appIcon: "app-icon.png",
+      favicon: "favicon-32.png",
+      monochrome: "mono-icon.svg",
+      light: "light-bg.png",
+      dark: "dark-bg.png"
+    },
+    usageContexts: ["web", "mobile", "desktop", "favicon", "store-listings"]
   }
 ];
 
