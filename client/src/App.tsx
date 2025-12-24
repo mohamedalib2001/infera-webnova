@@ -156,6 +156,9 @@ import DemoStoryboards from "@/pages/demo-storyboards";
 import SovereignNarrative from "@/pages/sovereign-narrative";
 import CompetitiveKillMap from "@/pages/competitive-kill-map";
 import SovereignReadiness from "@/pages/sovereign-readiness";
+import InvestorObjections from "@/pages/investor-objections";
+import ExitStrategy from "@/pages/exit-strategy";
+import GovernmentAdoption from "@/pages/government-adoption";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
@@ -243,6 +246,9 @@ function AuthenticatedRouter() {
       <Route path="/sovereign-narrative" component={SovereignNarrative} />
       <Route path="/competitive-kill-map" component={CompetitiveKillMap} />
       <Route path="/sovereign-readiness" component={SovereignReadiness} />
+      <Route path="/investor-objections" component={InvestorObjections} />
+      <Route path="/exit-strategy" component={ExitStrategy} />
+      <Route path="/government-adoption" component={GovernmentAdoption} />
       <Route path="/auth" component={Auth} />
       <Route path="/builder" component={Builder} />
       <Route path="/builder/:id" component={Builder} />
