@@ -60,10 +60,17 @@ export default function BoardDocuments() {
               </div>
             </CardHeader>
             <CardContent className="p-6">
-              <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-center">
+              <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-center mb-4">
                 <p className="text-sm text-amber-700 dark:text-amber-400 font-medium">
                   {isRtl ? boardDocumentMeta.disclaimerAr : boardDocumentMeta.disclaimer}
                 </p>
+              </div>
+              <div className="flex justify-center gap-4 flex-wrap">
+                {(isRtl ? boardDocumentMeta.restrictionsAr : boardDocumentMeta.restrictions).map((r, i) => (
+                  <Badge key={i} variant="outline" className="border-red-500/30 text-red-600">
+                    {r}
+                  </Badge>
+                ))}
               </div>
             </CardContent>
           </Card>

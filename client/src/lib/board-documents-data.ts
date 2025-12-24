@@ -418,8 +418,18 @@ export const boardDocuments: BoardDocument[] = [
 export const boardDocumentMeta = {
   title: "INFERA Board-Level Documentation",
   titleAr: "وثائق INFERA لمستوى مجلس الإدارة",
-  purpose: "Decision instruments for board members, sovereign funds, strategic investors, and executive committees.",
-  purposeAr: "أدوات قرار لأعضاء مجلس الإدارة وصناديق السيادة والمستثمرين الاستراتيجيين واللجان التنفيذية.",
-  disclaimer: "These documents are NOT marketing materials. They are decision instruments designed to enable decisive, long-term, high-stakes decisions.",
-  disclaimerAr: "هذه الوثائق ليست مواد تسويقية. إنها أدوات قرار مصممة لتمكين قرارات حاسمة وطويلة المدى وعالية المخاطر."
+  purpose: "Decision instruments guiding capital allocation, strategic patience, and long-term control.",
+  purposeAr: "أدوات قرار توجه تخصيص رأس المال والصبر الاستراتيجي والتحكم طويل المدى.",
+  disclaimer: "Board Only. Not marketing. Not technical. Not for public distribution.",
+  disclaimerAr: "مجلس الإدارة فقط. ليست تسويقية. ليست تقنية. ليست للتوزيع العام.",
+  restrictions: [
+    "No government language",
+    "No public messaging", 
+    "No operational details"
+  ],
+  restrictionsAr: [
+    "لا لغة حكومية",
+    "لا رسائل عامة",
+    "لا تفاصيل تشغيلية"
+  ]
 };
