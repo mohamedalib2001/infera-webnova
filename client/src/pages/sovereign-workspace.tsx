@@ -1048,7 +1048,7 @@ export default function SovereignWorkspacePage() {
 
       {/* Preview Landing Page Dialog */}
       <Dialog open={showPreviewDialog} onOpenChange={setShowPreviewDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Eye className="h-5 w-5" />
@@ -1059,37 +1059,85 @@ export default function SovereignWorkspacePage() {
               <span className="block" dir="rtl">معاينة صفحة الهبوط قبل النشر</span>
             </DialogDescription>
           </DialogHeader>
-          <div className="flex-1 min-h-[400px] border rounded-lg bg-background overflow-auto">
+          <div className="flex-1 min-h-[500px] border rounded-lg bg-white dark:bg-slate-900 overflow-hidden">
             {previewProject ? (
-              <div className="p-6">
-                <div className="text-center space-y-4">
-                  <div 
-                    className="w-20 h-20 mx-auto rounded-xl flex items-center justify-center"
-                    style={{ 
-                      background: `linear-gradient(135deg, ${findPlatformIcon(previewProject)?.colors.primary || '#0f172a'}, ${findPlatformIcon(previewProject)?.colors.secondary || '#1e293b'})`
-                    }}
-                  >
-                    {(() => {
-                      const FallbackIcon = platformTypeLabels[previewProject.platformType]?.icon || Globe;
-                      return <FallbackIcon className="h-10 w-10 text-white" />;
-                    })()}
-                  </div>
-                  <h2 className="text-2xl font-bold">{previewProject.name}</h2>
-                  <p className="text-lg text-muted-foreground" dir="rtl">{previewProject.nameAr}</p>
-                  {previewProject.description && (
-                    <p className="text-muted-foreground max-w-xl mx-auto">{previewProject.description}</p>
-                  )}
-                  <div className="flex items-center justify-center gap-2 flex-wrap">
-                    <Badge>{previewProject.code}</Badge>
-                    <Badge variant="outline">
-                      {platformTypeLabels[previewProject.platformType]?.en} | {platformTypeLabels[previewProject.platformType]?.ar}
-                    </Badge>
-                    <Badge variant="secondary" className={"!border-0 " + (statusBadgeVariants[previewProject.deploymentStatus]?.color || statusBadgeVariants.draft.color).replace("bg-", "!bg-").replace("text-", "!text-")}>
-                      {statusBadgeVariants[previewProject.deploymentStatus]?.en || statusBadgeVariants.draft.en} | {statusBadgeVariants[previewProject.deploymentStatus]?.ar || statusBadgeVariants.draft.ar}
-                    </Badge>
+              previewProject.htmlCode ? (
+                <iframe
+                  title={`Preview: ${previewProject.name}`}
+                  className="w-full h-full border-0"
+                  style={{ minHeight: '500px' }}
+                  srcDoc={`
+                    <!DOCTYPE html>
+                    <html lang="${previewProject.language || 'ar'}" dir="${previewProject.language === 'ar' ? 'rtl' : 'ltr'}">
+                    <head>
+                      <meta charset="UTF-8">
+                      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                      <title>${previewProject.name}</title>
+                      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+                      <style>
+                        ${previewProject.cssCode || ''}
+                      </style>
+                    </head>
+                    <body>
+                      ${previewProject.htmlCode || ''}
+                      <script>
+                        ${previewProject.jsCode || ''}
+                      </script>
+                    </body>
+                    </html>
+                  `}
+                  sandbox="allow-scripts"
+                />
+              ) : (
+                <div className="p-8 h-full flex flex-col items-center justify-center">
+                  <div className="text-center space-y-6 max-w-md">
+                    <div 
+                      className="w-24 h-24 mx-auto rounded-2xl flex items-center justify-center shadow-lg"
+                      style={{ 
+                        background: `linear-gradient(135deg, ${findPlatformIcon(previewProject)?.colors.primary || '#0f172a'}, ${findPlatformIcon(previewProject)?.colors.secondary || '#1e293b'})`
+                      }}
+                    >
+                      {(() => {
+                        const platformIcon = findPlatformIcon(previewProject);
+                        const FallbackIcon = platformTypeLabels[previewProject.platformType]?.icon || Globe;
+                        return platformIcon?.logoBase64 ? (
+                          <img 
+                            src={`data:image/png;base64,${platformIcon.logoBase64}`} 
+                            alt={previewProject.name}
+                            className="w-14 h-14 object-contain"
+                          />
+                        ) : (
+                          <FallbackIcon className="h-12 w-12 text-white" />
+                        );
+                      })()}
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold text-foreground">{previewProject.name}</h2>
+                      <p className="text-lg text-muted-foreground mt-1" dir="rtl">{previewProject.nameAr}</p>
+                    </div>
+                    {previewProject.description && (
+                      <p className="text-muted-foreground">{previewProject.description}</p>
+                    )}
+                    <div className="flex items-center justify-center gap-2 flex-wrap">
+                      <Badge>{previewProject.code}</Badge>
+                      <Badge variant="outline">
+                        {platformTypeLabels[previewProject.platformType]?.en} | {platformTypeLabels[previewProject.platformType]?.ar}
+                      </Badge>
+                      <Badge variant="secondary" className={"!border-0 " + (statusBadgeVariants[previewProject.deploymentStatus]?.color || statusBadgeVariants.draft.color).replace("bg-", "!bg-").replace("text-", "!text-")}>
+                        {statusBadgeVariants[previewProject.deploymentStatus]?.en || statusBadgeVariants.draft.en} | {statusBadgeVariants[previewProject.deploymentStatus]?.ar || statusBadgeVariants.draft.ar}
+                      </Badge>
+                    </div>
+                    <div className="pt-4 border-t border-border">
+                      <p className="text-sm text-muted-foreground">
+                        No landing page content yet. Click "Edit" to design your landing page.
+                      </p>
+                      <p className="text-sm text-muted-foreground" dir="rtl">
+                        لا يوجد محتوى لصفحة الهبوط بعد. اضغط "تحرير" لتصميم صفحة الهبوط.
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground">
                 No platform selected
