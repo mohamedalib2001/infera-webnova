@@ -174,6 +174,7 @@ import LaunchSequencing from "@/pages/launch-sequencing";
 import StakeholderAccess from "@/pages/stakeholder-access";
 import LaunchChecklist from "@/pages/launch-checklist";
 import CrisisCommunication from "@/pages/crisis-communication";
+import WarRoom from "@/pages/war-room";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
@@ -279,6 +280,7 @@ function AuthenticatedRouter() {
       <Route path="/stakeholder-access" component={StakeholderAccess} />
       <Route path="/launch-checklist" component={LaunchChecklist} />
       <Route path="/crisis-communication" component={CrisisCommunication} />
+      <Route path="/war-room" component={WarRoom} />
       <Route path="/auth" component={Auth} />
       <Route path="/builder" component={Builder} />
       <Route path="/builder/:id" component={Builder} />
