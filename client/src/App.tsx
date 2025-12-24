@@ -121,6 +121,7 @@ import EducationLanding from "@/pages/education-landing";
 import AttendLanding from "@/pages/attend-landing";
 import SmartDocsLanding from "@/pages/smartdocs-landing";
 import HospitalityLanding from "@/pages/hospitality-landing";
+import FeasibilityLanding from "@/pages/feasibility-landing";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
@@ -173,6 +174,7 @@ function AuthenticatedRouter() {
       <Route path="/attend" component={AttendLanding} />
       <Route path="/smartdocs" component={SmartDocsLanding} />
       <Route path="/hospitality" component={HospitalityLanding} />
+      <Route path="/feasibility" component={FeasibilityLanding} />
       <Route path="/auth" component={Auth} />
       <Route path="/builder" component={Builder} />
       <Route path="/builder/:id" component={Builder} />
