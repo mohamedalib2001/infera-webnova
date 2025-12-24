@@ -65,6 +65,7 @@ import {
   GraduationCap,
   Clock,
   FileText,
+  Hotel,
 } from "lucide-react";
 import {
   Sidebar,
@@ -114,6 +115,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     { title: language === "ar" ? "Education Hub™" : "Education Hub™", url: "/education", icon: GraduationCap, testId: "nav-education" },
     { title: language === "ar" ? "Attend AI™" : "Attend AI™", url: "/attend", icon: Clock, testId: "nav-attend" },
     { title: language === "ar" ? "Smart Docs™" : "Smart Docs™", url: "/smartdocs", icon: FileText, testId: "nav-smartdocs" },
+    { title: language === "ar" ? "Hospitality AI™" : "Hospitality AI™", url: "/hospitality", icon: Hotel, testId: "nav-hospitality" },
     { title: language === "ar" ? "وحدة التحكم" : "Console", url: "/console", icon: SquareTerminal, testId: "nav-console" },
     { title: language === "ar" ? "بيئة التطوير" : "Cloud IDE", url: "/ide", icon: Terminal, testId: "nav-cloud-ide" },
     { title: language === "ar" ? "منشئ التطبيقات" : "AI App Builder", url: "/ai-builder", icon: Sparkles, testId: "nav-ai-builder" },
