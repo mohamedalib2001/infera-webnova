@@ -184,6 +184,7 @@ import AIPolicy from "@/pages/ai-policy";
 import PerformancePolicy from "@/pages/performance-policy";
 import MultiAppPolicy from "@/pages/multi-app-policy";
 import VisualIdentity from "@/pages/visual-identity";
+import IconManagement from "@/pages/icon-management";
 import Contact from "@/pages/contact";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
@@ -300,6 +301,7 @@ function AuthenticatedRouter() {
       <Route path="/performance-policy" component={PerformancePolicy} />
       <Route path="/multi-app-policy" component={MultiAppPolicy} />
       <Route path="/visual-identity" component={VisualIdentity} />
+      <Route path="/icon-management" component={IconManagement} />
       <Route path="/contact" component={Contact} />
       <Route path="/auth" component={Auth} />
       <Route path="/builder" component={Builder} />
