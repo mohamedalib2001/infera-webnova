@@ -21,6 +21,71 @@ I prefer detailed explanations.
 Do not make changes to the folder `Z`.
 Do not make changes to the file `Y`.
 
+## INFERA Sovereign Platform Creation Directive (BINDING)
+
+### Supreme Principle
+All INFERA platforms are created, managed, and developed according to a superior sovereign model. No traditional solutions, limited systems, or any technical/security compromises are accepted.
+
+### Critical Requirements (Non-Negotiable)
+
+#### 1. No Mockups Policy
+- **PROHIBITED**: Creating simulation platforms or non-functional mockups
+- **REQUIRED**: Every platform must have a real database and functional registration system
+- **REQUIRED**: All functions and features must be fully operational, not just for display
+- **ALLOWED**: Test data registration with a reset button to clear it
+
+#### 2. 0-Code Compliance (For Generated Platforms)
+- **PROHIBITED**: Manual code writing inside generated platforms
+- **PROHIBITED**: Custom scripts, non-sovereign plugins, or solutions outside WebNova
+- **ALLOWED**: No-Code / Visual Logic / AI Workflows / Declarative Config / Event Automation
+
+#### 3. 100% Dynamic Architecture
+- **REQUIRED**: All components (UI, Workflows, Permissions, Data Models) must be fully dynamic
+- **PROHIBITED**: Hardcoded Pages, Static Flows, Fixed Roles, unchangeable elements
+- **VIOLATION**: Any deviation from dynamism = serious sovereign violation
+
+#### 4. AI-First Principle
+- **REQUIRED**: Every platform contains AI Core, AI Assistant, Predictive Engine, Behavioral Intelligence
+- **PROHIBITED**: CRUD-only systems, traditional dashboards, manual operations
+- **RULE**: No platform without AI = No acceptable platform
+
+#### 5. Sovereign Security
+- **REQUIRED**: Zero-Trust Architecture with End-to-End Encryption
+- **REQUIRED**: AI Threat Detection with Continuous Monitoring
+- **REQUIRED**: Automated Incident Response
+- **GOAL**: Platforms theoretically and practically unhackable
+
+#### 6. Test Data & Reset
+- **ALLOWED**: Test/demo data registration for platform testing
+- **REQUIRED**: Data reset button to delete test data
+- **REQUIRED**: Reset button works once and clears all test data
+
+### Scalability & Infrastructure
+- Cloud-Native Architecture with Microservices / Modular Design
+- Horizontal & Vertical Scaling with Zero Downtime Expansion
+- No Vendor Lock-in
+
+### Technology Standards
+- Use latest Frameworks, AI Engines, Databases, Security Models
+- Mandatory periodic updates
+- Immediate removal of outdated technology
+
+### Global Compliance
+- ISO / NIST / SOC2 / GDPR / Zero Trust compliance
+- Latest Design Systems with Accessibility & Performance Metrics
+- Data Governance & Compliance mandatory
+
+### Deployment Rules
+- One-Click Deploy with Versioning, Rollback, Environment Control
+- **PROHIBITED**: External deployment or modifications outside WebNova
+- Live updates without downtime
+
+### Platform Excellence
+- Every platform must surpass: Salesforce, SAP, ServiceNow, Palantir
+- Not by imitation but by qualitative transcendence
+- Unique features not found in market
+- WOW Effect from first use
+
 ## System Architecture
 INFERA WebNova uses React, TypeScript, and Vite for the frontend; Express.js and Node.js for the backend; and PostgreSQL with Drizzle ORM. Styling is managed by Tailwind CSS and Shadcn UI, with TanStack Query for state management.
 
