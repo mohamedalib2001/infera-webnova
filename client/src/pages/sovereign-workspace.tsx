@@ -1069,7 +1069,7 @@ export default function SovereignWorkspacePage() {
                   style={{ minHeight: '500px' }}
                   srcDoc={`
                     <!DOCTYPE html>
-                    <html lang="${previewProject.language || 'ar'}" dir="${previewProject.language === 'ar' ? 'rtl' : 'ltr'}">
+                    <html lang="ar" dir="rtl">
                     <head>
                       <meta charset="UTF-8">
                       <meta name="viewport" content="width=device-width, initial-scale=1.0">
