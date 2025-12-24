@@ -15991,6 +15991,17 @@ export const sovereignWorkspaceProjects = pgTable("sovereign_workspace_projects"
     dataModels?: string[];
   }>(),
   
+  // Landing Page Content (HTML/CSS/JS)
+  htmlCode: text("html_code").notNull().default(""),
+  cssCode: text("css_code").notNull().default(""),
+  jsCode: text("js_code").notNull().default(""),
+  
+  // Platform Branding
+  logo: text("logo"), // Base64 or URL
+  icon: text("icon"), // Icon name from lucide-react
+  primaryColor: text("primary_color").default("#8B5CF6"),
+  secondaryColor: text("secondary_color").default("#EF4444"),
+  
   // Generated code reference
   repositoryUrl: text("repository_url"),
   lastBuildAt: timestamp("last_build_at"),
