@@ -49,6 +49,7 @@ import type {
   SovereignPlatformType,
 } from "@shared/schema";
 import { platformIconsRegistry, type PlatformIconConfig } from "@/lib/platform-icons-registry";
+import { getPlatformLandingRoute, getPlatformPitchDeckRoute } from "@/lib/platform-landing-map";
 
 function findPlatformIcon(project: SovereignWorkspaceProject): PlatformIconConfig | null {
   const code = project.code?.toLowerCase().replace(/-/g, '').replace(/_/g, '');
@@ -578,34 +579,53 @@ export default function SovereignWorkspacePage() {
                           )}
                         </div>
                       </CardContent>
-                      <CardFooter className="pt-2 gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="flex-1" 
-                          onClick={() => {
-                            setPreviewProject(project);
-                            setShowPreviewDialog(true);
-                          }}
-                          data-testid={`button-view-${project.id}`}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          className="flex-1"
-                          disabled={project.deploymentStatus === "deploying" || deployProjectMutation.isPending}
-                          onClick={() => deployProjectMutation.mutate(project.id)}
-                          data-testid={`button-deploy-${project.id}`}
-                        >
-                          {project.deploymentStatus === "deploying" ? (
-                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                          ) : (
-                            <Rocket className="h-4 w-4 mr-1" />
-                          )}
-                          Deploy
-                        </Button>
+                      <CardFooter className="pt-2 gap-2 flex-wrap">
+                        {(() => {
+                          const landingRoute = getPlatformLandingRoute(project.code || '') || getPlatformLandingRoute(project.name || '');
+                          return (
+                            <>
+                              {landingRoute && (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="flex-1"
+                                  onClick={() => setLocation(landingRoute)}
+                                  data-testid={`button-landing-${project.id}`}
+                                >
+                                  <Globe className="h-4 w-4 mr-1" />
+                                  Landing
+                                </Button>
+                              )}
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="flex-1" 
+                                onClick={() => {
+                                  setPreviewProject(project);
+                                  setShowPreviewDialog(true);
+                                }}
+                                data-testid={`button-view-${project.id}`}
+                              >
+                                <Eye className="h-4 w-4 mr-1" />
+                                View
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                className="flex-1"
+                                disabled={project.deploymentStatus === "deploying" || deployProjectMutation.isPending}
+                                onClick={() => deployProjectMutation.mutate(project.id)}
+                                data-testid={`button-deploy-${project.id}`}
+                              >
+                                {project.deploymentStatus === "deploying" ? (
+                                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                ) : (
+                                  <Rocket className="h-4 w-4 mr-1" />
+                                )}
+                                Deploy
+                              </Button>
+                            </>
+                          );
+                        })()}
                       </CardFooter>
                     </Card>
                   );
@@ -734,45 +754,68 @@ export default function SovereignWorkspacePage() {
                       </CardContent>
                       
                       {/* Action Buttons */}
-                      <CardFooter className="p-3 gap-2 border-t bg-muted/30">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="flex-1"
-                          onClick={() => setLocation(`/builder?projectId=${project.id}`)}
-                          data-testid={`button-edit-landing-${project.id}`}
-                        >
-                          <Edit3 className="h-4 w-4 mr-1" />
-                          Edit | تحرير
-                        </Button>
-                        <Button 
-                          variant="outline"
-                          size="sm" 
-                          className="flex-1"
-                          onClick={() => {
-                            setPreviewProject(project);
-                            setShowPreviewDialog(true);
-                          }}
-                          data-testid={`button-preview-landing-${project.id}`}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          Preview | معاينة
-                        </Button>
-                        <Button 
-                          variant={project.deploymentUrl ? "default" : "secondary"}
-                          size="icon"
-                          asChild={!!project.deploymentUrl}
-                          disabled={!project.deploymentUrl}
-                          data-testid={`button-view-landing-${project.id}`}
-                        >
-                          {project.deploymentUrl ? (
-                            <a href={project.deploymentUrl} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
-                          ) : (
-                            <ExternalLink className="h-4 w-4" />
-                          )}
-                        </Button>
+                      <CardFooter className="p-3 gap-2 border-t bg-muted/30 flex-wrap">
+                        {(() => {
+                          const landingRoute = getPlatformLandingRoute(project.code || '') || getPlatformLandingRoute(project.name || '');
+                          const pitchDeckRoute = getPlatformPitchDeckRoute(project.code || '') || getPlatformPitchDeckRoute(project.name || '');
+                          
+                          return (
+                            <>
+                              {landingRoute && (
+                                <Button 
+                                  variant="default" 
+                                  size="sm" 
+                                  className="flex-1"
+                                  onClick={() => setLocation(landingRoute)}
+                                  data-testid={`button-view-landingpage-${project.id}`}
+                                >
+                                  <Globe className="h-4 w-4 mr-1" />
+                                  Landing Page
+                                </Button>
+                              )}
+                              {pitchDeckRoute && (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="flex-1"
+                                  onClick={() => setLocation(pitchDeckRoute)}
+                                  data-testid={`button-view-pitchdeck-${project.id}`}
+                                >
+                                  <FileText className="h-4 w-4 mr-1" />
+                                  Pitch Deck
+                                </Button>
+                              )}
+                              <Button 
+                                variant="outline"
+                                size="sm" 
+                                className="flex-1"
+                                onClick={() => {
+                                  setPreviewProject(project);
+                                  setShowPreviewDialog(true);
+                                }}
+                                data-testid={`button-preview-landing-${project.id}`}
+                              >
+                                <Eye className="h-4 w-4 mr-1" />
+                                Preview | معاينة
+                              </Button>
+                              <Button 
+                                variant={project.deploymentUrl ? "default" : "secondary"}
+                                size="icon"
+                                asChild={!!project.deploymentUrl}
+                                disabled={!project.deploymentUrl}
+                                data-testid={`button-external-landing-${project.id}`}
+                              >
+                                {project.deploymentUrl ? (
+                                  <a href={project.deploymentUrl} target="_blank" rel="noopener noreferrer">
+                                    <ExternalLink className="h-4 w-4" />
+                                  </a>
+                                ) : (
+                                  <ExternalLink className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </>
+                          );
+                        })()}
                       </CardFooter>
                     </Card>
                   );
