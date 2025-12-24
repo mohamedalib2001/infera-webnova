@@ -1,0 +1,180 @@
+INFERA AI MODELS – VISUAL IDENTITY UPGRADE DIRECTIVE
+(Official Design Instruction to Replit / WebNova)
+
+الهدف:
+إعادة تصميم أيقونات نماذج الذكاء الاصطناعي الخاصة بـ INFERA
+بهوية سيادية، فخمة، وساحرة بصريًا
+تعكس أن هذه نماذج نواة (Core Models) وليست أدوات عادية.
+
+① التشخيص الرسمي (Problem Statement)
+Current AI model icons appear:
+- Generic
+- Flat
+- Tool-like
+- Not aligned with INFERA sovereign visual language
+
+They do not convey:
+- Authority
+- Intelligence depth
+- Core-system importance
+- Premium AI identity
+
+② القاعدة الذهبية (Non-Negotiable)
+AI Models Icons are NOT feature icons.
+They are CORE SYSTEM ENTITIES.
+
+Design must feel:
+- Rare
+- Powerful
+- Intelligent
+- Timeless
+
+
+❌ ممنوع تمامًا:
+
+أيقونات تشبه Material / Bootstrap / Heroicons
+
+رموز أدوات (wrench, chat bubble, gear)
+
+أشكال كرتونية أو ودّية
+
+ألوان مسطحة بلا عمق
+
+③ الأسلوب البصري الإلزامي (Visual Language)
+STYLE:
+- Sovereign
+- Futuristic
+- Minimal but deep
+- Semi-3D or layered flat
+
+GEOMETRY:
+- Symmetry
+- Sacred geometry inspiration
+- Centralized cores
+
+MOOD:
+- Calm power
+- Silent intelligence
+- Control without noise
+
+④ نظام الألوان (INFERA Core AI Palette)
+Base:
+- Obsidian Black / Deep Space Gradient
+
+Accents (ONE per icon):
+- Quantum Purple
+- Neural Cyan
+- Sovereign Blue
+- Signal Gold (very subtle)
+
+Highlights:
+- Soft white / silver lines
+
+
+❗ كل نموذج AI له Accent مختلف
+لكن نفس الخلفية → إحساس منظومة واحدة.
+
+⑤ فلسفة الرمز (Icon Philosophy)
+
+بدل:
+
+Chat bubble
+
+Robot
+
+Brain مباشر
+
+نستخدم:
+
+Abstract Intelligence Cores
+
+Neural Fields
+
+Command Rings
+
+Data Constellations
+
+Control Sigils
+
+الأيقونة يجب أن توحي بأن:
+
+“هذا نموذج يفكّر خلف الستار”
+
+⑥ PROMPT MASTER – لكل أيقونة نموذج AI
+
+🔹 يُكرر هذا البرومبت مع تغيير Accent Color فقط
+
+Create a sovereign AI core model icon for INFERA.
+
+Concept:
+- Core artificial intelligence entity
+- Abstract intelligence core
+- No human or robot representation
+- Feels like a silent system brain
+
+Style:
+- Futuristic
+- Minimal
+- Semi-3D layered
+- High-end enterprise
+
+Visual structure:
+- Central intelligence core
+- Subtle surrounding control rings or neural fields
+- Balanced, symmetric composition
+
+Colors:
+- Obsidian black background
+- Single accent color ({{ACCENT_COLOR}})
+- Soft white / silver highlights
+
+Rules:
+- No text
+- No chat bubbles
+- No tools
+- No faces
+- No UI symbols
+- Must look powerful at 24x24 and 32x32
+
+Output:
+- Square icon
+- Dark UI optimized
+- SVG + PNG
+
+⑦ Accent Color Mapping (مقترح)
+INFERA Chat        → Neural Cyan
+INFERA Analyze     → Quantum Purple
+INFERA Build       → Sovereign Blue
+INFERA Code        → Signal Gold
+INFERA Consult     → Royal Violet
+Any Core Model     → Deep Electric Blue
+
+
+❗ هذا يخلق تمييزًا ذكيًا بدون كسر الهوية
+
+⑧ الأحجام والاستخدام
+REQUIRED SIZES:
+- 16x16 (Tab / Status)
+- 24x24 (Top Bar)
+- 32x32 (Quick Switch)
+- SVG (Future-proof)
+
+BACKGROUND:
+- Transparent OR Obsidian-only
+
+⑨ نتيجة متوقعة (What Success Looks Like)
+
+بعد التنفيذ:
+
+الأيقونات تشبه نواة نظام تشغيل
+
+تشعر أن هذه نماذج غير متاحة للعامة
+
+تعطي إحساس:
+
+“INFERA ليست SaaS… بل نظام سيادي”
+
+⑩ ملاحظة ختامية قوية (إرسلها كما هي)
+These icons represent INFERA’s internal AI cores.
+They must feel rare, controlled, and authoritative.
+If an icon feels generic, friendly, or decorative — it is rejected.
