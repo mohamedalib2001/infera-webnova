@@ -426,6 +426,56 @@ router.post("/members/invite", requireAuth, requireWorkspaceAccess, requirePermi
   res.status(201).json(member);
 });
 
+// Invite member by email
+router.post("/members/invite-by-email", requireAuth, requireWorkspaceAccess, requirePermission("staff.invite"), async (req, res) => {
+  const workspace = (req as any).workspace;
+  const { email, role, permissions } = req.body;
+  
+  if (!email || !role) {
+    return res.status(400).json({ error: "email and role are required" });
+  }
+  
+  // Find user by email
+  const [user] = await db.select().from(users).where(eq(users.email, email));
+  if (!user) {
+    return res.status(404).json({ error: "User not found with this email" });
+  }
+  
+  // Check if is the owner
+  if (user.id === workspace.ownerId) {
+    return res.status(400).json({ error: "Cannot invite the workspace owner as a member" });
+  }
+  
+  // Check if already a member
+  const [existing] = await db
+    .select()
+    .from(sovereignWorkspaceMembers)
+    .where(
+      and(
+        eq(sovereignWorkspaceMembers.workspaceId, workspace.id),
+        eq(sovereignWorkspaceMembers.userId, user.id)
+      )
+    );
+  
+  if (existing) {
+    return res.status(400).json({ error: "User is already a member" });
+  }
+  
+  const [member] = await db.insert(sovereignWorkspaceMembers).values({
+    workspaceId: workspace.id,
+    userId: user.id,
+    role,
+    permissions: permissions || [],
+    status: "active",
+    invitedBy: req.user!.id,
+    invitedAt: new Date(),
+  }).returning();
+  
+  await logAction(workspace.id, req.user!.id, "invite", "member", member.id, { invitedEmail: email, role }, req);
+  
+  res.status(201).json(member);
+});
+
 // Update member
 router.patch("/members/:id", requireAuth, requireWorkspaceAccess, requirePermission("staff.manage"), async (req, res) => {
   const { id } = req.params;

@@ -78,10 +78,23 @@ const statusBadgeVariants: Record<string, { variant: "default" | "secondary" | "
   archived: { variant: "secondary", color: "bg-gray-500/20 text-gray-600" },
 };
 
+type SovereignWorkspaceRole = "SOVEREIGN_ADMIN" | "SOVEREIGN_OPERATOR" | "AUDITOR";
+
+const roleLabels: Record<SovereignWorkspaceRole, { en: string; ar: string; description: string }> = {
+  SOVEREIGN_ADMIN: { en: "Admin", ar: "مدير", description: "Full access to platforms and team" },
+  SOVEREIGN_OPERATOR: { en: "Operator", ar: "مشغل", description: "Can create and deploy platforms" },
+  AUDITOR: { en: "Auditor", ar: "مدقق", description: "Read-only access with audit logs" },
+};
+
 export default function SovereignWorkspacePage() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("platforms");
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
+  const [inviteMemberDialogOpen, setInviteMemberDialogOpen] = useState(false);
+  const [inviteForm, setInviteForm] = useState({
+    email: "",
+    role: "SOVEREIGN_OPERATOR" as SovereignWorkspaceRole,
+  });
   const [newProjectForm, setNewProjectForm] = useState({
     code: "",
     name: "",
@@ -170,6 +183,48 @@ export default function SovereignWorkspacePage() {
     onError: (error: Error) => {
       toast({
         title: "Deployment Failed | فشل النشر",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const inviteMemberMutation = useMutation({
+    mutationFn: async (data: { email: string; role: SovereignWorkspaceRole }) => {
+      return apiRequest("POST", "/api/sovereign-workspace/members/invite-by-email", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sovereign-workspace/members"] });
+      setInviteMemberDialogOpen(false);
+      setInviteForm({ email: "", role: "SOVEREIGN_OPERATOR" });
+      toast({
+        title: "Invitation Sent | تم إرسال الدعوة",
+        description: "Member invitation has been sent successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Invitation Failed | فشل الدعوة",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const removeMemberMutation = useMutation({
+    mutationFn: async (memberId: string) => {
+      return apiRequest("DELETE", `/api/sovereign-workspace/members/${memberId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sovereign-workspace/members"] });
+      toast({
+        title: "Member Removed | تم إزالة العضو",
+        description: "Member has been removed from the workspace.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error | خطأ",
         description: error.message,
         variant: "destructive",
       });
@@ -510,10 +565,70 @@ export default function SovereignWorkspacePage() {
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Team Members | أعضاء الفريق</h2>
-              <Button variant="outline" data-testid="button-invite-member">
-                <Plus className="h-4 w-4 mr-2" />
-                Invite Member
-              </Button>
+              <Dialog open={inviteMemberDialogOpen} onOpenChange={setInviteMemberDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" data-testid="button-invite-member">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Invite Member
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Invite Team Member | دعوة عضو فريق</DialogTitle>
+                    <DialogDescription>
+                      Add a new member to the Sovereign Workspace by email address.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="email" className="text-right">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="user@example.com"
+                        className="col-span-3"
+                        value={inviteForm.email}
+                        onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
+                        data-testid="input-member-email"
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="role" className="text-right">Role</Label>
+                      <Select
+                        value={inviteForm.role}
+                        onValueChange={(value) => setInviteForm({ ...inviteForm, role: value as SovereignWorkspaceRole })}
+                      >
+                        <SelectTrigger className="col-span-3" data-testid="select-member-role">
+                          <SelectValue placeholder="Select role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(roleLabels).map(([key, { en, ar, description }]) => (
+                            <SelectItem key={key} value={key}>
+                              <div className="flex flex-col">
+                                <span>{en} | {ar}</span>
+                                <span className="text-xs text-muted-foreground">{description}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setInviteMemberDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={() => inviteMemberMutation.mutate(inviteForm)}
+                      disabled={inviteMemberMutation.isPending || !inviteForm.email}
+                      data-testid="button-confirm-invite"
+                    >
+                      {inviteMemberMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      Invite
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -536,29 +651,47 @@ export default function SovereignWorkspacePage() {
                 </Card>
               )}
 
-              {membersData?.members.map((member) => (
-                <Card key={member.id} data-testid={`card-member-${member.id}`}>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                        <Users className="h-5 w-5 text-muted-foreground" />
+              {membersData?.members.map((member) => {
+                const roleInfo = roleLabels[member.role as SovereignWorkspaceRole];
+                return (
+                  <Card key={member.id} data-testid={`card-member-${member.id}`}>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                            <Users className="h-5 w-5 text-muted-foreground" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-base">{(member as any).user?.fullName || (member as any).user?.username || "Unknown"}</CardTitle>
+                            <CardDescription className="text-xs">{(member as any).user?.email}</CardDescription>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => removeMemberMutation.mutate(member.id)}
+                          disabled={removeMemberMutation.isPending}
+                          data-testid={`button-remove-member-${member.id}`}
+                        >
+                          <XCircle className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <div>
-                        <CardTitle className="text-base">{(member as any).user?.fullName || (member as any).user?.username || "Unknown"}</CardTitle>
-                        <CardDescription className="text-xs">{(member as any).user?.email}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant={member.status === "active" ? "default" : "secondary"}>
+                          {roleInfo?.en || member.role} | {roleInfo?.ar || member.role}
+                        </Badge>
+                        <Badge variant="outline">{member.status}</Badge>
                       </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={member.status === "active" ? "default" : "secondary"}>
-                        {member.role}
-                      </Badge>
-                      <Badge variant="outline">{member.status}</Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                      {roleInfo && (
+                        <p className="text-xs text-muted-foreground mt-2">{roleInfo.description}</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           </div>
         </TabsContent>
