@@ -1,0 +1,334 @@
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useLanguage } from "@/hooks/use-language";
+import { motion } from "framer-motion";
+import { 
+  Megaphone, 
+  TrendingUp,
+  Users,
+  Target,
+  BarChart3,
+  PieChart,
+  LineChart,
+  Zap,
+  Brain,
+  Sparkles,
+  DollarSign,
+  Eye,
+  MousePointer,
+  Share2,
+  Mail,
+  MessageSquare,
+  ArrowRight,
+  CheckCircle2,
+  Activity,
+  Gauge,
+} from "lucide-react";
+
+export default function MarketingLanding() {
+  const [, setLocation] = useLocation();
+  const { language } = useLanguage();
+  const isRtl = language === "ar";
+  const [journeyStep, setJourneyStep] = useState(0);
+  const [roiGrowth, setRoiGrowth] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setJourneyStep(prev => (prev + 1) % 5);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRoiGrowth(prev => prev < 100 ? prev + 2 : 0);
+    }, 100);
+    return () => clearInterval(interval);
+  }, []);
+
+  const t = {
+    hero: {
+      badge: isRtl ? "الذكاء التسويقي التنبؤي" : "Predictive Marketing Intelligence",
+      title: isRtl ? "INFERA Marketing AI™" : "INFERA Marketing AI™",
+      subtitle: isRtl 
+        ? "تسويق يتوقع النجاح قبل أن يبدأ"
+        : "Marketing That Predicts Success",
+      description: isRtl
+        ? "منصة ذكاء تسويقي سيادي تُحوّل التسويق من محاولات عشوائية إلى قرارات تنبؤية دقيقة قائمة على البيانات والسلوك. التسويق هنا لا يُدار... بل يُتوقع ويُحسَّن ذاتيًا."
+        : "A sovereign predictive marketing intelligence platform that transforms marketing from trial-and-error into data-driven, AI-predicted decisions.",
+      cta: isRtl ? "ابدأ التسويق الذكي" : "Start Smart Marketing",
+    },
+    stats: [
+      { label: isRtl ? "حملات نشطة" : "Active Campaigns", value: "2,847", icon: Megaphone },
+      { label: isRtl ? "معدل التحويل" : "Conversion Rate", value: "34.2%", icon: Target },
+      { label: isRtl ? "العائد على الاستثمار" : "ROI", value: "+247%", icon: TrendingUp },
+      { label: isRtl ? "العملاء المستهدفين" : "Targeted Customers", value: "1.2M", icon: Users },
+    ],
+    journey: [
+      { icon: Eye, label: isRtl ? "الوعي" : "Awareness" },
+      { icon: MousePointer, label: isRtl ? "الاهتمام" : "Interest" },
+      { icon: Target, label: isRtl ? "الرغبة" : "Desire" },
+      { icon: DollarSign, label: isRtl ? "الشراء" : "Action" },
+      { icon: Share2, label: isRtl ? "الولاء" : "Loyalty" },
+    ],
+    sections: [
+      {
+        icon: Users,
+        title: isRtl ? "ذكاء الجمهور" : "Audience Intelligence",
+        description: isRtl 
+          ? "تحليل سلوك العملاء مع رسوم بيانية للتجزئة والاستهداف الدقيق."
+          : "Customer behavior analysis with segmentation graphs and precise targeting.",
+        features: [
+          { icon: Activity, label: isRtl ? "تحليل السلوك" : "Behavior Analysis" },
+          { icon: PieChart, label: isRtl ? "رسوم التجزئة" : "Segmentation Graphs" },
+          { icon: Target, label: isRtl ? "الاستهداف الدقيق" : "Precise Targeting" },
+        ],
+        color: "from-pink-600 to-rose-700",
+      },
+      {
+        icon: Sparkles,
+        title: isRtl ? "منشئ الحملات" : "Campaign Generator",
+        description: isRtl
+          ? "بناء حملات ذكية تلقائياً مع اختيار القنوات المثلى."
+          : "AI-powered campaign builder with optimal channel selection.",
+        features: [
+          { icon: Brain, label: isRtl ? "بناء AI" : "AI Campaign Builder" },
+          { icon: Share2, label: isRtl ? "اختيار القنوات" : "Channel Selection" },
+          { icon: Zap, label: isRtl ? "إطلاق تلقائي" : "Auto Launch" },
+        ],
+        color: "from-violet-600 to-purple-700",
+      },
+      {
+        icon: BarChart3,
+        title: isRtl ? "الأداء والعائد" : "Performance & ROI",
+        description: isRtl
+          ? "مقاييس فورية مع توقع العائد على الاستثمار قبل التنفيذ."
+          : "Real-time metrics with ROI forecasting before execution.",
+        features: [
+          { icon: LineChart, label: isRtl ? "مقاييس فورية" : "Real-Time Metrics" },
+          { icon: TrendingUp, label: isRtl ? "توقع العائد" : "ROI Forecast" },
+          { icon: Gauge, label: isRtl ? "لوحة الأداء" : "Performance Dashboard" },
+        ],
+        color: "from-emerald-600 to-green-700",
+      },
+      {
+        icon: Zap,
+        title: isRtl ? "محرك التحسين" : "Optimization Engine",
+        description: isRtl
+          ? "توصيات ذكية مع تعديلات تلقائية لتحسين الأداء المستمر."
+          : "Smart recommendations with auto-adjustments for continuous optimization.",
+        features: [
+          { icon: Brain, label: isRtl ? "توصيات ذكية" : "Smart Recommendations" },
+          { icon: Sparkles, label: isRtl ? "تعديلات تلقائية" : "Auto-Adjustments" },
+          { icon: CheckCircle2, label: isRtl ? "تحسين مستمر" : "Continuous Optimization" },
+        ],
+        color: "from-amber-600 to-orange-700",
+      },
+    ],
+  };
+
+  return (
+    <div className="min-h-screen bg-background overflow-hidden" dir={isRtl ? "rtl" : "ltr"}>
+      <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-pink-950/30 via-background to-violet-950/20" />
+        
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-1/2 right-[10%] -translate-y-1/2 flex items-center gap-4">
+            {t.journey.map((step, index) => {
+              const Icon = step.icon;
+              const isActive = journeyStep >= index;
+              return (
+                <div key={index} className="flex items-center">
+                  <motion.div
+                    className={`p-4 rounded-xl transition-all duration-500 ${
+                      isActive 
+                        ? 'bg-gradient-to-br from-pink-500 to-violet-500 shadow-lg shadow-pink-500/30' 
+                        : 'bg-muted/30 border border-border/50'
+                    }`}
+                    animate={{ scale: journeyStep === index ? 1.2 : 1 }}
+                  >
+                    <Icon className={`w-6 h-6 ${isActive ? 'text-white' : 'text-muted-foreground'}`} />
+                  </motion.div>
+                  {index < t.journey.length - 1 && (
+                    <div className={`w-8 h-0.5 transition-all duration-500 ${
+                      journeyStep > index ? 'bg-gradient-to-r from-pink-500 to-violet-500' : 'bg-muted/30'
+                    }`} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="absolute left-[10%] top-1/3 w-48 h-32 rounded-xl bg-card/30 backdrop-blur-sm border border-border/50 p-4">
+            <div className="text-xs text-muted-foreground mb-2">{isRtl ? "نمو العائد" : "ROI Growth"}</div>
+            <div className="flex items-end h-16 gap-1">
+              {[...Array(12)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="flex-1 bg-gradient-to-t from-emerald-500 to-cyan-500 rounded-t"
+                  animate={{ height: `${Math.min(roiGrowth + i * 5, 100)}%` }}
+                  transition={{ duration: 0.2 }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="relative z-10 max-w-7xl mx-auto px-4 py-20">
+          <div className="text-center space-y-8">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              <Badge 
+                variant="outline" 
+                className="px-6 py-2.5 text-sm border-pink-500/50 bg-pink-500/10 backdrop-blur-sm"
+              >
+                <Megaphone className="w-4 h-4 mr-2 text-pink-400" />
+                <span className="text-pink-400 font-medium">{t.hero.badge}</span>
+              </Badge>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+              className="space-y-4"
+            >
+              <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-none">
+                <span className="bg-gradient-to-r from-pink-400 via-rose-400 to-violet-400 bg-clip-text text-transparent">
+                  {t.hero.title}
+                </span>
+              </h1>
+              <p className="text-2xl md:text-3xl lg:text-4xl font-light text-muted-foreground">
+                {t.hero.subtitle}
+              </p>
+            </motion.div>
+
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+              className="text-lg md:text-xl text-muted-foreground max-w-4xl mx-auto leading-relaxed"
+            >
+              {t.hero.description}
+            </motion.p>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.6 }}
+            >
+              <Button 
+                size="lg"
+                className="gap-3 px-10 py-7 text-lg bg-gradient-to-r from-pink-600 to-violet-600 hover:from-pink-700 hover:to-violet-700 shadow-lg shadow-pink-500/25"
+                onClick={() => setLocation("/sovereign-workspace")}
+                data-testid="button-start-marketing"
+              >
+                <Megaphone className="w-5 h-5" />
+                {t.hero.cta}
+                <ArrowRight className="w-5 h-5" />
+              </Button>
+            </motion.div>
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.8 }}
+            className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-16 max-w-4xl mx-auto"
+          >
+            {t.stats.map((stat, i) => {
+              const Icon = stat.icon;
+              return (
+                <div 
+                  key={i}
+                  className="relative p-4 rounded-xl bg-card/30 backdrop-blur-sm border border-border/50 text-center"
+                >
+                  <Icon className="w-6 h-6 mx-auto mb-2 text-pink-400" />
+                  <p className="text-2xl font-bold bg-gradient-to-r from-pink-400 to-violet-400 bg-clip-text text-transparent">
+                    {stat.value}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{stat.label}</p>
+                </div>
+              );
+            })}
+          </motion.div>
+        </div>
+      </section>
+
+      <section className="py-24 bg-muted/20">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+              {isRtl ? "قدرات التسويق الذكي" : "Smart Marketing Capabilities"}
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8">
+            {t.sections.map((section, index) => {
+              const Icon = section.icon;
+              return (
+                <Card 
+                  key={index}
+                  className="group hover-elevate border-border/50 bg-card/50 backdrop-blur-sm overflow-hidden"
+                >
+                  <CardHeader className={`bg-gradient-to-r ${section.color} text-white`}>
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 rounded-xl bg-white/20">
+                        <Icon className="w-7 h-7" />
+                      </div>
+                      <CardTitle className="text-xl">{section.title}</CardTitle>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-4">
+                    <p className="text-muted-foreground">{section.description}</p>
+                    <div className="flex flex-wrap gap-3">
+                      {section.features.map((feature, fi) => {
+                        const FeatureIcon = feature.icon;
+                        return (
+                          <div 
+                            key={fi}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50"
+                          >
+                            <FeatureIcon className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-sm">{feature.label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <section className="py-24 bg-gradient-to-r from-pink-600 via-rose-600 to-violet-600 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48Y2lyY2xlIGN4PSIzIiBjeT0iMyIgcj0iMyIvPjwvZz48L2c+PC9zdmc+')] opacity-30" />
+        
+        <div className="relative max-w-4xl mx-auto px-4 text-center text-white">
+          <Megaphone className="w-16 h-16 mx-auto mb-6 opacity-80" />
+          <p className="text-2xl md:text-3xl font-bold mb-4">
+            {isRtl ? "التسويق هنا لا يُدار... بل يُتوقع ويُحسَّن ذاتيًا" : "Marketing isn't managed here... it's predicted and self-optimized"}
+          </p>
+          <Button 
+            size="lg"
+            variant="secondary"
+            className="gap-3 px-10 py-8 text-xl shadow-2xl mt-8"
+            onClick={() => setLocation("/sovereign-workspace")}
+            data-testid="button-final-marketing-cta"
+          >
+            <TrendingUp className="w-6 h-6" />
+            {t.hero.cta}
+          </Button>
+        </div>
+      </section>
+    </div>
+  );
+}
