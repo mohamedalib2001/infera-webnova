@@ -130,6 +130,7 @@ import ShieldGridLanding from "@/pages/shieldgrid-landing";
 import SmartRemoteLanding from "@/pages/smartremote-landing";
 import PitchDeck from "@/pages/pitch-deck";
 import PitchDeckEngine from "@/pages/pitch-deck-engine";
+import PitchDeckFinance from "@/pages/pitch-deck-finance";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
@@ -191,6 +192,7 @@ function AuthenticatedRouter() {
       <Route path="/smartremote" component={SmartRemoteLanding} />
       <Route path="/pitch-deck" component={PitchDeck} />
       <Route path="/pitch-deck/engine" component={PitchDeckEngine} />
+      <Route path="/pitch-deck/finance" component={PitchDeckFinance} />
       <Route path="/auth" component={Auth} />
       <Route path="/builder" component={Builder} />
       <Route path="/builder/:id" component={Builder} />

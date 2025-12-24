@@ -1,0 +1,98 @@
+REFUND POLICY
+
+Last Updated: [Insert Date]
+
+INFERA operates as a sovereign digital infrastructure.
+Accordingly, refund policies are governed
+by access type, service scope, and contractual agreements.
+
+---------------------------------------------------------------------
+1. GENERAL PRINCIPLE
+---------------------------------------------------------------------
+
+INFERA does not operate as a consumer service.
+Most services are provisioned based on
+approved access, configuration, and governance setup.
+
+Refunds are therefore limited and conditional.
+
+---------------------------------------------------------------------
+2. NON-REFUNDABLE SERVICES
+---------------------------------------------------------------------
+
+The following are strictly non-refundable:
+
+- Sovereign or enterprise licenses
+- Activated platforms or modules
+- Custom configurations or deployments
+- Pilot environments once activated
+- Usage-based or consumption-based services
+- Services involving AI model initialization or training
+
+Once access is granted or a system is activated,
+the service is considered delivered.
+
+---------------------------------------------------------------------
+3. CONDITIONAL REFUNDS
+---------------------------------------------------------------------
+
+Refunds may be considered ONLY if:
+- Access was granted in error
+- Payment was duplicated
+- A technical failure on INFERA’s side
+  prevented initial access entirely
+
+Any refund request must be submitted
+within a defined review window
+and is subject to validation.
+
+---------------------------------------------------------------------
+4. REVIEW & APPROVAL
+---------------------------------------------------------------------
+
+All refund requests are:
+- Reviewed manually
+- Assessed under governance and security rules
+- Approved or rejected at INFERA’s sole discretion
+
+Approval of one request
+does not establish precedent.
+
+---------------------------------------------------------------------
+5. TERMINATION & SUSPENSION
+---------------------------------------------------------------------
+
+Account suspension or termination
+due to policy violations,
+security concerns,
+or governance decisions
+does not entitle the user to a refund.
+
+---------------------------------------------------------------------
+6. CONTRACTUAL OVERRIDES
+---------------------------------------------------------------------
+
+If a separate written agreement exists
+(e.g., enterprise or government contract),
+refund terms in that agreement
+override this policy.
+
+---------------------------------------------------------------------
+7. PROCESS & CONTACT
+---------------------------------------------------------------------
+
+Refund requests must be submitted through:
+billing@infera.com
+
+Requests must include:
+- Account identifier
+- Service details
+- Reason for request
+
+Incomplete requests may not be reviewed.
+
+---------------------------------------------------------------------
+
+INFERA prioritizes
+governance integrity and system stability
+over transactional convenience.
