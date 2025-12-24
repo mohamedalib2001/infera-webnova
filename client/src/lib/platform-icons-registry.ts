@@ -386,6 +386,30 @@ export const platformIconsRegistry: PlatformIconConfig[] = [
       dark: "dark-bg.png"
     },
     usageContexts: ["web", "mobile", "desktop", "favicon", "store-listings"]
+  },
+  {
+    id: "infera-shieldgrid",
+    name: "INFERA ShieldGrid™",
+    nameAr: "شبكة الدرع INFERA",
+    category: "cybersecurity-defense",
+    colors: {
+      primary: "#0B0B0B", // Obsidian Black
+      secondary: "#00FF41", // Cyber Green
+      accent: "#71797E"    // Steel Gray
+    },
+    symbol: ["Shield Matrix", "Cyber Defense Grid", "Threat Containment Core"],
+    symbolAr: ["مصفوفة الدرع", "شبكة الدفاع السيبراني", "نواة احتواء التهديدات"],
+    meaning: "An impenetrable shield",
+    meaningAr: "درع لا يُخترق",
+    iconPath: "/assets/icons/infera-shieldgrid/",
+    variants: {
+      appIcon: "app-icon.png",
+      favicon: "favicon-32.png",
+      monochrome: "mono-icon.svg",
+      light: "light-bg.png",
+      dark: "dark-bg.png"
+    },
+    usageContexts: ["web", "mobile", "desktop", "favicon", "store-listings"]
   }
 ];
 
