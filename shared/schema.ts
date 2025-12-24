@@ -15791,3 +15791,318 @@ export const insertPlanMilestoneSchema = createInsertSchema(planMilestones).omit
 });
 export type InsertPlanMilestone = z.infer<typeof insertPlanMilestoneSchema>;
 export type PlanMilestone = typeof planMilestones.$inferSelect;
+
+// ==================== SOVEREIGN WORKSPACE (مساحة العمل السيادية المعزولة) ====================
+
+// Workspace roles - different from user roles
+export const sovereignWorkspaceRoles = [
+  'ROOT_OWNER',      // المالك الأصلي - full control
+  'SOVEREIGN_ADMIN', // مدير سيادي - can manage but not delete workspace
+  'SOVEREIGN_OPERATOR', // مشغل سيادي - can deploy and manage platforms
+  'AUDITOR',         // مدقق - read-only access to logs and data
+] as const;
+export type SovereignWorkspaceRole = typeof sovereignWorkspaceRoles[number];
+
+// Workspace permissions
+export const sovereignWorkspacePermissions = [
+  'workspace.view',
+  'workspace.manage',
+  'platform.view',
+  'platform.create',
+  'platform.edit',
+  'platform.delete',
+  'platform.deploy',
+  'platform.rollback',
+  'staff.view',
+  'staff.invite',
+  'staff.manage',
+  'staff.remove',
+  'audit.view',
+  'audit.export',
+  'settings.view',
+  'settings.manage',
+] as const;
+export type SovereignWorkspacePermission = typeof sovereignWorkspacePermissions[number];
+
+// Sovereign Workspace - Main isolated workspace
+export const sovereignWorkspace = pgTable("sovereign_workspace", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Workspace identity
+  name: text("name").notNull().default("Sovereign Workspace"),
+  nameAr: text("name_ar").default("مساحة العمل السيادية"),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  
+  // Owner (ROOT_OWNER)
+  ownerId: varchar("owner_id").references(() => users.id).notNull(),
+  
+  // Status
+  status: text("status").notNull().default("active"), // active, suspended, archived
+  
+  // Settings
+  settings: jsonb("settings").$type<{
+    maxPlatforms?: number;
+    maxMembers?: number;
+    requireApprovalForDeploy?: boolean;
+    autoAuditLog?: boolean;
+    notifyOnAccess?: boolean;
+  }>().default({}),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_sovereign_workspace_owner").on(table.ownerId),
+  index("IDX_sovereign_workspace_status").on(table.status),
+]);
+
+export const insertSovereignWorkspaceSchema = createInsertSchema(sovereignWorkspace).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSovereignWorkspace = z.infer<typeof insertSovereignWorkspaceSchema>;
+export type SovereignWorkspace = typeof sovereignWorkspace.$inferSelect;
+
+// Sovereign Workspace Members - Who has access
+export const sovereignWorkspaceMembers = pgTable("sovereign_workspace_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  workspaceId: varchar("workspace_id").references(() => sovereignWorkspace.id, { onDelete: "cascade" }).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  
+  // Role and permissions
+  role: text("role").notNull().default("AUDITOR"), // ROOT_OWNER, SOVEREIGN_ADMIN, SOVEREIGN_OPERATOR, AUDITOR
+  permissions: jsonb("permissions").$type<SovereignWorkspacePermission[]>().default([]),
+  
+  // Status
+  status: text("status").notNull().default("active"), // active, suspended, pending
+  
+  // Invitation
+  invitedBy: varchar("invited_by").references(() => users.id),
+  invitedAt: timestamp("invited_at"),
+  acceptedAt: timestamp("accepted_at"),
+  
+  // Last activity
+  lastAccessAt: timestamp("last_access_at"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_workspace_member_workspace").on(table.workspaceId),
+  index("IDX_workspace_member_user").on(table.userId),
+  index("IDX_workspace_member_role").on(table.role),
+]);
+
+export const insertSovereignWorkspaceMemberSchema = createInsertSchema(sovereignWorkspaceMembers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSovereignWorkspaceMember = z.infer<typeof insertSovereignWorkspaceMemberSchema>;
+export type SovereignWorkspaceMember = typeof sovereignWorkspaceMembers.$inferSelect;
+
+// Platform types for the 30 platforms
+export const sovereignPlatformTypes = [
+  'ecommerce',       // تجارة إلكترونية
+  'healthcare',      // رعاية صحية
+  'government',      // حكومي
+  'education',       // تعليمي
+  'finance',         // مالي
+  'logistics',       // لوجستي
+  'real_estate',     // عقاري
+  'hospitality',     // ضيافة
+  'media',           // إعلامي
+  'nonprofit',       // غير ربحي
+  'legal',           // قانوني
+  'hr_management',   // إدارة موارد بشرية
+  'crm',             // إدارة علاقات عملاء
+  'erp',             // تخطيط موارد
+  'marketplace',     // سوق
+  'booking',         // حجوزات
+  'saas',            // خدمة برمجية
+  'analytics',       // تحليلات
+  'iot',             // إنترنت الأشياء
+  'custom',          // مخصص
+] as const;
+export type SovereignPlatformType = typeof sovereignPlatformTypes[number];
+
+// Platform deployment status
+export const platformDeploymentStatuses = [
+  'draft',           // مسودة
+  'building',        // قيد البناء
+  'testing',         // قيد الاختبار
+  'staging',         // بيئة تجريبية
+  'deploying',       // قيد النشر
+  'live',            // مباشر
+  'maintenance',     // صيانة
+  'suspended',       // معلق
+  'archived',        // مؤرشف
+] as const;
+export type PlatformDeploymentStatus = typeof platformDeploymentStatuses[number];
+
+// Sovereign Workspace Projects - The 30 generated platforms
+export const sovereignWorkspaceProjects = pgTable("sovereign_workspace_projects", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  workspaceId: varchar("workspace_id").references(() => sovereignWorkspace.id, { onDelete: "cascade" }).notNull(),
+  
+  // Platform identity
+  code: text("code").notNull().unique(), // e.g., "INFERA-ECOM-001"
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  
+  // Type and category
+  platformType: text("platform_type").notNull().default("custom"), // ecommerce, healthcare, etc.
+  category: text("category").notNull().default("commercial"), // commercial, sovereign, internal
+  
+  // Tech stack
+  techStack: jsonb("tech_stack").$type<{
+    frontend?: string[];
+    backend?: string[];
+    database?: string[];
+    infrastructure?: string[];
+  }>(),
+  
+  // Deployment
+  deploymentStatus: text("deployment_status").notNull().default("draft"),
+  deploymentUrl: text("deployment_url"),
+  stagingUrl: text("staging_url"),
+  
+  // Configuration
+  config: jsonb("config").$type<{
+    features?: string[];
+    integrations?: string[];
+    customDomain?: string;
+    ssl?: boolean;
+    scaling?: { min: number; max: number };
+  }>(),
+  
+  // Blueprint (platform specification)
+  blueprint: jsonb("blueprint").$type<{
+    version?: string;
+    modules?: string[];
+    pages?: string[];
+    apis?: string[];
+    dataModels?: string[];
+  }>(),
+  
+  // Generated code reference
+  repositoryUrl: text("repository_url"),
+  lastBuildAt: timestamp("last_build_at"),
+  lastDeployAt: timestamp("last_deploy_at"),
+  
+  // Version tracking
+  version: text("version").default("0.1.0"),
+  
+  // Creator
+  createdBy: varchar("created_by").references(() => users.id),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_workspace_project_workspace").on(table.workspaceId),
+  index("IDX_workspace_project_type").on(table.platformType),
+  index("IDX_workspace_project_status").on(table.deploymentStatus),
+  index("IDX_workspace_project_code").on(table.code),
+]);
+
+export const insertSovereignWorkspaceProjectSchema = createInsertSchema(sovereignWorkspaceProjects).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSovereignWorkspaceProject = z.infer<typeof insertSovereignWorkspaceProjectSchema>;
+export type SovereignWorkspaceProject = typeof sovereignWorkspaceProjects.$inferSelect;
+
+// Sovereign Workspace Access Logs - Immutable audit trail
+export const sovereignWorkspaceAccessLogs = pgTable("sovereign_workspace_access_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  workspaceId: varchar("workspace_id").references(() => sovereignWorkspace.id, { onDelete: "cascade" }).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Action details
+  action: text("action").notNull(), // view, create, edit, delete, deploy, access_denied
+  resource: text("resource").notNull(), // workspace, project, member, settings
+  resourceId: varchar("resource_id"), // ID of the affected resource
+  
+  // Context
+  details: jsonb("details").$type<{
+    method?: string;
+    path?: string;
+    changes?: Record<string, unknown>;
+    previousValue?: unknown;
+    newValue?: unknown;
+  }>(),
+  
+  // Request info
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  
+  // Result
+  success: boolean("success").notNull().default(true),
+  errorMessage: text("error_message"),
+  
+  // Timestamp (immutable)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_workspace_access_log_workspace").on(table.workspaceId),
+  index("IDX_workspace_access_log_user").on(table.userId),
+  index("IDX_workspace_access_log_action").on(table.action),
+  index("IDX_workspace_access_log_created").on(table.createdAt),
+]);
+
+export const insertSovereignWorkspaceAccessLogSchema = createInsertSchema(sovereignWorkspaceAccessLogs).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertSovereignWorkspaceAccessLog = z.infer<typeof insertSovereignWorkspaceAccessLogSchema>;
+export type SovereignWorkspaceAccessLog = typeof sovereignWorkspaceAccessLogs.$inferSelect;
+
+// Sovereign Workspace Deployments - Deployment history
+export const sovereignWorkspaceDeployments = pgTable("sovereign_workspace_deployments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  projectId: varchar("project_id").references(() => sovereignWorkspaceProjects.id, { onDelete: "cascade" }).notNull(),
+  
+  // Deployment info
+  version: text("version").notNull(),
+  environment: text("environment").notNull().default("production"), // development, staging, production
+  
+  // Status
+  status: text("status").notNull().default("pending"), // pending, building, deploying, success, failed, rolled_back
+  
+  // Build info
+  buildLog: text("build_log"),
+  buildDuration: integer("build_duration"), // in seconds
+  
+  // Deployment info
+  deploymentUrl: text("deployment_url"),
+  deployDuration: integer("deploy_duration"), // in seconds
+  
+  // Error info
+  errorMessage: text("error_message"),
+  
+  // Triggered by
+  triggeredBy: varchar("triggered_by").references(() => users.id),
+  
+  // Timestamps
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+}, (table) => [
+  index("IDX_workspace_deployment_project").on(table.projectId),
+  index("IDX_workspace_deployment_status").on(table.status),
+  index("IDX_workspace_deployment_environment").on(table.environment),
+]);
+
+export const insertSovereignWorkspaceDeploymentSchema = createInsertSchema(sovereignWorkspaceDeployments).omit({
+  id: true,
+});
+export type InsertSovereignWorkspaceDeployment = z.infer<typeof insertSovereignWorkspaceDeploymentSchema>;
+export type SovereignWorkspaceDeployment = typeof sovereignWorkspaceDeployments.$inferSelect;
