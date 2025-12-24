@@ -110,6 +110,7 @@ import { registerDeploymentRoutes } from "./deployment-integration";
 import { registerVisionRoutes } from "./vision-processing";
 import { registerNovaPermissionRoutes } from "./nova-permissions";
 import { registerMemoryRoutes } from "./memory-service";
+import { registerOwnershipRoutes } from "./ownership-routes";
 
 // Session user type
 declare module 'express-session' {
@@ -18023,6 +18024,10 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
   // ==================== NOVA PERMISSION CONTROL - AI CAPABILITIES ====================
   registerNovaPermissionRoutes(app);
   console.log("Nova Permission Control routes registered | تم تسجيل مسارات التحكم في صلاحيات نوفا");
+
+  // ==================== PLATFORM OWNERSHIP & FRANCHISE LICENSING ====================
+  registerOwnershipRoutes(app);
+  console.log("Platform Ownership & Licensing routes registered | تم تسجيل مسارات ملكية المنصات والتراخيص");
 
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 

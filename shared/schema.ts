@@ -14572,3 +14572,647 @@ export const inferaAgentConfig = pgTable("infera_agent_config", {
   index("IDX_agent_config_key").on(table.key),
   index("IDX_agent_config_category").on(table.category),
 ]);
+
+// ==================== PLATFORM OWNERSHIP & FRANCHISE LICENSING ====================
+// نظام ملكية المنصات وترخيص الفرانشايز
+
+// License types
+export const licenseTypes = ['personal', 'commercial', 'enterprise', 'unlimited'] as const;
+export type LicenseType = typeof licenseTypes[number];
+
+// License status
+export const licenseStatuses = ['active', 'expired', 'suspended', 'revoked', 'pending'] as const;
+export type LicenseStatus = typeof licenseStatuses[number];
+
+// Contract types
+export const contractTypes = ['usage_rights', 'sale', 'franchise', 'white_label', 'reseller'] as const;
+export type ContractType = typeof contractTypes[number];
+
+// Contract status
+export const contractStatuses = ['draft', 'pending_signature', 'active', 'terminated', 'expired', 'disputed'] as const;
+export type ContractStatus = typeof contractStatuses[number];
+
+// ==================== PLATFORM OWNERSHIP ====================
+// سجل ملكية المنصات
+
+export const platformOwnerships = pgTable("platform_ownerships", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Platform reference
+  projectId: varchar("project_id").references(() => projects.id, { onDelete: "cascade" }).notNull(),
+  
+  // Owner information
+  ownerId: varchar("owner_id").references(() => users.id).notNull(),
+  ownershipType: text("ownership_type").notNull().default("full"), // full, partial, licensed
+  ownershipPercentage: real("ownership_percentage").default(100), // For partial ownership
+  
+  // Registration
+  registrationNumber: text("registration_number").unique(), // Unique ownership certificate number
+  registeredAt: timestamp("registered_at").defaultNow(),
+  
+  // Status
+  isActive: boolean("is_active").notNull().default(true),
+  
+  // Legal entity info (optional)
+  legalEntityName: text("legal_entity_name"),
+  legalEntityType: text("legal_entity_type"), // individual, company, llc, etc
+  taxId: text("tax_id"),
+  
+  // Metadata
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_ownership_project").on(table.projectId),
+  index("IDX_ownership_owner").on(table.ownerId),
+  index("IDX_ownership_reg").on(table.registrationNumber),
+]);
+
+export const insertPlatformOwnershipSchema = createInsertSchema(platformOwnerships).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertPlatformOwnership = z.infer<typeof insertPlatformOwnershipSchema>;
+export type PlatformOwnership = typeof platformOwnerships.$inferSelect;
+
+// ==================== PLATFORM OWNERSHIP TRANSFERS ====================
+// سجل نقل ملكية المنصات
+
+export const platformOwnershipTransfers = pgTable("platform_ownership_transfers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Ownership reference
+  ownershipId: varchar("ownership_id").references(() => platformOwnerships.id, { onDelete: "cascade" }).notNull(),
+  
+  // Transfer parties
+  fromOwnerId: varchar("from_owner_id").references(() => users.id).notNull(),
+  toOwnerId: varchar("to_owner_id").references(() => users.id).notNull(),
+  
+  // Transfer type
+  transferType: text("transfer_type").notNull(), // sale, gift, inheritance, court_order
+  
+  // Financial details
+  salePrice: real("sale_price"),
+  currency: text("currency").default("SAR"),
+  paymentMethod: text("payment_method"),
+  paymentStatus: text("payment_status").default("pending"), // pending, completed, refunded
+  
+  // Contract reference
+  contractId: varchar("contract_id"),
+  
+  // Status
+  status: text("status").notNull().default("pending"), // pending, approved, rejected, completed
+  
+  // Approval workflow
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  // Legal documents
+  documents: jsonb("documents").$type<string[]>(),
+  
+  // Audit
+  initiatedAt: timestamp("initiated_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_platform_transfer_ownership").on(table.ownershipId),
+  index("IDX_platform_transfer_from").on(table.fromOwnerId),
+  index("IDX_platform_transfer_to").on(table.toOwnerId),
+  index("IDX_platform_transfer_status").on(table.status),
+]);
+
+export const insertPlatformOwnershipTransferSchema = createInsertSchema(platformOwnershipTransfers).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertPlatformOwnershipTransfer = z.infer<typeof insertPlatformOwnershipTransferSchema>;
+export type PlatformOwnershipTransfer = typeof platformOwnershipTransfers.$inferSelect;
+
+// ==================== FRANCHISE LICENSES ====================
+// تراخيص الفرانشايز
+
+export const franchiseLicenses = pgTable("franchise_licenses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // License identification
+  licenseNumber: text("license_number").unique().notNull(),
+  
+  // Platform reference
+  ownershipId: varchar("ownership_id").references(() => platformOwnerships.id).notNull(),
+  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  
+  // Licensee
+  licenseeId: varchar("licensee_id").references(() => users.id).notNull(),
+  
+  // License type and scope
+  licenseType: text("license_type").notNull(), // personal, commercial, enterprise, unlimited
+  usageScope: text("usage_scope").notNull().default("single"), // single, multiple, unlimited
+  
+  // Geographic restrictions
+  allowedRegions: jsonb("allowed_regions").$type<string[]>(),
+  excludedRegions: jsonb("excluded_regions").$type<string[]>(),
+  
+  // Time limits
+  isTemporary: boolean("is_temporary").notNull().default(true),
+  startDate: timestamp("start_date").notNull(),
+  expiryDate: timestamp("expiry_date"),
+  
+  // Renewal
+  autoRenew: boolean("auto_renew").notNull().default(false),
+  renewalPeriodDays: integer("renewal_period_days"),
+  renewalPrice: real("renewal_price"),
+  lastRenewalAt: timestamp("last_renewal_at"),
+  
+  // Pricing
+  licensePrice: real("license_price").notNull().default(0),
+  currency: text("currency").default("SAR"),
+  isPaid: boolean("is_paid").notNull().default(false),
+  paymentId: varchar("payment_id"),
+  
+  // Revenue sharing
+  revenueSharePercentage: real("revenue_share_percentage").default(0),
+  minimumMonthlyRevenue: real("minimum_monthly_revenue"),
+  
+  // White label permissions
+  allowWhiteLabel: boolean("allow_white_label").notNull().default(false),
+  allowBrandingChanges: boolean("allow_branding_changes").notNull().default(false),
+  allowReselling: boolean("allow_reselling").notNull().default(false),
+  
+  // Feature restrictions
+  allowedFeatures: jsonb("allowed_features").$type<string[]>(),
+  maxUsers: integer("max_users"),
+  maxStorage: integer("max_storage"), // in MB
+  
+  // Status
+  status: text("status").notNull().default("pending"), // active, expired, suspended, revoked, pending
+  statusReason: text("status_reason"),
+  statusChangedAt: timestamp("status_changed_at"),
+  statusChangedBy: varchar("status_changed_by"),
+  
+  // Contract reference
+  contractId: varchar("contract_id"),
+  
+  // Metadata
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_license_number").on(table.licenseNumber),
+  index("IDX_license_ownership").on(table.ownershipId),
+  index("IDX_license_licensee").on(table.licenseeId),
+  index("IDX_license_type").on(table.licenseType),
+  index("IDX_license_status").on(table.status),
+  index("IDX_license_expiry").on(table.expiryDate),
+]);
+
+export const insertFranchiseLicenseSchema = createInsertSchema(franchiseLicenses).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertFranchiseLicense = z.infer<typeof insertFranchiseLicenseSchema>;
+export type FranchiseLicense = typeof franchiseLicenses.$inferSelect;
+
+// ==================== LICENSE AUDIT LOG ====================
+// سجل مراجعة التراخيص
+
+export const licenseAuditLogs = pgTable("license_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  licenseId: varchar("license_id").references(() => franchiseLicenses.id, { onDelete: "cascade" }).notNull(),
+  
+  action: text("action").notNull(), // created, renewed, suspended, revoked, expired, updated
+  previousStatus: text("previous_status"),
+  newStatus: text("new_status"),
+  
+  performedBy: varchar("performed_by").references(() => users.id),
+  reason: text("reason"),
+  
+  // IP and session tracking
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  
+  details: jsonb("details").$type<Record<string, any>>(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_license_audit_license").on(table.licenseId),
+  index("IDX_license_audit_action").on(table.action),
+  index("IDX_license_audit_created").on(table.createdAt),
+]);
+
+export const insertLicenseAuditLogSchema = createInsertSchema(licenseAuditLogs).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertLicenseAuditLog = z.infer<typeof insertLicenseAuditLogSchema>;
+export type LicenseAuditLog = typeof licenseAuditLogs.$inferSelect;
+
+// ==================== BRANDING ASSETS ====================
+// أصول العلامة التجارية (مشفرة)
+
+export const brandingAssets = pgTable("branding_assets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Ownership reference
+  ownershipId: varchar("ownership_id").references(() => platformOwnerships.id, { onDelete: "cascade" }).notNull(),
+  
+  // Asset type
+  assetType: text("asset_type").notNull(), // logo, favicon, banner, colors, fonts, custom
+  assetName: text("asset_name").notNull(),
+  
+  // Content (encrypted)
+  content: text("content"), // Base64 encoded encrypted content
+  contentUrl: text("content_url"), // URL for large files
+  mimeType: text("mime_type"),
+  fileSize: integer("file_size"),
+  
+  // Encryption metadata
+  isEncrypted: boolean("is_encrypted").notNull().default(true),
+  encryptionKeyId: text("encryption_key_id"),
+  encryptionAlgorithm: text("encryption_algorithm").default("AES-256-GCM"),
+  
+  // Versioning
+  version: integer("version").notNull().default(1),
+  isActive: boolean("is_active").notNull().default(true),
+  
+  // Access control
+  accessLevel: text("access_level").notNull().default("owner"), // owner, licensee, public
+  
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_branding_ownership").on(table.ownershipId),
+  index("IDX_branding_type").on(table.assetType),
+  index("IDX_branding_active").on(table.isActive),
+]);
+
+export const insertBrandingAssetSchema = createInsertSchema(brandingAssets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertBrandingAsset = z.infer<typeof insertBrandingAssetSchema>;
+export type BrandingAsset = typeof brandingAssets.$inferSelect;
+
+// ==================== WHITE LABEL PROFILES ====================
+// ملفات العلامة البيضاء
+
+export const whiteLabelProfiles = pgTable("white_label_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // License reference
+  licenseId: varchar("license_id").references(() => franchiseLicenses.id, { onDelete: "cascade" }).notNull(),
+  
+  // Brand identity
+  brandName: text("brand_name").notNull(),
+  brandNameAr: text("brand_name_ar"),
+  tagline: text("tagline"),
+  taglineAr: text("tagline_ar"),
+  
+  // Colors (JSON format)
+  primaryColor: text("primary_color"),
+  secondaryColor: text("secondary_color"),
+  accentColor: text("accent_color"),
+  colorScheme: jsonb("color_scheme").$type<Record<string, string>>(),
+  
+  // Typography
+  primaryFont: text("primary_font"),
+  secondaryFont: text("secondary_font"),
+  
+  // Domain
+  customDomain: text("custom_domain"),
+  subDomain: text("sub_domain"),
+  
+  // Contact info
+  supportEmail: text("support_email"),
+  supportPhone: text("support_phone"),
+  
+  // Legal
+  companyName: text("company_name"),
+  companyNameAr: text("company_name_ar"),
+  registrationNumber: text("registration_number"),
+  
+  // Social links
+  socialLinks: jsonb("social_links").$type<Record<string, string>>(),
+  
+  // Custom settings
+  customSettings: jsonb("custom_settings").$type<Record<string, any>>(),
+  
+  // Status
+  isActive: boolean("is_active").notNull().default(true),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_whitelabel_license").on(table.licenseId),
+  index("IDX_whitelabel_domain").on(table.customDomain),
+  index("IDX_whitelabel_active").on(table.isActive),
+]);
+
+export const insertWhiteLabelProfileSchema = createInsertSchema(whiteLabelProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertWhiteLabelProfile = z.infer<typeof insertWhiteLabelProfileSchema>;
+export type WhiteLabelProfile = typeof whiteLabelProfiles.$inferSelect;
+
+// ==================== CONTRACT TEMPLATES ====================
+// قوالب العقود
+
+export const contractTemplates = pgTable("contract_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Template identification
+  templateCode: text("template_code").unique().notNull(),
+  nameEn: text("name_en").notNull(),
+  nameAr: text("name_ar").notNull(),
+  
+  // Type
+  contractType: text("contract_type").notNull(), // usage_rights, sale, franchise, white_label, reseller
+  
+  // Content
+  contentEn: text("content_en").notNull(),
+  contentAr: text("content_ar").notNull(),
+  
+  // Variables that can be replaced
+  variables: jsonb("variables").$type<string[]>(),
+  
+  // Required clauses
+  requiredClauses: jsonb("required_clauses").$type<string[]>(),
+  
+  // Status
+  isActive: boolean("is_active").notNull().default(true),
+  version: integer("version").notNull().default(1),
+  
+  // Legal review
+  legalReviewedBy: text("legal_reviewed_by"),
+  legalReviewedAt: timestamp("legal_reviewed_at"),
+  
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_template_code").on(table.templateCode),
+  index("IDX_template_type").on(table.contractType),
+  index("IDX_template_active").on(table.isActive),
+]);
+
+export const insertContractTemplateSchema = createInsertSchema(contractTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertContractTemplate = z.infer<typeof insertContractTemplateSchema>;
+export type ContractTemplate = typeof contractTemplates.$inferSelect;
+
+// ==================== LEGAL CLAUSES LIBRARY ====================
+// مكتبة البنود القانونية
+
+export const legalClauses = pgTable("legal_clauses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  clauseCode: text("clause_code").unique().notNull(),
+  nameEn: text("name_en").notNull(),
+  nameAr: text("name_ar").notNull(),
+  
+  // Category
+  category: text("category").notNull(), // protection, liability, termination, payment, confidentiality, ip, dispute
+  
+  // Content
+  contentEn: text("content_en").notNull(),
+  contentAr: text("content_ar").notNull(),
+  
+  // Applicability
+  applicableContractTypes: jsonb("applicable_contract_types").$type<string[]>(),
+  isMandatory: boolean("is_mandatory").notNull().default(false),
+  
+  // Variables
+  variables: jsonb("variables").$type<string[]>(),
+  
+  // Legal severity
+  severity: text("severity").default("standard"), // standard, important, critical
+  
+  isActive: boolean("is_active").notNull().default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_clause_code").on(table.clauseCode),
+  index("IDX_clause_category").on(table.category),
+  index("IDX_clause_mandatory").on(table.isMandatory),
+]);
+
+export const insertLegalClauseSchema = createInsertSchema(legalClauses).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertLegalClause = z.infer<typeof insertLegalClauseSchema>;
+export type LegalClause = typeof legalClauses.$inferSelect;
+
+// ==================== DIGITAL CONTRACTS ====================
+// العقود الرقمية
+
+export const digitalContracts = pgTable("digital_contracts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Contract identification
+  contractNumber: text("contract_number").unique().notNull(),
+  
+  // Type and template
+  contractType: text("contract_type").notNull(), // usage_rights, sale, franchise, white_label, reseller
+  templateId: varchar("template_id").references(() => contractTemplates.id),
+  
+  // Platform reference
+  ownershipId: varchar("ownership_id").references(() => platformOwnerships.id),
+  licenseId: varchar("license_id").references(() => franchiseLicenses.id),
+  
+  // Parties
+  sellerId: varchar("seller_id").references(() => users.id).notNull(),
+  buyerId: varchar("buyer_id").references(() => users.id).notNull(),
+  
+  // Title
+  titleEn: text("title_en").notNull(),
+  titleAr: text("title_ar").notNull(),
+  
+  // Content (encrypted)
+  contentEn: text("content_en").notNull(),
+  contentAr: text("content_ar").notNull(),
+  isEncrypted: boolean("is_encrypted").notNull().default(true),
+  
+  // Included clauses
+  includedClauses: jsonb("included_clauses").$type<string[]>(),
+  
+  // Terms
+  effectiveDate: timestamp("effective_date"),
+  expiryDate: timestamp("expiry_date"),
+  
+  // Financial terms
+  totalValue: real("total_value"),
+  currency: text("currency").default("SAR"),
+  paymentTerms: text("payment_terms"),
+  paymentSchedule: jsonb("payment_schedule").$type<Record<string, any>>(),
+  
+  // Owner protection clauses
+  ownerRetainsIP: boolean("owner_retains_ip").notNull().default(true),
+  nonCompetePeriodMonths: integer("non_compete_period_months"),
+  revenueSharePostSale: real("revenue_share_post_sale"), // Owner gets % even after sale
+  auditRights: boolean("audit_rights").notNull().default(true),
+  
+  // Usage rights specifics
+  usageSameName: boolean("usage_same_name").notNull().default(false),
+  usageDifferentName: boolean("usage_different_name").notNull().default(true),
+  usageModificationAllowed: boolean("usage_modification_allowed").notNull().default(false),
+  
+  // Status
+  status: text("status").notNull().default("draft"), // draft, pending_signature, active, terminated, expired, disputed
+  
+  // Workflow
+  sentForSignatureAt: timestamp("sent_for_signature_at"),
+  sellerSignedAt: timestamp("seller_signed_at"),
+  buyerSignedAt: timestamp("buyer_signed_at"),
+  activatedAt: timestamp("activated_at"),
+  terminatedAt: timestamp("terminated_at"),
+  terminationReason: text("termination_reason"),
+  
+  // Hash for integrity
+  contentHash: text("content_hash"),
+  
+  // Metadata
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_contract_number").on(table.contractNumber),
+  index("IDX_contract_type").on(table.contractType),
+  index("IDX_contract_seller").on(table.sellerId),
+  index("IDX_contract_buyer").on(table.buyerId),
+  index("IDX_contract_status").on(table.status),
+  index("IDX_contract_ownership").on(table.ownershipId),
+]);
+
+export const insertDigitalContractSchema = createInsertSchema(digitalContracts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertDigitalContract = z.infer<typeof insertDigitalContractSchema>;
+export type DigitalContract = typeof digitalContracts.$inferSelect;
+
+// ==================== CONTRACT SIGNATURES ====================
+// التوقيعات الرقمية
+
+export const contractSignatures = pgTable("contract_signatures", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  contractId: varchar("contract_id").references(() => digitalContracts.id, { onDelete: "cascade" }).notNull(),
+  
+  // Signer
+  signerId: varchar("signer_id").references(() => users.id).notNull(),
+  signerRole: text("signer_role").notNull(), // seller, buyer, witness, guarantor
+  
+  // Signature data
+  signatureType: text("signature_type").notNull(), // digital, electronic, typed
+  signatureData: text("signature_data"), // Encrypted signature image/data
+  signatureHash: text("signature_hash"),
+  
+  // Verification
+  verificationMethod: text("verification_method"), // otp, biometric, password, 2fa
+  verificationCode: text("verification_code"),
+  isVerified: boolean("is_verified").notNull().default(false),
+  verifiedAt: timestamp("verified_at"),
+  
+  // IP and device info
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  deviceFingerprint: text("device_fingerprint"),
+  geoLocation: text("geo_location"),
+  
+  // Legal acknowledgments
+  termsAccepted: boolean("terms_accepted").notNull().default(false),
+  disputeResolutionAccepted: boolean("dispute_resolution_accepted").notNull().default(false),
+  
+  signedAt: timestamp("signed_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_signature_contract").on(table.contractId),
+  index("IDX_signature_signer").on(table.signerId),
+  index("IDX_signature_verified").on(table.isVerified),
+]);
+
+export const insertContractSignatureSchema = createInsertSchema(contractSignatures).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertContractSignature = z.infer<typeof insertContractSignatureSchema>;
+export type ContractSignature = typeof contractSignatures.$inferSelect;
+
+// ==================== CONTRACT DISPUTES ====================
+// نزاعات العقود
+
+export const contractDisputes = pgTable("contract_disputes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  contractId: varchar("contract_id").references(() => digitalContracts.id, { onDelete: "cascade" }).notNull(),
+  
+  // Filing party
+  filedBy: varchar("filed_by").references(() => users.id).notNull(),
+  againstParty: varchar("against_party").references(() => users.id).notNull(),
+  
+  // Dispute details
+  disputeType: text("dispute_type").notNull(), // breach, non_payment, ip_violation, quality, other
+  titleEn: text("title_en").notNull(),
+  titleAr: text("title_ar").notNull(),
+  descriptionEn: text("description_en").notNull(),
+  descriptionAr: text("description_ar").notNull(),
+  
+  // Evidence
+  evidence: jsonb("evidence").$type<{type: string, url: string, description: string}[]>(),
+  
+  // Claimed damages
+  claimedAmount: real("claimed_amount"),
+  currency: text("currency").default("SAR"),
+  
+  // Resolution
+  status: text("status").notNull().default("open"), // open, under_review, mediation, resolved, escalated
+  resolutionType: text("resolution_type"), // agreement, arbitration, court, withdrawal
+  resolutionSummaryEn: text("resolution_summary_en"),
+  resolutionSummaryAr: text("resolution_summary_ar"),
+  resolvedAt: timestamp("resolved_at"),
+  
+  // Assigned handler
+  assignedTo: varchar("assigned_to").references(() => users.id),
+  
+  // Timeline
+  filedAt: timestamp("filed_at").defaultNow(),
+  respondByDate: timestamp("respond_by_date"),
+  lastActivityAt: timestamp("last_activity_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_dispute_contract").on(table.contractId),
+  index("IDX_dispute_filed_by").on(table.filedBy),
+  index("IDX_dispute_status").on(table.status),
+]);
+
+export const insertContractDisputeSchema = createInsertSchema(contractDisputes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertContractDispute = z.infer<typeof insertContractDisputeSchema>;
+export type ContractDispute = typeof contractDisputes.$inferSelect;
