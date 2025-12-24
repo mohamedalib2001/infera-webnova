@@ -218,6 +218,30 @@ export const platformIconsRegistry: PlatformIconConfig[] = [
       dark: "dark-bg.png"
     },
     usageContexts: ["web", "mobile", "desktop", "favicon", "store-listings"]
+  },
+  {
+    id: "infera-attend-ai",
+    name: "INFERA Attend AI™",
+    nameAr: "الحضور الذكي INFERA",
+    category: "operations-intelligence",
+    colors: {
+      primary: "#334155", // Dark Slate Gray
+      secondary: "#FACC15", // Signal Yellow
+      accent: "#FFFFFF"    // White
+    },
+    symbol: ["Time Node", "Location Pulse", "Controlled Signal Ring"],
+    symbolAr: ["عقدة زمنية", "نبض الموقع", "حلقة إشارة مُحكمة"],
+    meaning: "Time managed intelligently, without argument",
+    meaningAr: "الوقت مُدار بذكاء، بلا جدل",
+    iconPath: "/assets/icons/infera-attend-ai/",
+    variants: {
+      appIcon: "app-icon.png",
+      favicon: "favicon-32.png",
+      monochrome: "mono-icon.svg",
+      light: "light-bg.png",
+      dark: "dark-bg.png"
+    },
+    usageContexts: ["web", "mobile", "desktop", "favicon", "store-listings"]
   }
 ];
 
