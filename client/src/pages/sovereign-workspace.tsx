@@ -646,51 +646,94 @@ export default function SovereignWorkspacePage() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {projects.map((project) => {
                   const platformIcon = findPlatformIcon(project);
                   const FallbackIcon = platformTypeLabels[project.platformType]?.icon || Globe;
                   const gradientColors = platformIcon 
                     ? { from: platformIcon.colors.primary, to: platformIcon.colors.secondary }
                     : { from: '#0f172a', to: '#1e293b' };
+                  const isLive = project.deploymentStatus === "live" || project.deploymentStatus === "active" || project.deploymentStatus === "deployed";
+                  const typeInfo = platformTypeLabels[project.platformType as SovereignPlatformType] || platformTypeLabels.custom;
                   
                   return (
-                    <Card key={project.id} className="overflow-hidden hover-elevate" data-testid={`card-landing-${project.id}`}>
-                      <CardHeader 
-                        className="pb-3"
-                        style={{ background: `linear-gradient(to right, ${gradientColors.from}, ${gradientColors.to})` }}
+                    <Card key={project.id} className="overflow-hidden hover-elevate relative group" data-testid={`card-landing-${project.id}`}>
+                      {/* Live indicator */}
+                      {isLive && (
+                        <div className="absolute top-3 right-3 z-10">
+                          <span className="relative flex h-3 w-3">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500" />
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Gradient Header with Large Icon */}
+                      <div 
+                        className="relative h-32 flex items-center justify-center overflow-hidden"
+                        style={{ background: `linear-gradient(135deg, ${gradientColors.from}, ${gradientColors.to})` }}
                       >
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 rounded-md bg-white/10 flex items-center justify-center overflow-hidden">
-                            <FallbackIcon className="h-6 w-6 text-white" />
+                        <div className="absolute inset-0 bg-black/10" />
+                        <div className="relative z-10 flex flex-col items-center gap-2">
+                          <div className="w-16 h-16 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg border border-white/30">
+                            {platformIcon?.logoBase64 ? (
+                              <img 
+                                src={`data:image/png;base64,${platformIcon.logoBase64}`} 
+                                alt={project.name}
+                                className="w-10 h-10 object-contain"
+                              />
+                            ) : (
+                              <FallbackIcon className="h-8 w-8 text-white drop-shadow-lg" />
+                            )}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <CardTitle className="text-white text-sm truncate">{project.name}</CardTitle>
-                            <p className="text-white/60 text-xs truncate" dir="rtl">{project.nameAr}</p>
+                          <h3 className="text-white font-bold text-lg drop-shadow-md">{project.name}</h3>
+                        </div>
+                      </div>
+                      
+                      {/* Content Section */}
+                      <CardContent className="p-4 space-y-4">
+                        {/* Arabic Name & Description */}
+                        <div className="text-center pb-2 border-b border-border/50">
+                          <p className="text-sm text-muted-foreground font-medium" dir="rtl">{project.nameAr}</p>
+                          {project.description && (
+                            <p className="text-xs text-muted-foreground/80 mt-1 line-clamp-2">{project.description}</p>
+                          )}
+                        </div>
+                        
+                        {/* Info Grid */}
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                          <div className="space-y-1">
+                            <span className="text-muted-foreground block">Platform Code</span>
+                            <Badge variant="outline" className="text-xs font-mono">{project.code}</Badge>
+                          </div>
+                          <div className="space-y-1 text-right" dir="rtl">
+                            <span className="text-muted-foreground block">رمز المنصة</span>
+                            <Badge variant="outline" className="text-xs">{typeInfo.ar}</Badge>
                           </div>
                         </div>
-                      </CardHeader>
-                      <CardContent className="p-4">
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-muted-foreground">Platform Code | رمز المنصة:</span>
-                            <Badge variant="outline" className="text-xs">{project.code}</Badge>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-muted-foreground">Status | الحالة:</span>
-                            <Badge className={statusBadgeVariants[project.status]?.color || "bg-muted"}>
-                              {statusBadgeVariants[project.status]?.en || project.status} | {statusBadgeVariants[project.status]?.ar || project.status}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-muted-foreground">Landing Page | صفحة الهبوط:</span>
-                            <Badge variant={project.deploymentStatus === "deployed" ? "default" : "secondary"}>
-                              {project.deploymentStatus === "deployed" ? "Published | منشورة" : "Draft | مسودة"}
-                            </Badge>
-                          </div>
+                        
+                        {/* Status Badges */}
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <Badge 
+                            variant="secondary"
+                            className={cn(
+                              "text-xs",
+                              isLive && "!bg-green-500/20 !text-green-600 dark:!text-green-400"
+                            )}
+                          >
+                            {isLive ? "Live | مباشر" : "Draft | مسودة"}
+                          </Badge>
+                          <Badge 
+                            variant="secondary"
+                            className={statusBadgeVariants[project.status]?.color || "bg-muted"}
+                          >
+                            {statusBadgeVariants[project.status]?.en || project.status}
+                          </Badge>
                         </div>
                       </CardContent>
-                      <CardFooter className="pt-2 gap-2 border-t bg-muted/30">
+                      
+                      {/* Action Buttons */}
+                      <CardFooter className="p-3 gap-2 border-t bg-muted/30">
                         <Button 
                           variant="outline" 
                           size="sm" 
@@ -716,7 +759,7 @@ export default function SovereignWorkspacePage() {
                         </Button>
                         <Button 
                           variant={project.deploymentUrl ? "default" : "secondary"}
-                          size="sm"
+                          size="icon"
                           asChild={!!project.deploymentUrl}
                           disabled={!project.deploymentUrl}
                           data-testid={`button-view-landing-${project.id}`}
