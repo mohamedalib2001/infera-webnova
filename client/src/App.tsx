@@ -147,6 +147,7 @@ import PitchDeckJobsAI from "@/pages/pitch-deck-jobsai";
 import PitchDeckTrainAI from "@/pages/pitch-deck-trainai";
 import PitchDeckSovereignFinance from "@/pages/pitch-deck-sovereignfinance";
 import PitchDeckGlobalCloud from "@/pages/pitch-deck-globalcloud";
+import PitchDeckShieldGrid from "@/pages/pitch-deck-shieldgrid";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
@@ -225,6 +226,7 @@ function AuthenticatedRouter() {
       <Route path="/pitch-deck/trainai" component={PitchDeckTrainAI} />
       <Route path="/pitch-deck/sovereignfinance" component={PitchDeckSovereignFinance} />
       <Route path="/pitch-deck/globalcloud" component={PitchDeckGlobalCloud} />
+      <Route path="/pitch-deck/shieldgrid" component={PitchDeckShieldGrid} />
       <Route path="/auth" component={Auth} />
       <Route path="/builder" component={Builder} />
       <Route path="/builder/:id" component={Builder} />
