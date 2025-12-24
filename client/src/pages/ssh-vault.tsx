@@ -20,7 +20,7 @@ import {
   Key, Shield, Lock, Unlock, Plus, Eye, EyeOff, Copy, Trash2,
   Server, Clock, AlertTriangle, CheckCircle, XCircle, RefreshCw,
   Fingerprint, ShieldCheck, ShieldAlert, History, Terminal, Download,
-  Upload, Ban, Activity, Loader2, KeyRound, Database, Globe
+  Upload, Ban, Activity, Loader2, KeyRound, Database, Globe, ChevronRight
 } from "lucide-react";
 
 interface SSHKey {
@@ -78,6 +78,42 @@ export default function SSHVault() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
+
+  // Key generation terminal state
+  const [terminalOutput, setTerminalOutput] = useState<string[]>([
+    "╔══════════════════════════════════════════════════════════════╗",
+    "║          INFERA SSH Key Generation Terminal v2.0             ║",
+    "║              Sovereign Key Management System                 ║",
+    "╚══════════════════════════════════════════════════════════════╝",
+    "",
+    "Available key categories:",
+    "  • sovereign    - Root owner access keys (highest privilege)",
+    "  • production   - Production environment keys",
+    "  • development  - Development environment keys",
+    "  • deployment   - CI/CD and deployment keys",
+    "  • infrastructure - Infrastructure management keys",
+    "  • maintenance  - System maintenance keys",
+    "  • emergency    - Emergency access keys",
+    "",
+    "Type 'help' for available commands or select a category below.",
+    ""
+  ]);
+  const [terminalInput, setTerminalInput] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("deployment");
+  const [generatedKey, setGeneratedKey] = useState<{publicKey: string; privateKey: string; fingerprint: string} | null>(null);
+  const [keyName, setKeyName] = useState("");
+  const [keyDescription, setKeyDescription] = useState("");
+  const [savePassword, setSavePassword] = useState("");
+
+  const keyCategories = [
+    { id: "sovereign", label: "Sovereign", labelAr: "سيادي", icon: "👑", color: "text-amber-500", description: "Root owner access", descriptionAr: "وصول المالك الجذري" },
+    { id: "production", label: "Production", labelAr: "إنتاج", icon: "🚀", color: "text-green-500", description: "Production servers", descriptionAr: "سيرفرات الإنتاج" },
+    { id: "development", label: "Development", labelAr: "تطوير", icon: "💻", color: "text-blue-500", description: "Development environment", descriptionAr: "بيئة التطوير" },
+    { id: "deployment", label: "Deployment", labelAr: "نشر", icon: "📦", color: "text-purple-500", description: "CI/CD pipelines", descriptionAr: "خطوط CI/CD" },
+    { id: "infrastructure", label: "Infrastructure", labelAr: "بنية تحتية", icon: "🏗️", color: "text-orange-500", description: "Infrastructure management", descriptionAr: "إدارة البنية التحتية" },
+    { id: "maintenance", label: "Maintenance", labelAr: "صيانة", icon: "🔧", color: "text-slate-500", description: "System maintenance", descriptionAr: "صيانة النظام" },
+    { id: "emergency", label: "Emergency", labelAr: "طوارئ", icon: "🚨", color: "text-red-500", description: "Emergency access", descriptionAr: "وصول طوارئ" },
+  ];
 
   const [newKey, setNewKey] = useState({
     name: "",
@@ -303,6 +339,145 @@ export default function SSHVault() {
       });
     },
   });
+
+  const generateKeyMutation = useMutation({
+    mutationFn: async (data: { category: string; keyType: string; keyName: string }) => {
+      const res = await fetch("/api/vault/ssh/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-vault-session": sessionToken || "",
+        },
+        credentials: "include",
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to generate key");
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      setGeneratedKey({
+        publicKey: data.publicKey,
+        privateKey: data.privateKey,
+        fingerprint: data.fingerprint,
+      });
+      setTerminalOutput(prev => [
+        ...prev,
+        `[SUCCESS] SSH key pair generated successfully!`,
+        `Category: ${selectedCategory.toUpperCase()}`,
+        `Type: ED25519`,
+        `Fingerprint: ${data.fingerprint}`,
+        "",
+        "Public key ready for deployment. Private key displayed below.",
+        "IMPORTANT: Save the private key securely - it cannot be recovered!",
+        ""
+      ]);
+      toast({
+        title: isRtl ? "تم توليد المفتاح" : "Key Generated",
+        description: isRtl ? "تم توليد زوج مفاتيح SSH بنجاح" : "SSH key pair generated successfully",
+      });
+    },
+    onError: (error: any) => {
+      setTerminalOutput(prev => [
+        ...prev,
+        `[ERROR] Failed to generate key: ${error?.message || "Unknown error"}`,
+        ""
+      ]);
+      toast({
+        title: isRtl ? "فشل التوليد" : "Generation Failed",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const saveGeneratedKeyMutation = useMutation({
+    mutationFn: async () => {
+      if (!generatedKey) throw new Error("No key to save");
+      const res = await fetch("/api/vault/ssh/keys", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-vault-session": sessionToken || "",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          name: keyName,
+          description: keyDescription,
+          privateKey: generatedKey.privateKey,
+          publicKey: generatedKey.publicKey,
+          keyType: "ed25519",
+          tags: selectedCategory,
+          masterPassword: savePassword,
+          confirmMasterPassword: savePassword,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to save key");
+      return res.json();
+    },
+    onSuccess: () => {
+      setGeneratedKey(null);
+      setKeyName("");
+      setKeyDescription("");
+      setSavePassword("");
+      refetchKeys();
+      setTerminalOutput(prev => [
+        ...prev,
+        `[SUCCESS] Key "${keyName}" saved to vault with AES-256-GCM encryption`,
+        ""
+      ]);
+      toast({
+        title: isRtl ? "تم الحفظ" : "Key Saved",
+        description: isRtl ? "تم حفظ المفتاح في الخزنة" : "Key saved to vault",
+      });
+    },
+  });
+
+  const handleTerminalCommand = (command: string) => {
+    const cmd = command.trim().toLowerCase();
+    setTerminalOutput(prev => [...prev, `> ${command}`]);
+    
+    if (cmd === "help") {
+      setTerminalOutput(prev => [...prev,
+        "",
+        "Available commands:",
+        "  generate [category] - Generate a new SSH key pair",
+        "  list               - List saved keys",
+        "  clear              - Clear terminal",
+        "  categories         - Show all categories",
+        "  help               - Show this help",
+        ""
+      ]);
+    } else if (cmd === "clear") {
+      setTerminalOutput([]);
+    } else if (cmd === "categories") {
+      setTerminalOutput(prev => [...prev,
+        "",
+        "Key Categories:",
+        ...keyCategories.map(c => `  ${c.id.padEnd(15)} - ${c.description}`),
+        ""
+      ]);
+    } else if (cmd === "list") {
+      setTerminalOutput(prev => [...prev,
+        "",
+        `Found ${keys.length} keys in vault:`,
+        ...keys.map(k => `  [${k.isActive ? "ACTIVE" : "INACTIVE"}] ${k.name} (${k.keyType})`),
+        ""
+      ]);
+    } else if (cmd.startsWith("generate")) {
+      const parts = cmd.split(" ");
+      const category = parts[1] || selectedCategory;
+      setSelectedCategory(category);
+      setTerminalOutput(prev => [...prev,
+        "",
+        `Generating ${category.toUpperCase()} SSH key pair...`,
+        "Algorithm: ED25519 (recommended)",
+        ""
+      ]);
+      generateKeyMutation.mutate({ category, keyType: "ed25519", keyName: keyName || `${category}-key` });
+    } else {
+      setTerminalOutput(prev => [...prev, `Unknown command: ${cmd}. Type 'help' for available commands.`, ""]);
+    }
+    setTerminalInput("");
+  };
 
   const handleLock = () => {
     if (sessionToken) {
@@ -600,6 +775,10 @@ export default function SSHVault() {
               {isRtl ? "المفاتيح" : "Keys"}
               <Badge variant="secondary" className="text-xs">{keys.length}</Badge>
             </TabsTrigger>
+            <TabsTrigger value="generate" className="gap-2">
+              <Terminal className="w-4 h-4" />
+              {isRtl ? "توليد مفتاح" : "Generate Key"}
+            </TabsTrigger>
             <TabsTrigger value="audit" className="gap-2">
               <History className="w-4 h-4" />
               {isRtl ? "سجل التدقيق" : "Audit Log"}
@@ -689,6 +868,222 @@ export default function SSHVault() {
                   </Card>
                 ))}
               </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="generate" className="space-y-4">
+            <div className="grid gap-4 lg:grid-cols-2">
+              <Card className="lg:col-span-1">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Terminal className="w-5 h-5" />
+                    {isRtl ? "ترمينال توليد المفاتيح" : "Key Generation Terminal"}
+                  </CardTitle>
+                  <CardDescription>
+                    {isRtl ? "استخدم الأوامر أو الأزرار لتوليد مفاتيح SSH جديدة" : "Use commands or buttons to generate new SSH keys"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="bg-black rounded-lg p-4 font-mono text-sm text-green-400 h-[300px] overflow-hidden">
+                    <ScrollArea className="h-full">
+                      {terminalOutput.map((line, i) => (
+                        <div key={i} className="whitespace-pre-wrap">{line}</div>
+                      ))}
+                    </ScrollArea>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-green-500 font-mono">$</span>
+                    <Input
+                      value={terminalInput}
+                      onChange={(e) => setTerminalInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleTerminalCommand(terminalInput)}
+                      placeholder={isRtl ? "أدخل أمر..." : "Enter command..."}
+                      className="font-mono bg-muted/50"
+                      data-testid="input-terminal-command"
+                    />
+                    <Button 
+                      size="icon" 
+                      variant="outline"
+                      onClick={() => handleTerminalCommand(terminalInput)}
+                      data-testid="button-terminal-run"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="lg:col-span-1">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <KeyRound className="w-5 h-5" />
+                    {isRtl ? "فئات المفاتيح" : "Key Categories"}
+                  </CardTitle>
+                  <CardDescription>
+                    {isRtl ? "اختر نوع المفتاح المطلوب توليده" : "Select the type of key to generate"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {keyCategories.map((cat) => (
+                      <Button
+                        key={cat.id}
+                        variant={selectedCategory === cat.id ? "default" : "outline"}
+                        className="justify-start gap-2 h-auto py-3"
+                        onClick={() => {
+                          setSelectedCategory(cat.id);
+                          setTerminalOutput(prev => [...prev, `> Category selected: ${cat.id.toUpperCase()}`, ""]);
+                        }}
+                        data-testid={`button-category-${cat.id}`}
+                      >
+                        <span className={cat.color}>{cat.icon}</span>
+                        <div className="text-start">
+                          <div className="font-medium">{isRtl ? cat.labelAr : cat.label}</div>
+                          <div className="text-xs text-muted-foreground">{isRtl ? cat.descriptionAr : cat.description}</div>
+                        </div>
+                      </Button>
+                    ))}
+                  </div>
+                  
+                  <Separator className="my-4" />
+                  
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label>{isRtl ? "اسم المفتاح" : "Key Name"}</Label>
+                      <Input
+                        value={keyName}
+                        onChange={(e) => setKeyName(e.target.value)}
+                        placeholder={isRtl ? "مثال: deploy-key-hetzner" : "e.g., deploy-key-hetzner"}
+                        data-testid="input-generate-key-name"
+                      />
+                    </div>
+                    
+                    <Button 
+                      className="w-full gap-2"
+                      onClick={() => {
+                        setTerminalOutput(prev => [...prev, `> generate ${selectedCategory}`, ""]);
+                        generateKeyMutation.mutate({ 
+                          category: selectedCategory, 
+                          keyType: "ed25519", 
+                          keyName: keyName || `${selectedCategory}-key` 
+                        });
+                      }}
+                      disabled={generateKeyMutation.isPending}
+                      data-testid="button-generate-key"
+                    >
+                      {generateKeyMutation.isPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Key className="w-4 h-4" />
+                      )}
+                      {isRtl ? "توليد مفتاح جديد" : "Generate New Key"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {generatedKey && (
+              <Card className="border-green-500/30 bg-green-500/5">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center gap-2 text-green-600">
+                    <CheckCircle className="w-5 h-5" />
+                    {isRtl ? "تم توليد المفتاح بنجاح!" : "Key Generated Successfully!"}
+                  </CardTitle>
+                  <CardDescription>
+                    {isRtl ? "احفظ المفتاح الخاص بشكل آمن - لا يمكن استرجاعه لاحقاً" : "Save the private key securely - it cannot be recovered later"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>{isRtl ? "المفتاح العام (للسيرفر)" : "Public Key (for server)"}</Label>
+                      <Button size="sm" variant="ghost" onClick={() => copyToClipboard(generatedKey.publicKey)} data-testid="button-copy-public">
+                        <Copy className="w-3 h-3 mr-1" /> {isRtl ? "نسخ" : "Copy"}
+                      </Button>
+                    </div>
+                    <Textarea value={generatedKey.publicKey} readOnly className="font-mono text-xs h-20" />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>{isRtl ? "المفتاح الخاص (احفظه بأمان!)" : "Private Key (save securely!)"}</Label>
+                      <div className="flex gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => copyToClipboard(generatedKey.privateKey)} data-testid="button-copy-private">
+                          <Copy className="w-3 h-3 mr-1" /> {isRtl ? "نسخ" : "Copy"}
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => {
+                          const blob = new Blob([generatedKey.privateKey], { type: "text/plain" });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = `${keyName || selectedCategory}_private_key.pem`;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        }} data-testid="button-download-private">
+                          <Download className="w-3 h-3 mr-1" /> {isRtl ? "تنزيل" : "Download"}
+                        </Button>
+                      </div>
+                    </div>
+                    <Textarea value={generatedKey.privateKey} readOnly className="font-mono text-xs h-32" />
+                  </div>
+                  
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Fingerprint className="w-4 h-4" />
+                    <span className="font-mono">{generatedKey.fingerprint}</span>
+                  </div>
+                  
+                  <Separator />
+                  
+                  <div className="space-y-3">
+                    <h4 className="font-medium">{isRtl ? "حفظ في الخزنة" : "Save to Vault"}</h4>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>{isRtl ? "اسم المفتاح" : "Key Name"}</Label>
+                        <Input
+                          value={keyName}
+                          onChange={(e) => setKeyName(e.target.value)}
+                          placeholder={isRtl ? "سيرفر النشر" : "Deploy Server"}
+                          data-testid="input-save-key-name"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{isRtl ? "كلمة مرور التشفير" : "Encryption Password"}</Label>
+                        <Input
+                          type="password"
+                          value={savePassword}
+                          onChange={(e) => setSavePassword(e.target.value)}
+                          placeholder="********"
+                          data-testid="input-save-password"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{isRtl ? "الوصف" : "Description"}</Label>
+                      <Textarea
+                        value={keyDescription}
+                        onChange={(e) => setKeyDescription(e.target.value)}
+                        placeholder={isRtl ? "وصف اختياري للمفتاح..." : "Optional description..."}
+                        className="h-16"
+                        data-testid="input-save-description"
+                      />
+                    </div>
+                    <Button 
+                      className="w-full gap-2"
+                      onClick={() => saveGeneratedKeyMutation.mutate()}
+                      disabled={!keyName || !savePassword || saveGeneratedKeyMutation.isPending}
+                      data-testid="button-save-to-vault"
+                    >
+                      {saveGeneratedKeyMutation.isPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Database className="w-4 h-4" />
+                      )}
+                      {isRtl ? "حفظ في الخزنة المشفرة" : "Save to Encrypted Vault"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             )}
           </TabsContent>
 

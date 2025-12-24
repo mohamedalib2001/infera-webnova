@@ -565,4 +565,63 @@ router.get("/audit", requireSovereignRole, requireVaultSession, async (req, res)
   }
 });
 
+router.post("/generate", requireSovereignRole, requireVaultSession, async (req, res) => {
+  try {
+    const userId = (req.user as any).id;
+    const { category, keyType = "ed25519", keyName } = req.body;
+    
+    const validCategories = ["sovereign", "production", "development", "deployment", "infrastructure", "maintenance", "emergency"];
+    if (category && !validCategories.includes(category)) {
+      return res.status(400).json({ error: "Invalid key category" });
+    }
+    
+    const cryptoModule = await import("crypto");
+    const { generateKeyPairSync, createPublicKey } = cryptoModule;
+    
+    const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+    
+    const privateKeyPem = privateKey.export({ type: "pkcs8", format: "pem" }) as string;
+    
+    const publicKeyDer = publicKey.export({ type: "spki", format: "der" }) as Buffer;
+    const ed25519RawPublicKey = publicKeyDer.slice(-32);
+    
+    const keyTypeBuffer = Buffer.from([0, 0, 0, 11]);
+    const keyTypeString = Buffer.from("ssh-ed25519");
+    const keyLengthBuffer = Buffer.alloc(4);
+    keyLengthBuffer.writeUInt32BE(32, 0);
+    
+    const sshPublicKeyBlob = Buffer.concat([
+      keyTypeBuffer,
+      keyTypeString,
+      keyLengthBuffer,
+      ed25519RawPublicKey
+    ]);
+    
+    const sshPublicKeyBase64 = sshPublicKeyBlob.toString("base64");
+    const comment = `${keyName || category || "infera"}-key@infera-webnova`;
+    const sshPublicKey = `ssh-ed25519 ${sshPublicKeyBase64} ${comment}`;
+    
+    const fingerprint = generateFingerprint(sshPublicKeyBase64);
+    
+    await logVaultAction(userId, "generate_key", true, req, undefined, (req as any).vaultSession?.id);
+    
+    res.json({
+      success: true,
+      publicKey: sshPublicKey,
+      privateKey: privateKeyPem,
+      fingerprint,
+      category: category || "general",
+      keyType,
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Generate key error:", error);
+    const userId = (req.user as any)?.id;
+    if (userId) {
+      await logVaultAction(userId, "generate_key", false, req, undefined, (req as any).vaultSession?.id, (error as Error).message);
+    }
+    res.status(500).json({ error: "Failed to generate SSH key pair" });
+  }
+});
+
 export default router;
