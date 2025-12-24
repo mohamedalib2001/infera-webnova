@@ -66,8 +66,45 @@ interface GitHubRepo {
   forks_count: number;
   language?: string;
   updated_at: string;
+  created_at?: string;
   default_branch: string;
+  size?: number;
+  open_issues_count?: number;
+  pushed_at?: string;
 }
+
+const PulsingDot = ({ className = "" }: { className?: string }) => (
+  <span className={`relative flex h-2.5 w-2.5 ${className}`}>
+    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+  </span>
+);
+
+const getLanguageColor = (language: string | undefined) => {
+  const colors: Record<string, string> = {
+    TypeScript: "bg-blue-500",
+    JavaScript: "bg-yellow-400",
+    Python: "bg-green-500",
+    Java: "bg-orange-500",
+    Go: "bg-cyan-400",
+    Rust: "bg-orange-600",
+    PHP: "bg-purple-500",
+    Ruby: "bg-red-500",
+    CSS: "bg-pink-500",
+    HTML: "bg-orange-400",
+    Shell: "bg-green-600",
+    C: "bg-gray-500",
+    "C++": "bg-pink-600",
+    "C#": "bg-green-700",
+  };
+  return colors[language || ""] || "bg-primary";
+};
+
+const formatSize = (size: number | undefined) => {
+  if (!size) return "0 KB";
+  if (size < 1024) return `${size} KB`;
+  return `${(size / 1024).toFixed(1)} MB`;
+};
 
 interface GitHubBranch {
   name: string;
@@ -140,6 +177,14 @@ const translations = {
     settings: "Settings",
     visibility: "Visibility",
     repoCount: "repositories",
+    online: "Online",
+    synced: "Synced",
+    size: "Size",
+    issues: "Issues",
+    lastPush: "Last Push",
+    created: "Created",
+    repoDetails: "Repository Details",
+    statistics: "Statistics",
   },
   ar: {
     title: "مدير GitHub",
@@ -195,6 +240,14 @@ const translations = {
     settings: "الإعدادات",
     visibility: "الخصوصية",
     repoCount: "مستودع",
+    online: "متصل",
+    synced: "متزامن",
+    size: "الحجم",
+    issues: "المشاكل",
+    lastPush: "آخر دفع",
+    created: "تاريخ الإنشاء",
+    repoDetails: "تفاصيل المستودع",
+    statistics: "الإحصائيات",
   }
 };
 
@@ -607,17 +660,27 @@ export default function GitHubManager() {
                 {filteredRepos.map((repo) => (
                   <Card 
                     key={repo.id} 
-                    className={`cursor-pointer transition-colors hover-elevate ${selectedRepo?.id === repo.id ? 'ring-2 ring-primary' : ''}`}
+                    className={`cursor-pointer transition-all hover-elevate ${selectedRepo?.id === repo.id ? 'ring-2 ring-primary' : ''}`}
                     data-testid={`card-repo-${repo.id}`}
                   >
                     <CardContent className="p-4 space-y-3">
+                      {/* Header with Status */}
                       <div className="flex items-start justify-between gap-2">
                         <div 
                           className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer"
                           onClick={() => setSelectedRepo(repo)}
                         >
-                          <FileCode className="w-5 h-5 text-primary flex-shrink-0" />
-                          <span className="font-semibold truncate">{repo.name}</span>
+                          <div className="relative">
+                            <FileCode className="w-6 h-6 text-primary flex-shrink-0" />
+                            <PulsingDot className="absolute -top-0.5 -right-0.5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <span className="font-semibold truncate block">{repo.name}</span>
+                            <div className="flex items-center gap-1.5 text-xs text-green-500">
+                              <PulsingDot />
+                              <span>{t.online}</span>
+                            </div>
+                          </div>
                         </div>
                         <div className="flex items-center gap-1">
                           <Badge variant={repo.private ? "secondary" : "outline"} className="flex-shrink-0">
@@ -667,28 +730,79 @@ export default function GitHubManager() {
                           </DropdownMenu>
                         </div>
                       </div>
+
+                      {/* Description */}
                       {repo.description && (
                         <p className="text-sm text-muted-foreground line-clamp-2">{repo.description}</p>
                       )}
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        {repo.language && (
-                          <span className="flex items-center gap-1">
-                            <span className="w-2 h-2 rounded-full bg-primary" />
-                            {repo.language}
-                          </span>
-                        )}
-                        <span className="flex items-center gap-1">
-                          <Star className="w-3 h-3" />
-                          {repo.stargazers_count}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <GitFork className="w-3 h-3" />
-                          {repo.forks_count}
-                        </span>
+
+                      {/* Stats Row */}
+                      <div className="grid grid-cols-4 gap-2 py-2 px-3 bg-muted/30 rounded-lg">
+                        <div className="text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <Star className="w-3.5 h-3.5 text-yellow-500" />
+                            <span className="font-semibold text-sm">{repo.stargazers_count}</span>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground">{t.stars}</span>
+                        </div>
+                        <div className="text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <GitFork className="w-3.5 h-3.5 text-blue-500" />
+                            <span className="font-semibold text-sm">{repo.forks_count}</span>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground">{t.forks}</span>
+                        </div>
+                        <div className="text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <Eye className="w-3.5 h-3.5 text-green-500" />
+                            <span className="font-semibold text-sm">{repo.watchers_count}</span>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground">{t.watchers}</span>
+                        </div>
+                        <div className="text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <AlertTriangle className="w-3.5 h-3.5 text-orange-500" />
+                            <span className="font-semibold text-sm">{repo.open_issues_count || 0}</span>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground">{t.issues}</span>
+                        </div>
+                      </div>
+
+                      {/* Details Row */}
+                      <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground flex-wrap">
+                        <div className="flex items-center gap-3">
+                          {repo.language && (
+                            <span className="flex items-center gap-1">
+                              <span className={`w-2.5 h-2.5 rounded-full ${getLanguageColor(repo.language)}`} />
+                              <span className="font-medium">{repo.language}</span>
+                            </span>
+                          )}
+                          {repo.size && (
+                            <span className="flex items-center gap-1">
+                              <FolderOpen className="w-3 h-3" />
+                              {formatSize(repo.size)}
+                            </span>
+                          )}
+                        </div>
                         <span className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />
                           {formatDate(repo.updated_at)}
                         </span>
+                      </div>
+
+                      {/* Branch Info */}
+                      <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <GitBranch className="w-3.5 h-3.5 text-muted-foreground" />
+                          <span className="text-muted-foreground">{t.defaultBranch}:</span>
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                            {repo.default_branch}
+                          </Badge>
+                        </div>
+                        <Badge variant="outline" className="gap-1 text-green-600 border-green-200 dark:border-green-800">
+                          <CheckCircle className="w-3 h-3" />
+                          <span className="text-[10px]">{t.synced}</span>
+                        </Badge>
                       </div>
                     </CardContent>
                   </Card>
