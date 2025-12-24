@@ -145,6 +145,7 @@ import PitchDeckVisionFeasibility from "@/pages/pitch-deck-visionfeasibility";
 import PitchDeckCVBuilder from "@/pages/pitch-deck-cvbuilder";
 import PitchDeckJobsAI from "@/pages/pitch-deck-jobsai";
 import PitchDeckTrainAI from "@/pages/pitch-deck-trainai";
+import PitchDeckSovereignFinance from "@/pages/pitch-deck-sovereignfinance";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
@@ -221,6 +222,7 @@ function AuthenticatedRouter() {
       <Route path="/pitch-deck/cvbuilder" component={PitchDeckCVBuilder} />
       <Route path="/pitch-deck/jobsai" component={PitchDeckJobsAI} />
       <Route path="/pitch-deck/trainai" component={PitchDeckTrainAI} />
+      <Route path="/pitch-deck/sovereignfinance" component={PitchDeckSovereignFinance} />
       <Route path="/auth" component={Auth} />
       <Route path="/builder" component={Builder} />
       <Route path="/builder/:id" component={Builder} />
