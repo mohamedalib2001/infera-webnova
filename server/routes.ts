@@ -18,6 +18,7 @@ import marketplaceRoutes from "./marketplace-routes";
 import sslRoutes from "./ssl-routes";
 import sshVaultRoutes from "./ssh-vault-routes";
 import githubRoutes from "./github-routes";
+import sovereignPlansRoutes from "./sovereign-plans-routes";
 import { registerAppBuilderRoutes } from "./app-builder-routes";
 import { buildRoutes } from "./build-routes";
 import { registerEnterpriseServicesRoutes } from "./enterprise-services-routes";
@@ -17972,7 +17973,9 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
   // ==================== SSH VAULT - SOVEREIGN ENCRYPTED KEY MANAGEMENT ====================
   app.use("/api/vault/ssh", sshVaultRoutes);
   app.use("/api/github", githubRoutes);
+  app.use(sovereignPlansRoutes);
   console.log("SSH Vault routes registered | تم تسجيل مسارات خزنة SSH");
+  console.log("Sovereign Plans routes registered | تم تسجيل مسارات الخطط السيادية");
 
   // ==================== NAMECHEAP DOMAIN MANAGEMENT ====================
   // Must be registered BEFORE Custom Domains API to avoid route conflicts
