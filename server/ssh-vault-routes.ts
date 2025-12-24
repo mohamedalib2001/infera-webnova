@@ -274,16 +274,35 @@ router.post("/auth/verify-totp", requireSovereignRole, async (req, res) => {
       return res.status(401).json({ error: "Invalid TOTP code" });
     }
     
-    await db.update(vaultAccessSessions)
-      .set({ 
-        totpVerified: true,
-        totpVerifiedAt: new Date()
-      })
-      .where(eq(vaultAccessSessions.id, session[0].id));
+    // For OAuth users with 2FA, TOTP verification is enough - complete auth now
+    const isOAuthUser = user[0].authProvider && user[0].authProvider !== "email";
     
-    await logVaultAction(userId, "auth_totp", true, req, undefined, session[0].id);
-    
-    res.json({ nextStep: "email_code" });
+    if (isOAuthUser) {
+      // OAuth + TOTP is sufficient - mark as fully authenticated
+      await db.update(vaultAccessSessions)
+        .set({ 
+          totpVerified: true,
+          totpVerifiedAt: new Date(),
+          isFullyAuthenticated: true
+        })
+        .where(eq(vaultAccessSessions.id, session[0].id));
+      
+      await logVaultAction(userId, "vault_unlocked", true, req, undefined, session[0].id);
+      
+      res.json({ nextStep: "complete", accessGranted: true });
+    } else {
+      // Email users need additional email verification
+      await db.update(vaultAccessSessions)
+        .set({ 
+          totpVerified: true,
+          totpVerifiedAt: new Date()
+        })
+        .where(eq(vaultAccessSessions.id, session[0].id));
+      
+      await logVaultAction(userId, "auth_totp", true, req, undefined, session[0].id);
+      
+      res.json({ nextStep: "email_code" });
+    }
   } catch (error) {
     console.error("Vault TOTP verify error:", error);
     res.status(500).json({ error: "Verification failed" });

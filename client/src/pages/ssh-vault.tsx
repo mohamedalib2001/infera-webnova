@@ -221,9 +221,18 @@ export default function SSHVault() {
         totpCode: code,
       });
     },
-    onSuccess: () => {
-      setAuthStep("email_code");
+    onSuccess: (data: any) => {
       setTotpCode("");
+      // OAuth users with 2FA skip email verification
+      if (data?.accessGranted || data?.nextStep === "complete") {
+        setAuthStep("authenticated");
+        toast({
+          title: isRtl ? "تم فتح الخزنة" : "Vault Unlocked",
+          description: isRtl ? "يمكنك الآن إدارة مفاتيح SSH" : "You can now manage SSH keys",
+        });
+      } else {
+        setAuthStep("email_code");
+      }
     },
     onError: () => {
       toast({
