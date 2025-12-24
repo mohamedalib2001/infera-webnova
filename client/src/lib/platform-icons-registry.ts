@@ -101,6 +101,25 @@ export const platformIconsRegistry: PlatformIconConfig[] = [
   }
 ];
 
+export const iconArchiveRules = {
+  title: "Dynamic Archive Rules (Mandatory)",
+  titleAr: "قواعد الأرشفة الديناميكية (إلزامي)",
+  basePath: "/assets/icons/{platform-slug}/",
+  requiredFiles: [
+    { filename: "app-icon.png", description: "Main app icon (1024x1024)", descriptionAr: "أيقونة التطبيق الرئيسية" },
+    { filename: "favicon-32.png", description: "Favicon 32x32", descriptionAr: "أيقونة المتصفح 32×32" },
+    { filename: "favicon-16.png", description: "Favicon 16x16", descriptionAr: "أيقونة المتصفح 16×16" },
+    { filename: "tab-icon.svg", description: "Tab/browser icon SVG", descriptionAr: "أيقونة التبويب SVG" },
+    { filename: "mono-icon.svg", description: "Monochrome version SVG", descriptionAr: "النسخة أحادية اللون SVG" }
+  ],
+  autoLinkOnCreation: true,
+  rules: [
+    { rule: "Store each platform icon set under /assets/icons/{platform-slug}/", ruleAr: "تخزين كل مجموعة أيقونات تحت /assets/icons/{platform-slug}/" },
+    { rule: "Auto-link icons on platform creation", ruleAr: "ربط الأيقونات تلقائياً عند إنشاء المنصة" },
+    { rule: "All required files must be present before publish", ruleAr: "جميع الملفات المطلوبة يجب أن تكون موجودة قبل النشر" }
+  ]
+};
+
 export const iconUsageInstructions = {
   title: "Icon Usage Instructions",
   titleAr: "تعليمات استخدام الأيقونات",
