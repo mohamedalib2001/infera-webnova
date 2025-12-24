@@ -338,6 +338,30 @@ export const platformIconsRegistry: PlatformIconConfig[] = [
       dark: "dark-bg.png"
     },
     usageContexts: ["web", "mobile", "desktop", "favicon", "store-listings"]
+  },
+  {
+    id: "infera-jobs-ai",
+    name: "INFERA Jobs AI™",
+    nameAr: "التوظيف الذكي INFERA",
+    category: "recruitment-intelligence",
+    colors: {
+      primary: "#36454F", // Charcoal
+      secondary: "#0891B2", // Deep Cyan
+      accent: "#FFFFFF"    // White
+    },
+    symbol: ["Matching Nodes", "Talent Intelligence Grid", "Decision Alignment Symbol"],
+    symbolAr: ["عقد المطابقة", "شبكة ذكاء المواهب", "رمز محاذاة القرار"],
+    meaning: "The right job... without guessing",
+    meaningAr: "الوظيفة المناسبة… بلا تخمين",
+    iconPath: "/assets/icons/infera-jobs-ai/",
+    variants: {
+      appIcon: "app-icon.png",
+      favicon: "favicon-32.png",
+      monochrome: "mono-icon.svg",
+      light: "light-bg.png",
+      dark: "dark-bg.png"
+    },
+    usageContexts: ["web", "mobile", "desktop", "favicon", "store-listings"]
   }
 ];
 
