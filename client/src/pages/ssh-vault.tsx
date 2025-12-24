@@ -654,58 +654,34 @@ export default function SSHVault() {
                   <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm">3</div>
                 </div>
                 
-                {/* OAuth users with 2FA can skip password */}
-                {isOAuthUser && hasTOTP && !requiresPassword ? (
-                  <div className="text-center space-y-4">
-                    <div className="w-16 h-16 mx-auto rounded-full bg-green-500/10 flex items-center justify-center">
-                      <ShieldCheck className="w-8 h-8 text-green-500" />
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {isRtl 
-                        ? "أنت مسجل دخول عبر OAuth مع المصادقة الثنائية. يمكنك المتابعة مباشرة." 
-                        : "You're logged in via OAuth with 2FA enabled. You can proceed directly."}
-                    </p>
-                    <Button
-                      className="w-full"
-                      onClick={() => startAuthMutation.mutate("")}
-                      disabled={startAuthMutation.isPending}
-                      data-testid="button-oauth-continue"
-                    >
-                      {startAuthMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                      {isRtl ? "متابعة للمصادقة الثنائية" : "Continue to 2FA"}
-                    </Button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="space-y-2">
-                      <Label>{isRtl ? "كلمة مرور الحساب" : "Account Password"}</Label>
-                      <Input
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder={isRtl ? "أدخل كلمة المرور" : "Enter password"}
-                        data-testid="input-vault-password"
-                      />
-                    </div>
-                    <Button
-                      className="w-full"
-                      onClick={() => startAuthMutation.mutate(password)}
-                      disabled={!password || startAuthMutation.isPending}
-                      data-testid="button-verify-password"
-                    >
-                      {startAuthMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                      {isRtl ? "تحقق" : "Verify"}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="w-full text-sm text-muted-foreground"
-                      onClick={() => setShowPasswordUpdate(true)}
-                      data-testid="button-update-password-link"
-                    >
-                      {isRtl ? "تحديث كلمة المرور" : "Update Password"}
-                    </Button>
-                  </>
-                )}
+                {/* 3FA: Password always required (Factor 1) */}
+                <div className="space-y-2">
+                  <Label>{isRtl ? "كلمة مرور الحساب" : "Account Password"}</Label>
+                  <Input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={isRtl ? "أدخل كلمة المرور" : "Enter password"}
+                    data-testid="input-vault-password"
+                  />
+                </div>
+                <Button
+                  className="w-full"
+                  onClick={() => startAuthMutation.mutate(password)}
+                  disabled={!password || startAuthMutation.isPending}
+                  data-testid="button-verify-password"
+                >
+                  {startAuthMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                  {isRtl ? "تحقق" : "Verify"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full text-sm text-muted-foreground"
+                  onClick={() => setShowPasswordUpdate(true)}
+                  data-testid="button-update-password-link"
+                >
+                  {isRtl ? "تحديث كلمة المرور" : "Update Password"}
+                </Button>
               </div>
             )}
 
