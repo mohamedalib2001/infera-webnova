@@ -23,24 +23,33 @@ const router = Router();
 
 // ==================== MIDDLEWARE ====================
 
-// Check if user is authenticated
-const requireAuth = (req: Request, res: Response, next: NextFunction) => {
-  // Use the same pattern as other routes for consistent session handling
-  if (!req.isAuthenticated || !req.isAuthenticated() || !req.user) {
-    return res.status(401).json({ error: "Authentication required" });
+// Check if user is authenticated - using session-based auth like other routes
+const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
+  // Check session first (primary auth method in this app)
+  if (req.session?.userId && req.session?.user) {
+    (req as any).user = req.session.user;
+    return next();
   }
-  next();
+  
+  // Fallback to passport auth (Replit Auth)
+  if (req.isAuthenticated && req.isAuthenticated() && req.user) {
+    return next();
+  }
+  
+  return res.status(401).json({ error: "Authentication required" });
 };
 
 // Check if user has workspace access
 // INFERA WebNova uses a single Sovereign Workspace per deployment
 // User must either be the workspace owner or an active member
 const requireWorkspaceAccess = async (req: Request, res: Response, next: NextFunction) => {
-  if (!req.isAuthenticated || !req.isAuthenticated() || !req.user) {
+  // Get user from session or passport
+  const user = (req as any).user || req.session?.user;
+  if (!user) {
     return res.status(401).json({ error: "Authentication required" });
   }
 
-  const userId = req.user.id;
+  const userId = user.id;
   
   // First, check if user owns any workspace
   let [workspace] = await db
@@ -176,9 +185,10 @@ const logAction = async (
 
 // Get workspace info (or create if not exists)
 router.get("/workspace", requireAuth, async (req, res) => {
-  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+  const user = (req as any).user || req.session?.user;
+  if (!user) return res.status(401).json({ error: "Unauthorized" });
   
-  const userId = req.user.id;
+  const userId = user.id;
   
   // Check if workspace exists
   let [workspace] = await db.select().from(sovereignWorkspace).limit(1);
