@@ -120,6 +120,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     { title: language === "ar" ? "Hospitality AI™" : "Hospitality AI™", url: "/hospitality", icon: Hotel, testId: "nav-hospitality" },
     { title: language === "ar" ? "VisionFeasibility™" : "VisionFeasibility™", url: "/feasibility", icon: Eye, testId: "nav-feasibility" },
     { title: language === "ar" ? "CV Builder™" : "CV Builder™", url: "/cvbuilder", icon: FileUser, testId: "nav-cvbuilder" },
+    { title: language === "ar" ? "Jobs AI™" : "Jobs AI™", url: "/jobs", icon: Briefcase, testId: "nav-jobs" },
     { title: language === "ar" ? "وحدة التحكم" : "Console", url: "/console", icon: SquareTerminal, testId: "nav-console" },
     { title: language === "ar" ? "بيئة التطوير" : "Cloud IDE", url: "/ide", icon: Terminal, testId: "nav-cloud-ide" },
     { title: language === "ar" ? "منشئ التطبيقات" : "AI App Builder", url: "/ai-builder", icon: Sparkles, testId: "nav-ai-builder" },
