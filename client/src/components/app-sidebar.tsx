@@ -424,6 +424,14 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                       <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/owner/policies"}>
+                          <Link href="/owner/policies" data-testid="nav-owner-policies">
+                            <Gavel className="h-4 w-4 text-red-600" />
+                            <span>{language === "ar" ? "سياسات حساب المالك" : "Owner Policies"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
                         <SidebarMenuButton asChild isActive={location === "/owner/integrations"}>
                           <Link href="/owner/integrations" data-testid="nav-owner-integrations">
                             <Link2 className="h-4 w-4 text-orange-500" />
