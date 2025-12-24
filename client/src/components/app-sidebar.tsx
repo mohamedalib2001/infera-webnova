@@ -107,6 +107,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     { title: language === "ar" ? "Legal AI™" : "Legal AI™", url: "/legal", icon: Scale, testId: "nav-legal" },
     { title: language === "ar" ? "AppForge AI™" : "AppForge AI™", url: "/appforge", icon: Blocks, testId: "nav-appforge" },
     { title: language === "ar" ? "Marketing AI™" : "Marketing AI™", url: "/marketing", icon: Megaphone, testId: "nav-marketing" },
+    { title: language === "ar" ? "Marketplace AI™" : "Marketplace AI™", url: "/marketplace", icon: Store, testId: "nav-marketplace" },
     { title: language === "ar" ? "وحدة التحكم" : "Console", url: "/console", icon: SquareTerminal, testId: "nav-console" },
     { title: language === "ar" ? "بيئة التطوير" : "Cloud IDE", url: "/ide", icon: Terminal, testId: "nav-cloud-ide" },
     { title: language === "ar" ? "منشئ التطبيقات" : "AI App Builder", url: "/ai-builder", icon: Sparkles, testId: "nav-ai-builder" },
