@@ -183,6 +183,7 @@ import Refund from "@/pages/refund";
 import AIPolicy from "@/pages/ai-policy";
 import PerformancePolicy from "@/pages/performance-policy";
 import MultiAppPolicy from "@/pages/multi-app-policy";
+import VisualIdentity from "@/pages/visual-identity";
 import Contact from "@/pages/contact";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
@@ -298,6 +299,7 @@ function AuthenticatedRouter() {
       <Route path="/ai-policy" component={AIPolicy} />
       <Route path="/performance-policy" component={PerformancePolicy} />
       <Route path="/multi-app-policy" component={MultiAppPolicy} />
+      <Route path="/visual-identity" component={VisualIdentity} />
       <Route path="/contact" component={Contact} />
       <Route path="/auth" component={Auth} />
       <Route path="/builder" component={Builder} />
