@@ -171,6 +171,7 @@ import BoardDocuments from "@/pages/board-documents";
 import GovernmentPack from "@/pages/government-pack";
 import DocumentGovernance from "@/pages/document-governance";
 import LaunchSequencing from "@/pages/launch-sequencing";
+import StakeholderAccess from "@/pages/stakeholder-access";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
@@ -273,6 +274,7 @@ function AuthenticatedRouter() {
       <Route path="/government-pack" component={GovernmentPack} />
       <Route path="/document-governance" component={DocumentGovernance} />
       <Route path="/launch-sequencing" component={LaunchSequencing} />
+      <Route path="/stakeholder-access" component={StakeholderAccess} />
       <Route path="/auth" component={Auth} />
       <Route path="/builder" component={Builder} />
       <Route path="/builder/:id" component={Builder} />
