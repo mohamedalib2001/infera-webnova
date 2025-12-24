@@ -165,6 +165,7 @@ import TrustProof from "@/pages/trust-proof";
 import FounderNarrative from "@/pages/founder-narrative";
 import RedLineRules from "@/pages/red-line-rules";
 import TimeDominance from "@/pages/time-dominance";
+import CrisisPlaybook from "@/pages/crisis-playbook";
 import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
@@ -261,6 +262,7 @@ function AuthenticatedRouter() {
       <Route path="/founder-narrative" component={FounderNarrative} />
       <Route path="/red-line-rules" component={RedLineRules} />
       <Route path="/time-dominance" component={TimeDominance} />
+      <Route path="/crisis-playbook" component={CrisisPlaybook} />
       <Route path="/auth" component={Auth} />
       <Route path="/builder" component={Builder} />
       <Route path="/builder/:id" component={Builder} />
