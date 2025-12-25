@@ -87,6 +87,27 @@ import {
   Package,
   Search,
   X,
+  Bug,
+  Variable,
+  CircleDot,
+  FastForward,
+  SkipForward,
+  StepForward,
+  Pause,
+  Square,
+  History,
+  Bookmark,
+  Command,
+  MessageCircle,
+  BookOpen,
+  FileText,
+  Pencil,
+  FolderPlus,
+  FilePlus,
+  FolderOpen,
+  Trash2,
+  Move,
+  Clipboard,
 } from "lucide-react";
 
 interface SovereignConversation {
@@ -1065,6 +1086,12 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                       <TabsTrigger value="deploy" className="text-[10px] px-1" data-testid="tab-deploy" aria-label={isRtl ? "النشر" : "Deploy"}>
                         <Rocket className="h-3 w-3" />
                       </TabsTrigger>
+                      <TabsTrigger value="debugger" className="text-[10px] px-1" data-testid="tab-debugger" aria-label={isRtl ? "التصحيح" : "Debugger"}>
+                        <Bug className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="copilot" className="text-[10px] px-1" data-testid="tab-copilot" aria-label={isRtl ? "المساعد" : "Copilot"}>
+                        <Sparkles className="h-3 w-3" />
+                      </TabsTrigger>
                     </TabsList>
                   </div>
 
@@ -1368,11 +1395,46 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
 
                   <TabsContent value="files" className="flex-1 m-0 overflow-hidden">
                     <ScrollArea className="h-full p-2">
+                      {/* File Search */}
+                      <div className="flex gap-1 mb-3">
+                        <Input
+                          placeholder={isRtl ? "بحث عن ملف..." : "Search files..."}
+                          className="h-8 text-xs flex-1"
+                          data-testid="input-search-files"
+                        />
+                        <Button size="sm" variant="outline" className="h-8" data-testid="button-search-files">
+                          <Search className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+
+                      {/* File Actions */}
+                      <div className="flex items-center gap-1 mb-3">
+                        <Button size="sm" variant="outline" className="h-7 text-[10px] flex-1" data-testid="button-new-file">
+                          <FilePlus className="h-3 w-3 mr-1" />
+                          {isRtl ? "ملف" : "File"}
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-7 text-[10px] flex-1" data-testid="button-new-folder">
+                          <FolderPlus className="h-3 w-3 mr-1" />
+                          {isRtl ? "مجلد" : "Folder"}
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-7 text-[10px]" data-testid="button-refresh-files">
+                          <RefreshCw className="h-3 w-3" />
+                        </Button>
+                      </div>
+
+                      {/* File Tree */}
                       <div className="space-y-1">
-                        <div className="flex items-center gap-1 text-sm px-2 py-1">
-                          <ChevronDown className="h-4 w-4" />
-                          <Folder className="h-4 w-4 text-blue-400" />
-                          <span>sovereign-project</span>
+                        <div className="flex items-center justify-between gap-1 text-sm px-2 py-1 hover:bg-muted rounded group">
+                          <div className="flex items-center gap-1">
+                            <ChevronDown className="h-4 w-4" />
+                            <FolderOpen className="h-4 w-4 text-blue-400" />
+                            <span>sovereign-project</span>
+                          </div>
+                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button size="icon" variant="ghost" className="h-5 w-5" data-testid="button-folder-add">
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </div>
                         {codeFiles.map((file, idx) => (
                           <button
@@ -1381,15 +1443,47 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                               setActiveFileIndex(idx);
                               setActiveTab("code");
                             }}
-                            className={`w-full flex items-center gap-1 text-sm px-6 py-1 rounded hover:bg-muted ${
+                            className={`w-full flex items-center justify-between gap-1 text-sm px-6 py-1 rounded hover:bg-muted group ${
                               idx === activeFileIndex ? "bg-muted" : ""
                             }`}
+                            data-testid={`file-${file.name}`}
                           >
-                            {getFileIcon(file.language)}
-                            <span>{file.name}</span>
+                            <div className="flex items-center gap-1">
+                              {getFileIcon(file.language)}
+                              <span>{file.name}</span>
+                            </div>
+                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button size="icon" variant="ghost" className="h-5 w-5" data-testid={`button-rename-${file.name}`}>
+                                <Pencil className="h-2.5 w-2.5" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className="h-5 w-5" data-testid={`button-copy-${file.name}`}>
+                                <Copy className="h-2.5 w-2.5" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className="h-5 w-5" data-testid={`button-delete-${file.name}`}>
+                                <Trash2 className="h-2.5 w-2.5 text-red-400" />
+                              </Button>
+                            </div>
                           </button>
                         ))}
                       </div>
+
+                      {/* File Stats */}
+                      <Card className="mt-3 bg-gradient-to-br from-blue-500/10 to-transparent border-blue-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "إجمالي الملفات" : "Total Files"}</span>
+                            <span className="text-blue-400 font-medium">{codeFiles.length}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "إجمالي الأسطر" : "Total Lines"}</span>
+                            <span className="text-green-400 font-medium">2,458</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "الحجم" : "Size"}</span>
+                            <span className="text-cyan-400 font-medium">156 KB</span>
+                          </div>
+                        </CardContent>
+                      </Card>
                     </ScrollArea>
                   </TabsContent>
 
@@ -1495,6 +1589,93 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                             <Plus className="h-3 w-3 mr-1" />
                             {isRtl ? "إضافة دور" : "Add Role"}
                           </Button>
+                        </CardContent>
+                      </Card>
+
+                      {/* Interactive SQL Editor */}
+                      <Card className="mb-2 border-green-500/20">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Terminal className="h-3.5 w-3.5 text-green-400" />
+                            {isRtl ? "محرر SQL" : "SQL Editor"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-2">
+                          <Textarea 
+                            placeholder={isRtl ? "SELECT * FROM users WHERE..." : "SELECT * FROM users WHERE..."} 
+                            className="h-20 text-[10px] font-mono resize-none bg-muted/50" 
+                            data-testid="input-sql-query"
+                          />
+                          <div className="flex items-center gap-1">
+                            <Button size="sm" className="flex-1 h-7 text-[10px] bg-green-600 hover:bg-green-700" data-testid="button-run-sql">
+                              <Play className="h-3 w-3 mr-1" />
+                              {isRtl ? "تنفيذ" : "Run"}
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-7 text-[10px]" data-testid="button-format-sql">
+                              <Braces className="h-3 w-3" />
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-7 text-[10px]" data-testid="button-save-sql">
+                              <Bookmark className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* SQL Query Results Preview */}
+                      <Card className="mb-2 bg-muted/30">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <FileText className="h-3.5 w-3.5" />
+                            {isRtl ? "النتائج" : "Results"}
+                            <Badge variant="outline" className="text-[10px] h-4 ml-auto text-green-400">5 {isRtl ? "صفوف" : "rows"}</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-[9px] font-mono">
+                              <thead>
+                                <tr className="border-b border-muted">
+                                  <th className="text-left p-1 text-muted-foreground">id</th>
+                                  <th className="text-left p-1 text-muted-foreground">email</th>
+                                  <th className="text-left p-1 text-muted-foreground">role</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {[
+                                  { id: 1, email: "owner@infera.io", role: "owner" },
+                                  { id: 2, email: "admin@infera.io", role: "admin" },
+                                  { id: 3, email: "user@test.com", role: "user" },
+                                ].map((row) => (
+                                  <tr key={row.id} className="border-b border-muted/50">
+                                    <td className="p-1 text-cyan-400">{row.id}</td>
+                                    <td className="p-1">{row.email}</td>
+                                    <td className="p-1 text-violet-400">{row.role}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Saved Queries */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Bookmark className="h-3.5 w-3.5 text-amber-400" />
+                            {isRtl ? "استعلامات محفوظة" : "Saved Queries"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { name: isRtl ? "كل المستخدمين" : "All Users", query: "SELECT * FROM users" },
+                            { name: isRtl ? "المسؤولين النشطين" : "Active Admins", query: "SELECT * FROM users WHERE role='admin'" },
+                          ].map((q, i) => (
+                            <button key={i} className="w-full flex items-center justify-between p-1.5 rounded bg-muted/30 hover:bg-muted text-[10px] transition-colors" data-testid={`button-query-${i}`}>
+                              <span className="truncate">{q.name}</span>
+                              <Play className="h-3 w-3 text-green-400 shrink-0" />
+                            </button>
+                          ))}
                         </CardContent>
                       </Card>
 
@@ -2048,6 +2229,301 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                               <Badge variant="outline" className={`text-[9px] h-4 ${deploy.color}`}>{deploy.status}</Badge>
                             </div>
                           ))}
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Debugger Tab */}
+                  <TabsContent value="debugger" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      {/* Debugger Status */}
+                      <Card className="mb-2 bg-gradient-to-br from-red-500/10 to-transparent border-red-500/20">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-red-500/20">
+                              <Bug className="h-4 w-4 text-red-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "المصحح" : "Debugger"}</p>
+                              <p className="text-[10px] text-muted-foreground">{isRtl ? "جاهز للتصحيح" : "Ready to debug"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Debug Controls */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Play className="h-3.5 w-3.5 text-green-400" />
+                            {isRtl ? "التحكم" : "Controls"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0">
+                          <div className="flex items-center gap-1">
+                            <Button size="icon" variant="outline" className="h-7 w-7" data-testid="button-debug-start">
+                              <Play className="h-3 w-3 text-green-400" />
+                            </Button>
+                            <Button size="icon" variant="outline" className="h-7 w-7" data-testid="button-debug-pause">
+                              <Pause className="h-3 w-3 text-amber-400" />
+                            </Button>
+                            <Button size="icon" variant="outline" className="h-7 w-7" data-testid="button-debug-stop">
+                              <Square className="h-3 w-3 text-red-400" />
+                            </Button>
+                            <Button size="icon" variant="outline" className="h-7 w-7" data-testid="button-debug-step-over">
+                              <FastForward className="h-3 w-3 text-blue-400" />
+                            </Button>
+                            <Button size="icon" variant="outline" className="h-7 w-7" data-testid="button-debug-step-into">
+                              <StepForward className="h-3 w-3 text-violet-400" />
+                            </Button>
+                            <Button size="icon" variant="outline" className="h-7 w-7" data-testid="button-debug-step-out">
+                              <SkipForward className="h-3 w-3 text-cyan-400" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Breakpoints */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <CircleDot className="h-3.5 w-3.5 text-red-400" />
+                            {isRtl ? "نقاط التوقف" : "Breakpoints"}
+                            <Badge variant="outline" className="text-[10px] h-4 ml-auto">3</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { file: "index.ts", line: 42, enabled: true },
+                            { file: "routes.ts", line: 128, enabled: true },
+                            { file: "auth.ts", line: 56, enabled: false },
+                          ].map((bp, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px] group">
+                              <span className="flex items-center gap-2">
+                                <span className={`h-2 w-2 rounded-full ${bp.enabled ? "bg-red-400" : "bg-muted-foreground"}`} />
+                                <span className="truncate">{bp.file}</span>
+                              </span>
+                              <Badge variant="outline" className="text-[9px] h-4">{isRtl ? `سطر ${bp.line}` : `Line ${bp.line}`}</Badge>
+                            </div>
+                          ))}
+                          <Button size="sm" variant="ghost" className="w-full h-6 text-[10px]" data-testid="button-add-breakpoint">
+                            <Plus className="h-3 w-3 mr-1" />
+                            {isRtl ? "إضافة نقطة توقف" : "Add Breakpoint"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      {/* Variables */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Variable className="h-3.5 w-3.5 text-blue-400" />
+                            {isRtl ? "المتغيرات" : "Variables"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { name: "userId", value: "\"abc123\"", type: "string" },
+                            { name: "isActive", value: "true", type: "boolean" },
+                            { name: "count", value: "42", type: "number" },
+                            { name: "data", value: "{...}", type: "object" },
+                          ].map((v) => (
+                            <div key={v.name} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]">
+                              <span className="flex items-center gap-2">
+                                <span className="text-blue-400 font-mono">{v.name}</span>
+                              </span>
+                              <span className="flex items-center gap-2">
+                                <span className="text-muted-foreground font-mono">{v.value}</span>
+                                <Badge variant="outline" className="text-[9px] h-4">{v.type}</Badge>
+                              </span>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Call Stack */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Layers className="h-3.5 w-3.5 text-violet-400" />
+                            {isRtl ? "مكدس الاستدعاء" : "Call Stack"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { func: "handleRequest", file: "routes.ts:128" },
+                            { func: "authenticate", file: "auth.ts:56" },
+                            { func: "validateToken", file: "jwt.ts:23" },
+                          ].map((frame, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]">
+                              <span className="text-violet-400 font-mono">{frame.func}()</span>
+                              <span className="text-muted-foreground">{frame.file}</span>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Watch Expressions */}
+                      <Card>
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Eye className="h-3.5 w-3.5 text-amber-400" />
+                            {isRtl ? "المراقبة" : "Watch"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1.5">
+                          <div className="flex items-center gap-1">
+                            <Input placeholder={isRtl ? "تعبير للمراقبة..." : "Expression to watch..."} className="h-7 text-[10px] flex-1" data-testid="input-watch-expression" />
+                            <Button size="sm" variant="outline" className="h-7" data-testid="button-add-watch">
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          {[
+                            { expr: "user.email", value: "\"test@example.com\"" },
+                            { expr: "items.length", value: "5" },
+                          ].map((w, i) => (
+                            <div key={w.expr} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px] group" data-testid={`watch-expression-${i}`}>
+                              <span className="text-amber-400 font-mono">{w.expr}</span>
+                              <div className="flex items-center gap-1">
+                                <span className="text-muted-foreground font-mono">{w.value}</span>
+                                <Button size="icon" variant="ghost" className="h-5 w-5 opacity-0 group-hover:opacity-100" data-testid={`button-remove-watch-${i}`}>
+                                  <X className="h-3 w-3 text-red-400" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* AI Copilot Tab */}
+                  <TabsContent value="copilot" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      {/* Copilot Status */}
+                      <Card className="mb-2 bg-gradient-to-br from-violet-500/20 via-pink-500/10 to-transparent border-violet-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-violet-500/20">
+                              <Sparkles className="h-4 w-4 text-violet-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "المساعد الذكي" : "AI Copilot"}</p>
+                              <p className="text-[10px] text-green-400">{isRtl ? "نشط ومستعد" : "Active & Ready"}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px]">
+                            <Badge variant="outline" className="text-[9px] h-4 text-violet-400">Claude 4.5</Badge>
+                            <span className="text-muted-foreground">&lt;0.001s</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Quick AI Actions */}
+                      <div className="grid grid-cols-2 gap-1.5 mb-3">
+                        <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-ai-complete">
+                          <Command className="h-4 w-4 text-violet-400" />
+                          {isRtl ? "إكمال" : "Complete"}
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-ai-explain">
+                          <BookOpen className="h-4 w-4 text-blue-400" />
+                          {isRtl ? "شرح" : "Explain"}
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-ai-refactor">
+                          <Pencil className="h-4 w-4 text-green-400" />
+                          {isRtl ? "إعادة هيكلة" : "Refactor"}
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-ai-fix">
+                          <Wand2 className="h-4 w-4 text-amber-400" />
+                          {isRtl ? "إصلاح" : "Fix"}
+                        </Button>
+                      </div>
+
+                      {/* Code Suggestions */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Lightbulb className="h-3.5 w-3.5 text-amber-400" />
+                            {isRtl ? "اقتراحات الكود" : "Code Suggestions"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1.5">
+                          {[
+                            { title: isRtl ? "تحسين الأداء" : "Optimize loop", desc: isRtl ? "استخدم map بدلاً من forEach" : "Use map instead of forEach", icon: Zap },
+                            { title: isRtl ? "إضافة معالجة الأخطاء" : "Add error handling", desc: isRtl ? "try/catch مفقود" : "Missing try/catch block", icon: Shield },
+                            { title: isRtl ? "تحسين النوع" : "Improve typing", desc: isRtl ? "أنواع TypeScript أفضل" : "Better TypeScript types", icon: Braces },
+                          ].map((s, i) => (
+                            <button key={i} className="w-full flex items-start gap-2 p-2 rounded bg-muted/30 hover:bg-muted text-left transition-colors" data-testid={`button-suggestion-${i}`}>
+                              <s.icon className="h-3.5 w-3.5 text-violet-400 mt-0.5 shrink-0" />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[10px] font-medium truncate">{s.title}</p>
+                                <p className="text-[9px] text-muted-foreground truncate">{s.desc}</p>
+                              </div>
+                              <Check className="h-3 w-3 text-muted-foreground shrink-0" />
+                            </button>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* AI Chat */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <MessageCircle className="h-3.5 w-3.5 text-blue-400" />
+                            {isRtl ? "محادثة سريعة" : "Quick Chat"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-2">
+                          <Textarea 
+                            placeholder={isRtl ? "اسأل عن أي شيء..." : "Ask anything..."} 
+                            className="h-16 text-[10px] resize-none" 
+                            data-testid="input-copilot-chat"
+                          />
+                          <Button size="sm" className="w-full text-xs" data-testid="button-copilot-send">
+                            <Send className="h-3 w-3 mr-1" />
+                            {isRtl ? "إرسال" : "Send"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      {/* AI History */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <History className="h-3.5 w-3.5 text-cyan-400" />
+                            {isRtl ? "السجل" : "History"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { query: isRtl ? "أنشئ API للمستخدمين" : "Create user API", time: "2m" },
+                            { query: isRtl ? "أضف المصادقة" : "Add authentication", time: "15m" },
+                            { query: isRtl ? "حسّن قاعدة البيانات" : "Optimize database", time: "1h" },
+                          ].map((h, i) => (
+                            <button key={i} className="w-full flex items-center justify-between p-1.5 rounded bg-muted/30 hover:bg-muted text-[10px] transition-colors" data-testid={`button-history-${i}`}>
+                              <span className="truncate flex-1 text-left">{h.query}</span>
+                              <span className="text-muted-foreground shrink-0">{h.time}</span>
+                            </button>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* AI Stats */}
+                      <Card className="bg-gradient-to-br from-violet-500/10 to-transparent border-violet-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "الطلبات اليوم" : "Requests Today"}</span>
+                            <span className="text-violet-400 font-medium">127</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "الأسطر المولدة" : "Lines Generated"}</span>
+                            <span className="text-green-400 font-medium">2,458</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "الوقت الموفر" : "Time Saved"}</span>
+                            <span className="text-cyan-400 font-medium">4.5h</span>
+                          </div>
                         </CardContent>
                       </Card>
                     </ScrollArea>
