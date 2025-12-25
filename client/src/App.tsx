@@ -11,6 +11,7 @@ import { LanguageProvider, useLanguage } from "@/hooks/use-language";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { GuestSidebar } from "@/components/guest-sidebar";
+import { InspectorProvider, InspectorToggle } from "@/components/owner-inspector";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Bell } from "lucide-react";
@@ -470,6 +471,7 @@ function AppContent() {
 
   return (
     <WorkspaceProvider authUser={user} initialRtl={isRtl}>
+    <InspectorProvider>
     <div dir={isRtl ? "rtl" : "ltr"}>
       <SidebarProvider style={style as React.CSSProperties}>
         <div className="flex h-screen w-full">
@@ -488,6 +490,7 @@ function AppContent() {
                 <AIProviderTopbar />
                 <NovaAssistantMenu />
                 <SovereignHeaderButton />
+                <InspectorToggle />
                 <NotificationBell />
                 <LanguageToggle />
                 <ThemeToggle />
@@ -537,6 +540,7 @@ function AppContent() {
       {/* Real Performance Tracking - تتبع الأداء الحقيقي */}
       <PerformanceTracker />
     </div>
+    </InspectorProvider>
     </WorkspaceProvider>
   );
 }
