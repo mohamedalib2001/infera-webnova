@@ -634,9 +634,8 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
   const { isRtl } = useLanguage();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  // WebSocket AI connection - defer until chat tab is active for faster initial load
-  const [wsEnabled, setWsEnabled] = useState(false);
-  const aiWs = useAIWebSocket(wsEnabled);
+  // WebSocket AI connection - connect immediately for chat functionality
+  const aiWs = useAIWebSocket(true);
   
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState("");
@@ -665,12 +664,6 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
   const [activeTab, setActiveTab] = useState<"chat" | "code" | "preview" | "terminal">("code");
   const [bottomTab, setBottomTab] = useState<"terminal" | "problems" | "output">("terminal");
   
-  // Enable WebSocket when user switches to chat tab
-  useEffect(() => {
-    if (activeTab === "chat" && !wsEnabled) {
-      setWsEnabled(true);
-    }
-  }, [activeTab, wsEnabled]);
   const [rightTab, setRightTab] = useState<"tools" | "files" | "database" | "backend" | "packages" | "testing" | "git" | "deploy" | "debugger" | "copilot" | "compliance" | "tenants" | "rules" | "observability" | "marketplace" | "billing" | "ai-arch" | "export" | "env" | "team" | "api-test" | "cron" | "webhooks" | "profiler" | "notifications" | "settings" | "templates" | "docs" | "deps" | "formatter" | "migrations" | "logs" | "analytics" | "vault" | "schema" | "routes" | "commands" | "governor" | "collab" | "api-docs" | "code-review" | "plugins" | "mobile" | "security" | "benchmarks" | "template-gen" | "erd" | "ai-review" | "kubernetes" | "docker" | "microservices" | "distributed-db" | "ai-ml" | "blockchain" | "event-driven" | "api-gateway" | "cloud-infra" | "permissions">("tools");
   
   const [showSidebar, setShowSidebar] = useState(false);
