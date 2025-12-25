@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { 
   Download, 
   Eye, 
@@ -15,7 +16,6 @@ import {
   Shield, 
   Hexagon, 
   Circle, 
-  Triangle,
   Layers,
   Cpu,
   Network,
@@ -24,12 +24,23 @@ import {
   Palette,
   CheckCircle2,
   XCircle,
-  AlertTriangle,
   Crown,
   Link2,
   Zap,
   Target,
-  Lock
+  Lock,
+  Brain,
+  Wand2,
+  Grid3X3,
+  LayoutGrid,
+  Star,
+  Copy,
+  Save,
+  Settings2,
+  Lightbulb,
+  TrendingUp,
+  Box,
+  Gem
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -40,554 +51,169 @@ import {
   type PlatformLogoState
 } from "@/lib/logo-binding-engine";
 import { useLogoSyncDialog, LogoSyncResultDialog } from "@/components/logo-sync-result-dialog";
-import { AIShapeRecommendations } from "@/components/ai-shape-recommendations";
-import { 
-  type ShapeCategory, 
-  type ShapeRecommendation,
-  saveShapeSelection 
-} from "@/lib/ai-shape-recommendation-engine";
+import {
+  composeAdvancedSVG,
+  createIconComposition,
+  ICON_CATEGORIES,
+  ICON_STYLES,
+  SOVEREIGN_COLORS,
+  type IconCategory,
+  type IconStyle,
+  type IconComposition
+} from "@/lib/ai-icon-composer";
 
-// =====================================================================
-// INFERA SOVEREIGN VISUAL IDENTITY & ICONOGRAPHY MANDATORY FRAMEWORK
-// This factory generates icons following strict governance rules
-// =====================================================================
+type ColorKey = keyof typeof SOVEREIGN_COLORS.primary;
 
-// SOVEREIGN PALETTE - Mandatory Colors
-const SOVEREIGN_PALETTE = {
-  backgrounds: {
-    obsidianBlack: "#0A0A0A",
-    deepSpaceGradient: ["#050510", "#0A0A1A"],
-    darkGraphite: "#121218"
-  },
-  accents: {
-    quantumPurple: { name: "Quantum Purple", nameAr: "بنفسجي كوانتم", hex: "#8B5CF6" },
-    neuralCyan: { name: "Neural Cyan", nameAr: "سماوي عصبي", hex: "#22D3EE" },
-    sovereignBlue: { name: "Sovereign Blue", nameAr: "أزرق سيادي", hex: "#3B82F6" },
-    signalGold: { name: "Signal Gold", nameAr: "ذهبي إشارة", hex: "#F59E0B" },
-    deepEmerald: { name: "Deep Emerald", nameAr: "زمردي عميق", hex: "#10B981" }
-  },
-  highlights: {
-    softWhite: "#F5F5F5",
-    silverGray: "#9CA3AF"
-  }
-};
-
-// Icon Categories with differentiation rules
-const ICON_CATEGORIES = {
-  coreSystem: {
-    name: "Core System Icons",
-    nameAr: "أيقونات النظام الأساسي",
-    description: "Deepest, most minimal. Strong central core. Almost monolithic.",
-    descriptionAr: "أعمق وأبسط. نواة مركزية قوية. أحادي تقريباً.",
-    visualWeight: "maximum",
-    complexity: "minimal"
-  },
-  platform: {
-    name: "Platform Icons",
-    nameAr: "أيقونات المنصات",
-    description: "Abstract representation of function. Still sovereign, slightly expressive.",
-    descriptionAr: "تمثيل مجرد للوظيفة. سيادي مع تعبير خفيف.",
-    visualWeight: "high",
-    complexity: "moderate"
-  },
-  aiModel: {
-    name: "AI Model Icons",
-    nameAr: "أيقونات نماذج الذكاء",
-    description: "Intelligence cores only. No UI metaphors. Feels behind the curtain.",
-    descriptionAr: "نوى ذكاء فقط. بدون استعارات واجهة. شعور خلف الستار.",
-    visualWeight: "high",
-    complexity: "abstract"
-  },
-  feature: {
-    name: "Feature Icons",
-    nameAr: "أيقونات الميزات",
-    description: "Simplified. Lower visual weight. Still aligned with core system.",
-    descriptionAr: "مبسطة. وزن بصري أقل. متوافقة مع النظام الأساسي.",
-    visualWeight: "medium",
-    complexity: "simplified"
-  },
-  digitalSeal: {
-    name: "Digital Seals",
-    nameAr: "الأختام الرقمية",
-    description: "Official platform seals. Circular or hexagonal. Represents authenticity and authority.",
-    descriptionAr: "أختام رسمية للمنصات. دائرية أو سداسية. تمثل الأصالة والسلطة.",
-    visualWeight: "maximum",
-    complexity: "ceremonial"
-  }
-};
-
-// Design Patterns for each category
-const DESIGN_PATTERNS = {
-  intelligenceCore: { name: "Intelligence Core", nameAr: "نواة الذكاء", icon: Cpu },
-  neuralField: { name: "Neural Field", nameAr: "حقل عصبي", icon: Network },
-  controlRing: { name: "Control Ring", nameAr: "حلقة التحكم", icon: Circle },
-  sovereignShield: { name: "Sovereign Shield", nameAr: "درع السيادة", icon: Shield },
-  hexagonalCore: { name: "Hexagonal Core", nameAr: "نواة سداسية", icon: Hexagon },
-  layeredDepth: { name: "Layered Depth", nameAr: "عمق متعدد الطبقات", icon: Layers },
-  quantumGrid: { name: "Quantum Grid", nameAr: "شبكة كوانتم", icon: Sparkles }
-};
-
-type CategoryKey = keyof typeof ICON_CATEGORIES;
-type AccentKey = keyof typeof SOVEREIGN_PALETTE.accents;
-type PatternKey = keyof typeof DESIGN_PATTERNS;
-
-interface GeneratedIcon {
-  svg: string;
-  category: CategoryKey;
-  accent: AccentKey;
-  pattern: PatternKey;
-  name: string;
-  timestamp: number;
+interface AIRecommendation {
+  style: IconStyle;
+  color: ColorKey;
+  score: number;
+  reason: string;
+  reasonAr: string;
 }
 
-// SVG Generator following MANDATORY RULES
-function generateSovereignSVG(
-  category: CategoryKey,
-  accent: AccentKey,
-  pattern: PatternKey,
-  size: number = 512,
-  platformName: string = "infera"
-): string {
-  const accentColor = SOVEREIGN_PALETTE.accents[accent].hex;
-  const bg = SOVEREIGN_PALETTE.backgrounds;
-  const highlights = SOVEREIGN_PALETTE.highlights;
+function generateAIRecommendations(category: IconCategory): AIRecommendation[] {
+  const recommendations: AIRecommendation[] = [];
   
-  // Visual weight based on category
-  const categoryConfig = ICON_CATEGORIES[category];
-  const strokeWidth = categoryConfig.visualWeight === 'maximum' ? size * 0.015 : 
-                      categoryConfig.visualWeight === 'high' ? size * 0.012 : size * 0.008;
-  
-  // Core opacity based on complexity
-  const coreOpacity = categoryConfig.complexity === 'minimal' ? 0.95 :
-                      categoryConfig.complexity === 'abstract' ? 0.85 : 0.75;
-  
-  // Generate pattern-specific elements
-  let patternElements = '';
-  const center = size / 2;
-  
-  switch(pattern) {
-    case 'intelligenceCore':
-      patternElements = `
-        <!-- Intelligence Core - Concentric rings with neural center -->
-        <circle cx="${center}" cy="${center}" r="${size * 0.32}" fill="none" stroke="${accentColor}" stroke-width="${strokeWidth}" opacity="${coreOpacity}"/>
-        <circle cx="${center}" cy="${center}" r="${size * 0.22}" fill="none" stroke="${accentColor}" stroke-width="${strokeWidth * 0.7}" opacity="${coreOpacity * 0.8}"/>
-        <circle cx="${center}" cy="${center}" r="${size * 0.12}" fill="${accentColor}" opacity="${coreOpacity * 0.9}"/>
-        <circle cx="${center}" cy="${center}" r="${size * 0.06}" fill="${bg.obsidianBlack}"/>
-        <circle cx="${center}" cy="${center}" r="${size * 0.025}" fill="${accentColor}"/>
-        <!-- Neural spokes -->
-        ${[0,60,120,180,240,300].map(angle => {
-          const rad = angle * Math.PI / 180;
-          const inner = size * 0.15;
-          const outer = size * 0.32;
-          return `<line x1="${center + Math.cos(rad) * inner}" y1="${center + Math.sin(rad) * inner}" 
-                        x2="${center + Math.cos(rad) * outer}" y2="${center + Math.sin(rad) * outer}" 
-                        stroke="${accentColor}" stroke-width="${strokeWidth * 0.5}" opacity="0.6"/>`;
-        }).join('')}
-      `;
-      break;
-      
-    case 'neuralField':
-      patternElements = `
-        <!-- Neural Field - Distributed nodes with connections -->
-        <circle cx="${center}" cy="${center}" r="${size * 0.35}" fill="none" stroke="${accentColor}" stroke-width="${strokeWidth * 0.5}" opacity="0.3" stroke-dasharray="${size * 0.03} ${size * 0.02}"/>
-        <!-- Central node -->
-        <circle cx="${center}" cy="${center}" r="${size * 0.08}" fill="${accentColor}" opacity="${coreOpacity}"/>
-        <!-- Orbital nodes -->
-        ${[0,72,144,216,288].map((angle, i) => {
-          const rad = angle * Math.PI / 180;
-          const r = size * 0.25;
-          const nodeSize = size * 0.035;
-          return `
-            <circle cx="${center + Math.cos(rad) * r}" cy="${center + Math.sin(rad) * r}" r="${nodeSize}" fill="${accentColor}" opacity="${0.7 - i * 0.05}"/>
-            <line x1="${center}" y1="${center}" x2="${center + Math.cos(rad) * r}" y2="${center + Math.sin(rad) * r}" 
-                  stroke="${accentColor}" stroke-width="${strokeWidth * 0.4}" opacity="0.4"/>
-          `;
-        }).join('')}
-        <!-- Cross connections -->
-        ${[0,1,2].map(i => {
-          const a1 = (i * 72) * Math.PI / 180;
-          const a2 = ((i + 2) * 72) * Math.PI / 180;
-          const r = size * 0.25;
-          return `<line x1="${center + Math.cos(a1) * r}" y1="${center + Math.sin(a1) * r}" 
-                        x2="${center + Math.cos(a2) * r}" y2="${center + Math.sin(a2) * r}" 
-                        stroke="${accentColor}" stroke-width="${strokeWidth * 0.3}" opacity="0.25"/>`;
-        }).join('')}
-      `;
-      break;
-      
-    case 'controlRing':
-      patternElements = `
-        <!-- Control Ring - Authority ring with command center -->
-        <circle cx="${center}" cy="${center}" r="${size * 0.36}" fill="none" stroke="${accentColor}" stroke-width="${strokeWidth * 1.5}" opacity="${coreOpacity}"/>
-        <circle cx="${center}" cy="${center}" r="${size * 0.28}" fill="none" stroke="${accentColor}" stroke-width="${strokeWidth * 0.6}" opacity="0.5"/>
-        <!-- Command indicators -->
-        ${[0,90,180,270].map(angle => {
-          const rad = angle * Math.PI / 180;
-          const r = size * 0.36;
-          return `<circle cx="${center + Math.cos(rad) * r}" cy="${center + Math.sin(rad) * r}" r="${size * 0.025}" fill="${accentColor}"/>`;
-        }).join('')}
-        <!-- Central command -->
-        <rect x="${center - size * 0.08}" y="${center - size * 0.08}" width="${size * 0.16}" height="${size * 0.16}" 
-              rx="${size * 0.02}" fill="${accentColor}" opacity="${coreOpacity}"/>
-        <rect x="${center - size * 0.04}" y="${center - size * 0.04}" width="${size * 0.08}" height="${size * 0.08}" 
-              rx="${size * 0.01}" fill="${bg.obsidianBlack}"/>
-      `;
-      break;
-      
-    case 'sovereignShield':
-      patternElements = `
-        <!-- Sovereign Shield - Protective authority symbol -->
-        <path d="M${center} ${center - size * 0.35} 
-                 L${center + size * 0.28} ${center - size * 0.15} 
-                 L${center + size * 0.28} ${center + size * 0.1} 
-                 Q${center + size * 0.28} ${center + size * 0.35} ${center} ${center + size * 0.4}
-                 Q${center - size * 0.28} ${center + size * 0.35} ${center - size * 0.28} ${center + size * 0.1}
-                 L${center - size * 0.28} ${center - size * 0.15} Z" 
-              fill="none" stroke="${accentColor}" stroke-width="${strokeWidth * 1.2}" opacity="${coreOpacity}"/>
-        <!-- Inner shield -->
-        <path d="M${center} ${center - size * 0.22} 
-                 L${center + size * 0.16} ${center - size * 0.08} 
-                 L${center + size * 0.16} ${center + size * 0.05} 
-                 Q${center + size * 0.16} ${center + size * 0.2} ${center} ${center + size * 0.25}
-                 Q${center - size * 0.16} ${center + size * 0.2} ${center - size * 0.16} ${center + size * 0.05}
-                 L${center - size * 0.16} ${center - size * 0.08} Z" 
-              fill="${accentColor}" opacity="0.15"/>
-        <!-- Crown symbol -->
-        <circle cx="${center}" cy="${center - size * 0.02}" r="${size * 0.06}" fill="${accentColor}" opacity="${coreOpacity}"/>
-      `;
-      break;
-      
-    case 'hexagonalCore':
-      const hexPoints = (r: number) => [0,1,2,3,4,5].map(i => {
-        const angle = (i * 60 - 90) * Math.PI / 180;
-        return `${center + Math.cos(angle) * r},${center + Math.sin(angle) * r}`;
-      }).join(' ');
-      patternElements = `
-        <!-- Hexagonal Core - Structured sovereignty -->
-        <polygon points="${hexPoints(size * 0.36)}" fill="none" stroke="${accentColor}" stroke-width="${strokeWidth}" opacity="${coreOpacity}"/>
-        <polygon points="${hexPoints(size * 0.26)}" fill="none" stroke="${accentColor}" stroke-width="${strokeWidth * 0.7}" opacity="0.6"/>
-        <polygon points="${hexPoints(size * 0.16)}" fill="${accentColor}" opacity="0.2"/>
-        <!-- Center -->
-        <circle cx="${center}" cy="${center}" r="${size * 0.06}" fill="${accentColor}" opacity="${coreOpacity}"/>
-        <!-- Vertex indicators -->
-        ${[0,1,2,3,4,5].map(i => {
-          const angle = (i * 60 - 90) * Math.PI / 180;
-          const r = size * 0.36;
-          return `<circle cx="${center + Math.cos(angle) * r}" cy="${center + Math.sin(angle) * r}" r="${size * 0.018}" fill="${accentColor}" opacity="0.8"/>`;
-        }).join('')}
-      `;
-      break;
-      
-    case 'layeredDepth':
-      patternElements = `
-        <!-- Layered Depth - Multi-layer authority -->
-        <rect x="${center - size * 0.32}" y="${center - size * 0.32}" width="${size * 0.64}" height="${size * 0.64}" 
-              rx="${size * 0.08}" fill="none" stroke="${accentColor}" stroke-width="${strokeWidth}" opacity="0.4"/>
-        <rect x="${center - size * 0.24}" y="${center - size * 0.24}" width="${size * 0.48}" height="${size * 0.48}" 
-              rx="${size * 0.06}" fill="none" stroke="${accentColor}" stroke-width="${strokeWidth}" opacity="0.6"/>
-        <rect x="${center - size * 0.16}" y="${center - size * 0.16}" width="${size * 0.32}" height="${size * 0.32}" 
-              rx="${size * 0.04}" fill="${accentColor}" opacity="0.15" stroke="${accentColor}" stroke-width="${strokeWidth}" />
-        <rect x="${center - size * 0.08}" y="${center - size * 0.08}" width="${size * 0.16}" height="${size * 0.16}" 
-              rx="${size * 0.02}" fill="${accentColor}" opacity="${coreOpacity}"/>
-      `;
-      break;
-      
-    case 'quantumGrid':
-      patternElements = `
-        <!-- Quantum Grid - Intelligence matrix -->
-        <circle cx="${center}" cy="${center}" r="${size * 0.35}" fill="none" stroke="${accentColor}" stroke-width="${strokeWidth * 0.5}" opacity="0.3"/>
-        <!-- Grid lines -->
-        ${[-2,-1,0,1,2].map(i => `
-          <line x1="${center + i * size * 0.12}" y1="${center - size * 0.35}" 
-                x2="${center + i * size * 0.12}" y2="${center + size * 0.35}" 
-                stroke="${accentColor}" stroke-width="${strokeWidth * 0.3}" opacity="0.2"/>
-          <line x1="${center - size * 0.35}" y1="${center + i * size * 0.12}" 
-                x2="${center + size * 0.35}" y2="${center + i * size * 0.12}" 
-                stroke="${accentColor}" stroke-width="${strokeWidth * 0.3}" opacity="0.2"/>
-        `).join('')}
-        <!-- Quantum nodes -->
-        ${[-1,0,1].flatMap(x => [-1,0,1].map(y => {
-          if(x === 0 && y === 0) return '';
-          const opacity = 0.5 + Math.random() * 0.3;
-          return `<circle cx="${center + x * size * 0.12}" cy="${center + y * size * 0.12}" r="${size * 0.02}" fill="${accentColor}" opacity="${opacity}"/>`;
-        })).join('')}
-        <!-- Central quantum core -->
-        <circle cx="${center}" cy="${center}" r="${size * 0.08}" fill="${accentColor}" opacity="${coreOpacity}"/>
-        <circle cx="${center}" cy="${center}" r="${size * 0.04}" fill="${bg.obsidianBlack}"/>
-        <circle cx="${center}" cy="${center}" r="${size * 0.015}" fill="${accentColor}"/>
-      `;
-      break;
-  }
-  
-  // Special handling for Digital Seals
-  let sealFrame = '';
-  if (category === 'digitalSeal') {
-    sealFrame = `
-      <!-- Official Seal Frame -->
-      <circle cx="${center}" cy="${center}" r="${size * 0.44}" fill="none" stroke="${accentColor}" stroke-width="${strokeWidth * 2}" opacity="0.9"/>
-      <circle cx="${center}" cy="${center}" r="${size * 0.42}" fill="none" stroke="${highlights.silverGray}" stroke-width="${strokeWidth * 0.5}" opacity="0.4"/>
-      <!-- Seal authenticity ring -->
-      <circle cx="${center}" cy="${center}" r="${size * 0.46}" fill="none" stroke="${accentColor}" stroke-width="${strokeWidth * 0.3}" opacity="0.3" stroke-dasharray="${size * 0.015} ${size * 0.01}"/>
-    `;
-  }
-  
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <!-- Deep Space Gradient Background -->
-    <linearGradient id="bg-${platformName}" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="${bg.deepSpaceGradient[0]}"/>
-      <stop offset="100%" stop-color="${bg.deepSpaceGradient[1]}"/>
-    </linearGradient>
-    
-    <!-- Subtle accent glow -->
-    <radialGradient id="glow-${platformName}" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="${accentColor}" stop-opacity="0.15"/>
-      <stop offset="100%" stop-color="${accentColor}" stop-opacity="0"/>
-    </radialGradient>
-    
-    <!-- Sovereign filter -->
-    <filter id="sovereign-filter" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="2" result="blur"/>
-      <feFlood flood-color="${accentColor}" flood-opacity="0.15"/>
-      <feComposite in2="blur" operator="in"/>
-      <feMerge>
-        <feMergeNode/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-  </defs>
-  
-  <!-- Base Background - Obsidian/Deep Space -->
-  <rect width="${size}" height="${size}" rx="${size * 0.15}" fill="url(#bg-${platformName})"/>
-  
-  <!-- Subtle corner accent -->
-  <circle cx="${size * 0.85}" cy="${size * 0.15}" r="${size * 0.02}" fill="${accentColor}" opacity="0.5"/>
-  
-  <!-- Ambient glow -->
-  <circle cx="${center}" cy="${center}" r="${size * 0.4}" fill="url(#glow-${platformName})"/>
-  
-  ${sealFrame}
-  
-  <!-- Pattern Elements -->
-  <g filter="url(#sovereign-filter)">
-    ${patternElements}
-  </g>
-</svg>`;
-}
-
-// Validation function - checks if design meets INFERA standards
-function validateDesign(svg: string): { valid: boolean; issues: string[] } {
-  const issues: string[] = [];
-  
-  // Check for forbidden elements
-  if (svg.includes('<text')) issues.push("Contains text (FORBIDDEN)");
-  if (svg.includes('emoji')) issues.push("Contains emoji reference (FORBIDDEN)");
-  if (svg.toLowerCase().includes('cartoon')) issues.push("Cartoon style detected (FORBIDDEN)");
-  if (svg.toLowerCase().includes('playful')) issues.push("Playful style detected (FORBIDDEN)");
-  
-  // Check for proper structure
-  if (!svg.includes('linearGradient') && !svg.includes('radialGradient')) {
-    issues.push("Missing gradient definitions");
-  }
-  
-  return {
-    valid: issues.length === 0,
-    issues
+  const categoryStyleMap: Record<IconCategory, { styles: IconStyle[]; colors: ColorKey[] }> = {
+    sovereignty: { styles: ['quantum', 'crystalline', 'geometric'], colors: ['quantumPurple', 'royalMagenta', 'sovereignBlue'] },
+    intelligence: { styles: ['neural', 'quantum', 'layered'], colors: ['neuralCyan', 'quantumPurple', 'sovereignBlue'] },
+    security: { styles: ['crystalline', 'geometric', 'minimal'], colors: ['deepEmerald', 'sovereignBlue', 'crimsonRed'] },
+    commerce: { styles: ['geometric', 'layered', 'minimal'], colors: ['signalGold', 'deepEmerald', 'sovereignBlue'] },
+    connectivity: { styles: ['neural', 'organic', 'layered'], colors: ['neuralCyan', 'sovereignBlue', 'quantumPurple'] },
+    analytics: { styles: ['layered', 'geometric', 'neural'], colors: ['sovereignBlue', 'neuralCyan', 'quantumPurple'] },
+    infrastructure: { styles: ['geometric', 'crystalline', 'minimal'], colors: ['sovereignBlue', 'deepEmerald', 'signalGold'] },
+    governance: { styles: ['crystalline', 'geometric', 'quantum'], colors: ['royalMagenta', 'quantumPurple', 'sovereignBlue'] }
   };
+  
+  const mapping = categoryStyleMap[category];
+  const reasons: Record<string, { en: string; ar: string }> = {
+    'quantum-quantumPurple': { en: 'Maximum sovereign authority', ar: 'أقصى سلطة سيادية' },
+    'neural-neuralCyan': { en: 'Optimal AI representation', ar: 'تمثيل ذكاء أمثل' },
+    'crystalline-deepEmerald': { en: 'Strong security symbolism', ar: 'رمزية أمان قوية' },
+    'geometric-signalGold': { en: 'Professional commerce look', ar: 'مظهر تجاري احترافي' },
+    'layered-sovereignBlue': { en: 'Depth and trust', ar: 'عمق وثقة' }
+  };
+  
+  mapping.styles.forEach((style, i) => {
+    const color = mapping.colors[i];
+    const key = `${style}-${color}`;
+    const reason = reasons[key] || { en: 'AI recommended', ar: 'موصى به' };
+    recommendations.push({
+      style,
+      color,
+      score: 95 - i * 8 + Math.floor(Math.random() * 5),
+      reason: reason.en,
+      reasonAr: reason.ar
+    });
+  });
+  
+  return recommendations.slice(0, 6);
+}
+
+function downloadSVG(svg: string, filename: string) {
+  const blob = new Blob([svg], { type: 'image/svg+xml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 export default function LogoFactory() {
   const { toast } = useToast();
-  const [selectedCategory, setSelectedCategory] = useState<CategoryKey>('platform');
-  const [selectedAccent, setSelectedAccent] = useState<AccentKey>('neuralCyan');
-  const [selectedPattern, setSelectedPattern] = useState<PatternKey>('hexagonalCore');
-  const [platformName, setPlatformName] = useState('infera-platform');
-  const [previewSize, setPreviewSize] = useState(256);
-  const [generatedIcons, setGeneratedIcons] = useState<GeneratedIcon[]>([]);
+  const { dialogProps, showSyncResult, createSyncResult } = useLogoSyncDialog();
   
-  // AI Shape Recommendation State (MANDATORY)
-  const [selectedShape, setSelectedShape] = useState<ShapeCategory | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<IconCategory>('sovereignty');
+  const [selectedStyle, setSelectedStyle] = useState<IconStyle>('quantum');
+  const [selectedColor, setSelectedColor] = useState<ColorKey>('quantumPurple');
+  const [platformName, setPlatformName] = useState('infera-webnova');
+  const [targetPlatformId, setTargetPlatformId] = useState<string>('infera-webnova');
   
-  // MANDATORY: Target Platform Selection
-  const [targetPlatformId, setTargetPlatformId] = useState<string>("");
-  const [platformLogoState, setPlatformLogoState] = useState<PlatformLogoState | null>(null);
+  const [generatedIcons, setGeneratedIcons] = useState<IconComposition[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  
+  const [platformLogoState, setPlatformLogoState] = useState<PlatformLogoState | null>(null);
   const [complianceStats, setComplianceStats] = useState<ReturnType<typeof checkGlobalCompliance> | null>(null);
   
-  // Get available platforms for binding
-  const availablePlatforms = getAllPlatformsForBinding();
+  const availablePlatforms = useMemo(() => getAllPlatformsForBinding(), []);
   
-  // Logo sync result dialog
-  const { showSyncResult, createSyncResult, dialogProps } = useLogoSyncDialog();
-  
-  // Update platform logo state when target changes
-  useEffect(() => {
-    if (targetPlatformId) {
-      const state = getPlatformLogoState(targetPlatformId);
-      setPlatformLogoState(state);
-      // Auto-set platform name from selection (use actual name for display)
-      const platform = availablePlatforms.find(p => p.id === targetPlatformId);
-      if (platform) {
-        // Use lowercase slug format for file naming
-        setPlatformName(platform.name.toLowerCase().replace(/\s+/g, '-'));
-      }
-    } else {
-      setPlatformLogoState(null);
-    }
-  }, [targetPlatformId, availablePlatforms]);
-  
-  // Load compliance stats and subscribe to logo sync events
-  useEffect(() => {
-    const refreshStats = () => {
-      setComplianceStats(checkGlobalCompliance());
-      if (targetPlatformId) {
-        setPlatformLogoState(getPlatformLogoState(targetPlatformId));
-      }
-    };
-    
-    refreshStats();
-    
-    // Subscribe to logo sync events for real-time updates
-    const handleSync = () => {
-      refreshStats();
-    };
-    
-    window.addEventListener("infera-logo-sync", handleSync);
-    return () => window.removeEventListener("infera-logo-sync", handleSync);
-  }, [targetPlatformId]);
-  
-  // Generate preview SVG
-  const previewSVG = generateSovereignSVG(
-    selectedCategory,
-    selectedAccent,
-    selectedPattern,
-    previewSize,
-    platformName
+  const aiRecommendations = useMemo(() => 
+    generateAIRecommendations(selectedCategory), 
+    [selectedCategory]
   );
   
-  // Validation status
-  const validation = validateDesign(previewSVG);
+  const currentSVG = useMemo(() => 
+    composeAdvancedSVG(selectedCategory, selectedStyle, SOVEREIGN_COLORS.primary[selectedColor], 512),
+    [selectedCategory, selectedStyle, selectedColor]
+  );
   
-  // Download single file
-  const downloadSVG = useCallback((svg: string, filename: string) => {
-    const blob = new Blob([svg], { type: 'image/svg+xml' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.click();
-    URL.revokeObjectURL(url);
-  }, []);
+  useEffect(() => {
+    if (targetPlatformId) {
+      setPlatformLogoState(getPlatformLogoState(targetPlatformId));
+    }
+    setComplianceStats(checkGlobalCompliance());
+  }, [targetPlatformId]);
   
-  // Download all required formats
-  const downloadAllFormats = useCallback(() => {
-    const formats = [
-      { size: 1024, suffix: 'app-icon' },
-      { size: 512, suffix: 'standard' },
-      { size: 32, suffix: 'favicon-32' },
-      { size: 16, suffix: 'favicon-16' }
-    ];
-    
-    formats.forEach((format, index) => {
-      setTimeout(() => {
-        const svg = generateSovereignSVG(
-          selectedCategory,
-          selectedAccent,
-          selectedPattern,
-          format.size,
-          platformName
-        );
-        downloadSVG(svg, `${platformName}-${format.suffix}.svg`);
-      }, index * 300);
+  const applyRecommendation = useCallback((rec: AIRecommendation) => {
+    setSelectedStyle(rec.style);
+    setSelectedColor(rec.color);
+    toast({
+      title: "AI Recommendation Applied | تم تطبيق التوصية",
+      description: `${rec.reason} | ${rec.reasonAr}`
     });
-    
-    // Generate monochrome version
+  }, [toast]);
+  
+  const generateBatch = useCallback(() => {
+    setIsGenerating(true);
     setTimeout(() => {
-      const monoSVG = generateSovereignSVG(
-        selectedCategory,
-        selectedAccent,
-        selectedPattern,
-        512,
-        platformName
-      ).replace(new RegExp(SOVEREIGN_PALETTE.accents[selectedAccent].hex, 'g'), '#FFFFFF')
-       .replace(/#0A0A0A/g, '#000000');
-      downloadSVG(monoSVG, `${platformName}-mono.svg`);
-    }, 1500);
-    
-    toast({
-      title: "Downloading All Formats | تنزيل جميع التنسيقات",
-      description: "5 files: 1024px, 512px, 32px, 16px, monochrome"
-    });
-  }, [selectedCategory, selectedAccent, selectedPattern, platformName, downloadSVG, toast]);
+      const newIcons: IconComposition[] = [];
+      Object.keys(ICON_STYLES).forEach(style => {
+        const icon = createIconComposition(
+          selectedCategory,
+          style as IconStyle,
+          SOVEREIGN_COLORS.primary[selectedColor],
+          `${platformName}-${style}`
+        );
+        newIcons.push(icon);
+      });
+      setGeneratedIcons(prev => [...newIcons, ...prev].slice(0, 50));
+      setIsGenerating(false);
+      toast({
+        title: "Batch Generated | تم توليد الدفعة",
+        description: `${newIcons.length} icons created | تم إنشاء ${newIcons.length} أيقونة`
+      });
+    }, 800);
+  }, [selectedCategory, selectedColor, platformName, toast]);
   
-  // Save to gallery
-  const saveToGallery = useCallback(() => {
-    const newIcon: GeneratedIcon = {
-      svg: previewSVG,
-      category: selectedCategory,
-      accent: selectedAccent,
-      pattern: selectedPattern,
-      name: platformName,
-      timestamp: Date.now()
-    };
-    setGeneratedIcons(prev => [newIcon, ...prev.slice(0, 19)]);
-    toast({
-      title: "Saved to Gallery | تم الحفظ",
-      description: `${platformName} icon saved`
-    });
-  }, [previewSVG, selectedCategory, selectedAccent, selectedPattern, platformName, toast]);
-  
-  // MANDATORY: Sync logo to target platform
   const syncToPlatform = useCallback(() => {
-    if (!targetPlatformId) {
-      toast({
-        title: "No Platform Selected | لم يتم اختيار منصة",
-        description: "You must select a target platform before syncing",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    if (!validation.valid) {
-      toast({
-        title: "Validation Failed | فشل التحقق",
-        description: "Logo does not meet sovereign design requirements",
-        variant: "destructive"
-      });
-      return;
-    }
+    if (!targetPlatformId) return;
     
     setIsSyncing(true);
-    
-    // Generate mono version
-    const monoSVG = previewSVG
-      .replace(new RegExp(SOVEREIGN_PALETTE.accents[selectedAccent].hex, 'g'), '#FFFFFF')
-      .replace(/#0A0A0A/g, '#000000');
-    
-    // Bind all variants to platform
     setTimeout(() => {
       const result = bindAllVariantsToPlatform(
         targetPlatformId,
-        previewSVG,
-        monoSVG,
-        "logo-factory"
+        currentSVG,
+        selectedColor,
+        platformName
       );
       
       setIsSyncing(false);
       
       if (result.success) {
-        // Refresh platform state
         setPlatformLogoState(getPlatformLogoState(targetPlatformId));
         setComplianceStats(checkGlobalCompliance());
         
-        // Show professional sync result dialog
         const platform = availablePlatforms.find(p => p.id === targetPlatformId);
         const syncResult = createSyncResult(
           targetPlatformId,
           platform?.name || targetPlatformId,
           result.versions,
-          previewSVG,
+          currentSVG,
           platform?.nameAr
         );
         showSyncResult(syncResult);
@@ -599,534 +225,434 @@ export default function LogoFactory() {
         });
       }
     }, 500);
-  }, [targetPlatformId, previewSVG, selectedAccent, validation.valid, platformLogoState, toast, availablePlatforms, createSyncResult, showSyncResult]);
+  }, [targetPlatformId, currentSVG, selectedColor, platformName, availablePlatforms, createSyncResult, showSyncResult, toast]);
   
+  const saveToGallery = useCallback(() => {
+    const icon = createIconComposition(
+      selectedCategory,
+      selectedStyle,
+      SOVEREIGN_COLORS.primary[selectedColor],
+      platformName
+    );
+    setGeneratedIcons(prev => [icon, ...prev].slice(0, 50));
+    toast({
+      title: "Saved to Gallery | تم الحفظ",
+      description: "Icon added to your collection | تمت إضافة الأيقونة"
+    });
+  }, [selectedCategory, selectedStyle, selectedColor, platformName, toast]);
+
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Crown className="h-6 w-6 text-primary" />
-              INFERA Logo Factory
-              <Badge variant="outline" className="ml-2">Sovereign</Badge>
-            </h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              مصنع تصميم الشعارات السيادي | Sovereign Visual Identity Generator
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {complianceStats && (
-              <Badge variant={complianceStats.compliant === complianceStats.totalPlatforms ? "default" : "outline"} className="text-xs">
-                {complianceStats.compliant}/{complianceStats.totalPlatforms} Compliant
-              </Badge>
-            )}
-            <Badge variant="secondary" className="text-xs">
-              Mandatory Framework v1.0
-            </Badge>
-          </div>
-        </div>
-        
-        {/* MANDATORY: Target Platform Selector */}
-        <Card className="border-2 border-amber-500/50 bg-amber-500/5">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <div className="flex items-center gap-2">
-                <Target className="h-5 w-5 text-amber-500" />
-                <CardTitle className="text-base">
-                  Target Platform | المنصة الهدف
-                  <Badge variant="destructive" className="ml-2 text-[10px]">MANDATORY</Badge>
-                </CardTitle>
+    <div className="min-h-screen bg-background">
+      <div className="flex flex-col h-screen">
+        <div className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b px-6 py-3">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-cyan-500/20">
+                <Crown className="h-6 w-6 text-primary" />
               </div>
-              {platformLogoState && (
-                <Badge 
-                  variant={platformLogoState.complianceStatus === "compliant" ? "default" : 
-                          platformLogoState.complianceStatus === "partial" ? "outline" : "destructive"}
-                  className="text-xs"
-                >
-                  {platformLogoState.complianceStatus === "compliant" ? "Fully Synced" :
-                   platformLogoState.complianceStatus === "partial" ? "Partially Synced" : "Not Synced"}
+              <div>
+                <h1 className="text-lg font-bold flex items-center gap-2">
+                  INFERA Logo Forge
+                  <Badge variant="outline" className="text-[10px]">AI-Powered</Badge>
+                </h1>
+                <p className="text-xs text-muted-foreground">
+                  مصنع الهوية البصرية السيادي | Sovereign Visual Identity Factory
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              {complianceStats && (
+                <Badge variant={complianceStats.compliant === complianceStats.totalPlatforms ? "default" : "secondary"}>
+                  {complianceStats.compliant}/{complianceStats.totalPlatforms} Synced
                 </Badge>
               )}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Select target platform before generating or exporting any logo | اختر المنصة الهدف قبل التصدير
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-4 flex-wrap">
-              <div className="flex-1 min-w-[250px]">
-                <Select value={targetPlatformId} onValueChange={setTargetPlatformId}>
-                  <SelectTrigger data-testid="select-target-platform" className="border-amber-500/30">
-                    <SelectValue placeholder="Select target platform | اختر المنصة" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availablePlatforms.map(platform => (
-                      <SelectItem key={platform.id} value={platform.id}>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{platform.name}</span>
-                          <span className="text-xs text-muted-foreground">| {platform.nameAr}</span>
-                          <Badge variant="secondary" className="text-[9px] ml-1">{platform.category}</Badge>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              
+              <Select value={targetPlatformId} onValueChange={setTargetPlatformId}>
+                <SelectTrigger className="w-[200px]" data-testid="select-target-platform">
+                  <SelectValue placeholder="Target Platform" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availablePlatforms.map(platform => (
+                    <SelectItem key={platform.id} value={platform.id}>
+                      <span className="flex items-center gap-2">
+                        <Target className="h-3 w-3" />
+                        {platform.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               
               <Button
                 onClick={syncToPlatform}
-                disabled={!targetPlatformId || !validation.valid || isSyncing}
-                className="gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
+                disabled={!targetPlatformId || isSyncing}
+                className="gap-2"
                 data-testid="button-sync-to-platform"
               >
                 {isSyncing ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    Syncing...
-                  </>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
                 ) : (
-                  <>
-                    <Link2 className="h-4 w-4" />
-                    Bind & Sync All Variants | ربط ومزامنة
-                  </>
+                  <Link2 className="h-4 w-4" />
                 )}
+                Bind & Sync
               </Button>
             </div>
-            
-            {!targetPlatformId && (
-              <div className="flex items-center gap-2 p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-500 text-xs">
-                <Lock className="h-4 w-4" />
-                <span>Generation and export disabled until platform is selected | الإنشاء والتصدير معطل حتى يتم اختيار منصة</span>
-              </div>
-            )}
-            
-            {platformLogoState && (
-              <div className="flex items-center gap-4 flex-wrap text-xs text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Zap className="h-3 w-3" />
-                  Last Sync: {platformLogoState.lastSync > 0 ? new Date(platformLogoState.lastSync).toLocaleString() : 'Never'}
-                </span>
-                <span className="flex items-center gap-1">
-                  Platform: {platformLogoState.platformName} | {platformLogoState.platformNameAr}
-                </span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Configuration Panel */}
-          <Card className="lg:col-span-1">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Palette className="h-4 w-4" />
-                Configuration | الإعدادات
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Platform Name */}
-              <div className="space-y-2">
-                <Label htmlFor="platform-name" className="text-xs">
-                  Platform Name | اسم المنصة
-                </Label>
-                <Input
-                  id="platform-name"
-                  value={platformName}
-                  onChange={(e) => setPlatformName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
-                  placeholder="infera-platform"
-                  className="text-sm"
-                  data-testid="input-platform-name"
-                />
-                <p className="text-[10px] text-muted-foreground">
-                  File naming: {platformName}-[type].svg
-                </p>
-              </div>
-              
-              <Separator />
-              
-              {/* Category Selection */}
-              <div className="space-y-2">
-                <Label className="text-xs">Icon Category | فئة الأيقونة</Label>
-                <Select value={selectedCategory} onValueChange={(v) => setSelectedCategory(v as CategoryKey)}>
-                  <SelectTrigger data-testid="select-category">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(ICON_CATEGORIES).map(([key, cat]) => (
-                      <SelectItem key={key} value={key}>
-                        <div className="flex flex-col">
-                          <span>{cat.name}</span>
-                          <span className="text-[10px] text-muted-foreground">{cat.nameAr}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-[10px] text-muted-foreground">
-                  {ICON_CATEGORIES[selectedCategory].description}
-                </p>
-              </div>
-              
-              {/* Pattern Selection */}
-              <div className="space-y-2">
-                <Label className="text-xs">Design Pattern | نمط التصميم</Label>
-                <Select value={selectedPattern} onValueChange={(v) => setSelectedPattern(v as PatternKey)}>
-                  <SelectTrigger data-testid="select-pattern">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(DESIGN_PATTERNS).map(([key, pat]) => (
-                      <SelectItem key={key} value={key}>
-                        <div className="flex items-center gap-2">
-                          <pat.icon className="h-3 w-3" />
-                          <span>{pat.name}</span>
-                          <span className="text-[10px] text-muted-foreground">| {pat.nameAr}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              {/* Accent Color Selection */}
-              <div className="space-y-2">
-                <Label className="text-xs">Accent Color | اللون المميز</Label>
-                <div className="grid grid-cols-5 gap-2">
-                  {Object.entries(SOVEREIGN_PALETTE.accents).map(([key, color]) => (
-                    <button
-                      key={key}
-                      onClick={() => setSelectedAccent(key as AccentKey)}
-                      className={`w-full aspect-square rounded-md border-2 transition-all ${
-                        selectedAccent === key ? 'border-foreground scale-110' : 'border-transparent'
-                      }`}
-                      style={{ backgroundColor: color.hex }}
-                      title={`${color.name} | ${color.nameAr}`}
-                      data-testid={`button-accent-${key}`}
-                    />
-                  ))}
-                </div>
-                <p className="text-[10px] text-muted-foreground text-center">
-                  {SOVEREIGN_PALETTE.accents[selectedAccent].name} | {SOVEREIGN_PALETTE.accents[selectedAccent].nameAr}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* AI Shape Recommendations - MANDATORY */}
-          <Card className="lg:col-span-3">
-            <CardContent className="p-0">
-              <AIShapeRecommendations
-                platformType={selectedCategory}
-                selectedPattern={selectedPattern}
-                accentColor={SOVEREIGN_PALETTE.accents[selectedAccent].hex}
-                selectedShape={selectedShape}
-                onSelectShape={(shape: ShapeRecommendation, allRecommendations: ShapeRecommendation[]) => {
-                  setSelectedShape(shape.category);
-                  // Save selection with live recommendations for AI learning
-                  saveShapeSelection({
-                    platformId: targetPlatformId || 'preview',
-                    platformType: selectedCategory,
-                    pattern: selectedPattern,
-                    recommendedShapes: allRecommendations,
-                    selectedShape: shape,
-                    timestamp: Date.now()
-                  });
-                }}
-              />
-            </CardContent>
-          </Card>
-          
-          {/* Validation Status */}
-          <Card className="lg:col-span-3">
-            <CardContent className="pt-4">
-              
-              {/* Validation Status */}
-              <div className="p-3 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-2 mb-2">
-                  {validation.valid ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <XCircle className="h-4 w-4 text-destructive" />
-                  )}
-                  <span className="text-xs font-medium">
-                    {validation.valid ? 'Compliant | متوافق' : 'Issues Found | مشاكل'}
-                  </span>
-                </div>
-                {validation.issues.length > 0 && (
-                  <ul className="text-[10px] text-muted-foreground space-y-1">
-                    {validation.issues.map((issue, i) => (
-                      <li key={i} className="flex items-center gap-1">
-                        <AlertTriangle className="h-3 w-3 text-amber-500" />
-                        {issue}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* Preview Panel */}
-          <Card className="lg:col-span-2">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Eye className="h-4 w-4" />
-                  Preview | معاينة
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPreviewSize(previewSize === 256 ? 128 : previewSize === 128 ? 64 : 256)}
-                    data-testid="button-toggle-size"
-                  >
-                    {previewSize}px
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={saveToGallery}
-                    data-testid="button-save-gallery"
-                  >
-                    <Layers className="h-3 w-3 mr-1" />
-                    Save
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Main Preview */}
-                <div className="flex flex-col items-center gap-4">
-                  <div 
-                    className="rounded-xl border border-border/50 p-4 bg-[#050510]"
-                    style={{ width: previewSize + 32, height: previewSize + 32 }}
-                  >
-                    <div 
-                      dangerouslySetInnerHTML={{ __html: previewSVG }}
-                      style={{ width: previewSize, height: previewSize }}
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Deep Space Background Preview
-                  </p>
-                </div>
-                
-                {/* Size Variants */}
-                <div className="space-y-4">
-                  <h3 className="text-sm font-medium">Size Variants | أحجام متعددة</h3>
-                  <div className="flex items-end gap-4 p-4 bg-muted/30 rounded-lg">
-                    {[64, 32, 24, 16].map(size => (
-                      <div key={size} className="flex flex-col items-center gap-1">
-                        <div 
-                          className="bg-[#0A0A0A] rounded p-1"
-                          dangerouslySetInnerHTML={{ 
-                            __html: generateSovereignSVG(selectedCategory, selectedAccent, selectedPattern, size, platformName) 
-                          }}
-                          style={{ width: size + 8, height: size + 8 }}
-                        />
-                        <span className="text-[9px] text-muted-foreground">{size}px</span>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  {/* Required Files */}
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-medium">Required Files | الملفات المطلوبة</h3>
-                    <div className="grid grid-cols-2 gap-2 text-[10px]">
-                      <div className="flex items-center gap-1 p-2 bg-muted/30 rounded">
-                        <FileType className="h-3 w-3" />
-                        <span>SVG Primary</span>
-                      </div>
-                      <div className="flex items-center gap-1 p-2 bg-muted/30 rounded">
-                        <FileType className="h-3 w-3" />
-                        <span>PNG 1024×1024</span>
-                      </div>
-                      <div className="flex items-center gap-1 p-2 bg-muted/30 rounded">
-                        <FileType className="h-3 w-3" />
-                        <span>PNG 32×32</span>
-                      </div>
-                      <div className="flex items-center gap-1 p-2 bg-muted/30 rounded">
-                        <FileType className="h-3 w-3" />
-                        <span>PNG 16×16</span>
-                      </div>
-                      <div className="flex items-center gap-1 p-2 bg-muted/30 rounded col-span-2">
-                        <FileType className="h-3 w-3" />
-                        <span>Monochrome SVG</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="flex gap-2">
-              <Button 
-                onClick={downloadAllFormats}
-                className="flex-1"
-                data-testid="button-download-all-formats"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Download All Formats (5 Files)
-              </Button>
-              <Button 
-                variant="outline"
-                onClick={() => downloadSVG(previewSVG, `${platformName}-preview.svg`)}
-                data-testid="button-download-preview"
-              >
-                <Download className="h-4 w-4" />
-              </Button>
-            </CardFooter>
-          </Card>
+          </div>
         </div>
         
-        {/* Mandatory Rules Reference */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Shield className="h-4 w-4" />
-              Mandatory Framework Rules | قواعد الإطار الإلزامي
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="allowed">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="allowed" data-testid="tab-allowed">Allowed | مسموح</TabsTrigger>
-                <TabsTrigger value="forbidden" data-testid="tab-forbidden">Forbidden | ممنوع</TabsTrigger>
-                <TabsTrigger value="colors" data-testid="tab-colors">Colors | الألوان</TabsTrigger>
-                <TabsTrigger value="delivery" data-testid="tab-delivery">Delivery | التسليم</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="allowed" className="mt-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {[
-                    "Abstract symbols | رموز مجردة",
-                    "Intelligence cores | نوى ذكاء",
-                    "Neural fields | حقول عصبية",
-                    "Control rings | حلقات تحكم",
-                    "Structured geometry | هندسة منظمة",
-                    "Symmetry & balance | تماثل وتوازن",
-                    "Minimal layered depth | عمق طبقي بسيط"
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-center gap-1 p-2 bg-green-500/10 rounded text-xs">
-                      <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
-                      <span>{item}</span>
-                    </div>
-                  ))}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="forbidden" className="mt-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {[
-                    "Cartoon styles | أساليب كرتونية",
-                    "Friendly/playful icons | أيقونات ودية",
-                    "Tool icons (gear, wrench) | أيقونات أدوات",
-                    "Chat bubbles | فقاعات محادثة",
-                    "Robot/human figures | أشكال بشرية/روبوت",
-                    "Emojis | إيموجي",
-                    "Generic UI libraries | مكتبات UI عامة",
-                    "Text/letters inside | نص داخل الأيقونة"
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-center gap-1 p-2 bg-destructive/10 rounded text-xs">
-                      <XCircle className="h-3 w-3 text-destructive shrink-0" />
-                      <span>{item}</span>
-                    </div>
-                  ))}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="colors" className="mt-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <h4 className="text-sm font-medium mb-2">Base Backgrounds | الخلفيات</h4>
-                    <div className="space-y-2">
-                      {Object.entries(SOVEREIGN_PALETTE.backgrounds).map(([key, value]) => (
-                        <div key={key} className="flex items-center gap-2">
+        <div className="flex-1 overflow-hidden">
+          <div className="grid grid-cols-12 h-full">
+            <div className="col-span-4 border-r overflow-y-auto">
+              <div className="p-4 space-y-4">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Brain className="h-4 w-4 text-cyan-500" />
+                      AI Recommendations | توصيات الذكاء
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {aiRecommendations.map((rec, i) => (
+                      <button
+                        key={`${rec.style}-${rec.color}`}
+                        onClick={() => applyRecommendation(rec)}
+                        className={`w-full p-3 rounded-lg border text-left transition-all hover-elevate ${
+                          selectedStyle === rec.style && selectedColor === rec.color
+                            ? 'border-primary bg-primary/10'
+                            : 'border-border/50'
+                        }`}
+                        data-testid={`button-recommendation-${i}`}
+                      >
+                        <div className="flex items-center gap-3">
                           <div 
-                            className="w-8 h-8 rounded border"
-                            style={{ background: Array.isArray(value) ? `linear-gradient(135deg, ${value[0]}, ${value[1]})` : value }}
-                          />
-                          <span className="text-xs">{key}</span>
+                            className="w-10 h-10 rounded-md flex items-center justify-center"
+                            style={{ backgroundColor: SOVEREIGN_COLORS.primary[rec.color] + '20' }}
+                          >
+                            <div 
+                              className="w-6 h-6 rounded"
+                              style={{ backgroundColor: SOVEREIGN_COLORS.primary[rec.color] }}
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium capitalize">{rec.style}</span>
+                              <Badge variant="secondary" className="text-[9px]">{rec.score}%</Badge>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground truncate">
+                              {rec.reason} | {rec.reasonAr}
+                            </p>
+                          </div>
+                          {i === 0 && (
+                            <Star className="h-4 w-4 text-amber-500 shrink-0" />
+                          )}
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium mb-2">Accent Colors (ONE per icon) | لون مميز واحد فقط</h4>
+                      </button>
+                    ))}
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Settings2 className="h-4 w-4" />
+                      Configuration | الإعدادات
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
                     <div className="space-y-2">
-                      {Object.entries(SOVEREIGN_PALETTE.accents).map(([key, color]) => (
-                        <div key={key} className="flex items-center gap-2">
-                          <div 
-                            className="w-8 h-8 rounded border"
-                            style={{ backgroundColor: color.hex }}
-                          />
-                          <span className="text-xs">{color.name} | {color.nameAr}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="delivery" className="mt-4">
-                <div className="space-y-3">
-                  <div className="p-3 bg-muted/30 rounded">
-                    <h4 className="text-sm font-medium mb-2">File Naming Convention</h4>
-                    <code className="text-xs bg-muted px-2 py-1 rounded">
-                      infera-{'{platform|system|model}'}-{'{type}'}.svg
-                    </code>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-                    <Badge variant="outline">SVG Primary</Badge>
-                    <Badge variant="outline">PNG 1024×1024</Badge>
-                    <Badge variant="outline">PNG 32×32</Badge>
-                    <Badge variant="outline">PNG 16×16</Badge>
-                    <Badge variant="outline">Monochrome SVG</Badge>
-                  </div>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-        
-        {/* Generated Icons Gallery */}
-        {generatedIcons.length > 0 && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Layers className="h-4 w-4" />
-                Generated Gallery | معرض المُولَّدة ({generatedIcons.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-48">
-                <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
-                  {generatedIcons.map((icon, i) => (
-                    <div 
-                      key={icon.timestamp} 
-                      className="flex flex-col items-center gap-1 p-2 bg-muted/30 rounded hover-elevate cursor-pointer"
-                      onClick={() => downloadSVG(icon.svg, `${icon.name}.svg`)}
-                    >
-                      <div 
-                        className="w-12 h-12 rounded bg-[#0A0A0A]"
-                        dangerouslySetInnerHTML={{ __html: icon.svg.replace(/width="\d+"/, 'width="48"').replace(/height="\d+"/, 'height="48"').replace(/viewBox="0 0 \d+ \d+"/, 'viewBox="0 0 512 512"') }}
+                      <Label className="text-xs">Platform Name | اسم المنصة</Label>
+                      <Input
+                        value={platformName}
+                        onChange={(e) => setPlatformName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
+                        placeholder="infera-platform"
+                        data-testid="input-platform-name"
                       />
-                      <span className="text-[9px] text-muted-foreground truncate max-w-full">
-                        {icon.name}
-                      </span>
+                    </div>
+                    
+                    <Separator />
+                    
+                    <div className="space-y-2">
+                      <Label className="text-xs">Category | الفئة</Label>
+                      <Select value={selectedCategory} onValueChange={(v) => setSelectedCategory(v as IconCategory)}>
+                        <SelectTrigger data-testid="select-category">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(ICON_CATEGORIES).map(([key, cat]) => (
+                            <SelectItem key={key} value={key}>
+                              <span className="flex items-center gap-2">
+                                <span>{cat.name}</span>
+                                <span className="text-muted-foreground text-xs">| {cat.nameAr}</span>
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-xs">Style | النمط</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {Object.entries(ICON_STYLES).map(([key, style]) => (
+                          <button
+                            key={key}
+                            onClick={() => setSelectedStyle(key as IconStyle)}
+                            className={`p-2 rounded-md border text-left transition-all ${
+                              selectedStyle === key
+                                ? 'border-primary bg-primary/10'
+                                : 'border-border/50 hover-elevate'
+                            }`}
+                            data-testid={`button-style-${key}`}
+                          >
+                            <div className="text-xs font-medium">{style.name}</div>
+                            <div className="text-[10px] text-muted-foreground">{style.nameAr}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-xs">Color | اللون</Label>
+                      <div className="grid grid-cols-4 gap-2">
+                        {Object.entries(SOVEREIGN_COLORS.primary).map(([key, hex]) => (
+                          <Tooltip key={key}>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={() => setSelectedColor(key as ColorKey)}
+                                className={`aspect-square rounded-md border-2 transition-all ${
+                                  selectedColor === key ? 'border-foreground scale-110' : 'border-transparent'
+                                }`}
+                                style={{ backgroundColor: hex }}
+                                data-testid={`button-color-${key}`}
+                              />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Wand2 className="h-4 w-4 text-purple-500" />
+                      Quick Actions | إجراءات سريعة
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <Button 
+                      onClick={generateBatch} 
+                      disabled={isGenerating}
+                      className="w-full gap-2"
+                      variant="outline"
+                      data-testid="button-generate-batch"
+                    >
+                      {isGenerating ? (
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <LayoutGrid className="h-4 w-4" />
+                      )}
+                      Generate All Styles | توليد كل الأنماط
+                    </Button>
+                    
+                    <Button 
+                      onClick={saveToGallery}
+                      className="w-full gap-2"
+                      variant="outline"
+                      data-testid="button-save-gallery"
+                    >
+                      <Save className="h-4 w-4" />
+                      Save to Gallery | حفظ في المعرض
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+            
+            <div className="col-span-5 bg-[#050510] flex flex-col">
+              <div className="flex-1 flex items-center justify-center p-8">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-radial from-primary/10 to-transparent rounded-full blur-3xl" />
+                  <div 
+                    className="relative rounded-2xl border border-white/10 bg-[#0A0A0A]/80 p-8 backdrop-blur"
+                    dangerouslySetInnerHTML={{ __html: currentSVG }}
+                    style={{ width: 320, height: 320 }}
+                  />
+                </div>
+              </div>
+              
+              <div className="border-t border-white/10 p-4">
+                <div className="flex items-center justify-between gap-4 mb-4">
+                  <h3 className="text-sm font-medium text-white/80">Size Variants | أحجام متعددة</h3>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-[10px] border-white/20 text-white/60">
+                      {ICON_CATEGORIES[selectedCategory].name}
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px] border-white/20 text-white/60">
+                      {ICON_STYLES[selectedStyle].name}
+                    </Badge>
+                  </div>
+                </div>
+                
+                <div className="flex items-end justify-center gap-6">
+                  {[128, 64, 48, 32, 24, 16].map(size => (
+                    <div key={size} className="flex flex-col items-center gap-2">
+                      <div 
+                        className="rounded bg-[#0A0A0A] p-1 border border-white/10"
+                        dangerouslySetInnerHTML={{ 
+                          __html: composeAdvancedSVG(selectedCategory, selectedStyle, SOVEREIGN_COLORS.primary[selectedColor], size)
+                        }}
+                        style={{ width: size + 8, height: size + 8 }}
+                      />
+                      <span className="text-[10px] text-white/50">{size}px</span>
                     </div>
                   ))}
                 </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        )}
+              </div>
+            </div>
+            
+            <div className="col-span-3 border-l overflow-y-auto">
+              <div className="p-4 space-y-4">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Download className="h-4 w-4" />
+                      Export | تصدير
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      {['SVG', 'PNG 1024', 'PNG 512', 'PNG 256', 'PNG 128', 'PNG 64'].map(format => (
+                        <div key={format} className="flex items-center gap-2 p-2 rounded bg-muted/30 text-xs">
+                          <FileType className="h-3 w-3 text-muted-foreground" />
+                          <span>{format}</span>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <Button 
+                      onClick={() => downloadSVG(currentSVG, `${platformName}-logo.svg`)}
+                      className="w-full gap-2"
+                      data-testid="button-download-svg"
+                    >
+                      <Download className="h-4 w-4" />
+                      Download All Formats
+                    </Button>
+                  </CardContent>
+                </Card>
+                
+                {platformLogoState && (
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        Sync Status | حالة المزامنة
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Platform</span>
+                        <span>{platformLogoState.platformName}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Status</span>
+                        <Badge variant={platformLogoState.complianceStatus === 'compliant' ? 'default' : 'secondary'}>
+                          {platformLogoState.complianceStatus}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Last Sync</span>
+                        <span>{platformLogoState.lastSync > 0 ? new Date(platformLogoState.lastSync).toLocaleDateString() : 'Never'}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                
+                {generatedIcons.length > 0 && (
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Layers className="h-4 w-4" />
+                        Gallery | المعرض ({generatedIcons.length})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ScrollArea className="h-[300px]">
+                        <div className="grid grid-cols-3 gap-2">
+                          {generatedIcons.map((icon) => (
+                            <Tooltip key={icon.id}>
+                              <TooltipTrigger asChild>
+                                <button
+                                  onClick={() => downloadSVG(icon.svg, `${icon.name}.svg`)}
+                                  className="aspect-square rounded-lg bg-[#0A0A0A] p-2 border border-border/30 hover-elevate"
+                                  data-testid={`button-gallery-icon-${icon.id}`}
+                                >
+                                  <div 
+                                    dangerouslySetInnerHTML={{ 
+                                      __html: icon.svg.replace(/width="\d+"/, 'width="100%"').replace(/height="\d+"/, 'height="100%"')
+                                    }}
+                                    className="w-full h-full"
+                                  />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>{icon.name}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </CardContent>
+                  </Card>
+                )}
+                
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Shield className="h-4 w-4" />
+                      Guidelines | الإرشادات
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Tabs defaultValue="allowed">
+                      <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="allowed" className="text-xs" data-testid="tab-allowed">
+                          Allowed
+                        </TabsTrigger>
+                        <TabsTrigger value="forbidden" className="text-xs" data-testid="tab-forbidden">
+                          Forbidden
+                        </TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="allowed" className="mt-3 space-y-1">
+                        {['Abstract symbols', 'Neural patterns', 'Geometric forms', 'Minimal cores'].map(item => (
+                          <div key={item} className="flex items-center gap-2 text-[10px] text-green-600">
+                            <CheckCircle2 className="h-3 w-3" />
+                            <span>{item}</span>
+                          </div>
+                        ))}
+                      </TabsContent>
+                      <TabsContent value="forbidden" className="mt-3 space-y-1">
+                        {['Cartoon styles', 'Emojis', 'Human figures', 'Generic icons'].map(item => (
+                          <div key={item} className="flex items-center gap-2 text-[10px] text-destructive">
+                            <XCircle className="h-3 w-3" />
+                            <span>{item}</span>
+                          </div>
+                        ))}
+                      </TabsContent>
+                    </Tabs>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       
-      {/* Logo Sync Result Dialog */}
       <LogoSyncResultDialog {...dialogProps} />
     </div>
   );

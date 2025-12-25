@@ -76,6 +76,7 @@ import {
   UserCheck,
   UsersRound,
   BadgeDollarSign,
+  Hexagon,
 } from "lucide-react";
 import { SidebarItemBadge } from "@/components/sovereign-view";
 import {
@@ -297,11 +298,10 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
       <Sidebar side={side}>
         <SidebarHeader className="p-4">
           <Link href="/" className="flex items-center gap-2">
-            <img 
-              src="/assets/infera-logo.png" 
-              alt="INFERA WebNova" 
-              className="w-8 h-8 object-contain"
-            />
+            <div className="relative w-8 h-8 flex items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 via-purple-600 to-amber-500 shadow-lg">
+              <Hexagon className="w-5 h-5 text-white fill-white/20" />
+              <span className="absolute text-[8px] font-bold text-white">N</span>
+            </div>
             <div className="flex flex-col">
               <span className="font-bold text-lg leading-tight">INFERA</span>
               <span className="text-xs text-muted-foreground leading-tight">WebNova</span>
