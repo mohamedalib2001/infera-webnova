@@ -8162,6 +8162,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                               payment_billing: CreditCard,
                               user_management: Users,
                               system_config: Settings2,
+                              navigation_access: Layout,
                             };
                             const IconComponent = iconMap[category] || Shield;
                             const colorMap: Record<string, string> = {
@@ -8175,6 +8176,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                               payment_billing: "text-emerald-400",
                               user_management: "text-pink-400",
                               system_config: "text-red-400",
+                              navigation_access: "text-sky-400",
                             };
                             
                             return (
