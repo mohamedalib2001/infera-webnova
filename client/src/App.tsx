@@ -152,6 +152,7 @@ import PitchDeckGlobalCloud from "@/pages/pitch-deck-globalcloud";
 import PitchDeckShieldGrid from "@/pages/pitch-deck-shieldgrid";
 import PitchDeckSmartRemote from "@/pages/pitch-deck-smartremote";
 import PitchDeckMaster from "@/pages/pitch-deck-master";
+import PlatformMaps from "@/pages/platform-maps";
 import InvestorNarrative from "@/pages/investor-narrative";
 import ExecutiveSummaries from "@/pages/executive-summaries";
 import DemoStoryboards from "@/pages/demo-storyboards";
@@ -270,6 +271,14 @@ function AuthenticatedRouter() {
       <Route path="/pitch-deck/shieldgrid" component={PitchDeckShieldGrid} />
       <Route path="/pitch-deck/smartremote" component={PitchDeckSmartRemote} />
       <Route path="/pitch-deck/master" component={PitchDeckMaster} />
+      <Route path="/pitch-deck/vision" component={PitchDeck} />
+      <Route path="/pitch-deck/solution" component={PitchDeck} />
+      <Route path="/pitch-deck/business" component={PitchDeck} />
+      <Route path="/pitch-deck/financials" component={PitchDeck} />
+      <Route path="/pitch-deck/team" component={PitchDeck} />
+      <Route path="/pitch-deck/roadmap" component={PitchDeck} />
+      <Route path="/pitch-deck/investors" component={PitchDeck} />
+      <Route path="/pitch-deck/export" component={PitchDeck} />
       <Route path="/investor-narrative" component={InvestorNarrative} />
       <Route path="/executive-summaries" component={ExecutiveSummaries} />
       <Route path="/demo-storyboards" component={DemoStoryboards} />
@@ -387,6 +396,7 @@ function AuthenticatedRouter() {
       <Route path="/owner/spom" component={SpomPage} />
       <Route path="/owner/quality" component={QualityDashboard} />
       <Route path="/owner/sidebar-manager" component={SidebarManager} />
+      <Route path="/owner/platform-maps" component={PlatformMaps} />
       <Route path="/sovereign-chat" component={SovereignChat} />
       <Route path="/owner/platform-registry" component={PlatformRegistry} />
       <Route path="/nova" component={NovaChat} />
