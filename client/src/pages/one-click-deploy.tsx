@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLanguage } from "@/hooks/use-language";
+import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -226,6 +227,10 @@ export default function OneClickDeploy() {
   const { language, isRtl } = useLanguage();
   const t = translations[language as keyof typeof translations] || translations.en;
   const { toast } = useToast();
+  const { user } = useAuth();
+  
+  // Check if user is owner (sovereign) - only owner can see sovereign domains
+  const isOwner = user?.role === "owner" || user?.role === "sovereign" || user?.username === "mohamedalib2001";
   
   const [selectedProject, setSelectedProject] = useState<string>("");
   const [environment, setEnvironment] = useState<string>("production");
@@ -249,7 +254,15 @@ export default function OneClickDeploy() {
   const { data: domainsData } = useQuery<any>({
     queryKey: ["/api/domains"],
   });
-  const domains = Array.isArray(domainsData) ? domainsData : (domainsData?.domains || []);
+  const allDomains = Array.isArray(domainsData) ? domainsData : (domainsData?.domains || []);
+  
+  // SECURITY: Filter domains based on user role
+  // - Owner/Sovereign: Can see all domains (sovereign domains)
+  // - Subscribers: Can only see their own domains (filtered by userId)
+  // - For now, subscribers see no sovereign domains - they need to add their own via Domain Search
+  const domains = isOwner 
+    ? allDomains 
+    : allDomains.filter((d: any) => d.ownerId === user?.id || d.userId === user?.id);
 
   const { data: deploymentsData } = useQuery<any>({
     queryKey: ["/api/deployments"],
