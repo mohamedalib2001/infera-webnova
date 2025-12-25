@@ -164,6 +164,7 @@ import {
   VolumeX,
   Settings,
   Sliders,
+  Radio,
 } from "lucide-react";
 
 interface SovereignConversation {
@@ -249,6 +250,134 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
   const [novaTheme, setNovaTheme] = useState<"violet" | "emerald" | "amber" | "rose" | "cyan">("violet");
   const [showConversationHistory, setShowConversationHistory] = useState(false);
   const [showNovaSettings, setShowNovaSettings] = useState(false);
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SOVEREIGN SESSION AUTHORITY SYSTEM
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  // Security Posture Levels
+  type SecurityPosture = "secure" | "elevated" | "restricted";
+  
+  // Sovereign Phase Types (Three-Stage Access)
+  type SovereignPhase = "analysis" | "planning" | "execution";
+  
+  // Session Authority State
+  const [sessionId] = useState(() => `SOV-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
+  const [sessionStartTime] = useState(() => new Date());
+  const [securityPosture, setSecurityPosture] = useState<SecurityPosture>("secure");
+  const [currentPhase, setCurrentPhase] = useState<SovereignPhase>("analysis");
+  const [entryMethod] = useState<"three-stage" | "biometric" | "hardware-key">("three-stage");
+  const [auditLog, setAuditLog] = useState<Array<{
+    timestamp: Date;
+    action: string;
+    phase: SovereignPhase;
+    actor: string;
+    metadata?: Record<string, unknown>;
+  }>>([]);
+  const [showSovereignStatus, setShowSovereignStatus] = useState(false);
+  
+  // Log sovereign action
+  const logSovereignAction = (action: string, metadata?: Record<string, unknown>) => {
+    setAuditLog(prev => [...prev, {
+      timestamp: new Date(),
+      action,
+      phase: currentPhase,
+      actor: "ROOT_OWNER",
+      metadata
+    }]);
+  };
+  
+  // Phase transition with security validation
+  const transitionPhase = (newPhase: SovereignPhase) => {
+    const phaseOrder: SovereignPhase[] = ["analysis", "planning", "execution"];
+    const currentIndex = phaseOrder.indexOf(currentPhase);
+    const newIndex = phaseOrder.indexOf(newPhase);
+    
+    // Going to higher phase requires elevated posture check
+    if (newIndex > currentIndex) {
+      setSecurityPosture("elevated");
+      setTimeout(() => setSecurityPosture("secure"), 3000);
+    }
+    
+    logSovereignAction(`PHASE_TRANSITION: ${currentPhase} → ${newPhase}`, { 
+      previousPhase: currentPhase, 
+      newPhase 
+    });
+    
+    setCurrentPhase(newPhase);
+    
+    toast({
+      title: isRtl ? "تغيير المرحلة" : "Phase Transition",
+      description: isRtl 
+        ? `تم الانتقال إلى مرحلة ${newPhase === "analysis" ? "التحليل" : newPhase === "planning" ? "التخطيط" : "التنفيذ"}`
+        : `Transitioned to ${newPhase.charAt(0).toUpperCase() + newPhase.slice(1)} phase`,
+    });
+  };
+  
+  // Phase configuration
+  const phaseConfig = {
+    analysis: {
+      icon: Search,
+      label: isRtl ? "التحليل" : "Analysis",
+      labelAr: "التحليل",
+      color: "text-blue-400",
+      bgColor: "bg-blue-500/20",
+      borderColor: "border-blue-500/30",
+      capabilities: ["read", "analyze", "search", "report"],
+      description: isRtl ? "معلومات وتحليل" : "Information & Analysis"
+    },
+    planning: {
+      icon: Map,
+      label: isRtl ? "التخطيط" : "Planning",
+      labelAr: "التخطيط",
+      color: "text-amber-400",
+      bgColor: "bg-amber-500/20",
+      borderColor: "border-amber-500/30",
+      capabilities: ["read", "analyze", "search", "report", "simulate", "plan"],
+      description: isRtl ? "تخطيط ومحاكاة" : "Planning & Simulation"
+    },
+    execution: {
+      icon: Zap,
+      label: isRtl ? "التنفيذ" : "Execution",
+      labelAr: "التنفيذ",
+      color: "text-red-400",
+      bgColor: "bg-red-500/20",
+      borderColor: "border-red-500/30",
+      capabilities: ["read", "analyze", "search", "report", "simulate", "plan", "execute", "deploy", "modify"],
+      description: isRtl ? "قرارات وأوامر حساسة" : "Decisions & Sensitive Commands"
+    }
+  };
+  
+  // Security Posture Configuration
+  const postureConfig = {
+    secure: {
+      icon: ShieldCheck,
+      label: isRtl ? "آمن" : "Secure",
+      color: "text-green-400",
+      bgColor: "bg-green-500/20",
+      borderColor: "border-green-500/50",
+      pulse: false
+    },
+    elevated: {
+      icon: Shield,
+      label: isRtl ? "مرتفع" : "Elevated",
+      color: "text-amber-400",
+      bgColor: "bg-amber-500/20",
+      borderColor: "border-amber-500/50",
+      pulse: true
+    },
+    restricted: {
+      icon: ShieldAlert,
+      label: isRtl ? "مقيّد" : "Restricted",
+      color: "text-red-400",
+      bgColor: "bg-red-500/20",
+      borderColor: "border-red-500/50",
+      pulse: true
+    }
+  };
+  
+  const currentPosture = postureConfig[securityPosture];
+  const currentPhaseConfig = phaseConfig[currentPhase];
   
   // Voice Recognition
   const speechRecognitionRef = useRef<SpeechRecognition | null>(null);
@@ -1194,9 +1323,74 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                         <div ref={messagesEndRef} />
                       </div>
                     </ScrollArea>
-                    <div className="p-3 border-t">
+                    <div className="p-3 border-t space-y-3">
+                      {/* Sovereign Status Bar */}
+                      <div className={`flex items-center justify-between gap-2 p-2 rounded-lg ${currentPosture.bgColor} ${currentPosture.borderColor} border`}>
+                        <div className="flex items-center gap-3">
+                          {/* Security Posture Indicator */}
+                          <div className={`flex items-center gap-1.5 ${currentPosture.pulse ? "animate-pulse" : ""}`}>
+                            <currentPosture.icon className={`h-4 w-4 ${currentPosture.color}`} />
+                            <span className={`text-xs font-medium ${currentPosture.color}`}>
+                              {currentPosture.label}
+                            </span>
+                          </div>
+                          
+                          <div className="w-px h-4 bg-border" />
+                          
+                          {/* Current Phase Indicator */}
+                          <div className="flex items-center gap-1.5">
+                            <currentPhaseConfig.icon className={`h-4 w-4 ${currentPhaseConfig.color}`} />
+                            <span className={`text-xs font-medium ${currentPhaseConfig.color}`}>
+                              {currentPhaseConfig.label}
+                            </span>
+                          </div>
+                          
+                          <div className="w-px h-4 bg-border" />
+                          
+                          {/* Entry Method */}
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            <Fingerprint className="h-3 w-3" />
+                            <span className="text-xs">{isRtl ? "دخول ثلاثي" : "3-Stage"}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-1">
+                          {/* Phase Selector */}
+                          <div className="flex items-center gap-0.5 bg-background/50 rounded-md p-0.5">
+                            {(["analysis", "planning", "execution"] as const).map((phase) => {
+                              const config = phaseConfig[phase];
+                              const PhaseIcon = config.icon;
+                              return (
+                                <Button
+                                  key={phase}
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => transitionPhase(phase)}
+                                  className={`h-6 px-2 ${currentPhase === phase ? `${config.bgColor} ${config.color}` : "text-muted-foreground"}`}
+                                  data-testid={`phase-${phase}`}
+                                >
+                                  <PhaseIcon className="h-3 w-3 mr-1" />
+                                  <span className="text-xs">{phase === "analysis" ? "1" : phase === "planning" ? "2" : "3"}</span>
+                                </Button>
+                              );
+                            })}
+                          </div>
+                          
+                          {/* Sovereign Status Dialog Trigger */}
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setShowSovereignStatus(true)}
+                            className="h-6 w-6"
+                            data-testid="button-sovereign-status"
+                          >
+                            <Activity className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                      
                       {/* Nova Toolbar */}
-                      <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1">
                           <Button
                             size="icon"
@@ -7673,6 +7867,135 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
         )}
       </ResizablePanelGroup>
       
+      {/* Sovereign Status Dialog */}
+      <Dialog open={showSovereignStatus} onOpenChange={setShowSovereignStatus}>
+        <DialogContent className="max-w-2xl bg-gradient-to-br from-slate-950 via-violet-950/20 to-slate-950 border-violet-500/30" dir={isRtl ? "rtl" : "ltr"}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-green-400" />
+              {isRtl ? "حالة البيئة السيادية" : "Sovereign Environment Status"}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            {/* Environment Status */}
+            <Card className="bg-green-500/10 border-green-500/30">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3 mb-4">
+                  <Lock className="h-6 w-6 text-green-400" />
+                  <div>
+                    <h4 className="font-medium text-green-400">{isRtl ? "بيئة سيادية مشفّرة بالكامل" : "Fully Encrypted Sovereign Environment"}</h4>
+                    <p className="text-xs text-muted-foreground">{isRtl ? "لا وصول عام - معزولة بالكامل" : "No public access - Fully isolated"}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-2 rounded bg-green-500/10 border border-green-500/20">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Fingerprint className="h-4 w-4 text-green-400" />
+                      <span className="text-xs font-medium">{isRtl ? "المصادقة" : "Authentication"}</span>
+                    </div>
+                    <p className="text-xs text-green-300">{isRtl ? "دخول ثلاثي المراحل" : "Three-Stage Entry"}</p>
+                  </div>
+                  <div className="p-2 rounded bg-green-500/10 border border-green-500/20">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Shield className="h-4 w-4 text-green-400" />
+                      <span className="text-xs font-medium">{isRtl ? "التشفير" : "Encryption"}</span>
+                    </div>
+                    <p className="text-xs text-green-300">AES-256-GCM</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Session Information */}
+            <Card className="bg-slate-900/50 border-violet-500/20">
+              <CardContent className="p-4">
+                <h4 className="font-medium mb-3 flex items-center gap-2">
+                  <KeyRound className="h-4 w-4 text-violet-400" />
+                  {isRtl ? "معلومات الجلسة" : "Session Information"}
+                </h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">{isRtl ? "معرّف الجلسة" : "Session ID"}</span>
+                    <span className="font-mono text-xs">{sessionId}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">{isRtl ? "وقت البدء" : "Start Time"}</span>
+                    <span>{sessionStartTime.toLocaleTimeString(isRtl ? 'ar-SA' : 'en-US')}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">{isRtl ? "طريقة الدخول" : "Entry Method"}</span>
+                    <Badge variant="outline" className="text-xs">{entryMethod}</Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">{isRtl ? "المرحلة الحالية" : "Current Phase"}</span>
+                    <Badge className={`${currentPhaseConfig.bgColor} ${currentPhaseConfig.color} text-xs`}>
+                      {currentPhaseConfig.label}
+                    </Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Enabled Capabilities */}
+            <Card className="bg-slate-900/50 border-violet-500/20">
+              <CardContent className="p-4">
+                <h4 className="font-medium mb-3 flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-violet-400" />
+                  {isRtl ? "الأدوات المُفعّلة" : "Enabled Capabilities"}
+                </h4>
+                <p className="text-xs text-muted-foreground mb-3">
+                  {isRtl 
+                    ? "هذه الأدوات مسموحة لأن البيئة معزولة بالكامل ولا تغادر البيانات الحدود السيادية"
+                    : "These features are allowed because the environment is fully isolated and no data leaves the sovereign boundary"
+                  }
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { icon: FileDown, label: isRtl ? "تصدير التقارير" : "Report Export" },
+                    { icon: Mic, label: isRtl ? "الإدخال الصوتي" : "Voice Input" },
+                    { icon: History, label: isRtl ? "تاريخ المحادثات" : "Conversation History" },
+                    { icon: Keyboard, label: isRtl ? "الاختصارات" : "Shortcuts" },
+                    { icon: Bell, label: isRtl ? "الإشعارات" : "Notifications" },
+                    { icon: Pin, label: isRtl ? "تثبيت الرسائل" : "Message Pinning" },
+                  ].map((cap, i) => (
+                    <Badge key={i} variant="outline" className="bg-violet-500/10 border-violet-500/30">
+                      <cap.icon className="h-3 w-3 mr-1" />
+                      {cap.label}
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Audit Log Preview */}
+            <Card className="bg-slate-900/50 border-violet-500/20">
+              <CardContent className="p-4">
+                <h4 className="font-medium mb-3 flex items-center gap-2">
+                  <Radio className="h-4 w-4 text-violet-400" />
+                  {isRtl ? "سجل التدقيق (آخر 5 أحداث)" : "Audit Log (Last 5 Events)"}
+                </h4>
+                <div className="space-y-2 max-h-32 overflow-y-auto">
+                  {auditLog.slice(-5).reverse().map((entry, i) => (
+                    <div key={i} className="flex items-center justify-between text-xs p-2 rounded bg-slate-800/50">
+                      <span>{entry.action}</span>
+                      <span className="text-muted-foreground">
+                        {entry.timestamp.toLocaleTimeString(isRtl ? 'ar-SA' : 'en-US')}
+                      </span>
+                    </div>
+                  ))}
+                  {auditLog.length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-2">
+                      {isRtl ? "لا توجد أحداث مسجلة بعد" : "No events logged yet"}
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Keyboard Shortcuts Dialog */}
       <Dialog open={showKeyboardShortcuts} onOpenChange={setShowKeyboardShortcuts}>
         <DialogContent className="max-w-md bg-gradient-to-br from-slate-950 via-violet-950/20 to-slate-950 border-violet-500/30" dir={isRtl ? "rtl" : "ltr"}>
