@@ -126,6 +126,17 @@ import {
   ArrowRightLeft,
   Sun,
   Moon,
+  Layout,
+  Network,
+  ArrowUpDown,
+  FileCode2,
+  Fingerprint,
+  KeySquare,
+  Repeat,
+  Filter,
+  HardDrive,
+  Clock,
+  CheckCircle,
 } from "lucide-react";
 
 interface SovereignConversation {
@@ -191,7 +202,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
   
   const [activeTab, setActiveTab] = useState<"chat" | "code" | "preview" | "terminal">("chat");
   const [bottomTab, setBottomTab] = useState<"terminal" | "problems" | "output">("terminal");
-  const [rightTab, setRightTab] = useState<"tools" | "files" | "database" | "backend" | "packages" | "testing" | "git" | "deploy" | "debugger" | "copilot" | "compliance" | "tenants" | "rules" | "observability" | "marketplace" | "billing" | "ai-arch" | "export" | "env" | "team" | "api-test" | "cron" | "webhooks" | "profiler" | "notifications" | "settings">("tools");
+  const [rightTab, setRightTab] = useState<"tools" | "files" | "database" | "backend" | "packages" | "testing" | "git" | "deploy" | "debugger" | "copilot" | "compliance" | "tenants" | "rules" | "observability" | "marketplace" | "billing" | "ai-arch" | "export" | "env" | "team" | "api-test" | "cron" | "webhooks" | "profiler" | "notifications" | "settings" | "templates" | "docs" | "deps" | "formatter" | "migrations" | "logs" | "analytics" | "vault">("tools");
   
   const [showSidebar, setShowSidebar] = useState(true);
   const [showRightPanel, setShowRightPanel] = useState(true);
@@ -1156,7 +1167,31 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                         <Bell className="h-3 w-3" />
                       </TabsTrigger>
                       <TabsTrigger value="settings" className="text-[10px] px-1" data-testid="tab-settings" aria-label={isRtl ? "الإعدادات" : "Settings"}>
-                        <Settings className="h-3 w-3" />
+                        <Settings2 className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="templates" className="text-[10px] px-1" data-testid="tab-templates" aria-label={isRtl ? "القوالب" : "Templates"}>
+                        <Layout className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="docs" className="text-[10px] px-1" data-testid="tab-docs" aria-label={isRtl ? "التوثيق" : "Docs"}>
+                        <BookOpen className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="deps" className="text-[10px] px-1" data-testid="tab-deps" aria-label={isRtl ? "التبعيات" : "Deps"}>
+                        <Network className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="formatter" className="text-[10px] px-1" data-testid="tab-formatter" aria-label={isRtl ? "التنسيق" : "Format"}>
+                        <Wand2 className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="migrations" className="text-[10px] px-1" data-testid="tab-migrations" aria-label={isRtl ? "الترحيل" : "Migrate"}>
+                        <ArrowUpDown className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="logs" className="text-[10px] px-1" data-testid="tab-logs" aria-label={isRtl ? "السجلات" : "Logs"}>
+                        <ScrollText className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="analytics" className="text-[10px] px-1" data-testid="tab-analytics" aria-label={isRtl ? "التحليلات" : "Analytics"}>
+                        <TrendingUp className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="vault" className="text-[10px] px-1" data-testid="tab-vault" aria-label={isRtl ? "الخزنة" : "Vault"}>
+                        <Lock className="h-3 w-3" />
                       </TabsTrigger>
                     </TabsList>
                   </div>
@@ -3455,7 +3490,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                       <Card className="mb-2">
                         <CardHeader className="p-2 pb-1">
                           <CardTitle className="text-xs flex items-center gap-2">
-                            <Code className="h-3.5 w-3.5 text-blue-400" />
+                            <Code2 className="h-3.5 w-3.5 text-blue-400" />
                             {isRtl ? "كود المصدر" : "Source Code"}
                           </CardTitle>
                         </CardHeader>
@@ -4223,7 +4258,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                       <Card className="bg-gradient-to-br from-cyan-500/10 to-transparent border-cyan-500/20">
                         <CardHeader className="p-2 pb-1">
                           <CardTitle className="text-xs flex items-center gap-2">
-                            <Settings className="h-3.5 w-3.5 text-muted-foreground" />
+                            <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
                             {isRtl ? "إعدادات الإشعارات" : "Notification Settings"}
                           </CardTitle>
                         </CardHeader>
@@ -4252,7 +4287,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                         <CardContent className="p-3">
                           <div className="flex items-center gap-2 mb-2">
                             <div className="p-1.5 rounded-full bg-slate-500/20">
-                              <Settings className="h-4 w-4 text-slate-400" />
+                              <Settings2 className="h-4 w-4 text-slate-400" />
                             </div>
                             <div>
                               <p className="text-xs font-medium">{isRtl ? "الإعدادات" : "Settings"}</p>
@@ -4299,7 +4334,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                       <Card className="mb-2">
                         <CardHeader className="p-2 pb-1">
                           <CardTitle className="text-xs flex items-center gap-2">
-                            <Code className="h-3.5 w-3.5 text-blue-400" />
+                            <Code2 className="h-3.5 w-3.5 text-blue-400" />
                             {isRtl ? "المحرر" : "Editor"}
                           </CardTitle>
                         </CardHeader>
@@ -4362,6 +4397,587 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                               <kbd className="px-1.5 py-0.5 rounded bg-muted font-mono text-[9px]">{s.keys}</kbd>
                             </div>
                           ))}
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Templates Tab */}
+                  <TabsContent value="templates" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      <Card className="mb-2 bg-gradient-to-br from-indigo-500/20 via-purple-500/10 to-transparent border-indigo-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-indigo-500/20">
+                              <Layout className="h-4 w-4 text-indigo-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "معرض القوالب" : "Template Gallery"}</p>
+                              <p className="text-[10px] text-muted-foreground">{isRtl ? "ابدأ بسرعة" : "Quick Start"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Layers className="h-3.5 w-3.5 text-violet-400" />
+                            {isRtl ? "القوالب المميزة" : "Featured Templates"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { name: "SaaS Starter", tech: "React + Express", stars: 4.9 },
+                            { name: "E-Commerce", tech: "Next.js + Stripe", stars: 4.8 },
+                            { name: "Dashboard", tech: "React + Charts", stars: 4.7 },
+                            { name: "API Backend", tech: "Express + Drizzle", stars: 4.9 },
+                            { name: "Mobile App", tech: "React Native", stars: 4.6 },
+                          ].map((t, i) => (
+                            <button key={i} className="w-full flex items-center justify-between p-2 rounded bg-muted/30 hover:bg-muted text-[10px] transition-colors" data-testid={`template-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <Layout className="h-3 w-3 text-indigo-400" />
+                                <span>{t.name}</span>
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-[9px] h-4">{t.tech}</Badge>
+                                <span className="text-amber-400">{t.stars}</span>
+                              </div>
+                            </button>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      <Card className="bg-gradient-to-br from-indigo-500/10 to-transparent border-indigo-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "القوالب المتاحة" : "Available"}</span>
+                            <span className="text-indigo-400 font-medium">48</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "المستخدمة" : "Used"}</span>
+                            <span className="text-green-400 font-medium">12</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Docs Generator Tab */}
+                  <TabsContent value="docs" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      <Card className="mb-2 bg-gradient-to-br from-emerald-500/20 via-green-500/10 to-transparent border-emerald-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-emerald-500/20">
+                              <BookOpen className="h-4 w-4 text-emerald-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "مولد التوثيق" : "Docs Generator"}</p>
+                              <p className="text-[10px] text-muted-foreground">{isRtl ? "توثيق تلقائي" : "Auto Documentation"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <FileCode2 className="h-3.5 w-3.5 text-blue-400" />
+                            {isRtl ? "أنواع التوثيق" : "Documentation Types"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { type: "API Docs", format: "OpenAPI 3.0", status: "ready" },
+                            { type: "JSDoc", format: "TypeScript", status: "ready" },
+                            { type: "README", format: "Markdown", status: "draft" },
+                            { type: "Storybook", format: "Components", status: "ready" },
+                          ].map((d, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`doc-type-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <BookOpen className="h-3 w-3 text-emerald-400" />
+                                <span>{d.type}</span>
+                              </span>
+                              <Badge variant="outline" className={`text-[9px] h-4 ${d.status === 'ready' ? 'text-green-400' : 'text-amber-400'}`}>{d.status}</Badge>
+                            </div>
+                          ))}
+                          <Button size="sm" className="w-full h-7 text-[10px] bg-emerald-600 hover:bg-emerald-700" data-testid="button-generate-docs">
+                            <Wand2 className="h-3 w-3 mr-1" />
+                            {isRtl ? "توليد الكل" : "Generate All"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="bg-gradient-to-br from-emerald-500/10 to-transparent border-emerald-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "الملفات الموثقة" : "Documented Files"}</span>
+                            <span className="text-emerald-400 font-medium">89%</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "آخر تحديث" : "Last Updated"}</span>
+                            <span className="text-cyan-400 font-medium">{isRtl ? "منذ ساعة" : "1 hour ago"}</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Dependencies Graph Tab */}
+                  <TabsContent value="deps" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      <Card className="mb-2 bg-gradient-to-br from-cyan-500/20 via-blue-500/10 to-transparent border-cyan-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-cyan-500/20">
+                              <Network className="h-4 w-4 text-cyan-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "خريطة التبعيات" : "Dependency Graph"}</p>
+                              <p className="text-[10px] text-muted-foreground">{isRtl ? "تحليل مرئي" : "Visual Analysis"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Network className="h-3.5 w-3.5 text-violet-400" />
+                            {isRtl ? "التبعيات الرئيسية" : "Core Dependencies"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { name: "react", version: "18.3.1", deps: 2, size: "45KB" },
+                            { name: "express", version: "4.21.0", deps: 30, size: "200KB" },
+                            { name: "drizzle-orm", version: "0.36.0", deps: 5, size: "120KB" },
+                            { name: "@tanstack/react-query", version: "5.x", deps: 4, size: "80KB" },
+                          ].map((d, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`dep-${i}`}>
+                              <span className="font-mono text-cyan-400">{d.name}</span>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-[9px] h-4">{d.version}</Badge>
+                                <span className="text-muted-foreground">{d.size}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      <Card className="bg-gradient-to-br from-cyan-500/10 to-transparent border-cyan-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "إجمالي التبعيات" : "Total Dependencies"}</span>
+                            <span className="text-cyan-400 font-medium">156</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "الحجم الكلي" : "Total Size"}</span>
+                            <span className="text-violet-400 font-medium">2.4 MB</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "بحاجة تحديث" : "Need Update"}</span>
+                            <span className="text-amber-400 font-medium">3</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Formatter Tab */}
+                  <TabsContent value="formatter" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      <Card className="mb-2 bg-gradient-to-br from-pink-500/20 via-rose-500/10 to-transparent border-pink-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-pink-500/20">
+                              <Wand2 className="h-4 w-4 text-pink-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "تنسيق الكود" : "Code Formatter"}</p>
+                              <p className="text-[10px] text-muted-foreground">Prettier + ESLint</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <FileCode2 className="h-3.5 w-3.5 text-blue-400" />
+                            {isRtl ? "إجراءات سريعة" : "Quick Actions"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1.5">
+                          <Button size="sm" variant="outline" className="w-full h-7 text-[10px] justify-start" data-testid="button-format-all">
+                            <Wand2 className="h-3 w-3 mr-2" />
+                            {isRtl ? "تنسيق كل الملفات" : "Format All Files"}
+                          </Button>
+                          <Button size="sm" variant="outline" className="w-full h-7 text-[10px] justify-start" data-testid="button-fix-lint">
+                            <CheckCircle className="h-3 w-3 mr-2" />
+                            {isRtl ? "إصلاح مشاكل ESLint" : "Fix ESLint Issues"}
+                          </Button>
+                          <Button size="sm" variant="outline" className="w-full h-7 text-[10px] justify-start" data-testid="button-sort-imports">
+                            <ArrowUpDown className="h-3 w-3 mr-2" />
+                            {isRtl ? "ترتيب الاستيرادات" : "Sort Imports"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
+                            {isRtl ? "المشاكل" : "Issues Found"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { file: "routes.ts", issues: 2, type: "warning" },
+                            { file: "schema.ts", issues: 1, type: "error" },
+                            { file: "App.tsx", issues: 0, type: "ok" },
+                          ].map((f, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`lint-file-${i}`}>
+                              <span className="font-mono">{f.file}</span>
+                              <Badge variant="outline" className={`text-[9px] h-4 ${f.type === 'ok' ? 'text-green-400' : f.type === 'warning' ? 'text-amber-400' : 'text-red-400'}`}>{f.issues}</Badge>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      <Card className="bg-gradient-to-br from-pink-500/10 to-transparent border-pink-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "الملفات المنسقة" : "Formatted Files"}</span>
+                            <span className="text-green-400 font-medium">98%</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "آخر تنسيق" : "Last Format"}</span>
+                            <span className="text-pink-400 font-medium">{isRtl ? "منذ 5 دقائق" : "5 min ago"}</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Migrations Tab */}
+                  <TabsContent value="migrations" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      <Card className="mb-2 bg-gradient-to-br from-orange-500/20 via-amber-500/10 to-transparent border-orange-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-orange-500/20">
+                              <ArrowUpDown className="h-4 w-4 text-orange-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "إدارة الترحيلات" : "Migration Manager"}</p>
+                              <p className="text-[10px] text-muted-foreground">Drizzle ORM</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Database className="h-3.5 w-3.5 text-cyan-400" />
+                            {isRtl ? "الترحيلات المطبقة" : "Applied Migrations"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { name: "0001_initial", date: "Dec 20", status: "applied" },
+                            { name: "0002_add_users", date: "Dec 22", status: "applied" },
+                            { name: "0003_add_sessions", date: "Dec 24", status: "applied" },
+                            { name: "0004_add_tenants", date: "Dec 25", status: "pending" },
+                          ].map((m, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`migration-${i}`}>
+                              <span className="font-mono truncate flex-1">{m.name}</span>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="text-muted-foreground">{m.date}</span>
+                                <Badge variant="outline" className={`text-[9px] h-4 ${m.status === 'applied' ? 'text-green-400' : 'text-amber-400'}`}>{m.status}</Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      <div className="flex gap-1 mb-2">
+                        <Button size="sm" className="flex-1 h-7 text-[10px] bg-orange-600 hover:bg-orange-700" data-testid="button-run-migration">
+                          <Play className="h-3 w-3 mr-1" />
+                          {isRtl ? "تشغيل" : "Run"}
+                        </Button>
+                        <Button size="sm" variant="outline" className="flex-1 h-7 text-[10px]" data-testid="button-new-migration">
+                          <Plus className="h-3 w-3 mr-1" />
+                          {isRtl ? "جديد" : "New"}
+                        </Button>
+                      </div>
+
+                      <Card className="bg-gradient-to-br from-orange-500/10 to-transparent border-orange-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "الترحيلات" : "Migrations"}</span>
+                            <span className="text-orange-400 font-medium">4</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "معلقة" : "Pending"}</span>
+                            <span className="text-amber-400 font-medium">1</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Logs Tab */}
+                  <TabsContent value="logs" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      <Card className="mb-2 bg-gradient-to-br from-slate-500/20 via-gray-500/10 to-transparent border-slate-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-slate-500/20">
+                              <ScrollText className="h-4 w-4 text-slate-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "عارض السجلات" : "Log Viewer"}</p>
+                              <p className="text-[10px] text-green-400">{isRtl ? "مباشر" : "Live"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Filter className="h-3.5 w-3.5 text-blue-400" />
+                            {isRtl ? "تصفية السجلات" : "Filter Logs"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0">
+                          <div className="flex gap-1 flex-wrap">
+                            {['ALL', 'INFO', 'WARN', 'ERROR', 'DEBUG'].map((level, i) => (
+                              <Badge key={i} variant="outline" className={`text-[9px] h-5 cursor-pointer ${level === 'ALL' ? 'bg-muted' : ''} ${level === 'ERROR' ? 'text-red-400' : level === 'WARN' ? 'text-amber-400' : 'text-muted-foreground'}`} data-testid={`log-filter-${level}`}>
+                                {level}
+                              </Badge>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <ScrollText className="h-3.5 w-3.5 text-cyan-400" />
+                            {isRtl ? "السجلات الأخيرة" : "Recent Logs"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-0.5">
+                          {[
+                            { time: "12:45:32", level: "INFO", msg: "Server started on port 5000" },
+                            { time: "12:45:33", level: "INFO", msg: "Database connected" },
+                            { time: "12:46:01", level: "WARN", msg: "High memory usage detected" },
+                            { time: "12:46:15", level: "ERROR", msg: "Failed to fetch user data" },
+                            { time: "12:46:20", level: "INFO", msg: "Request completed 200 OK" },
+                          ].map((l, i) => (
+                            <div key={i} className="flex items-start gap-2 p-1 rounded text-[9px] font-mono bg-muted/20" data-testid={`log-entry-${i}`}>
+                              <span className="text-muted-foreground shrink-0">{l.time}</span>
+                              <Badge variant="outline" className={`text-[8px] h-4 shrink-0 ${l.level === 'ERROR' ? 'text-red-400' : l.level === 'WARN' ? 'text-amber-400' : 'text-green-400'}`}>{l.level}</Badge>
+                              <span className="truncate">{l.msg}</span>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      <Card className="bg-gradient-to-br from-slate-500/10 to-transparent border-slate-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "إجمالي السجلات" : "Total Logs"}</span>
+                            <span className="text-slate-400 font-medium">1,245</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "الأخطاء" : "Errors"}</span>
+                            <span className="text-red-400 font-medium">3</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Analytics Tab */}
+                  <TabsContent value="analytics" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      <Card className="mb-2 bg-gradient-to-br from-violet-500/20 via-purple-500/10 to-transparent border-violet-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-violet-500/20">
+                              <TrendingUp className="h-4 w-4 text-violet-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "لوحة التحليلات" : "Analytics Dashboard"}</p>
+                              <p className="text-[10px] text-green-400">{isRtl ? "نمو إيجابي" : "Positive Growth"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <BarChart3 className="h-3.5 w-3.5 text-blue-400" />
+                            {isRtl ? "نظرة عامة" : "Overview"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="p-2 rounded bg-muted/30 text-center">
+                              <p className="text-lg font-bold text-violet-400">15.2K</p>
+                              <p className="text-[9px] text-muted-foreground">{isRtl ? "المستخدمون" : "Users"}</p>
+                            </div>
+                            <div className="p-2 rounded bg-muted/30 text-center">
+                              <p className="text-lg font-bold text-green-400">+23%</p>
+                              <p className="text-[9px] text-muted-foreground">{isRtl ? "النمو" : "Growth"}</p>
+                            </div>
+                            <div className="p-2 rounded bg-muted/30 text-center">
+                              <p className="text-lg font-bold text-cyan-400">45.8K</p>
+                              <p className="text-[9px] text-muted-foreground">{isRtl ? "الطلبات" : "Requests"}</p>
+                            </div>
+                            <div className="p-2 rounded bg-muted/30 text-center">
+                              <p className="text-lg font-bold text-amber-400">99.9%</p>
+                              <p className="text-[9px] text-muted-foreground">{isRtl ? "التوفر" : "Uptime"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Cpu className="h-3.5 w-3.5 text-orange-400" />
+                            {isRtl ? "استخدام الموارد" : "Resource Usage"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1.5">
+                          {[
+                            { resource: "CPU", usage: 34, color: "text-green-400" },
+                            { resource: "Memory", usage: 67, color: "text-amber-400" },
+                            { resource: "Storage", usage: 45, color: "text-cyan-400" },
+                            { resource: "Bandwidth", usage: 23, color: "text-violet-400" },
+                          ].map((r, i) => (
+                            <div key={i} className="flex items-center justify-between text-[10px]" data-testid={`resource-${i}`}>
+                              <span className="text-muted-foreground">{r.resource}</span>
+                              <div className="flex items-center gap-2">
+                                <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
+                                  <div className={`h-full rounded-full bg-current ${r.color}`} style={{ width: `${r.usage}%` }} />
+                                </div>
+                                <span className={`font-medium ${r.color}`}>{r.usage}%</span>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      <Card className="bg-gradient-to-br from-violet-500/10 to-transparent border-violet-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "تكلفة الشهر" : "Month Cost"}</span>
+                            <span className="text-violet-400 font-medium">$127.50</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "التوفير" : "Saved"}</span>
+                            <span className="text-green-400 font-medium">$45.00</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Vault Tab */}
+                  <TabsContent value="vault" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      <Card className="mb-2 bg-gradient-to-br from-amber-500/20 via-yellow-500/10 to-transparent border-amber-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-amber-500/20">
+                              <Lock className="h-4 w-4 text-amber-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "خزنة الأسرار" : "Secrets Vault"}</p>
+                              <p className="text-[10px] text-green-400">AES-256-GCM</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <KeySquare className="h-3.5 w-3.5 text-amber-400" />
+                            {isRtl ? "الأسرار المخزنة" : "Stored Secrets"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { name: "API_KEYS", count: 5, rotated: "7d" },
+                            { name: "DB_CREDENTIALS", count: 3, rotated: "30d" },
+                            { name: "OAUTH_TOKENS", count: 4, rotated: "14d" },
+                            { name: "ENCRYPTION_KEYS", count: 2, rotated: "90d" },
+                          ].map((s, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`vault-secret-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <Fingerprint className="h-3 w-3 text-amber-400" />
+                                <span className="font-mono">{s.name}</span>
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-[9px] h-4">{s.count}</Badge>
+                                <span className="text-muted-foreground">{s.rotated}</span>
+                              </div>
+                            </div>
+                          ))}
+                          <Button size="sm" variant="outline" className="w-full h-7 text-[10px]" data-testid="button-add-vault-secret">
+                            <Plus className="h-3 w-3 mr-1" />
+                            {isRtl ? "إضافة سر" : "Add Secret"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Repeat className="h-3.5 w-3.5 text-green-400" />
+                            {isRtl ? "سياسة التدوير" : "Rotation Policy"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { policy: isRtl ? "تلقائي" : "Auto-rotate", interval: "30 days", enabled: true },
+                            { policy: isRtl ? "تنبيه" : "Alert before", interval: "7 days", enabled: true },
+                            { policy: isRtl ? "نسخ احتياطي" : "Backup", interval: "Daily", enabled: true },
+                          ].map((p, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]">
+                              <span>{p.policy}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">{p.interval}</span>
+                                <Badge variant="outline" className={`text-[9px] h-4 ${p.enabled ? 'text-green-400' : 'text-muted-foreground'}`}>{p.enabled ? 'On' : 'Off'}</Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      <Card className="bg-gradient-to-br from-amber-500/10 to-transparent border-amber-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "الأسرار" : "Total Secrets"}</span>
+                            <span className="text-amber-400 font-medium">14</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "آخر تدوير" : "Last Rotation"}</span>
+                            <span className="text-green-400 font-medium">{isRtl ? "منذ 3 أيام" : "3 days ago"}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "سجل الوصول" : "Access Logs"}</span>
+                            <span className="text-cyan-400 font-medium">256</span>
+                          </div>
                         </CardContent>
                       </Card>
                     </ScrollArea>
