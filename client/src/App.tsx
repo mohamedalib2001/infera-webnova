@@ -191,6 +191,7 @@ import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
 import { CommandPalette } from "@/components/command-palette";
 import { NovaAssistantMenu } from "@/components/nova-assistant-menu";
+import { NovaFloatingButton } from "@/components/nova-floating-button";
 import { SovereignHeaderButton } from "@/components/sovereign-header-button";
 import { AIProviderTopbar } from "@/components/ai-provider-topbar";
 import { PerformanceTracker } from "@/hooks/use-performance-tracker";
@@ -512,6 +513,9 @@ function AppContent() {
       
       {/* Sovereign Analytics Panel - لوحة التحليلات السيادية */}
       <SovereignIndicator />
+      
+      {/* Nova AI Floating Button - زر نوفا العائم */}
+      <NovaFloatingButton />
       
       {/* Real Performance Tracking - تتبع الأداء الحقيقي */}
       <PerformanceTracker />
