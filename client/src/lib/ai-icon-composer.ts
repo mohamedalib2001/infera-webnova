@@ -298,9 +298,9 @@ function generateNeuralNetwork(cx: number, cy: number, radius: number, color: st
   
   const nodeElements = nodes.map((n, i) => 
     `<circle cx="${n.x}" cy="${n.y}" r="${n.r}" fill="${color}" opacity="${0.7 - (i > 5 ? 0.2 : 0)}"/>`
-  ).join('');
+  ).join('\n    ');
   
-  return connections + nodeElements;
+  return connections + '\n    ' + nodeElements;
 }
 
 function generateQuantumCore(cx: number, cy: number, radius: number, color: string, size: number): string {
@@ -315,17 +315,20 @@ function generateQuantumCore(cx: number, cy: number, radius: number, color: stri
 
 function generateQuantumField(cx: number, cy: number, radius: number, color: string, size: number): string {
   const particles: string[] = [];
+  const distPattern = [0.6, 0.8, 0.5, 0.9, 0.7, 0.55, 0.85, 0.65, 0.75, 0.6, 0.9, 0.7];
+  const sizePattern = [3, 5, 2, 4, 6, 3, 5, 2, 4, 3, 5, 4];
+  const opacityPattern = [0.3, 0.4, 0.25, 0.35, 0.45, 0.3, 0.4, 0.25, 0.35, 0.3, 0.45, 0.35];
   
   for (let i = 0; i < 12; i++) {
     const angle = (i * 30) * Math.PI / 180;
-    const dist = radius * (0.5 + Math.random() * 0.5);
+    const dist = radius * distPattern[i];
     const x = cx + Math.cos(angle) * dist;
     const y = cy + Math.sin(angle) * dist;
-    const size = 2 + Math.random() * 4;
-    particles.push(`<circle cx="${x}" cy="${y}" r="${size}" fill="${color}" opacity="${0.2 + Math.random() * 0.3}"/>`);
+    const pSize = sizePattern[i];
+    particles.push(`<circle cx="${x}" cy="${y}" r="${pSize}" fill="${color}" opacity="${opacityPattern[i]}"/>`);
   }
   
-  return particles.join('');
+  return particles.join('\n    ');
 }
 
 function generateCategoryOverlay(category: IconCategory, cx: number, cy: number, radius: number, color: string): string {
