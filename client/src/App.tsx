@@ -323,14 +323,14 @@ function AppContent() {
   if (!user) {
     return (
       <SidebarProvider style={sidebarStyle}>
-        <div className={`flex h-screen w-full ${isRTL ? "flex-row-reverse" : ""}`} dir={isRTL ? "rtl" : "ltr"}>
+        <div className="flex h-screen w-full" dir={isRTL ? "rtl" : "ltr"}>
           <GuestSidebar />
           <div className="flex flex-col flex-1 overflow-hidden">
-            <header className={`flex items-center justify-between gap-2 p-2 border-b h-14 shrink-0 ${isRTL ? "flex-row-reverse" : ""}`}>
-              <div className={`flex items-center gap-2 ${isRTL ? "flex-row-reverse" : ""}`}>
+            <header className="flex items-center justify-between gap-2 p-2 border-b h-14 shrink-0">
+              <div className="flex items-center gap-2">
                 <SidebarTrigger data-testid="button-sidebar-toggle" />
               </div>
-              <div className={`flex items-center gap-2 ${isRTL ? "flex-row-reverse" : ""}`}>
+              <div className="flex items-center gap-2">
                 <LanguageToggle />
                 <ThemeToggle />
               </div>
@@ -350,15 +350,15 @@ function AppContent() {
     <InspectorProvider>
       <SovereignViewProvider>
         <SidebarProvider style={sidebarStyle}>
-          <div className={`flex h-screen w-full ${isRTL ? "flex-row-reverse" : ""}`} dir={isRTL ? "rtl" : "ltr"}>
+          <div className="flex h-screen w-full" dir={isRTL ? "rtl" : "ltr"}>
             <AppSidebar />
             <div className="flex flex-col flex-1 overflow-hidden">
-              <header className={`flex items-center justify-between gap-2 p-2 border-b h-14 shrink-0 ${isRTL ? "flex-row-reverse" : ""}`}>
-                <div className={`flex items-center gap-2 ${isRTL ? "flex-row-reverse" : ""}`}>
+              <header className="flex items-center justify-between gap-2 p-2 border-b h-14 shrink-0">
+                <div className="flex items-center gap-2">
                   <SidebarTrigger data-testid="button-sidebar-toggle" />
                   {isOwner && <SovereignHeaderButton />}
                 </div>
-                <div className={`flex items-center gap-2 ${isRTL ? "flex-row-reverse" : ""}`}>
+                <div className="flex items-center gap-2">
                   {isOwner && <AIProviderTopbar />}
                   {isOwner && <NovaAssistantMenu />}
                   <NotificationBell />
