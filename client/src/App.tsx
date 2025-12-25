@@ -52,6 +52,7 @@ import PolicyEngine from "@/pages/policy-engine";
 import TrustCompliance from "@/pages/trust-compliance";
 import StrategicForecast from "@/pages/strategic-forecast";
 import Domains from "@/pages/domains";
+import DomainSearch from "@/pages/domain-search";
 import Settings from "@/pages/settings";
 import PlatformGenerator from "@/pages/platform-generator";
 import ApiKeys from "@/pages/api-keys";
@@ -353,6 +354,7 @@ function AuthenticatedRouter() {
       <Route path="/sovereign/trust-compliance" component={TrustCompliance} />
       <Route path="/sovereign/strategic-forecast" component={StrategicForecast} />
       <Route path="/domains" component={Domains} />
+      <Route path="/domain-search" component={DomainSearch} />
       <Route path="/settings" component={Settings} />
       <Route path="/platform-generator" component={PlatformGenerator} />
       <Route path="/api-keys" component={ApiKeys} />
