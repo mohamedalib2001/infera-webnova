@@ -7952,7 +7952,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {[
-                    { icon: FileDown, label: isRtl ? "تصدير التقارير" : "Report Export" },
+                    { icon: Download, label: isRtl ? "تصدير التقارير" : "Report Export" },
                     { icon: Mic, label: isRtl ? "الإدخال الصوتي" : "Voice Input" },
                     { icon: History, label: isRtl ? "تاريخ المحادثات" : "Conversation History" },
                     { icon: Keyboard, label: isRtl ? "الاختصارات" : "Shortcuts" },
