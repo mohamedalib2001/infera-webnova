@@ -79,6 +79,7 @@ import SSHVault from "@/pages/ssh-vault";
 import GitHubManager from "@/pages/github-manager";
 import SovereignPlans from "@/pages/sovereign-plans";
 import SovereignWorkspace from "@/pages/sovereign-workspace";
+import GovernmentCompliance from "@/pages/government-compliance";
 import OwnerPolicies from "@/pages/owner-policies";
 import DepartmentsPage from "@/pages/departments";
 import TasksPage from "@/pages/tasks";
@@ -377,6 +378,7 @@ function AuthenticatedRouter() {
       <Route path="/github" component={GitHubManager} />
       <Route path="/sovereign-plans" component={SovereignPlans} />
       <Route path="/sovereign-workspace" component={SovereignWorkspace} />
+      <Route path="/government-compliance" component={GovernmentCompliance} />
       <Route path="/owner/policies" component={OwnerPolicies} />
       <Route path="/departments" component={DepartmentsPage} />
       <Route path="/tasks" component={TasksPage} />

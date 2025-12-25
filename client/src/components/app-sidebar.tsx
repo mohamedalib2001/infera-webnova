@@ -709,6 +709,14 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                       <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/government-compliance"}>
+                          <Link href="/government-compliance" data-testid="nav-government-compliance">
+                            <Landmark className="h-4 w-4 text-emerald-600" />
+                            <span>{language === "ar" ? "الجاهزية الحكومية" : "Government Compliance"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
                         <SidebarMenuButton asChild isActive={location === "/owner/policies"}>
                           <Link href="/owner/policies" data-testid="nav-owner-policies">
                             <Gavel className="h-4 w-4 text-red-600" />
