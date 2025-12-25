@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { 
   Home, 
@@ -93,6 +93,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { NewPlatformModal, useNewPlatformModal } from "@/components/new-platform-modal";
@@ -111,9 +112,53 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
   const [growthExpanded, setGrowthExpanded] = useState(false);
   const [pitchDeckExpanded, setPitchDeckExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<AudienceTab>("all");
+  const [showZoneWarning, setShowZoneWarning] = useState(false);
+  const [currentZone, setCurrentZone] = useState<string>("");
 
   const isOwner = user?.role === "owner";
   const isAdvancedUser = user?.role === "enterprise" || user?.role === "sovereign" || isOwner;
+
+  // Define sovereign safe zone routes
+  const sovereignSafeZoneRoutes = [
+    "/owner", "/sovereign", "/sovereign-workspace", "/sovereign-chat", 
+    "/sovereign/command-center", "/sovereign/ai-governance", "/sovereign/digital-borders",
+    "/sovereign/policy-engine", "/sovereign/trust-compliance", "/sovereign/strategic-forecast",
+    "/owner/isds", "/owner/spom", "/owner/quality", "/owner/sidebar-manager",
+    "/owner/infrastructure", "/owner/policies", "/owner/integrations", "/owner/notifications",
+    "/owner/ai-sovereignty", "/owner/ai-capability-control", "/owner/assistant-governance",
+    "/owner/ai-settings", "/owner/ai-model-registry", "/owner/infera-intelligence",
+    "/owner/staff", "/owner/sovereign-permissions", "/owner/control-center", "/owner/platform-maps",
+    "/api-keys", "/ssh-vault", "/github", "/sovereign-plans"
+  ];
+
+  // Check if current route is in sovereign safe zone
+  const isInSovereignZone = sovereignSafeZoneRoutes.some(route => location.startsWith(route));
+
+  // Get zone name for display
+  const getZoneName = (path: string) => {
+    if (path === "/" || path.startsWith("/home")) return language === "ar" ? "الرئيسية" : "Home";
+    if (path.startsWith("/console")) return language === "ar" ? "وحدة التحكم" : "Console";
+    if (path.startsWith("/ide")) return language === "ar" ? "بيئة التطوير" : "Cloud IDE";
+    if (path.startsWith("/ai-builder")) return language === "ar" ? "منشئ التطبيقات" : "AI App Builder";
+    if (path.startsWith("/projects")) return language === "ar" ? "المشاريع" : "Projects";
+    if (path.startsWith("/templates")) return language === "ar" ? "القوالب" : "Templates";
+    if (path.startsWith("/settings")) return language === "ar" ? "الإعدادات" : "Settings";
+    if (path.startsWith("/analytics")) return language === "ar" ? "التحليلات" : "Analytics";
+    if (path.startsWith("/pricing")) return language === "ar" ? "الأسعار" : "Pricing";
+    return path.split("/").pop()?.replace(/-/g, " ") || path;
+  };
+
+  // Monitor route changes and show warning when leaving sovereign zone
+  // Warning triggers for owner regardless of active tab selection
+  const [hasSeenWarning, setHasSeenWarning] = useState<Set<string>>(new Set());
+  
+  useEffect(() => {
+    if (isOwner && !isInSovereignZone && !hasSeenWarning.has(location)) {
+      setCurrentZone(getZoneName(location));
+      setShowZoneWarning(true);
+      setHasSeenWarning(prev => new Set(prev).add(location));
+    }
+  }, [location, isOwner, isInSovereignZone]);
 
   const audienceTabs = [
     { id: "all" as AudienceTab, label: language === "ar" ? "الكل" : "All", icon: LayoutDashboard },
@@ -267,19 +312,15 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
             <div className="px-3 py-3 mb-2 bg-gradient-to-br from-amber-500/10 via-purple-500/10 to-cyan-500/10 border-b border-amber-500/20" data-testid="owner-sovereign-header">
               <div className="flex items-center gap-3">
                 <div className="relative">
-                  <div className="h-12 w-12 rounded-full ring-2 ring-amber-500 ring-offset-2 ring-offset-background overflow-hidden bg-gradient-to-br from-amber-500 to-purple-600 flex items-center justify-center">
-                    <img 
-                      src={ownerAvatarUrl} 
+                  <Avatar className="h-12 w-12 ring-2 ring-amber-500 ring-offset-2 ring-offset-background">
+                    <AvatarImage 
+                      src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user?.fullName || user?.username || "Owner")}&backgroundColor=f59e0b,a855f7`} 
                       alt={user?.fullName || "Owner"} 
-                      className="h-full w-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                      }}
                     />
-                    <span className="absolute inset-0 flex items-center justify-center text-white font-bold text-lg">
+                    <AvatarFallback className="bg-gradient-to-br from-amber-500 to-purple-600 text-white font-bold text-lg">
                       {getInitials(user?.fullName, user?.email || undefined)}
-                    </span>
-                  </div>
+                    </AvatarFallback>
+                  </Avatar>
                   <div className="absolute -bottom-1 -right-1 bg-amber-500 rounded-full p-0.5">
                     <Crown className="h-3 w-3 text-white" />
                   </div>
@@ -289,9 +330,16 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                     <span className="font-bold text-sm truncate">{user?.fullName || user?.username}</span>
                     <Shield className="h-3.5 w-3.5 text-amber-500" />
                   </div>
-                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0 bg-gradient-to-r from-amber-600 to-purple-600 border-0">
-                    {language === "ar" ? "مساحة العمل السيادية" : "Sovereign Workspace"}
-                  </Badge>
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant="destructive" className="text-[10px] px-1.5 py-0 bg-gradient-to-r from-amber-600 to-purple-600 border-0">
+                      {language === "ar" ? "مساحة العمل السيادية" : "Sovereign Workspace"}
+                    </Badge>
+                    {isInSovereignZone && (
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 border-emerald-500 text-emerald-600 dark:text-emerald-400">
+                        {language === "ar" ? "آمن" : "Safe"}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -938,6 +986,60 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
         onConfirm={handleConfirmNewPlatform}
         language={language}
       />
+
+      {/* Sovereign Zone Warning Dialog */}
+      <AlertDialog open={showZoneWarning} onOpenChange={setShowZoneWarning}>
+        <AlertDialogContent className="max-w-md border-amber-500/50 bg-gradient-to-br from-background via-background to-amber-500/5">
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 rounded-full bg-amber-500/20">
+                <Shield className="h-6 w-6 text-amber-500" />
+              </div>
+              <AlertDialogTitle className="text-lg">
+                {language === "ar" ? "خارج المنطقة السيادية" : "Outside Sovereign Zone"}
+              </AlertDialogTitle>
+            </div>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <span className="block text-foreground/80">
+                  {language === "ar" 
+                    ? `أنت الآن في منطقة "${currentZone}" وهي خارج المساحة السيادية الآمنة المخصصة لك.`
+                    : `You are now in the "${currentZone}" zone, which is outside your secure sovereign workspace.`
+                  }
+                </span>
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                  <Crown className="h-5 w-5 text-amber-500 shrink-0" />
+                  <span className="text-sm text-muted-foreground">
+                    {language === "ar" 
+                      ? "للعودة إلى المنطقة الآمنة، انتقل إلى لوحة تحكم المالك أو أي صفحة سيادية."
+                      : "To return to the safe zone, navigate to the Owner Dashboard or any sovereign page."
+                    }
+                  </span>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row gap-2 sm:justify-between">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowZoneWarning(false)}
+              className="flex-1"
+            >
+              {language === "ar" ? "فهمت، استمر" : "Got it, continue"}
+            </Button>
+            <Button 
+              onClick={() => {
+                navigate("/owner");
+                setShowZoneWarning(false);
+              }}
+              className="flex-1 bg-gradient-to-r from-amber-500 to-purple-600 hover:from-amber-600 hover:to-purple-700"
+            >
+              <Shield className="h-4 w-4 mr-2" />
+              {language === "ar" ? "العودة للمنطقة الآمنة" : "Return to Safe Zone"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
