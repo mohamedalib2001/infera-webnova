@@ -189,7 +189,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
   
   const [activeTab, setActiveTab] = useState<"chat" | "code" | "preview" | "terminal">("chat");
   const [bottomTab, setBottomTab] = useState<"terminal" | "problems" | "output">("terminal");
-  const [rightTab, setRightTab] = useState<"tools" | "files" | "database" | "backend" | "packages" | "testing" | "git" | "deploy" | "debugger" | "copilot" | "compliance" | "tenants" | "rules" | "observability" | "marketplace" | "billing">("tools");
+  const [rightTab, setRightTab] = useState<"tools" | "files" | "database" | "backend" | "packages" | "testing" | "git" | "deploy" | "debugger" | "copilot" | "compliance" | "tenants" | "rules" | "observability" | "marketplace" | "billing" | "ai-arch" | "export">("tools");
   
   const [showSidebar, setShowSidebar] = useState(true);
   const [showRightPanel, setShowRightPanel] = useState(true);
@@ -1125,6 +1125,12 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                       </TabsTrigger>
                       <TabsTrigger value="billing" className="text-[10px] px-1" data-testid="tab-billing" aria-label={isRtl ? "الفواتير" : "Billing"}>
                         <CreditCard className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="ai-arch" className="text-[10px] px-1" data-testid="tab-ai-arch" aria-label={isRtl ? "معمار AI" : "AI Arch"}>
+                        <Bot className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="export" className="text-[10px] px-1" data-testid="tab-export" aria-label={isRtl ? "التصدير" : "Export"}>
+                        <FileOutput className="h-3 w-3" />
                       </TabsTrigger>
                     </TabsList>
                   </div>
@@ -3255,6 +3261,300 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                           <div className="flex items-center justify-between text-[10px]">
                             <span className="text-muted-foreground">{isRtl ? "الخصومات المطبقة" : "Discounts Applied"}</span>
                             <span className="text-green-400 font-medium">-$500</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* AI-Native Architecture Tab */}
+                  <TabsContent value="ai-arch" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      {/* AI Architecture Header */}
+                      <Card className="mb-2 bg-gradient-to-br from-violet-500/20 via-purple-500/10 to-transparent border-violet-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-violet-500/20">
+                              <Bot className="h-4 w-4 text-violet-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "معمارية AI الأصلية" : "AI-Native Architecture"}</p>
+                              <p className="text-[10px] text-violet-400">{isRtl ? "ذكاء مدمج في كل طبقة" : "Intelligence at Every Layer"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* AI Architect */}
+                      <Card className="mb-2 border-blue-500/20">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Layers className="h-3.5 w-3.5 text-blue-400" />
+                            {isRtl ? "المعمار الذكي" : "AI Architect"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-2">
+                          <div className="p-2 rounded bg-muted/30 border border-blue-500/20">
+                            <p className="text-[10px] text-muted-foreground mb-2">{isRtl ? "اقتراحات المعمارية" : "Architecture Suggestions"}</p>
+                            <div className="space-y-1.5">
+                              {[
+                                { suggestion: isRtl ? "تفعيل التخزين المؤقت للاستعلامات" : "Enable query caching", impact: "+40%", type: "performance" },
+                                { suggestion: isRtl ? "إضافة فهرس للجدول users" : "Add index to users table", impact: "+25%", type: "database" },
+                                { suggestion: isRtl ? "تحويل إلى microservices" : "Convert to microservices", impact: "Scale", type: "architecture" },
+                              ].map((s, i) => (
+                                <div key={i} className="flex items-center justify-between p-1.5 rounded bg-background/50 text-[10px]" data-testid={`ai-suggestion-${i}`}>
+                                  <span className="truncate flex-1">{s.suggestion}</span>
+                                  <Badge variant="outline" className={`text-[9px] h-4 ml-2 ${s.type === 'performance' ? 'text-green-400' : s.type === 'database' ? 'text-blue-400' : 'text-violet-400'}`}>{s.impact}</Badge>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <Button size="sm" variant="outline" className="w-full h-7 text-[10px]" data-testid="button-analyze-arch">
+                            <Wand2 className="h-3 w-3 mr-1" />
+                            {isRtl ? "تحليل المعمارية" : "Analyze Architecture"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      {/* Security Review */}
+                      <Card className="mb-2 border-red-500/20">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Shield className="h-3.5 w-3.5 text-red-400" />
+                            {isRtl ? "مراجعة الأمان" : "Security Review"}
+                            <Badge variant="outline" className="text-[9px] h-4 ml-auto text-green-400">{isRtl ? "آمن" : "Secure"}</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-2">
+                          <div className="space-y-1.5">
+                            {[
+                              { check: isRtl ? "فحص الثغرات" : "Vulnerability Scan", status: "passed", score: "A+" },
+                              { check: isRtl ? "تحليل الاعتمادات" : "Dependency Analysis", status: "passed", score: "98%" },
+                              { check: isRtl ? "فحص الأسرار" : "Secrets Detection", status: "passed", score: "100%" },
+                              { check: isRtl ? "تشفير البيانات" : "Data Encryption", status: "passed", score: "AES-256" },
+                            ].map((c, i) => (
+                              <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`security-check-${i}`}>
+                                <span className="flex items-center gap-2">
+                                  <Verified className="h-3 w-3 text-green-400" />
+                                  <span>{c.check}</span>
+                                </span>
+                                <Badge variant="outline" className="text-[9px] h-4 text-green-400">{c.score}</Badge>
+                              </div>
+                            ))}
+                          </div>
+                          <Button size="sm" variant="outline" className="w-full h-7 text-[10px]" data-testid="button-run-security-scan">
+                            <Shield className="h-3 w-3 mr-1" />
+                            {isRtl ? "فحص أمني كامل" : "Full Security Scan"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      {/* Cost Optimizer */}
+                      <Card className="mb-2 border-emerald-500/20">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
+                            {isRtl ? "مُحسّن التكلفة" : "Cost Optimizer"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="p-2 rounded bg-muted/30 text-center">
+                              <p className="text-lg font-bold text-emerald-400">-32%</p>
+                              <p className="text-[9px] text-muted-foreground">{isRtl ? "توفير محتمل" : "Potential Savings"}</p>
+                            </div>
+                            <div className="p-2 rounded bg-muted/30 text-center">
+                              <p className="text-lg font-bold text-cyan-400">$847</p>
+                              <p className="text-[9px] text-muted-foreground">{isRtl ? "الشهر الماضي" : "Last Month"}</p>
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            {[
+                              { tip: isRtl ? "إيقاف الموارد غير المستخدمة" : "Stop unused resources", save: "$120" },
+                              { tip: isRtl ? "تحسين حجم الخادم" : "Optimize server size", save: "$85" },
+                              { tip: isRtl ? "استخدام Reserved Instances" : "Use Reserved Instances", save: "$200" },
+                            ].map((t, i) => (
+                              <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`cost-tip-${i}`}>
+                                <span className="truncate flex-1">{t.tip}</span>
+                                <span className="text-emerald-400 font-medium shrink-0">{t.save}</span>
+                              </div>
+                            ))}
+                          </div>
+                          <Button size="sm" className="w-full h-7 text-[10px] bg-emerald-600 hover:bg-emerald-700" data-testid="button-apply-optimizations">
+                            <Zap className="h-3 w-3 mr-1" />
+                            {isRtl ? "تطبيق التحسينات" : "Apply Optimizations"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      {/* AI Stats */}
+                      <Card className="bg-gradient-to-br from-violet-500/10 to-transparent border-violet-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "توصيات اليوم" : "Today's Suggestions"}</span>
+                            <span className="text-violet-400 font-medium">24</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "المطبقة" : "Applied"}</span>
+                            <span className="text-green-400 font-medium">18</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "التحسين الكلي" : "Total Improvement"}</span>
+                            <span className="text-cyan-400 font-medium">+47%</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Export Center Tab */}
+                  <TabsContent value="export" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      {/* Export Header */}
+                      <Card className="mb-2 bg-gradient-to-br from-amber-500/20 via-orange-500/10 to-transparent border-amber-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-amber-500/20">
+                              <FileOutput className="h-4 w-4 text-amber-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "مركز التصدير" : "Export Center"}</p>
+                              <p className="text-[10px] text-muted-foreground">{isRtl ? "تصدير الكود والبنية التحتية" : "Export Code & Infrastructure"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Source Code Export */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Code className="h-3.5 w-3.5 text-blue-400" />
+                            {isRtl ? "كود المصدر" : "Source Code"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1.5">
+                          {[
+                            { format: "ZIP Archive", ext: ".zip", size: "12.4 MB" },
+                            { format: "Git Repository", ext: ".git", size: "14.2 MB" },
+                            { format: "Docker Image", ext: ".tar", size: "245 MB" },
+                          ].map((f, i) => (
+                            <button key={i} className="w-full flex items-center justify-between p-2 rounded bg-muted/30 hover:bg-muted text-[10px] transition-colors" data-testid={`export-code-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <Package className="h-3 w-3 text-blue-400" />
+                                <span>{f.format}</span>
+                                <Badge variant="outline" className="text-[9px] h-4">{f.ext}</Badge>
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">{f.size}</span>
+                                <Download className="h-3 w-3" />
+                              </div>
+                            </button>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Infrastructure as Code */}
+                      <Card className="mb-2 border-violet-500/20">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Server className="h-3.5 w-3.5 text-violet-400" />
+                            {isRtl ? "البنية التحتية كـ كود" : "Infrastructure as Code"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1.5">
+                          {[
+                            { name: "Terraform", desc: isRtl ? "ملفات HCL" : "HCL Files", icon: "tf" },
+                            { name: "Kubernetes", desc: isRtl ? "ملفات YAML" : "YAML Manifests", icon: "k8s" },
+                            { name: "Ansible", desc: isRtl ? "Playbooks" : "Playbooks", icon: "ans" },
+                            { name: "Helm Charts", desc: isRtl ? "حزم Chart" : "Chart Packages", icon: "helm" },
+                          ].map((iac, i) => (
+                            <button key={i} className="w-full flex items-center justify-between p-2 rounded bg-muted/30 hover:bg-muted text-[10px] transition-colors" data-testid={`export-iac-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <Badge className="text-[8px] h-4 w-8 justify-center bg-violet-500/20 text-violet-400">{iac.icon}</Badge>
+                                <span>{iac.name}</span>
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">{iac.desc}</span>
+                                <Download className="h-3 w-3" />
+                              </div>
+                            </button>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Database Schema Export */}
+                      <Card className="mb-2 border-cyan-500/20">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Database className="h-3.5 w-3.5 text-cyan-400" />
+                            {isRtl ? "مخطط قاعدة البيانات" : "Database Schema"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1.5">
+                          {[
+                            { format: "SQL Dump", tables: 24, size: "8.5 MB" },
+                            { format: "Drizzle Schema", tables: 24, size: "45 KB" },
+                            { format: "ERD Diagram", tables: 24, size: "1.2 MB" },
+                            { format: "JSON Schema", tables: 24, size: "156 KB" },
+                          ].map((db, i) => (
+                            <button key={i} className="w-full flex items-center justify-between p-2 rounded bg-muted/30 hover:bg-muted text-[10px] transition-colors" data-testid={`export-db-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <FileJson className="h-3 w-3 text-cyan-400" />
+                                <span>{db.format}</span>
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-[9px] h-4">{db.tables} tables</Badge>
+                                <span className="text-muted-foreground">{db.size}</span>
+                                <Download className="h-3 w-3" />
+                              </div>
+                            </button>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* API Documentation */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <FileText className="h-3.5 w-3.5 text-green-400" />
+                            {isRtl ? "توثيق API" : "API Documentation"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1.5">
+                          {[
+                            { format: "OpenAPI 3.0", ext: "YAML" },
+                            { format: "Postman Collection", ext: "JSON" },
+                            { format: "Insomnia Export", ext: "JSON" },
+                          ].map((api, i) => (
+                            <button key={i} className="w-full flex items-center justify-between p-2 rounded bg-muted/30 hover:bg-muted text-[10px] transition-colors" data-testid={`export-api-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <Braces className="h-3 w-3 text-green-400" />
+                                <span>{api.format}</span>
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-[9px] h-4">{api.ext}</Badge>
+                                <Download className="h-3 w-3" />
+                              </div>
+                            </button>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Export Stats */}
+                      <Card className="bg-gradient-to-br from-amber-500/10 to-transparent border-amber-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "آخر تصدير" : "Last Export"}</span>
+                            <span className="text-amber-400 font-medium">{isRtl ? "منذ 2 ساعة" : "2 hours ago"}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "إجمالي التصديرات" : "Total Exports"}</span>
+                            <span className="text-green-400 font-medium">156</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "حجم البيانات" : "Data Size"}</span>
+                            <span className="text-cyan-400 font-medium">2.4 GB</span>
                           </div>
                         </CardContent>
                       </Card>
