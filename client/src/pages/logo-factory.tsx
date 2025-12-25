@@ -244,33 +244,33 @@ export default function LogoFactory() {
   return (
     <div className="min-h-screen bg-background">
       <div className="flex flex-col h-screen">
-        <div className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b px-6 py-3">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-cyan-500/20">
-                <Crown className="h-6 w-6 text-primary" />
+        <div className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b px-3 sm:px-6 py-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-1.5 sm:p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-cyan-500/20">
+                <Crown className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
               </div>
               <div>
-                <h1 className="text-lg font-bold flex items-center gap-2">
-                  INFERA Logo Forge
-                  <Badge variant="outline" className="text-[10px]">AI-Powered</Badge>
+                <h1 className="text-base sm:text-lg font-bold flex items-center gap-2">
+                  Logo Forge
+                  <Badge variant="outline" className="text-[9px] sm:text-[10px] hidden sm:inline-flex">AI-Powered</Badge>
                 </h1>
-                <p className="text-xs text-muted-foreground">
-                  مصنع الهوية البصرية السيادي | Sovereign Visual Identity Factory
+                <p className="text-[10px] sm:text-xs text-muted-foreground hidden sm:block">
+                  مصنع الهوية البصرية السيادي
                 </p>
               </div>
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
               {complianceStats && (
-                <Badge variant={complianceStats.compliant === complianceStats.totalPlatforms ? "default" : "secondary"}>
-                  {complianceStats.compliant}/{complianceStats.totalPlatforms} Synced
+                <Badge variant={complianceStats.compliant === complianceStats.totalPlatforms ? "default" : "secondary"} className="hidden sm:inline-flex">
+                  {complianceStats.compliant}/{complianceStats.totalPlatforms}
                 </Badge>
               )}
               
               <Select value={targetPlatformId} onValueChange={setTargetPlatformId}>
-                <SelectTrigger className="w-[200px]" data-testid="select-target-platform">
-                  <SelectValue placeholder="Target Platform" />
+                <SelectTrigger className="flex-1 sm:flex-none sm:w-[180px]" data-testid="select-target-platform">
+                  <SelectValue placeholder="Platform" />
                 </SelectTrigger>
                 <SelectContent>
                   {availablePlatforms.map(platform => (
@@ -287,7 +287,8 @@ export default function LogoFactory() {
               <Button
                 onClick={syncToPlatform}
                 disabled={!targetPlatformId || isSyncing}
-                className="gap-2"
+                className="gap-2 shrink-0"
+                size="sm"
                 data-testid="button-sync-to-platform"
               >
                 {isSyncing ? (
@@ -295,15 +296,15 @@ export default function LogoFactory() {
                 ) : (
                   <Link2 className="h-4 w-4" />
                 )}
-                Bind & Sync
+                <span className="hidden sm:inline">Sync</span>
               </Button>
             </div>
           </div>
         </div>
         
-        <div className="flex-1 overflow-hidden">
-          <div className="grid grid-cols-12 h-full">
-            <div className="col-span-4 border-r overflow-y-auto">
+        <div className="flex-1 overflow-auto lg:overflow-hidden">
+          <div className="flex flex-col lg:grid lg:grid-cols-12 min-h-full lg:h-full">
+            <div className="order-2 lg:order-1 lg:col-span-4 border-t lg:border-t-0 lg:border-r overflow-visible lg:overflow-y-auto">
               <div className="p-4 space-y-4">
                 <Card>
                   <CardHeader className="pb-3">
@@ -393,12 +394,12 @@ export default function LogoFactory() {
                     
                     <div className="space-y-2">
                       <Label className="text-xs">Style | النمط</Label>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-2 gap-2">
                         {Object.entries(ICON_STYLES).map(([key, style]) => (
                           <button
                             key={key}
                             onClick={() => setSelectedStyle(key as IconStyle)}
-                            className={`p-2 rounded-md border text-left transition-all ${
+                            className={`p-2.5 sm:p-2 rounded-md border text-left transition-all min-h-[44px] ${
                               selectedStyle === key
                                 ? 'border-primary bg-primary/10'
                                 : 'border-border/50 hover-elevate'
@@ -406,7 +407,7 @@ export default function LogoFactory() {
                             data-testid={`button-style-${key}`}
                           >
                             <div className="text-xs font-medium">{style.name}</div>
-                            <div className="text-[10px] text-muted-foreground">{style.nameAr}</div>
+                            <div className="text-[10px] text-muted-foreground hidden sm:block">{style.nameAr}</div>
                           </button>
                         ))}
                       </div>
@@ -414,13 +415,13 @@ export default function LogoFactory() {
                     
                     <div className="space-y-2">
                       <Label className="text-xs">Color | اللون</Label>
-                      <div className="grid grid-cols-4 gap-2">
+                      <div className="grid grid-cols-7 sm:grid-cols-4 gap-2">
                         {Object.entries(SOVEREIGN_COLORS.primary).map(([key, hex]) => (
                           <Tooltip key={key}>
                             <TooltipTrigger asChild>
                               <button
                                 onClick={() => setSelectedColor(key as ColorKey)}
-                                className={`aspect-square rounded-md border-2 transition-all ${
+                                className={`h-10 w-10 sm:aspect-square sm:h-auto sm:w-auto rounded-md border-2 transition-all ${
                                   selectedColor === key ? 'border-foreground scale-110' : 'border-transparent'
                                 }`}
                                 style={{ backgroundColor: hex }}
@@ -474,34 +475,33 @@ export default function LogoFactory() {
               </div>
             </div>
             
-            <div className="col-span-5 bg-[#050510] flex flex-col">
-              <div className="flex-1 flex items-center justify-center p-8">
-                <div className="relative">
+            <div className="order-1 lg:order-2 lg:col-span-5 bg-[#050510] flex flex-col">
+              <div className="flex-1 flex items-center justify-center p-4 sm:p-8">
+                <div className="relative w-full max-w-[280px] sm:max-w-[320px] mx-auto">
                   <div className="absolute inset-0 bg-gradient-radial from-primary/10 to-transparent rounded-full blur-3xl" />
                   <div 
-                    className="relative rounded-2xl border border-white/10 bg-[#0A0A0A]/80 p-8 backdrop-blur"
+                    className="relative rounded-2xl border border-white/10 bg-[#0A0A0A]/80 p-4 sm:p-8 backdrop-blur aspect-square w-full"
                     dangerouslySetInnerHTML={{ __html: currentSVG }}
-                    style={{ width: 320, height: 320 }}
                   />
                 </div>
               </div>
               
-              <div className="border-t border-white/10 p-4">
-                <div className="flex items-center justify-between gap-4 mb-4">
-                  <h3 className="text-sm font-medium text-white/80">Size Variants | أحجام متعددة</h3>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-[10px] border-white/20 text-white/60">
+              <div className="border-t border-white/10 p-3 sm:p-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4 mb-3 sm:mb-4">
+                  <h3 className="text-xs sm:text-sm font-medium text-white/80">Size Variants</h3>
+                  <div className="flex items-center gap-2 overflow-x-auto">
+                    <Badge variant="outline" className="text-[9px] sm:text-[10px] border-white/20 text-white/60 shrink-0">
                       {ICON_CATEGORIES[selectedCategory].name}
                     </Badge>
-                    <Badge variant="outline" className="text-[10px] border-white/20 text-white/60">
+                    <Badge variant="outline" className="text-[9px] sm:text-[10px] border-white/20 text-white/60 shrink-0">
                       {ICON_STYLES[selectedStyle].name}
                     </Badge>
                   </div>
                 </div>
                 
-                <div className="flex items-end justify-center gap-6">
-                  {[128, 64, 48, 32, 24, 16].map(size => (
-                    <div key={size} className="flex flex-col items-center gap-2">
+                <div className="flex items-end justify-center gap-2 sm:gap-4 lg:gap-6 overflow-x-auto pb-2">
+                  {[128, 64, 48, 32, 24].map(size => (
+                    <div key={size} className="flex flex-col items-center gap-1 sm:gap-2 shrink-0">
                       <div 
                         className="rounded bg-[#0A0A0A] p-1 border border-white/10"
                         dangerouslySetInnerHTML={{ 
@@ -509,14 +509,14 @@ export default function LogoFactory() {
                         }}
                         style={{ width: size + 8, height: size + 8 }}
                       />
-                      <span className="text-[10px] text-white/50">{size}px</span>
+                      <span className="text-[9px] sm:text-[10px] text-white/50">{size}</span>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
             
-            <div className="col-span-3 border-l overflow-y-auto">
+            <div className="order-3 lg:col-span-3 border-t lg:border-t-0 lg:border-l overflow-visible lg:overflow-y-auto">
               <div className="p-4 space-y-4">
                 <Card>
                   <CardHeader className="pb-3">
