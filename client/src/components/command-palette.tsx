@@ -12,6 +12,7 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Search,
   Star,
@@ -255,19 +256,15 @@ export function CommandPalette({ language = "en" }: CommandPaletteProps) {
 
   return (
     <>
-      <button
+      <Button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground rounded-md border border-input bg-background hover-elevate"
+        variant="ghost"
+        size="icon"
+        className="text-muted-foreground"
         data-testid="button-command-palette"
       >
         <Search className="h-4 w-4" />
-        <span className="hidden md:inline">
-          {language === "ar" ? "بحث سريع..." : "Quick search..."}
-        </span>
-        <kbd className="hidden md:inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-mono bg-muted rounded">
-          <Command className="h-3 w-3" />K
-        </kbd>
-      </button>
+      </Button>
 
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput

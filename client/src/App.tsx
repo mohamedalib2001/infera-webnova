@@ -2,7 +2,7 @@
  * INFERA WebNova - Main Application
  * Governance Compliant: All pages use React.lazy() loading
  */
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
@@ -48,10 +48,16 @@ function PageLoadingSkeleton() {
 function RedirectToAuth() {
   const [, setLocation] = useLocation();
   const currentPath = window.location.pathname;
+  const shouldRedirect = currentPath !== "/" && currentPath !== "/auth" && currentPath !== "/pricing" && currentPath !== "/support" && !currentPath.startsWith("/preview/");
   
-  if (currentPath !== "/" && currentPath !== "/auth" && currentPath !== "/pricing" && currentPath !== "/support" && !currentPath.startsWith("/preview/")) {
-    setLocation(`/auth?redirect=${encodeURIComponent(currentPath)}`);
-    return null;
+  useEffect(() => {
+    if (shouldRedirect) {
+      setLocation(`/auth?redirect=${encodeURIComponent(currentPath)}`);
+    }
+  }, [shouldRedirect, currentPath, setLocation]);
+  
+  if (shouldRedirect) {
+    return <PageLoadingSkeleton />;
   }
   
   return (

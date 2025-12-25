@@ -5,6 +5,7 @@
 
 import { type ReactNode } from "react";
 import { useLocation } from "wouter";
+import { cn } from "@/lib/utils";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { SovereignSidebar, SovereignBreadcrumb } from "@/components/sovereign-sidebar";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import {
   Crown, Shield, Bell, Sparkles, Activity, Zap,
   ChevronRight, Search, AlertTriangle
 } from "lucide-react";
+import { SovereignPulseIndicator } from "@/modules/sovereign-dashboard/components/SovereignPulseIndicator";
 import {
   WORKSPACES_REGISTRY,
   PLANS_REGISTRY,
@@ -64,8 +66,9 @@ export function OwnerLayout({ children }: OwnerLayoutProps) {
 
   return (
     <SidebarProvider style={style as React.CSSProperties}>
-      <div className="flex h-screen w-full bg-background" dir={isRtl ? "rtl" : "ltr"}>
+      <div className={cn("flex h-screen w-full bg-background", isRtl && "flex-row-reverse")} dir={isRtl ? "rtl" : "ltr"}>
         <SovereignSidebar
+          key={isRtl ? "sidebar-rtl" : "sidebar-ltr"}
           user={userContext}
           isRtl={isRtl}
           onLogout={logout}
@@ -101,6 +104,14 @@ export function OwnerLayout({ children }: OwnerLayoutProps) {
               </Badge>
 
               <Separator orientation="vertical" className="h-6" />
+
+              {/* Sovereign Pulse - Owner Only */}
+              {userContext.isOwner && (
+                <SovereignPulseIndicator 
+                  isSovereignOwner={userContext.isOwner} 
+                  sovereignMode={true} 
+                />
+              )}
 
               {/* Command Palette */}
               <CommandPalette language={isRtl ? "ar" : "en"} />
