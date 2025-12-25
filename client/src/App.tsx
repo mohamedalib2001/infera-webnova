@@ -24,7 +24,7 @@ import { Bell, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
-import { CommandPalette } from "@/components/command-palette";
+import { CommandPalette, CommandPaletteTrigger } from "@/components/command-palette";
 import { NovaAssistantMenu } from "@/components/nova-assistant-menu";
 import { NovaFloatingButton } from "@/components/nova-floating-button";
 import { SovereignHeaderButton } from "@/components/sovereign-header-button";
@@ -325,7 +325,7 @@ function AppContent() {
       <div dir={isRTL ? "rtl" : "ltr"}>
         <SidebarProvider style={sidebarStyle}>
           <div className="flex h-screen w-full">
-            <GuestSidebar />
+            {!isRTL && <GuestSidebar />}
             <div className="flex flex-col flex-1 overflow-hidden">
               <header className="flex items-center justify-between gap-2 p-2 border-b h-14 shrink-0">
                 <div className="flex items-center gap-2">
@@ -340,6 +340,7 @@ function AppContent() {
                 <GuestRouter />
               </main>
             </div>
+            {isRTL && <GuestSidebar />}
           </div>
         </SidebarProvider>
       </div>
@@ -354,7 +355,7 @@ function AppContent() {
         <SovereignViewProvider>
           <SidebarProvider style={sidebarStyle}>
             <div className="flex h-screen w-full">
-              <AppSidebar />
+              {!isRTL && <AppSidebar />}
               <div className="flex flex-col flex-1 overflow-hidden">
                 <header className="flex items-center justify-between gap-2 p-2 border-b h-14 shrink-0">
                   <div className="flex items-center gap-2">
@@ -362,6 +363,7 @@ function AppContent() {
                     {isOwner && <SovereignHeaderButton />}
                   </div>
                   <div className="flex items-center gap-2">
+                    <CommandPaletteTrigger />
                     {isOwner && <AIProviderTopbar />}
                     {isOwner && <NovaAssistantMenu />}
                     <NotificationBell />
@@ -375,6 +377,7 @@ function AppContent() {
                   <AuthenticatedRouter />
                 </main>
               </div>
+              {isRTL && <AppSidebar />}
             </div>
             <CommandPalette />
             <SovereignIndicator />
