@@ -39,7 +39,7 @@ import {
   checkGlobalCompliance,
   type PlatformLogoState
 } from "@/lib/logo-binding-engine";
-import { useLogoSyncDialog } from "@/components/logo-sync-result-dialog";
+import { useLogoSyncDialog, LogoSyncResultDialog } from "@/components/logo-sync-result-dialog";
 
 // =====================================================================
 // INFERA SOVEREIGN VISUAL IDENTITY & ICONOGRAPHY MANDATORY FRAMEWORK
@@ -410,7 +410,7 @@ export default function LogoFactory() {
   const availablePlatforms = getAllPlatformsForBinding();
   
   // Logo sync result dialog
-  const { showSyncResult, createSyncResult, DialogComponent: SyncResultDialog } = useLogoSyncDialog();
+  const { showSyncResult, createSyncResult, dialogProps } = useLogoSyncDialog();
   
   // Update platform logo state when target changes
   useEffect(() => {
@@ -1090,7 +1090,7 @@ export default function LogoFactory() {
       </div>
       
       {/* Logo Sync Result Dialog */}
-      <SyncResultDialog />
+      <LogoSyncResultDialog {...dialogProps} />
     </div>
   );
 }

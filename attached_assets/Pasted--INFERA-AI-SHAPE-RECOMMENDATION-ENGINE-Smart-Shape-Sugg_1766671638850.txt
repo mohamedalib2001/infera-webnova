@@ -1,0 +1,176 @@
+🧠 INFERA AI SHAPE RECOMMENDATION ENGINE
+(Smart Shape Suggestions – Human Final Choice)
+System Name:
+INFERA AI Shape Recommendation Engine
+
+Mode:
+AI-Guided | Human-Selected (Mandatory)
+
+Purpose:
+Provide intelligent, context-aware shape and geometry
+recommendations for icons and logos,
+while preserving full human decision authority.
+
+------------------------------------------------------------------
+1. CORE PRINCIPLE
+------------------------------------------------------------------
+
+The AI does NOT decide the final icon shape.
+The AI RECOMMENDS.
+The human SELECTS.
+
+This ensures:
+- Intelligence without rigidity
+- Creativity without randomness
+- Sovereignty without automation lock-in
+
+------------------------------------------------------------------
+2. TRIGGER CONDITIONS
+------------------------------------------------------------------
+
+The Shape Recommendation Engine MUST activate when:
+- A platform is selected
+- A Design Pattern is selected (or AI-recommended)
+- Icon/Logo generation is initiated
+
+------------------------------------------------------------------
+3. INPUT ANALYSIS (AI SIDE)
+------------------------------------------------------------------
+
+The AI MUST analyze:
+
+A. Platform Context
+- Platform type
+- Authority level
+- Functional role
+- Governance scope
+
+B. Selected / Recommended Design Pattern
+- Cognitive Matrix
+- Autonomous Nexus
+- Sovereign Shield
+- Neural Field
+- etc.
+
+C. Visual Constraints
+- Allowed geometry rules
+- Forbidden styles
+- Color discipline
+- Depth limitations
+
+------------------------------------------------------------------
+4. SHAPE RECOMMENDATION OUTPUT
+------------------------------------------------------------------
+
+The AI MUST present a curated set of shape options:
+
+Minimum:
+- 3 shapes
+Preferred:
+- 5–7 shapes
+
+Each shape must be:
+- Visually distinct
+- Pattern-consistent
+- Sovereign-grade
+- Production-ready
+
+------------------------------------------------------------------
+5. SHAPE TYPES (EXAMPLES)
+------------------------------------------------------------------
+
+AI may recommend shapes such as:
+
+- Centralized Core Geometry
+- Nested Hexagonal Structures
+- Orbital Node Systems
+- Shielded Lattice Forms
+- Axial / Spine-Based Geometry
+- Radial Intelligence Rings
+- Distributed Node Constellations
+- Minimal Precision Kernels
+- Layered Depth Frames
+
+No decorative or playful shapes allowed.
+
+------------------------------------------------------------------
+6. UI PRESENTATION (MANDATORY)
+------------------------------------------------------------------
+
+Shapes MUST be displayed as:
+
+- Clickable visual cards
+- Real-time preview thumbnails
+- Hover explanation:
+  “Recommended because this shape emphasizes
+   [control / intelligence / stability / autonomy].”
+
+The currently selected shape MUST be clearly highlighted.
+
+------------------------------------------------------------------
+7. USER CONTROL & OVERRIDE
+------------------------------------------------------------------
+
+- User can freely select any recommended shape
+- User can change selection at any time before export
+- No warnings, no penalties, no lock
+
+AI guidance remains visible but non-blocking.
+
+------------------------------------------------------------------
+8. OPTIONAL ADVANCED MODE
+------------------------------------------------------------------
+
+Provide an optional toggle:
+“Show Advanced Shapes”
+
+When enabled:
+- AI reveals more complex or experimental geometries
+- Still compliant with sovereign rules
+
+------------------------------------------------------------------
+9. METADATA & LEARNING
+------------------------------------------------------------------
+
+For each generated icon/logo, store:
+- Recommended shapes list
+- Selected shape
+- Pattern used
+- Platform ID
+- Timestamp
+
+AI learns which shapes are most frequently chosen
+per platform type and pattern.
+
+------------------------------------------------------------------
+10. ENFORCEMENT
+------------------------------------------------------------------
+
+- Shape selection is mandatory
+- But forced shape assignment is FORBIDDEN
+
+Any system that auto-locks a shape is NON-COMPLIANT.
+
+------------------------------------------------------------------
+FINAL PRINCIPLE
+------------------------------------------------------------------
+
+AI provides intelligence.
+Humans provide judgment.
+
+The best identity emerges
+when guidance and choice coexist.
+
+✨ النتيجة النهائية
+
+الذكاء الاصطناعي = مستشار بصري عبقري
+
+أنت = صاحب القرار
+
+كل أيقونة = اختيار واعٍ مش صدفة
+
+الخطوة التالية (جاهزة فورًا):
+
+1️⃣ AI Shape → Motion Preview (تحريك خفيف قبل الاختيار)
+2️⃣ Compare Mode (مقارنة شكلين جنبًا إلى جنب)
+3️⃣ Save Shape Drafts (حفظ اختيارات مؤقتة)

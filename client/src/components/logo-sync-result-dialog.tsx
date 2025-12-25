@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useLocation } from "wouter";
 import { 
   Dialog, 
@@ -101,21 +101,23 @@ export function LogoSyncResultDialog({
               <DialogTitle className="text-xl">
                 {isAr ? "تمت المزامنة بنجاح" : "Sync Completed Successfully"}
               </DialogTitle>
-              <DialogDescription className="flex items-center gap-2">
-                <span>{isAr ? syncResult.platformNameAr || syncResult.platformName : syncResult.platformName}</span>
-                <Badge 
-                  variant={syncResult.complianceStatus === "compliant" ? "default" : "secondary"}
-                  className={syncResult.complianceStatus === "compliant" 
-                    ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" 
-                    : ""}
-                >
-                  <Shield className="w-3 h-3 mr-1" />
-                  {syncResult.complianceStatus === "compliant" 
-                    ? (isAr ? "متوافق بالكامل" : "Fully Compliant")
-                    : syncResult.complianceStatus === "partial"
-                    ? (isAr ? "متوافق جزئياً" : "Partially Compliant")
-                    : (isAr ? "غير متوافق" : "Non-Compliant")}
-                </Badge>
+              <DialogDescription asChild>
+                <div className="flex items-center gap-2">
+                  <span>{isAr ? syncResult.platformNameAr || syncResult.platformName : syncResult.platformName}</span>
+                  <Badge 
+                    variant={syncResult.complianceStatus === "compliant" ? "default" : "secondary"}
+                    className={syncResult.complianceStatus === "compliant" 
+                      ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" 
+                      : ""}
+                  >
+                    <Shield className="w-3 h-3 mr-1" />
+                    {syncResult.complianceStatus === "compliant" 
+                      ? (isAr ? "متوافق بالكامل" : "Fully Compliant")
+                      : syncResult.complianceStatus === "partial"
+                      ? (isAr ? "متوافق جزئياً" : "Partially Compliant")
+                      : (isAr ? "غير متوافق" : "Non-Compliant")}
+                  </Badge>
+                </div>
               </DialogDescription>
             </div>
           </div>
@@ -248,12 +250,12 @@ export function useLogoSyncDialog() {
   const [open, setOpen] = useState(false);
   const [syncResult, setSyncResult] = useState<LogoSyncResult | null>(null);
 
-  const showSyncResult = (result: LogoSyncResult) => {
+  const showSyncResult = useCallback((result: LogoSyncResult) => {
     setSyncResult(result);
     setOpen(true);
-  };
+  }, []);
 
-  const createSyncResult = (
+  const createSyncResult = useCallback((
     platformId: string,
     platformName: string,
     versions: Record<LogoVariantType, number>,
@@ -278,7 +280,13 @@ export function useLogoSyncDialog() {
       complianceStatus: state?.complianceStatus || "partial",
       previewSvg
     };
-  };
+  }, []);
+
+  const dialogProps = useMemo(() => ({
+    open,
+    onOpenChange: setOpen,
+    syncResult
+  }), [open, syncResult]);
 
   return {
     open,
@@ -286,12 +294,6 @@ export function useLogoSyncDialog() {
     syncResult,
     showSyncResult,
     createSyncResult,
-    DialogComponent: () => (
-      <LogoSyncResultDialog 
-        open={open} 
-        onOpenChange={setOpen} 
-        syncResult={syncResult} 
-      />
-    )
+    dialogProps
   };
 }
