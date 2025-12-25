@@ -616,9 +616,9 @@ export default function SovereignWorkspacePage() {
             <Layout className="h-4 w-4" />
             <span className="hidden sm:inline">Landing Pages</span>
           </TabsTrigger>
-          <TabsTrigger value="infera-platforms" className="gap-2 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-purple-500/30" data-testid="tab-infera-platforms">
-            <Globe className="h-4 w-4 text-purple-500" />
-            <span className="hidden sm:inline text-purple-600 dark:text-purple-400">INFERA Platforms</span>
+          <TabsTrigger value="group-logos" className="gap-2 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-purple-500/30" data-testid="tab-group-logos">
+            <Download className="h-4 w-4 text-purple-500" />
+            <span className="hidden sm:inline text-purple-600 dark:text-purple-400">Group Platform Logos</span>
           </TabsTrigger>
           <TabsTrigger value="team" className="gap-2" data-testid="tab-team">
             <Users className="h-4 w-4" />
@@ -1089,81 +1089,224 @@ export default function SovereignWorkspacePage() {
           </div>
         </TabsContent>
 
-        {/* INFERA Group Platforms - منصات مجموعة إنفيرا */}
-        <TabsContent value="infera-platforms" className="mt-6">
+        {/* Group Platform Logos - لوجوهات منصات المجموعة */}
+        <TabsContent value="group-logos" className="mt-6">
           <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
                 <h2 className="text-lg font-semibold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                  INFERA Engine Platforms | منصات مجموعة إنفيرا
+                  Group Platform Logos | لوجوهات منصات المجموعة
                 </h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  30+ sovereign platforms powering the INFERA ecosystem | أكثر من 30 منصة سيادية تشغل نظام إنفيرا
+                  {platformIconsRegistry.length} professional logos with multiple sizes and variants | {platformIconsRegistry.length} لوجو احترافي بأحجام وأشكال متعددة
                 </p>
               </div>
+              <Badge variant="outline" className="border-purple-500/50 text-purple-600">
+                <Download className="h-3 w-3 mr-1" />
+                Downloadable Assets
+              </Badge>
             </div>
             
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {inferaGroupPlatforms.map((platform) => (
+            <div className="grid gap-6 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
+              {platformIconsRegistry.map((platform) => (
                 <Card 
-                  key={platform.id} 
-                  className={cn(
-                    "group hover-elevate transition-all cursor-pointer",
-                    platform.tier === "ROOT" && "border-purple-500/50 bg-gradient-to-br from-purple-500/5 to-pink-500/5",
-                    platform.tier === "CORE" && "border-blue-500/30 bg-gradient-to-br from-blue-500/5 to-cyan-500/5",
-                    platform.tier === "STANDARD" && "border-green-500/20"
-                  )}
-                  onClick={() => platform.route && setLocation(platform.route)}
-                  data-testid={`card-infera-platform-${platform.id}`}
+                  key={platform.id}
+                  className="group border-border/50 hover:border-purple-500/30 transition-all"
+                  data-testid={`card-logo-${platform.id}`}
                 >
-                  <CardHeader className="pb-2">
+                  <CardHeader className="pb-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-3">
-                        <div className={cn(
-                          "flex items-center justify-center w-10 h-10 rounded-lg",
-                          platform.tier === "ROOT" ? "bg-gradient-to-br from-purple-500 to-pink-500" :
-                          platform.tier === "CORE" ? "bg-gradient-to-br from-blue-500 to-cyan-500" :
-                          "bg-gradient-to-br from-green-500 to-emerald-500"
-                        )}>
-                          <platform.icon className="h-5 w-5 text-white" />
+                        <div 
+                          className="flex items-center justify-center w-12 h-12 rounded-lg border border-border/50"
+                          style={{ backgroundColor: platform.colors.primary }}
+                        >
+                          <Globe className="h-6 w-6" style={{ color: platform.colors.accent }} />
                         </div>
                         <div>
                           <CardTitle className="text-sm font-semibold">{platform.name}</CardTitle>
                           <p className="text-xs text-muted-foreground">{platform.nameAr}</p>
                         </div>
                       </div>
-                      <Badge 
-                        variant="outline" 
-                        className={cn(
-                          "text-[10px]",
-                          platform.tier === "ROOT" && "border-purple-500 text-purple-600",
-                          platform.tier === "CORE" && "border-blue-500 text-blue-600",
-                          platform.tier === "STANDARD" && "border-green-500 text-green-600"
-                        )}
-                      >
-                        {platform.tier}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pb-2">
-                    <p className="text-xs text-muted-foreground line-clamp-2">{platform.description}</p>
-                  </CardContent>
-                  <CardFooter className="pt-0">
-                    <div className="flex items-center gap-2 w-full">
                       <Badge variant="secondary" className="text-[10px]">
                         {platform.category}
                       </Badge>
-                      {platform.route && (
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2 italic">
+                      "{platform.meaning}" | "{platform.meaningAr}"
+                    </p>
+                  </CardHeader>
+                  
+                  <CardContent className="pb-3">
+                    {/* Color Palette */}
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-[10px] text-muted-foreground">Colors:</span>
+                      <div className="flex items-center gap-1">
+                        <div 
+                          className="w-5 h-5 rounded border border-border/30" 
+                          style={{ backgroundColor: platform.colors.primary }}
+                          title={`Primary: ${platform.colors.primary}`}
+                        />
+                        <div 
+                          className="w-5 h-5 rounded border border-border/30" 
+                          style={{ backgroundColor: platform.colors.secondary }}
+                          title={`Secondary: ${platform.colors.secondary}`}
+                        />
+                        <div 
+                          className="w-5 h-5 rounded border border-border/30" 
+                          style={{ backgroundColor: platform.colors.accent }}
+                          title={`Accent: ${platform.colors.accent}`}
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Logo Variants Grid */}
+                    <div className="grid grid-cols-5 gap-2 p-3 bg-muted/30 rounded-lg">
+                      {/* App Icon 1024x1024 */}
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="w-10 h-10 rounded-lg bg-background border border-border/50 flex items-center justify-center" style={{ backgroundColor: platform.colors.primary }}>
+                          <span className="text-[8px] font-bold" style={{ color: platform.colors.accent }}>1024</span>
+                        </div>
+                        <span className="text-[9px] text-muted-foreground text-center">App Icon</span>
                         <Button 
                           variant="ghost" 
-                          size="sm" 
-                          className="ml-auto text-xs gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                          data-testid={`button-open-platform-${platform.id}`}
+                          size="icon" 
+                          className="h-5 w-5"
+                          onClick={() => {
+                            const link = document.createElement('a');
+                            link.href = `${platform.iconPath}${platform.variants.appIcon}`;
+                            link.download = `${platform.id}-app-icon.png`;
+                            link.click();
+                          }}
+                          data-testid={`button-download-app-icon-${platform.id}`}
                         >
-                          <ExternalLink className="h-3 w-3" />
-                          Open
+                          <Download className="h-3 w-3" />
                         </Button>
-                      )}
+                      </div>
+                      
+                      {/* Favicon 32x32 */}
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="w-10 h-10 rounded-lg bg-background border border-border/50 flex items-center justify-center" style={{ backgroundColor: platform.colors.primary }}>
+                          <span className="text-[8px] font-bold" style={{ color: platform.colors.accent }}>32</span>
+                        </div>
+                        <span className="text-[9px] text-muted-foreground text-center">Favicon</span>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-5 w-5"
+                          onClick={() => {
+                            const link = document.createElement('a');
+                            link.href = `${platform.iconPath}${platform.variants.favicon}`;
+                            link.download = `${platform.id}-favicon.png`;
+                            link.click();
+                          }}
+                          data-testid={`button-download-favicon-${platform.id}`}
+                        >
+                          <Download className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      
+                      {/* Monochrome SVG */}
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="w-10 h-10 rounded-lg bg-background border border-border/50 flex items-center justify-center">
+                          <span className="text-[8px] font-bold text-foreground">MONO</span>
+                        </div>
+                        <span className="text-[9px] text-muted-foreground text-center">Mono</span>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-5 w-5"
+                          onClick={() => {
+                            const link = document.createElement('a');
+                            link.href = `${platform.iconPath}${platform.variants.monochrome}`;
+                            link.download = `${platform.id}-mono.svg`;
+                            link.click();
+                          }}
+                          data-testid={`button-download-mono-${platform.id}`}
+                        >
+                          <Download className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      
+                      {/* Light Background */}
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="w-10 h-10 rounded-lg bg-white border border-border/50 flex items-center justify-center">
+                          <span className="text-[8px] font-bold text-gray-800">LIGHT</span>
+                        </div>
+                        <span className="text-[9px] text-muted-foreground text-center">Light BG</span>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-5 w-5"
+                          onClick={() => {
+                            const link = document.createElement('a');
+                            link.href = `${platform.iconPath}${platform.variants.light}`;
+                            link.download = `${platform.id}-light-bg.png`;
+                            link.click();
+                          }}
+                          data-testid={`button-download-light-${platform.id}`}
+                        >
+                          <Download className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      
+                      {/* Dark Background */}
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="w-10 h-10 rounded-lg bg-gray-900 border border-border/50 flex items-center justify-center">
+                          <span className="text-[8px] font-bold text-white">DARK</span>
+                        </div>
+                        <span className="text-[9px] text-muted-foreground text-center">Dark BG</span>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-5 w-5"
+                          onClick={() => {
+                            const link = document.createElement('a');
+                            link.href = `${platform.iconPath}${platform.variants.dark}`;
+                            link.download = `${platform.id}-dark-bg.png`;
+                            link.click();
+                          }}
+                          data-testid={`button-download-dark-${platform.id}`}
+                        >
+                          <Download className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                  
+                  <CardFooter className="pt-0 flex-wrap gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1 gap-1 text-xs"
+                      onClick={() => {
+                        const allVariants = [
+                          { name: 'app-icon', file: platform.variants.appIcon },
+                          { name: 'favicon', file: platform.variants.favicon },
+                          { name: 'mono', file: platform.variants.monochrome },
+                          { name: 'light-bg', file: platform.variants.light },
+                          { name: 'dark-bg', file: platform.variants.dark },
+                        ];
+                        allVariants.forEach((v, i) => {
+                          setTimeout(() => {
+                            const link = document.createElement('a');
+                            link.href = `${platform.iconPath}${v.file}`;
+                            link.download = `${platform.id}-${v.name}.${v.file.split('.').pop()}`;
+                            link.click();
+                          }, i * 200);
+                        });
+                      }}
+                      data-testid={`button-download-all-${platform.id}`}
+                    >
+                      <Download className="h-3 w-3" />
+                      Download All Variants
+                    </Button>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {platform.usageContexts.slice(0, 3).map((ctx) => (
+                        <Badge key={ctx} variant="outline" className="text-[9px]">
+                          {ctx}
+                        </Badge>
+                      ))}
                     </div>
                   </CardFooter>
                 </Card>
