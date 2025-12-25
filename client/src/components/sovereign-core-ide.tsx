@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/use-language";
 import { useAIWebSocket } from "@/hooks/use-ai-websocket";
 import ownerAvatarUrl from "@assets/unnamed_1766647794224.jpg";
+import novaAiIcon from "@assets/generated_images/nova_ai_sovereign_icon.png";
 import { NovaControlPanel, useNovaFullscreen } from "@/components/nova-control-panel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -153,6 +154,16 @@ import {
   MessageSquarePlus,
   RotateCcw,
   CirclePlay,
+  Mic,
+  MicOff,
+  Pin,
+  PinOff,
+  Keyboard,
+  BellRing,
+  Volume2,
+  VolumeX,
+  Settings,
+  Sliders,
 } from "lucide-react";
 
 interface SovereignConversation {
@@ -228,6 +239,166 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
   const [copied, setCopied] = useState(false);
   const [showNovaControlPanel, setShowNovaControlPanel] = useState(false);
   const novaFullscreen = useNovaFullscreen();
+  
+  // Nova Advanced Features States
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [pinnedMessages, setPinnedMessages] = useState<Set<string>>(new Set());
+  const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [novaTheme, setNovaTheme] = useState<"violet" | "emerald" | "amber" | "rose" | "cyan">("violet");
+  const [showConversationHistory, setShowConversationHistory] = useState(false);
+  const [showNovaSettings, setShowNovaSettings] = useState(false);
+  
+  // Voice Recognition
+  const speechRecognitionRef = useRef<SpeechRecognition | null>(null);
+  
+  // Keyboard Shortcuts Handler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl/Cmd + N: Open Nova
+      if ((e.ctrlKey || e.metaKey) && e.key === "n" && !e.shiftKey) {
+        e.preventDefault();
+        setActiveTab("chat");
+      }
+      // Ctrl/Cmd + Shift + F: Toggle Fullscreen
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "F") {
+        e.preventDefault();
+        novaFullscreen.isFullscreen ? novaFullscreen.minimize() : novaFullscreen.maximize();
+      }
+      // Ctrl/Cmd + Shift + L: Toggle Floating
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "L") {
+        e.preventDefault();
+        novaFullscreen.toggleFloating();
+      }
+      // Ctrl/Cmd + K: Focus message input
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        const input = document.querySelector('[data-testid="nova-message-input"]') as HTMLInputElement;
+        input?.focus();
+      }
+      // Ctrl/Cmd + ?: Show keyboard shortcuts
+      if ((e.ctrlKey || e.metaKey) && e.key === "/") {
+        e.preventDefault();
+        setShowKeyboardShortcuts(prev => !prev);
+      }
+      // Ctrl/Cmd + Shift + V: Toggle voice input
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "V") {
+        e.preventDefault();
+        toggleVoiceInput();
+      }
+      // Ctrl/Cmd + H: Show conversation history
+      if ((e.ctrlKey || e.metaKey) && e.key === "h" && !e.shiftKey) {
+        e.preventDefault();
+        setShowConversationHistory(prev => !prev);
+      }
+    };
+    
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [novaFullscreen]);
+  
+  // Voice Input Functions
+  const toggleVoiceInput = () => {
+    if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
+      toast({
+        title: isRtl ? "غير مدعوم" : "Not Supported",
+        description: isRtl ? "المتصفح لا يدعم التعرف على الصوت" : "Browser does not support speech recognition",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (isListening) {
+      speechRecognitionRef.current?.stop();
+      setIsListening(false);
+    } else {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = isRtl ? "ar-SA" : "en-US";
+      
+      recognition.onstart = () => {
+        setIsListening(true);
+        toast({
+          title: isRtl ? "جاري الاستماع..." : "Listening...",
+          description: isRtl ? "تحدث الآن" : "Speak now",
+        });
+      };
+      
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
+        const transcript = Array.from(event.results)
+          .map(result => result[0].transcript)
+          .join("");
+        setNewMessage(transcript);
+      };
+      
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+      
+      recognition.onerror = () => {
+        setIsListening(false);
+        toast({
+          title: isRtl ? "خطأ في التعرف على الصوت" : "Speech Recognition Error",
+          description: isRtl ? "حدث خطأ أثناء التعرف على الصوت" : "An error occurred during speech recognition",
+          variant: "destructive",
+        });
+      };
+      
+      speechRecognitionRef.current = recognition;
+      recognition.start();
+      setIsVoiceEnabled(true);
+    }
+  };
+  
+  // Pin/Unpin Message
+  const togglePinMessage = (messageId: string) => {
+    setPinnedMessages(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(messageId)) {
+        newSet.delete(messageId);
+        toast({
+          title: isRtl ? "تم إلغاء التثبيت" : "Unpinned",
+          description: isRtl ? "تم إلغاء تثبيت الرسالة" : "Message unpinned",
+        });
+      } else {
+        newSet.add(messageId);
+        toast({
+          title: isRtl ? "تم التثبيت" : "Pinned",
+          description: isRtl ? "تم تثبيت الرسالة للرجوع إليها" : "Message pinned for reference",
+        });
+      }
+      return newSet;
+    });
+  };
+  
+  // Show Notification
+  const showNovaNotification = (title: string, body: string) => {
+    if (!notificationsEnabled) return;
+    
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification(title, { body, icon: novaAiIcon });
+    } else if ("Notification" in window && Notification.permission !== "denied") {
+      Notification.requestPermission().then(permission => {
+        if (permission === "granted") {
+          new Notification(title, { body, icon: novaAiIcon });
+        }
+      });
+    }
+  };
+  
+  // Nova Theme Colors
+  const novaThemeColors = {
+    violet: { primary: "from-violet-600 to-fuchsia-600", border: "border-violet-500/30", text: "text-violet-300" },
+    emerald: { primary: "from-emerald-600 to-teal-600", border: "border-emerald-500/30", text: "text-emerald-300" },
+    amber: { primary: "from-amber-600 to-orange-600", border: "border-amber-500/30", text: "text-amber-300" },
+    rose: { primary: "from-rose-600 to-pink-600", border: "border-rose-500/30", text: "text-rose-300" },
+    cyan: { primary: "from-cyan-600 to-blue-600", border: "border-cyan-500/30", text: "text-cyan-300" },
+  };
+  
+  const currentTheme = novaThemeColors[novaTheme];
   
   const [codeFiles, setCodeFiles] = useState<CodeFile[]>([
     { name: "index.html", path: "/index.html", content: "<!DOCTYPE html>\n<html>\n<head>\n  <title>Sovereign Platform</title>\n</head>\n<body>\n  <h1>Welcome to Sovereign Core</h1>\n</body>\n</html>", language: "html" },
@@ -1016,9 +1187,61 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                       </div>
                     </ScrollArea>
                     <div className="p-3 border-t">
+                      {/* Nova Toolbar */}
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={toggleVoiceInput}
+                            className={`h-8 w-8 ${isListening ? "bg-red-500/20 text-red-400 animate-pulse" : ""}`}
+                            data-testid="button-voice"
+                          >
+                            {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setShowConversationHistory(true)}
+                            className="h-8 w-8"
+                            data-testid="button-history"
+                          >
+                            <History className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setShowKeyboardShortcuts(true)}
+                            className="h-8 w-8"
+                            data-testid="button-shortcuts"
+                          >
+                            <Keyboard className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setNotificationsEnabled(!notificationsEnabled)}
+                            className={`h-8 w-8 ${notificationsEnabled ? "text-green-400" : "text-muted-foreground"}`}
+                            data-testid="button-notifications"
+                          >
+                            {notificationsEnabled ? <BellRing className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setShowNovaSettings(true)}
+                            className="h-8 w-8"
+                            data-testid="button-nova-settings"
+                          >
+                            <Sliders className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
                       <div className="flex gap-2">
                         <Textarea
-                          placeholder={text.typeMessage}
+                          placeholder={isListening ? (isRtl ? "جاري الاستماع..." : "Listening...") : text.typeMessage}
                           value={newMessage}
                           onChange={(e) => setNewMessage(e.target.value)}
                           onKeyDown={(e) => {
@@ -1028,13 +1251,13 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                             }
                           }}
                           disabled={isProcessing || aiWs.isProcessing}
-                          className="min-h-[60px] resize-none"
+                          className={`min-h-[60px] resize-none ${isListening ? "border-red-500/50 bg-red-500/5" : ""}`}
                           data-testid="input-message"
                         />
                         <Button
                           onClick={handleSendMessage}
                           disabled={!newMessage.trim() || isProcessing || aiWs.isProcessing}
-                          className="bg-violet-600 hover:bg-violet-700"
+                          className={`bg-gradient-to-r ${currentTheme.primary}`}
                           data-testid="button-send"
                         >
                           {isProcessing ? (
@@ -7442,6 +7665,170 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
         )}
       </ResizablePanelGroup>
       
+      {/* Keyboard Shortcuts Dialog */}
+      <Dialog open={showKeyboardShortcuts} onOpenChange={setShowKeyboardShortcuts}>
+        <DialogContent className="max-w-md bg-gradient-to-br from-slate-950 via-violet-950/20 to-slate-950 border-violet-500/30" dir={isRtl ? "rtl" : "ltr"}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Keyboard className="w-5 h-5 text-violet-400" />
+              {isRtl ? "اختصارات لوحة المفاتيح" : "Keyboard Shortcuts"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {[
+              { keys: "Ctrl + N", desc: isRtl ? "فتح Nova" : "Open Nova" },
+              { keys: "Ctrl + Shift + F", desc: isRtl ? "ملء الشاشة" : "Toggle Fullscreen" },
+              { keys: "Ctrl + Shift + L", desc: isRtl ? "الوضع العائم" : "Toggle Floating" },
+              { keys: "Ctrl + K", desc: isRtl ? "التركيز على الإدخال" : "Focus Input" },
+              { keys: "Ctrl + /", desc: isRtl ? "الاختصارات" : "Show Shortcuts" },
+              { keys: "Ctrl + Shift + V", desc: isRtl ? "الإدخال الصوتي" : "Voice Input" },
+              { keys: "Ctrl + H", desc: isRtl ? "تاريخ المحادثات" : "Conversation History" },
+            ].map((shortcut, i) => (
+              <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-slate-900/50">
+                <span className="text-sm">{shortcut.desc}</span>
+                <Badge variant="outline" className="font-mono text-xs">{shortcut.keys}</Badge>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Conversation History Dialog */}
+      <Dialog open={showConversationHistory} onOpenChange={setShowConversationHistory}>
+        <DialogContent className="max-w-2xl h-[70vh] bg-gradient-to-br from-slate-950 via-violet-950/20 to-slate-950 border-violet-500/30" dir={isRtl ? "rtl" : "ltr"}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="w-5 h-5 text-violet-400" />
+              {isRtl ? "تاريخ المحادثات" : "Conversation History"}
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="flex-1">
+            <div className="space-y-3">
+              {conversations?.map((conv) => (
+                <Card 
+                  key={conv.id} 
+                  className={`cursor-pointer transition-colors ${selectedConversation === conv.id ? "border-violet-500" : "border-violet-500/20"} bg-slate-900/50`}
+                  onClick={() => {
+                    setSelectedConversation(conv.id);
+                    setShowConversationHistory(false);
+                  }}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <h4 className="font-medium">{isRtl ? conv.titleAr || conv.title : conv.title}</h4>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(conv.updatedAt).toLocaleDateString(isRtl ? 'ar-SA' : 'en-US')}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          {conv.messageCount} {isRtl ? "رسالة" : "messages"}
+                        </Badge>
+                        <Badge className={conv.status === "active" ? "bg-green-500/20 text-green-400" : "bg-slate-500/20"}>
+                          {conv.status === "active" ? (isRtl ? "نشط" : "Active") : (isRtl ? "مؤرشف" : "Archived")}
+                        </Badge>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+              {(!conversations || conversations.length === 0) && (
+                <div className="text-center py-8 text-muted-foreground">
+                  {isRtl ? "لا توجد محادثات سابقة" : "No previous conversations"}
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Nova Settings Dialog */}
+      <Dialog open={showNovaSettings} onOpenChange={setShowNovaSettings}>
+        <DialogContent className="max-w-md bg-gradient-to-br from-slate-950 via-violet-950/20 to-slate-950 border-violet-500/30" dir={isRtl ? "rtl" : "ltr"}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <img src={novaAiIcon} alt="Nova AI" className="w-6 h-6 rounded-lg" />
+              {isRtl ? "إعدادات Nova" : "Nova Settings"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            {/* Theme Selection */}
+            <div>
+              <h4 className="text-sm font-medium mb-3">{isRtl ? "ثيم Nova" : "Nova Theme"}</h4>
+              <div className="grid grid-cols-5 gap-2">
+                {(["violet", "emerald", "amber", "rose", "cyan"] as const).map((theme) => (
+                  <Button
+                    key={theme}
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setNovaTheme(theme)}
+                    className={`h-10 ${novaTheme === theme ? `bg-gradient-to-r ${novaThemeColors[theme].primary} border-2` : ""}`}
+                    data-testid={`theme-${theme}`}
+                  >
+                    <div className={`w-4 h-4 rounded-full bg-gradient-to-r ${novaThemeColors[theme].primary}`} />
+                  </Button>
+                ))}
+              </div>
+            </div>
+            
+            {/* Notifications */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-medium">{isRtl ? "الإشعارات" : "Notifications"}</h4>
+                <p className="text-xs text-muted-foreground">{isRtl ? "تلقي إشعارات عند اكتمال المهام" : "Receive notifications when tasks complete"}</p>
+              </div>
+              <Button
+                size="sm"
+                variant={notificationsEnabled ? "default" : "outline"}
+                onClick={() => {
+                  setNotificationsEnabled(!notificationsEnabled);
+                  if (!notificationsEnabled && "Notification" in window) {
+                    Notification.requestPermission();
+                  }
+                }}
+                className={notificationsEnabled ? "bg-green-600" : ""}
+              >
+                {notificationsEnabled ? <BellRing className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+              </Button>
+            </div>
+            
+            {/* Voice Input */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-medium">{isRtl ? "الإدخال الصوتي" : "Voice Input"}</h4>
+                <p className="text-xs text-muted-foreground">{isRtl ? "التحدث مع Nova بالصوت" : "Speak to Nova with voice"}</p>
+              </div>
+              <Button
+                size="sm"
+                variant={isVoiceEnabled ? "default" : "outline"}
+                onClick={() => setIsVoiceEnabled(!isVoiceEnabled)}
+                className={isVoiceEnabled ? "bg-violet-600" : ""}
+              >
+                {isVoiceEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              </Button>
+            </div>
+            
+            {/* Pinned Messages Count */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-medium">{isRtl ? "الرسائل المثبتة" : "Pinned Messages"}</h4>
+                <p className="text-xs text-muted-foreground">{pinnedMessages.size} {isRtl ? "رسالة مثبتة" : "messages pinned"}</p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPinnedMessages(new Set())}
+                disabled={pinnedMessages.size === 0}
+              >
+                <Pin className="h-4 w-4 mr-1" />
+                {isRtl ? "مسح الكل" : "Clear All"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Nova Control Panel */}
       <NovaControlPanel 
         isOpen={showNovaControlPanel} 
