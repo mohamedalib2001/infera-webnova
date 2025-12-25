@@ -10,13 +10,14 @@ export function useNovaChat(workspaceId: string, isOwner: boolean, isRtl: boolea
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [streamingMessage, setStreamingMessage] = useState("");
+  // Use streamingText from aiWs hook instead of local state
   const [localMessages, setLocalMessages] = useState<ConversationMessage[]>([]);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const isCreatingConversationRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const aiWs = useAIWebSocket(isOwner, (partial) => setStreamingMessage(partial));
+  // Connect WebSocket - always connect for owners, use streamingText from hook
+  const aiWs = useAIWebSocket(isOwner);
 
   const { data: conversations, isLoading: loadingConversations } = useQuery<SovereignConversation[]>({
     queryKey: ["/api/sovereign-core/conversations", workspaceId],
@@ -79,7 +80,6 @@ export function useNovaChat(workspaceId: string, isOwner: boolean, isRtl: boolea
 
     try {
       setIsProcessing(true);
-      setStreamingMessage("");
 
       const response = await aiWs.sendMessage(userMsg, isRtl ? "ar" : "en", convId);
 
@@ -91,13 +91,11 @@ export function useNovaChat(workspaceId: string, isOwner: boolean, isRtl: boolea
       };
       setLocalMessages((prev) => [...prev, aiMessage]);
       setIsProcessing(false);
-      setStreamingMessage("");
 
       queryClient.invalidateQueries({ queryKey: ["/api/sovereign-core/conversations", convId, "messages"] });
       setTimeout(() => setLocalMessages([]), 500);
     } catch (error) {
       setIsProcessing(false);
-      setStreamingMessage("");
       toast({
         title: isRtl ? "خطأ" : "Error",
         description: isRtl ? "فشل الاتصال بالذكاء الاصطناعي" : "AI connection failed",
@@ -114,7 +112,7 @@ export function useNovaChat(workspaceId: string, isOwner: boolean, isRtl: boolea
     newMessage,
     setNewMessage,
     isProcessing,
-    streamingMessage,
+    streamingMessage: aiWs.streamingText,
     localMessages,
     setLocalMessages,
     pendingMessage,
