@@ -1701,7 +1701,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
               <Network className="w-3.5 h-3.5 mr-2 text-cyan-400" />
               <SelectValue placeholder={isRtl ? "اختر المنصة" : "Select Platform"} />
             </SelectTrigger>
-            <SelectContent className="max-h-[300px] z-[9999]">
+            <SelectContent className="max-h-[300px] bg-popover border shadow-xl" position="popper" sideOffset={5} style={{ zIndex: 99999 }}>
               <SelectItem value="webnova" className="text-xs">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-violet-500" />
