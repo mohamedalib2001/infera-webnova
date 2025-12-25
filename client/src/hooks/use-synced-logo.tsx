@@ -18,21 +18,23 @@ export function useSyncedLogo(platformId: string): UseSyncedLogoResult {
     const loadLogo = () => {
       const state = getPlatformLogoState(platformId);
       
-      if (state && state.variants) {
-        const appIcon = state.variants['app-icon-1024'] || state.variants['app-icon-512'];
+      if (state && state.logos) {
+        // Try to get app-icon-1024 first, then app-icon-512
+        const appIcon = state.logos['app-icon-1024'] || state.logos['app-icon-512'];
         if (appIcon) {
-          setLogoSVG(appIcon.svgData);
-          setLastSync(new Date(appIcon.syncedAt));
-          setPlatformName(appIcon.platformName);
+          setLogoSVG(appIcon.svg);
+          setLastSync(new Date(appIcon.timestamp));
+          setPlatformName(state.platformName);
           setIsLoaded(true);
           return;
         }
         
-        const anyVariant = Object.values(state.variants).find((v): v is SyncedLogo => v !== null);
+        // Fallback to any available variant
+        const anyVariant = Object.values(state.logos).find((v): v is SyncedLogo => v !== null);
         if (anyVariant) {
-          setLogoSVG(anyVariant.svgData);
-          setLastSync(new Date(anyVariant.syncedAt));
-          setPlatformName(anyVariant.platformName);
+          setLogoSVG(anyVariant.svg);
+          setLastSync(new Date(anyVariant.timestamp));
+          setPlatformName(state.platformName);
           setIsLoaded(true);
           return;
         }
