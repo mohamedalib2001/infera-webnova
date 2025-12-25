@@ -95,11 +95,16 @@ function ensureProjectDir(projectId: string): string {
   return projectDir;
 }
 
+// Exported WebSocket server for centralized upgrade handling
+export let terminalWebSocketServer: WebSocketServer | null = null;
+
 export function initializeTerminalService(server: Server): void {
   const wss = new WebSocketServer({ 
-    server,
-    path: "/ws/terminal"
+    noServer: true
   });
+  
+  // Store reference for centralized upgrade handler
+  terminalWebSocketServer = wss;
 
   console.log("[Terminal] Secure WebSocket service initialized on /ws/terminal");
 
@@ -187,11 +192,16 @@ export function initializeTerminalService(server: Server): void {
   });
 }
 
+// Exported WebSocket server for centralized upgrade handling
+export let runtimeWebSocketServer: WebSocketServer | null = null;
+
 export function initializeRuntimeService(server: Server): void {
   const wss = new WebSocketServer({ 
-    server,
-    path: "/ws/runtime"
+    noServer: true
   });
+  
+  // Store reference for centralized upgrade handler
+  runtimeWebSocketServer = wss;
 
   console.log("[Runtime] Secure WebSocket service initialized on /ws/runtime");
 

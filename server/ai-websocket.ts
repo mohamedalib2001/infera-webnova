@@ -413,14 +413,19 @@ async function handleMessage(ws: WebSocket, state: ConnectionState, rawData: str
   }
 }
 
+// Exported WebSocket server for centralized upgrade handling
+export let aiWebSocketServer: WebSocketServer | null = null;
+
 // Initialize AI WebSocket server
 export function initializeAIWebSocket(server: Server): WebSocketServer {
   const wss = new WebSocketServer({ 
-    server,
-    path: "/ws/ai",
+    noServer: true,
     maxPayload: 1024 * 1024, // 1MB max payload
     perMessageDeflate: false, // Disable compression for faster streaming
   });
+  
+  // Store reference for centralized upgrade handler
+  aiWebSocketServer = wss;
   
   console.log("[AI WebSocket] WebSocket service initialized on /ws/ai");
   

@@ -42,7 +42,7 @@ function sendMessage(ws: WebSocket, message: any): void {
 
 const sessionMiddleware = getSession();
 
-async function authenticateWebSocket(req: IncomingMessage): Promise<{ userId: string; isOwner: boolean } | null> {
+export async function authenticateWebSocket(req: IncomingMessage): Promise<{ userId: string; isOwner: boolean } | null> {
   return new Promise((resolve) => {
     const mockRes = {
       setHeader: () => {},
@@ -104,20 +104,16 @@ export function broadcastToAll(event: string, data: any): void {
   });
 }
 
+// Exported WebSocket server for centralized upgrade handling
+export let integrationWebSocketServer: WebSocketServer | null = null;
+
 export function initializeIntegrationWebSocket(server: Server): WebSocketServer {
   const wss = new WebSocketServer({ 
-    server, 
-    path: "/ws/integrations",
-    verifyClient: async (info, callback) => {
-      const auth = await authenticateWebSocket(info.req);
-      if (!auth || !auth.isOwner) {
-        callback(false, 401, "Unauthorized");
-        return;
-      }
-      (info.req as any).authUser = auth;
-      callback(true);
-    },
+    noServer: true
   });
+  
+  // Store reference for centralized upgrade handler
+  integrationWebSocketServer = wss;
 
   wss.on("connection", (ws, req) => {
     const authUser = (req as any).authUser;

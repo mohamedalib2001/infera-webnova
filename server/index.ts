@@ -2,9 +2,9 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
-import { initializeTerminalService, initializeRuntimeService } from "./terminal-service";
-import { initializeAIWebSocket } from "./ai-websocket";
-import { initializeIntegrationWebSocket } from "./integration-websocket";
+import { initializeTerminalService, initializeRuntimeService, terminalWebSocketServer, runtimeWebSocketServer } from "./terminal-service";
+import { initializeAIWebSocket, aiWebSocketServer } from "./ai-websocket";
+import { initializeIntegrationWebSocket, integrationWebSocketServer, authenticateWebSocket } from "./integration-websocket";
 import { setupAuth } from "./replitAuth";
 import { initStripeSystem } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
@@ -17,10 +17,42 @@ import("./infera-agent/index").catch(err => {
 const app = express();
 const httpServer = createServer(app);
 
+// Initialize all WebSocket services (without their own upgrade handlers)
 initializeTerminalService(httpServer);
 initializeRuntimeService(httpServer);
 initializeAIWebSocket(httpServer);
 initializeIntegrationWebSocket(httpServer);
+
+// Centralized WebSocket upgrade handler to avoid conflicts
+httpServer.on("upgrade", async (request, socket, head) => {
+  const pathname = new URL(request.url || "", `http://${request.headers.host}`).pathname;
+  
+  if (pathname === "/ws/ai" && aiWebSocketServer) {
+    aiWebSocketServer.handleUpgrade(request, socket, head, (ws) => {
+      aiWebSocketServer!.emit("connection", ws, request);
+    });
+  } else if (pathname === "/ws/terminal" && terminalWebSocketServer) {
+    terminalWebSocketServer.handleUpgrade(request, socket, head, (ws) => {
+      terminalWebSocketServer!.emit("connection", ws, request);
+    });
+  } else if (pathname === "/ws/runtime" && runtimeWebSocketServer) {
+    runtimeWebSocketServer.handleUpgrade(request, socket, head, (ws) => {
+      runtimeWebSocketServer!.emit("connection", ws, request);
+    });
+  } else if (pathname === "/ws/integrations" && integrationWebSocketServer) {
+    const auth = await authenticateWebSocket(request);
+    if (!auth || !auth.isOwner) {
+      socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+      socket.destroy();
+      return;
+    }
+    (request as any).authUser = auth;
+    integrationWebSocketServer.handleUpgrade(request, socket, head, (ws) => {
+      integrationWebSocketServer!.emit("connection", ws, request);
+    });
+  }
+  // Note: Vite HMR uses /vite-hmr and handles its own upgrades
+});
 
 declare module "http" {
   interface IncomingMessage {
