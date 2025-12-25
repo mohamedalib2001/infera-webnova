@@ -12,6 +12,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { GuestSidebar } from "@/components/guest-sidebar";
 import { InspectorProvider, InspectorToggle } from "@/components/owner-inspector";
+import { SovereignViewProvider, SovereignViewToggle } from "@/components/sovereign-view";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Bell } from "lucide-react";
@@ -473,6 +474,7 @@ function AppContent() {
 
   return (
     <WorkspaceProvider authUser={user} initialRtl={isRtl}>
+    <SovereignViewProvider>
     <InspectorProvider>
     <div dir={isRtl ? "rtl" : "ltr"}>
       <SidebarProvider style={style as React.CSSProperties}>
@@ -492,6 +494,7 @@ function AppContent() {
                 <AIProviderTopbar />
                 <NovaAssistantMenu />
                 <SovereignHeaderButton />
+                <SovereignViewToggle />
                 <InspectorToggle />
                 <NotificationBell />
                 <LanguageToggle />
@@ -543,6 +546,7 @@ function AppContent() {
       <PerformanceTracker />
     </div>
     </InspectorProvider>
+    </SovereignViewProvider>
     </WorkspaceProvider>
   );
 }

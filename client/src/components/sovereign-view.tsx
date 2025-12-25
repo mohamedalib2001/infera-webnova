@@ -108,13 +108,9 @@ export function SovereignViewProvider({ children }: { children: React.ReactNode 
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isOwner, toggleView]);
   
-  if (!isOwner) {
-    return <>{children}</>;
-  }
-  
   return (
     <SovereignViewContext.Provider value={{
-      isEnabled,
+      isEnabled: isOwner ? isEnabled : false,
       toggleView,
       registerElement,
       unregisterElement,
@@ -123,8 +119,8 @@ export function SovereignViewProvider({ children }: { children: React.ReactNode 
       getElementPermissions,
     }}>
       {children}
-      {isEnabled && <SovereignOverlay />}
-      <PermissionInspectorPanel />
+      {isOwner && isEnabled && <SovereignOverlay />}
+      {isOwner && <PermissionInspectorPanel />}
     </SovereignViewContext.Provider>
   );
 }

@@ -77,6 +77,7 @@ import {
   UsersRound,
   BadgeDollarSign,
 } from "lucide-react";
+import { SidebarItemBadge } from "@/components/sovereign-view";
 import {
   Sidebar,
   SidebarContent,
@@ -623,6 +624,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                           <Link href="/owner" data-testid="nav-owner">
                             <Crown className="h-4 w-4 text-amber-500" />
                             <span>{language === "ar" ? "لوحة تحكم المالك" : "Owner Dashboard"}</span>
+                            <SidebarItemBadge roles={["owner"]} />
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
@@ -997,6 +999,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                       <Link href="/owner/content-moderation" data-testid="nav-content-moderation">
                         <ShieldCheck className="h-4 w-4 text-red-500" />
                         <span>{language === "ar" ? "مراقبة المحتوى" : "Content Moderation"}</span>
+                        <SidebarItemBadge roles={["owner"]} />
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
