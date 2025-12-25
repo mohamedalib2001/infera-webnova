@@ -327,7 +327,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
       description: isRtl ? "معلومات وتحليل" : "Information & Analysis"
     },
     planning: {
-      icon: Map,
+      icon: Layout,
       label: isRtl ? "التخطيط" : "Planning",
       labelAr: "التخطيط",
       color: "text-amber-400",
