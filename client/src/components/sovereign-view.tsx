@@ -637,6 +637,122 @@ const pagePermissionsRegistry: Record<string, { allowedRoles: RoleType[]; descri
     description: "CI/CD Pipeline - admin and paid plans",
     descriptionAr: "خطوط CI/CD - المسؤولين والباقات المدفوعة"
   },
+  // SOVEREIGN ZONE - المنطقة السيادية (المالك فقط)
+  "/sovereign": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Sovereign Control Center - ROOT_OWNER exclusive",
+    descriptionAr: "مركز التحكم السيادي - حصري للمالك الجذري"
+  },
+  "/sovereign-workspace": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Sovereign Workspace - ROOT_OWNER exclusive",
+    descriptionAr: "مساحة العمل السيادية - حصري للمالك الجذري"
+  },
+  "/sovereign-plans": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Sovereign Plans - ROOT_OWNER exclusive",
+    descriptionAr: "الخطط السيادية - حصري للمالك الجذري"
+  },
+  "/sovereign-chat": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Sovereign AI Chat - ROOT_OWNER exclusive",
+    descriptionAr: "محادثة الذكاء السيادي - حصري للمالك الجذري"
+  },
+  "/sovereign/command-center": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Sovereign Command Center - ROOT_OWNER exclusive",
+    descriptionAr: "مركز القيادة السيادي - حصري للمالك الجذري"
+  },
+  "/sovereign/ai-governance": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "AI Governance Engine - ROOT_OWNER exclusive",
+    descriptionAr: "محرك حوكمة الذكاء الاصطناعي - حصري للمالك الجذري"
+  },
+  "/sovereign/digital-borders": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Digital Borders - ROOT_OWNER exclusive",
+    descriptionAr: "الحدود الرقمية - حصري للمالك الجذري"
+  },
+  "/sovereign/policy-engine": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Policy Engine - ROOT_OWNER exclusive",
+    descriptionAr: "محرك السياسات - حصري للمالك الجذري"
+  },
+  "/sovereign/trust-compliance": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Trust & Compliance - ROOT_OWNER exclusive",
+    descriptionAr: "الثقة والامتثال - حصري للمالك الجذري"
+  },
+  "/sovereign/strategic-forecast": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Strategic Forecast - ROOT_OWNER exclusive",
+    descriptionAr: "التنبؤ الاستراتيجي - حصري للمالك الجذري"
+  },
+  "/owner/isds": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "ISDS - ROOT_OWNER exclusive",
+    descriptionAr: "استوديو التطوير السيادي - حصري للمالك الجذري"
+  },
+  "/owner/spom": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "SPOM Operations - ROOT_OWNER exclusive",
+    descriptionAr: "عمليات SPOM - حصري للمالك الجذري"
+  },
+  "/owner/quality": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Quality Dashboard - ROOT_OWNER exclusive",
+    descriptionAr: "لوحة الجودة - حصري للمالك الجذري"
+  },
+  "/owner/sidebar-manager": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Sidebar Manager - ROOT_OWNER exclusive",
+    descriptionAr: "مدير الشريط الجانبي - حصري للمالك الجذري"
+  },
+  "/owner/ai-sovereignty": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "AI Sovereignty - ROOT_OWNER exclusive",
+    descriptionAr: "سيادة الذكاء الاصطناعي - حصري للمالك الجذري"
+  },
+  "/owner/infrastructure": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Infrastructure - ROOT_OWNER exclusive",
+    descriptionAr: "البنية التحتية - حصري للمالك الجذري"
+  },
+  "/owner/integrations": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Integration Gateway - ROOT_OWNER exclusive",
+    descriptionAr: "بوابة التكامل - حصري للمالك الجذري"
+  },
+  "/owner/notifications": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Owner Notifications - ROOT_OWNER exclusive",
+    descriptionAr: "إشعارات المالك - حصري للمالك الجذري"
+  },
+  "/owner/policies": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Owner Policies - ROOT_OWNER exclusive",
+    descriptionAr: "سياسات المالك - حصري للمالك الجذري"
+  },
+  "/government-compliance": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Government Compliance - ROOT_OWNER exclusive",
+    descriptionAr: "الجاهزية الحكومية - حصري للمالك الجذري"
+  },
+  "/content-moderation": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Content Moderation - ROOT_OWNER exclusive",
+    descriptionAr: "مراقبة المحتوى - حصري للمالك الجذري"
+  },
+  "/staff-management": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Staff Management - ROOT_OWNER exclusive",
+    descriptionAr: "إدارة الموظفين - حصري للمالك الجذري"
+  },
+  "/domains": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Sovereign Domains - ROOT_OWNER exclusive",
+    descriptionAr: "النطاقات السيادية - حصري للمالك الجذري"
+  },
 };
 
 // Simplified role labels for display
