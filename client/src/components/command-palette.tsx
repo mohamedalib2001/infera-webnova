@@ -430,27 +430,3 @@ export function CommandPalette({ language = "en" }: CommandPaletteProps) {
     </>
   );
 }
-
-export function CommandPaletteTrigger() {
-  const handleClick = () => {
-    const event = new KeyboardEvent("keydown", {
-      key: "k",
-      metaKey: true,
-      ctrlKey: true,
-      bubbles: true,
-    });
-    document.dispatchEvent(event);
-  };
-
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={handleClick}
-      data-testid="button-command-palette"
-      title="Search (Ctrl+K)"
-    >
-      <Search className="h-4 w-4" />
-    </Button>
-  );
-}
