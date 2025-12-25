@@ -324,7 +324,7 @@ function AppContent() {
     return (
       <div dir={isRTL ? "rtl" : "ltr"}>
         <SidebarProvider style={sidebarStyle}>
-          <div className={`flex h-screen w-full ${isRTL ? "flex-row-reverse" : ""}`}>
+          <div className="flex h-screen w-full">
             <GuestSidebar />
             <div className="flex flex-col flex-1 overflow-hidden">
               <header className="flex items-center justify-between gap-2 p-2 border-b h-14 shrink-0">
@@ -353,7 +353,7 @@ function AppContent() {
       <InspectorProvider>
         <SovereignViewProvider>
           <SidebarProvider style={sidebarStyle}>
-            <div className={`flex h-screen w-full ${isRTL ? "flex-row-reverse" : ""}`}>
+            <div className="flex h-screen w-full">
               <AppSidebar />
               <div className="flex flex-col flex-1 overflow-hidden">
                 <header className="flex items-center justify-between gap-2 p-2 border-b h-14 shrink-0">
