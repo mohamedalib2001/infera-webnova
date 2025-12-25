@@ -1865,7 +1865,283 @@ export function registerNovaPermissionRoutes(app: Express): void {
       res.status(500).json({ success: false, error: error.message });
     }
   });
+
+  // ==================== خريطة النظام الشاملة ====================
+  // System Map - Nova AI Working Memory & Reference Guide
+
+  // GET /api/nova/system-map/summary - Complete system topology
+  app.get("/api/nova/system-map/summary", async (req: Request, res: Response) => {
+    try {
+      const architecture = getArchitectureMap();
+      const database = await getDatabaseMap();
+      const components = getComponentsMap();
+      const apiRoutes = getApiRoutesMap();
+      const infrastructure = getInfrastructureMap();
+      const relationships = getRelationshipsMap();
+
+      res.json({
+        success: true,
+        version: "1.0.0",
+        lastUpdated: new Date().toISOString(),
+        sections: {
+          architecture,
+          database,
+          components,
+          apiRoutes,
+          infrastructure,
+          relationships,
+        },
+        stats: {
+          totalTables: database.tables.length,
+          totalComponents: components.frontend.length + components.backend.length,
+          totalRoutes: apiRoutes.categories.reduce((acc: number, cat: any) => acc + cat.routes.length, 0),
+          totalServices: infrastructure.services.length,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // GET /api/nova/system-map/architecture - System architecture
+  app.get("/api/nova/system-map/architecture", async (req: Request, res: Response) => {
+    res.json({ success: true, data: getArchitectureMap() });
+  });
+
+  // GET /api/nova/system-map/database - Database schema & relationships
+  app.get("/api/nova/system-map/database", async (req: Request, res: Response) => {
+    res.json({ success: true, data: await getDatabaseMap() });
+  });
+
+  // GET /api/nova/system-map/components - Frontend/Backend components
+  app.get("/api/nova/system-map/components", async (req: Request, res: Response) => {
+    res.json({ success: true, data: getComponentsMap() });
+  });
+
+  // GET /api/nova/system-map/api-routes - All API endpoints
+  app.get("/api/nova/system-map/api-routes", async (req: Request, res: Response) => {
+    res.json({ success: true, data: getApiRoutesMap() });
+  });
+
+  // GET /api/nova/system-map/infrastructure - Cloud & infrastructure
+  app.get("/api/nova/system-map/infrastructure", async (req: Request, res: Response) => {
+    res.json({ success: true, data: getInfrastructureMap() });
+  });
+
+  // GET /api/nova/system-map/relationships - Entity relationships
+  app.get("/api/nova/system-map/relationships", async (req: Request, res: Response) => {
+    res.json({ success: true, data: getRelationshipsMap() });
+  });
+
+  // Helper functions for System Map data
+  function getArchitectureMap() {
+    return {
+      nameEn: "INFERA WebNova Architecture",
+      nameAr: "بنية إنفيرا ويب نوفا",
+      layers: [
+        {
+          id: "presentation",
+          nameEn: "Presentation Layer",
+          nameAr: "طبقة العرض",
+          color: "#3B82F6",
+          components: ["React Frontend", "Shadcn UI", "TailwindCSS", "Wouter Router"],
+        },
+        {
+          id: "application",
+          nameEn: "Application Layer",
+          nameAr: "طبقة التطبيق",
+          color: "#8B5CF6",
+          components: ["Express.js", "Nova AI Orchestrator", "Sovereign Decision Engine", "Platform API"],
+        },
+        {
+          id: "business",
+          nameEn: "Business Logic Layer",
+          nameAr: "طبقة منطق الأعمال",
+          color: "#10B981",
+          components: ["Permissions System", "CI/CD Engine", "Smart Analysis Tools", "Military Security"],
+        },
+        {
+          id: "data",
+          nameEn: "Data Layer",
+          nameAr: "طبقة البيانات",
+          color: "#F59E0B",
+          components: ["PostgreSQL", "Drizzle ORM", "Object Storage", "Event Store"],
+        },
+        {
+          id: "infrastructure",
+          nameEn: "Infrastructure Layer",
+          nameAr: "طبقة البنية التحتية",
+          color: "#EF4444",
+          components: ["Hetzner Cloud", "Kubernetes", "Terraform", "Ansible"],
+        },
+      ],
+      coreModules: [
+        { id: "nova-ai", nameEn: "Nova AI", nameAr: "نوفا الذكاء الاصطناعي", icon: "brain" },
+        { id: "sovereign-core", nameEn: "Sovereign Core", nameAr: "النواة السيادية", icon: "shield" },
+        { id: "platform-builder", nameEn: "Platform Builder", nameAr: "منشئ المنصات", icon: "building" },
+        { id: "security-layer", nameEn: "Military Security", nameAr: "الأمان العسكري", icon: "lock" },
+      ],
+    };
+  }
+
+  async function getDatabaseMap() {
+    return {
+      nameEn: "Database Schema",
+      nameAr: "مخطط قاعدة البيانات",
+      tables: [
+        { name: "users", nameAr: "المستخدمون", columns: 8, relations: ["sessions", "workspaces"], color: "#3B82F6" },
+        { name: "sessions", nameAr: "الجلسات", columns: 5, relations: ["users"], color: "#8B5CF6" },
+        { name: "workspaces", nameAr: "مساحات العمل", columns: 12, relations: ["users", "projects"], color: "#10B981" },
+        { name: "projects", nameAr: "المشاريع", columns: 15, relations: ["workspaces", "files"], color: "#F59E0B" },
+        { name: "nova_permissions", nameAr: "صلاحيات نوفا", columns: 10, relations: ["users"], color: "#EF4444" },
+        { name: "nova_permission_audit", nameAr: "سجل صلاحيات نوفا", columns: 8, relations: ["nova_permissions"], color: "#EC4899" },
+        { name: "sovereign_conversations", nameAr: "محادثات سيادية", columns: 7, relations: ["workspaces"], color: "#14B8A6" },
+        { name: "conversation_messages", nameAr: "رسائل المحادثات", columns: 6, relations: ["sovereign_conversations"], color: "#6366F1" },
+        { name: "pki_certificates", nameAr: "شهادات PKI", columns: 12, relations: [], color: "#84CC16" },
+        { name: "military_incident_response", nameAr: "استجابة الحوادث", columns: 10, relations: [], color: "#F97316" },
+        { name: "security_scan_results", nameAr: "نتائج الفحص الأمني", columns: 8, relations: [], color: "#06B6D4" },
+        { name: "security_audit_logs", nameAr: "سجلات التدقيق الأمني", columns: 9, relations: [], color: "#A855F7" },
+      ],
+      relationships: [
+        { from: "users", to: "sessions", type: "one-to-many", labelEn: "has", labelAr: "يملك" },
+        { from: "users", to: "workspaces", type: "one-to-many", labelEn: "owns", labelAr: "يمتلك" },
+        { from: "workspaces", to: "projects", type: "one-to-many", labelEn: "contains", labelAr: "يحتوي" },
+        { from: "sovereign_conversations", to: "conversation_messages", type: "one-to-many", labelEn: "includes", labelAr: "يتضمن" },
+      ],
+    };
+  }
+
+  function getComponentsMap() {
+    return {
+      nameEn: "System Components",
+      nameAr: "مكونات النظام",
+      frontend: [
+        { id: "sovereign-core-ide", nameEn: "Sovereign Core IDE", nameAr: "بيئة التطوير السيادية", path: "client/src/components/sovereign-core-ide.tsx", lines: 8500 },
+        { id: "app-sidebar", nameEn: "App Sidebar", nameAr: "الشريط الجانبي", path: "client/src/components/app-sidebar.tsx", lines: 400 },
+        { id: "ui-components", nameEn: "UI Components (Shadcn)", nameAr: "مكونات الواجهة", path: "client/src/components/ui/", count: 40 },
+        { id: "pages", nameEn: "Pages", nameAr: "الصفحات", path: "client/src/pages/", count: 15 },
+      ],
+      backend: [
+        { id: "nova-permissions", nameEn: "Nova Permissions", nameAr: "صلاحيات نوفا", path: "server/nova-permissions.ts", lines: 1900 },
+        { id: "military-security", nameEn: "Military Security Layer", nameAr: "طبقة الأمان العسكري", path: "server/military-security-layer.ts", lines: 800 },
+        { id: "smart-analysis", nameEn: "Smart Analysis Tools", nameAr: "أدوات التحليل الذكي", path: "server/smart-analysis-tools.ts", lines: 600 },
+        { id: "routes", nameEn: "API Routes", nameAr: "مسارات API", path: "server/routes.ts", lines: 500 },
+        { id: "platform-api", nameEn: "Platform API", nameAr: "منصة API", path: "server/platform-api.ts", lines: 2000 },
+      ],
+      shared: [
+        { id: "schema", nameEn: "Database Schema", nameAr: "مخطط قاعدة البيانات", path: "shared/schema.ts", lines: 400 },
+      ],
+    };
+  }
+
+  function getApiRoutesMap() {
+    return {
+      nameEn: "API Routes",
+      nameAr: "مسارات API",
+      categories: [
+        {
+          id: "nova-permissions",
+          nameEn: "Nova Permissions",
+          nameAr: "صلاحيات نوفا",
+          color: "#8B5CF6",
+          routes: [
+            { method: "GET", path: "/api/nova/permissions/me", descEn: "Get current user permissions", descAr: "الحصول على صلاحيات المستخدم" },
+            { method: "POST", path: "/api/nova/permissions/grant", descEn: "Grant permission", descAr: "منح صلاحية" },
+            { method: "POST", path: "/api/nova/permissions/revoke", descEn: "Revoke permission", descAr: "سحب صلاحية" },
+            { method: "GET", path: "/api/nova/permissions/webnova-full", descEn: "Get WebNova permissions", descAr: "صلاحيات WebNova الكاملة" },
+          ],
+        },
+        {
+          id: "nova-models",
+          nameEn: "AI Models",
+          nameAr: "نماذج الذكاء الاصطناعي",
+          color: "#10B981",
+          routes: [
+            { method: "GET", path: "/api/nova/models", descEn: "List all AI models", descAr: "قائمة النماذج" },
+            { method: "POST", path: "/api/nova/models/:id/toggle", descEn: "Toggle model", descAr: "تبديل النموذج" },
+            { method: "POST", path: "/api/nova/models/:id/set-primary", descEn: "Set primary model", descAr: "تعيين النموذج الأساسي" },
+          ],
+        },
+        {
+          id: "sovereign-core",
+          nameEn: "Sovereign Core",
+          nameAr: "النواة السيادية",
+          color: "#3B82F6",
+          routes: [
+            { method: "POST", path: "/api/sovereign-core/chat", descEn: "Chat with Nova AI", descAr: "محادثة مع نوفا" },
+            { method: "GET", path: "/api/sovereign-core/conversations", descEn: "Get conversations", descAr: "المحادثات" },
+          ],
+        },
+        {
+          id: "platform",
+          nameEn: "Platform API",
+          nameAr: "منصة API",
+          color: "#F59E0B",
+          routes: [
+            { method: "POST", path: "/api/platform/ai/analyze", descEn: "AI code analysis", descAr: "تحليل الكود" },
+            { method: "POST", path: "/api/platform/hetzner/deploy", descEn: "Deploy to Hetzner", descAr: "النشر على Hetzner" },
+            { method: "GET", path: "/api/platform/monitoring/metrics", descEn: "Get metrics", descAr: "المقاييس" },
+          ],
+        },
+        {
+          id: "military",
+          nameEn: "Military Security",
+          nameAr: "الأمان العسكري",
+          color: "#EF4444",
+          routes: [
+            { method: "POST", path: "/api/military/pki/generate", descEn: "Generate PKI cert", descAr: "إنشاء شهادة PKI" },
+            { method: "POST", path: "/api/military/sbom/generate", descEn: "Generate SBOM", descAr: "إنشاء SBOM" },
+            { method: "POST", path: "/api/military/incident/report", descEn: "Report incident", descAr: "الإبلاغ عن حادث" },
+          ],
+        },
+      ],
+    };
+  }
+
+  function getInfrastructureMap() {
+    return {
+      nameEn: "Infrastructure",
+      nameAr: "البنية التحتية",
+      services: [
+        { id: "web-server", nameEn: "Web Server", nameAr: "خادم الويب", type: "compute", status: "running", port: 5000 },
+        { id: "agent-server", nameEn: "INFERA Agent", nameAr: "وكيل إنفيرا", type: "compute", status: "running", port: 5001 },
+        { id: "postgresql", nameEn: "PostgreSQL", nameAr: "قاعدة البيانات", type: "database", status: "running" },
+        { id: "object-storage", nameEn: "Object Storage", nameAr: "تخزين الملفات", type: "storage", status: "configured" },
+      ],
+      cloud: [
+        { id: "hetzner", nameEn: "Hetzner Cloud", nameAr: "سحابة Hetzner", type: "provider", status: "configured" },
+        { id: "kubernetes", nameEn: "Kubernetes (k3s)", nameAr: "كوبيرنيتيس", type: "orchestration", status: "ready" },
+      ],
+      security: [
+        { id: "fips", nameEn: "FIPS 140-3 Crypto", nameAr: "تشفير FIPS", status: "active" },
+        { id: "pki", nameEn: "PKI System", nameAr: "نظام PKI", status: "active" },
+        { id: "zero-trust", nameEn: "Zero Trust Engine", nameAr: "محرك الثقة الصفرية", status: "active" },
+      ],
+    };
+  }
+
+  function getRelationshipsMap() {
+    return {
+      nameEn: "Entity Relationships",
+      nameAr: "علاقات الكيانات",
+      nodes: [
+        { id: "owner", labelEn: "ROOT_OWNER", labelAr: "المالك الجذر", type: "actor", color: "#FFD700" },
+        { id: "nova", labelEn: "Nova AI", labelAr: "نوفا", type: "ai", color: "#8B5CF6" },
+        { id: "workspace", labelEn: "Workspace", labelAr: "مساحة العمل", type: "entity", color: "#3B82F6" },
+        { id: "platform", labelEn: "Platform", labelAr: "المنصة", type: "entity", color: "#10B981" },
+        { id: "permissions", labelEn: "Permissions", labelAr: "الصلاحيات", type: "system", color: "#EF4444" },
+      ],
+      edges: [
+        { from: "owner", to: "nova", labelEn: "controls", labelAr: "يتحكم" },
+        { from: "owner", to: "workspace", labelEn: "owns", labelAr: "يمتلك" },
+        { from: "nova", to: "workspace", labelEn: "operates in", labelAr: "يعمل في" },
+        { from: "nova", to: "permissions", labelEn: "governed by", labelAr: "محكوم بـ" },
+        { from: "workspace", to: "platform", labelEn: "generates", labelAr: "ينشئ" },
+      ],
+    };
+  }
   
   console.log("[Nova Permissions] Routes registered at /api/nova/permissions/*");
   console.log("[Nova AI Models] Routes registered at /api/nova/models/*");
+  console.log("[Nova System Map] Routes registered at /api/nova/system-map/*");
 }

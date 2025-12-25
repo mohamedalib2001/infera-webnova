@@ -173,6 +173,12 @@ import {
   Settings,
   Sliders,
   Radio,
+  Map,
+  Table2,
+  Server as ServerIcon,
+  Route,
+  GitFork,
+  Box,
 } from "lucide-react";
 
 interface SovereignConversation {
@@ -211,6 +217,413 @@ interface GroupPlatform {
 interface SovereignCoreIDEProps {
   workspaceId: string;
   isOwner: boolean;
+}
+
+// System Map Interfaces
+interface SystemMapSummary {
+  success: boolean;
+  version: string;
+  lastUpdated: string;
+  sections: {
+    architecture: any;
+    database: any;
+    components: any;
+    apiRoutes: any;
+    infrastructure: any;
+    relationships: any;
+  };
+  stats: {
+    totalTables: number;
+    totalComponents: number;
+    totalRoutes: number;
+    totalServices: number;
+  };
+}
+
+// System Map Content Component - Nova AI Working Memory
+function SystemMapContent({ isRtl }: { isRtl: boolean }) {
+  const [activeSection, setActiveSection] = useState<string>("architecture");
+  
+  const { data: systemMap, isLoading } = useQuery<SystemMapSummary>({
+    queryKey: ["/api/nova/system-map/summary"],
+  });
+
+  const sections = [
+    { id: "architecture", nameEn: "Architecture", nameAr: "البنية المعمارية", icon: Layers, activeClass: "bg-violet-500/20 border-violet-500/50 text-violet-400" },
+    { id: "database", nameEn: "Database", nameAr: "قاعدة البيانات", icon: Database, activeClass: "bg-blue-500/20 border-blue-500/50 text-blue-400" },
+    { id: "components", nameEn: "Components", nameAr: "المكونات", icon: Box, activeClass: "bg-green-500/20 border-green-500/50 text-green-400" },
+    { id: "apiRoutes", nameEn: "API Routes", nameAr: "مسارات API", icon: Route, activeClass: "bg-amber-500/20 border-amber-500/50 text-amber-400" },
+    { id: "infrastructure", nameEn: "Infrastructure", nameAr: "البنية التحتية", icon: ServerIcon, activeClass: "bg-red-500/20 border-red-500/50 text-red-400" },
+    { id: "relationships", nameEn: "Relationships", nameAr: "العلاقات", icon: GitFork, activeClass: "bg-pink-500/20 border-pink-500/50 text-pink-400" },
+  ];
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="h-6 w-6 animate-spin text-violet-400" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Header */}
+      <Card className="bg-gradient-to-r from-cyan-500/10 via-violet-500/10 to-pink-500/10 border-cyan-500/20">
+        <CardContent className="p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Map className="h-4 w-4 text-cyan-400" />
+              <span className="text-sm font-medium">{isRtl ? "خريطة النظام" : "System Map"}</span>
+              <Badge variant="outline" className="text-[9px] h-4 border-cyan-500/30 text-cyan-400">
+                {isRtl ? "دليل العمل" : "Working Memory"}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-2 text-[9px] text-muted-foreground">
+              <span>v{systemMap?.version}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Stats Overview */}
+      <div className="grid grid-cols-4 gap-1.5">
+        <Card className="border-blue-500/20">
+          <CardContent className="p-2 text-center">
+            <Table2 className="h-3 w-3 mx-auto text-blue-400 mb-1" />
+            <span className="text-lg font-bold text-blue-400">{systemMap?.stats?.totalTables || 0}</span>
+            <p className="text-[8px] text-muted-foreground">{isRtl ? "جداول" : "Tables"}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-green-500/20">
+          <CardContent className="p-2 text-center">
+            <Box className="h-3 w-3 mx-auto text-green-400 mb-1" />
+            <span className="text-lg font-bold text-green-400">{systemMap?.stats?.totalComponents || 0}</span>
+            <p className="text-[8px] text-muted-foreground">{isRtl ? "مكونات" : "Components"}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-amber-500/20">
+          <CardContent className="p-2 text-center">
+            <Route className="h-3 w-3 mx-auto text-amber-400 mb-1" />
+            <span className="text-lg font-bold text-amber-400">{systemMap?.stats?.totalRoutes || 0}</span>
+            <p className="text-[8px] text-muted-foreground">{isRtl ? "مسارات" : "Routes"}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-red-500/20">
+          <CardContent className="p-2 text-center">
+            <ServerIcon className="h-3 w-3 mx-auto text-red-400 mb-1" />
+            <span className="text-lg font-bold text-red-400">{systemMap?.stats?.totalServices || 0}</span>
+            <p className="text-[8px] text-muted-foreground">{isRtl ? "خدمات" : "Services"}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Section Navigator */}
+      <div className="flex flex-wrap gap-1">
+        {sections.map((section) => (
+          <Button
+            key={section.id}
+            size="sm"
+            variant={activeSection === section.id ? "default" : "outline"}
+            className={`text-[9px] h-6 px-2 ${activeSection === section.id ? section.activeClass : ""}`}
+            onClick={() => setActiveSection(section.id)}
+            data-testid={`btn-section-${section.id}`}
+          >
+            <section.icon className="h-2.5 w-2.5 mr-1" />
+            {isRtl ? section.nameAr : section.nameEn}
+          </Button>
+        ))}
+      </div>
+
+      {/* Active Section Content */}
+      {activeSection === "architecture" && systemMap?.sections?.architecture && (
+        <Card className="border-violet-500/20">
+          <CardHeader className="p-2 pb-1">
+            <CardTitle className="text-xs flex items-center gap-2">
+              <Layers className="h-3 w-3 text-violet-400" />
+              {isRtl ? systemMap.sections.architecture.nameAr : systemMap.sections.architecture.nameEn}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-2 pt-0 space-y-2">
+            {/* Layers */}
+            {systemMap.sections.architecture.layers?.map((layer: any, idx: number) => (
+              <div 
+                key={layer.id} 
+                className="p-2 rounded-md border"
+                style={{ borderColor: layer.color + "40", backgroundColor: layer.color + "10" }}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-medium" style={{ color: layer.color }}>
+                    {isRtl ? layer.nameAr : layer.nameEn}
+                  </span>
+                  <Badge variant="outline" className="text-[8px] h-3" style={{ borderColor: layer.color + "50", color: layer.color }}>
+                    L{idx + 1}
+                  </Badge>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {layer.components.map((comp: string) => (
+                    <Badge key={comp} variant="secondary" className="text-[8px] h-4">
+                      {comp}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            ))}
+            
+            {/* Core Modules */}
+            <div className="pt-2 border-t border-violet-500/20">
+              <span className="text-[9px] text-muted-foreground">{isRtl ? "الوحدات الأساسية" : "Core Modules"}</span>
+              <div className="flex flex-wrap gap-1 mt-1">
+                {systemMap.sections.architecture.coreModules?.map((mod: any) => (
+                  <Badge key={mod.id} className="text-[8px] h-4 bg-violet-500/20 text-violet-400 border-violet-500/30">
+                    {isRtl ? mod.nameAr : mod.nameEn}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeSection === "database" && systemMap?.sections?.database && (
+        <Card className="border-blue-500/20">
+          <CardHeader className="p-2 pb-1">
+            <CardTitle className="text-xs flex items-center gap-2">
+              <Database className="h-3 w-3 text-blue-400" />
+              {isRtl ? systemMap.sections.database.nameAr : systemMap.sections.database.nameEn}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-2 pt-0 space-y-2">
+            {/* Tables */}
+            <div className="grid grid-cols-2 gap-1.5">
+              {systemMap.sections.database.tables?.map((table: any) => (
+                <div 
+                  key={table.name}
+                  className="p-1.5 rounded-md border flex items-center gap-2"
+                  style={{ borderColor: table.color + "40" }}
+                >
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: table.color }} />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-[9px] font-medium block truncate">{table.name}</span>
+                    <span className="text-[8px] text-muted-foreground">{table.columns} {isRtl ? "عمود" : "cols"}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {/* Relationships */}
+            <div className="pt-2 border-t border-blue-500/20">
+              <span className="text-[9px] text-muted-foreground">{isRtl ? "العلاقات" : "Relationships"}</span>
+              <div className="space-y-1 mt-1">
+                {systemMap.sections.database.relationships?.map((rel: any, idx: number) => (
+                  <div key={idx} className="flex items-center gap-1 text-[8px]">
+                    <Badge variant="outline" className="h-3 text-[7px]">{rel.from}</Badge>
+                    <ArrowRightLeft className="h-2 w-2 text-muted-foreground" />
+                    <Badge variant="outline" className="h-3 text-[7px]">{rel.to}</Badge>
+                    <span className="text-muted-foreground">({isRtl ? rel.labelAr : rel.labelEn})</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeSection === "components" && systemMap?.sections?.components && (
+        <Card className="border-green-500/20">
+          <CardHeader className="p-2 pb-1">
+            <CardTitle className="text-xs flex items-center gap-2">
+              <Box className="h-3 w-3 text-green-400" />
+              {isRtl ? systemMap.sections.components.nameAr : systemMap.sections.components.nameEn}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-2 pt-0 space-y-2">
+            {/* Frontend */}
+            <div>
+              <span className="text-[9px] text-muted-foreground mb-1 block">{isRtl ? "الواجهة الأمامية" : "Frontend"}</span>
+              <div className="space-y-1">
+                {systemMap.sections.components.frontend?.map((comp: any) => (
+                  <div key={comp.id} className="p-1.5 rounded-md bg-green-500/10 border border-green-500/20">
+                    <span className="text-[9px] font-medium text-green-400">{isRtl ? comp.nameAr : comp.nameEn}</span>
+                    <p className="text-[8px] text-muted-foreground truncate">{comp.path}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Backend */}
+            <div className="pt-2 border-t border-green-500/20">
+              <span className="text-[9px] text-muted-foreground mb-1 block">{isRtl ? "الواجهة الخلفية" : "Backend"}</span>
+              <div className="space-y-1">
+                {systemMap.sections.components.backend?.map((comp: any) => (
+                  <div key={comp.id} className="p-1.5 rounded-md bg-emerald-500/10 border border-emerald-500/20">
+                    <span className="text-[9px] font-medium text-emerald-400">{isRtl ? comp.nameAr : comp.nameEn}</span>
+                    <p className="text-[8px] text-muted-foreground truncate">{comp.path}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeSection === "apiRoutes" && systemMap?.sections?.apiRoutes && (
+        <Card className="border-amber-500/20">
+          <CardHeader className="p-2 pb-1">
+            <CardTitle className="text-xs flex items-center gap-2">
+              <Route className="h-3 w-3 text-amber-400" />
+              {isRtl ? systemMap.sections.apiRoutes.nameAr : systemMap.sections.apiRoutes.nameEn}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-2 pt-0 space-y-2">
+            {systemMap.sections.apiRoutes.categories?.map((cat: any) => (
+              <div key={cat.id} className="p-2 rounded-md border" style={{ borderColor: cat.color + "40" }}>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />
+                  <span className="text-[9px] font-medium" style={{ color: cat.color }}>
+                    {isRtl ? cat.nameAr : cat.nameEn}
+                  </span>
+                  <Badge variant="outline" className="text-[7px] h-3 ml-auto">{cat.routes.length}</Badge>
+                </div>
+                <div className="space-y-1">
+                  {cat.routes.map((route: any, idx: number) => (
+                    <div key={idx} className="flex items-center gap-1.5 text-[8px]">
+                      <Badge 
+                        variant="outline" 
+                        className={`h-3 text-[7px] ${
+                          route.method === "GET" ? "text-green-400 border-green-500/30" :
+                          route.method === "POST" ? "text-blue-400 border-blue-500/30" :
+                          route.method === "PUT" ? "text-amber-400 border-amber-500/30" :
+                          "text-red-400 border-red-500/30"
+                        }`}
+                      >
+                        {route.method}
+                      </Badge>
+                      <code className="text-muted-foreground flex-1 truncate">{route.path}</code>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {activeSection === "infrastructure" && systemMap?.sections?.infrastructure && (
+        <Card className="border-red-500/20">
+          <CardHeader className="p-2 pb-1">
+            <CardTitle className="text-xs flex items-center gap-2">
+              <ServerIcon className="h-3 w-3 text-red-400" />
+              {isRtl ? systemMap.sections.infrastructure.nameAr : systemMap.sections.infrastructure.nameEn}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-2 pt-0 space-y-2">
+            {/* Services */}
+            <div>
+              <span className="text-[9px] text-muted-foreground mb-1 block">{isRtl ? "الخدمات" : "Services"}</span>
+              <div className="grid grid-cols-2 gap-1">
+                {systemMap.sections.infrastructure.services?.map((svc: any) => (
+                  <div key={svc.id} className="p-1.5 rounded-md bg-red-500/10 border border-red-500/20 flex items-center gap-1.5">
+                    <div className={`w-1.5 h-1.5 rounded-full ${svc.status === "running" ? "bg-green-400" : "bg-amber-400"}`} />
+                    <span className="text-[8px] font-medium">{isRtl ? svc.nameAr : svc.nameEn}</span>
+                    {svc.port && <Badge variant="outline" className="text-[7px] h-3 ml-auto">:{svc.port}</Badge>}
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Cloud */}
+            <div className="pt-2 border-t border-red-500/20">
+              <span className="text-[9px] text-muted-foreground mb-1 block">{isRtl ? "السحابة" : "Cloud"}</span>
+              <div className="flex flex-wrap gap-1">
+                {systemMap.sections.infrastructure.cloud?.map((cloud: any) => (
+                  <Badge key={cloud.id} className="text-[8px] h-4 bg-orange-500/20 text-orange-400 border-orange-500/30">
+                    {isRtl ? cloud.nameAr : cloud.nameEn}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+            
+            {/* Security */}
+            <div className="pt-2 border-t border-red-500/20">
+              <span className="text-[9px] text-muted-foreground mb-1 block">{isRtl ? "الأمان" : "Security"}</span>
+              <div className="flex flex-wrap gap-1">
+                {systemMap.sections.infrastructure.security?.map((sec: any) => (
+                  <Badge key={sec.id} className="text-[8px] h-4 bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+                    <Shield className="h-2 w-2 mr-0.5" />
+                    {isRtl ? sec.nameAr : sec.nameEn}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeSection === "relationships" && systemMap?.sections?.relationships && (
+        <Card className="border-pink-500/20">
+          <CardHeader className="p-2 pb-1">
+            <CardTitle className="text-xs flex items-center gap-2">
+              <GitFork className="h-3 w-3 text-pink-400" />
+              {isRtl ? systemMap.sections.relationships.nameAr : systemMap.sections.relationships.nameEn}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-2 pt-0 space-y-2">
+            {/* Nodes */}
+            <div>
+              <span className="text-[9px] text-muted-foreground mb-1 block">{isRtl ? "الكيانات" : "Entities"}</span>
+              <div className="flex flex-wrap gap-1">
+                {systemMap.sections.relationships.nodes?.map((node: any) => (
+                  <Badge 
+                    key={node.id} 
+                    className="text-[8px] h-4"
+                    style={{ backgroundColor: node.color + "30", color: node.color, borderColor: node.color + "50" }}
+                  >
+                    {isRtl ? node.labelAr : node.labelEn}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+            
+            {/* Edges */}
+            <div className="pt-2 border-t border-pink-500/20">
+              <span className="text-[9px] text-muted-foreground mb-1 block">{isRtl ? "الروابط" : "Connections"}</span>
+              <div className="space-y-1">
+                {systemMap.sections.relationships.edges?.map((edge: any, idx: number) => (
+                  <div key={idx} className="flex items-center gap-1.5 p-1 rounded bg-pink-500/5">
+                    <Badge variant="outline" className="text-[7px] h-3">{edge.from}</Badge>
+                    <span className="text-[8px] text-pink-400">{isRtl ? edge.labelAr : edge.labelEn}</span>
+                    <ArrowRightLeft className="h-2 w-2 text-muted-foreground" />
+                    <Badge variant="outline" className="text-[7px] h-3">{edge.to}</Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Nova AI Memory Reference */}
+      <Card className="bg-gradient-to-br from-violet-500/10 via-cyan-500/5 to-transparent border-violet-500/20">
+        <CardContent className="p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Brain className="h-4 w-4 text-violet-400" />
+            <span className="text-xs font-medium">{isRtl ? "ذاكرة نوفا العاملة" : "Nova Working Memory"}</span>
+          </div>
+          <p className="text-[9px] text-muted-foreground">
+            {isRtl 
+              ? "هذه الخريطة تستخدم كمرجع لـ Nova AI عند العمل. يتم تحميلها تلقائياً في سياق المحادثة."
+              : "This map serves as Nova AI's reference while working. It's automatically loaded into conversation context."}
+          </p>
+          <div className="flex items-center gap-2 mt-2">
+            <Badge variant="outline" className="text-[8px] h-4 text-green-400 border-green-500/30">
+              <CheckCircle className="h-2 w-2 mr-0.5" />
+              {isRtl ? "متصل بالذاكرة" : "Memory Connected"}
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
 
 export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps) {
@@ -2069,6 +2482,9 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                       </TabsTrigger>
                       <TabsTrigger value="permissions" className="text-[10px] px-1" data-testid="tab-permissions" aria-label={isRtl ? "الصلاحيات" : "Permissions"}>
                         <ShieldCheck className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="system-map" className="text-[10px] px-1" data-testid="tab-system-map" aria-label={isRtl ? "خريطة النظام" : "System Map"}>
+                        <Map className="h-3 w-3" />
                       </TabsTrigger>
                     </TabsList>
                   </div>
@@ -8400,6 +8816,13 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                           </Card>
                         </>
                       )}
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* System Map Tab - Nova AI Working Memory */}
+                  <TabsContent value="system-map" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      <SystemMapContent isRtl={isRtl} />
                     </ScrollArea>
                   </TabsContent>
                 </Tabs>
