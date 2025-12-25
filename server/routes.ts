@@ -95,6 +95,7 @@ import {
   insertInferaIntelligenceModelSchema,
   insertInferaApiKeySchema,
   contentScans,
+  platforms,
 } from "@shared/schema";
 import Anthropic from "@anthropic-ai/sdk";
 import { sql } from "drizzle-orm";
@@ -1474,6 +1475,31 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting employee:", error);
       res.status(500).json({ error: "فشل في حذف الموظف" });
+    }
+  });
+
+  // ============ Group Platforms Routes - منصات المجموعة ============
+  
+  // Get all platforms for IDE dropdown (INFERA Engine Federation)
+  app.get("/api/platforms", async (req, res) => {
+    try {
+      const allPlatforms = await db.select({
+        id: platforms.id,
+        name: platforms.name,
+        nameAr: platforms.nameAr,
+        slug: platforms.slug,
+        platformType: platforms.platformType,
+        status: platforms.status,
+      }).from(platforms);
+      
+      res.json({ 
+        platforms: allPlatforms,
+        total: allPlatforms.length 
+      });
+    } catch (error) {
+      console.error("Error fetching platforms:", error);
+      // Return empty array if platforms table doesn't exist yet
+      res.json({ platforms: [], total: 0 });
     }
   });
 

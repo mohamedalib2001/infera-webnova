@@ -18,6 +18,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
@@ -191,6 +198,15 @@ interface CodeFile {
   language: string;
 }
 
+interface GroupPlatform {
+  id: string;
+  name: string;
+  nameAr?: string;
+  slug: string;
+  platformType: string;
+  status: string;
+}
+
 interface SovereignCoreIDEProps {
   workspaceId: string;
   isOwner: boolean;
@@ -250,6 +266,48 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
   const [novaTheme, setNovaTheme] = useState<"violet" | "emerald" | "amber" | "rose" | "cyan">("violet");
   const [showConversationHistory, setShowConversationHistory] = useState(false);
   const [showNovaSettings, setShowNovaSettings] = useState(false);
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // GROUP PLATFORMS SELECTION - منصات المجموعة
+  // ═══════════════════════════════════════════════════════════════════════════
+  const [selectedPlatformId, setSelectedPlatformId] = useState<string | null>(null);
+  
+  // Fetch group platforms (INFERA Engine Federation)
+  const { data: groupPlatformsData } = useQuery<{ platforms: GroupPlatform[] }>({
+    queryKey: ["/api/platforms", "group"],
+  });
+  
+  const groupPlatforms = groupPlatformsData?.platforms || [];
+  
+  // Handle platform selection - load platform into IDE
+  const handlePlatformSelect = async (platformId: string) => {
+    // Get platform name before state changes to avoid stale closure
+    const platformName = platformId === "webnova" 
+      ? "WebNova Core" 
+      : groupPlatforms.find(p => p.id === platformId)?.name || platformId;
+    const platformNameAr = platformId === "webnova"
+      ? "WebNova الأساسي"
+      : groupPlatforms.find(p => p.id === platformId)?.nameAr || platformName;
+    
+    if (platformId === "webnova") {
+      setSelectedPlatformId(null);
+      toast({ title: isRtl ? "تم التبديل إلى WebNova الأساسي" : "Switched to WebNova Core" });
+    } else {
+      setSelectedPlatformId(platformId);
+      toast({ 
+        title: isRtl ? `تم تحميل المنصة: ${platformNameAr}` : `Platform loaded: ${platformName}` 
+      });
+    }
+    
+    // Log platform switch for audit with captured platform name
+    setAuditLog(prev => [...prev, {
+      timestamp: new Date(),
+      action: "PLATFORM_SWITCH",
+      phase: currentPhase,
+      actor: "ROOT_OWNER",
+      metadata: { platformId, platformName }
+    }]);
+  };
   
   // ═══════════════════════════════════════════════════════════════════════════
   // SOVEREIGN SESSION AUTHORITY SYSTEM
@@ -1135,6 +1193,56 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
         </div>
         
         <div className="flex items-center gap-2">
+          {/* Group Platforms Dropdown - منصات المجموعة */}
+          <Select 
+            value={selectedPlatformId || "webnova"} 
+            onValueChange={handlePlatformSelect}
+          >
+            <SelectTrigger 
+              className="w-[180px] h-8 text-xs bg-gradient-to-r from-cyan-950/50 to-indigo-950/50 border-cyan-500/30"
+              data-testid="select-platform"
+            >
+              <Network className="w-3.5 h-3.5 mr-2 text-cyan-400" />
+              <SelectValue placeholder={isRtl ? "اختر المنصة" : "Select Platform"} />
+            </SelectTrigger>
+            <SelectContent className="max-h-[300px]">
+              <SelectItem value="webnova" className="text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-violet-500" />
+                  <span className="font-medium">WebNova</span>
+                  <Badge variant="outline" className="text-[9px] h-4 ml-1 border-violet-500/30 text-violet-400">ROOT</Badge>
+                </div>
+              </SelectItem>
+              {groupPlatforms.length > 0 && (
+                <>
+                  <Separator className="my-1" />
+                  <p className="px-2 py-1 text-[10px] text-muted-foreground font-medium">
+                    {isRtl ? "منصات المجموعة" : "Group Platforms"}
+                  </p>
+                </>
+              )}
+              {groupPlatforms.map((platform) => (
+                <SelectItem key={platform.id} value={platform.id} className="text-xs">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${
+                      platform.status === "active" ? "bg-green-500" : 
+                      platform.status === "development" ? "bg-yellow-500" : "bg-gray-500"
+                    }`} />
+                    <span>{isRtl && platform.nameAr ? platform.nameAr : platform.name}</span>
+                    <Badge variant="outline" className="text-[9px] h-4 ml-1">
+                      {platform.platformType}
+                    </Badge>
+                  </div>
+                </SelectItem>
+              ))}
+              {groupPlatforms.length === 0 && (
+                <p className="px-2 py-2 text-[10px] text-muted-foreground text-center">
+                  {isRtl ? "لا توجد منصات مرتبطة" : "No linked platforms"}
+                </p>
+              )}
+            </SelectContent>
+          </Select>
+          <Separator orientation="vertical" className="h-6" />
           <Button 
             size="sm" 
             variant="outline" 
