@@ -6,6 +6,7 @@
 
 import { useState, useMemo } from "react";
 import { useLocation, Link } from "wouter";
+import { useWorkspace } from "@/lib/workspace-context";
 import {
   Sidebar,
   SidebarContent,
@@ -74,17 +75,22 @@ export function SovereignSidebar({
   isDark = false,
 }: SovereignSidebarProps) {
   const [location] = useLocation();
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(["owner", user.planId]));
 
-  const sidebarData = useMemo(() => buildSidebar(user), [user]);
+  const workspaceContext = useWorkspace();
   
-  const activeWorkspace = useMemo(() => {
-    if (activeWorkspaceId) {
-      return sidebarData.availableWorkspaces.find(w => w.id === activeWorkspaceId) || sidebarData.activeWorkspace;
+  const sidebarData = useMemo(() => {
+    if (workspaceContext.sidebarData) {
+      return workspaceContext.sidebarData;
     }
-    return sidebarData.activeWorkspace;
-  }, [activeWorkspaceId, sidebarData]);
+    return buildSidebar(user);
+  }, [user, workspaceContext.sidebarData]);
+  
+  const activeWorkspace = workspaceContext.activeWorkspace || sidebarData.activeWorkspace;
+  
+  const handleWorkspaceSwitch = (workspaceId: string) => {
+    workspaceContext.setActiveWorkspace(workspaceId);
+  };
 
   const roleConfig = ROLES_REGISTRY[user.role] || ROLES_REGISTRY.free;
   const planConfig = PLANS_REGISTRY[user.planId] || PLANS_REGISTRY.free;
@@ -275,7 +281,7 @@ export function SovereignSidebar({
               {sidebarData.availableWorkspaces.map(ws => (
                 <DropdownMenuItem
                   key={ws.id}
-                  onClick={() => setActiveWorkspaceId(ws.id)}
+                  onClick={() => handleWorkspaceSwitch(ws.id)}
                   className={`flex items-center gap-2 ${activeWorkspace.id === ws.id ? "bg-accent" : ""}`}
                   data-testid={`switch-workspace-${ws.id}`}
                 >

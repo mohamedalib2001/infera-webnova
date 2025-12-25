@@ -4,6 +4,7 @@ import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/lib/theme";
+import { WorkspaceProvider } from "@/lib/workspace-context";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LanguageToggle } from "@/components/language-toggle";
 import { LanguageProvider, useLanguage } from "@/hooks/use-language";
@@ -28,6 +29,7 @@ import Analytics from "@/pages/analytics";
 import SEOOptimizer from "@/pages/seo-optimizer";
 import WhiteLabel from "@/pages/white-label";
 import OwnerDashboard from "@/pages/owner-dashboard";
+import OwnerCommand from "@/pages/owner-command";
 import OwnerNotifications from "@/pages/owner-notifications";
 import OwnerInfrastructure from "@/pages/owner-infrastructure";
 import OwnerIntegrations from "@/pages/owner-integrations";
@@ -317,6 +319,7 @@ function AuthenticatedRouter() {
       <Route path="/seo-optimizer" component={SEOOptimizer} />
       <Route path="/white-label" component={WhiteLabel} />
       <Route path="/owner" component={OwnerDashboard} />
+      <Route path="/owner/command" component={OwnerCommand} />
       <Route path="/owner/notifications" component={OwnerNotifications} />
       <Route path="/owner/infrastructure" component={OwnerInfrastructure} />
       <Route path="/owner/integrations" component={OwnerIntegrations} />
@@ -442,7 +445,7 @@ function NotificationBell() {
 
 function AppContent() {
   const { isRtl } = useLanguage();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   
   // Load and apply platform branding dynamically
   usePlatformBranding();
@@ -453,6 +456,7 @@ function AppContent() {
   };
 
   return (
+    <WorkspaceProvider authUser={user} initialRtl={isRtl}>
     <div dir={isRtl ? "rtl" : "ltr"}>
       <SidebarProvider style={style as React.CSSProperties}>
         <div className="flex h-screen w-full">
@@ -520,6 +524,7 @@ function AppContent() {
       {/* Real Performance Tracking - تتبع الأداء الحقيقي */}
       <PerformanceTracker />
     </div>
+    </WorkspaceProvider>
   );
 }
 

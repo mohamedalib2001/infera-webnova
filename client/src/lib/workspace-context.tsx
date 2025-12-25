@@ -3,11 +3,11 @@
  * Provides workspace state management and route protection
  */
 
-import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useMemo, useEffect, type ReactNode } from "react";
 import { useLocation, Redirect } from "wouter";
 import {
   buildSidebar,
-  hasCapability,
+  hasCapability as checkCapabilityUtil,
   WORKSPACES_REGISTRY,
   PLANS_REGISTRY,
   ROLES_REGISTRY,
@@ -36,22 +36,68 @@ interface WorkspaceContextValue {
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
+// ==================== HELPER: Build user context from auth user ====================
+
+export function buildUserContextFromAuth(authUser: any): UserContext {
+  if (!authUser) {
+    return {
+      id: "guest",
+      role: "free",
+      planId: "free",
+      capabilities: [],
+      isOwner: false,
+    };
+  }
+
+  const role = authUser.role || "free";
+  const isOwner = role === "owner";
+  
+  const planId = isOwner ? "sovereign" : 
+    role === "sovereign" ? "sovereign" :
+    role === "enterprise" ? "enterprise" :
+    role === "pro" ? "pro" :
+    role === "basic" ? "basic" : "free";
+  
+  const planConfig = PLANS_REGISTRY[planId];
+  const capabilities = planConfig?.capabilities || [];
+  
+  const userPermissions = (authUser.permissions || []) as CapabilityId[];
+
+  return {
+    id: authUser.id,
+    role,
+    planId,
+    capabilities: [...capabilities, ...userPermissions],
+    isOwner,
+  };
+}
+
 // ==================== PROVIDER ====================
 
 interface WorkspaceProviderProps {
   children: ReactNode;
-  initialUser?: UserContext;
+  authUser?: any;
   initialRtl?: boolean;
 }
 
 export function WorkspaceProvider({ 
   children, 
-  initialUser,
+  authUser,
   initialRtl = false 
 }: WorkspaceProviderProps) {
-  const [user, setUser] = useState<UserContext | null>(initialUser || null);
+  const [user, setUser] = useState<UserContext | null>(() => 
+    authUser ? buildUserContextFromAuth(authUser) : null
+  );
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [isRtl, setIsRtl] = useState(initialRtl);
+
+  useEffect(() => {
+    if (authUser) {
+      setUser(buildUserContextFromAuth(authUser));
+    } else {
+      setUser(null);
+    }
+  }, [authUser]);
 
   const sidebarData = useMemo(() => {
     if (!user) return null;
@@ -72,7 +118,7 @@ export function WorkspaceProvider({
 
   const checkCapability = useCallback((capability: CapabilityId): boolean => {
     if (!user) return false;
-    return hasCapability(user, capability);
+    return checkCapabilityUtil(user, capability);
   }, [user]);
 
   const getRouteCapability = useCallback((route: string): CapabilityId | null => {
