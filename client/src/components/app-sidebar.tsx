@@ -92,8 +92,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { NewPlatformModal, useNewPlatformModal } from "@/components/new-platform-modal";
@@ -281,30 +280,46 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
             </div>
           )}
           
-          <div className="px-2 py-2 border-b" data-testid="audience-tabs-container">
-            <ScrollArea className="w-full">
-              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as AudienceTab)} className="w-full">
-                <TabsList className="inline-flex h-auto p-1 bg-muted/50 gap-1 w-max min-w-full">
-                  {audienceTabs.map((tab) => (
-                    <TabsTrigger
-                      key={tab.id}
-                      value={tab.id}
-                      className="flex items-center gap-1 text-xs px-2 py-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm whitespace-nowrap"
-                      data-testid={`tab-${tab.id}`}
-                    >
-                      <tab.icon className="h-3 w-3" />
+          <div className="px-3 py-2 border-b" data-testid="audience-filter-container">
+            <Select value={activeTab} onValueChange={(v) => setActiveTab(v as AudienceTab)}>
+              <SelectTrigger className="w-full h-9" data-testid="select-audience-filter">
+                <div className="flex items-center gap-2">
+                  {(() => {
+                    const currentTab = audienceTabs.find(t => t.id === activeTab);
+                    if (currentTab) {
+                      const Icon = currentTab.icon;
+                      return (
+                        <>
+                          <Icon className="h-4 w-4" />
+                          <SelectValue placeholder={language === "ar" ? "اختر العرض" : "Select View"} />
+                          {activeTab === "development" && (
+                            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-auto bg-orange-500/20 text-orange-600 dark:text-orange-400">
+                              {developmentPages.length}
+                            </Badge>
+                          )}
+                        </>
+                      );
+                    }
+                    return <SelectValue placeholder={language === "ar" ? "اختر العرض" : "Select View"} />;
+                  })()}
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                {audienceTabs.map((tab) => (
+                  <SelectItem key={tab.id} value={tab.id} data-testid={`option-${tab.id}`}>
+                    <div className="flex items-center gap-2">
+                      <tab.icon className="h-4 w-4" />
                       <span>{tab.label}</span>
                       {tab.id === "development" && (
-                        <Badge variant="secondary" className="text-[9px] px-1 py-0 ml-0.5 bg-orange-500/20 text-orange-600 dark:text-orange-400">
+                        <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-2 bg-orange-500/20 text-orange-600 dark:text-orange-400">
                           {developmentPages.length}
                         </Badge>
                       )}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-              </Tabs>
-              <ScrollBar orientation="horizontal" />
-            </ScrollArea>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {activeTab === "development" && (
