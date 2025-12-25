@@ -1684,6 +1684,188 @@ export function registerNovaPermissionRoutes(app: Express): void {
       });
     }
   });
+
+  // ==================== نماذج الذكاء الاصطناعي ====================
+  // AI Models Management for Nova
+
+  // In-memory AI models state (production should use database)
+  const AI_MODELS = [
+    {
+      id: "claude-sonnet-4",
+      provider: "anthropic",
+      nameEn: "Claude Sonnet 4",
+      nameAr: "كلود سونيت 4",
+      icon: "anthropic",
+      color: "#D4A574",
+      capabilities: ["chat", "code", "vision", "reasoning"],
+      isEnabled: true,
+      isPrimary: true,
+    },
+    {
+      id: "claude-opus-4",
+      provider: "anthropic",
+      nameEn: "Claude Opus 4",
+      nameAr: "كلود أوبوس 4",
+      icon: "anthropic",
+      color: "#D4A574",
+      capabilities: ["chat", "code", "vision", "reasoning", "long-context"],
+      isEnabled: true,
+      isPrimary: false,
+    },
+    {
+      id: "gpt-4o",
+      provider: "openai",
+      nameEn: "GPT-4o",
+      nameAr: "جي بي تي 4o",
+      icon: "openai",
+      color: "#10A37F",
+      capabilities: ["chat", "code", "vision"],
+      isEnabled: false,
+      isPrimary: false,
+    },
+    {
+      id: "gpt-4o-mini",
+      provider: "openai",
+      nameEn: "GPT-4o Mini",
+      nameAr: "جي بي تي 4o ميني",
+      icon: "openai",
+      color: "#10A37F",
+      capabilities: ["chat", "code"],
+      isEnabled: false,
+      isPrimary: false,
+    },
+    {
+      id: "gemini-pro",
+      provider: "google",
+      nameEn: "Gemini Pro",
+      nameAr: "جيميناي برو",
+      icon: "google",
+      color: "#4285F4",
+      capabilities: ["chat", "code", "vision"],
+      isEnabled: false,
+      isPrimary: false,
+    },
+    {
+      id: "nova-core",
+      provider: "infera",
+      nameEn: "Nova Core",
+      nameAr: "نوفا كور",
+      icon: "nova",
+      color: "#8B5CF6",
+      capabilities: ["chat", "code", "sovereign-decisions"],
+      isEnabled: true,
+      isPrimary: false,
+    },
+  ];
+
+  let aiModelsState = [...AI_MODELS];
+
+  // GET /api/nova/models - Get all AI models with status
+  app.get("/api/nova/models", async (req: Request, res: Response) => {
+    try {
+      const enabledCount = aiModelsState.filter(m => m.isEnabled).length;
+      const primaryModel = aiModelsState.find(m => m.isPrimary);
+      
+      res.json({
+        success: true,
+        models: aiModelsState,
+        stats: {
+          total: aiModelsState.length,
+          enabled: enabledCount,
+          disabled: aiModelsState.length - enabledCount,
+        },
+        primaryModel: primaryModel?.id || null,
+        primaryModelName: primaryModel?.nameEn || null,
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // POST /api/nova/models/:modelId/toggle - Toggle model enabled/disabled
+  app.post("/api/nova/models/:modelId/toggle", async (req: Request, res: Response) => {
+    try {
+      const { modelId } = req.params;
+      const modelIndex = aiModelsState.findIndex(m => m.id === modelId);
+      
+      if (modelIndex === -1) {
+        return res.status(404).json({ success: false, error: "Model not found" });
+      }
+
+      // Toggle the enabled state
+      aiModelsState[modelIndex].isEnabled = !aiModelsState[modelIndex].isEnabled;
+      
+      // If disabling the primary model, set another enabled model as primary
+      if (!aiModelsState[modelIndex].isEnabled && aiModelsState[modelIndex].isPrimary) {
+        aiModelsState[modelIndex].isPrimary = false;
+        const firstEnabled = aiModelsState.find(m => m.isEnabled);
+        if (firstEnabled) {
+          firstEnabled.isPrimary = true;
+        }
+      }
+
+      // Log to audit
+      await db.insert(novaPermissionAudit).values({
+        actor: "ROOT_OWNER",
+        action: aiModelsState[modelIndex].isEnabled ? "model_enabled" : "model_disabled",
+        targetType: "ai_model",
+        targetId: modelId,
+        details: { modelName: aiModelsState[modelIndex].nameEn },
+        ipAddress: req.ip || "unknown",
+        userAgent: req.headers["user-agent"] || "unknown",
+      });
+
+      res.json({
+        success: true,
+        model: aiModelsState[modelIndex],
+        message: aiModelsState[modelIndex].isEnabled ? "Model enabled" : "Model disabled",
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // POST /api/nova/models/:modelId/set-primary - Set model as primary
+  app.post("/api/nova/models/:modelId/set-primary", async (req: Request, res: Response) => {
+    try {
+      const { modelId } = req.params;
+      const modelIndex = aiModelsState.findIndex(m => m.id === modelId);
+      
+      if (modelIndex === -1) {
+        return res.status(404).json({ success: false, error: "Model not found" });
+      }
+
+      if (!aiModelsState[modelIndex].isEnabled) {
+        return res.status(400).json({ success: false, error: "Cannot set disabled model as primary" });
+      }
+
+      // Remove primary from all models
+      aiModelsState.forEach(m => m.isPrimary = false);
+      
+      // Set this model as primary
+      aiModelsState[modelIndex].isPrimary = true;
+
+      // Log to audit
+      await db.insert(novaPermissionAudit).values({
+        actor: "ROOT_OWNER",
+        action: "model_set_primary",
+        targetType: "ai_model",
+        targetId: modelId,
+        details: { modelName: aiModelsState[modelIndex].nameEn },
+        ipAddress: req.ip || "unknown",
+        userAgent: req.headers["user-agent"] || "unknown",
+      });
+
+      res.json({
+        success: true,
+        model: aiModelsState[modelIndex],
+        message: `${aiModelsState[modelIndex].nameEn} set as primary model`,
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
   
   console.log("[Nova Permissions] Routes registered at /api/nova/permissions/*");
+  console.log("[Nova AI Models] Routes registered at /api/nova/models/*");
 }

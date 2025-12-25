@@ -735,6 +735,46 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
     },
   });
 
+  // AI Models query and mutations
+  interface AIModel {
+    id: string;
+    provider: string;
+    nameEn: string;
+    nameAr: string;
+    icon: string;
+    color: string;
+    capabilities: string[];
+    isEnabled: boolean;
+    isPrimary: boolean;
+  }
+
+  interface AIModelsResponse {
+    success: boolean;
+    models: AIModel[];
+    stats: { total: number; enabled: number; disabled: number };
+    primaryModel: string | null;
+    primaryModelName: string | null;
+  }
+
+  const { data: aiModelsData, isLoading: loadingAIModels } = useQuery<AIModelsResponse>({
+    queryKey: ["/api/nova/models"],
+  });
+
+  const toggleModelMutation = useMutation({
+    mutationFn: (modelId: string) => apiRequest("POST", `/api/nova/models/${modelId}/toggle`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/nova/models"] });
+    },
+  });
+
+  const setPrimaryModelMutation = useMutation({
+    mutationFn: (modelId: string) => apiRequest("POST", `/api/nova/models/${modelId}/set-primary`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/nova/models"] });
+      toast({ title: isRtl ? "تم تحديد النموذج الأساسي" : "Primary model set" });
+    },
+  });
+
   const { data: conversations, isLoading: loadingConversations } = useQuery<SovereignConversation[]>({
     queryKey: ['/api/sovereign-core/conversations', workspaceId],
     enabled: isOwner,
@@ -8144,6 +8184,115 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                                 <span className="text-[10px] text-green-400 font-medium">{webnovaPermissions?.powerLevel || 0}%</span>
                               </div>
                               <Progress value={webnovaPermissions?.powerLevel || 0} className="h-1.5" />
+                            </CardContent>
+                          </Card>
+
+                          {/* AI Models Control Bar */}
+                          <Card className="mb-2 bg-gradient-to-r from-violet-500/10 via-blue-500/10 to-emerald-500/10 border-violet-500/20">
+                            <CardContent className="p-2">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-1.5">
+                                  <Bot className="h-3.5 w-3.5 text-violet-400" />
+                                  <span className="text-[10px] font-medium">{isRtl ? "نماذج الذكاء الاصطناعي" : "AI Models"}</span>
+                                </div>
+                                <Badge variant="outline" className="text-[9px] h-4 border-violet-500/30 text-violet-400">
+                                  {aiModelsData?.stats?.enabled || 0}/{aiModelsData?.stats?.total || 0} {isRtl ? "مفعّل" : "Active"}
+                                </Badge>
+                              </div>
+                              
+                              {loadingAIModels ? (
+                                <div className="flex items-center justify-center py-2">
+                                  <RefreshCw className="h-3 w-3 animate-spin text-violet-400" />
+                                </div>
+                              ) : (
+                                <div className="flex flex-wrap gap-1.5">
+                                  {aiModelsData?.models?.map((model) => (
+                                    <Tooltip key={model.id}>
+                                      <TooltipTrigger asChild>
+                                        <div
+                                          className={`relative flex items-center gap-1 px-1.5 py-1 rounded-md cursor-pointer transition-all ${
+                                            model.isEnabled 
+                                              ? model.isPrimary 
+                                                ? "bg-violet-500/30 border border-violet-500/50 ring-1 ring-violet-400/50" 
+                                                : "bg-green-500/20 border border-green-500/30"
+                                              : "bg-muted/30 border border-muted opacity-50"
+                                          }`}
+                                          onClick={() => {
+                                            if (model.isEnabled && !model.isPrimary) {
+                                              setPrimaryModelMutation.mutate(model.id);
+                                            }
+                                          }}
+                                          data-testid={`model-${model.id}`}
+                                        >
+                                          {/* Provider Icon */}
+                                          <div 
+                                            className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold"
+                                            style={{ backgroundColor: model.isEnabled ? model.color + "30" : "transparent", color: model.isEnabled ? model.color : "gray" }}
+                                          >
+                                            {model.provider === "anthropic" && "A"}
+                                            {model.provider === "openai" && "O"}
+                                            {model.provider === "google" && "G"}
+                                            {model.provider === "infera" && "N"}
+                                          </div>
+                                          
+                                          <span className="text-[9px] font-medium max-w-[50px] truncate">
+                                            {isRtl ? model.nameAr : model.nameEn}
+                                          </span>
+                                          
+                                          {/* Primary indicator */}
+                                          {model.isPrimary && (
+                                            <Crown className="h-2.5 w-2.5 text-yellow-400" />
+                                          )}
+                                          
+                                          {/* Toggle button */}
+                                          <button
+                                            className={`ml-0.5 p-0.5 rounded-full transition-colors ${
+                                              model.isEnabled ? "hover:bg-red-500/20" : "hover:bg-green-500/20"
+                                            }`}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              toggleModelMutation.mutate(model.id);
+                                            }}
+                                            disabled={toggleModelMutation.isPending}
+                                            data-testid={`toggle-model-${model.id}`}
+                                          >
+                                            {model.isEnabled ? (
+                                              <CheckCircle className="h-2.5 w-2.5 text-green-400" />
+                                            ) : (
+                                              <XCircle className="h-2.5 w-2.5 text-muted-foreground" />
+                                            )}
+                                          </button>
+                                        </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="bottom" className="text-[10px]">
+                                        <div className="space-y-1">
+                                          <p className="font-medium">{isRtl ? model.nameAr : model.nameEn}</p>
+                                          <p className="text-muted-foreground">
+                                            {model.capabilities.join(", ")}
+                                          </p>
+                                          <p className={model.isEnabled ? "text-green-400" : "text-muted-foreground"}>
+                                            {model.isEnabled 
+                                              ? (model.isPrimary ? (isRtl ? "النموذج الأساسي" : "Primary Model") : (isRtl ? "مفعّل - انقر للتعيين كأساسي" : "Enabled - Click to set as primary"))
+                                              : (isRtl ? "غير مفعّل - انقر على ✓ للتفعيل" : "Disabled - Click ✓ to enable")
+                                            }
+                                          </p>
+                                        </div>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  ))}
+                                </div>
+                              )}
+                              
+                              {/* Primary Model Display */}
+                              {aiModelsData?.primaryModelName && (
+                                <div className="mt-2 pt-2 border-t border-violet-500/20">
+                                  <div className="flex items-center gap-1.5 text-[9px]">
+                                    <Sparkles className="h-2.5 w-2.5 text-yellow-400" />
+                                    <span className="text-muted-foreground">{isRtl ? "النموذج الأساسي:" : "Primary:"}</span>
+                                    <span className="text-violet-400 font-medium">{aiModelsData.primaryModelName}</span>
+                                  </div>
+                                </div>
+                              )}
                             </CardContent>
                           </Card>
 
