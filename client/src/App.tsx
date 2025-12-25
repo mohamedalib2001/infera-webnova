@@ -107,6 +107,7 @@ import PermissionControl from "@/pages/permission-control";
 import SovereignCompliance from "@/pages/sovereign-compliance";
 import StaffManagement from "@/pages/staff-management";
 import SovereignPermissions from "@/pages/sovereign-permissions";
+import ContentModeration from "@/pages/content-moderation";
 import OwnerAICapabilityControl from "@/pages/owner/ai-capability-control";
 import AssistantGovernancePage from "@/pages/owner/assistant-governance";
 import DynamicControlPage from "@/pages/owner/dynamic-control";
@@ -414,6 +415,7 @@ function AuthenticatedRouter() {
       <Route path="/sovereign/compliance" component={SovereignCompliance} />
       <Route path="/owner/staff" component={StaffManagement} />
       <Route path="/owner/sovereign-permissions" component={SovereignPermissions} />
+      <Route path="/owner/content-moderation" component={ContentModeration} />
       <Route path="/owner/control-center" component={OwnerControlCenter} />
       <Route path="/preview/:shareCode" component={Preview} />
       <Route component={NotFound} />

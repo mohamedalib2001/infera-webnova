@@ -92,6 +92,7 @@ import {
   inferaModelAuditLog,
   insertInferaIntelligenceModelSchema,
   insertInferaApiKeySchema,
+  contentScans,
 } from "@shared/schema";
 import Anthropic from "@anthropic-ai/sdk";
 import { sql } from "drizzle-orm";
@@ -25665,6 +25666,256 @@ export function registerConversationRoutes(app: Express, requireAuth: any) {
     } catch (error) {
       console.error("Error fetching stats:", error);
       res.status(500).json({ error: "فشل جلب الإحصائيات" });
+    }
+  });
+
+  // ============ Content Moderation API (Owner Only) ============
+  
+  // Helper to check if user is owner
+  const isOwnerUser = async (userId: string): Promise<boolean> => {
+    const user = await storage.getUser(userId);
+    return user?.role === "owner" || user?.role === "sovereign" || user?.username === "mohamedalib2001";
+  };
+
+  // Get all projects for content moderation
+  app.get("/api/content-moderation/projects", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      if (!(await isOwnerUser(userId))) {
+        return res.status(403).json({ error: "Owner access required" });
+      }
+      
+      const projects = await storage.getProjects();
+      res.json(projects);
+    } catch (error) {
+      console.error("Error fetching projects for moderation:", error);
+      res.status(500).json({ error: "Failed to fetch projects" });
+    }
+  });
+
+  // Scan project content using AI
+  app.post("/api/content-moderation/scan/:projectId", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      if (!(await isOwnerUser(userId))) {
+        return res.status(403).json({ error: "Owner access required" });
+      }
+      
+      const { projectId } = req.params;
+      const project = await storage.getProject(projectId);
+      if (!project) return res.status(404).json({ error: "Project not found" });
+      
+      const startTime = Date.now();
+      
+      // Use Claude AI to analyze content
+      const Anthropic = (await import("@anthropic-ai/sdk")).default;
+      const anthropic = new Anthropic();
+      
+      const contentToAnalyze = `
+Project Name: ${project.name}
+Description: ${project.description || "N/A"}
+Industry: ${project.industry || "N/A"}
+
+HTML Content:
+${project.htmlCode?.slice(0, 5000) || "Empty"}
+
+CSS Content:
+${project.cssCode?.slice(0, 2000) || "Empty"}
+
+JavaScript Content:
+${project.jsCode?.slice(0, 5000) || "Empty"}
+      `.trim();
+      
+      const response = await anthropic.messages.create({
+        model: "claude-3-5-sonnet-20241022",
+        max_tokens: 1024,
+        messages: [{
+          role: "user",
+          content: `You are a content moderation AI. Analyze the following web project content for policy violations.
+
+Check for:
+1. Illegal content (drugs, weapons, illegal services)
+2. Harmful content (self-harm, dangerous activities)
+3. Spam or scam content
+4. Malware or malicious scripts
+5. Copyright violations
+6. Fraud or deceptive content
+7. Adult/explicit content
+8. Violence or gore
+9. Hate speech or discrimination
+10. Other policy violations
+
+Return a JSON response with this exact structure:
+{
+  "score": <number 0-100, 100 being perfectly clean>,
+  "violations": [
+    {
+      "type": "<illegal|harmful|spam|malware|copyright|fraud|adult|violence|hate_speech|other>",
+      "severity": "<low|medium|high|critical>",
+      "description": "<brief description>",
+      "evidence": "<specific content that triggered this>"
+    }
+  ],
+  "summary": "<brief overall assessment>",
+  "recommendations": ["<recommendation 1>", "<recommendation 2>"]
+}
+
+Content to analyze:
+${contentToAnalyze}`
+        }]
+      });
+      
+      const scanDuration = Date.now() - startTime;
+      
+      // Parse AI response
+      let scanResult: any = { score: 100, violations: [], summary: "Clean", recommendations: [] };
+      try {
+        const textContent = response.content[0];
+        if (textContent.type === 'text') {
+          const jsonMatch = textContent.text.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            scanResult = JSON.parse(jsonMatch[0]);
+          }
+        }
+      } catch (parseError) {
+        console.error("Error parsing AI response:", parseError);
+      }
+      
+      // Add IDs and timestamps to violations
+      const violations = (scanResult.violations || []).map((v: any, i: number) => ({
+        id: `vio_${Date.now()}_${i}`,
+        ...v,
+        detectedAt: new Date().toISOString(),
+        detectedBy: 'ai',
+        resolved: false
+      }));
+      
+      // Update project with scan results
+      await storage.updateProject(projectId, {
+        contentScore: scanResult.score,
+        contentViolations: violations,
+        lastContentScan: new Date(),
+      });
+      
+      // Create scan record
+      await db.insert(contentScans).values({
+        projectId,
+        scanType: 'full',
+        status: 'completed',
+        violations,
+        contentScore: scanResult.score,
+        scanDuration,
+        aiModel: 'claude-3-5-sonnet',
+        scannedContent: { html: true, css: true, js: true, metadata: true },
+        summary: scanResult.summary,
+        recommendations: scanResult.recommendations,
+        triggeredBy: 'manual',
+        triggeredByUserId: userId
+      });
+      
+      res.json({
+        success: true,
+        score: scanResult.score,
+        violations,
+        summary: scanResult.summary,
+        recommendations: scanResult.recommendations,
+        scanDuration
+      });
+    } catch (error) {
+      console.error("Error scanning project:", error);
+      res.status(500).json({ error: "Failed to scan project" });
+    }
+  });
+
+  // Quarantine a project
+  app.post("/api/content-moderation/quarantine/:projectId", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      if (!(await isOwnerUser(userId))) {
+        return res.status(403).json({ error: "Owner access required" });
+      }
+      
+      const { projectId } = req.params;
+      const { reason } = req.body;
+      
+      if (!reason) return res.status(400).json({ error: "Reason required" });
+      
+      const project = await storage.getProject(projectId);
+      if (!project) return res.status(404).json({ error: "Project not found" });
+      
+      await storage.updateProject(projectId, {
+        isQuarantined: true,
+        quarantineReason: reason,
+        quarantinedAt: new Date(),
+        quarantinedBy: userId,
+        isPublished: false // Also unpublish
+      });
+      
+      res.json({ success: true, message: "Project quarantined" });
+    } catch (error) {
+      console.error("Error quarantining project:", error);
+      res.status(500).json({ error: "Failed to quarantine project" });
+    }
+  });
+
+  // Release a project from quarantine
+  app.post("/api/content-moderation/release/:projectId", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      if (!(await isOwnerUser(userId))) {
+        return res.status(403).json({ error: "Owner access required" });
+      }
+      
+      const { projectId } = req.params;
+      
+      const project = await storage.getProject(projectId);
+      if (!project) return res.status(404).json({ error: "Project not found" });
+      
+      await storage.updateProject(projectId, {
+        isQuarantined: false,
+        quarantineReason: null,
+        quarantinedAt: null,
+        quarantinedBy: null
+      });
+      
+      res.json({ success: true, message: "Project released from quarantine" });
+    } catch (error) {
+      console.error("Error releasing project:", error);
+      res.status(500).json({ error: "Failed to release project" });
+    }
+  });
+
+  // Get content scan history for a project
+  app.get("/api/content-moderation/scans/:projectId", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      if (!(await isOwnerUser(userId))) {
+        return res.status(403).json({ error: "Owner access required" });
+      }
+      
+      const { projectId } = req.params;
+      
+      const scans = await db
+        .select()
+        .from(contentScans)
+        .where(eq(contentScans.projectId, projectId))
+        .orderBy(desc(contentScans.createdAt))
+        .limit(10);
+      
+      res.json(scans);
+    } catch (error) {
+      console.error("Error fetching scan history:", error);
+      res.status(500).json({ error: "Failed to fetch scan history" });
     }
   });
 }

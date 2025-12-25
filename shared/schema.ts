@@ -381,7 +381,7 @@ export type Payment = typeof payments.$inferSelect;
 
 // ==================== PROJECTS ====================
 
-// Projects table - Extended with user ownership
+// Projects table - Extended with user ownership and content moderation
 export const projects = pgTable("projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id"), // Owner of the project
@@ -401,9 +401,31 @@ export const projects = pgTable("projects", {
   seoKeywords: text("seo_keywords"),
   status: text("status").default("draft"), // draft, published, archived
   deletedAt: timestamp("deleted_at"), // For soft delete (recycle bin)
+  // Content Moderation Fields - حقول مراقبة المحتوى
+  isQuarantined: boolean("is_quarantined").notNull().default(false), // Platform is quarantined
+  quarantineReason: text("quarantine_reason"), // Why it was quarantined
+  quarantinedAt: timestamp("quarantined_at"), // When it was quarantined
+  quarantinedBy: varchar("quarantined_by"), // User ID who quarantined (owner/system)
+  contentViolations: jsonb("content_violations").$type<ContentViolation[]>().default([]), // List of violations
+  lastContentScan: timestamp("last_content_scan"), // Last AI content scan
+  contentScore: integer("content_score").default(100), // Content health score (0-100)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+// Content violation type for tracking policy breaches
+export interface ContentViolation {
+  id: string;
+  type: 'illegal' | 'harmful' | 'spam' | 'malware' | 'copyright' | 'fraud' | 'adult' | 'violence' | 'hate_speech' | 'other';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  description: string;
+  detectedAt: string;
+  detectedBy: 'ai' | 'manual' | 'report';
+  evidence?: string;
+  resolved: boolean;
+  resolvedAt?: string;
+  resolvedBy?: string;
+}
 
 export const insertProjectSchema = createInsertSchema(projects).omit({
   id: true,
@@ -413,6 +435,39 @@ export const insertProjectSchema = createInsertSchema(projects).omit({
 
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 export type Project = typeof projects.$inferSelect;
+
+// ==================== CONTENT MODERATION SCANS ====================
+
+// Content scan history - tracks AI content analysis results
+export const contentScans = pgTable("content_scans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  scanType: text("scan_type").notNull().default("full"), // full, quick, targeted
+  status: text("status").notNull().default("pending"), // pending, scanning, completed, failed
+  violations: jsonb("violations").$type<ContentViolation[]>().default([]),
+  contentScore: integer("content_score").default(100), // 0-100 score
+  scanDuration: integer("scan_duration"), // milliseconds
+  aiModel: text("ai_model").default("claude-3-5-sonnet"), // AI model used
+  scannedContent: jsonb("scanned_content").$type<{
+    html: boolean;
+    css: boolean;
+    js: boolean;
+    metadata: boolean;
+  }>(),
+  summary: text("summary"), // AI-generated summary
+  recommendations: jsonb("recommendations").$type<string[]>(),
+  triggeredBy: text("triggered_by").notNull().default("system"), // system, manual, schedule
+  triggeredByUserId: varchar("triggered_by_user_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertContentScanSchema = createInsertSchema(contentScans).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertContentScan = z.infer<typeof insertContentScanSchema>;
+export type ContentScan = typeof contentScans.$inferSelect;
 
 // ==================== PROJECT INFRASTRUCTURE (Auto-Provisioning) ====================
 

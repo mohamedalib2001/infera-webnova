@@ -128,7 +128,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     "/owner/infrastructure", "/owner/policies", "/owner/integrations", "/owner/notifications",
     "/owner/ai-sovereignty", "/owner/ai-capability-control", "/owner/assistant-governance",
     "/owner/ai-settings", "/owner/ai-model-registry", "/owner/infera-intelligence",
-    "/owner/staff", "/owner/sovereign-permissions", "/owner/control-center", "/owner/platform-maps",
+    "/owner/staff", "/owner/sovereign-permissions", "/owner/content-moderation", "/owner/control-center", "/owner/platform-maps",
     "/api-keys", "/ssh-vault", "/github", "/sovereign-plans"
   ];
 
@@ -989,6 +989,14 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                       <Link href="/owner/sovereign-permissions" data-testid="nav-sovereign-permissions">
                         <Key className="h-4 w-4 text-purple-500" />
                         <span>{language === "ar" ? "صلاحيات السياديين" : "Sovereign Permissions"}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location === "/owner/content-moderation"}>
+                      <Link href="/owner/content-moderation" data-testid="nav-content-moderation">
+                        <ShieldCheck className="h-4 w-4 text-red-500" />
+                        <span>{language === "ar" ? "مراقبة المحتوى" : "Content Moderation"}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
