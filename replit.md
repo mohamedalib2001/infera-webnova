@@ -141,3 +141,41 @@ Features include an AI Chat Interface, live preview with responsive controls, da
 *   **Media**: Cloudinary
 *   **Maps**: Google Maps
 *   **Development Tools**: Replit, GitHub Copilot
+
+## Nova Sovereign Decision Engine (New - December 2025)
+
+### Overview
+Nova AI operates as **"Sovereign Decision Governor - Not Just an Assistant"**. The system enforces strict separation between Analysis, Decision, and Execution phases with full decision traceability.
+
+### Core Components
+*   **Decision Policy Engine**: Manages sovereign decisions with risk assessment and phase tracking
+*   **Decision Traceability**: Full trace of WHY, HOW, WHO, WHEN for every decision
+*   **Approval Chains**: Multi-level approval workflows with configurable thresholds
+*   **Kill Switch**: Emergency halt capability for any AI operation (owner only)
+*   **Human-in-the-Loop**: Matrix for when human intervention is required
+*   **Model Lifecycle**: Train → Validate → Approve → Deploy → Pause → Retire
+*   **Bias/Drift/Risk Monitoring**: Continuous assessment scores per model
+*   **Knowledge Graph**: Semantic relationships between decisions, policies, and outcomes
+*   **Policy Memory**: Long-term memory for governance decisions (not chat memory)
+*   **Compliance Engine**: ISO 27001, NIST CSF, GDPR, SOC2, Regional Laws support
+
+### API Endpoints
+Base path: `/api/nova-sovereign/`
+*   **Decisions**: `GET /decisions`, `POST /decisions`, `GET /decisions/:id/trace`
+*   **Approvals**: `POST /decisions/:id/approve`, `POST /decisions/:id/reject`
+*   **Kill Switch**: `POST /kill-switch/trigger`, `POST /kill-switch/release`
+*   **Model Lifecycle**: `GET /model-lifecycle`, `POST /model-lifecycle/:id/transition`
+*   **Compliance**: `GET /compliance/frameworks`, `POST /compliance/assessments`
+*   **Dashboard**: `GET /dashboard/summary`, `GET /compliance/dashboard`
+
+### Security Model
+*   Role hierarchy: ROOT_OWNER > owner > sovereign > admin > user
+*   All authority validated against database (no client-supplied IDs trusted)
+*   Session-derived identity for all mutation endpoints
+*   Database-backed role verification prevents privilege escalation
+
+### Dashboard Route
+`/owner/nova-sovereign` - Sovereign dashboard with real-time data
+
+### SECURITY NOTE (Production)
+All mutation endpoints require authenticated sessions. In development, endpoints validate user existence in database. For production deployment, ensure session middleware is properly configured with Replit Auth or custom authentication.

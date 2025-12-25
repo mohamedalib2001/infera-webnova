@@ -32,6 +32,7 @@ import SEOOptimizer from "@/pages/seo-optimizer";
 import WhiteLabel from "@/pages/white-label";
 import OwnerDashboard from "@/pages/owner-dashboard";
 import OwnerCommand from "@/pages/owner-command";
+import NovaSovereignDashboard from "@/pages/nova-sovereign-dashboard";
 import OwnerNotifications from "@/pages/owner-notifications";
 import OwnerInfrastructure from "@/pages/owner-infrastructure";
 import OwnerIntegrations from "@/pages/owner-integrations";
@@ -335,6 +336,7 @@ function AuthenticatedRouter() {
       <Route path="/white-label" component={WhiteLabel} />
       <Route path="/owner" component={OwnerDashboard} />
       <Route path="/owner/command" component={OwnerCommand} />
+      <Route path="/owner/nova-sovereign" component={NovaSovereignDashboard} />
       <Route path="/owner/notifications" component={OwnerNotifications} />
       <Route path="/owner/infrastructure" component={OwnerInfrastructure} />
       <Route path="/owner/integrations" component={OwnerIntegrations} />

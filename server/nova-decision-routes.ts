@@ -6,7 +6,7 @@
  * "حاكم القرارات السيادي - ليس مجرد مساعد"
  */
 
-import express, { Request, Response, Router } from 'express';
+import express, { Request, Response, Router, NextFunction } from 'express';
 import { z } from 'zod';
 import { novaDecisionEngine, DecisionRequest, DecisionPhase, RiskLevel, ApprovalLevel } from './nova-decision-engine';
 import { db } from './db';
@@ -18,6 +18,47 @@ import { users, isRootOwner } from '@shared/schema';
 
 const OWNER_ID = 'ROOT_OWNER';
 const SOVEREIGN_ROLES = ['owner', 'sovereign'];
+
+/**
+ * SECURITY: Extract authenticated user from session ONLY
+ * NEVER trust client-supplied user IDs or headers (spoofable)
+ * 
+ * This function extracts identity from:
+ * 1. Passport session (Replit Auth) - verified by OIDC
+ * 2. Custom session - server-side storage only
+ * 
+ * For development/testing, if no session is available, operations
+ * requiring authentication will return 401.
+ */
+function getAuthenticatedUserId(req: Request): string | null {
+  // Check passport session (Replit Auth) - verified by OIDC provider
+  if (req.user && (req.user as any).claims?.sub) {
+    return (req.user as any).claims.sub;
+  }
+  // Check custom session (server-side, not spoofable)
+  if (req.session && (req.session as any).userId) {
+    return (req.session as any).userId;
+  }
+  // NO header fallback - headers can be spoofed by clients
+  return null;
+}
+
+/**
+ * SECURITY MIDDLEWARE: Require authenticated user for protected routes
+ * Call this at the start of any mutation endpoint
+ */
+function requireAuth(req: Request, res: Response): string | null {
+  const userId = getAuthenticatedUserId(req);
+  if (!userId) {
+    res.status(401).json({
+      success: false,
+      error: 'Authentication required - please login',
+      errorAr: 'المصادقة مطلوبة - يرجى تسجيل الدخول'
+    });
+    return null;
+  }
+  return userId;
+}
 
 interface AuthenticatedRequest extends Request {
   user?: { id: string; role: string };
@@ -1432,9 +1473,17 @@ router.get('/compliance/frameworks', async (req: Request, res: Response) => {
 // Create compliance framework (Owner/Sovereign only)
 router.post('/compliance/frameworks', async (req: Request, res: Response) => {
   try {
-    const { managedBy, ...frameworkData } = req.body;
+    // SECURITY: Derive user from authenticated session, ignore client-supplied managedBy
+    const authenticatedUserId = getAuthenticatedUserId(req);
+    if (!authenticatedUserId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required - please login',
+        errorAr: 'المصادقة مطلوبة - يرجى تسجيل الدخول'
+      });
+    }
 
-    const authCheck = await validateSovereignAuthority(managedBy, 'sovereign');
+    const authCheck = await validateSovereignAuthority(authenticatedUserId, 'sovereign');
     if (!authCheck.valid) {
       return res.status(403).json({
         success: false,
@@ -1443,9 +1492,11 @@ router.post('/compliance/frameworks', async (req: Request, res: Response) => {
       });
     }
 
+    // Strip client-supplied managedBy, use authenticated user
+    const { managedBy: _ignored, ...frameworkData } = req.body;
     const [framework] = await db.insert(novaComplianceFrameworks).values({
       ...frameworkData,
-      managedBy
+      managedBy: authenticatedUserId // Use session-derived ID
     }).returning();
 
     res.status(201).json({
