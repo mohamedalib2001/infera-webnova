@@ -209,7 +209,7 @@ function Sidebar({
     <div
       className={cn(
         "group peer text-sidebar-foreground hidden md:block",
-        side === "right" && "ml-auto"
+        side === "right" && "order-last"
       )}
       data-state={state}
       data-collapsible={state === "collapsed" ? collapsible : ""}
