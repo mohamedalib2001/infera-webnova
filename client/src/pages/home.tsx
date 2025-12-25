@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useSyncedLogo } from "@/hooks/use-synced-logo";
 import { GradientBackground } from "@/components/gradient-background";
 import { ChatInput } from "@/components/chat-input";
 import { ProjectCard } from "@/components/project-card";
@@ -102,6 +103,9 @@ export default function Home() {
   const { t, isRtl, language } = useLanguage();
   const { user } = useAuth();
   const { toast } = useToast();
+  
+  // Get synced logo for INFERA WebNova
+  const { logoSVG: syncedLogo, isLoaded: logoLoaded } = useSyncedLogo('infera-webnova');
   
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -203,9 +207,17 @@ export default function Home() {
     <GradientBackground className="flex flex-col min-h-screen">
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-16">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg">
-            <Cpu className="h-8 w-8 text-white" />
-          </div>
+          {syncedLogo && logoLoaded ? (
+            <div 
+              className="w-14 h-14 rounded-xl overflow-hidden shadow-lg"
+              dangerouslySetInnerHTML={{ __html: syncedLogo }}
+              data-testid="synced-platform-logo"
+            />
+          ) : (
+            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg">
+              <Cpu className="h-8 w-8 text-white" />
+            </div>
+          )}
           <div>
             <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
               INFERA WebNova
