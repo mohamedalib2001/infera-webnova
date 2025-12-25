@@ -124,6 +124,8 @@ import {
   Timer,
   Link,
   ArrowRightLeft,
+  Sun,
+  Moon,
 } from "lucide-react";
 
 interface SovereignConversation {
@@ -189,7 +191,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
   
   const [activeTab, setActiveTab] = useState<"chat" | "code" | "preview" | "terminal">("chat");
   const [bottomTab, setBottomTab] = useState<"terminal" | "problems" | "output">("terminal");
-  const [rightTab, setRightTab] = useState<"tools" | "files" | "database" | "backend" | "packages" | "testing" | "git" | "deploy" | "debugger" | "copilot" | "compliance" | "tenants" | "rules" | "observability" | "marketplace" | "billing" | "ai-arch" | "export">("tools");
+  const [rightTab, setRightTab] = useState<"tools" | "files" | "database" | "backend" | "packages" | "testing" | "git" | "deploy" | "debugger" | "copilot" | "compliance" | "tenants" | "rules" | "observability" | "marketplace" | "billing" | "ai-arch" | "export" | "env" | "team" | "api-test" | "cron" | "webhooks" | "profiler" | "notifications" | "settings">("tools");
   
   const [showSidebar, setShowSidebar] = useState(true);
   const [showRightPanel, setShowRightPanel] = useState(true);
@@ -1131,6 +1133,30 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                       </TabsTrigger>
                       <TabsTrigger value="export" className="text-[10px] px-1" data-testid="tab-export" aria-label={isRtl ? "التصدير" : "Export"}>
                         <FileOutput className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="env" className="text-[10px] px-1" data-testid="tab-env" aria-label={isRtl ? "البيئة" : "Env"}>
+                        <Key className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="team" className="text-[10px] px-1" data-testid="tab-team" aria-label={isRtl ? "الفريق" : "Team"}>
+                        <Users className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="api-test" className="text-[10px] px-1" data-testid="tab-api-test" aria-label={isRtl ? "API" : "API"}>
+                        <Globe className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="cron" className="text-[10px] px-1" data-testid="tab-cron" aria-label={isRtl ? "الجدولة" : "Cron"}>
+                        <Timer className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="webhooks" className="text-[10px] px-1" data-testid="tab-webhooks" aria-label={isRtl ? "Webhooks" : "Webhooks"}>
+                        <Link className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="profiler" className="text-[10px] px-1" data-testid="tab-profiler" aria-label={isRtl ? "الأداء" : "Profiler"}>
+                        <Gauge className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="notifications" className="text-[10px] px-1" data-testid="tab-notifications" aria-label={isRtl ? "الإشعارات" : "Alerts"}>
+                        <Bell className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="settings" className="text-[10px] px-1" data-testid="tab-settings" aria-label={isRtl ? "الإعدادات" : "Settings"}>
+                        <Settings className="h-3 w-3" />
                       </TabsTrigger>
                     </TabsList>
                   </div>
@@ -3556,6 +3582,786 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                             <span className="text-muted-foreground">{isRtl ? "حجم البيانات" : "Data Size"}</span>
                             <span className="text-cyan-400 font-medium">2.4 GB</span>
                           </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Environment Manager Tab */}
+                  <TabsContent value="env" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      {/* Environment Header */}
+                      <Card className="mb-2 bg-gradient-to-br from-green-500/20 via-emerald-500/10 to-transparent border-green-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-green-500/20">
+                              <Key className="h-4 w-4 text-green-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "إدارة البيئة" : "Environment Manager"}</p>
+                              <p className="text-[10px] text-muted-foreground">{isRtl ? "المتغيرات والأسرار" : "Variables & Secrets"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Environment Variables */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Variable className="h-3.5 w-3.5 text-blue-400" />
+                            {isRtl ? "متغيرات البيئة" : "Environment Variables"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { key: "NODE_ENV", value: "production", env: "prod" },
+                            { key: "API_URL", value: "https://api.infera.io", env: "all" },
+                            { key: "PORT", value: "5000", env: "dev" },
+                          ].map((v, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`env-var-${i}`}>
+                              <span className="font-mono text-blue-400">{v.key}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground truncate max-w-[80px]">{v.value}</span>
+                                <Badge variant="outline" className="text-[9px] h-4">{v.env}</Badge>
+                              </div>
+                            </div>
+                          ))}
+                          <Button size="sm" variant="outline" className="w-full h-7 text-[10px]" data-testid="button-add-env-var">
+                            <Plus className="h-3 w-3 mr-1" />
+                            {isRtl ? "إضافة متغير" : "Add Variable"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      {/* Secrets */}
+                      <Card className="mb-2 border-amber-500/20">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <KeyRound className="h-3.5 w-3.5 text-amber-400" />
+                            {isRtl ? "الأسرار" : "Secrets"}
+                            <Badge variant="outline" className="text-[9px] h-4 ml-auto text-amber-400">{isRtl ? "مشفرة" : "Encrypted"}</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { key: "DATABASE_URL", lastUsed: "2m", rotated: "30d" },
+                            { key: "ANTHROPIC_API_KEY", lastUsed: "1h", rotated: "7d" },
+                            { key: "STRIPE_SECRET_KEY", lastUsed: "5m", rotated: "14d" },
+                            { key: "SESSION_SECRET", lastUsed: "now", rotated: "60d" },
+                          ].map((s, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`secret-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <Shield className="h-3 w-3 text-amber-400" />
+                                <span className="font-mono">{s.key}</span>
+                              </span>
+                              <Badge variant="outline" className="text-[9px] h-4 text-green-400">{isRtl ? "آمن" : "Secure"}</Badge>
+                            </div>
+                          ))}
+                          <Button size="sm" variant="outline" className="w-full h-7 text-[10px]" data-testid="button-add-secret">
+                            <Plus className="h-3 w-3 mr-1" />
+                            {isRtl ? "إضافة سر" : "Add Secret"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      {/* Environment Stats */}
+                      <Card className="bg-gradient-to-br from-green-500/10 to-transparent border-green-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "المتغيرات" : "Variables"}</span>
+                            <span className="text-blue-400 font-medium">12</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "الأسرار" : "Secrets"}</span>
+                            <span className="text-amber-400 font-medium">8</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "آخر تدوير" : "Last Rotation"}</span>
+                            <span className="text-green-400 font-medium">{isRtl ? "منذ 7 أيام" : "7 days ago"}</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Team Collaboration Tab */}
+                  <TabsContent value="team" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      {/* Team Header */}
+                      <Card className="mb-2 bg-gradient-to-br from-blue-500/20 via-indigo-500/10 to-transparent border-blue-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-blue-500/20">
+                              <Users className="h-4 w-4 text-blue-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "تعاون الفريق" : "Team Collaboration"}</p>
+                              <p className="text-[10px] text-muted-foreground">{isRtl ? "الأعضاء والصلاحيات" : "Members & Permissions"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Team Members */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Users className="h-3.5 w-3.5 text-violet-400" />
+                            {isRtl ? "أعضاء الفريق" : "Team Members"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { name: "Mohamed Ali", role: "Owner", status: "online", avatar: "MA" },
+                            { name: "Ahmed Hassan", role: "Admin", status: "online", avatar: "AH" },
+                            { name: "Sara Mohamed", role: "Developer", status: "away", avatar: "SM" },
+                            { name: "Khalid Omar", role: "Viewer", status: "offline", avatar: "KO" },
+                          ].map((m, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`team-member-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <div className="relative">
+                                  <div className="h-6 w-6 rounded-full bg-violet-500/30 flex items-center justify-center text-[8px] font-medium">{m.avatar}</div>
+                                  <span className={`absolute bottom-0 right-0 h-2 w-2 rounded-full border border-background ${m.status === 'online' ? 'bg-green-400' : m.status === 'away' ? 'bg-amber-400' : 'bg-muted-foreground'}`} />
+                                </div>
+                                <span>{m.name}</span>
+                              </span>
+                              <Badge variant="outline" className={`text-[9px] h-4 ${m.role === 'Owner' ? 'text-amber-400 border-amber-500/30' : m.role === 'Admin' ? 'text-violet-400' : 'text-muted-foreground'}`}>{m.role}</Badge>
+                            </div>
+                          ))}
+                          <Button size="sm" variant="outline" className="w-full h-7 text-[10px]" data-testid="button-invite-member">
+                            <Plus className="h-3 w-3 mr-1" />
+                            {isRtl ? "دعوة عضو" : "Invite Member"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      {/* Roles & Permissions */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Shield className="h-3.5 w-3.5 text-green-400" />
+                            {isRtl ? "الأدوار والصلاحيات" : "Roles & Permissions"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { role: "Owner", permissions: isRtl ? "كامل" : "Full Access", count: 1 },
+                            { role: "Admin", permissions: isRtl ? "إدارة" : "Manage", count: 2 },
+                            { role: "Developer", permissions: isRtl ? "تطوير" : "Code & Deploy", count: 5 },
+                            { role: "Viewer", permissions: isRtl ? "قراءة" : "Read Only", count: 3 },
+                          ].map((r, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`role-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <Crown className={`h-3 w-3 ${r.role === 'Owner' ? 'text-amber-400' : 'text-muted-foreground'}`} />
+                                <span>{r.role}</span>
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">{r.permissions}</span>
+                                <Badge variant="outline" className="text-[9px] h-4">{r.count}</Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Team Stats */}
+                      <Card className="bg-gradient-to-br from-blue-500/10 to-transparent border-blue-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "إجمالي الأعضاء" : "Total Members"}</span>
+                            <span className="text-blue-400 font-medium">11</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "متصل الآن" : "Online Now"}</span>
+                            <span className="text-green-400 font-medium">4</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "دعوات معلقة" : "Pending Invites"}</span>
+                            <span className="text-amber-400 font-medium">2</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* API Tester Tab */}
+                  <TabsContent value="api-test" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      {/* API Tester Header */}
+                      <Card className="mb-2 bg-gradient-to-br from-orange-500/20 via-red-500/10 to-transparent border-orange-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-orange-500/20">
+                              <Globe className="h-4 w-4 text-orange-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "اختبار API" : "API Tester"}</p>
+                              <p className="text-[10px] text-muted-foreground">{isRtl ? "مثل Postman" : "Postman-like"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Request Builder */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <ArrowRightLeft className="h-3.5 w-3.5 text-blue-400" />
+                            {isRtl ? "طلب جديد" : "New Request"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-2">
+                          <div className="flex gap-1">
+                            <select className="h-7 px-2 text-[10px] rounded bg-muted border-0 text-green-400 font-medium" data-testid="select-method">
+                              <option value="GET">GET</option>
+                              <option value="POST">POST</option>
+                              <option value="PUT">PUT</option>
+                              <option value="DELETE">DELETE</option>
+                              <option value="PATCH">PATCH</option>
+                            </select>
+                            <Input placeholder="/api/endpoint" className="h-7 text-[10px] flex-1 font-mono" data-testid="input-api-url" />
+                          </div>
+                          <div className="flex gap-1">
+                            <Button size="sm" className="flex-1 h-7 text-[10px] bg-orange-600 hover:bg-orange-700" data-testid="button-send-request">
+                              <Play className="h-3 w-3 mr-1" />
+                              {isRtl ? "إرسال" : "Send"}
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-7 text-[10px]" data-testid="button-save-request">
+                              <Bookmark className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Saved Requests */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Bookmark className="h-3.5 w-3.5 text-amber-400" />
+                            {isRtl ? "الطلبات المحفوظة" : "Saved Requests"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { method: "GET", path: "/api/users", status: 200 },
+                            { method: "POST", path: "/api/auth/login", status: 201 },
+                            { method: "PUT", path: "/api/settings", status: 200 },
+                            { method: "DELETE", path: "/api/cache", status: 204 },
+                          ].map((r, i) => (
+                            <button key={i} className="w-full flex items-center justify-between p-1.5 rounded bg-muted/30 hover:bg-muted text-[10px] transition-colors" data-testid={`saved-request-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <Badge className={`text-[8px] h-4 w-12 justify-center ${r.method === 'GET' ? 'bg-green-500/20 text-green-400' : r.method === 'POST' ? 'bg-blue-500/20 text-blue-400' : r.method === 'PUT' ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400'}`}>{r.method}</Badge>
+                                <span className="font-mono truncate">{r.path}</span>
+                              </span>
+                              <Badge variant="outline" className="text-[9px] h-4 text-green-400">{r.status}</Badge>
+                            </button>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Response Preview */}
+                      <Card className="bg-gradient-to-br from-orange-500/10 to-transparent border-orange-500/20">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <FileJson className="h-3.5 w-3.5 text-cyan-400" />
+                            {isRtl ? "آخر استجابة" : "Last Response"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0">
+                          <pre className="text-[9px] font-mono p-2 rounded bg-muted/50 overflow-auto max-h-20">
+{`{
+  "status": "success",
+  "data": { "id": 1, "name": "Test" }
+}`}
+                          </pre>
+                          <div className="flex items-center justify-between mt-2 text-[9px] text-muted-foreground">
+                            <span>200 OK</span>
+                            <span>45ms</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Cron Jobs Tab */}
+                  <TabsContent value="cron" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      {/* Cron Header */}
+                      <Card className="mb-2 bg-gradient-to-br from-purple-500/20 via-violet-500/10 to-transparent border-purple-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-purple-500/20">
+                              <Timer className="h-4 w-4 text-purple-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "المهام المجدولة" : "Cron Jobs"}</p>
+                              <p className="text-[10px] text-muted-foreground">{isRtl ? "الأتمتة والجدولة" : "Automation & Scheduling"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Active Jobs */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Play className="h-3.5 w-3.5 text-green-400" />
+                            {isRtl ? "المهام النشطة" : "Active Jobs"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { name: isRtl ? "نسخ احتياطي" : "Database Backup", schedule: "0 2 * * *", next: "2:00 AM", status: "active" },
+                            { name: isRtl ? "تنظيف الكاش" : "Cache Cleanup", schedule: "0 */6 * * *", next: "6:00 PM", status: "active" },
+                            { name: isRtl ? "إرسال التقارير" : "Send Reports", schedule: "0 9 * * 1", next: "Mon 9:00", status: "active" },
+                            { name: isRtl ? "مزامنة البيانات" : "Data Sync", schedule: "*/15 * * * *", next: "15m", status: "paused" },
+                          ].map((job, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`cron-job-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <span className={`h-1.5 w-1.5 rounded-full ${job.status === 'active' ? 'bg-green-400' : 'bg-amber-400'}`} />
+                                <span>{job.name}</span>
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-muted-foreground text-[9px]">{job.schedule}</span>
+                                <Badge variant="outline" className="text-[9px] h-4">{job.next}</Badge>
+                              </div>
+                            </div>
+                          ))}
+                          <Button size="sm" variant="outline" className="w-full h-7 text-[10px]" data-testid="button-new-cron">
+                            <Plus className="h-3 w-3 mr-1" />
+                            {isRtl ? "مهمة جديدة" : "New Job"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      {/* Execution History */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <History className="h-3.5 w-3.5 text-cyan-400" />
+                            {isRtl ? "سجل التنفيذ" : "Execution History"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { job: "Database Backup", time: "2:00 AM", duration: "45s", status: "success" },
+                            { job: "Cache Cleanup", time: "12:00 PM", duration: "12s", status: "success" },
+                            { job: "Send Reports", time: "9:00 AM", duration: "2m", status: "failed" },
+                          ].map((h, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`cron-history-${i}`}>
+                              <span className="truncate flex-1">{h.job}</span>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="text-muted-foreground">{h.time}</span>
+                                <Badge variant="outline" className={`text-[9px] h-4 ${h.status === 'success' ? 'text-green-400' : 'text-red-400'}`}>{h.duration}</Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Cron Stats */}
+                      <Card className="bg-gradient-to-br from-purple-500/10 to-transparent border-purple-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "المهام النشطة" : "Active Jobs"}</span>
+                            <span className="text-purple-400 font-medium">8</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "نجاح اليوم" : "Today's Success"}</span>
+                            <span className="text-green-400 font-medium">24/25</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "التنفيذ التالي" : "Next Execution"}</span>
+                            <span className="text-cyan-400 font-medium">{isRtl ? "خلال 15 دقيقة" : "in 15 min"}</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Webhooks Tab */}
+                  <TabsContent value="webhooks" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      {/* Webhooks Header */}
+                      <Card className="mb-2 bg-gradient-to-br from-pink-500/20 via-rose-500/10 to-transparent border-pink-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-pink-500/20">
+                              <Link className="h-4 w-4 text-pink-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "إدارة Webhooks" : "Webhooks Manager"}</p>
+                              <p className="text-[10px] text-muted-foreground">{isRtl ? "الإشعارات الفورية" : "Real-time Notifications"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Configured Webhooks */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Link className="h-3.5 w-3.5 text-violet-400" />
+                            {isRtl ? "Webhooks المُعدة" : "Configured Webhooks"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { name: "Slack Notifications", url: "slack.com/...", events: 5, status: "active" },
+                            { name: "GitHub Actions", url: "github.com/...", events: 3, status: "active" },
+                            { name: "Discord Bot", url: "discord.com/...", events: 8, status: "paused" },
+                          ].map((wh, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`webhook-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <span className={`h-1.5 w-1.5 rounded-full ${wh.status === 'active' ? 'bg-green-400' : 'bg-amber-400'}`} />
+                                <span>{wh.name}</span>
+                              </span>
+                              <Badge variant="outline" className="text-[9px] h-4">{wh.events} events</Badge>
+                            </div>
+                          ))}
+                          <Button size="sm" variant="outline" className="w-full h-7 text-[10px]" data-testid="button-add-webhook">
+                            <Plus className="h-3 w-3 mr-1" />
+                            {isRtl ? "إضافة Webhook" : "Add Webhook"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      {/* Event Types */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Zap className="h-3.5 w-3.5 text-amber-400" />
+                            {isRtl ? "أنواع الأحداث" : "Event Types"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { event: "user.created", count: 156 },
+                            { event: "deployment.success", count: 45 },
+                            { event: "error.critical", count: 3 },
+                            { event: "payment.received", count: 89 },
+                          ].map((e, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`webhook-event-${i}`}>
+                              <span className="font-mono text-pink-400">{e.event}</span>
+                              <Badge variant="outline" className="text-[9px] h-4">{e.count}</Badge>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Delivery Logs */}
+                      <Card className="bg-gradient-to-br from-pink-500/10 to-transparent border-pink-500/20">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <FileOutput className="h-3.5 w-3.5 text-cyan-400" />
+                            {isRtl ? "سجل التسليم" : "Delivery Logs"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { event: "user.created", status: 200, time: "2m" },
+                            { event: "deployment.success", status: 200, time: "15m" },
+                            { event: "error.critical", status: 500, time: "1h" },
+                          ].map((l, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]">
+                              <span className="font-mono truncate flex-1">{l.event}</span>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <Badge variant="outline" className={`text-[9px] h-4 ${l.status === 200 ? 'text-green-400' : 'text-red-400'}`}>{l.status}</Badge>
+                                <span className="text-muted-foreground">{l.time}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Performance Profiler Tab */}
+                  <TabsContent value="profiler" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      {/* Profiler Header */}
+                      <Card className="mb-2 bg-gradient-to-br from-red-500/20 via-orange-500/10 to-transparent border-red-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-red-500/20">
+                              <Gauge className="h-4 w-4 text-red-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "محلل الأداء" : "Performance Profiler"}</p>
+                              <p className="text-[10px] text-green-400">{isRtl ? "أداء ممتاز" : "Excellent Performance"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Core Metrics */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <BarChart3 className="h-3.5 w-3.5 text-blue-400" />
+                            {isRtl ? "المقاييس الأساسية" : "Core Metrics"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="p-2 rounded bg-muted/30 text-center">
+                              <p className="text-lg font-bold text-green-400">98</p>
+                              <p className="text-[9px] text-muted-foreground">{isRtl ? "نقاط الأداء" : "Perf Score"}</p>
+                            </div>
+                            <div className="p-2 rounded bg-muted/30 text-center">
+                              <p className="text-lg font-bold text-cyan-400">1.2s</p>
+                              <p className="text-[9px] text-muted-foreground">LCP</p>
+                            </div>
+                            <div className="p-2 rounded bg-muted/30 text-center">
+                              <p className="text-lg font-bold text-violet-400">45ms</p>
+                              <p className="text-[9px] text-muted-foreground">FID</p>
+                            </div>
+                            <div className="p-2 rounded bg-muted/30 text-center">
+                              <p className="text-lg font-bold text-amber-400">0.05</p>
+                              <p className="text-[9px] text-muted-foreground">CLS</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Bottlenecks */}
+                      <Card className="mb-2 border-amber-500/20">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
+                            {isRtl ? "نقاط الاختناق" : "Bottlenecks"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { issue: isRtl ? "صور كبيرة الحجم" : "Large images", impact: "High", fix: "Optimize" },
+                            { issue: isRtl ? "JS غير مستخدم" : "Unused JavaScript", impact: "Medium", fix: "Tree-shake" },
+                            { issue: isRtl ? "استعلامات N+1" : "N+1 queries", impact: "Low", fix: "Batch" },
+                          ].map((b, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`bottleneck-${i}`}>
+                              <span className="truncate flex-1">{b.issue}</span>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <Badge variant="outline" className={`text-[9px] h-4 ${b.impact === 'High' ? 'text-red-400' : b.impact === 'Medium' ? 'text-amber-400' : 'text-green-400'}`}>{b.impact}</Badge>
+                                <Button size="sm" variant="ghost" className="h-5 px-2 text-[9px]">{b.fix}</Button>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Resource Usage */}
+                      <Card className="bg-gradient-to-br from-red-500/10 to-transparent border-red-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          {[
+                            { resource: "Bundle Size", value: "245 KB", status: "good" },
+                            { resource: "Memory", value: "128 MB", status: "good" },
+                            { resource: "Cache Hit", value: "94%", status: "good" },
+                            { resource: "DB Queries", value: "12/page", status: "warn" },
+                          ].map((r) => (
+                            <div key={r.resource} className="flex items-center justify-between text-[10px]">
+                              <span className="text-muted-foreground">{r.resource}</span>
+                              <span className={`font-medium ${r.status === 'good' ? 'text-green-400' : 'text-amber-400'}`}>{r.value}</span>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Notifications Tab */}
+                  <TabsContent value="notifications" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      {/* Notifications Header */}
+                      <Card className="mb-2 bg-gradient-to-br from-cyan-500/20 via-teal-500/10 to-transparent border-cyan-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-cyan-500/20">
+                              <Bell className="h-4 w-4 text-cyan-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "مركز الإشعارات" : "Notification Center"}</p>
+                              <p className="text-[10px] text-muted-foreground">{isRtl ? "3 إشعارات جديدة" : "3 new notifications"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Recent Notifications */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Bell className="h-3.5 w-3.5 text-blue-400" />
+                            {isRtl ? "الإشعارات الأخيرة" : "Recent Notifications"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { title: isRtl ? "نشر ناجح" : "Deployment Success", desc: isRtl ? "تم نشر الإصدار v2.4.1" : "Version v2.4.1 deployed", time: "2m", type: "success", unread: true },
+                            { title: isRtl ? "عضو جديد" : "New Team Member", desc: isRtl ? "انضم أحمد للفريق" : "Ahmed joined the team", time: "1h", type: "info", unread: true },
+                            { title: isRtl ? "تنبيه أداء" : "Performance Alert", desc: isRtl ? "زيادة في زمن الاستجابة" : "Response time increased", time: "3h", type: "warning", unread: true },
+                            { title: isRtl ? "نسخ احتياطي" : "Backup Complete", desc: isRtl ? "تم إنشاء نسخة احتياطية" : "Database backup created", time: "6h", type: "info", unread: false },
+                          ].map((n, i) => (
+                            <div key={i} className={`flex items-start gap-2 p-2 rounded text-[10px] ${n.unread ? 'bg-cyan-500/10 border border-cyan-500/20' : 'bg-muted/30'}`} data-testid={`notification-${i}`}>
+                              <div className={`p-1 rounded-full ${n.type === 'success' ? 'bg-green-500/20' : n.type === 'warning' ? 'bg-amber-500/20' : 'bg-blue-500/20'}`}>
+                                {n.type === 'success' ? <Verified className="h-3 w-3 text-green-400" /> : n.type === 'warning' ? <AlertTriangle className="h-3 w-3 text-amber-400" /> : <Bell className="h-3 w-3 text-blue-400" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium">{n.title}</p>
+                                <p className="text-muted-foreground truncate">{n.desc}</p>
+                              </div>
+                              <span className="text-muted-foreground shrink-0">{n.time}</span>
+                            </div>
+                          ))}
+                          <Button size="sm" variant="ghost" className="w-full h-6 text-[10px]" data-testid="button-mark-all-read">
+                            {isRtl ? "تعليم الكل كمقروء" : "Mark All as Read"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      {/* Notification Settings */}
+                      <Card className="bg-gradient-to-br from-cyan-500/10 to-transparent border-cyan-500/20">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Settings className="h-3.5 w-3.5 text-muted-foreground" />
+                            {isRtl ? "إعدادات الإشعارات" : "Notification Settings"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1.5">
+                          {[
+                            { label: isRtl ? "البريد الإلكتروني" : "Email", enabled: true },
+                            { label: isRtl ? "إشعارات المتصفح" : "Browser Push", enabled: true },
+                            { label: isRtl ? "Slack" : "Slack", enabled: false },
+                            { label: isRtl ? "SMS" : "SMS", enabled: false },
+                          ].map((s, i) => (
+                            <div key={i} className="flex items-center justify-between text-[10px]">
+                              <span className="text-muted-foreground">{s.label}</span>
+                              <Badge variant="outline" className={`text-[9px] h-4 ${s.enabled ? 'text-green-400' : 'text-muted-foreground'}`}>{s.enabled ? (isRtl ? "مفعل" : "On") : (isRtl ? "معطل" : "Off")}</Badge>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Settings Tab */}
+                  <TabsContent value="settings" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      {/* Settings Header */}
+                      <Card className="mb-2 bg-gradient-to-br from-slate-500/20 via-gray-500/10 to-transparent border-slate-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-slate-500/20">
+                              <Settings className="h-4 w-4 text-slate-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "الإعدادات" : "Settings"}</p>
+                              <p className="text-[10px] text-muted-foreground">{isRtl ? "تخصيص المشروع" : "Project Customization"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Theme Settings */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Palette className="h-3.5 w-3.5 text-pink-400" />
+                            {isRtl ? "المظهر" : "Appearance"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-2">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span>{isRtl ? "الوضع" : "Theme"}</span>
+                            <div className="flex gap-1">
+                              <Button size="sm" variant="outline" className="h-6 px-2 text-[9px]" data-testid="button-theme-light">
+                                <Sun className="h-3 w-3 mr-1" />
+                                {isRtl ? "فاتح" : "Light"}
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-6 px-2 text-[9px]" data-testid="button-theme-dark">
+                                <Moon className="h-3 w-3 mr-1" />
+                                {isRtl ? "داكن" : "Dark"}
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span>{isRtl ? "اللون الرئيسي" : "Accent Color"}</span>
+                            <div className="flex gap-1">
+                              {['#7c3aed', '#3b82f6', '#10b981', '#f59e0b', '#ef4444'].map((color, i) => (
+                                <button key={i} className="h-5 w-5 rounded-full border-2 border-transparent hover:border-white/30 transition-colors" style={{ backgroundColor: color }} data-testid={`accent-color-${i}`} />
+                              ))}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Editor Settings */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Code className="h-3.5 w-3.5 text-blue-400" />
+                            {isRtl ? "المحرر" : "Editor"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1.5">
+                          {[
+                            { label: isRtl ? "حجم الخط" : "Font Size", value: "14px" },
+                            { label: isRtl ? "نوع الخط" : "Font Family", value: "Fira Code" },
+                            { label: isRtl ? "عرض Tab" : "Tab Size", value: "2 spaces" },
+                            { label: isRtl ? "الإكمال التلقائي" : "Autocomplete", value: isRtl ? "مفعل" : "Enabled" },
+                          ].map((s, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]">
+                              <span className="text-muted-foreground">{s.label}</span>
+                              <span>{s.value}</span>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Language Settings */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Globe className="h-3.5 w-3.5 text-green-400" />
+                            {isRtl ? "اللغة والمنطقة" : "Language & Region"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1.5">
+                          <div className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "اللغة" : "Language"}</span>
+                            <Badge variant="outline" className="text-[9px] h-4">{isRtl ? "العربية" : "English"}</Badge>
+                          </div>
+                          <div className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "المنطقة الزمنية" : "Timezone"}</span>
+                            <Badge variant="outline" className="text-[9px] h-4">UTC+3</Badge>
+                          </div>
+                          <div className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "تنسيق التاريخ" : "Date Format"}</span>
+                            <Badge variant="outline" className="text-[9px] h-4">DD/MM/YYYY</Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Keyboard Shortcuts */}
+                      <Card className="bg-gradient-to-br from-slate-500/10 to-transparent border-slate-500/20">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Command className="h-3.5 w-3.5 text-muted-foreground" />
+                            {isRtl ? "اختصارات لوحة المفاتيح" : "Keyboard Shortcuts"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { action: isRtl ? "حفظ" : "Save", keys: "Ctrl+S" },
+                            { action: isRtl ? "بحث" : "Search", keys: "Ctrl+K" },
+                            { action: isRtl ? "تشغيل" : "Run", keys: "F5" },
+                            { action: isRtl ? "نشر" : "Deploy", keys: "Ctrl+Shift+D" },
+                          ].map((s, i) => (
+                            <div key={i} className="flex items-center justify-between text-[10px]">
+                              <span className="text-muted-foreground">{s.action}</span>
+                              <kbd className="px-1.5 py-0.5 rounded bg-muted font-mono text-[9px]">{s.keys}</kbd>
+                            </div>
+                          ))}
                         </CardContent>
                       </Card>
                     </ScrollArea>
