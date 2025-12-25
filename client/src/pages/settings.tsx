@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
   Settings, 
   Globe, 
@@ -32,7 +33,11 @@ import {
   Loader2,
   Save,
   Pencil,
+  Camera,
+  Crown,
+  Upload,
 } from "lucide-react";
+import ownerDefaultAvatar from "@assets/unnamed_1766659248817.jpg";
 
 const translations = {
   ar: {
@@ -59,6 +64,16 @@ const translations = {
       manageDomains: "إدارة النطاقات",
       changePassword: "تغيير كلمة المرور",
       editProfile: "تعديل الملف الشخصي",
+      uploadPhoto: "تحميل صورة",
+      removePhoto: "إزالة الصورة",
+      photoUpdated: "تم تحديث الصورة بنجاح",
+      photoRemoved: "تم إزالة الصورة",
+      photoError: "فشل في تحديث الصورة",
+    },
+    profilePhoto: {
+      title: "صورة الملف الشخصي",
+      description: "صورتك الشخصية التي تظهر في المنصة",
+      ownerBadge: "المالك السيادي",
     },
     editProfileDialog: {
       title: "تعديل الملف الشخصي",
@@ -109,6 +124,16 @@ const translations = {
       manageDomains: "Manage Domains",
       changePassword: "Change Password",
       editProfile: "Edit Profile",
+      uploadPhoto: "Upload Photo",
+      removePhoto: "Remove Photo",
+      photoUpdated: "Photo updated successfully",
+      photoRemoved: "Photo removed",
+      photoError: "Failed to update photo",
+    },
+    profilePhoto: {
+      title: "Profile Photo",
+      description: "Your profile picture displayed on the platform",
+      ownerBadge: "Sovereign Owner",
     },
     editProfileDialog: {
       title: "Edit Profile",
@@ -384,6 +409,80 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid gap-6">
+        {/* Profile Photo Section - Only visible to owner */}
+        {user?.role === "owner" && (
+          <Card data-testid="card-profile-photo" className="border-amber-500/30 bg-gradient-to-br from-background via-background to-amber-500/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Camera className="w-5 h-5 text-amber-500" />
+                {t.profilePhoto.title}
+                <Crown className="w-4 h-4 text-amber-500" />
+              </CardTitle>
+              <CardDescription>{t.profilePhoto.description}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-6">
+                <div className="relative">
+                  <Avatar className="h-24 w-24 ring-2 ring-amber-500 ring-offset-2 ring-offset-background">
+                    <AvatarImage 
+                      src={user?.profileImageUrl || ownerDefaultAvatar} 
+                      alt={user?.fullName || "Owner"} 
+                    />
+                    <AvatarFallback className="bg-gradient-to-br from-amber-500 to-purple-600 text-white font-bold text-2xl">
+                      {user?.fullName?.split(" ").map(n => n[0]).join("").substring(0, 2) || "MA"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="absolute -bottom-1 -right-1 bg-amber-500 rounded-full p-1">
+                    <Crown className="h-4 w-4 text-white" />
+                  </div>
+                </div>
+                <div className="flex-1 space-y-3">
+                  <div>
+                    <p className="font-bold text-lg">{user?.fullName}</p>
+                    <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">
+                      {t.profilePhoto.ownerBadge}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      data-testid="button-upload-photo"
+                      onClick={() => document.getElementById("photo-upload")?.click()}
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      {t.options.uploadPhoto}
+                    </Button>
+                    <input 
+                      id="photo-upload" 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const formData = new FormData();
+                          formData.append("photo", file);
+                          try {
+                            await fetch("/api/user/profile-photo", {
+                              method: "POST",
+                              body: formData,
+                            });
+                            queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+                            toast({ title: t.options.photoUpdated });
+                          } catch {
+                            toast({ title: t.options.photoError, variant: "destructive" });
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card data-testid="card-account">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -394,9 +493,17 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">{user?.fullName || user?.username}</p>
-                <p className="text-sm text-muted-foreground">{user?.email}</p>
+              <div className="flex items-center gap-3">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={user?.profileImageUrl || (user?.role === "owner" ? ownerDefaultAvatar : undefined)} alt={user?.fullName || ""} />
+                  <AvatarFallback>
+                    {user?.fullName?.split(" ").map(n => n[0]).join("").substring(0, 2) || user?.username?.substring(0, 2)?.toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="font-medium">{user?.fullName || user?.username}</p>
+                  <p className="text-sm text-muted-foreground">{user?.email}</p>
+                </div>
               </div>
               <Button 
                 variant="outline" 

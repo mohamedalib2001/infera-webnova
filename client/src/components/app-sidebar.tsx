@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
+import ownerDefaultAvatar from "@assets/unnamed_1766659248817.jpg";
 import { 
   Home, 
   FolderOpen, 
@@ -314,7 +315,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                 <div className="relative">
                   <Avatar className="h-12 w-12 ring-2 ring-amber-500 ring-offset-2 ring-offset-background">
                     <AvatarImage 
-                      src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user?.fullName || user?.username || "Owner")}&backgroundColor=f59e0b,a855f7`} 
+                      src={user?.profileImageUrl || ownerDefaultAvatar} 
                       alt={user?.fullName || "Owner"} 
                     />
                     <AvatarFallback className="bg-gradient-to-br from-amber-500 to-purple-600 text-white font-bold text-lg">
