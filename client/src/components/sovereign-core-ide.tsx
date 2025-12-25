@@ -634,8 +634,9 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
   const { isRtl } = useLanguage();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  // WebSocket AI connection for fast streaming responses (always auto-connect)
-  const aiWs = useAIWebSocket(true);
+  // WebSocket AI connection - defer until chat tab is active for faster initial load
+  const [wsEnabled, setWsEnabled] = useState(false);
+  const aiWs = useAIWebSocket(wsEnabled);
   
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState("");
@@ -661,13 +662,20 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
   const [showNewConversationDialog, setShowNewConversationDialog] = useState(false);
   const [newConversationTitle, setNewConversationTitle] = useState("");
   
-  const [activeTab, setActiveTab] = useState<"chat" | "code" | "preview" | "terminal">("chat");
+  const [activeTab, setActiveTab] = useState<"chat" | "code" | "preview" | "terminal">("code");
   const [bottomTab, setBottomTab] = useState<"terminal" | "problems" | "output">("terminal");
+  
+  // Enable WebSocket when user switches to chat tab
+  useEffect(() => {
+    if (activeTab === "chat" && !wsEnabled) {
+      setWsEnabled(true);
+    }
+  }, [activeTab, wsEnabled]);
   const [rightTab, setRightTab] = useState<"tools" | "files" | "database" | "backend" | "packages" | "testing" | "git" | "deploy" | "debugger" | "copilot" | "compliance" | "tenants" | "rules" | "observability" | "marketplace" | "billing" | "ai-arch" | "export" | "env" | "team" | "api-test" | "cron" | "webhooks" | "profiler" | "notifications" | "settings" | "templates" | "docs" | "deps" | "formatter" | "migrations" | "logs" | "analytics" | "vault" | "schema" | "routes" | "commands" | "governor" | "collab" | "api-docs" | "code-review" | "plugins" | "mobile" | "security" | "benchmarks" | "template-gen" | "erd" | "ai-review" | "kubernetes" | "docker" | "microservices" | "distributed-db" | "ai-ml" | "blockchain" | "event-driven" | "api-gateway" | "cloud-infra" | "permissions">("tools");
   
-  const [showSidebar, setShowSidebar] = useState(true);
-  const [showRightPanel, setShowRightPanel] = useState(true);
-  const [showBottomPanel, setShowBottomPanel] = useState(true);
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [showRightPanel, setShowRightPanel] = useState(false);
+  const [showBottomPanel, setShowBottomPanel] = useState(false);
   
   const [viewport, setViewport] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [copied, setCopied] = useState(false);
@@ -1138,6 +1146,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
 
   const { data: webnovaPermissions, isLoading: loadingPermissions } = useQuery<WebNovaPermissionsResponse>({
     queryKey: ["/api/nova/permissions/webnova-full"],
+    enabled: rightTab === "permissions",
   });
 
   const grantFullPermissionsMutation = useMutation({
@@ -1174,6 +1183,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
 
   const { data: aiModelsData, isLoading: loadingAIModels } = useQuery<AIModelsResponse>({
     queryKey: ["/api/nova/models"],
+    enabled: rightTab === "ai-arch",
   });
 
   const toggleModelMutation = useMutation({
@@ -1193,7 +1203,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
 
   const { data: conversations, isLoading: loadingConversations } = useQuery<SovereignConversation[]>({
     queryKey: ['/api/sovereign-core/conversations', workspaceId],
-    enabled: isOwner,
+    enabled: isOwner && activeTab === "chat",
   });
 
   const { data: messages, isLoading: loadingMessages } = useQuery<ConversationMessage[]>({
