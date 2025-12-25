@@ -6,11 +6,86 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { 
   Eye, EyeOff, Crown, Shield, User, Users, Zap, Lock, Unlock,
-  ChevronRight, X, Layers, Route, Settings, Code
+  ChevronRight, X, Layers, Route, Settings, Code, Power
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
+
+// Page visibility toggle storage - حفظ حالة تفعيل الصفحات
+const PAGE_VISIBILITY_KEY = "infera_page_visibility";
+const PAGE_ALLOWED_USERS_KEY = "infera_page_allowed_users";
+
+interface PageAccessConfig {
+  enabled: boolean;
+  allowedUsers: string[]; // usernames allowed access
+  allowedRoles: string[]; // additional roles beyond default
+}
+
+function getPageAccessConfig(): Record<string, PageAccessConfig> {
+  try {
+    const stored = localStorage.getItem(PAGE_VISIBILITY_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+}
+
+function setPageAccessConfig(route: string, config: Partial<PageAccessConfig>): void {
+  const current = getPageAccessConfig();
+  current[route] = {
+    enabled: config.enabled ?? current[route]?.enabled ?? true,
+    allowedUsers: config.allowedUsers ?? current[route]?.allowedUsers ?? [],
+    allowedRoles: config.allowedRoles ?? current[route]?.allowedRoles ?? []
+  };
+  localStorage.setItem(PAGE_VISIBILITY_KEY, JSON.stringify(current));
+}
+
+export function isPageEnabled(route: string): boolean {
+  const config = getPageAccessConfig()[route];
+  return config?.enabled !== false;
+}
+
+export function isUserAllowedAccess(route: string, username: string): boolean {
+  const config = getPageAccessConfig()[route];
+  if (!config) return true; // No config = default access
+  if (config.enabled === false) return false; // Page disabled
+  if (config.allowedUsers?.length > 0) {
+    return config.allowedUsers.includes(username);
+  }
+  return true; // No specific users = allow based on roles
+}
+
+export function getPageAllowedUsers(route: string): string[] {
+  const config = getPageAccessConfig()[route];
+  return config?.allowedUsers || [];
+}
+
+export function addAllowedUser(route: string, username: string): void {
+  const config = getPageAccessConfig()[route] || { enabled: true, allowedUsers: [], allowedRoles: [] };
+  if (!config.allowedUsers.includes(username)) {
+    config.allowedUsers.push(username);
+    setPageAccessConfig(route, config);
+  }
+}
+
+export function removeAllowedUser(route: string, username: string): void {
+  const config = getPageAccessConfig()[route];
+  if (config?.allowedUsers) {
+    config.allowedUsers = config.allowedUsers.filter(u => u !== username);
+    setPageAccessConfig(route, config);
+  }
+}
+
+export function togglePageEnabled(route: string): boolean {
+  const config = getPageAccessConfig()[route] || { enabled: true, allowedUsers: [], allowedRoles: [] };
+  config.enabled = !config.enabled;
+  setPageAccessConfig(route, config);
+  return config.enabled;
+}
 
 type RoleType = "owner" | "sovereign" | "manager" | "employee" | "subscriber" | "free" | "pro" | "enterprise" | "public";
 type CapabilityType = string;
@@ -777,8 +852,20 @@ export function SovereignAccessSummary({ currentRoute }: SovereignAccessSummaryP
   const { user } = useAuth();
   const { isEnabled } = useSovereignView();
   const { language } = useLanguage();
+  const { toast } = useToast();
+  
+  const [pageEnabled, setPageEnabled] = useState(() => isPageEnabled(currentRoute));
+  const [allowedUsers, setAllowedUsers] = useState<string[]>(() => getPageAllowedUsers(currentRoute));
+  const [newUsername, setNewUsername] = useState("");
+  const [showUserPanel, setShowUserPanel] = useState(false);
   
   const isOwner = user?.role === "owner" || user?.role === "sovereign" || user?.username === "mohamedalib2001";
+  
+  // Refresh state when route changes
+  useEffect(() => {
+    setPageEnabled(isPageEnabled(currentRoute));
+    setAllowedUsers(getPageAllowedUsers(currentRoute));
+  }, [currentRoute]);
   
   if (!isOwner || !isEnabled) return null;
   
@@ -786,15 +873,61 @@ export function SovereignAccessSummary({ currentRoute }: SovereignAccessSummaryP
   const pagePerms = pagePermissionsRegistry[currentRoute] || pagePermissionsRegistry["/"];
   const allowedRoles = pagePerms?.allowedRoles || [];
   
+  // Check if this is a sovereign-only page (can be controlled)
+  const isSovereignPage = allowedRoles.length <= 2 && 
+    allowedRoles.every(r => r === "owner" || r === "sovereign");
+  
   const t = {
     title: language === "ar" ? "صلاحيات الوصول للصفحة الحالية" : "Current Page Access Permissions",
     allowed: language === "ar" ? "مسموح" : "Allowed",
     blocked: language === "ar" ? "ممنوع" : "Blocked",
     description: language === "ar" ? pagePerms?.descriptionAr : pagePerms?.description,
+    pageControl: language === "ar" ? "تحكم الصفحة" : "Page Control",
+    enablePage: language === "ar" ? "تفعيل الصفحة" : "Enable Page",
+    disablePage: language === "ar" ? "إلغاء تفعيل الصفحة" : "Disable Page",
+    pageActive: language === "ar" ? "الصفحة مفعلة" : "Page Active",
+    pageDisabled: language === "ar" ? "الصفحة معطلة" : "Page Disabled",
+    allowedUsers: language === "ar" ? "مستخدمين مسموح لهم" : "Allowed Users",
+    addUser: language === "ar" ? "إضافة مستخدم" : "Add User",
+    noUsers: language === "ar" ? "لم يتم إضافة مستخدمين" : "No users added",
+    userAdded: language === "ar" ? "تم إضافة المستخدم" : "User added",
+    userRemoved: language === "ar" ? "تم إزالة المستخدم" : "User removed",
+    enterUsername: language === "ar" ? "أدخل اسم المستخدم..." : "Enter username...",
+    manageUsers: language === "ar" ? "إدارة المستخدمين" : "Manage Users",
+  };
+  
+  const handleTogglePage = () => {
+    const newState = togglePageEnabled(currentRoute);
+    setPageEnabled(newState);
+    toast({
+      title: newState ? t.pageActive : t.pageDisabled,
+      description: currentRoute,
+    });
+  };
+  
+  const handleAddUser = () => {
+    if (newUsername.trim()) {
+      addAllowedUser(currentRoute, newUsername.trim());
+      setAllowedUsers(getPageAllowedUsers(currentRoute));
+      setNewUsername("");
+      toast({
+        title: t.userAdded,
+        description: newUsername.trim(),
+      });
+    }
+  };
+  
+  const handleRemoveUser = (username: string) => {
+    removeAllowedUser(currentRoute, username);
+    setAllowedUsers(getPageAllowedUsers(currentRoute));
+    toast({
+      title: t.userRemoved,
+      description: username,
+    });
   };
   
   return (
-    <Card className="fixed bottom-20 left-4 z-[9997] w-72 shadow-xl border-violet-500/30 bg-background/95 backdrop-blur-sm">
+    <Card className="fixed bottom-20 left-4 z-[9997] w-80 shadow-xl border-violet-500/30 bg-background/95 backdrop-blur-sm">
       <CardHeader className="py-2 px-3 border-b border-violet-500/20">
         <CardTitle className="text-xs font-medium flex items-center gap-2 text-violet-500">
           <Eye className="h-3 w-3" />
@@ -802,10 +935,32 @@ export function SovereignAccessSummary({ currentRoute }: SovereignAccessSummaryP
         </CardTitle>
         <p className="text-[10px] text-muted-foreground mt-1">{t.description}</p>
       </CardHeader>
-      <CardContent className="p-3 space-y-2">
+      <CardContent className="p-3 space-y-3">
+        {/* Page Enable/Disable Control - Only for sovereign pages */}
+        {isSovereignPage && (
+          <div className="p-2 rounded-lg border border-amber-500/30 bg-amber-500/5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Power className={cn("h-4 w-4", pageEnabled ? "text-green-500" : "text-red-500")} />
+                <div>
+                  <p className="text-xs font-medium">{t.pageControl}</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {pageEnabled ? t.pageActive : t.pageDisabled}
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={pageEnabled}
+                onCheckedChange={handleTogglePage}
+                data-testid="switch-page-enabled"
+              />
+            </div>
+          </div>
+        )}
+        
+        {/* Role-based access list */}
         <div className="grid gap-1.5">
           {displayRoles.map(({ role, labelEn, labelAr }) => {
-            // Map display roles to actual allowed roles
             const isAllowed = (() => {
               if (role === "owner") return allowedRoles.includes("owner") || allowedRoles.includes("sovereign");
               if (role === "manager") return allowedRoles.includes("manager");
@@ -854,6 +1009,83 @@ export function SovereignAccessSummary({ currentRoute }: SovereignAccessSummaryP
           })}
         </div>
         
+        {/* Specific Users Access Control - Only for sovereign pages */}
+        {isSovereignPage && (
+          <div className="pt-2 border-t border-border/50">
+            <button
+              onClick={() => setShowUserPanel(!showUserPanel)}
+              className="flex items-center justify-between w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
+              data-testid="button-toggle-user-panel"
+            >
+              <span className="flex items-center gap-1">
+                <Users className="h-3 w-3" />
+                {t.manageUsers}
+                {allowedUsers.length > 0 && (
+                  <Badge variant="secondary" className="text-[9px] px-1 py-0 ml-1">
+                    {allowedUsers.length}
+                  </Badge>
+                )}
+              </span>
+              <ChevronRight className={cn("h-3 w-3 transition-transform", showUserPanel && "rotate-90")} />
+            </button>
+            
+            {showUserPanel && (
+              <div className="mt-2 space-y-2">
+                {/* Add user input */}
+                <div className="flex gap-1">
+                  <input
+                    type="text"
+                    value={newUsername}
+                    onChange={(e) => setNewUsername(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddUser()}
+                    placeholder={t.enterUsername}
+                    className="flex-1 px-2 py-1 text-xs rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    data-testid="input-add-username"
+                  />
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={handleAddUser}
+                    className="h-7 px-2 text-xs"
+                    data-testid="button-add-user"
+                  >
+                    {t.addUser}
+                  </Button>
+                </div>
+                
+                {/* Allowed users list */}
+                <div className="max-h-24 overflow-y-auto space-y-1">
+                  {allowedUsers.length === 0 ? (
+                    <p className="text-[10px] text-muted-foreground text-center py-1">{t.noUsers}</p>
+                  ) : (
+                    allowedUsers.map((username) => (
+                      <div 
+                        key={username} 
+                        className="flex items-center justify-between px-2 py-1 rounded bg-blue-500/10 border border-blue-500/20"
+                      >
+                        <span className="text-xs flex items-center gap-1">
+                          <User className="h-3 w-3 text-blue-500" />
+                          {username}
+                        </span>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-5 w-5"
+                          onClick={() => handleRemoveUser(username)}
+                          data-testid={`button-remove-user-${username}`}
+                        >
+                          <X className="h-3 w-3 text-red-500" />
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Route display */}
         <div className="pt-1 border-t border-border/50">
           <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
             <Route className="h-3 w-3" />
