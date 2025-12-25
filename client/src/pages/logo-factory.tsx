@@ -39,6 +39,7 @@ import {
   checkGlobalCompliance,
   type PlatformLogoState
 } from "@/lib/logo-binding-engine";
+import { useLogoSyncDialog } from "@/components/logo-sync-result-dialog";
 
 // =====================================================================
 // INFERA SOVEREIGN VISUAL IDENTITY & ICONOGRAPHY MANDATORY FRAMEWORK
@@ -408,6 +409,9 @@ export default function LogoFactory() {
   // Get available platforms for binding
   const availablePlatforms = getAllPlatformsForBinding();
   
+  // Logo sync result dialog
+  const { showSyncResult, createSyncResult, DialogComponent: SyncResultDialog } = useLogoSyncDialog();
+  
   // Update platform logo state when target changes
   useEffect(() => {
     if (targetPlatformId) {
@@ -564,13 +568,20 @@ export default function LogoFactory() {
       setIsSyncing(false);
       
       if (result.success) {
-        toast({
-          title: "Logo Synced Successfully | تم المزامنة بنجاح",
-          description: `All variants bound to ${platformLogoState?.platformName || targetPlatformId}`
-        });
         // Refresh platform state
         setPlatformLogoState(getPlatformLogoState(targetPlatformId));
         setComplianceStats(checkGlobalCompliance());
+        
+        // Show professional sync result dialog
+        const platform = availablePlatforms.find(p => p.id === targetPlatformId);
+        const syncResult = createSyncResult(
+          targetPlatformId,
+          platform?.name || targetPlatformId,
+          result.versions,
+          previewSVG,
+          platform?.nameAr
+        );
+        showSyncResult(syncResult);
       } else {
         toast({
           title: "Sync Failed | فشل المزامنة",
@@ -579,7 +590,7 @@ export default function LogoFactory() {
         });
       }
     }, 500);
-  }, [targetPlatformId, previewSVG, selectedAccent, validation.valid, platformLogoState, toast]);
+  }, [targetPlatformId, previewSVG, selectedAccent, validation.valid, platformLogoState, toast, availablePlatforms, createSyncResult, showSyncResult]);
   
   return (
     <div className="min-h-screen bg-background p-6">
@@ -1077,6 +1088,9 @@ export default function LogoFactory() {
           </Card>
         )}
       </div>
+      
+      {/* Logo Sync Result Dialog */}
+      <SyncResultDialog />
     </div>
   );
 }
