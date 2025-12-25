@@ -1,0 +1,219 @@
+🔒 INFERA MANDATORY DYNAMIC ICON & LOGO BINDING FRAMEWORK
+(Sovereign-Level Directive – EXECUTION REQUIRED)
+Directive Name:
+INFERA Dynamic Icon & Logo Binding Framework (Mandatory)
+
+Scope:
+This directive applies to:
+- INFERA WebNova Factory
+- Logo Factory
+- All Sovereign Platforms
+- All Group Platforms
+- Sovereign Account Level
+
+This framework is NON-OPTIONAL.
+
+------------------------------------------------------------------
+1. PLATFORM SELECTION (MANDATORY DROPDOWN)
+------------------------------------------------------------------
+
+At the top of the Icon / Logo Factory interface,
+a mandatory dropdown selector MUST be implemented.
+
+Dropdown Properties:
+- Label: "Target Platform"
+- Type: Select / Dropdown
+- Data Source: Live platforms registry (Group Platforms)
+- Access: Sovereign account only
+
+Behavior:
+- User MUST select a platform before generating or exporting any icon or logo.
+- No generation or export is allowed without a selected platform.
+- Selected platform becomes the binding target.
+
+------------------------------------------------------------------
+2. DYNAMIC BINDING ENGINE (CORE REQUIREMENT)
+------------------------------------------------------------------
+
+Upon icon or logo generation:
+
+- The generated asset MUST be dynamically bound to:
+  a) The selected platform ID
+  b) Platform UI registry
+  c) Platform branding layer
+  d) Platform navigation icons
+  e) Platform tabs
+  f) Platform landing pages
+  g) Platform dashboards
+  h) Platform mobile & desktop apps
+
+Binding is REAL-TIME.
+No refresh, rebuild, or manual replacement is allowed.
+
+------------------------------------------------------------------
+3. GLOBAL REPLACEMENT RULE (STRICT)
+------------------------------------------------------------------
+
+Once an icon/logo is exported and applied:
+
+- ALL previous icons/logos for that platform are INVALIDATED.
+- No legacy icons are allowed to remain.
+- No partial replacement is permitted.
+
+System MUST:
+- Scan the entire platform UI tree
+- Replace icons globally
+- Enforce visual consistency
+
+If any old icon remains → system must flag a violation.
+
+------------------------------------------------------------------
+4. AUTOMATIC PROPAGATION (ALL SURFACES)
+------------------------------------------------------------------
+
+The icon/logo MUST propagate automatically to:
+
+- Web UI
+- Mobile App (iOS / Android)
+- Desktop App
+- Tablet UI
+- Favicon
+- Tab Icons
+- Sidebar Icons
+- Header Icons
+- System Status Icons
+- Notifications
+- Login Screens
+- Splash Screens
+
+Propagation must be:
+- Immediate
+- Atomic
+- Transaction-safe
+
+------------------------------------------------------------------
+5. PLATFORM CARD SYNCHRONIZATION
+------------------------------------------------------------------
+
+In the "Group Platform Logos" section:
+
+- The platform card MUST reflect the active icon/logo.
+- Icon preview must update instantly.
+- Metadata must sync:
+  - Platform name
+  - Icon version
+  - Timestamp
+  - Applied scope (web / mobile / desktop)
+
+No manual refresh allowed.
+
+------------------------------------------------------------------
+6. ELEMENT DETAILS ARCHIVING (MANDATORY)
+------------------------------------------------------------------
+
+Each generated icon/logo MUST be archived automatically in:
+
+Page:
+=== Element Details ===
+
+Metadata:
+- Test ID: tab-group-logos
+- Tag: button
+- Path: 
+  div#root > div > div.group/sidebar-wrapper > div.flex >
+  div.flex > main.flex-1 > div.flex > div.w-full >
+  div.inline-flex > button#radix-:r29:-trigger-group-logos
+
+Stored Data:
+- SVG Primary
+- PNG (1024 / 64 / 32 / 16)
+- Monochrome SVG
+- Platform ID
+- Version hash
+- Active / Archived status
+
+------------------------------------------------------------------
+7. VERSION CONTROL & ROLLBACK
+------------------------------------------------------------------
+
+System MUST:
+- Keep historical versions
+- Allow rollback by sovereign user
+- Never auto-revert without authorization
+
+Rollback must re-propagate globally.
+
+------------------------------------------------------------------
+8. VISUAL GOVERNANCE RULES (ENFORCED)
+------------------------------------------------------------------
+
+Allowed ONLY:
+- Abstract sovereign geometry
+- Intelligence cores
+- Neural fields
+- Control rings
+- Structured symmetry
+- Hexagonal or layered systems
+
+Forbidden:
+- Emojis
+- Cartoons
+- Tool icons
+- Letters inside icons
+- Generic UI libraries
+- Friendly/playful styles
+
+Violation = hard block.
+
+------------------------------------------------------------------
+9. ZERO MANUAL USAGE POLICY
+------------------------------------------------------------------
+
+No developer, designer, or admin
+is allowed to manually place icons anywhere.
+
+All icons MUST come from:
+INFERA Logo Factory → Dynamic Binding Engine
+
+Manual overrides are DISABLED by design.
+
+------------------------------------------------------------------
+10. COMPLIANCE & HEALTH CHECK
+------------------------------------------------------------------
+
+System must continuously verify:
+- Icon consistency
+- Platform coverage
+- No orphaned assets
+
+If mismatch detected:
+- Raise alert
+- Mark platform as NON-COMPLIANT
+- Require correction before publish
+
+------------------------------------------------------------------
+FINAL RULE
+------------------------------------------------------------------
+
+If an icon is generated,
+it MUST be:
+- Selected
+- Bound
+- Propagated
+- Archived
+- Enforced
+
+Otherwise, the system is considered incomplete.
+
+This framework is mandatory
+and overrides any previous visual handling logic.
+
+🧠 ملاحظة استراتيجية (ليست داخل التوجيه):
+
+بهذا الإطار:
+
+الهوية البصرية تصبح نظام حوكمي
+
+لا يوجد أيقونة عشوائية بعد الآن
+
+أي تغيير بصري = قرار سيادي موثق

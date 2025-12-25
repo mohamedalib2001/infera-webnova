@@ -860,14 +860,42 @@ const pagePermissionsRegistry: Record<string, { allowedRoles: RoleType[]; descri
   },
 };
 
-// Simplified role labels for display
-const displayRoles: { role: RoleType; labelEn: string; labelAr: string }[] = [
-  { role: "owner", labelEn: "Owner", labelAr: "المالك" },
+// Dynamic role registry - add new roles here and they auto-appear
+const roleRegistry: { role: RoleType; labelEn: string; labelAr: string; locked?: boolean }[] = [
+  { role: "owner", labelEn: "Owner", labelAr: "المالك", locked: true },
+  { role: "sovereign", labelEn: "Sovereign", labelAr: "سيادي", locked: true },
   { role: "manager", labelEn: "Manager", labelAr: "مدير" },
+  { role: "employee", labelEn: "Employee", labelAr: "موظف" },
   { role: "free", labelEn: "Free Subscriber", labelAr: "مشترك مجاني" },
   { role: "pro", labelEn: "Paid Subscriber", labelAr: "مشترك مدفوع" },
+  { role: "enterprise", labelEn: "Enterprise", labelAr: "مؤسسة" },
   { role: "public", labelEn: "Visitor", labelAr: "زائر" },
 ];
+
+// Page name mapping for display
+const pageNameRegistry: Record<string, { en: string; ar: string }> = {
+  "/": { en: "Home", ar: "الرئيسية" },
+  "/sovereign-workspace": { en: "Sovereign Workspace", ar: "مساحة العمل السيادية" },
+  "/logo-factory": { en: "Logo Factory", ar: "مصنع الشعارات" },
+  "/settings": { en: "Settings", ar: "الإعدادات" },
+  "/audit-log": { en: "Audit Log", ar: "سجل المراجعة" },
+  "/team": { en: "Team", ar: "الفريق" },
+  "/landing-pages": { en: "Landing Pages", ar: "صفحات الهبوط" },
+  "/platforms": { en: "Platforms", ar: "المنصات" },
+  "/desktop-apps": { en: "Desktop Apps", ar: "تطبيقات سطح المكتب" },
+  "/maps": { en: "Maps", ar: "الخرائط" },
+  "/management": { en: "Management", ar: "الإدارة" },
+  "/projects": { en: "Projects", ar: "المشاريع" },
+  "/my-tasks": { en: "My Tasks", ar: "مهامي" },
+  "/sovereign-core": { en: "Sovereign Core", ar: "النواة السيادية" },
+  "/service-providers": { en: "Service Providers", ar: "مزودي الخدمات" },
+  "/infrastructure": { en: "Infrastructure", ar: "البنية التحتية" },
+  "/owner/policies": { en: "Owner Policies", ar: "سياسات المالك" },
+  "/government-compliance": { en: "Government Compliance", ar: "الجاهزية الحكومية" },
+  "/content-moderation": { en: "Content Moderation", ar: "مراقبة المحتوى" },
+  "/staff-management": { en: "Staff Management", ar: "إدارة الموظفين" },
+  "/domains": { en: "Sovereign Domains", ar: "النطاقات السيادية" },
+};
 
 interface SovereignAccessSummaryProps {
   currentRoute: string;
@@ -884,6 +912,12 @@ export function SovereignAccessSummary({ currentRoute }: SovereignAccessSummaryP
   const [customAllowedRoles, setCustomAllowedRoles] = useState<string[]>(() => getPageAllowedRoles(currentRoute));
   const [newUsername, setNewUsername] = useState("");
   const [showUserPanel, setShowUserPanel] = useState(false);
+  
+  // Emergency confirmation states for sovereign pages
+  const [showEmergencyDialog, setShowEmergencyDialog] = useState(false);
+  const [pendingRoleChange, setPendingRoleChange] = useState<{ role: string; label: string } | null>(null);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState(false);
   
   const isOwner = user?.role === "owner" || user?.role === "sovereign" || user?.username === "mohamedalib2001";
   
@@ -903,6 +937,10 @@ export function SovereignAccessSummary({ currentRoute }: SovereignAccessSummaryP
   // Check if this is a sovereign-only page (can be controlled)
   const isSovereignPage = allowedRoles.length <= 2 && 
     allowedRoles.every(r => r === "owner" || r === "sovereign");
+  
+  // Get page display name
+  const pageName = pageNameRegistry[currentRoute] || { en: currentRoute, ar: currentRoute };
+  const pageDisplayName = language === "ar" ? pageName.ar : pageName.en;
   
   const t = {
     title: language === "ar" ? "صلاحيات الوصول للصفحة الحالية" : "Current Page Access Permissions",
@@ -924,6 +962,15 @@ export function SovereignAccessSummary({ currentRoute }: SovereignAccessSummaryP
     roleEnabled: language === "ar" ? "تم تفعيل الدور" : "Role enabled",
     roleDisabled: language === "ar" ? "تم إلغاء تفعيل الدور" : "Role disabled",
     clickToToggle: language === "ar" ? "انقر للتبديل" : "Click to toggle",
+    emergencyWarning: language === "ar" ? "تحذير طوارئ سيادي!" : "SOVEREIGN EMERGENCY WARNING!",
+    emergencyMessage: language === "ar" 
+      ? "أنت على وشك تغيير صلاحيات صفحة سيادية. هذا الإجراء قد يعرض أمان النظام للخطر."
+      : "You are about to change permissions on a SOVEREIGN page. This action may compromise system security.",
+    enterPassword: language === "ar" ? "أدخل كلمة المرور للتأكيد:" : "Enter password to confirm:",
+    confirmChange: language === "ar" ? "تأكيد التغيير" : "Confirm Change",
+    cancel: language === "ar" ? "إلغاء" : "Cancel",
+    wrongPassword: language === "ar" ? "كلمة المرور غير صحيحة" : "Incorrect password",
+    pageName: language === "ar" ? "الصفحة:" : "Page:",
   };
   
   const handleTogglePage = () => {
@@ -957,9 +1004,24 @@ export function SovereignAccessSummary({ currentRoute }: SovereignAccessSummaryP
   };
   
   const handleToggleRole = (role: string, roleLabel: string) => {
-    // Owner role cannot be toggled off
-    if (role === "owner") return;
+    // Owner/sovereign roles cannot be toggled
+    const roleInfo = roleRegistry.find(r => r.role === role);
+    if (roleInfo?.locked) return;
     
+    // For sovereign pages, show emergency warning dialog
+    if (isSovereignPage) {
+      setPendingRoleChange({ role, label: roleLabel });
+      setPasswordInput("");
+      setPasswordError(false);
+      setShowEmergencyDialog(true);
+      return;
+    }
+    
+    // For non-sovereign pages, apply directly
+    applyRoleChange(role, roleLabel);
+  };
+  
+  const applyRoleChange = (role: string, roleLabel: string) => {
     const newState = toggleRoleAccess(currentRoute, role);
     setCustomAllowedRoles(getPageAllowedRoles(currentRoute));
     toast({
@@ -968,13 +1030,124 @@ export function SovereignAccessSummary({ currentRoute }: SovereignAccessSummaryP
     });
   };
   
+  const handleEmergencyConfirm = () => {
+    // Simple password check (in production, use proper authentication)
+    const OWNER_PASSWORD = "INFERA2025";
+    
+    if (passwordInput === OWNER_PASSWORD && pendingRoleChange) {
+      applyRoleChange(pendingRoleChange.role, pendingRoleChange.label);
+      setShowEmergencyDialog(false);
+      setPendingRoleChange(null);
+      setPasswordInput("");
+    } else {
+      setPasswordError(true);
+    }
+  };
+  
+  const handleEmergencyCancel = () => {
+    setShowEmergencyDialog(false);
+    setPendingRoleChange(null);
+    setPasswordInput("");
+    setPasswordError(false);
+  };
+  
   return (
-    <Card className="fixed bottom-20 left-4 z-[9997] w-80 shadow-xl border-violet-500/30 bg-background/95 backdrop-blur-sm">
+    <>
+      {/* Emergency Warning Dialog */}
+      {showEmergencyDialog && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <Card className="w-96 border-2 border-red-500 bg-background shadow-2xl animate-pulse-border">
+            <CardHeader className="pb-2 bg-red-500/10 border-b border-red-500/30">
+              <CardTitle className="text-red-500 flex items-center gap-2 text-lg">
+                <AlertTriangle className="h-6 w-6 animate-pulse" />
+                {t.emergencyWarning}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-4">
+              <div className="p-3 rounded-md bg-red-500/10 border border-red-500/30">
+                <p className="text-sm text-red-400">{t.emergencyMessage}</p>
+              </div>
+              
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">{t.pageName}</p>
+                <Badge variant="outline" className="border-amber-500/50 text-amber-500">
+                  {pageDisplayName}
+                </Badge>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-xs font-medium">{t.enterPassword}</label>
+                <input
+                  type="password"
+                  value={passwordInput}
+                  onChange={(e) => {
+                    setPasswordInput(e.target.value);
+                    setPasswordError(false);
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && handleEmergencyConfirm()}
+                  className={cn(
+                    "w-full px-3 py-2 rounded-md border bg-background focus:outline-none focus:ring-2",
+                    passwordError 
+                      ? "border-red-500 focus:ring-red-500" 
+                      : "border-border focus:ring-violet-500"
+                  )}
+                  placeholder="••••••••"
+                  data-testid="input-emergency-password"
+                  autoFocus
+                />
+                {passwordError && (
+                  <p className="text-xs text-red-500">{t.wrongPassword}</p>
+                )}
+              </div>
+              
+              <div className="flex gap-2 pt-2">
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={handleEmergencyCancel}
+                  data-testid="button-cancel-emergency"
+                >
+                  {t.cancel}
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  className="flex-1"
+                  onClick={handleEmergencyConfirm}
+                  data-testid="button-confirm-emergency"
+                >
+                  {t.confirmChange}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+      
+      <Card className="fixed bottom-20 left-4 z-[9997] w-80 shadow-xl border-violet-500/30 bg-background/95 backdrop-blur-sm">
       <CardHeader className="py-2 px-3 border-b border-violet-500/20">
         <CardTitle className="text-xs font-medium flex items-center gap-2 text-violet-500">
           <Eye className="h-3 w-3" />
           {t.title}
         </CardTitle>
+        {/* Page name display */}
+        <div className="flex items-center gap-2 mt-1.5">
+          <Badge 
+            variant="outline" 
+            className={cn(
+              "text-[10px] px-2",
+              isSovereignPage 
+                ? "border-red-500/50 text-red-400 bg-red-500/10" 
+                : "border-violet-500/50 text-violet-400"
+            )}
+          >
+            {pageDisplayName}
+          </Badge>
+          {isSovereignPage && (
+            <Badge variant="destructive" className="text-[9px] px-1">
+              {language === "ar" ? "سيادي" : "SOVEREIGN"}
+            </Badge>
+          )}
+        </div>
         <p className="text-[10px] text-muted-foreground mt-1">{t.description}</p>
       </CardHeader>
       <CardContent className="p-3 space-y-3">
@@ -1000,15 +1173,18 @@ export function SovereignAccessSummary({ currentRoute }: SovereignAccessSummaryP
           </div>
         )}
         
-        {/* Role-based access list - Clickable to toggle */}
+        {/* Role-based access list - Clickable to toggle (Dynamic) */}
         <div className="grid gap-1.5">
-          {displayRoles.map(({ role, labelEn, labelAr }) => {
+          {roleRegistry.map(({ role, labelEn, labelAr, locked }) => {
             // Check both default permissions and custom overrides
             const defaultAllowed = (() => {
               if (role === "owner") return allowedRoles.includes("owner") || allowedRoles.includes("sovereign");
+              if (role === "sovereign") return allowedRoles.includes("sovereign");
               if (role === "manager") return allowedRoles.includes("manager");
+              if (role === "employee") return allowedRoles.includes("employee");
               if (role === "free") return allowedRoles.includes("free") || allowedRoles.includes("subscriber");
-              if (role === "pro") return allowedRoles.includes("pro") || allowedRoles.includes("enterprise");
+              if (role === "pro") return allowedRoles.includes("pro");
+              if (role === "enterprise") return allowedRoles.includes("enterprise");
               if (role === "public") return allowedRoles.includes("public");
               return false;
             })();
@@ -1017,8 +1193,8 @@ export function SovereignAccessSummary({ currentRoute }: SovereignAccessSummaryP
             const customEnabled = customAllowedRoles.includes(role);
             const isAllowed = defaultAllowed || customEnabled;
             
-            // Owner role is always locked (cannot be toggled)
-            const isLocked = role === "owner";
+            // Owner/sovereign roles are always locked (cannot be toggled)
+            const isLocked = locked === true;
             // Only sovereign pages can have toggleable roles
             const canToggle = isSovereignPage && !isLocked;
             
@@ -1158,5 +1334,6 @@ export function SovereignAccessSummary({ currentRoute }: SovereignAccessSummaryP
         </div>
       </CardContent>
     </Card>
+    </>
   );
 }
