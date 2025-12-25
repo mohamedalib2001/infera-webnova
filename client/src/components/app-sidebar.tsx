@@ -621,6 +621,14 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                   {isOwner && (
                     <>
                       <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/sovereign-workspace"}>
+                          <Link href="/sovereign-workspace" data-testid="nav-sovereign-workspace">
+                            <Shield className="h-4 w-4 text-purple-600" />
+                            <span>{language === "ar" ? "مساحة العمل السيادية" : "Sovereign Workspace"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
                         <SidebarMenuButton asChild isActive={location === "/owner"}>
                           <Link href="/owner" data-testid="nav-owner">
                             <Crown className="h-4 w-4 text-amber-500" />
@@ -698,14 +706,6 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                           <Link href="/sovereign-plans" data-testid="nav-sovereign-plans">
                             <Rocket className="h-4 w-4 text-emerald-500" />
                             <span>{language === "ar" ? "الخطط السيادية" : "Sovereign Plans"}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={location === "/sovereign-workspace"}>
-                          <Link href="/sovereign-workspace" data-testid="nav-sovereign-workspace">
-                            <Shield className="h-4 w-4 text-purple-600" />
-                            <span>{language === "ar" ? "مساحة العمل السيادية" : "Sovereign Workspace"}</span>
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
