@@ -5,6 +5,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/use-language";
 import { useAIWebSocket } from "@/hooks/use-ai-websocket";
+import ownerAvatarUrl from "@assets/unnamed_1766647794224.jpg";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -232,14 +233,14 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
   const [activeFileIndex, setActiveFileIndex] = useState(0);
   
   const [terminalOutput, setTerminalOutput] = useState<string[]>([
-    "[Sovereign Core] Terminal initialized",
-    "[Sovereign Core] Ready for commands...",
+    "[Nova AI] Terminal initialized",
+    "[Nova AI] Ready for commands...",
   ]);
   const [terminalInput, setTerminalInput] = useState("");
 
   const t = {
     ar: {
-      title: "النواة السيادية - بيئة التطوير المتكاملة",
+      title: "Nova AI - مساعد التطوير السيادي",
       subtitle: "عقل ذكاء اصطناعي مستقل - معزول بالكامل",
       ownerOnly: "للمالك فقط",
       isolated: "بيئة معزولة",
@@ -280,7 +281,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
       copy: "نسخ",
     },
     en: {
-      title: "Sovereign Core - Integrated Development Environment",
+      title: "Nova AI - Sovereign Development Assistant",
       subtitle: "Independent AI Mind - Fully Isolated",
       ownerOnly: "Owner Only",
       isolated: "Isolated Environment",
@@ -532,7 +533,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
         setTerminalOutput(prev => [...prev, `Error: ${res.error}`]);
       }
     } catch (error) {
-      setTerminalOutput(prev => [...prev, `[Sovereign Terminal] Command simulated: ${cmd}`]);
+      setTerminalOutput(prev => [...prev, `[Nova AI] Command simulated: ${cmd}`]);
     }
   };
 
@@ -626,7 +627,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
     // Use WebSocket code execution if available
     if (aiWs.isConnected && aiWs.isAuthenticated && codeFiles[activeFileIndex]?.language === "javascript") {
       try {
-        setTerminalOutput(prev => [...prev, "[Sovereign Core] Executing code via WebSocket..."]);
+        setTerminalOutput(prev => [...prev, "[Nova AI] Executing code via WebSocket..."]);
         const result = await aiWs.executeCode(code, "nodejs");
         setTerminalOutput(prev => [...prev, result.output || result.error || "Execution complete"]);
       } catch (error) {
@@ -635,11 +636,11 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
     } else {
       setTerminalOutput(prev => [
         ...prev, 
-        "[Sovereign Core] Running syntax tests...",
+        "[Nova AI] Running syntax tests...",
         "[Test] index.html - Syntax valid",
         "[Test] styles.css - Syntax valid", 
         "[Test] app.js - Syntax valid",
-        "[Sovereign Core] All tests passed!"
+        "[Nova AI] All tests passed!"
       ]);
     }
     toast({ title: isRtl ? "تم تشغيل الاختبارات" : "Tests executed" });
@@ -843,9 +844,14 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
           <ResizablePanelGroup direction="horizontal" className="h-full">
             <ResizablePanel defaultSize={50} minSize={30}>
               <div className="h-full flex flex-col">
-                <div className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/30">
-                  <MessageSquare className="h-4 w-4 text-violet-400" />
-                  <span className="text-xs font-medium">{text.chat}</span>
+                <div className="flex items-center gap-2 px-3 py-1.5 border-b bg-gradient-to-r from-violet-500/10 via-purple-500/5 to-transparent">
+                  <div className="relative w-5 h-5">
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 opacity-40" />
+                    <div className="absolute inset-0.5 rounded-full bg-gradient-to-br from-violet-600 to-purple-800 flex items-center justify-center">
+                      <Sparkles className="h-2.5 w-2.5 text-white" />
+                    </div>
+                  </div>
+                  <span className="text-xs font-medium bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">Nova AI</span>
                   <div className="flex-1" />
                   <div className={`w-2 h-2 rounded-full ${aiWs.isConnected && aiWs.isAuthenticated ? "bg-green-500" : aiWs.isConnected ? "bg-yellow-500" : "bg-red-500"}`} />
                   <span className="text-xs text-muted-foreground">
@@ -865,9 +871,17 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                           </div>
                         ) : allMessages.length === 0 ? (
                           <div className="text-center py-12 text-muted-foreground">
-                            <Brain className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                            <p>{isRtl ? "ابدأ محادثة مع الذكاء الاصطناعي" : "Start chatting with AI"}</p>
-                            <p className="text-xs mt-2">{isRtl ? "اكتب رسالتك وسيرد عليك فوراً عبر البث المباشر" : "Type a message and get instant streaming response"}</p>
+                            <div className="relative mx-auto mb-4 w-16 h-16">
+                              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500 animate-pulse opacity-30" />
+                              <div className="absolute inset-1 rounded-full bg-gradient-to-br from-violet-600 to-purple-800 flex items-center justify-center">
+                                <Sparkles className="h-8 w-8 text-white" />
+                              </div>
+                            </div>
+                            <p className="text-lg font-semibold bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">
+                              {isRtl ? "مرحباً! أنا Nova AI" : "Hello! I'm Nova AI"}
+                            </p>
+                            <p className="text-sm mt-1">{isRtl ? "مساعدك الذكي في المنطقة السيادية" : "Your intelligent assistant in the Sovereign Zone"}</p>
+                            <p className="text-xs mt-3 opacity-70">{isRtl ? "اكتب رسالتك وسأساعدك في بناء منصتك" : "Type a message and I'll help you build your platform"}</p>
                           </div>
                         ) : (
                           allMessages.map((msg) => (
@@ -876,8 +890,14 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                               className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                             >
                               {msg.role === "assistant" && (
-                                <div className="p-2 rounded-lg bg-violet-600/20 shrink-0">
-                                  <Bot className="h-5 w-5 text-violet-400" />
+                                <div className="shrink-0 flex flex-col items-center">
+                                  <div className="relative w-9 h-9">
+                                    <div className="absolute inset-0 rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 opacity-30" />
+                                    <div className="absolute inset-0.5 rounded-full bg-gradient-to-br from-violet-600 to-purple-800 flex items-center justify-center">
+                                      <Sparkles className="h-4 w-4 text-white" />
+                                    </div>
+                                  </div>
+                                  <span className="text-[9px] mt-0.5 text-violet-400 font-medium">Nova AI</span>
                                 </div>
                               )}
                               <div
@@ -893,8 +913,18 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                                 </span>
                               </div>
                               {msg.role === "user" && (
-                                <div className="p-2 rounded-lg bg-primary/20 shrink-0">
-                                  <User className="h-5 w-5" />
+                                <div className="shrink-0 flex flex-col items-center">
+                                  <div className="relative">
+                                    <img 
+                                      src={ownerAvatarUrl} 
+                                      alt="Owner" 
+                                      className="w-9 h-9 rounded-full object-cover ring-2 ring-amber-500/50"
+                                    />
+                                    <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center ring-2 ring-background">
+                                      <Crown className="h-2.5 w-2.5 text-white" />
+                                    </div>
+                                  </div>
+                                  <span className="text-[9px] mt-0.5 text-amber-400 font-medium">{isRtl ? "المالك" : "Owner"}</span>
                                 </div>
                               )}
                             </div>
@@ -902,13 +932,20 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                         )}
                         {isProcessing && (
                           <div className="flex gap-3 justify-start">
-                            <div className="p-2 rounded-lg bg-violet-600/20">
-                              <Bot className="h-5 w-5 text-violet-400" />
+                            <div className="shrink-0">
+                              <div className="relative w-9 h-9">
+                                <div className="absolute inset-0 rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 animate-pulse" />
+                                <div className="absolute inset-0.5 rounded-full bg-gradient-to-br from-violet-600 to-purple-800 flex items-center justify-center">
+                                  <Sparkles className="h-4 w-4 text-white animate-pulse" />
+                                </div>
+                              </div>
                             </div>
                             <div className="bg-muted rounded-lg p-3">
                               <div className="flex items-center gap-2">
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                <span className="text-sm">{text.aiThinking}</span>
+                                <Loader2 className="h-4 w-4 animate-spin text-violet-400" />
+                                <span className="text-sm bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent font-medium">
+                                  {isRtl ? "Nova AI يفكر..." : "Nova AI is thinking..."}
+                                </span>
                               </div>
                               {streamingMessage && (
                                 <p className="text-sm mt-2 whitespace-pre-wrap">{streamingMessage}</p>
