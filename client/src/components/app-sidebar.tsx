@@ -267,12 +267,19 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
             <div className="px-3 py-3 mb-2 bg-gradient-to-br from-amber-500/10 via-purple-500/10 to-cyan-500/10 border-b border-amber-500/20" data-testid="owner-sovereign-header">
               <div className="flex items-center gap-3">
                 <div className="relative">
-                  <Avatar className="h-12 w-12 ring-2 ring-amber-500 ring-offset-2 ring-offset-background">
-                    <AvatarImage src={ownerAvatarUrl} alt={user?.fullName || "Owner"} />
-                    <AvatarFallback className="bg-gradient-to-br from-amber-500 to-purple-600 text-white font-bold">
+                  <div className="h-12 w-12 rounded-full ring-2 ring-amber-500 ring-offset-2 ring-offset-background overflow-hidden bg-gradient-to-br from-amber-500 to-purple-600 flex items-center justify-center">
+                    <img 
+                      src={ownerAvatarUrl} 
+                      alt={user?.fullName || "Owner"} 
+                      className="h-full w-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                    <span className="absolute inset-0 flex items-center justify-center text-white font-bold text-lg">
                       {getInitials(user?.fullName, user?.email || undefined)}
-                    </AvatarFallback>
-                  </Avatar>
+                    </span>
+                  </div>
                   <div className="absolute -bottom-1 -right-1 bg-amber-500 rounded-full p-0.5">
                     <Crown className="h-3 w-3 text-white" />
                   </div>
