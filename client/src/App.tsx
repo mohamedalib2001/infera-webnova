@@ -1,3 +1,8 @@
+/**
+ * INFERA WebNova - Main Application
+ * Governance Compliant: All pages use React.lazy() loading
+ */
+import { Suspense } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
@@ -15,189 +20,8 @@ import { InspectorProvider, InspectorToggle } from "@/components/owner-inspector
 import { SovereignViewProvider, SovereignViewToggle, SovereignAccessSummary } from "@/components/sovereign-view";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bell } from "lucide-react";
+import { Bell, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import Home from "@/pages/home";
-import Landing from "@/pages/landing";
-import Auth from "@/pages/auth";
-import Builder from "@/pages/builder";
-import Projects from "@/pages/projects";
-import Templates from "@/pages/templates";
-import Preview from "@/pages/preview";
-import Pricing from "@/pages/pricing";
-import Sovereign from "@/pages/sovereign";
-import ChatbotBuilder from "@/pages/chatbot-builder";
-import Analytics from "@/pages/analytics";
-import SEOOptimizer from "@/pages/seo-optimizer";
-import WhiteLabel from "@/pages/white-label";
-import OwnerDashboard from "@/pages/owner-dashboard";
-import OwnerCommand from "@/pages/owner-command";
-import NovaSovereignDashboard from "@/pages/nova-sovereign-dashboard";
-import OwnerNotifications from "@/pages/owner-notifications";
-import OwnerInfrastructure from "@/pages/owner-infrastructure";
-import OwnerIntegrations from "@/pages/owner-integrations";
-import OwnerAISovereignty from "@/pages/owner-ai-sovereignty";
-import OwnerEmailSettings from "@/pages/owner-email-settings";
-import AISettings from "@/pages/ai-settings";
-import AIModelRegistry from "@/pages/ai-model-registry";
-import InferaIntelligenceModels from "@/pages/infera-intelligence-models";
-import InferaAgent from "@/pages/infera-agent";
-import InferaAgentV2 from "@/pages/infera-agent-v2";
-import AgentStandalone from "@/pages/agent-standalone";
-import AiAppBuilder from "@/pages/ai-app-builder";
-import IDEProjects from "@/pages/ide-projects";
-import CloudIDE from "@/pages/cloud-ide";
-import SovereignControlCenter from "@/pages/sovereign-control-center";
-import SovereignCommandCenter from "@/pages/sovereign-command-center";
-import AIGovernanceEngine from "@/pages/ai-governance-engine";
-import DigitalBorders from "@/pages/digital-borders";
-import PolicyEngine from "@/pages/policy-engine";
-import TrustCompliance from "@/pages/trust-compliance";
-import StrategicForecast from "@/pages/strategic-forecast";
-import Domains from "@/pages/domains";
-import DomainSearch from "@/pages/domain-search";
-import Settings from "@/pages/settings";
-import PlatformGenerator from "@/pages/platform-generator";
-import ApiKeys from "@/pages/api-keys";
-import PaymentsDashboard from "@/pages/payments-dashboard";
-import PaymentSuccess from "@/pages/payment-success";
-import PaymentCancel from "@/pages/payment-cancel";
-import Subscription from "@/pages/subscription";
-import Notifications from "@/pages/notifications";
-import Marketing from "@/pages/marketing";
-import Invoices from "@/pages/invoices";
-import Integrations from "@/pages/integrations";
-import SmartSuggestions from "@/pages/smart-suggestions";
-import OneClickDeploy from "@/pages/one-click-deploy";
-import BackendGenerator from "@/pages/backend-generator";
-import GitControl from "@/pages/git-control";
-import AICopilot from "@/pages/ai-copilot";
-import TestingGenerator from "@/pages/testing-generator";
-import Marketplace from "@/pages/marketplace";
-import Collaboration from "@/pages/collaboration";
-import SSLCertificates from "@/pages/ssl-certificates";
-import SSHVault from "@/pages/ssh-vault";
-import GitHubManager from "@/pages/github-manager";
-import SovereignPlans from "@/pages/sovereign-plans";
-import SovereignWorkspace from "@/pages/sovereign-workspace";
-import LogoFactory from "@/pages/logo-factory";
-import GovernmentCompliance from "@/pages/government-compliance";
-import OwnerPolicies from "@/pages/owner-policies";
-import DepartmentsPage from "@/pages/departments";
-import TasksPage from "@/pages/tasks";
-import EmployeeDashboard from "@/pages/employee-dashboard";
-import ConsolePage from "@/pages/console";
-import Support from "@/pages/support";
-import SupportAgentDashboard from "@/pages/support-agent-dashboard";
-import AgentCommandCenter from "@/pages/agent-command-center";
-import AdminSubscriptions from "@/pages/admin-subscriptions";
-import DeletionManagement from "@/pages/deletion-management";
-import ISDSPage from "@/pages/isds";
-import SpomPage from "@/pages/owner/spom";
-import QualityDashboard from "@/pages/quality-dashboard";
-import SidebarManager from "@/pages/sidebar-manager";
-import SovereignChat from "@/pages/sovereign-chat";
-import PlatformRegistry from "@/pages/platform-registry";
-import NovaChat from "@/pages/nova-chat";
-import OperationsDashboard from "@/pages/operations-dashboard";
-import BuildManager from "@/pages/build-manager";
-import MobileAppBuilder from "@/pages/mobile-app-builder";
-import DesktopAppBuilder from "@/pages/desktop-app-builder";
-import MapsPage from "@/pages/maps";
-import ConversationHistory from "@/pages/conversation-history";
-import CICDPipeline from "@/pages/cicd-pipeline";
-import MilitarySecurity from "@/pages/military-security";
-import DeviceTesting from "@/pages/device-testing";
-import PermissionControl from "@/pages/permission-control";
-import SovereignCompliance from "@/pages/sovereign-compliance";
-import StaffManagement from "@/pages/staff-management";
-import SovereignPermissions from "@/pages/sovereign-permissions";
-import ContentModeration from "@/pages/content-moderation";
-import OwnerAICapabilityControl from "@/pages/owner/ai-capability-control";
-import AssistantGovernancePage from "@/pages/owner/assistant-governance";
-import DynamicControlPage from "@/pages/owner/dynamic-control";
-import NovaPermissionsPage from "@/pages/owner/nova-permissions";
-import OwnerControlCenter from "@/pages/owner-control-center";
-import InferaLanding from "@/pages/infera-landing";
-import EngineControlLanding from "@/pages/engine-control-landing";
-import EngineLanding from "@/pages/engine-landing";
-import FinanceLanding from "@/pages/finance-landing";
-import HumanIQLanding from "@/pages/humaniq-landing";
-import LegalLanding from "@/pages/legal-landing";
-import AppForgeLanding from "@/pages/appforge-landing";
-import MarketingLanding from "@/pages/marketing-landing";
-import MarketplaceLanding from "@/pages/marketplace-landing";
-import EducationLanding from "@/pages/education-landing";
-import AttendLanding from "@/pages/attend-landing";
-import SmartDocsLanding from "@/pages/smartdocs-landing";
-import HospitalityLanding from "@/pages/hospitality-landing";
-import FeasibilityLanding from "@/pages/feasibility-landing";
-import CVBuilderLanding from "@/pages/cvbuilder-landing";
-import JobsLanding from "@/pages/jobs-landing";
-import TrainAILanding from "@/pages/trainai-landing";
-import GlobalCloudLanding from "@/pages/globalcloud-landing";
-import ShieldGridLanding from "@/pages/shieldgrid-landing";
-import SmartRemoteLanding from "@/pages/smartremote-landing";
-import PitchDeck from "@/pages/pitch-deck";
-import PitchDeckEngine from "@/pages/pitch-deck-engine";
-import PitchDeckFinance from "@/pages/pitch-deck-finance";
-import PitchDeckHumanIQ from "@/pages/pitch-deck-humaniq";
-import PitchDeckLegal from "@/pages/pitch-deck-legal";
-import PitchDeckAppForge from "@/pages/pitch-deck-appforge";
-import PitchDeckMarketing from "@/pages/pitch-deck-marketing";
-import PitchDeckMarketplace from "@/pages/pitch-deck-marketplace";
-import PitchDeckEducation from "@/pages/pitch-deck-education";
-import PitchDeckAttend from "@/pages/pitch-deck-attend";
-import PitchDeckSmartDocs from "@/pages/pitch-deck-smartdocs";
-import PitchDeckHospitality from "@/pages/pitch-deck-hospitality";
-import PitchDeckSmartMemory from "@/pages/pitch-deck-smartmemory";
-import PitchDeckVisionFeasibility from "@/pages/pitch-deck-visionfeasibility";
-import PitchDeckCVBuilder from "@/pages/pitch-deck-cvbuilder";
-import PitchDeckJobsAI from "@/pages/pitch-deck-jobsai";
-import PitchDeckTrainAI from "@/pages/pitch-deck-trainai";
-import PitchDeckSovereignFinance from "@/pages/pitch-deck-sovereignfinance";
-import PitchDeckGlobalCloud from "@/pages/pitch-deck-globalcloud";
-import PitchDeckShieldGrid from "@/pages/pitch-deck-shieldgrid";
-import PitchDeckSmartRemote from "@/pages/pitch-deck-smartremote";
-import PitchDeckMaster from "@/pages/pitch-deck-master";
-import PlatformMaps from "@/pages/platform-maps";
-import InvestorNarrative from "@/pages/investor-narrative";
-import ExecutiveSummaries from "@/pages/executive-summaries";
-import DemoStoryboards from "@/pages/demo-storyboards";
-import SovereignNarrative from "@/pages/sovereign-narrative";
-import CompetitiveKillMap from "@/pages/competitive-kill-map";
-import SovereignReadiness from "@/pages/sovereign-readiness";
-import InvestorObjections from "@/pages/investor-objections";
-import ExitStrategy from "@/pages/exit-strategy";
-import GovernmentAdoption from "@/pages/government-adoption";
-import EconomicEngine from "@/pages/economic-engine";
-import GTMPlaybook from "@/pages/gtm-playbook";
-import TrustProof from "@/pages/trust-proof";
-import FounderNarrative from "@/pages/founder-narrative";
-import RedLineRules from "@/pages/red-line-rules";
-import TimeDominance from "@/pages/time-dominance";
-import CrisisPlaybook from "@/pages/crisis-playbook";
-import IrreplaceabilityProof from "@/pages/irreplaceability-proof";
-import BoardDocuments from "@/pages/board-documents";
-import GovernmentPack from "@/pages/government-pack";
-import DocumentGovernance from "@/pages/document-governance";
-import LaunchSequencing from "@/pages/launch-sequencing";
-import StakeholderAccess from "@/pages/stakeholder-access";
-import LaunchChecklist from "@/pages/launch-checklist";
-import CrisisCommunication from "@/pages/crisis-communication";
-import WarRoom from "@/pages/war-room";
-import FounderFramework from "@/pages/founder-framework";
-import About from "@/pages/about";
-import Terms from "@/pages/terms";
-import Privacy from "@/pages/privacy";
-import Refund from "@/pages/refund";
-import AIPolicy from "@/pages/ai-policy";
-import PerformancePolicy from "@/pages/performance-policy";
-import MultiAppPolicy from "@/pages/multi-app-policy";
-import VisualIdentity from "@/pages/visual-identity";
-import IconManagement from "@/pages/icon-management";
-import Contact from "@/pages/contact";
-import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
 import { CommandPalette } from "@/components/command-palette";
@@ -207,379 +31,366 @@ import { SovereignHeaderButton } from "@/components/sovereign-header-button";
 import { AIProviderTopbar } from "@/components/ai-provider-topbar";
 import { PerformanceTracker } from "@/hooks/use-performance-tracker";
 
+// Lazy loaded pages - Governance Compliant
+import * as Pages from "@/lib/lazy-pages";
+
+function PageLoadingSkeleton() {
+  return (
+    <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex flex-col items-center gap-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="text-sm text-muted-foreground">Loading...</span>
+      </div>
+    </div>
+  );
+}
+
 function RedirectToAuth() {
   const [, setLocation] = useLocation();
   const currentPath = window.location.pathname;
   
-  // Redirect to auth with return URL
   if (currentPath !== "/" && currentPath !== "/auth" && currentPath !== "/pricing" && currentPath !== "/support" && !currentPath.startsWith("/preview/")) {
     setLocation(`/auth?redirect=${encodeURIComponent(currentPath)}`);
     return null;
   }
   
-  return <Landing />;
+  return (
+    <Suspense fallback={<PageLoadingSkeleton />}>
+      <Pages.Landing />
+    </Suspense>
+  );
 }
 
 function GuestRouter() {
   return (
-    <Switch>
-      <Route path="/" component={Landing} />
-      <Route path="/auth" component={Auth} />
-      <Route path="/pricing" component={Pricing} />
-      <Route path="/support" component={Support} />
-      <Route path="/preview/:shareCode" component={Preview} />
-      <Route component={RedirectToAuth} />
-    </Switch>
+    <Suspense fallback={<PageLoadingSkeleton />}>
+      <Switch>
+        <Route path="/" component={Pages.Landing} />
+        <Route path="/auth" component={Pages.Auth} />
+        <Route path="/pricing" component={Pages.Pricing} />
+        <Route path="/support" component={Pages.Support} />
+        <Route path="/preview/:shareCode" component={Pages.Preview} />
+        <Route component={RedirectToAuth} />
+      </Switch>
+    </Suspense>
   );
 }
 
 function AuthenticatedRouter() {
   return (
-    <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/infera-group" component={InferaLanding} />
-      <Route path="/engine-control" component={EngineControlLanding} />
-      <Route path="/engine" component={EngineLanding} />
-      <Route path="/finance" component={FinanceLanding} />
-      <Route path="/humaniq" component={HumanIQLanding} />
-      <Route path="/legal" component={LegalLanding} />
-      <Route path="/appforge" component={AppForgeLanding} />
-      <Route path="/marketing" component={MarketingLanding} />
-      <Route path="/marketplace" component={MarketplaceLanding} />
-      <Route path="/education" component={EducationLanding} />
-      <Route path="/attend" component={AttendLanding} />
-      <Route path="/smartdocs" component={SmartDocsLanding} />
-      <Route path="/hospitality" component={HospitalityLanding} />
-      <Route path="/feasibility" component={FeasibilityLanding} />
-      <Route path="/cvbuilder" component={CVBuilderLanding} />
-      <Route path="/jobs" component={JobsLanding} />
-      <Route path="/trainai" component={TrainAILanding} />
-      <Route path="/globalcloud" component={GlobalCloudLanding} />
-      <Route path="/shieldgrid" component={ShieldGridLanding} />
-      <Route path="/smartremote" component={SmartRemoteLanding} />
-      <Route path="/pitch-deck" component={PitchDeck} />
-      <Route path="/pitch-deck/engine" component={PitchDeckEngine} />
-      <Route path="/pitch-deck/finance" component={PitchDeckFinance} />
-      <Route path="/pitch-deck/humaniq" component={PitchDeckHumanIQ} />
-      <Route path="/pitch-deck/legal" component={PitchDeckLegal} />
-      <Route path="/pitch-deck/appforge" component={PitchDeckAppForge} />
-      <Route path="/pitch-deck/marketing" component={PitchDeckMarketing} />
-      <Route path="/pitch-deck/marketplace" component={PitchDeckMarketplace} />
-      <Route path="/pitch-deck/education" component={PitchDeckEducation} />
-      <Route path="/pitch-deck/attend" component={PitchDeckAttend} />
-      <Route path="/pitch-deck/smartdocs" component={PitchDeckSmartDocs} />
-      <Route path="/pitch-deck/hospitality" component={PitchDeckHospitality} />
-      <Route path="/pitch-deck/smartmemory" component={PitchDeckSmartMemory} />
-      <Route path="/pitch-deck/visionfeasibility" component={PitchDeckVisionFeasibility} />
-      <Route path="/pitch-deck/cvbuilder" component={PitchDeckCVBuilder} />
-      <Route path="/pitch-deck/jobsai" component={PitchDeckJobsAI} />
-      <Route path="/pitch-deck/trainai" component={PitchDeckTrainAI} />
-      <Route path="/pitch-deck/sovereignfinance" component={PitchDeckSovereignFinance} />
-      <Route path="/pitch-deck/globalcloud" component={PitchDeckGlobalCloud} />
-      <Route path="/pitch-deck/shieldgrid" component={PitchDeckShieldGrid} />
-      <Route path="/pitch-deck/smartremote" component={PitchDeckSmartRemote} />
-      <Route path="/pitch-deck/master" component={PitchDeckMaster} />
-      <Route path="/pitch-deck/vision" component={PitchDeck} />
-      <Route path="/pitch-deck/solution" component={PitchDeck} />
-      <Route path="/pitch-deck/business" component={PitchDeck} />
-      <Route path="/pitch-deck/financials" component={PitchDeck} />
-      <Route path="/pitch-deck/team" component={PitchDeck} />
-      <Route path="/pitch-deck/roadmap" component={PitchDeck} />
-      <Route path="/pitch-deck/investors" component={PitchDeck} />
-      <Route path="/pitch-deck/export" component={PitchDeck} />
-      <Route path="/investor-narrative" component={InvestorNarrative} />
-      <Route path="/executive-summaries" component={ExecutiveSummaries} />
-      <Route path="/demo-storyboards" component={DemoStoryboards} />
-      <Route path="/sovereign-narrative" component={SovereignNarrative} />
-      <Route path="/competitive-kill-map" component={CompetitiveKillMap} />
-      <Route path="/sovereign-readiness" component={SovereignReadiness} />
-      <Route path="/investor-objections" component={InvestorObjections} />
-      <Route path="/exit-strategy" component={ExitStrategy} />
-      <Route path="/government-adoption" component={GovernmentAdoption} />
-      <Route path="/economic-engine" component={EconomicEngine} />
-      <Route path="/gtm-playbook" component={GTMPlaybook} />
-      <Route path="/trust-proof" component={TrustProof} />
-      <Route path="/founder-narrative" component={FounderNarrative} />
-      <Route path="/red-line-rules" component={RedLineRules} />
-      <Route path="/time-dominance" component={TimeDominance} />
-      <Route path="/crisis-playbook" component={CrisisPlaybook} />
-      <Route path="/irreplaceability-proof" component={IrreplaceabilityProof} />
-      <Route path="/board-documents" component={BoardDocuments} />
-      <Route path="/government-pack" component={GovernmentPack} />
-      <Route path="/document-governance" component={DocumentGovernance} />
-      <Route path="/launch-sequencing" component={LaunchSequencing} />
-      <Route path="/stakeholder-access" component={StakeholderAccess} />
-      <Route path="/launch-checklist" component={LaunchChecklist} />
-      <Route path="/crisis-communication" component={CrisisCommunication} />
-      <Route path="/war-room" component={WarRoom} />
-      <Route path="/founder-framework" component={FounderFramework} />
-      <Route path="/about" component={About} />
-      <Route path="/terms" component={Terms} />
-      <Route path="/privacy" component={Privacy} />
-      <Route path="/refund" component={Refund} />
-      <Route path="/ai-policy" component={AIPolicy} />
-      <Route path="/performance-policy" component={PerformancePolicy} />
-      <Route path="/multi-app-policy" component={MultiAppPolicy} />
-      <Route path="/visual-identity" component={VisualIdentity} />
-      <Route path="/icon-management" component={IconManagement} />
-      <Route path="/contact" component={Contact} />
-      <Route path="/auth" component={Auth} />
-      <Route path="/builder" component={Builder} />
-      <Route path="/builder/:id" component={Builder} />
-      <Route path="/conversations" component={ConversationHistory} />
-      <Route path="/projects" component={Projects} />
-      <Route path="/templates" component={Templates} />
-      <Route path="/pricing" component={Pricing} />
-      <Route path="/sovereign" component={Sovereign} />
-      <Route path="/chatbot-builder" component={ChatbotBuilder} />
-      <Route path="/analytics" component={Analytics} />
-      <Route path="/seo-optimizer" component={SEOOptimizer} />
-      <Route path="/white-label" component={WhiteLabel} />
-      <Route path="/owner" component={OwnerDashboard} />
-      <Route path="/owner/command" component={OwnerCommand} />
-      <Route path="/owner/nova-sovereign" component={NovaSovereignDashboard} />
-      <Route path="/owner/notifications" component={OwnerNotifications} />
-      <Route path="/owner/infrastructure" component={OwnerInfrastructure} />
-      <Route path="/owner/integrations" component={OwnerIntegrations} />
-      <Route path="/owner/ai-sovereignty" component={OwnerAISovereignty} />
-      <Route path="/owner/ai-capability-control" component={OwnerAICapabilityControl} />
-      <Route path="/owner/assistant-governance" component={AssistantGovernancePage} />
-      <Route path="/owner/dynamic-control" component={DynamicControlPage} />
-      <Route path="/owner/nova-permissions" component={NovaPermissionsPage} />
-      <Route path="/owner/email-settings" component={OwnerEmailSettings} />
-      <Route path="/owner/ai-settings" component={AISettings} />
-      <Route path="/owner/ai-model-registry" component={AIModelRegistry} />
-      <Route path="/owner/infera-intelligence" component={InferaIntelligenceModels} />
-      <Route path="/owner/infera-agent" component={InferaAgent} />
-      <Route path="/ai-builder" component={AiAppBuilder} />
-      <Route path="/ide" component={IDEProjects} />
-      <Route path="/ide/:id" component={CloudIDE} />
-      <Route path="/sovereign-control" component={SovereignControlCenter} />
-      <Route path="/sovereign/command-center" component={SovereignCommandCenter} />
-      <Route path="/sovereign/ai-governance" component={AIGovernanceEngine} />
-      <Route path="/sovereign/digital-borders" component={DigitalBorders} />
-      <Route path="/sovereign/policy-engine" component={PolicyEngine} />
-      <Route path="/sovereign/trust-compliance" component={TrustCompliance} />
-      <Route path="/sovereign/strategic-forecast" component={StrategicForecast} />
-      <Route path="/domains" component={Domains} />
-      <Route path="/domain-search" component={DomainSearch} />
-      <Route path="/settings" component={Settings} />
-      <Route path="/platform-generator" component={PlatformGenerator} />
-      <Route path="/api-keys" component={ApiKeys} />
-      <Route path="/payments" component={PaymentsDashboard} />
-      <Route path="/payment/success" component={PaymentSuccess} />
-      <Route path="/payment/cancel" component={PaymentCancel} />
-      <Route path="/subscription" component={Subscription} />
-      <Route path="/notifications" component={Notifications} />
-      <Route path="/marketing" component={Marketing} />
-      <Route path="/invoices" component={Invoices} />
-      <Route path="/integrations" component={Integrations} />
-      <Route path="/smart-suggestions" component={SmartSuggestions} />
-      <Route path="/deploy" component={OneClickDeploy} />
-      <Route path="/ssl" component={SSLCertificates} />
-      <Route path="/ssl-certificates" component={SSLCertificates} />
-      <Route path="/ssh-vault" component={SSHVault} />
-      <Route path="/github" component={GitHubManager} />
-      <Route path="/sovereign-plans" component={SovereignPlans} />
-      <Route path="/sovereign-workspace" component={SovereignWorkspace} />
-      <Route path="/logo-factory" component={LogoFactory} />
-      <Route path="/government-compliance" component={GovernmentCompliance} />
-      <Route path="/owner/policies" component={OwnerPolicies} />
-      <Route path="/departments" component={DepartmentsPage} />
-      <Route path="/tasks" component={TasksPage} />
-      <Route path="/employee-dashboard" component={EmployeeDashboard} />
-      <Route path="/backend-generator" component={BackendGenerator} />
-      <Route path="/git" component={GitControl} />
-      <Route path="/ai-copilot" component={AICopilot} />
-      <Route path="/infera-agent" component={InferaAgentV2} />
-      <Route path="/infera-agent-old" component={InferaAgent} />
-      <Route path="/agent" component={AgentStandalone} />
-      <Route path="/testing" component={TestingGenerator} />
-      <Route path="/marketplace" component={Marketplace} />
-      <Route path="/extensions" component={Marketplace} />
-      <Route path="/collaboration" component={Collaboration} />
-      <Route path="/console" component={ConsolePage} />
-      <Route path="/support" component={Support} />
-      <Route path="/support/agent" component={SupportAgentDashboard} />
-      <Route path="/support/command-center" component={AgentCommandCenter} />
-      <Route path="/admin/subscriptions" component={AdminSubscriptions} />
-      <Route path="/owner/deletion-management" component={DeletionManagement} />
-      <Route path="/owner/isds" component={ISDSPage} />
-      <Route path="/owner/spom" component={SpomPage} />
-      <Route path="/owner/quality" component={QualityDashboard} />
-      <Route path="/owner/sidebar-manager" component={SidebarManager} />
-      <Route path="/owner/platform-maps" component={PlatformMaps} />
-      <Route path="/sovereign-chat" component={SovereignChat} />
-      <Route path="/owner/platform-registry" component={PlatformRegistry} />
-      <Route path="/nova" component={NovaChat} />
-      <Route path="/nova/operations" component={OperationsDashboard} />
-      <Route path="/nova/builds" component={BuildManager} />
-      <Route path="/mobile-builder" component={MobileAppBuilder} />
-      <Route path="/desktop-builder" component={DesktopAppBuilder} />
-      <Route path="/maps" component={MapsPage} />
-      <Route path="/cicd" component={CICDPipeline} />
-      <Route path="/military-security" component={MilitarySecurity} />
-      <Route path="/device-testing" component={DeviceTesting} />
-      <Route path="/permissions" component={PermissionControl} />
-      <Route path="/sovereign/compliance" component={SovereignCompliance} />
-      <Route path="/owner/staff" component={StaffManagement} />
-      <Route path="/owner/sovereign-permissions" component={SovereignPermissions} />
-      <Route path="/owner/content-moderation" component={ContentModeration} />
-      <Route path="/owner/control-center" component={OwnerControlCenter} />
-      <Route path="/preview/:shareCode" component={Preview} />
-      <Route component={NotFound} />
-    </Switch>
+    <Suspense fallback={<PageLoadingSkeleton />}>
+      <Switch>
+        <Route path="/" component={Pages.Home} />
+        <Route path="/infera-group" component={Pages.InferaLanding} />
+        <Route path="/engine-control" component={Pages.EngineControlLanding} />
+        <Route path="/engine" component={Pages.EngineLanding} />
+        <Route path="/finance" component={Pages.FinanceLanding} />
+        <Route path="/humaniq" component={Pages.HumanIQLanding} />
+        <Route path="/legal" component={Pages.LegalLanding} />
+        <Route path="/appforge" component={Pages.AppForgeLanding} />
+        <Route path="/marketing" component={Pages.MarketingLanding} />
+        <Route path="/marketplace" component={Pages.MarketplaceLanding} />
+        <Route path="/education" component={Pages.EducationLanding} />
+        <Route path="/attend" component={Pages.AttendLanding} />
+        <Route path="/smartdocs" component={Pages.SmartDocsLanding} />
+        <Route path="/hospitality" component={Pages.HospitalityLanding} />
+        <Route path="/feasibility" component={Pages.FeasibilityLanding} />
+        <Route path="/cvbuilder" component={Pages.CVBuilderLanding} />
+        <Route path="/jobs" component={Pages.JobsLanding} />
+        <Route path="/trainai" component={Pages.TrainAILanding} />
+        <Route path="/globalcloud" component={Pages.GlobalCloudLanding} />
+        <Route path="/shieldgrid" component={Pages.ShieldGridLanding} />
+        <Route path="/smartremote" component={Pages.SmartRemoteLanding} />
+        <Route path="/pitch-deck" component={Pages.PitchDeck} />
+        <Route path="/pitch-deck/engine" component={Pages.PitchDeckEngine} />
+        <Route path="/pitch-deck/finance" component={Pages.PitchDeckFinance} />
+        <Route path="/pitch-deck/humaniq" component={Pages.PitchDeckHumanIQ} />
+        <Route path="/pitch-deck/legal" component={Pages.PitchDeckLegal} />
+        <Route path="/pitch-deck/appforge" component={Pages.PitchDeckAppForge} />
+        <Route path="/pitch-deck/marketing" component={Pages.PitchDeckMarketing} />
+        <Route path="/pitch-deck/marketplace" component={Pages.PitchDeckMarketplace} />
+        <Route path="/pitch-deck/education" component={Pages.PitchDeckEducation} />
+        <Route path="/pitch-deck/attend" component={Pages.PitchDeckAttend} />
+        <Route path="/pitch-deck/smartdocs" component={Pages.PitchDeckSmartDocs} />
+        <Route path="/pitch-deck/hospitality" component={Pages.PitchDeckHospitality} />
+        <Route path="/pitch-deck/smartmemory" component={Pages.PitchDeckSmartMemory} />
+        <Route path="/pitch-deck/visionfeasibility" component={Pages.PitchDeckVisionFeasibility} />
+        <Route path="/pitch-deck/cvbuilder" component={Pages.PitchDeckCVBuilder} />
+        <Route path="/pitch-deck/jobsai" component={Pages.PitchDeckJobsAI} />
+        <Route path="/pitch-deck/trainai" component={Pages.PitchDeckTrainAI} />
+        <Route path="/pitch-deck/sovereignfinance" component={Pages.PitchDeckSovereignFinance} />
+        <Route path="/pitch-deck/globalcloud" component={Pages.PitchDeckGlobalCloud} />
+        <Route path="/pitch-deck/shieldgrid" component={Pages.PitchDeckShieldGrid} />
+        <Route path="/pitch-deck/smartremote" component={Pages.PitchDeckSmartRemote} />
+        <Route path="/pitch-deck/master" component={Pages.PitchDeckMaster} />
+        <Route path="/pitch-deck/vision" component={Pages.PitchDeck} />
+        <Route path="/pitch-deck/solution" component={Pages.PitchDeck} />
+        <Route path="/pitch-deck/business" component={Pages.PitchDeck} />
+        <Route path="/pitch-deck/financials" component={Pages.PitchDeck} />
+        <Route path="/pitch-deck/team" component={Pages.PitchDeck} />
+        <Route path="/pitch-deck/roadmap" component={Pages.PitchDeck} />
+        <Route path="/pitch-deck/investors" component={Pages.PitchDeck} />
+        <Route path="/pitch-deck/export" component={Pages.PitchDeck} />
+        <Route path="/investor-narrative" component={Pages.InvestorNarrative} />
+        <Route path="/executive-summaries" component={Pages.ExecutiveSummaries} />
+        <Route path="/demo-storyboards" component={Pages.DemoStoryboards} />
+        <Route path="/sovereign-narrative" component={Pages.SovereignNarrative} />
+        <Route path="/competitive-kill-map" component={Pages.CompetitiveKillMap} />
+        <Route path="/sovereign-readiness" component={Pages.SovereignReadiness} />
+        <Route path="/investor-objections" component={Pages.InvestorObjections} />
+        <Route path="/exit-strategy" component={Pages.ExitStrategy} />
+        <Route path="/government-adoption" component={Pages.GovernmentAdoption} />
+        <Route path="/economic-engine" component={Pages.EconomicEngine} />
+        <Route path="/gtm-playbook" component={Pages.GTMPlaybook} />
+        <Route path="/trust-proof" component={Pages.TrustProof} />
+        <Route path="/founder-narrative" component={Pages.FounderNarrative} />
+        <Route path="/red-line-rules" component={Pages.RedLineRules} />
+        <Route path="/time-dominance" component={Pages.TimeDominance} />
+        <Route path="/crisis-playbook" component={Pages.CrisisPlaybook} />
+        <Route path="/irreplaceability-proof" component={Pages.IrreplaceabilityProof} />
+        <Route path="/board-documents" component={Pages.BoardDocuments} />
+        <Route path="/government-pack" component={Pages.GovernmentPack} />
+        <Route path="/document-governance" component={Pages.DocumentGovernance} />
+        <Route path="/launch-sequencing" component={Pages.LaunchSequencing} />
+        <Route path="/stakeholder-access" component={Pages.StakeholderAccess} />
+        <Route path="/launch-checklist" component={Pages.LaunchChecklist} />
+        <Route path="/crisis-communication" component={Pages.CrisisCommunication} />
+        <Route path="/war-room" component={Pages.WarRoom} />
+        <Route path="/founder-framework" component={Pages.FounderFramework} />
+        <Route path="/about" component={Pages.About} />
+        <Route path="/terms" component={Pages.Terms} />
+        <Route path="/privacy" component={Pages.Privacy} />
+        <Route path="/refund" component={Pages.Refund} />
+        <Route path="/ai-policy" component={Pages.AIPolicy} />
+        <Route path="/performance-policy" component={Pages.PerformancePolicy} />
+        <Route path="/multi-app-policy" component={Pages.MultiAppPolicy} />
+        <Route path="/visual-identity" component={Pages.VisualIdentity} />
+        <Route path="/icon-management" component={Pages.IconManagement} />
+        <Route path="/contact" component={Pages.Contact} />
+        <Route path="/auth" component={Pages.Auth} />
+        <Route path="/builder" component={Pages.Builder} />
+        <Route path="/builder/:id" component={Pages.Builder} />
+        <Route path="/conversations" component={Pages.ConversationHistory} />
+        <Route path="/projects" component={Pages.Projects} />
+        <Route path="/templates" component={Pages.Templates} />
+        <Route path="/pricing" component={Pages.Pricing} />
+        <Route path="/sovereign" component={Pages.Sovereign} />
+        <Route path="/chatbot-builder" component={Pages.ChatbotBuilder} />
+        <Route path="/analytics" component={Pages.Analytics} />
+        <Route path="/seo-optimizer" component={Pages.SEOOptimizer} />
+        <Route path="/white-label" component={Pages.WhiteLabel} />
+        <Route path="/owner" component={Pages.OwnerDashboard} />
+        <Route path="/owner/command" component={Pages.OwnerCommand} />
+        <Route path="/owner/nova-sovereign" component={Pages.NovaSovereignDashboard} />
+        <Route path="/owner/notifications" component={Pages.OwnerNotifications} />
+        <Route path="/owner/infrastructure" component={Pages.OwnerInfrastructure} />
+        <Route path="/owner/integrations" component={Pages.OwnerIntegrations} />
+        <Route path="/owner/ai-sovereignty" component={Pages.OwnerAISovereignty} />
+        <Route path="/owner/ai-capability-control" component={Pages.OwnerAICapabilityControl} />
+        <Route path="/owner/assistant-governance" component={Pages.AssistantGovernancePage} />
+        <Route path="/owner/dynamic-control" component={Pages.DynamicControlPage} />
+        <Route path="/owner/nova-permissions" component={Pages.NovaPermissionsPage} />
+        <Route path="/owner/email-settings" component={Pages.OwnerEmailSettings} />
+        <Route path="/owner/ai-settings" component={Pages.AISettings} />
+        <Route path="/owner/ai-model-registry" component={Pages.AIModelRegistry} />
+        <Route path="/owner/infera-intelligence" component={Pages.InferaIntelligenceModels} />
+        <Route path="/owner/infera-agent" component={Pages.InferaAgent} />
+        <Route path="/ai-builder" component={Pages.AiAppBuilder} />
+        <Route path="/ide" component={Pages.IDEProjects} />
+        <Route path="/ide/:id" component={Pages.CloudIDE} />
+        <Route path="/sovereign-control" component={Pages.SovereignControlCenter} />
+        <Route path="/sovereign/command-center" component={Pages.SovereignCommandCenter} />
+        <Route path="/sovereign/ai-governance" component={Pages.AIGovernanceEngine} />
+        <Route path="/sovereign/digital-borders" component={Pages.DigitalBorders} />
+        <Route path="/sovereign/policy-engine" component={Pages.PolicyEngine} />
+        <Route path="/sovereign/trust-compliance" component={Pages.TrustCompliance} />
+        <Route path="/sovereign/strategic-forecast" component={Pages.StrategicForecast} />
+        <Route path="/domains" component={Pages.Domains} />
+        <Route path="/domain-search" component={Pages.DomainSearch} />
+        <Route path="/settings" component={Pages.Settings} />
+        <Route path="/platform-generator" component={Pages.PlatformGenerator} />
+        <Route path="/api-keys" component={Pages.ApiKeys} />
+        <Route path="/payments" component={Pages.PaymentsDashboard} />
+        <Route path="/payment/success" component={Pages.PaymentSuccess} />
+        <Route path="/payment/cancel" component={Pages.PaymentCancel} />
+        <Route path="/subscription" component={Pages.Subscription} />
+        <Route path="/notifications" component={Pages.Notifications} />
+        <Route path="/marketing" component={Pages.Marketing} />
+        <Route path="/invoices" component={Pages.Invoices} />
+        <Route path="/integrations" component={Pages.Integrations} />
+        <Route path="/smart-suggestions" component={Pages.SmartSuggestions} />
+        <Route path="/deploy" component={Pages.OneClickDeploy} />
+        <Route path="/ssl" component={Pages.SSLCertificates} />
+        <Route path="/ssl-certificates" component={Pages.SSLCertificates} />
+        <Route path="/ssh-vault" component={Pages.SSHVault} />
+        <Route path="/github" component={Pages.GitHubManager} />
+        <Route path="/sovereign-plans" component={Pages.SovereignPlans} />
+        <Route path="/sovereign-workspace" component={Pages.SovereignWorkspaceShell} />
+        <Route path="/logo-factory" component={Pages.LogoFactory} />
+        <Route path="/government-compliance" component={Pages.GovernmentCompliance} />
+        <Route path="/owner/policies" component={Pages.OwnerPolicies} />
+        <Route path="/departments" component={Pages.DepartmentsPage} />
+        <Route path="/tasks" component={Pages.TasksPage} />
+        <Route path="/employee-dashboard" component={Pages.EmployeeDashboard} />
+        <Route path="/backend-generator" component={Pages.BackendGenerator} />
+        <Route path="/git" component={Pages.GitControl} />
+        <Route path="/ai-copilot" component={Pages.AICopilot} />
+        <Route path="/infera-agent" component={Pages.InferaAgentV2} />
+        <Route path="/infera-agent-old" component={Pages.InferaAgent} />
+        <Route path="/agent" component={Pages.AgentStandalone} />
+        <Route path="/testing" component={Pages.TestingGenerator} />
+        <Route path="/marketplace" component={Pages.Marketplace} />
+        <Route path="/extensions" component={Pages.Marketplace} />
+        <Route path="/collaboration" component={Pages.Collaboration} />
+        <Route path="/console" component={Pages.ConsolePage} />
+        <Route path="/support" component={Pages.Support} />
+        <Route path="/support/agent" component={Pages.SupportAgentDashboard} />
+        <Route path="/support/command-center" component={Pages.AgentCommandCenter} />
+        <Route path="/admin/subscriptions" component={Pages.AdminSubscriptions} />
+        <Route path="/owner/deletion-management" component={Pages.DeletionManagement} />
+        <Route path="/owner/isds" component={Pages.ISDSPage} />
+        <Route path="/owner/spom" component={Pages.SpomPage} />
+        <Route path="/owner/quality" component={Pages.QualityDashboard} />
+        <Route path="/owner/sidebar-manager" component={Pages.SidebarManager} />
+        <Route path="/owner/platform-maps" component={Pages.PlatformMaps} />
+        <Route path="/sovereign-chat" component={Pages.SovereignChat} />
+        <Route path="/owner/platform-registry" component={Pages.PlatformRegistry} />
+        <Route path="/nova" component={Pages.NovaChat} />
+        <Route path="/nova/operations" component={Pages.OperationsDashboard} />
+        <Route path="/nova/builds" component={Pages.BuildManager} />
+        <Route path="/mobile-builder" component={Pages.MobileAppBuilder} />
+        <Route path="/desktop-builder" component={Pages.DesktopAppBuilder} />
+        <Route path="/maps" component={Pages.MapsPage} />
+        <Route path="/cicd" component={Pages.CICDPipeline} />
+        <Route path="/military-security" component={Pages.MilitarySecurity} />
+        <Route path="/device-testing" component={Pages.DeviceTesting} />
+        <Route path="/permission-control" component={Pages.PermissionControl} />
+        <Route path="/sovereign-compliance" component={Pages.SovereignCompliance} />
+        <Route path="/staff-management" component={Pages.StaffManagement} />
+        <Route path="/sovereign-permissions" component={Pages.SovereignPermissions} />
+        <Route path="/content-moderation" component={Pages.ContentModeration} />
+        <Route path="/owner/control-center" component={Pages.OwnerControlCenter} />
+        <Route path="/preview/:shareCode" component={Pages.Preview} />
+        <Route component={Pages.NotFound} />
+      </Switch>
+    </Suspense>
   );
 }
 
-function SovereignAccessSummaryWrapper() {
-  const [location] = useLocation();
-  return <SovereignAccessSummary currentRoute={location} />;
-}
-
 function NotificationBell() {
-  const [, setLocation] = useLocation();
-  const { isAuthenticated } = useAuth();
-  
-  const { data: countData } = useQuery<{ count: number }>({
-    queryKey: ["/api/notifications/unread-count"],
-    enabled: isAuthenticated,
-    refetchInterval: 30000,
+  const { data: notifications } = useQuery<any[]>({
+    queryKey: ["/api/notifications"],
   });
-
-  if (!isAuthenticated) return null;
-
-  const unreadCount = countData?.count || 0;
-
+  
+  const unreadCount = notifications?.filter((n: any) => !n.isRead).length || 0;
+  
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={() => setLocation("/notifications")}
-      className="relative"
-      data-testid="button-notifications"
-    >
-      <Bell className="h-5 w-5" />
+    <Button variant="ghost" size="icon" className="relative" data-testid="button-notifications">
+      <Bell className="h-4 w-4" />
       {unreadCount > 0 && (
         <Badge 
           variant="destructive" 
           className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
         >
-          {unreadCount > 9 ? "9+" : unreadCount}
+          {unreadCount > 99 ? "99+" : unreadCount}
         </Badge>
       )}
     </Button>
   );
 }
 
-
 function AppContent() {
-  const { isRtl } = useLanguage();
-  const { isAuthenticated, user } = useAuth();
+  const { user, isLoading } = useAuth();
+  const { language } = useLanguage();
+  const { branding, isLoading: brandingLoading } = usePlatformBranding();
   
-  // Load and apply platform branding dynamically
-  usePlatformBranding();
+  if (isLoading || brandingLoading) {
+    return <PageLoadingSkeleton />;
+  }
   
-  const style = {
+  const isRTL = language === "ar";
+  const sidebarStyle = {
     "--sidebar-width": "16rem",
-    "--sidebar-width-icon": "3rem",
-  };
-
-  return (
-    <WorkspaceProvider authUser={user} initialRtl={isRtl}>
-    <SovereignViewProvider>
-    <InspectorProvider>
-    <div dir={isRtl ? "rtl" : "ltr"}>
-      <SidebarProvider style={style as React.CSSProperties}>
-        <div className="flex h-screen w-full">
-          {isAuthenticated ? (
-            <AppSidebar side={isRtl ? "right" : "left"} />
-          ) : (
-            <GuestSidebar side={isRtl ? "right" : "left"} />
-          )}
-          <div className="flex flex-col flex-1 min-w-0">
-            <header className="flex items-center justify-between gap-2 p-3 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
-              <div className="flex items-center gap-2">
+    "--sidebar-width-icon": "3.5rem",
+  } as React.CSSProperties;
+  
+  if (!user) {
+    return (
+      <SidebarProvider style={sidebarStyle}>
+        <div className={`flex h-screen w-full ${isRTL ? "flex-row-reverse" : ""}`} dir={isRTL ? "rtl" : "ltr"}>
+          <GuestSidebar />
+          <div className="flex flex-col flex-1 overflow-hidden">
+            <header className={`flex items-center justify-between gap-2 p-2 border-b h-14 shrink-0 ${isRTL ? "flex-row-reverse" : ""}`}>
+              <div className={`flex items-center gap-2 ${isRTL ? "flex-row-reverse" : ""}`}>
                 <SidebarTrigger data-testid="button-sidebar-toggle" />
-                {isAuthenticated && <CommandPalette language={isRtl ? "ar" : "en"} />}
               </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <AIProviderTopbar />
-                <NovaAssistantMenu />
-                <SovereignHeaderButton />
-                <SovereignViewToggle />
-                <InspectorToggle />
-                <NotificationBell />
+              <div className={`flex items-center gap-2 ${isRTL ? "flex-row-reverse" : ""}`}>
                 <LanguageToggle />
                 <ThemeToggle />
               </div>
             </header>
             <main className="flex-1 overflow-auto">
-              {isAuthenticated ? <AuthenticatedRouter /> : <GuestRouter />}
+              <GuestRouter />
             </main>
-            {isAuthenticated && (
-              <footer className="border-t bg-gradient-to-r from-background via-muted/30 to-background py-3 px-4">
-                <div className="flex items-center justify-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <div className="relative">
-                      <div className="absolute inset-0 bg-primary/20 blur-md rounded-full" />
-                      <div className="relative w-6 h-6 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
-                        <span className="text-[10px] font-bold text-primary-foreground">IE</span>
-                      </div>
-                    </div>
-                    <span className="text-sm font-medium bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-                      INFERA Engine
-                    </span>
-                  </div>
-                  <span className="text-muted-foreground/50">|</span>
-                  <span className="text-xs text-muted-foreground">
-                    {isRtl 
-                      ? 'تقنيات مبتكرة لعالم رقمي متطور' 
-                      : 'Innovative Technology for an Evolving Digital World'
-                    }
-                  </span>
-                  <span className="text-muted-foreground/50">|</span>
-                  <span className="text-xs text-muted-foreground/70">
-                    © {new Date().getFullYear()} INFERA Engine
-                  </span>
-                </div>
-              </footer>
-            )}
           </div>
         </div>
       </SidebarProvider>
-      
-      {/* Sovereign Analytics Panel - لوحة التحليلات السيادية */}
-      <SovereignIndicator />
-      
-      {/* Sovereign Access Summary - ملخص صلاحيات الوصول */}
-      <SovereignAccessSummaryWrapper />
-      
-      {/* Nova AI Floating Button - زر نوفا العائم */}
-      <NovaFloatingButton />
-      
-      {/* Real Performance Tracking - تتبع الأداء الحقيقي */}
-      <PerformanceTracker />
-    </div>
-    </InspectorProvider>
-    </SovereignViewProvider>
-    </WorkspaceProvider>
-  );
-}
-
-function App() {
+    );
+  }
+  
+  const isOwner = user?.role === "owner" || user?.role === "sovereign" || user?.id === 1;
+  
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <LanguageProvider>
-          <TooltipProvider>
-            <AppContent />
-            <Toaster />
-          </TooltipProvider>
-        </LanguageProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <InspectorProvider>
+      <SovereignViewProvider>
+        <SidebarProvider style={sidebarStyle}>
+          <div className={`flex h-screen w-full ${isRTL ? "flex-row-reverse" : ""}`} dir={isRTL ? "rtl" : "ltr"}>
+            <AppSidebar />
+            <div className="flex flex-col flex-1 overflow-hidden">
+              <header className={`flex items-center justify-between gap-2 p-2 border-b h-14 shrink-0 ${isRTL ? "flex-row-reverse" : ""}`}>
+                <div className={`flex items-center gap-2 ${isRTL ? "flex-row-reverse" : ""}`}>
+                  <SidebarTrigger data-testid="button-sidebar-toggle" />
+                  {isOwner && <SovereignHeaderButton />}
+                </div>
+                <div className={`flex items-center gap-2 ${isRTL ? "flex-row-reverse" : ""}`}>
+                  {isOwner && <AIProviderTopbar />}
+                  {isOwner && <NovaAssistantMenu />}
+                  <NotificationBell />
+                  {isOwner && <InspectorToggle />}
+                  {isOwner && <SovereignViewToggle />}
+                  <LanguageToggle />
+                  <ThemeToggle />
+                </div>
+              </header>
+              <main className="flex-1 overflow-auto">
+                <AuthenticatedRouter />
+              </main>
+            </div>
+          </div>
+          <CommandPalette />
+          <SovereignIndicator />
+          <NovaFloatingButton />
+          {isOwner && <SovereignAccessSummary />}
+        </SidebarProvider>
+      </SovereignViewProvider>
+    </InspectorProvider>
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <ThemeProvider>
+      <LanguageProvider>
+        <WorkspaceProvider>
+          <QueryClientProvider client={queryClient}>
+            <TooltipProvider>
+              <PerformanceTracker />
+              <AppContent />
+              <Toaster />
+            </TooltipProvider>
+          </QueryClientProvider>
+        </WorkspaceProvider>
+      </LanguageProvider>
+    </ThemeProvider>
+  );
+}

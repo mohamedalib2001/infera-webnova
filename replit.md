@@ -10,6 +10,59 @@ I prefer detailed explanations.
 Do not make changes to the folder `Z`.
 Do not make changes to the file `Y`.
 
+## 🔒 MANDATORY Platform Governance Policy (NON-NEGOTIABLE)
+
+**This policy is MANDATORY and cannot be bypassed for any reason.**
+
+### Code Line Limits (ENFORCED)
+| File Type | Maximum Lines |
+|-----------|---------------|
+| Page / Route | 400 lines |
+| Component | 300 lines |
+| Hook | 200 lines |
+| Service / API | 250 lines |
+| Utility / Helper | 150 lines |
+
+### Strict Rules
+1. **Pages = Coordinators Only**: No business logic, API calls, or heavy computation in pages
+2. **Lazy Loading Required**: All heavy components (charts, maps, large tables) must use lazy loading
+3. **Virtualization Required**: Lists/tables > 100 items must use virtualization
+4. **No Monolithic Files**: One responsibility per file
+5. **80% Warning**: Files at 80% of limit are in warning state
+
+### Performance Standards
+- First Load Time: < 2.5 seconds
+- JS Execution: < 1 second
+- Re-renders: ≤ 3 per interaction
+
+### Enforcement
+- Non-compliant code is REJECTED
+- Engineering review required before any release
+- See `docs/PLATFORM_GOVERNANCE_POLICY.md` for full policy
+
+## 🔒 MANDATORY Routing & Navigation Policy (NON-NEGOTIABLE)
+
+### Core Principle
+**Displaying a page in menu ≠ Loading page code**
+
+### Sidebar Rules
+- Sidebar uses **Metadata only** (label, icon, route, roles)
+- **NO page imports** in sidebar
+- **NO hooks or API calls** in sidebar
+- Menu items: `{ id, label, icon, route, roles }`
+
+### Routing Rules
+- **ALL pages must use lazy loading**: `const Page = lazy(() => import('@/pages/Page'))`
+- Direct page imports are **PROHIBITED**
+- Permissions control visibility, NOT code loading
+
+### Performance Standards
+- Sidebar load: < 100ms
+- No API calls during sidebar render
+- No unnecessary re-renders
+
+See `docs/ROUTING_GOVERNANCE_POLICY.md` for full policy
+
 ## System Architecture
 INFERA WebNova employs a modern web stack: React, TypeScript, and Vite for the frontend; Express.js and Node.js for the backend; and PostgreSQL with Drizzle ORM for data persistence. Styling is handled by Tailwind CSS and Shadcn UI, and state management by TanStack Query.
 

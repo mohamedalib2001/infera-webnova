@@ -121,6 +121,7 @@ import { registerNovaPermissionRoutes } from "./nova-permissions";
 import { registerMemoryRoutes } from "./memory-service";
 import { registerOwnershipRoutes } from "./ownership-routes";
 import sidebarRoutes from "./sidebar-routes";
+import governanceRoutes from "./governance-routes";
 
 // Session user type
 declare module 'express-session' {
@@ -18149,6 +18150,10 @@ ${project.description || ""}
   // ==================== DYNAMIC SIDEBAR ORGANIZATION ====================
   app.use(sidebarRoutes);
   console.log("Dynamic Sidebar Organization routes registered | تم تسجيل مسارات تنظيم الشريط الجانبي");
+
+  // ==================== GOVERNANCE COMPLIANCE - MANDATORY POLICY ====================
+  app.use("/api/governance", governanceRoutes);
+  console.log("Governance Compliance routes registered | تم تسجيل مسارات الامتثال للحوكمة");
 
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 

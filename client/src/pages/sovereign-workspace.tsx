@@ -44,7 +44,6 @@ import {
   Brain,
 } from "lucide-react";
 const NovaSovereignWorkspace = lazy(() => import("@/components/nova-sovereign-workspace").then(m => ({ default: m.NovaSovereignWorkspace })));
-const LightweightIDEShell = lazy(() => import("@/components/sovereign-ide/LightweightIDEShell").then(m => ({ default: m.LightweightIDEShell })));
 import { 
   getPlatformLogoState, 
   checkGlobalCompliance, 
@@ -228,8 +227,92 @@ import {
   Crown, Star, Briefcase, Heart, GraduationCap, Landmark,
   ShoppingCart, Truck, Home, Hotel, Newspaper, Scale,
   Cpu, Zap, Cloud, Server, Network, Layers,
-  Bot, BrainCircuit, BarChart3, Workflow, PenTool
+  Bot, BrainCircuit, BarChart3, Workflow, PenTool,
+  Sparkles
 } from "lucide-react";
+
+// Lightweight IDE Launcher - تحميل بيئة التطوير عند الطلب فقط
+function SovereignCoreIDELauncher({ workspaceId, isOwner }: { workspaceId: string; isOwner: boolean }) {
+  const [IDEComponent, setIDEComponent] = useState<React.ComponentType<{ workspaceId: string; isOwner: boolean }> | null>(null);
+  const [loading, setLoading] = useState(false);
+  
+  const handleLaunch = async () => {
+    setLoading(true);
+    try {
+      const mod = await import("@/components/sovereign-core-ide");
+      setIDEComponent(() => mod.SovereignCoreIDE);
+    } catch (e) {
+      console.error("Failed to load IDE:", e);
+      setLoading(false);
+    }
+  };
+  
+  if (IDEComponent) {
+    return <IDEComponent workspaceId={workspaceId} isOwner={isOwner} />;
+  }
+  
+  if (loading) {
+    return (
+      <div className="h-[700px] w-full bg-gradient-to-br from-slate-950 via-violet-950/20 to-slate-950 flex items-center justify-center rounded-lg">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-12 w-12 mx-auto animate-spin text-violet-400" />
+          <p className="text-sm text-muted-foreground">Loading Sovereign Core IDE...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-[700px] w-full bg-gradient-to-br from-slate-950 via-violet-950/20 to-slate-950 flex items-center justify-center rounded-lg border border-violet-500/20">
+      <Card className="max-w-lg bg-slate-900/80 border-violet-500/30">
+        <CardHeader className="text-center pb-2">
+          <div className="relative mx-auto w-20 h-20 mb-4">
+            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 opacity-20" />
+            <div className="absolute inset-2 rounded-full bg-gradient-to-br from-violet-600 to-purple-800 flex items-center justify-center">
+              <Brain className="h-8 w-8 text-white" />
+            </div>
+          </div>
+          <CardTitle className="text-2xl bg-gradient-to-r from-violet-400 via-fuchsia-400 to-pink-400 bg-clip-text text-transparent">
+            Sovereign Core IDE
+          </CardTitle>
+          <CardDescription>
+            بيئة التطوير السيادية
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="text-center space-y-6">
+          <p className="text-sm text-muted-foreground">
+            Full-featured IDE with Sovereign AI for building world-class digital platforms
+          </p>
+          
+          <div className="grid grid-cols-3 gap-3 text-xs">
+            <div className="p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
+              <Code2 className="h-5 w-5 mx-auto mb-1 text-violet-400" />
+              <span className="text-muted-foreground">Code Editor</span>
+            </div>
+            <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+              <Shield className="h-5 w-5 mx-auto mb-1 text-green-400" />
+              <span className="text-muted-foreground">Military Security</span>
+            </div>
+            <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
+              <Sparkles className="h-5 w-5 mx-auto mb-1 text-cyan-400" />
+              <span className="text-muted-foreground">Nova AI</span>
+            </div>
+          </div>
+          
+          <Button 
+            onClick={handleLaunch}
+            size="lg"
+            className="w-full bg-gradient-to-r from-violet-600 to-fuchsia-600"
+            data-testid="button-launch-ide"
+          >
+            <Play className="h-5 w-5 mr-2" />
+            Launch IDE
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 // INFERA Engine Group Platforms Registry - سجل منصات مجموعة إنفيرا
 interface InferaPlatform {
@@ -1831,12 +1914,7 @@ export default function SovereignWorkspacePage() {
         </TabsContent>
 
         <TabsContent value="sovereign-core" className="mt-6">
-          <Suspense fallback={null}>
-            <LightweightIDEShell 
-              workspaceId={workspace?.id || ""} 
-              isOwner={true}
-            />
-          </Suspense>
+          <SovereignCoreIDELauncher workspaceId={workspace?.id || ""} isOwner={true} />
         </TabsContent>
 
         <TabsContent value="nova-ai" className="mt-6">
