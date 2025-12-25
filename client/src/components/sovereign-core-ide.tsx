@@ -202,7 +202,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
   
   const [activeTab, setActiveTab] = useState<"chat" | "code" | "preview" | "terminal">("chat");
   const [bottomTab, setBottomTab] = useState<"terminal" | "problems" | "output">("terminal");
-  const [rightTab, setRightTab] = useState<"tools" | "files" | "database" | "backend" | "packages" | "testing" | "git" | "deploy" | "debugger" | "copilot" | "compliance" | "tenants" | "rules" | "observability" | "marketplace" | "billing" | "ai-arch" | "export" | "env" | "team" | "api-test" | "cron" | "webhooks" | "profiler" | "notifications" | "settings" | "templates" | "docs" | "deps" | "formatter" | "migrations" | "logs" | "analytics" | "vault">("tools");
+  const [rightTab, setRightTab] = useState<"tools" | "files" | "database" | "backend" | "packages" | "testing" | "git" | "deploy" | "debugger" | "copilot" | "compliance" | "tenants" | "rules" | "observability" | "marketplace" | "billing" | "ai-arch" | "export" | "env" | "team" | "api-test" | "cron" | "webhooks" | "profiler" | "notifications" | "settings" | "templates" | "docs" | "deps" | "formatter" | "migrations" | "logs" | "analytics" | "vault" | "schema" | "routes" | "commands" | "governor">("tools");
   
   const [showSidebar, setShowSidebar] = useState(true);
   const [showRightPanel, setShowRightPanel] = useState(true);
@@ -1192,6 +1192,18 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                       </TabsTrigger>
                       <TabsTrigger value="vault" className="text-[10px] px-1" data-testid="tab-vault" aria-label={isRtl ? "الخزنة" : "Vault"}>
                         <Lock className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="schema" className="text-[10px] px-1" data-testid="tab-schema" aria-label={isRtl ? "المخطط" : "Schema"}>
+                        <Database className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="routes" className="text-[10px] px-1" data-testid="tab-routes" aria-label={isRtl ? "المسارات" : "Routes"}>
+                        <Globe className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="commands" className="text-[10px] px-1" data-testid="tab-commands" aria-label={isRtl ? "الأوامر" : "Commands"}>
+                        <Command className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="governor" className="text-[10px] px-1" data-testid="tab-governor" aria-label={isRtl ? "الحاكم" : "Governor"}>
+                        <Crown className="h-3 w-3" />
                       </TabsTrigger>
                     </TabsList>
                   </div>
@@ -4977,6 +4989,519 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                           <div className="flex items-center justify-between text-[10px]">
                             <span className="text-muted-foreground">{isRtl ? "سجل الوصول" : "Access Logs"}</span>
                             <span className="text-cyan-400 font-medium">256</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Schema Introspector Tab - Sovereign Data Awareness */}
+                  <TabsContent value="schema" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      <Card className="mb-2 bg-gradient-to-br from-cyan-500/20 via-blue-500/10 to-transparent border-cyan-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-cyan-500/20">
+                              <Database className="h-4 w-4 text-cyan-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "مفتش البيانات السيادي" : "Sovereign Data Introspector"}</p>
+                              <p className="text-[10px] text-green-400">{isRtl ? "وعي كامل بقاعدة البيانات" : "Full Database Awareness"}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px]">
+                            <Badge variant="outline" className="text-[9px] h-4 text-cyan-400">PostgreSQL</Badge>
+                            <Badge variant="outline" className="text-[9px] h-4 text-green-400">{isRtl ? "متصل" : "Connected"}</Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Database Tables with Full Schema */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Hash className="h-3.5 w-3.5 text-cyan-400" />
+                            {isRtl ? "جداول قاعدة البيانات" : "Database Tables"}
+                            <Badge variant="outline" className="text-[10px] h-4 ml-auto">24</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { name: "users", rows: "15,248", columns: 18, size: "4.2MB" },
+                            { name: "sessions", rows: "8,456", columns: 4, size: "1.8MB" },
+                            { name: "platforms", rows: "342", columns: 22, size: "0.8MB" },
+                            { name: "login_sessions", rows: "45,678", columns: 16, size: "8.4MB" },
+                            { name: "subscription_plans", rows: "5", columns: 28, size: "0.1MB" },
+                            { name: "user_subscriptions", rows: "1,234", columns: 14, size: "0.4MB" },
+                            { name: "audit_logs", rows: "125,890", columns: 12, size: "24.5MB" },
+                            { name: "permissions", rows: "856", columns: 8, size: "0.2MB" },
+                          ].map((table, i) => (
+                            <div key={table.name} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px] hover:bg-muted transition-colors cursor-pointer" data-testid={`schema-table-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <Database className="h-3 w-3 text-cyan-400" />
+                                <span className="font-mono">{table.name}</span>
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">{table.columns} cols</span>
+                                <Badge variant="outline" className="text-[9px] h-4">{table.rows}</Badge>
+                                <span className="text-cyan-400">{table.size}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Live Query Executor */}
+                      <Card className="mb-2 border-green-500/20">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Terminal className="h-3.5 w-3.5 text-green-400" />
+                            {isRtl ? "منفذ الاستعلامات الحي" : "Live Query Executor"}
+                            <Badge variant="outline" className="text-[9px] h-4 ml-auto text-amber-400">{isRtl ? "صلاحية المالك" : "Owner Only"}</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-2">
+                          <Textarea 
+                            placeholder="SELECT * FROM users LIMIT 10;" 
+                            className="h-16 text-[10px] font-mono resize-none bg-muted/50" 
+                            data-testid="input-schema-query"
+                          />
+                          <div className="flex items-center gap-1">
+                            <Button size="sm" className="flex-1 h-7 text-[10px] bg-green-600 hover:bg-green-700" data-testid="button-execute-query">
+                              <Play className="h-3 w-3 mr-1" />
+                              {isRtl ? "تنفيذ" : "Execute"}
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-7 text-[10px]" data-testid="button-explain-query">
+                              <Lightbulb className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Schema Relationships */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Network className="h-3.5 w-3.5 text-violet-400" />
+                            {isRtl ? "العلاقات" : "Relationships"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { from: "login_sessions.userId", to: "users.id", type: "FK" },
+                            { from: "user_subscriptions.userId", to: "users.id", type: "FK" },
+                            { from: "platforms.ownerId", to: "users.id", type: "FK" },
+                            { from: "audit_logs.actorId", to: "users.id", type: "FK" },
+                          ].map((rel, i) => (
+                            <div key={i} className="flex items-center gap-2 p-1.5 rounded bg-muted/30 text-[10px]">
+                              <span className="text-cyan-400 font-mono">{rel.from}</span>
+                              <ArrowRightLeft className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-violet-400 font-mono">{rel.to}</span>
+                              <Badge variant="outline" className="text-[9px] h-4 ml-auto">{rel.type}</Badge>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Database Stats */}
+                      <Card className="bg-gradient-to-br from-cyan-500/10 to-transparent border-cyan-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "إجمالي الجداول" : "Total Tables"}</span>
+                            <span className="text-cyan-400 font-medium">24</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "إجمالي السجلات" : "Total Records"}</span>
+                            <span className="text-cyan-400 font-medium">197,709</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "حجم قاعدة البيانات" : "Database Size"}</span>
+                            <span className="text-cyan-400 font-medium">42.8 MB</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "الفهارس" : "Indexes"}</span>
+                            <span className="text-green-400 font-medium">38</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Routes Registry Tab - Global Page Awareness */}
+                  <TabsContent value="routes" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      <Card className="mb-2 bg-gradient-to-br from-blue-500/20 via-indigo-500/10 to-transparent border-blue-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-blue-500/20">
+                              <Globe className="h-4 w-4 text-blue-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "سجل المسارات العالمي" : "Global Route Registry"}</p>
+                              <p className="text-[10px] text-green-400">{isRtl ? "كل الصفحات والمسارات" : "All Pages & Endpoints"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Frontend Routes */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Layout className="h-3.5 w-3.5 text-blue-400" />
+                            {isRtl ? "مسارات الواجهة" : "Frontend Routes"}
+                            <Badge variant="outline" className="text-[10px] h-4 ml-auto">18</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { path: "/", name: "Home", auth: false, status: "active" },
+                            { path: "/workspace/:id", name: "Sovereign Workspace", auth: true, status: "active" },
+                            { path: "/dashboard", name: "Dashboard", auth: true, status: "active" },
+                            { path: "/auth/login", name: "Login", auth: false, status: "active" },
+                            { path: "/admin", name: "Admin Panel", auth: true, status: "active" },
+                            { path: "/settings", name: "Settings", auth: true, status: "active" },
+                            { path: "/billing", name: "Billing", auth: true, status: "active" },
+                          ].map((route, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px] hover:bg-muted transition-colors cursor-pointer" data-testid={`route-frontend-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <FileCode className="h-3 w-3 text-blue-400" />
+                                <span className="font-mono">{route.path}</span>
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">{route.name}</span>
+                                {route.auth && <Lock className="h-3 w-3 text-amber-400" />}
+                                <Badge variant="outline" className="text-[9px] h-4 text-green-400">{route.status}</Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* API Endpoints */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Server className="h-3.5 w-3.5 text-violet-400" />
+                            {isRtl ? "نقاط API" : "API Endpoints"}
+                            <Badge variant="outline" className="text-[10px] h-4 ml-auto">45</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { method: "GET", path: "/api/users", auth: true, desc: "List users" },
+                            { method: "POST", path: "/api/auth/login", auth: false, desc: "Login" },
+                            { method: "GET", path: "/api/platforms", auth: true, desc: "List platforms" },
+                            { method: "POST", path: "/api/ai/chat", auth: true, desc: "AI Chat" },
+                            { method: "GET", path: "/api/analytics", auth: true, desc: "Analytics" },
+                            { method: "DELETE", path: "/api/users/:id", auth: true, desc: "Delete user" },
+                          ].map((ep, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px] hover:bg-muted transition-colors cursor-pointer" data-testid={`route-api-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <Badge variant="outline" className={`text-[9px] h-4 ${ep.method === 'GET' ? 'text-green-400' : ep.method === 'POST' ? 'text-blue-400' : ep.method === 'DELETE' ? 'text-red-400' : 'text-amber-400'}`}>{ep.method}</Badge>
+                                <span className="font-mono">{ep.path}</span>
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground truncate max-w-20">{ep.desc}</span>
+                                {ep.auth && <Lock className="h-3 w-3 text-amber-400" />}
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Route Stats */}
+                      <Card className="bg-gradient-to-br from-blue-500/10 to-transparent border-blue-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "صفحات الواجهة" : "Frontend Pages"}</span>
+                            <span className="text-blue-400 font-medium">18</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "نقاط API" : "API Endpoints"}</span>
+                            <span className="text-violet-400 font-medium">45</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "محمية" : "Protected"}</span>
+                            <span className="text-amber-400 font-medium">52</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "عامة" : "Public"}</span>
+                            <span className="text-green-400 font-medium">11</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Commands Matrix Tab - Unified Command Catalog */}
+                  <TabsContent value="commands" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      <Card className="mb-2 bg-gradient-to-br from-violet-500/20 via-purple-500/10 to-transparent border-violet-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-violet-500/20">
+                              <Command className="h-4 w-4 text-violet-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "مصفوفة الأوامر السيادية" : "Sovereign Command Matrix"}</p>
+                              <p className="text-[10px] text-green-400">{isRtl ? "كل الأوامر المتاحة" : "All Available Commands"}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px]">
+                            <Badge variant="outline" className="text-[9px] h-4 text-violet-400">128 {isRtl ? "أمر" : "Commands"}</Badge>
+                            <Badge variant="outline" className="text-[9px] h-4 text-amber-400">{isRtl ? "كامل الصلاحيات" : "Full Access"}</Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* System Commands */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Terminal className="h-3.5 w-3.5 text-green-400" />
+                            {isRtl ? "أوامر النظام" : "System Commands"}
+                            <Badge variant="outline" className="text-[10px] h-4 ml-auto text-red-400">{isRtl ? "خطر" : "Danger"}</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { cmd: "system:restart", desc: isRtl ? "إعادة تشغيل النظام" : "Restart system", level: "danger" },
+                            { cmd: "system:backup", desc: isRtl ? "نسخ احتياطي كامل" : "Full backup", level: "high" },
+                            { cmd: "system:restore", desc: isRtl ? "استعادة من نسخة" : "Restore from backup", level: "danger" },
+                            { cmd: "cache:clear", desc: isRtl ? "مسح ذاكرة التخزين" : "Clear all cache", level: "medium" },
+                            { cmd: "logs:rotate", desc: isRtl ? "تدوير السجلات" : "Rotate logs", level: "low" },
+                          ].map((c, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px] hover:bg-muted transition-colors cursor-pointer" data-testid={`command-system-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <span className={`h-2 w-2 rounded-full ${c.level === 'danger' ? 'bg-red-400' : c.level === 'high' ? 'bg-amber-400' : c.level === 'medium' ? 'bg-yellow-400' : 'bg-green-400'}`} />
+                                <span className="font-mono text-violet-400">{c.cmd}</span>
+                              </span>
+                              <span className="text-muted-foreground truncate max-w-24">{c.desc}</span>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Database Commands */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Database className="h-3.5 w-3.5 text-cyan-400" />
+                            {isRtl ? "أوامر قاعدة البيانات" : "Database Commands"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { cmd: "db:migrate", desc: isRtl ? "تطبيق الترحيلات" : "Run migrations", level: "high" },
+                            { cmd: "db:seed", desc: isRtl ? "بذر البيانات" : "Seed database", level: "medium" },
+                            { cmd: "db:reset", desc: isRtl ? "إعادة تعيين كامل" : "Full reset", level: "danger" },
+                            { cmd: "db:export", desc: isRtl ? "تصدير البيانات" : "Export data", level: "low" },
+                          ].map((c, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px] hover:bg-muted transition-colors cursor-pointer" data-testid={`command-db-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <span className={`h-2 w-2 rounded-full ${c.level === 'danger' ? 'bg-red-400' : c.level === 'high' ? 'bg-amber-400' : c.level === 'medium' ? 'bg-yellow-400' : 'bg-green-400'}`} />
+                                <span className="font-mono text-cyan-400">{c.cmd}</span>
+                              </span>
+                              <span className="text-muted-foreground truncate max-w-24">{c.desc}</span>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* AI Commands */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Brain className="h-3.5 w-3.5 text-pink-400" />
+                            {isRtl ? "أوامر الذكاء الاصطناعي" : "AI Commands"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { cmd: "ai:generate", desc: isRtl ? "توليد كود" : "Generate code", level: "low" },
+                            { cmd: "ai:analyze", desc: isRtl ? "تحليل المشروع" : "Analyze project", level: "low" },
+                            { cmd: "ai:optimize", desc: isRtl ? "تحسين الأداء" : "Optimize performance", level: "medium" },
+                            { cmd: "ai:deploy", desc: isRtl ? "نشر تلقائي" : "Auto deploy", level: "high" },
+                          ].map((c, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px] hover:bg-muted transition-colors cursor-pointer" data-testid={`command-ai-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <span className={`h-2 w-2 rounded-full ${c.level === 'danger' ? 'bg-red-400' : c.level === 'high' ? 'bg-amber-400' : c.level === 'medium' ? 'bg-yellow-400' : 'bg-green-400'}`} />
+                                <span className="font-mono text-pink-400">{c.cmd}</span>
+                              </span>
+                              <span className="text-muted-foreground truncate max-w-24">{c.desc}</span>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Command Executor */}
+                      <Card className="mb-2 border-violet-500/20">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Zap className="h-3.5 w-3.5 text-amber-400" />
+                            {isRtl ? "تنفيذ أمر" : "Execute Command"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-2">
+                          <div className="flex items-center gap-1">
+                            <Input placeholder={isRtl ? "اكتب الأمر..." : "Type command..."} className="h-7 text-[10px] font-mono flex-1" data-testid="input-command-execute" />
+                            <Button size="sm" className="h-7 bg-violet-600 hover:bg-violet-700" data-testid="button-run-command">
+                              <Play className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Command Stats */}
+                      <Card className="bg-gradient-to-br from-violet-500/10 to-transparent border-violet-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "إجمالي الأوامر" : "Total Commands"}</span>
+                            <span className="text-violet-400 font-medium">128</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "أوامر خطرة" : "Danger Level"}</span>
+                            <span className="text-red-400 font-medium">8</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "تنفيذات اليوم" : "Executions Today"}</span>
+                            <span className="text-green-400 font-medium">47</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Governor Tab - Root Permission Control */}
+                  <TabsContent value="governor" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      <Card className="mb-2 bg-gradient-to-br from-amber-500/20 via-orange-500/10 to-transparent border-amber-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-amber-500/20">
+                              <Crown className="h-4 w-4 text-amber-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "حاكم الصلاحيات الجذرية" : "Root Permission Governor"}</p>
+                              <p className="text-[10px] text-amber-400">{isRtl ? "سيطرة سيادية كاملة" : "Full Sovereign Control"}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px]">
+                            <Badge variant="outline" className="text-[9px] h-4 text-amber-400">ROOT_OWNER</Badge>
+                            <Badge variant="outline" className="text-[9px] h-4 text-green-400">{isRtl ? "نشط" : "Active"}</Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Permission Categories */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <ShieldCheck className="h-3.5 w-3.5 text-green-400" />
+                            {isRtl ? "فئات الصلاحيات" : "Permission Categories"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { name: isRtl ? "نظام" : "System", perms: 24, color: "text-red-400", enabled: true },
+                            { name: isRtl ? "قاعدة البيانات" : "Database", perms: 18, color: "text-cyan-400", enabled: true },
+                            { name: isRtl ? "المستخدمين" : "Users", perms: 12, color: "text-blue-400", enabled: true },
+                            { name: isRtl ? "المحتوى" : "Content", perms: 8, color: "text-green-400", enabled: true },
+                            { name: isRtl ? "الأمان" : "Security", perms: 15, color: "text-amber-400", enabled: true },
+                            { name: isRtl ? "النشر" : "Deployment", perms: 10, color: "text-violet-400", enabled: true },
+                          ].map((cat, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`perm-category-${i}`}>
+                              <span className={`flex items-center gap-2 ${cat.color}`}>
+                                <Shield className="h-3 w-3" />
+                                <span>{cat.name}</span>
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-[9px] h-4">{cat.perms}</Badge>
+                                <CheckCircle className="h-3 w-3 text-green-400" />
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Kill Switches */}
+                      <Card className="mb-2 border-red-500/20">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
+                            {isRtl ? "مفاتيح الإيقاف" : "Kill Switches"}
+                            <Badge variant="outline" className="text-[9px] h-4 ml-auto text-red-400">{isRtl ? "خطر" : "Danger"}</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { name: isRtl ? "إيقاف API" : "Disable API", status: false },
+                            { name: isRtl ? "وضع الصيانة" : "Maintenance Mode", status: false },
+                            { name: isRtl ? "تجميد التسجيل" : "Freeze Registration", status: false },
+                            { name: isRtl ? "حظر الوصول الخارجي" : "Block External Access", status: false },
+                          ].map((sw, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`kill-switch-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <Square className="h-3 w-3 text-red-400" />
+                                <span>{sw.name}</span>
+                              </span>
+                              <Badge variant="outline" className={`text-[9px] h-4 ${sw.status ? 'text-red-400' : 'text-green-400'}`}>
+                                {sw.status ? (isRtl ? "مفعل" : "ON") : (isRtl ? "معطل" : "OFF")}
+                              </Badge>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Audit Trail */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <History className="h-3.5 w-3.5 text-blue-400" />
+                            {isRtl ? "سجل التدقيق" : "Audit Trail"}
+                            <Badge variant="outline" className="text-[10px] h-4 ml-auto">{isRtl ? "غير قابل للتغيير" : "Immutable"}</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { action: isRtl ? "تسجيل دخول" : "Login", user: "Owner", time: "2m ago", type: "auth" },
+                            { action: isRtl ? "تعديل صلاحية" : "Permission Edit", user: "Owner", time: "1h ago", type: "perm" },
+                            { action: isRtl ? "نسخ احتياطي" : "Backup Created", user: "System", time: "6h ago", type: "system" },
+                            { action: isRtl ? "نشر" : "Deployment", user: "Owner", time: "1d ago", type: "deploy" },
+                          ].map((log, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`audit-log-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <span className={`h-2 w-2 rounded-full ${log.type === 'auth' ? 'bg-green-400' : log.type === 'perm' ? 'bg-amber-400' : log.type === 'system' ? 'bg-blue-400' : 'bg-violet-400'}`} />
+                                <span>{log.action}</span>
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">{log.user}</span>
+                                <span className="text-blue-400">{log.time}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Governor Stats */}
+                      <Card className="bg-gradient-to-br from-amber-500/10 to-transparent border-amber-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "إجمالي الصلاحيات" : "Total Permissions"}</span>
+                            <span className="text-amber-400 font-medium">87</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "المستخدمين النشطين" : "Active Users"}</span>
+                            <span className="text-green-400 font-medium">1,245</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "سجلات التدقيق" : "Audit Entries"}</span>
+                            <span className="text-blue-400 font-medium">125,890</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "آخر تدقيق" : "Last Audit"}</span>
+                            <span className="text-cyan-400 font-medium">{isRtl ? "منذ 2 دقيقة" : "2m ago"}</span>
                           </div>
                         </CardContent>
                       </Card>
