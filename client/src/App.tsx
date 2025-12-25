@@ -9,8 +9,9 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { LanguageToggle } from "@/components/language-toggle";
 import { LanguageProvider, useLanguage } from "@/hooks/use-language";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/app-sidebar";
+import { SovereignSidebar } from "@/components/sovereign-sidebar";
 import { GuestSidebar } from "@/components/guest-sidebar";
+import { useTheme } from "@/lib/theme";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Bell } from "lucide-react";
@@ -445,14 +446,34 @@ function NotificationBell() {
 
 function AppContent() {
   const { isRtl } = useLanguage();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   
   // Load and apply platform branding dynamically
   usePlatformBranding();
   
   const style = {
-    "--sidebar-width": "16rem",
-    "--sidebar-width-icon": "3rem",
+    "--sidebar-width": "18rem",
+    "--sidebar-width-icon": "4rem",
+  };
+
+  // Build user context for SovereignSidebar
+  const userContext = user ? {
+    id: user.id || "user",
+    role: user.role || "free",
+    planId: user.role === "owner" ? "sovereign" : (user.role === "enterprise" ? "enterprise" : (user.role === "pro" ? "pro" : "free")),
+    capabilities: [],
+    isOwner: user.role === "owner",
+    fullName: user.fullName || user.firstName || user.username || "User",
+    avatar: user.profileImageUrl || user.avatar,
+    email: user.email,
+  } : {
+    id: "guest",
+    role: "free" as const,
+    planId: "free",
+    capabilities: [],
+    isOwner: false,
+    fullName: "Guest",
   };
 
   return (
@@ -461,7 +482,13 @@ function AppContent() {
       <SidebarProvider style={style as React.CSSProperties}>
         <div className="flex h-screen w-full">
           {isAuthenticated ? (
-            <AppSidebar side={isRtl ? "right" : "left"} />
+            <SovereignSidebar 
+              user={userContext}
+              isRtl={isRtl}
+              onLogout={logout}
+              onThemeToggle={toggleTheme}
+              isDark={theme === "dark"}
+            />
           ) : (
             <GuestSidebar side={isRtl ? "right" : "left"} />
           )}

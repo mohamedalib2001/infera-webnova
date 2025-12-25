@@ -1,0 +1,208 @@
+🎯 الهدف النهائي (Target Architecture)
+
+قائمة جانبية (Sidebar) ديناميكية
+
+تعتمد على:
+
+Role (Owner / Manager / Employee)
+
+Subscription (Visitor / Free / Paid Plans)
+
+Package Capabilities
+
+Owner يرى كل شيء
+
+أي مستخدم آخر يرى تبويب واحد فقط = مساحة عمله
+
+عند إضافة باقة جديدة ➜
+
+ينشأ لها:
+
+Workspace
+
+Sidebar Tab
+
+Routes
+
+Permissions
+بدون تعديل كود يدوي
+
+🧠 المفهوم الأساسي (Mental Model)
+
+فكّر في المنصة كالتالي:
+
+User
+ ├── Role (Owner / Manager / Employee)
+ ├── Subscription
+ │    ├── plan_id
+ │    ├── plan_type (free / paid / sovereign)
+ │    ├── capabilities[]
+ └── Workspace[]
+      ├── type (owner | plan | org)
+      ├── menu[]
+      └── permissions
+
+1️⃣ تصميم البيانات (Database / Config First)
+🔹 جدول الباقات (plans)
+{
+  "id": "pro",
+  "name": "Pro",
+  "level": 2,
+  "price": 29.99,
+  "type": "paid",
+  "workspace": true,
+  "capabilities": [
+    "projects",
+    "ai_copilot",
+    "api_access"
+  ]
+}
+
+
+⚠️ مهم: لا تربط الصفحات مباشرة بالباقات،
+اربطها بـ capabilities.
+
+🔹 جدول الأدوار (roles)
+{
+  "id": "owner",
+  "priority": 100,
+  "can_view_all": true
+}
+
+{
+  "id": "employee",
+  "priority": 30,
+  "can_view_all": false
+}
+
+🔹 جدول القوائم (menu_registry)
+{
+  "id": "ai_models",
+  "label": "AI Models",
+  "icon": "cpu",
+  "route": "/ai/models",
+  "capability": "ai_models",
+  "workspace": "plan"
+}
+
+{
+  "id": "sovereign_command",
+  "label": "Sovereign Command",
+  "icon": "crown",
+  "route": "/sovereign",
+  "capability": "sovereign_access",
+  "workspace": "owner"
+}
+
+2️⃣ تقسيم التبويبات (Sidebar Sections)
+الهيكل الذكي للقائمة:
+Sidebar
+├── Owner Workspace
+│   ├── (Owner only)
+│
+├── My Workspace
+│   ├── (Plan Workspace)
+│
+├── Organization
+│   ├── (Managers / Employees)
+│
+└── Public / Basic
+
+3️⃣ منطق العرض (Dynamic Sidebar Engine)
+🔹 Algorithm (مهم جدًا)
+function buildSidebar(user, menus, plans) {
+  if (user.role === 'owner') {
+    return {
+      owner: menus.filter(m => m.workspace === 'owner'),
+      workspaces: getAllPlanWorkspaces()
+    }
+  }
+
+  const plan = plans[user.subscription.plan_id]
+
+  return {
+    workspace: menus.filter(
+      m => plan.capabilities.includes(m.capability)
+    )
+  }
+}
+
+4️⃣ تجربة المالك (Owner UX – احترافية عالية)
+عند تسجيل دخول المالك:
+
+يتم توجيهه تلقائيًا إلى:
+
+/owner/dashboard
+
+
+في أعلى الـ Sidebar:
+
+صورة
+
+الاسم
+
+Badge: Owner / Sovereign
+
+تبويب منفصل باسم:
+
+👑 Owner Control
+
+
+عند الضغط على أي Workspace:
+
+يتم Switch Context
+
+يتغير الـ Sidebar بالكامل
+
+نفس فكرة AWS / Azure / GCP
+
+5️⃣ إدارة الباقات (Dynamic Packages)
+عند إضافة باقة جديدة:
+
+إضافة record في plans
+
+تحديد:
+
+capabilities
+
+workspace = true
+
+النظام تلقائيًا:
+
+ينشئ Workspace
+
+يربط القوائم المناسبة
+
+يظهر تبويب جديد للمشتركين فيها
+
+🚫 لا تضيف صفحات يدويًا للقائمة
+
+6️⃣ حماية المسارات (Route Guard)
+Middleware (مثال)
+function requireCapability(capability) {
+  return (req, res, next) => {
+    if (!req.user.capabilities.includes(capability)) {
+      return res.status(403).redirect('/upgrade')
+    }
+    next()
+  }
+}
+
+7️⃣ توجيه لفريق Replit (جاهز للإرسال)
+
+التنفيذ يجب أن يكون Capability-based وليس Role-based فقط.
+Sidebar + Routes يتم توليدهم من Registry مركزي.
+إضافة أي باقة جديدة لا يتطلب تعديل كود الواجهة.
+Owner لديه Context Switcher بين Workspaces.
+كل مستخدم يرى Workspace واحد فقط.
+
+8️⃣ Bonus – لمسة Enterprise 🔥
+
+Breadcrumb يظهر:
+
+Owner → Sovereign Workspace → AI Governance
+
+
+Badge ملون حسب الباقة
+
+Lock icon على الميزات غير المتاحة مع CTA Upgrade
