@@ -108,6 +108,22 @@ import {
   Trash2,
   Move,
   Clipboard,
+  ShieldCheck,
+  Building,
+  Users,
+  Store,
+  CreditCard,
+  LineChart,
+  MapPin,
+  KeyRound,
+  FileOutput,
+  ScrollText,
+  GitCompare,
+  AlertTriangle,
+  Verified,
+  Timer,
+  Link,
+  ArrowRightLeft,
 } from "lucide-react";
 
 interface SovereignConversation {
@@ -173,7 +189,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
   
   const [activeTab, setActiveTab] = useState<"chat" | "code" | "preview" | "terminal">("chat");
   const [bottomTab, setBottomTab] = useState<"terminal" | "problems" | "output">("terminal");
-  const [rightTab, setRightTab] = useState<"tools" | "files" | "database" | "backend" | "packages" | "testing" | "git" | "deploy">("tools");
+  const [rightTab, setRightTab] = useState<"tools" | "files" | "database" | "backend" | "packages" | "testing" | "git" | "deploy" | "debugger" | "copilot" | "compliance" | "tenants" | "rules" | "observability" | "marketplace" | "billing">("tools");
   
   const [showSidebar, setShowSidebar] = useState(true);
   const [showRightPanel, setShowRightPanel] = useState(true);
@@ -1091,6 +1107,24 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                       </TabsTrigger>
                       <TabsTrigger value="copilot" className="text-[10px] px-1" data-testid="tab-copilot" aria-label={isRtl ? "المساعد" : "Copilot"}>
                         <Sparkles className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="compliance" className="text-[10px] px-1" data-testid="tab-compliance" aria-label={isRtl ? "الامتثال" : "Compliance"}>
+                        <ShieldCheck className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="tenants" className="text-[10px] px-1" data-testid="tab-tenants" aria-label={isRtl ? "المستأجرين" : "Tenants"}>
+                        <Building className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="rules" className="text-[10px] px-1" data-testid="tab-rules" aria-label={isRtl ? "القواعد" : "Rules"}>
+                        <Workflow className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="observability" className="text-[10px] px-1" data-testid="tab-observability" aria-label={isRtl ? "المراقبة" : "Observability"}>
+                        <LineChart className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="marketplace" className="text-[10px] px-1" data-testid="tab-marketplace" aria-label={isRtl ? "المتجر" : "Marketplace"}>
+                        <Store className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="billing" className="text-[10px] px-1" data-testid="tab-billing" aria-label={isRtl ? "الفواتير" : "Billing"}>
+                        <CreditCard className="h-3 w-3" />
                       </TabsTrigger>
                     </TabsList>
                   </div>
@@ -2523,6 +2557,704 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                           <div className="flex items-center justify-between text-[10px]">
                             <span className="text-muted-foreground">{isRtl ? "الوقت الموفر" : "Time Saved"}</span>
                             <span className="text-cyan-400 font-medium">4.5h</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Compliance & Sovereignty Tab */}
+                  <TabsContent value="compliance" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      {/* Compliance Status Header */}
+                      <Card className="mb-2 bg-gradient-to-br from-green-500/20 via-emerald-500/10 to-transparent border-green-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-green-500/20">
+                              <ShieldCheck className="h-4 w-4 text-green-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "السيادة والامتثال" : "Sovereignty & Compliance"}</p>
+                              <p className="text-[10px] text-green-400">{isRtl ? "جميع المعايير مستوفاة" : "All Standards Met"}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Badge variant="outline" className="text-[9px] h-4 text-green-400 border-green-500/30">GDPR</Badge>
+                            <Badge variant="outline" className="text-[9px] h-4 text-green-400 border-green-500/30">ISO 27001</Badge>
+                            <Badge variant="outline" className="text-[9px] h-4 text-green-400 border-green-500/30">SOC2</Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Data Residency */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <MapPin className="h-3.5 w-3.5 text-blue-400" />
+                            {isRtl ? "إقامة البيانات" : "Data Residency"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1.5">
+                          {[
+                            { region: isRtl ? "السعودية" : "Saudi Arabia", code: "SA", status: "primary", color: "text-green-400" },
+                            { region: isRtl ? "الإمارات" : "UAE", code: "AE", status: "backup", color: "text-blue-400" },
+                            { region: isRtl ? "أوروبا" : "Europe", code: "EU", status: "available", color: "text-muted-foreground" },
+                          ].map((r) => (
+                            <div key={r.code} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`region-${r.code}`}>
+                              <span className="flex items-center gap-2">
+                                <Globe className="h-3 w-3" />
+                                <span>{r.region}</span>
+                              </span>
+                              <Badge variant="outline" className={`text-[9px] h-4 ${r.color}`}>{r.status}</Badge>
+                            </div>
+                          ))}
+                          <Button size="sm" variant="outline" className="w-full h-7 text-[10px]" data-testid="button-change-region">
+                            <MapPin className="h-3 w-3 mr-1" />
+                            {isRtl ? "تغيير المنطقة" : "Change Region"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      {/* BYOK - Bring Your Own Key */}
+                      <Card className="mb-2 border-amber-500/20">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <KeyRound className="h-3.5 w-3.5 text-amber-400" />
+                            {isRtl ? "مفتاحك الخاص (BYOK)" : "Bring Your Own Key"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-2">
+                          <div className="flex items-center justify-between text-[10px] p-1.5 rounded bg-muted/30">
+                            <span>{isRtl ? "التشفير" : "Encryption"}</span>
+                            <Badge variant="outline" className="text-[9px] h-4 text-green-400">AES-256</Badge>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px] p-1.5 rounded bg-muted/30">
+                            <span>{isRtl ? "مصدر المفتاح" : "Key Source"}</span>
+                            <Badge variant="outline" className="text-[9px] h-4 text-amber-400">{isRtl ? "مخصص" : "Custom"}</Badge>
+                          </div>
+                          <Button size="sm" variant="outline" className="w-full h-7 text-[10px]" data-testid="button-manage-keys">
+                            <Key className="h-3 w-3 mr-1" />
+                            {isRtl ? "إدارة المفاتيح" : "Manage Keys"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      {/* Audit Logs */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <ScrollText className="h-3.5 w-3.5 text-cyan-400" />
+                            {isRtl ? "سجلات التدقيق" : "Audit Logs"}
+                            <Badge variant="outline" className="text-[9px] h-4 ml-auto">{isRtl ? "غير قابلة للتعديل" : "Immutable"}</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { action: isRtl ? "تسجيل دخول المالك" : "Owner Login", time: "2m", level: "info" },
+                            { action: isRtl ? "تحديث الصلاحيات" : "Permission Update", time: "1h", level: "warning" },
+                            { action: isRtl ? "نشر الإنتاج" : "Production Deploy", time: "3h", level: "success" },
+                          ].map((log, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`audit-log-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <span className={`h-1.5 w-1.5 rounded-full ${log.level === 'success' ? 'bg-green-400' : log.level === 'warning' ? 'bg-amber-400' : 'bg-blue-400'}`} />
+                                <span className="truncate">{log.action}</span>
+                              </span>
+                              <span className="text-muted-foreground shrink-0">{log.time}</span>
+                            </div>
+                          ))}
+                          <Button size="sm" variant="ghost" className="w-full h-6 text-[10px]" data-testid="button-view-all-logs">
+                            {isRtl ? "عرض كل السجلات" : "View All Logs"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      {/* Compliance Scores */}
+                      <Card className="bg-gradient-to-br from-green-500/10 to-transparent border-green-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          {[
+                            { label: "GDPR", score: 100 },
+                            { label: "ISO 27001", score: 98 },
+                            { label: "SOC2", score: 100 },
+                            { label: "HIPAA", score: 85 },
+                          ].map((c) => (
+                            <div key={c.label}>
+                              <div className="flex items-center justify-between text-[10px] mb-1">
+                                <span className="text-muted-foreground">{c.label}</span>
+                                <span className={c.score === 100 ? "text-green-400" : "text-amber-400"}>{c.score}%</span>
+                              </div>
+                              <div className="h-1 bg-muted rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full ${c.score === 100 ? 'bg-green-500' : 'bg-amber-500'}`} style={{ width: `${c.score}%` }} />
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Multi-Tenancy Tab */}
+                  <TabsContent value="tenants" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      {/* Tenancy Header */}
+                      <Card className="mb-2 bg-gradient-to-br from-violet-500/20 via-blue-500/10 to-transparent border-violet-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-violet-500/20">
+                              <Building className="h-4 w-4 text-violet-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "إدارة المستأجرين" : "Multi-Tenancy"}</p>
+                              <p className="text-[10px] text-muted-foreground">{isRtl ? "عزل كامل للبيانات" : "Complete Data Isolation"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Tenant Selector */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Users className="h-3.5 w-3.5 text-blue-400" />
+                            {isRtl ? "المستأجرين النشطين" : "Active Tenants"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { name: "INFERA Main", users: 156, plan: "Enterprise", active: true },
+                            { name: "Client Alpha", users: 45, plan: "Business", active: false },
+                            { name: "Client Beta", users: 28, plan: "Starter", active: false },
+                          ].map((t, i) => (
+                            <button key={i} className={`w-full flex items-center justify-between p-2 rounded text-[10px] transition-colors ${t.active ? 'bg-violet-500/20 border border-violet-500/30' : 'bg-muted/30 hover:bg-muted'}`} data-testid={`tenant-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <Building className="h-3 w-3" />
+                                <span>{t.name}</span>
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-[9px] h-4">{t.users} {isRtl ? "مستخدم" : "users"}</Badge>
+                                <Badge variant="outline" className="text-[9px] h-4 text-violet-400">{t.plan}</Badge>
+                              </div>
+                            </button>
+                          ))}
+                          <Button size="sm" variant="outline" className="w-full h-7 text-[10px]" data-testid="button-add-tenant">
+                            <Plus className="h-3 w-3 mr-1" />
+                            {isRtl ? "إضافة مستأجر" : "Add Tenant"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      {/* Tenant Isolation Settings */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Shield className="h-3.5 w-3.5 text-green-400" />
+                            {isRtl ? "إعدادات العزل" : "Isolation Settings"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1.5">
+                          {[
+                            { label: isRtl ? "عزل قاعدة البيانات" : "Database Isolation", value: isRtl ? "مخطط منفصل" : "Separate Schema", active: true },
+                            { label: isRtl ? "عزل الشبكة" : "Network Isolation", value: "VPC", active: true },
+                            { label: isRtl ? "عزل التخزين" : "Storage Isolation", value: "Encrypted", active: true },
+                          ].map((s, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]">
+                              <span className="flex items-center gap-2">
+                                <Verified className={`h-3 w-3 ${s.active ? 'text-green-400' : 'text-muted-foreground'}`} />
+                                <span>{s.label}</span>
+                              </span>
+                              <Badge variant="outline" className="text-[9px] h-4 text-green-400">{s.value}</Badge>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Tenant Branding */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Palette className="h-3.5 w-3.5 text-pink-400" />
+                            {isRtl ? "العلامة التجارية" : "Branding"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-2">
+                          <div className="flex items-center gap-2 p-2 rounded bg-muted/30">
+                            <div className="h-8 w-8 rounded bg-violet-500/30 flex items-center justify-center">
+                              <Crown className="h-4 w-4 text-violet-400" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[10px] font-medium truncate">INFERA Logo</p>
+                              <p className="text-[9px] text-muted-foreground">256x256 PNG</p>
+                            </div>
+                            <Button size="sm" variant="ghost" className="h-6 text-[10px]" data-testid="button-change-logo">
+                              {isRtl ? "تغيير" : "Change"}
+                            </Button>
+                          </div>
+                          <div className="grid grid-cols-4 gap-1">
+                            {['#7c3aed', '#3b82f6', '#10b981', '#f59e0b'].map((color, i) => (
+                              <button key={i} className="h-6 rounded-md border-2 border-transparent hover:border-white/30 transition-colors" style={{ backgroundColor: color }} data-testid={`color-${i}`} />
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Tenant Quotas */}
+                      <Card className="bg-gradient-to-br from-violet-500/10 to-transparent border-violet-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "المستأجرين" : "Tenants"}</span>
+                            <span className="text-violet-400 font-medium">3 / 10</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "إجمالي المستخدمين" : "Total Users"}</span>
+                            <span className="text-blue-400 font-medium">229</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "التخزين المستخدم" : "Storage Used"}</span>
+                            <span className="text-green-400 font-medium">45.2 GB</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Business Rules Engine Tab */}
+                  <TabsContent value="rules" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      {/* Rules Engine Header */}
+                      <Card className="mb-2 bg-gradient-to-br from-orange-500/20 via-amber-500/10 to-transparent border-orange-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-orange-500/20">
+                              <Workflow className="h-4 w-4 text-orange-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "محرك قواعد الأعمال" : "Business Rules Engine"}</p>
+                              <p className="text-[10px] text-muted-foreground">{isRtl ? "منطق بصري بدون كود" : "Visual No-Code Logic"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Active Rules */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <ArrowRightLeft className="h-3.5 w-3.5 text-amber-400" />
+                            {isRtl ? "القواعد النشطة" : "Active Rules"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { name: isRtl ? "التحقق من الموافقة" : "Approval Validation", trigger: "OnCreate", status: "active" },
+                            { name: isRtl ? "إشعار المدير" : "Notify Admin", trigger: "OnError", status: "active" },
+                            { name: isRtl ? "حد الطلبات" : "Rate Limiting", trigger: "OnRequest", status: "paused" },
+                          ].map((rule, i) => (
+                            <button key={i} className="w-full flex items-center justify-between p-2 rounded bg-muted/30 hover:bg-muted text-[10px] transition-colors" data-testid={`rule-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <span className={`h-1.5 w-1.5 rounded-full ${rule.status === 'active' ? 'bg-green-400' : 'bg-amber-400'}`} />
+                                <span>{rule.name}</span>
+                              </span>
+                              <Badge variant="outline" className="text-[9px] h-4">{rule.trigger}</Badge>
+                            </button>
+                          ))}
+                          <Button size="sm" variant="outline" className="w-full h-7 text-[10px]" data-testid="button-new-rule">
+                            <Plus className="h-3 w-3 mr-1" />
+                            {isRtl ? "قاعدة جديدة" : "New Rule"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      {/* Visual Rule Builder Preview */}
+                      <Card className="mb-2 border-orange-500/20">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Braces className="h-3.5 w-3.5 text-orange-400" />
+                            {isRtl ? "منشئ القواعد البصري" : "Visual Rule Builder"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-2">
+                          <div className="p-2 rounded bg-muted/50 border border-dashed border-orange-500/30">
+                            <div className="flex items-center gap-1 text-[10px] mb-2">
+                              <Badge className="bg-blue-500/20 text-blue-400 text-[9px]">IF</Badge>
+                              <span className="text-muted-foreground">{isRtl ? "المستخدم.الدور" : "user.role"}</span>
+                              <Badge variant="outline" className="text-[9px]">=</Badge>
+                              <span className="text-green-400">"admin"</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-[10px] mb-2 pl-4">
+                              <Badge className="bg-green-500/20 text-green-400 text-[9px]">THEN</Badge>
+                              <span className="text-muted-foreground">{isRtl ? "السماح بالوصول" : "allow.access"}</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-[10px] pl-4">
+                              <Badge className="bg-red-500/20 text-red-400 text-[9px]">ELSE</Badge>
+                              <span className="text-muted-foreground">{isRtl ? "رفض الطلب" : "deny.request"}</span>
+                            </div>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button size="sm" variant="outline" className="flex-1 h-7 text-[10px]" data-testid="button-simulate-rule">
+                              <Play className="h-3 w-3 mr-1" />
+                              {isRtl ? "محاكاة" : "Simulate"}
+                            </Button>
+                            <Button size="sm" className="flex-1 h-7 text-[10px] bg-orange-600 hover:bg-orange-700" data-testid="button-deploy-rule">
+                              <Rocket className="h-3 w-3 mr-1" />
+                              {isRtl ? "نشر" : "Deploy"}
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Rule Versioning */}
+                      <Card className="bg-gradient-to-br from-orange-500/10 to-transparent border-orange-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "القواعد النشطة" : "Active Rules"}</span>
+                            <span className="text-orange-400 font-medium">12</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "الإصدار الحالي" : "Current Version"}</span>
+                            <span className="text-green-400 font-medium">v2.4.1</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "التنفيذات اليوم" : "Executions Today"}</span>
+                            <span className="text-cyan-400 font-medium">8,452</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Observability Tab */}
+                  <TabsContent value="observability" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      {/* Observability Header */}
+                      <Card className="mb-2 bg-gradient-to-br from-cyan-500/20 via-blue-500/10 to-transparent border-cyan-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-cyan-500/20">
+                              <LineChart className="h-4 w-4 text-cyan-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "المراقبة المتكاملة" : "Built-in Observability"}</p>
+                              <p className="text-[10px] text-green-400">{isRtl ? "جميع الأنظمة تعمل" : "All Systems Healthy"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Real-time Metrics */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Gauge className="h-3.5 w-3.5 text-green-400" />
+                            {isRtl ? "المقاييس الحية" : "Live Metrics"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="p-2 rounded bg-muted/30 text-center">
+                              <p className="text-lg font-bold text-green-400">99.9%</p>
+                              <p className="text-[9px] text-muted-foreground">{isRtl ? "وقت التشغيل" : "Uptime"}</p>
+                            </div>
+                            <div className="p-2 rounded bg-muted/30 text-center">
+                              <p className="text-lg font-bold text-cyan-400">12ms</p>
+                              <p className="text-[9px] text-muted-foreground">{isRtl ? "زمن الاستجابة" : "Latency"}</p>
+                            </div>
+                            <div className="p-2 rounded bg-muted/30 text-center">
+                              <p className="text-lg font-bold text-violet-400">45K</p>
+                              <p className="text-[9px] text-muted-foreground">{isRtl ? "طلب/ساعة" : "Req/Hour"}</p>
+                            </div>
+                            <div className="p-2 rounded bg-muted/30 text-center">
+                              <p className="text-lg font-bold text-amber-400">0.02%</p>
+                              <p className="text-[9px] text-muted-foreground">{isRtl ? "معدل الخطأ" : "Error Rate"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Error Heatmap */}
+                      <Card className="mb-2 border-red-500/20">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
+                            {isRtl ? "خريطة الأخطاء" : "Error Heatmap"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0">
+                          <div className="grid grid-cols-12 gap-0.5">
+                            {Array.from({ length: 24 }).map((_, i) => (
+                              <div
+                                key={i}
+                                className={`h-3 rounded-sm ${i === 8 || i === 14 ? 'bg-red-500/60' : i === 9 || i === 15 ? 'bg-amber-500/40' : 'bg-green-500/20'}`}
+                                title={`${i}:00`}
+                              />
+                            ))}
+                          </div>
+                          <div className="flex items-center justify-between mt-2 text-[9px] text-muted-foreground">
+                            <span>00:00</span>
+                            <span>12:00</span>
+                            <span>23:59</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Recent Traces */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Link className="h-3.5 w-3.5 text-blue-400" />
+                            {isRtl ? "التتبعات الأخيرة" : "Recent Traces"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { endpoint: "POST /api/users", duration: "45ms", status: "success" },
+                            { endpoint: "GET /api/data", duration: "12ms", status: "success" },
+                            { endpoint: "PUT /api/config", duration: "234ms", status: "slow" },
+                          ].map((trace, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`trace-${i}`}>
+                              <span className="font-mono truncate flex-1">{trace.endpoint}</span>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className={trace.status === 'slow' ? 'text-amber-400' : 'text-green-400'}>{trace.duration}</span>
+                                <Timer className="h-3 w-3 text-muted-foreground" />
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* System Health */}
+                      <Card className="bg-gradient-to-br from-cyan-500/10 to-transparent border-cyan-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          {[
+                            { label: "CPU", value: "23%", color: "text-green-400" },
+                            { label: "Memory", value: "45%", color: "text-green-400" },
+                            { label: "Disk", value: "67%", color: "text-amber-400" },
+                            { label: "Network", value: "12 Mbps", color: "text-cyan-400" },
+                          ].map((m) => (
+                            <div key={m.label} className="flex items-center justify-between text-[10px]">
+                              <span className="text-muted-foreground">{m.label}</span>
+                              <span className={`font-medium ${m.color}`}>{m.value}</span>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Marketplace Tab */}
+                  <TabsContent value="marketplace" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      {/* Marketplace Header */}
+                      <Card className="mb-2 bg-gradient-to-br from-pink-500/20 via-violet-500/10 to-transparent border-pink-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-pink-500/20">
+                              <Store className="h-4 w-4 text-pink-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "سوق الإضافات" : "Plugin Marketplace"}</p>
+                              <p className="text-[10px] text-muted-foreground">{isRtl ? "أكثر من 200 إضافة" : "200+ Extensions"}</p>
+                            </div>
+                          </div>
+                          <Input placeholder={isRtl ? "بحث عن إضافة..." : "Search plugins..."} className="h-7 text-[10px]" data-testid="input-search-plugins" />
+                        </CardContent>
+                      </Card>
+
+                      {/* Featured Plugins */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                            {isRtl ? "إضافات مميزة" : "Featured Plugins"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1.5">
+                          {[
+                            { name: "Stripe Payments", desc: isRtl ? "بوابة دفع متكاملة" : "Payment Gateway", installs: "12K", icon: CreditCard },
+                            { name: "WhatsApp API", desc: isRtl ? "رسائل واتساب" : "WhatsApp Messaging", installs: "8K", icon: MessageSquare },
+                            { name: "Google Maps", desc: isRtl ? "خرائط وموقع" : "Maps & Location", installs: "15K", icon: MapPin },
+                          ].map((plugin, i) => (
+                            <div key={i} className="flex items-start gap-2 p-2 rounded bg-muted/30" data-testid={`plugin-${i}`}>
+                              <div className="p-1.5 rounded bg-muted/50">
+                                <plugin.icon className="h-4 w-4 text-violet-400" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[10px] font-medium">{plugin.name}</p>
+                                <p className="text-[9px] text-muted-foreground">{plugin.desc}</p>
+                              </div>
+                              <Button size="sm" variant="outline" className="h-6 text-[9px]" data-testid={`button-install-plugin-${i}`}>
+                                {isRtl ? "تثبيت" : "Install"}
+                              </Button>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Categories */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <LayoutGrid className="h-3.5 w-3.5 text-blue-400" />
+                            {isRtl ? "التصنيفات" : "Categories"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0">
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {[
+                              { name: isRtl ? "المدفوعات" : "Payments", count: 24 },
+                              { name: isRtl ? "التواصل" : "Communication", count: 18 },
+                              { name: isRtl ? "الذكاء الاصطناعي" : "AI/ML", count: 32 },
+                              { name: isRtl ? "التحليلات" : "Analytics", count: 15 },
+                              { name: isRtl ? "الأمان" : "Security", count: 21 },
+                              { name: isRtl ? "حكومي" : "Government", count: 8 },
+                            ].map((cat, i) => (
+                              <button key={i} className="flex items-center justify-between p-2 rounded bg-muted/30 hover:bg-muted text-[10px] transition-colors" data-testid={`category-${i}`}>
+                                <span>{cat.name}</span>
+                                <Badge variant="outline" className="text-[9px] h-4">{cat.count}</Badge>
+                              </button>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Installed Plugins */}
+                      <Card className="bg-gradient-to-br from-pink-500/10 to-transparent border-pink-500/20">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Package className="h-3.5 w-3.5 text-green-400" />
+                            {isRtl ? "المثبتة" : "Installed"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { name: "Anthropic AI", version: "2.1.0" },
+                            { name: "Object Storage", version: "1.5.2" },
+                          ].map((p, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]">
+                              <span className="flex items-center gap-2">
+                                <Verified className="h-3 w-3 text-green-400" />
+                                <span>{p.name}</span>
+                              </span>
+                              <Badge variant="outline" className="text-[9px] h-4">v{p.version}</Badge>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Billing Tab */}
+                  <TabsContent value="billing" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      {/* Billing Header */}
+                      <Card className="mb-2 bg-gradient-to-br from-emerald-500/20 via-green-500/10 to-transparent border-emerald-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-emerald-500/20">
+                              <CreditCard className="h-4 w-4 text-emerald-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "الفواتير والاشتراكات" : "Billing & Subscriptions"}</p>
+                              <p className="text-[10px] text-emerald-400">{isRtl ? "خطة المؤسسات" : "Enterprise Plan"}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-2xl font-bold text-emerald-400">$2,499</span>
+                            <span className="text-[10px] text-muted-foreground">/{isRtl ? "شهر" : "month"}</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Usage Overview */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <TrendingUp className="h-3.5 w-3.5 text-blue-400" />
+                            {isRtl ? "استخدام هذا الشهر" : "This Month's Usage"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-2">
+                          {[
+                            { label: isRtl ? "طلبات API" : "API Requests", used: 450000, limit: 1000000, unit: "" },
+                            { label: isRtl ? "التخزين" : "Storage", used: 45, limit: 100, unit: "GB" },
+                            { label: isRtl ? "طلبات AI" : "AI Requests", used: 8500, limit: 50000, unit: "" },
+                          ].map((u, i) => (
+                            <div key={i}>
+                              <div className="flex items-center justify-between text-[10px] mb-1">
+                                <span className="text-muted-foreground">{u.label}</span>
+                                <span>{u.used.toLocaleString()}{u.unit} / {u.limit.toLocaleString()}{u.unit}</span>
+                              </div>
+                              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${(u.used / u.limit) * 100}%` }} />
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Payment Methods */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <CreditCard className="h-3.5 w-3.5 text-violet-400" />
+                            {isRtl ? "طرق الدفع" : "Payment Methods"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1.5">
+                          <div className="flex items-center justify-between p-2 rounded bg-muted/30 border border-violet-500/30">
+                            <span className="flex items-center gap-2 text-[10px]">
+                              <CreditCard className="h-3 w-3" />
+                              <span>**** **** **** 4242</span>
+                            </span>
+                            <Badge variant="outline" className="text-[9px] h-4 text-green-400">{isRtl ? "رئيسي" : "Primary"}</Badge>
+                          </div>
+                          <Button size="sm" variant="outline" className="w-full h-7 text-[10px]" data-testid="button-add-payment">
+                            <Plus className="h-3 w-3 mr-1" />
+                            {isRtl ? "إضافة طريقة دفع" : "Add Payment Method"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      {/* Recent Invoices */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <FileOutput className="h-3.5 w-3.5 text-cyan-400" />
+                            {isRtl ? "الفواتير الأخيرة" : "Recent Invoices"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { id: "INV-2024-012", date: "Dec 2024", amount: "$2,499", status: "paid" },
+                            { id: "INV-2024-011", date: "Nov 2024", amount: "$2,499", status: "paid" },
+                            { id: "INV-2024-010", date: "Oct 2024", amount: "$2,299", status: "paid" },
+                          ].map((inv, i) => (
+                            <button key={i} className="w-full flex items-center justify-between p-1.5 rounded bg-muted/30 hover:bg-muted text-[10px] transition-colors" data-testid={`invoice-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <span className="text-muted-foreground">{inv.id}</span>
+                                <span>{inv.date}</span>
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-emerald-400">{inv.amount}</span>
+                                <Download className="h-3 w-3 text-muted-foreground" />
+                              </div>
+                            </button>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Billing Stats */}
+                      <Card className="bg-gradient-to-br from-emerald-500/10 to-transparent border-emerald-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "الإنفاق الكلي" : "Total Spent"}</span>
+                            <span className="text-emerald-400 font-medium">$28,488</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "الدفعة القادمة" : "Next Payment"}</span>
+                            <span className="text-cyan-400 font-medium">Jan 1, 2025</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "الخصومات المطبقة" : "Discounts Applied"}</span>
+                            <span className="text-green-400 font-medium">-$500</span>
                           </div>
                         </CardContent>
                       </Card>
