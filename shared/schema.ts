@@ -16807,3 +16807,426 @@ export const insertConversationSearchIndexSchema = createInsertSchema(conversati
 });
 export type InsertConversationSearchIndex = z.infer<typeof insertConversationSearchIndexSchema>;
 export type ConversationSearchIndex = typeof conversationSearchIndex.$inferSelect;
+
+// ==================== NOVA AI SOVEREIGN DECISION GOVERNANCE ====================
+// محرك الحوكمة السيادية لنوفا - Sovereign Decision Governor
+
+// Nova Sovereign Decisions - القرارات السيادية
+export const novaSovereignDecisions = pgTable("nova_sovereign_decisions", {
+  id: varchar("id").primaryKey(),
+  type: text("type").notNull(), // governance, policy, resource, security, financial, operational, strategic, emergency
+  title: text("title").notNull(),
+  titleAr: text("title_ar").notNull(),
+  description: text("description").notNull(),
+  descriptionAr: text("description_ar").notNull(),
+  
+  // Target
+  targetPlatform: text("target_platform"),
+  targetResource: text("target_resource"),
+  
+  // Requester
+  requestedBy: text("requested_by").notNull(),
+  
+  // Decision Phase: analysis → decision → pending_approval → approved → executing → completed
+  phase: text("phase").notNull().default("analysis"),
+  
+  // Risk Assessment
+  riskLevel: text("risk_level").notNull().default("medium"), // low, medium, high, critical, sovereign
+  requiredApprovalLevel: text("required_approval_level").notNull().default("standard"), // automatic, standard, elevated, sovereign, owner_only
+  
+  // Analysis Result
+  feasibilityScore: integer("feasibility_score").default(0),
+  analysisResult: jsonb("analysis_result").$type<Record<string, unknown>>(),
+  
+  // Context
+  context: jsonb("context").$type<Record<string, unknown>>(),
+  urgency: text("urgency").notNull().default("normal"), // normal, urgent, critical
+  
+  // Approval
+  approvedBy: text("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  approvalNotes: text("approval_notes"),
+  
+  // Rejection
+  rejectedBy: text("rejected_by"),
+  rejectedAt: timestamp("rejected_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  // Execution
+  executedAt: timestamp("executed_at"),
+  executionResult: jsonb("execution_result").$type<Record<string, unknown>>(),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_nsd_phase").on(table.phase),
+  index("IDX_nsd_type").on(table.type),
+  index("IDX_nsd_risk").on(table.riskLevel),
+  index("IDX_nsd_created").on(table.createdAt),
+]);
+
+export const insertNovaSovereignDecisionSchema = createInsertSchema(novaSovereignDecisions).omit({
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertNovaSovereignDecision = z.infer<typeof insertNovaSovereignDecisionSchema>;
+export type NovaSovereignDecision = typeof novaSovereignDecisions.$inferSelect;
+
+// Nova Decision Steps - خطوات القرار
+export const novaDecisionSteps = pgTable("nova_decision_steps", {
+  id: varchar("id").primaryKey(),
+  decisionId: varchar("decision_id").references(() => novaSovereignDecisions.id, { onDelete: "cascade" }).notNull(),
+  
+  title: text("title").notNull(),
+  titleAr: text("title_ar").notNull(),
+  description: text("description").notNull(),
+  descriptionAr: text("description_ar").notNull(),
+  
+  order: integer("order").notNull(),
+  status: text("status").notNull().default("pending"), // pending, in_progress, completed, failed, skipped
+  
+  requiresApproval: boolean("requires_approval").notNull().default(false),
+  approvalLevel: text("approval_level").notNull().default("standard"),
+  
+  estimatedImpact: text("estimated_impact"),
+  rollbackPlan: text("rollback_plan"),
+  
+  // Execution
+  executedAt: timestamp("executed_at"),
+  executionResult: jsonb("execution_result").$type<Record<string, unknown>>(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_nds_decision").on(table.decisionId),
+  index("IDX_nds_order").on(table.order),
+  index("IDX_nds_status").on(table.status),
+]);
+
+export const insertNovaDecisionStepSchema = createInsertSchema(novaDecisionSteps).omit({
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertNovaDecisionStep = z.infer<typeof insertNovaDecisionStepSchema>;
+export type NovaDecisionStep = typeof novaDecisionSteps.$inferSelect;
+
+// Nova Policies - سياسات نوفا السيادية
+export const novaPolicies = pgTable("nova_policies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  description: text("description").notNull(),
+  descriptionAr: text("description_ar").notNull(),
+  
+  // Policy Type
+  type: text("type").notNull(), // constraint, limit, require, deny, conditional
+  scope: text("scope").notNull(), // global, platform, resource, user
+  
+  // Policy Rules
+  constraints: jsonb("constraints").$type<Array<{
+    id: string;
+    type: 'limit' | 'require' | 'deny' | 'conditional';
+    target: string;
+    condition: string;
+    value: unknown;
+    message: string;
+    messageAr: string;
+  }>>(),
+  
+  // Priority
+  priority: integer("priority").notNull().default(50),
+  
+  // Status
+  isActive: boolean("is_active").notNull().default(true),
+  
+  // Owner control
+  createdBy: text("created_by"),
+  approvedBy: text("approved_by"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_np_type").on(table.type),
+  index("IDX_np_scope").on(table.scope),
+  index("IDX_np_active").on(table.isActive),
+]);
+
+export const insertNovaPolicySchema = createInsertSchema(novaPolicies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertNovaPolicy = z.infer<typeof insertNovaPolicySchema>;
+export type NovaPolicy = typeof novaPolicies.$inferSelect;
+
+// Nova Decision Audit - سجل تدقيق القرارات (Decision Traceability)
+export const novaDecisionAudit = pgTable("nova_decision_audit", {
+  id: varchar("id").primaryKey(),
+  decisionId: varchar("decision_id").references(() => novaSovereignDecisions.id, { onDelete: "cascade" }).notNull(),
+  
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+  phase: text("phase").notNull(),
+  
+  // Actor
+  actorId: text("actor_id").notNull(),
+  actorType: text("actor_type").notNull(), // nova_ai, owner, sovereign, system
+  actorName: text("actor_name").notNull(),
+  
+  // Action
+  action: text("action").notNull(),
+  actionAr: text("action_ar").notNull(),
+  reason: text("reason").notNull(),
+  reasonAr: text("reason_ar").notNull(),
+  
+  // Context
+  inputs: jsonb("inputs").$type<Record<string, unknown>>(),
+  outputs: jsonb("outputs").$type<Record<string, unknown>>(),
+  policyReferences: jsonb("policy_references").$type<string[]>(),
+  
+  // Integrity
+  signature: text("signature").notNull(), // SHA-256 hash for tamper detection
+}, (table) => [
+  index("IDX_nda_decision").on(table.decisionId),
+  index("IDX_nda_timestamp").on(table.timestamp),
+  index("IDX_nda_phase").on(table.phase),
+  index("IDX_nda_actor").on(table.actorId),
+]);
+
+export const insertNovaDecisionAuditSchema = createInsertSchema(novaDecisionAudit).omit({});
+export type InsertNovaDecisionAudit = z.infer<typeof insertNovaDecisionAuditSchema>;
+export type NovaDecisionAudit = typeof novaDecisionAudit.$inferSelect;
+
+// Nova Approval Chains - سلاسل الموافقات
+export const novaApprovalChains = pgTable("nova_approval_chains", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  
+  // Chain Definition
+  levels: jsonb("levels").$type<Array<{
+    order: number;
+    role: string;
+    roleAr: string;
+    requiredApprovers: number;
+    timeout: number; // hours
+    escalateTo?: string;
+  }>>().notNull(),
+  
+  // Applies to
+  decisionTypes: jsonb("decision_types").$type<string[]>(),
+  riskLevels: jsonb("risk_levels").$type<string[]>(),
+  
+  isActive: boolean("is_active").notNull().default(true),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_nac_active").on(table.isActive),
+]);
+
+export const insertNovaApprovalChainSchema = createInsertSchema(novaApprovalChains).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertNovaApprovalChain = z.infer<typeof insertNovaApprovalChainSchema>;
+export type NovaApprovalChain = typeof novaApprovalChains.$inferSelect;
+
+// Nova Kill Switch - مفتاح الإيقاف الطارئ
+export const novaKillSwitch = pgTable("nova_kill_switch", {
+  id: varchar("id").primaryKey(),
+  isActive: boolean("is_active").notNull().default(false),
+  
+  // Activation
+  activatedBy: text("activated_by").notNull(),
+  activatedAt: timestamp("activated_at").notNull().defaultNow(),
+  reason: text("reason").notNull(),
+  
+  // Deactivation
+  deactivatedBy: text("deactivated_by"),
+  deactivatedAt: timestamp("deactivated_at"),
+  
+  // Scope
+  scope: text("scope").notNull().default("global"), // global, platform, model
+  affectedModels: jsonb("affected_models").$type<string[]>(),
+}, (table) => [
+  index("IDX_nks_active").on(table.isActive),
+]);
+
+export const insertNovaKillSwitchSchema = createInsertSchema(novaKillSwitch).omit({});
+export type InsertNovaKillSwitch = z.infer<typeof insertNovaKillSwitchSchema>;
+export type NovaKillSwitch = typeof novaKillSwitch.$inferSelect;
+
+// Nova Knowledge Graph - رسم المعرفة السيادي
+export const novaKnowledgeGraph = pgTable("nova_knowledge_graph", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Node Information
+  nodeType: text("node_type").notNull(), // concept, entity, policy, decision, platform, resource
+  name: text("name").notNull(),
+  nameAr: text("name_ar").notNull(),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  
+  // Properties
+  properties: jsonb("properties").$type<Record<string, unknown>>(),
+  
+  // Relationships
+  relations: jsonb("relations").$type<Array<{
+    targetId: string;
+    relationType: string; // relates_to, depends_on, part_of, governs, implements
+    strength: number; // 0-100
+    metadata?: Record<string, unknown>;
+  }>>(),
+  
+  // Semantic Vector for AI Search
+  semanticVector: jsonb("semantic_vector").$type<number[]>(),
+  keywords: jsonb("keywords").$type<string[]>(),
+  
+  // Status
+  isActive: boolean("is_active").notNull().default(true),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_nkg_type").on(table.nodeType),
+  index("IDX_nkg_active").on(table.isActive),
+]);
+
+export const insertNovaKnowledgeGraphSchema = createInsertSchema(novaKnowledgeGraph).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertNovaKnowledgeGraph = z.infer<typeof insertNovaKnowledgeGraphSchema>;
+export type NovaKnowledgeGraph = typeof novaKnowledgeGraph.$inferSelect;
+
+// Nova Policy Memory - ذاكرة السياسات (NOT chat memory)
+export const novaPolicyMemory = pgTable("nova_policy_memory", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Memory Type
+  memoryType: text("memory_type").notNull(), // policy, decision, state, config
+  
+  // Content
+  key: text("key").notNull().unique(),
+  value: jsonb("value").$type<unknown>().notNull(),
+  
+  // Metadata
+  source: text("source").notNull(), // decision, manual, system
+  sourceId: text("source_id"), // reference to source
+  
+  // Validity
+  validFrom: timestamp("valid_from").notNull().defaultNow(),
+  validUntil: timestamp("valid_until"),
+  
+  // Version
+  version: integer("version").notNull().default(1),
+  previousVersion: varchar("previous_version"),
+  
+  isActive: boolean("is_active").notNull().default(true),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_npm_type").on(table.memoryType),
+  index("IDX_npm_key").on(table.key),
+  index("IDX_npm_active").on(table.isActive),
+]);
+
+export const insertNovaPolicyMemorySchema = createInsertSchema(novaPolicyMemory).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertNovaPolicyMemory = z.infer<typeof insertNovaPolicyMemorySchema>;
+export type NovaPolicyMemory = typeof novaPolicyMemory.$inferSelect;
+
+// Nova Model Lifecycle - دورة حياة النموذج
+export const novaModelLifecycle = pgTable("nova_model_lifecycle", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  modelId: varchar("model_id").references(() => aiModels.id, { onDelete: "cascade" }).notNull(),
+  
+  // Lifecycle Stage
+  stage: text("stage").notNull(), // training, validating, approved, deployed, paused, retired
+  previousStage: text("previous_stage"),
+  
+  // Transition
+  transitionedBy: text("transitioned_by").notNull(),
+  transitionReason: text("transition_reason"),
+  
+  // Risk Assessment
+  riskScore: integer("risk_score").default(0),
+  biasScore: integer("bias_score").default(0),
+  driftScore: integer("drift_score").default(0),
+  
+  // Performance Metrics
+  performanceMetrics: jsonb("performance_metrics").$type<{
+    accuracy?: number;
+    latency?: number;
+    throughput?: number;
+    errorRate?: number;
+  }>(),
+  
+  // Approval
+  approvedBy: text("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+}, (table) => [
+  index("IDX_nml_model").on(table.modelId),
+  index("IDX_nml_stage").on(table.stage),
+  index("IDX_nml_timestamp").on(table.timestamp),
+]);
+
+export const insertNovaModelLifecycleSchema = createInsertSchema(novaModelLifecycle).omit({
+  id: true,
+});
+export type InsertNovaModelLifecycle = z.infer<typeof insertNovaModelLifecycleSchema>;
+export type NovaModelLifecycle = typeof novaModelLifecycle.$inferSelect;
+
+// Nova Human-in-the-Loop Matrix - مصفوفة التدخل البشري
+export const novaHumanInLoop = pgTable("nova_human_in_loop", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Decision Category
+  decisionCategory: text("decision_category").notNull(),
+  decisionType: text("decision_type").notNull(),
+  
+  // Thresholds
+  riskThreshold: text("risk_threshold").notNull(), // above this level, human required
+  costThreshold: integer("cost_threshold"), // above this amount, human required
+  impactScope: text("impact_scope"), // users_affected, systems_affected
+  
+  // Required Action
+  requiredApprover: text("required_approver").notNull(), // owner, sovereign, admin
+  escalationPath: jsonb("escalation_path").$type<Array<{
+    level: number;
+    role: string;
+    timeout: number; // minutes
+    action: 'notify' | 'require' | 'block';
+  }>>(),
+  
+  // Legal/Ethical
+  legalReview: boolean("legal_review").notNull().default(false),
+  ethicalReview: boolean("ethical_review").notNull().default(false),
+  complianceCheck: jsonb("compliance_check").$type<string[]>(), // ISO, NIST, GDPR, etc.
+  
+  isActive: boolean("is_active").notNull().default(true),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_nhil_category").on(table.decisionCategory),
+  index("IDX_nhil_type").on(table.decisionType),
+  index("IDX_nhil_active").on(table.isActive),
+]);
+
+export const insertNovaHumanInLoopSchema = createInsertSchema(novaHumanInLoop).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertNovaHumanInLoop = z.infer<typeof insertNovaHumanInLoopSchema>;
+export type NovaHumanInLoop = typeof novaHumanInLoop.$inferSelect;

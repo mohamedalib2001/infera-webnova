@@ -15,6 +15,7 @@ import { registerISDSRoutes } from "./isds-routes";
 import { registerSpomRoutes } from "./spom-routes";
 import { registerPlatformApiRoutes } from "./platform-api-routes";
 import { registerNovaRoutes, registerCICDRoutes } from "./nova-routes";
+import { registerNovaDecisionRoutes } from "./nova-decision-routes";
 import { registerPermissionRoutes } from "./permissions-routes";
 import marketplaceRoutes from "./marketplace-routes";
 import sslRoutes from "./ssl-routes";
@@ -18075,6 +18076,10 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
   // ==================== NOVA CONVERSATION ENGINE ====================
   registerNovaRoutes(app);
   console.log("Nova Conversation Engine routes registered | تم تسجيل مسارات محرك محادثة نوفا");
+
+  // ==================== NOVA SOVEREIGN DECISION ENGINE ====================
+  registerNovaDecisionRoutes(app);
+  console.log("Nova Sovereign Decision Engine routes registered | تم تسجيل مسارات محرك القرارات السيادية لنوفا");
 
   // ==================== CI/CD PIPELINE & DEVICE TESTING ====================
   registerCICDRoutes(app);
