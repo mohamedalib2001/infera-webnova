@@ -176,7 +176,7 @@ export default function Projects() {
 
   const { data: deletedProjects, isLoading: isLoadingDeleted } = useQuery<Project[]>({
     queryKey: ["/api/projects/recycle-bin"],
-    enabled: canAccessProjects && !isRestrictedDepartment,
+    enabled: !isStaffMember,
   });
 
   const restoreMutation = useMutation({
