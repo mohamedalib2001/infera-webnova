@@ -6586,7 +6586,7 @@ Provide realistic, data-driven predictions based on the actual platform state.`;
 
   // ============ Projects Routes ============
   
-  // Get all projects
+  // Get all projects with owner subscription data
   app.get("/api/projects", async (req, res) => {
     try {
       // Check for authenticated user (Replit Auth or traditional session)
@@ -6607,6 +6607,36 @@ Provide realistic, data-driven predictions based on the actual platform state.`;
       // Ensure INFERA WebNova system project exists
       const systemProject = await storage.ensureSystemProject();
       
+      // Helper function to enrich projects with owner data
+      const enrichProjectWithOwner = async (project: any) => {
+        if (!project.userId) return { ...project, owner: null };
+        
+        const owner = await storage.getUser(project.userId);
+        if (!owner) return { ...project, owner: null };
+        
+        // Get subscription info from Stripe if available
+        let subscriptionExpiry = null;
+        if (owner.stripeSubscriptionId) {
+          const subscription = await storage.getSubscriptionByStripeId?.(owner.stripeSubscriptionId);
+          if (subscription?.currentPeriodEnd) {
+            subscriptionExpiry = subscription.currentPeriodEnd;
+          }
+        }
+        
+        return {
+          ...project,
+          owner: {
+            id: owner.id,
+            name: owner.fullName || owner.username || owner.email?.split('@')[0] || 'Unknown',
+            email: owner.email,
+            avatar: owner.avatar || owner.profileImageUrl,
+            role: owner.role, // subscription type
+            subscriptionExpiry,
+            createdAt: owner.createdAt
+          }
+        };
+      };
+      
       // Check if user is owner - owners see ALL projects
       const user = await storage.getUser(userId);
       if (user?.role === "owner") {
@@ -6616,13 +6646,17 @@ Provide realistic, data-driven predictions based on the actual platform state.`;
           ...allProjects.filter(p => p.isSystemProject),
           ...allProjects.filter(p => !p.isSystemProject)
         ];
-        return res.json(sorted);
+        // Enrich with owner data
+        const enriched = await Promise.all(sorted.map(enrichProjectWithOwner));
+        return res.json(enriched);
       }
       
       // Regular users see their projects + system project
       const projects = await storage.getProjectsByUser(userId);
       const result = [systemProject, ...projects.filter(p => !p.isSystemProject)];
-      res.json(result);
+      // Enrich with owner data
+      const enriched = await Promise.all(result.map(enrichProjectWithOwner));
+      res.json(enriched);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch projects" });
     }
