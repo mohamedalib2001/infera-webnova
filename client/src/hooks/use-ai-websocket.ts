@@ -30,8 +30,10 @@ export interface AIWebSocketState {
   connectionId: string | null;
 }
 
+export type UserRole = "owner" | "sovereign" | "enterprise" | "admin" | "user" | "free";
+
 export interface UseAIWebSocketReturn extends AIWebSocketState {
-  sendMessage: (message: string, language?: "ar" | "en", conversationId?: string) => Promise<string>;
+  sendMessage: (message: string, language?: "ar" | "en", conversationId?: string, userRole?: UserRole) => Promise<string>;
   executeCode: (code: string, language: "nodejs" | "python" | "typescript" | "shell") => Promise<any>;
   connect: () => void;
   disconnect: () => void;
@@ -200,7 +202,8 @@ export function useAIWebSocket(autoConnect: boolean = true): UseAIWebSocketRetur
   const sendMessage = useCallback(async (
     message: string, 
     language: "ar" | "en" = "ar",
-    conversationId?: string
+    conversationId?: string,
+    userRole?: UserRole
   ): Promise<string> => {
     return new Promise((resolve, reject) => {
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
@@ -224,7 +227,7 @@ export function useAIWebSocket(autoConnect: boolean = true): UseAIWebSocketRetur
         requestId,
         message,
         conversationId, // Pass conversationId for server-side persistence
-        context: { language },
+        context: { language, userRole: userRole || "user" },
         stream: true,
       }));
       

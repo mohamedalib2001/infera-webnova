@@ -28,6 +28,10 @@ httpServer.on("upgrade", async (request, socket, head) => {
   const pathname = new URL(request.url || "", `http://${request.headers.host}`).pathname;
   
   if (pathname === "/ws/ai" && aiWebSocketServer) {
+    // Authenticate WebSocket connection using session cookies
+    const auth = await authenticateWebSocket(request);
+    // Attach auth info to request for use in connection handler
+    (request as any).authUser = auth; // null if not authenticated, {userId, isOwner} if authenticated
     aiWebSocketServer.handleUpgrade(request, socket, head, (ws) => {
       aiWebSocketServer!.emit("connection", ws, request);
     });

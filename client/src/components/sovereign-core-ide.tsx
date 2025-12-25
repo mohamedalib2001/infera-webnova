@@ -1335,7 +1335,9 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
       setStreamingMessage("");
       
       // Pass conversationId to WebSocket - server handles all persistence with encryption
-      const response = await aiWs.sendMessage(userMsg, isRtl ? "ar" : "en", convId);
+      // Pass user role for proper AI privilege context
+      const userRole = isOwner ? "owner" : "user";
+      const response = await aiWs.sendMessage(userMsg, isRtl ? "ar" : "en", convId, userRole);
       
       // Add AI response to local messages (for immediate display)
       const aiMessage: ConversationMessage = {
@@ -1415,9 +1417,12 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
     
     try {
       setIsProcessing(true);
+      const userRole = isOwner ? "owner" : "user";
       const response = await aiWs.sendMessage(
         isRtl ? "قم بتوليد كود HTML/CSS/JS لمشروع سيادي متكامل" : "Generate complete HTML/CSS/JS code for a sovereign platform",
-        isRtl ? "ar" : "en"
+        isRtl ? "ar" : "en",
+        undefined,
+        userRole
       );
       
       // Add response to messages
@@ -1475,7 +1480,8 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
     } catch (error) {
       setIsProcessing(false);
       if (aiWs.isConnected && aiWs.isAuthenticated) {
-        const response = await aiWs.sendMessage(`Analyze this code:\n\`\`\`\n${code}\n\`\`\``, isRtl ? "ar" : "en");
+        const userRole = isOwner ? "owner" : "user";
+        const response = await aiWs.sendMessage(`Analyze this code:\n\`\`\`\n${code}\n\`\`\``, isRtl ? "ar" : "en", undefined, userRole);
         setLocalMessages(prev => [...prev, {
           id: `analyze-${Date.now()}`,
           role: "assistant",
@@ -1502,7 +1508,8 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
     
     try {
       setIsProcessing(true);
-      const response = await aiWs.sendMessage(`Optimize this code for better performance:\n\`\`\`\n${code}\n\`\`\``, isRtl ? "ar" : "en");
+      const userRole = isOwner ? "owner" : "user";
+      const response = await aiWs.sendMessage(`Optimize this code for better performance:\n\`\`\`\n${code}\n\`\`\``, isRtl ? "ar" : "en", undefined, userRole);
       setLocalMessages(prev => [...prev, {
         id: `optimize-${Date.now()}`,
         role: "assistant",

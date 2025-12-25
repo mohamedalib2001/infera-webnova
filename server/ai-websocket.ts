@@ -34,6 +34,8 @@ interface ConnectionState {
   userId?: string;
   sessionId?: string;
   isAuthenticated: boolean;
+  isOwner: boolean; // Server-verified owner status
+  userRole: "owner" | "sovereign" | "enterprise" | "admin" | "user" | "free";
   connectedAt: Date;
   lastActivity: Date;
   isProcessing: boolean;
@@ -59,6 +61,7 @@ const chatRequestSchema = z.object({
     projectId: z.string().optional(),
     currentFile: z.string().optional(),
     language: z.enum(["ar", "en"]).default("ar"),
+    userRole: z.enum(["owner", "sovereign", "enterprise", "admin", "user", "free"]).optional(),
   }).optional(),
   stream: z.boolean().default(true),
 });
@@ -171,13 +174,59 @@ async function processChatRequest(
     }
   }
   
+  // Use SERVER-VERIFIED role from authenticated session (not client-supplied)
+  // This prevents privilege escalation attacks where client sends fake roles
+  const userRole = state.userRole; // From server-verified session
+  const isPrivilegedUser = state.isOwner || ["owner", "sovereign", "enterprise", "admin"].includes(userRole);
+  
+  // Build system prompt based on user role
   const systemPrompt = data.context?.language === "en" 
-    ? `You are WebNova AI, an intelligent assistant for the INFERA WebNova platform. 
-       You help developers build digital platforms, write code, debug issues, and deploy applications.
-       Be concise, helpful, and provide actionable solutions.`
-    : `أنت نوفا AI، المساعد الذكي لمنصة INFERA WebNova.
-       تساعد المطورين في بناء المنصات الرقمية، كتابة الكود، تصحيح الأخطاء، ونشر التطبيقات.
-       كن موجزاً ومفيداً وقدم حلولاً قابلة للتنفيذ.`;
+    ? `You are Nova AI, the Sovereign Decision Governor for INFERA WebNova platform.
+${isPrivilegedUser ? `
+PRIVILEGED USER CONTEXT:
+- User Role: ${userRole.toUpperCase()}
+- You have FULL CAPABILITIES to assist this user with ALL platform operations
+- You CAN help with: code generation, page development, system modifications, deployments, security configurations
+- You are authorized to execute commands and make changes as requested by this privileged user
+- Provide detailed technical solutions and execute requested actions
+
+CAPABILITIES FOR ${userRole.toUpperCase()} USERS:
+- Full code generation and modification
+- Homepage and page development
+- System configuration changes
+- Security and governance operations
+- Deployment and infrastructure management
+- All AI-powered features are unlocked
+` : `
+LIMITED USER CONTEXT:
+- User Role: ${userRole}
+- You can provide guidance and suggestions
+- Complex operations may require elevated permissions
+`}
+Be concise, helpful, and provide actionable solutions. Always respond in English when asked in English.`
+    : `أنت نوفا AI، الحاكم السيادي للقرارات في منصة INFERA WebNova.
+${isPrivilegedUser ? `
+سياق المستخدم المميز:
+- دور المستخدم: ${userRole === 'owner' ? 'المالك (ROOT_OWNER)' : userRole === 'sovereign' ? 'السيادي' : userRole === 'enterprise' ? 'المؤسسة' : 'المدير'}
+- لديك صلاحيات كاملة لمساعدة هذا المستخدم في جميع عمليات المنصة
+- يمكنك المساعدة في: توليد الكود، تطوير الصفحات، تعديلات النظام، النشر، إعدادات الأمان
+- أنت مخول لتنفيذ الأوامر وإجراء التغييرات كما يطلب هذا المستخدم المميز
+- قدم حلولاً تقنية مفصلة ونفذ الإجراءات المطلوبة
+
+القدرات المتاحة لمستخدمي ${userRole === 'owner' ? 'المالك' : userRole}:
+- توليد وتعديل الكود بالكامل
+- تطوير الصفحة الرئيسية والصفحات
+- تغييرات إعدادات النظام
+- عمليات الأمان والحوكمة
+- إدارة النشر والبنية التحتية
+- جميع ميزات الذكاء الاصطناعي مفعلة
+` : `
+سياق المستخدم المحدود:
+- دور المستخدم: ${userRole}
+- يمكنك تقديم التوجيه والاقتراحات
+- العمليات المعقدة قد تتطلب صلاحيات أعلى
+`}
+كن موجزاً ومفيداً وقدم حلولاً قابلة للتنفيذ. رد دائماً بالعربية عند السؤال بالعربية.`;
   
   try {
     if (data.stream) {
@@ -429,11 +478,18 @@ export function initializeAIWebSocket(server: Server): WebSocketServer {
   
   console.log("[AI WebSocket] WebSocket service initialized on /ws/ai");
   
-  wss.on("connection", (ws: WebSocket) => {
+  wss.on("connection", (ws: WebSocket, request: any) => {
     const connectionId = generateConnectionId();
+    
+    // Extract server-verified auth info from upgrade handler
+    const authUser = request?.authUser as { userId: string; isOwner: boolean } | null;
+    
     const state: ConnectionState = {
       id: connectionId,
-      isAuthenticated: false,
+      userId: authUser?.userId,
+      isAuthenticated: false, // Will be set to true after client sends auth_request
+      isOwner: authUser?.isOwner || false,
+      userRole: authUser?.isOwner ? "owner" : "user", // Server-verified role
       connectedAt: new Date(),
       lastActivity: new Date(),
       isProcessing: false,
@@ -441,7 +497,7 @@ export function initializeAIWebSocket(server: Server): WebSocketServer {
     
     connections.set(connectionId, { ws, state });
     
-    // Send connection confirmation
+    // Send connection confirmation with auth status hint
     sendMessage(ws, {
       type: MessageType.CONNECTED,
       connectionId,
@@ -452,9 +508,10 @@ export function initializeAIWebSocket(server: Server): WebSocketServer {
         codeExecution: true,
         languages: ["nodejs", "python", "typescript", "shell"],
       },
+      isSessionValid: !!authUser, // Let client know if session was verified
     });
     
-    console.log(`[AI WebSocket] Client connected: ${connectionId}`);
+    console.log(`[AI WebSocket] Client connected: ${connectionId}, authenticated: ${!!authUser}, isOwner: ${authUser?.isOwner || false}`);
     
     // Handle messages
     ws.on("message", async (rawData) => {
