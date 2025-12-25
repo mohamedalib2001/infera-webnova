@@ -1,0 +1,261 @@
+فيما يلي الإطار الإلزامي الشامل
+الذي يُرسل كما هو إلى Replit / WebNova
+ويُطبّق على جميع المنصات الرقمية + الحساب السيادي
+ويغطي:
+
+✅ الأيقونات (Icons)
+
+✅ أيقونات التبويب (Favicons / Tab Icons)
+
+✅ أيقونات الأنظمة والنماذج
+
+✅ الأختام الرقمية (Digital Seals)
+
+✅ كل الاستخدامات والاتجاهات
+
+📌 داخل Text Box واحد قابل للنسخ 100%
+📌 غير قابل للتأويل أو التخفيف
+
+🔷 **INFERA SOVEREIGN VISUAL IDENTITY & ICONOGRAPHY
+
+MANDATORY FRAMEWORK**
+
+INFERA – Sovereign Visual Identity & Iconography Framework
+Mandatory & Enforced Across All Digital Platforms
+
+Last Update: [Insert Date]
+
+=====================================================================
+1. PURPOSE & SOVEREIGN PRINCIPLE
+=====================================================================
+
+This framework defines the mandatory visual identity standards
+for all INFERA digital platforms, sovereign accounts, systems,
+AI models, dashboards, applications, and infrastructure layers.
+
+Visual identity is not decorative.
+It is a governance signal.
+
+Any visual element that fails to reflect sovereignty,
+authority, intelligence, and control
+is considered a governance violation.
+
+=====================================================================
+2. SCOPE OF ENFORCEMENT (NON-NEGOTIABLE)
+=====================================================================
+
+This framework applies to ALL of the following without exception:
+
+- Web platforms
+- Mobile applications
+- Desktop applications
+- AI models & agents
+- System-level tools
+- Dashboards & control panels
+- Tabs, menus, sidebars
+- Favicons & browser icons
+- System notifications
+- Reports & exports
+- Public & internal interfaces
+- Sovereign account environments
+
+No platform, feature, or component is exempt.
+
+=====================================================================
+3. CORE VISUAL PHILOSOPHY
+=====================================================================
+
+INFERA visual identity must always convey:
+
+- Sovereignty
+- Silent authority
+- Deep intelligence
+- Control without aggression
+- Timelessness (not trend-based)
+
+Design must feel:
+- Rare
+- Calm
+- Powerful
+- Institutional
+- High-trust
+
+=====================================================================
+4. ICON DESIGN – GLOBAL MANDATORY RULES
+=====================================================================
+
+All icons MUST follow these rules:
+
+ALLOWED:
+- Abstract symbols
+- Intelligence cores
+- Neural fields
+- Control rings
+- Structured geometry
+- Symmetry and balance
+- Minimal layered depth (flat or semi-3D)
+
+STRICTLY FORBIDDEN:
+- Cartoon styles
+- Friendly or playful icons
+- Tool icons (gear, wrench, hammer)
+- Chat bubbles
+- Robot or human figures
+- Emojis
+- Generic UI libraries (Material, Bootstrap, Heroicons)
+- Text or letters inside icons
+
+Icons must work perfectly at:
+- 16x16
+- 24x24
+- 32x32
+
+If an icon fails at small sizes, it is rejected.
+
+=====================================================================
+5. COLOR SYSTEM – SOVEREIGN PALETTE
+=====================================================================
+
+Base Backgrounds (Mandatory):
+- Obsidian Black
+- Deep Space Gradient
+- Dark Graphite
+
+Accent Colors (ONE per icon only):
+- Quantum Purple
+- Neural Cyan
+- Sovereign Blue
+- Signal Gold
+- Deep Emerald
+
+Highlights:
+- Soft white
+- Silver-gray
+
+Bright colors, flat fills, or multi-accent icons are forbidden.
+
+=====================================================================
+6. ICON CATEGORIES & DIFFERENTIATION
+=====================================================================
+
+A) Core System Icons
+- Deepest, most minimal
+- Strong central core
+- Almost monolithic
+
+B) Platform Icons
+- Abstract representation of function
+- Still sovereign, slightly expressive
+
+C) AI Model Icons
+- Intelligence cores only
+- No UI metaphors
+- Feels “behind the curtain”
+
+D) Feature Icons
+- Simplified
+- Lower visual weight
+- Still aligned with core system
+
+Each category must be visually distinct
+while remaining part of one unified system.
+
+=====================================================================
+7. DIGITAL SEALS (OFFICIAL PLATFORM SEALS)
+=====================================================================
+
+INFERA platforms must include official Digital Seals.
+
+Digital Seals represent:
+- Authenticity
+- Sovereign authority
+- System integrity
+- Official issuance
+
+Digital Seal Rules:
+- Circular or hexagonal geometry only
+- Abstract insignia (no text-heavy stamps)
+- Minimal symbol in center
+- Subtle outer ring or grid
+- Used for:
+  - Platform verification
+  - Reports
+  - Certificates
+  - System approvals
+  - Sovereign actions
+
+Seals must never look decorative or ornamental.
+They must feel official and final.
+
+=====================================================================
+8. MOTION & INTERACTION (OPTIONAL BUT CONTROLLED)
+=====================================================================
+
+Allowed:
+- Subtle hover glow
+- Micro pulse
+- Soft scale (≤ 3%)
+
+Forbidden:
+- Bounce
+- Shake
+- Playful easing
+- Continuous animation
+
+Motion must signal:
+- Readiness
+- Intelligence
+- State change
+
+Not entertainment.
+
+=====================================================================
+9. FILE FORMATS & DELIVERY STANDARDS
+=====================================================================
+
+Each icon or seal must be delivered as:
+
+- SVG (primary)
+- PNG 1024x1024 (app icon)
+- PNG 32x32
+- PNG 16x16
+- Monochrome SVG
+
+Naming must follow:
+infera-{platform|system|model}-{type}.svg
+
+=====================================================================
+10. ENFORCEMENT & REJECTION RULE
+=====================================================================
+
+Any visual asset that:
+- Looks generic
+- Looks decorative
+- Looks consumer-grade
+- Looks trendy
+- Looks playful
+
+Is automatically rejected.
+
+Visual identity is a governance layer.
+Non-compliance is a system violation.
+
+=====================================================================
+FINAL RULE
+=====================================================================
+
+If an icon does not immediately feel
+like it belongs to a sovereign operating system,
+it does not belong in INFERA.
+
+🏁 ملاحظة ختامية لك 👑
+
+هذا الإطار:
+
+✔️ يُرسل كما هو
+
+✔️ يُستخدم كـ Design Law
+
+✔️ يحمي الهوية من التدهور
+
+✔️ يمنع أي اجتهاد خاطئ مستقبلي
