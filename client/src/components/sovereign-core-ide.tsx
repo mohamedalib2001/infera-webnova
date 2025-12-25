@@ -84,6 +84,9 @@ import {
   TestTube,
   Layers,
   Workflow,
+  Package,
+  Search,
+  X,
 } from "lucide-react";
 
 interface SovereignConversation {
@@ -149,7 +152,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
   
   const [activeTab, setActiveTab] = useState<"chat" | "code" | "preview" | "terminal">("chat");
   const [bottomTab, setBottomTab] = useState<"terminal" | "problems" | "output">("terminal");
-  const [rightTab, setRightTab] = useState<"tools" | "files" | "database" | "git" | "deploy">("tools");
+  const [rightTab, setRightTab] = useState<"tools" | "files" | "database" | "backend" | "packages" | "testing" | "git" | "deploy">("tools");
   
   const [showSidebar, setShowSidebar] = useState(true);
   const [showRightPanel, setShowRightPanel] = useState(true);
@@ -1037,26 +1040,30 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
               <div className="h-full flex flex-col bg-muted/30">
                 <Tabs value={rightTab} onValueChange={(v) => setRightTab(v as typeof rightTab)} className="flex-1 flex flex-col">
                   <div className="border-b px-1">
-                    <TabsList className="h-8 bg-transparent w-full justify-start gap-0">
-                      <TabsTrigger value="tools" className="text-[10px] px-1.5" data-testid="tab-tools" aria-label={isRtl ? "الأدوات" : "Tools"}>
-                        <Sparkles className="h-3 w-3 mr-0.5" />
-                        <span className="hidden sm:inline">{isRtl ? "أدوات" : "Tools"}</span>
+                    <TabsList className="h-8 bg-transparent w-full justify-start gap-0 flex-wrap">
+                      <TabsTrigger value="tools" className="text-[10px] px-1" data-testid="tab-tools" aria-label={isRtl ? "الأدوات" : "Tools"}>
+                        <Sparkles className="h-3 w-3" />
                       </TabsTrigger>
-                      <TabsTrigger value="files" className="text-[10px] px-1.5" data-testid="tab-files" aria-label={isRtl ? "الملفات" : "Files"}>
-                        <Folder className="h-3 w-3 mr-0.5" />
-                        <span className="hidden sm:inline">{isRtl ? "ملفات" : "Files"}</span>
+                      <TabsTrigger value="files" className="text-[10px] px-1" data-testid="tab-files" aria-label={isRtl ? "الملفات" : "Files"}>
+                        <Folder className="h-3 w-3" />
                       </TabsTrigger>
-                      <TabsTrigger value="database" className="text-[10px] px-1.5" data-testid="tab-database" aria-label={isRtl ? "قاعدة البيانات" : "Database"}>
-                        <Database className="h-3 w-3 mr-0.5" />
-                        <span className="hidden sm:inline">DB</span>
+                      <TabsTrigger value="database" className="text-[10px] px-1" data-testid="tab-database" aria-label={isRtl ? "قاعدة البيانات" : "Database"}>
+                        <Database className="h-3 w-3" />
                       </TabsTrigger>
-                      <TabsTrigger value="git" className="text-[10px] px-1.5" data-testid="tab-git" aria-label="Git">
-                        <GitBranch className="h-3 w-3 mr-0.5" />
-                        <span className="hidden sm:inline">Git</span>
+                      <TabsTrigger value="backend" className="text-[10px] px-1" data-testid="tab-backend" aria-label={isRtl ? "الباك إند" : "Backend"}>
+                        <Server className="h-3 w-3" />
                       </TabsTrigger>
-                      <TabsTrigger value="deploy" className="text-[10px] px-1.5" data-testid="tab-deploy" aria-label={isRtl ? "النشر" : "Deploy"}>
-                        <Rocket className="h-3 w-3 mr-0.5" />
-                        <span className="hidden sm:inline">{isRtl ? "نشر" : "Deploy"}</span>
+                      <TabsTrigger value="packages" className="text-[10px] px-1" data-testid="tab-packages" aria-label={isRtl ? "الحزم" : "Packages"}>
+                        <Package className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="testing" className="text-[10px] px-1" data-testid="tab-testing" aria-label={isRtl ? "الاختبارات" : "Testing"}>
+                        <TestTube className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="git" className="text-[10px] px-1" data-testid="tab-git" aria-label="Git">
+                        <GitBranch className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="deploy" className="text-[10px] px-1" data-testid="tab-deploy" aria-label={isRtl ? "النشر" : "Deploy"}>
+                        <Rocket className="h-3 w-3" />
                       </TabsTrigger>
                     </TabsList>
                   </div>
@@ -1260,7 +1267,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                       </Card>
 
                       {/* Sovereign Security Badge */}
-                      <Card className="border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-transparent">
+                      <Card className="border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-transparent mb-2">
                         <CardContent className="p-3">
                           <div className="flex items-center gap-2">
                             <Shield className="h-5 w-5 text-amber-400" />
@@ -1268,6 +1275,91 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                               <p className="text-xs font-medium text-amber-400">{isRtl ? "حماية سيادية" : "Sovereign Protection"}</p>
                               <p className="text-[10px] text-muted-foreground">{isRtl ? "صلاحيات المالك الكاملة مفعلة" : "Full owner privileges active"}</p>
                             </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Executive Dashboard */}
+                      <Card className="border-cyan-500/30 bg-gradient-to-br from-cyan-500/10 to-transparent mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <TrendingUp className="h-3.5 w-3.5 text-cyan-400" />
+                            {isRtl ? "لوحة التحكم التنفيذية" : "Executive Dashboard"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="p-2 rounded bg-muted/30 text-center">
+                              <p className="text-lg font-bold text-green-400">24</p>
+                              <p className="text-[9px] text-muted-foreground">{isRtl ? "منصات نشطة" : "Active Platforms"}</p>
+                            </div>
+                            <div className="p-2 rounded bg-muted/30 text-center">
+                              <p className="text-lg font-bold text-blue-400">1.2K</p>
+                              <p className="text-[9px] text-muted-foreground">{isRtl ? "مستخدمين" : "Users"}</p>
+                            </div>
+                            <div className="p-2 rounded bg-muted/30 text-center">
+                              <p className="text-lg font-bold text-violet-400">99.9%</p>
+                              <p className="text-[9px] text-muted-foreground">{isRtl ? "وقت التشغيل" : "Uptime"}</p>
+                            </div>
+                            <div className="p-2 rounded bg-muted/30 text-center">
+                              <p className="text-lg font-bold text-amber-400">45K</p>
+                              <p className="text-[9px] text-muted-foreground">{isRtl ? "طلبات/ساعة" : "Req/Hour"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Platform Analytics */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <BarChart3 className="h-3.5 w-3.5 text-violet-400" />
+                            {isRtl ? "تحليلات المنصة" : "Platform Analytics"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1.5">
+                          {[
+                            { label: isRtl ? "الأداء" : "Performance", value: 98, color: "from-green-500 to-emerald-400" },
+                            { label: isRtl ? "الأمان" : "Security", value: 100, color: "from-amber-500 to-yellow-400" },
+                            { label: isRtl ? "الموثوقية" : "Reliability", value: 99, color: "from-blue-500 to-cyan-400" },
+                          ].map((metric) => (
+                            <div key={metric.label}>
+                              <div className="flex items-center justify-between text-[10px] mb-1">
+                                <span className="text-muted-foreground">{metric.label}</span>
+                                <span>{metric.value}%</span>
+                              </div>
+                              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                                <div className={`h-full bg-gradient-to-r ${metric.color} rounded-full`} style={{ width: `${metric.value}%` }} />
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* AI Processing Stats */}
+                      <Card className="bg-gradient-to-br from-violet-500/10 to-transparent border-violet-500/20">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Brain className="h-3.5 w-3.5 text-violet-400" />
+                            {isRtl ? "إحصائيات الذكاء" : "AI Stats"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "الطلبات اليوم" : "Requests Today"}</span>
+                            <span className="text-violet-400 font-medium">2,847</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "متوسط الاستجابة" : "Avg Response"}</span>
+                            <span className="text-green-400 font-medium">&lt;0.001s</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "نسبة النجاح" : "Success Rate"}</span>
+                            <span className="text-green-400 font-medium">99.98%</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "النماذج النشطة" : "Active Models"}</span>
+                            <span className="text-cyan-400 font-medium">Claude 4.5</span>
                           </div>
                         </CardContent>
                       </Card>
@@ -1426,6 +1518,314 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                     </ScrollArea>
                   </TabsContent>
 
+                  {/* Backend Generator Tab */}
+                  <TabsContent value="backend" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      {/* Backend Generator Header */}
+                      <Card className="mb-2 bg-gradient-to-br from-violet-500/20 via-blue-500/10 to-transparent border-violet-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-violet-500/20">
+                              <Server className="h-4 w-4 text-violet-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "مولد الباك إند" : "Backend Generator"}</p>
+                              <p className="text-[10px] text-muted-foreground">{isRtl ? "إنشاء API كامل بنقرة واحدة" : "Generate full API with one click"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Framework Selection */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Code2 className="h-3.5 w-3.5 text-blue-400" />
+                            {isRtl ? "الإطار" : "Framework"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1.5">
+                          {[
+                            { name: "Express.js", icon: "JS", selected: true },
+                            { name: "NestJS", icon: "TS", selected: false },
+                            { name: "FastAPI", icon: "PY", selected: false },
+                            { name: "Django", icon: "PY", selected: false },
+                          ].map((fw) => (
+                            <button
+                              key={fw.name}
+                              data-testid={`button-select-${fw.name.toLowerCase().replace('.', '-')}`}
+                              className={`w-full flex items-center justify-between p-1.5 rounded text-[10px] transition-colors ${
+                                fw.selected ? "bg-violet-500/20 text-violet-400" : "hover:bg-muted"
+                              }`}
+                            >
+                              <span className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-[9px] h-4">{fw.icon}</Badge>
+                                <span>{fw.name}</span>
+                              </span>
+                              {fw.selected && <Check className="h-3 w-3" />}
+                            </button>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* API Generation Options */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Globe className="h-3.5 w-3.5 text-green-400" />
+                            {isRtl ? "توليد API" : "API Generation"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1.5">
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-generate-crud">
+                              <Database className="h-4 w-4 text-blue-400" />
+                              {isRtl ? "CRUD" : "CRUD API"}
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-generate-auth">
+                              <Shield className="h-4 w-4 text-green-400" />
+                              {isRtl ? "المصادقة" : "Auth API"}
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-generate-rest">
+                              <Globe className="h-4 w-4 text-violet-400" />
+                              REST
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-generate-graphql">
+                              <Braces className="h-4 w-4 text-pink-400" />
+                              GraphQL
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Database Connection */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Database className="h-3.5 w-3.5 text-cyan-400" />
+                            {isRtl ? "قاعدة البيانات" : "Database"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1.5">
+                          {[
+                            { name: "PostgreSQL", status: isRtl ? "متصل" : "Connected", color: "text-green-400" },
+                            { name: "MongoDB", status: isRtl ? "غير متصل" : "Disconnected", color: "text-muted-foreground" },
+                            { name: "Redis", status: isRtl ? "غير متصل" : "Disconnected", color: "text-muted-foreground" },
+                          ].map((db) => (
+                            <div key={db.name} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]">
+                              <span>{db.name}</span>
+                              <span className={db.color}>{db.status}</span>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Generate Full Backend */}
+                      <Button className="w-full bg-gradient-to-r from-violet-600 to-blue-600 text-white" data-testid="button-generate-backend">
+                        <Wand2 className="h-4 w-4 mr-2" />
+                        {isRtl ? "توليد الباك إند الكامل" : "Generate Full Backend"}
+                      </Button>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Package Manager Tab */}
+                  <TabsContent value="packages" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      {/* Search Packages */}
+                      <div className="flex gap-1 mb-3">
+                        <Input
+                          placeholder={isRtl ? "بحث عن حزمة..." : "Search packages..."}
+                          className="h-8 text-xs flex-1"
+                          data-testid="input-search-packages"
+                        />
+                        <Button size="sm" variant="outline" className="h-8" data-testid="button-search-npm">
+                          <Search className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+
+                      {/* Installed Packages */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Package className="h-3.5 w-3.5 text-green-400" />
+                            {isRtl ? "الحزم المثبتة" : "Installed"}
+                            <Badge variant="outline" className="text-[10px] h-4 ml-auto">24</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { name: "express", version: "4.18.2", type: "prod" },
+                            { name: "react", version: "18.2.0", type: "prod" },
+                            { name: "typescript", version: "5.3.3", type: "dev" },
+                            { name: "drizzle-orm", version: "0.29.3", type: "prod" },
+                            { name: "@anthropic-ai/sdk", version: "0.14.1", type: "prod" },
+                          ].map((pkg) => (
+                            <div key={pkg.name} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px] group">
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <Package className="h-3 w-3 text-muted-foreground shrink-0" />
+                                <span className="truncate">{pkg.name}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Badge variant="outline" className="text-[9px] h-4">{pkg.version}</Badge>
+                                <Button size="icon" variant="ghost" className="h-5 w-5 opacity-0 group-hover:opacity-100" data-testid={`button-remove-${pkg.name}`}>
+                                  <X className="h-3 w-3 text-red-400" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Quick Install */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Download className="h-3.5 w-3.5 text-blue-400" />
+                            {isRtl ? "تثبيت سريع" : "Quick Install"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0">
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <Button size="sm" variant="outline" className="h-auto py-1.5 text-[10px]" data-testid="button-install-openai">
+                              openai
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-auto py-1.5 text-[10px]" data-testid="button-install-stripe">
+                              stripe
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-auto py-1.5 text-[10px]" data-testid="button-install-zod">
+                              zod
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-auto py-1.5 text-[10px]" data-testid="button-install-axios">
+                              axios
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Package Stats */}
+                      <Card className="bg-gradient-to-br from-blue-500/10 to-transparent border-blue-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "الإنتاج" : "Production"}</span>
+                            <span className="text-blue-400 font-medium">18</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "التطوير" : "Development"}</span>
+                            <span className="text-blue-400 font-medium">6</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "تحديثات متاحة" : "Updates"}</span>
+                            <span className="text-amber-400 font-medium">3</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Testing Suite Tab */}
+                  <TabsContent value="testing" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      {/* Test Status */}
+                      <Card className="mb-2 bg-gradient-to-br from-green-500/20 via-emerald-500/10 to-transparent border-green-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-green-500/20">
+                              <TestTube className="h-4 w-4 text-green-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "حالة الاختبارات" : "Test Status"}</p>
+                              <p className="text-[10px] text-green-400">{isRtl ? "24 من 26 ناجح" : "24 of 26 passing"}</p>
+                            </div>
+                          </div>
+                          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full bg-gradient-to-r from-green-500 to-green-400 rounded-full" style={{ width: "92%" }} />
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Quick Test Actions */}
+                      <div className="grid grid-cols-2 gap-1.5 mb-3">
+                        <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-run-all-tests">
+                          <Play className="h-4 w-4 text-green-400" />
+                          {isRtl ? "تشغيل الكل" : "Run All"}
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-run-failed">
+                          <RefreshCw className="h-4 w-4 text-red-400" />
+                          {isRtl ? "الفاشلة" : "Failed"}
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-generate-tests">
+                          <Wand2 className="h-4 w-4 text-violet-400" />
+                          {isRtl ? "توليد" : "Generate"}
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-coverage">
+                          <Target className="h-4 w-4 text-blue-400" />
+                          {isRtl ? "التغطية" : "Coverage"}
+                        </Button>
+                      </div>
+
+                      {/* Test Results */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <FileCode className="h-3.5 w-3.5" />
+                            {isRtl ? "نتائج الاختبارات" : "Test Results"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { suite: "auth.test.ts", passed: 8, failed: 0, color: "text-green-400" },
+                            { suite: "api.test.ts", passed: 12, failed: 1, color: "text-amber-400" },
+                            { suite: "db.test.ts", passed: 4, failed: 1, color: "text-amber-400" },
+                          ].map((test) => (
+                            <div key={test.suite} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]">
+                              <span className="truncate flex-1">{test.suite}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-green-400">{test.passed}</span>
+                                <span className="text-muted-foreground">/</span>
+                                <span className={test.failed > 0 ? "text-red-400" : "text-muted-foreground"}>{test.failed}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Test Types */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Layers className="h-3.5 w-3.5 text-violet-400" />
+                            {isRtl ? "أنواع الاختبارات" : "Test Types"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1.5">
+                          {[
+                            { type: isRtl ? "وحدة" : "Unit", count: 18, color: "text-blue-400" },
+                            { type: isRtl ? "تكامل" : "Integration", count: 6, color: "text-violet-400" },
+                            { type: "E2E", count: 2, color: "text-green-400" },
+                          ].map((t) => (
+                            <div key={t.type} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]">
+                              <span>{t.type}</span>
+                              <Badge variant="outline" className={`text-[9px] h-4 ${t.color}`}>{t.count}</Badge>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Coverage Stats */}
+                      <Card className="bg-gradient-to-br from-violet-500/10 to-transparent border-violet-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "تغطية الكود" : "Code Coverage"}</span>
+                            <span className="text-green-400 font-medium">87%</span>
+                          </div>
+                          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full bg-gradient-to-r from-green-500 to-emerald-400 rounded-full" style={{ width: "87%" }} />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
                   {/* Git Integration Tab */}
                   <TabsContent value="git" className="flex-1 m-0 overflow-hidden">
                     <ScrollArea className="h-full p-2">
@@ -1450,11 +1850,11 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                       <div className="grid grid-cols-2 gap-1.5 mb-3">
                         <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-git-pull">
                           <Download className="h-4 w-4 text-blue-400" />
-                          Pull
+                          {isRtl ? "سحب" : "Pull"}
                         </Button>
                         <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-git-push">
                           <Cloud className="h-4 w-4 text-green-400" />
-                          Push
+                          {isRtl ? "رفع" : "Push"}
                         </Button>
                         <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-git-branch">
                           <GitBranch className="h-4 w-4 text-violet-400" />
@@ -1462,7 +1862,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                         </Button>
                         <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-git-sync">
                           <RefreshCw className="h-4 w-4 text-orange-400" />
-                          Sync
+                          {isRtl ? "مزامنة" : "Sync"}
                         </Button>
                       </div>
 
