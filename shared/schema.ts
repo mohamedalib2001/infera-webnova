@@ -17230,3 +17230,183 @@ export const insertNovaHumanInLoopSchema = createInsertSchema(novaHumanInLoop).o
 });
 export type InsertNovaHumanInLoop = z.infer<typeof insertNovaHumanInLoopSchema>;
 export type NovaHumanInLoop = typeof novaHumanInLoop.$inferSelect;
+
+// ==================== NOVA COMPLIANCE ENGINE ====================
+// محرك الامتثال السيادي - ISO, NIST, GDPR, SOC2, Local Laws
+
+export const novaComplianceFrameworkTypes = [
+  'ISO_27001', 'ISO_27701', 'ISO_9001',      // ISO Standards
+  'NIST_CSF', 'NIST_800_53', 'NIST_AI_RMF',  // NIST Frameworks
+  'GDPR', 'CCPA', 'LGPD',                    // Privacy Regulations
+  'SOC2_TYPE_I', 'SOC2_TYPE_II',             // SOC2 Compliance
+  'HIPAA', 'PCI_DSS',                        // Industry Specific
+  'UAE_PDPL', 'KSA_PDPL', 'EGYPT_PDPL',      // Regional Laws (Middle East)
+  'ZERO_TRUST',                              // Security Architecture
+  'CUSTOM'                                   // Custom Framework
+] as const;
+export type NovaComplianceFrameworkType = typeof novaComplianceFrameworkTypes[number];
+
+export const complianceStatus = [
+  'compliant', 'non_compliant', 'partial', 'pending_audit', 'exempted', 'not_applicable'
+] as const;
+export type ComplianceStatus = typeof complianceStatus[number];
+
+// Nova Compliance Frameworks Registry - سجل أطر الامتثال
+export const novaComplianceFrameworks = pgTable("nova_compliance_frameworks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Framework Details
+  framework: text("framework").notNull(), // ISO_27001, NIST_CSF, etc.
+  version: text("version").notNull(),
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  
+  // Scope
+  scope: text("scope").notNull(), // organization, platform, data, ai, infrastructure
+  applicablePlatforms: jsonb("applicable_platforms").$type<string[]>(), // Which platforms this applies to
+  
+  // Status
+  status: text("status").notNull().default('pending_audit'), // compliant, non_compliant, partial, pending_audit
+  complianceScore: integer("compliance_score").default(0), // 0-100
+  
+  // Audit Info
+  lastAuditDate: timestamp("last_audit_date"),
+  nextAuditDate: timestamp("next_audit_date"),
+  auditor: text("auditor"),
+  auditReport: text("audit_report"),
+  
+  // Certification
+  certified: boolean("certified").notNull().default(false),
+  certificateNumber: text("certificate_number"),
+  certificationDate: timestamp("certification_date"),
+  expirationDate: timestamp("expiration_date"),
+  
+  // Owner Authority
+  managedBy: text("managed_by").notNull(), // Must be owner or sovereign
+  
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_ncf_framework").on(table.framework),
+  index("IDX_ncf_status").on(table.status),
+  index("IDX_ncf_certified").on(table.certified),
+  index("IDX_ncf_active").on(table.isActive),
+]);
+
+export const insertNovaComplianceFrameworkSchema = createInsertSchema(novaComplianceFrameworks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertNovaComplianceFramework = z.infer<typeof insertNovaComplianceFrameworkSchema>;
+export type NovaComplianceFramework = typeof novaComplianceFrameworks.$inferSelect;
+
+// Nova Compliance Controls - ضوابط الامتثال
+export const novaComplianceControls = pgTable("nova_compliance_controls", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  frameworkId: varchar("framework_id").references(() => novaComplianceFrameworks.id, { onDelete: "cascade" }).notNull(),
+  
+  // Control Details
+  controlId: text("control_id").notNull(), // e.g., "A.5.1.1" for ISO 27001
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  category: text("category").notNull(), // organizational, technical, physical, administrative
+  
+  // Implementation
+  status: text("status").notNull().default('not_applicable'), // compliant, non_compliant, partial, not_applicable
+  implementationDetails: text("implementation_details"),
+  evidence: jsonb("evidence").$type<Array<{
+    type: string;
+    name: string;
+    url?: string;
+    uploadedAt: string;
+    uploadedBy: string;
+  }>>(),
+  
+  // Assessment
+  riskLevel: text("risk_level"), // low, medium, high, critical
+  lastAssessmentDate: timestamp("last_assessment_date"),
+  assessedBy: text("assessed_by"),
+  
+  // Remediation
+  remediationRequired: boolean("remediation_required").notNull().default(false),
+  remediationPlan: text("remediation_plan"),
+  remediationDeadline: timestamp("remediation_deadline"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_ncc_framework").on(table.frameworkId),
+  index("IDX_ncc_control").on(table.controlId),
+  index("IDX_ncc_status").on(table.status),
+  index("IDX_ncc_category").on(table.category),
+]);
+
+export const insertNovaComplianceControlSchema = createInsertSchema(novaComplianceControls).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertNovaComplianceControl = z.infer<typeof insertNovaComplianceControlSchema>;
+export type NovaComplianceControl = typeof novaComplianceControls.$inferSelect;
+
+// Nova Compliance Assessments - تقييمات الامتثال
+export const novaComplianceAssessments = pgTable("nova_compliance_assessments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  frameworkId: varchar("framework_id").references(() => novaComplianceFrameworks.id, { onDelete: "cascade" }).notNull(),
+  
+  // Assessment Info
+  assessmentType: text("assessment_type").notNull(), // internal, external, self, automated
+  assessor: text("assessor").notNull(),
+  assessmentDate: timestamp("assessment_date").notNull().defaultNow(),
+  
+  // Results
+  overallScore: integer("overall_score").notNull(), // 0-100
+  findings: jsonb("findings").$type<Array<{
+    controlId: string;
+    status: string;
+    finding: string;
+    severity: 'info' | 'low' | 'medium' | 'high' | 'critical';
+    recommendation?: string;
+  }>>(),
+  
+  // Summary
+  compliantControls: integer("compliant_controls").default(0),
+  nonCompliantControls: integer("non_compliant_controls").default(0),
+  partialControls: integer("partial_controls").default(0),
+  notApplicableControls: integer("not_applicable_controls").default(0),
+  
+  // Action Items
+  actionItems: jsonb("action_items").$type<Array<{
+    id: string;
+    controlId: string;
+    action: string;
+    priority: 'low' | 'medium' | 'high' | 'critical';
+    assignee?: string;
+    deadline?: string;
+    status: 'open' | 'in_progress' | 'completed' | 'deferred';
+  }>>(),
+  
+  // Approval
+  approvedBy: text("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_nca_framework").on(table.frameworkId),
+  index("IDX_nca_type").on(table.assessmentType),
+  index("IDX_nca_date").on(table.assessmentDate),
+  index("IDX_nca_score").on(table.overallScore),
+]);
+
+export const insertNovaComplianceAssessmentSchema = createInsertSchema(novaComplianceAssessments).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertNovaComplianceAssessment = z.infer<typeof insertNovaComplianceAssessmentSchema>;
+export type NovaComplianceAssessment = typeof novaComplianceAssessments.$inferSelect;

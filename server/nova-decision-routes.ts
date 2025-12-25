@@ -26,6 +26,11 @@ interface AuthenticatedRequest extends Request {
 // STRICT Role Hierarchy: owner > sovereign > admin > user
 const ADMIN_ROLES = ['owner', 'sovereign', 'admin'];
 
+/**
+ * SECURITY: Validate user authority from DATABASE, never trust client input.
+ * Even ROOT_OWNER must exist in database with 'owner' role.
+ * This prevents client-side spoofing of "ROOT_OWNER" string.
+ */
 async function validateSovereignAuthority(
   userId: string | undefined, 
   requiredRole: 'owner' | 'sovereign' | 'admin' = 'owner'
@@ -38,12 +43,8 @@ async function validateSovereignAuthority(
     };
   }
 
-  // ROOT_OWNER has absolute authority
-  if (userId === OWNER_ID || isRootOwner(userId)) {
-    return { valid: true };
-  }
-
-  // Check user role in database
+  // SECURITY: Always verify against database - NEVER trust client-supplied IDs
+  // Even if userId claims to be ROOT_OWNER, we verify they exist with proper role
   try {
     const user = await db.select()
       .from(users)
@@ -51,14 +52,21 @@ async function validateSovereignAuthority(
       .limit(1);
 
     if (!user.length) {
+      // User not found - could be spoofed ROOT_OWNER or non-existent user
       return { 
         valid: false, 
-        error: 'User not found', 
-        errorAr: 'المستخدم غير موجود' 
+        error: 'User not found in system - authentication required', 
+        errorAr: 'المستخدم غير موجود في النظام - المصادقة مطلوبة' 
       };
     }
 
     const userRole = user[0].role || 'user';
+
+    // Check if this is the actual ROOT_OWNER (verified in database)
+    const isVerifiedOwner = (userId === OWNER_ID || isRootOwner(userId)) && userRole === 'owner';
+    if (isVerifiedOwner) {
+      return { valid: true };
+    }
 
     // Strict role enforcement - no fallthrough
     if (requiredRole === 'owner') {
@@ -127,7 +135,10 @@ import {
   novaKnowledgeGraph,
   novaPolicyMemory,
   novaModelLifecycle,
-  novaHumanInLoop
+  novaHumanInLoop,
+  novaComplianceFrameworks,
+  novaComplianceControls,
+  novaComplianceAssessments
 } from '@shared/schema';
 
 const router = Router();
@@ -1389,6 +1400,262 @@ router.get('/dashboard/summary', async (req: Request, res: Response) => {
       success: false,
       error: error.message
     });
+  }
+});
+
+// ==================== COMPLIANCE ENGINE API ====================
+// محرك الامتثال السيادي
+// 
+// SECURITY NOTE: These endpoints currently accept user IDs from request body.
+// PRODUCTION REQUIREMENT: Replace with session-derived identity (req.user.id)
+// from authenticated middleware before deploying to production.
+// Current implementation validates that user exists with proper role in database.
+
+// List all compliance frameworks
+router.get('/compliance/frameworks', async (req: Request, res: Response) => {
+  try {
+    const frameworks = await db.select()
+      .from(novaComplianceFrameworks)
+      .where(eq(novaComplianceFrameworks.isActive, true))
+      .orderBy(desc(novaComplianceFrameworks.createdAt));
+
+    res.json({
+      success: true,
+      data: frameworks,
+      count: frameworks.length
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Create compliance framework (Owner/Sovereign only)
+router.post('/compliance/frameworks', async (req: Request, res: Response) => {
+  try {
+    const { managedBy, ...frameworkData } = req.body;
+
+    const authCheck = await validateSovereignAuthority(managedBy, 'sovereign');
+    if (!authCheck.valid) {
+      return res.status(403).json({
+        success: false,
+        error: 'Creating compliance frameworks requires sovereign authority',
+        errorAr: 'إنشاء أطر الامتثال يتطلب صلاحية سيادية'
+      });
+    }
+
+    const [framework] = await db.insert(novaComplianceFrameworks).values({
+      ...frameworkData,
+      managedBy
+    }).returning();
+
+    res.status(201).json({
+      success: true,
+      message: 'Compliance framework created',
+      messageAr: 'تم إنشاء إطار الامتثال',
+      data: framework
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get framework controls
+router.get('/compliance/frameworks/:id/controls', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const controls = await db.select()
+      .from(novaComplianceControls)
+      .where(eq(novaComplianceControls.frameworkId, id))
+      .orderBy(novaComplianceControls.controlId);
+
+    res.json({
+      success: true,
+      data: controls,
+      count: controls.length
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Add control to framework (Owner/Sovereign only)
+router.post('/compliance/controls', async (req: Request, res: Response) => {
+  try {
+    const { createdBy, ...controlData } = req.body;
+
+    const authCheck = await validateSovereignAuthority(createdBy, 'sovereign');
+    if (!authCheck.valid) {
+      return res.status(403).json({
+        success: false,
+        error: 'Creating compliance controls requires sovereign authority',
+        errorAr: 'إنشاء ضوابط الامتثال يتطلب صلاحية سيادية'
+      });
+    }
+
+    const [control] = await db.insert(novaComplianceControls).values(controlData).returning();
+
+    res.status(201).json({
+      success: true,
+      message: 'Compliance control created',
+      messageAr: 'تم إنشاء ضابط الامتثال',
+      data: control
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Update control status
+router.patch('/compliance/controls/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { updatedBy, ...updates } = req.body;
+
+    const authCheck = await validateSovereignAuthority(updatedBy, 'admin');
+    if (!authCheck.valid) {
+      return res.status(403).json({
+        success: false,
+        error: 'Updating compliance controls requires admin authority',
+        errorAr: 'تحديث ضوابط الامتثال يتطلب صلاحية المسؤول'
+      });
+    }
+
+    const [updated] = await db.update(novaComplianceControls)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(novaComplianceControls.id, id))
+      .returning();
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        error: 'Control not found',
+        errorAr: 'الضابط غير موجود'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Control updated',
+      messageAr: 'تم تحديث الضابط',
+      data: updated
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Create compliance assessment
+router.post('/compliance/assessments', async (req: Request, res: Response) => {
+  try {
+    const { assessor, ...assessmentData } = req.body;
+
+    const authCheck = await validateSovereignAuthority(assessor, 'admin');
+    if (!authCheck.valid) {
+      return res.status(403).json({
+        success: false,
+        error: 'Creating compliance assessments requires admin authority',
+        errorAr: 'إنشاء تقييمات الامتثال يتطلب صلاحية المسؤول'
+      });
+    }
+
+    const [assessment] = await db.insert(novaComplianceAssessments).values({
+      ...assessmentData,
+      assessor
+    }).returning();
+
+    // Update framework compliance score
+    if (assessment.overallScore !== undefined) {
+      await db.update(novaComplianceFrameworks)
+        .set({ 
+          complianceScore: assessment.overallScore,
+          lastAuditDate: new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(novaComplianceFrameworks.id, assessmentData.frameworkId));
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Assessment created and framework score updated',
+      messageAr: 'تم إنشاء التقييم وتحديث درجة الإطار',
+      data: assessment
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get framework assessments
+router.get('/compliance/frameworks/:id/assessments', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const assessments = await db.select()
+      .from(novaComplianceAssessments)
+      .where(eq(novaComplianceAssessments.frameworkId, id))
+      .orderBy(desc(novaComplianceAssessments.assessmentDate));
+
+    res.json({
+      success: true,
+      data: assessments,
+      count: assessments.length
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get compliance dashboard summary
+router.get('/compliance/dashboard', async (req: Request, res: Response) => {
+  try {
+    const frameworks = await db.select().from(novaComplianceFrameworks)
+      .where(eq(novaComplianceFrameworks.isActive, true));
+
+    const controls = await db.select().from(novaComplianceControls);
+    
+    const compliantControls = controls.filter(c => c.status === 'compliant').length;
+    const nonCompliantControls = controls.filter(c => c.status === 'non_compliant').length;
+    const partialControls = controls.filter(c => c.status === 'partial').length;
+
+    const certifiedFrameworks = frameworks.filter(f => f.certified).length;
+    const averageScore = frameworks.length > 0 
+      ? Math.round(frameworks.reduce((sum, f) => sum + (f.complianceScore || 0), 0) / frameworks.length)
+      : 0;
+
+    // Check for expiring certifications (next 90 days)
+    const now = new Date();
+    const ninetyDaysFromNow = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+    const expiringCertifications = frameworks.filter(f => 
+      f.certified && f.expirationDate && 
+      new Date(f.expirationDate) <= ninetyDaysFromNow && 
+      new Date(f.expirationDate) > now
+    ).length;
+
+    res.json({
+      success: true,
+      data: {
+        totalFrameworks: frameworks.length,
+        certifiedFrameworks,
+        averageComplianceScore: averageScore,
+        totalControls: controls.length,
+        compliantControls,
+        nonCompliantControls,
+        partialControls,
+        expiringCertifications,
+        frameworksSummary: frameworks.map(f => ({
+          id: f.id,
+          framework: f.framework,
+          name: f.name,
+          status: f.status,
+          score: f.complianceScore,
+          certified: f.certified,
+          expirationDate: f.expirationDate
+        }))
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
