@@ -397,8 +397,54 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
 
           {activeTab !== "development" && (
             <>
-              {/* New Platform Button - for visitors, subscribers and owner */}
-              {shouldShowSection(["all", "visitors", "subscribers", "owner"]) && (
+              {/* Visitors Section - Limited access for non-subscribers */}
+              {activeTab === "visitors" && (
+                <SidebarGroup>
+                  <SidebarGroupLabel className="flex items-center gap-1">
+                    <UserCircle className="h-3 w-3" />
+                    {language === "ar" ? "استكشاف" : "Explore"}
+                  </SidebarGroupLabel>
+                  <SidebarGroupContent>
+                    <SidebarMenu>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/"}>
+                          <Link href="/" data-testid="nav-visitor-home">
+                            <Home className="h-4 w-4" />
+                            <span>{language === "ar" ? "الرئيسية" : "Home"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/templates"}>
+                          <Link href="/templates" data-testid="nav-visitor-templates">
+                            <LayoutTemplate className="h-4 w-4" />
+                            <span>{language === "ar" ? "معرض القوالب" : "Templates Gallery"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/pricing"}>
+                          <Link href="/pricing" data-testid="nav-visitor-pricing">
+                            <CreditCard className="h-4 w-4" />
+                            <span>{language === "ar" ? "الباقات والأسعار" : "Pricing Plans"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/support"}>
+                          <Link href="/support" data-testid="nav-visitor-support">
+                            <Headphones className="h-4 w-4" />
+                            <span>{language === "ar" ? "الدعم" : "Support"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </SidebarGroup>
+              )}
+
+              {/* New Platform Button - for subscribers and owner only (not visitors) */}
+              {shouldShowSection(["all", "subscribers", "owner"]) && activeTab !== "visitors" && (
                 <SidebarGroup>
                   <div className="px-4 mb-4">
                     <Button 
@@ -413,8 +459,8 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                 </SidebarGroup>
               )}
 
-              {/* Build Section - for visitors, subscribers and owner */}
-              {shouldShowSection(["all", "visitors", "subscribers", "owner"]) && (
+              {/* Build Section - for subscribers and owner only (not visitors) */}
+              {shouldShowSection(["all", "subscribers", "owner"]) && activeTab !== "visitors" && (
                 <SidebarGroup>
                   <SidebarGroupLabel className="flex items-center gap-1">
                     <Wrench className="h-3 w-3" />
@@ -426,8 +472,8 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                 </SidebarGroup>
               )}
 
-              {/* Management Section - for employees, managers, subscribers and owner */}
-              {shouldShowSection(["all", "employees", "managers", "subscribers", "owner"]) && (
+              {/* Management Section - for employees, managers, subscribers and owner (not visitors) */}
+              {shouldShowSection(["all", "employees", "managers", "subscribers", "owner"]) && activeTab !== "visitors" && (
                 <SidebarGroup>
                   <SidebarGroupLabel className="flex items-center gap-1">
                     <Settings className="h-3 w-3" />
@@ -439,8 +485,8 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                 </SidebarGroup>
               )}
 
-              {/* Growth Section - for managers, subscribers and owner */}
-              {shouldShowSection(["all", "managers", "subscribers", "owner"]) && (
+              {/* Growth Section - for managers, subscribers and owner (not visitors) */}
+              {shouldShowSection(["all", "managers", "subscribers", "owner"]) && activeTab !== "visitors" && (
                 <SidebarGroup>
                   <Collapsible open={growthExpanded} onOpenChange={setGrowthExpanded}>
                     <CollapsibleTrigger asChild>
