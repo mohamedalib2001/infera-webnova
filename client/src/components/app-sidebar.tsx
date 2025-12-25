@@ -397,8 +397,8 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
 
           {activeTab !== "development" && (
             <>
-              {/* New Platform Button - for visitors and owner */}
-              {shouldShowSection(["all", "visitors", "owner"]) && (
+              {/* New Platform Button - for visitors, subscribers and owner */}
+              {shouldShowSection(["all", "visitors", "subscribers", "owner"]) && (
                 <SidebarGroup>
                   <div className="px-4 mb-4">
                     <Button 
@@ -413,8 +413,8 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                 </SidebarGroup>
               )}
 
-              {/* Build Section - for visitors and owner */}
-              {shouldShowSection(["all", "visitors", "owner"]) && (
+              {/* Build Section - for visitors, subscribers and owner */}
+              {shouldShowSection(["all", "visitors", "subscribers", "owner"]) && (
                 <SidebarGroup>
                   <SidebarGroupLabel className="flex items-center gap-1">
                     <Wrench className="h-3 w-3" />
@@ -426,8 +426,8 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                 </SidebarGroup>
               )}
 
-              {/* Management Section - for employees, managers, and owner */}
-              {shouldShowSection(["all", "employees", "managers", "owner"]) && (
+              {/* Management Section - for employees, managers, subscribers and owner */}
+              {shouldShowSection(["all", "employees", "managers", "subscribers", "owner"]) && (
                 <SidebarGroup>
                   <SidebarGroupLabel className="flex items-center gap-1">
                     <Settings className="h-3 w-3" />
@@ -439,8 +439,8 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                 </SidebarGroup>
               )}
 
-              {/* Growth Section - for managers and owner */}
-              {shouldShowSection(["all", "managers", "owner"]) && (
+              {/* Growth Section - for managers, subscribers and owner */}
+              {shouldShowSection(["all", "managers", "subscribers", "owner"]) && (
                 <SidebarGroup>
                   <Collapsible open={growthExpanded} onOpenChange={setGrowthExpanded}>
                     <CollapsibleTrigger asChild>
