@@ -323,9 +323,9 @@ function AppContent() {
   if (!user) {
     return (
       <SidebarProvider style={sidebarStyle}>
-        <div className="flex h-screen w-full" dir={isRTL ? "rtl" : "ltr"}>
+        <div className="flex h-screen w-full">
           <GuestSidebar />
-          <div className="flex flex-col flex-1 overflow-hidden">
+          <div className="flex flex-col flex-1 overflow-hidden" dir={isRTL ? "rtl" : "ltr"}>
             <header className="flex items-center justify-between gap-2 p-2 border-b h-14 shrink-0">
               <div className="flex items-center gap-2">
                 <SidebarTrigger data-testid="button-sidebar-toggle" />
@@ -350,9 +350,9 @@ function AppContent() {
     <InspectorProvider>
       <SovereignViewProvider>
         <SidebarProvider style={sidebarStyle}>
-          <div className="flex h-screen w-full" dir={isRTL ? "rtl" : "ltr"}>
+          <div className="flex h-screen w-full">
             <AppSidebar />
-            <div className="flex flex-col flex-1 overflow-hidden">
+            <div className="flex flex-col flex-1 overflow-hidden" dir={isRTL ? "rtl" : "ltr"}>
               <header className="flex items-center justify-between gap-2 p-2 border-b h-14 shrink-0">
                 <div className="flex items-center gap-2">
                   <SidebarTrigger data-testid="button-sidebar-toggle" />
