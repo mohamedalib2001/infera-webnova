@@ -316,21 +316,13 @@ const translations = {
     costPerMToken: "التكلفة لكل مليون رمز",
     inputCost: "الإدخال",
     outputCost: "الإخراج",
-    
-    // Webhooks
-    webhooks: "الويب هوكس",
     webhookName: "اسم الويب هوك",
     webhookUrl: "رابط الإرسال",
     webhookEvents: "الأحداث",
     webhookActive: "نشط",
-    webhookDeliveries: "التسليمات",
-    noWebhooks: "لا يوجد ويب هوكس",
     addWebhook: "إضافة ويب هوك",
     testWebhook: "اختبار",
     deleteWebhook: "حذف",
-    webhookSuccess: "نجح",
-    webhookFailed: "فشل",
-    detectAnomalies: "كشف الشذوذ",
   }
 };
 
