@@ -26,6 +26,7 @@ import sovereignWorkspaceRoutes from "./sovereign-workspace-routes";
 import { registerAppBuilderRoutes } from "./app-builder-routes";
 import { buildRoutes } from "./build-routes";
 import { registerEnterpriseServicesRoutes } from "./enterprise-services-routes";
+import militaryPlatformRoutes from "./military-platform-routes";
 import {
   createLoginSession,
   endLoginSession,
@@ -18095,6 +18096,10 @@ Respond ONLY with valid JSON: {"nextMonthGrowth": "+X%", "accuracy": number, "pe
   registerAppBuilderRoutes(app);
   app.use('/api', buildRoutes);
   console.log("App Builder routes registered | تم تسجيل مسارات منشئ التطبيقات");
+
+  // ==================== MILITARY-GRADE PLATFORM BUILDING ====================
+  app.use("/api/military", militaryPlatformRoutes);
+  console.log("Military Platform routes registered | تم تسجيل مسارات المنصة العسكرية");
 
   // ==================== ENTERPRISE SERVICES - WORLD-CLASS CI/CD ====================
   registerEnterpriseServicesRoutes(app);
