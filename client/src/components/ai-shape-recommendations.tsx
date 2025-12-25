@@ -35,7 +35,7 @@ interface AIShapeRecommendationsProps {
   selectedPattern: string;
   accentColor: string;
   selectedShape: ShapeCategory | null;
-  onSelectShape: (shape: ShapeRecommendation) => void;
+  onSelectShape: (shape: ShapeRecommendation, allRecommendations: ShapeRecommendation[]) => void;
   disabled?: boolean;
 }
 
@@ -146,7 +146,7 @@ export function AIShapeRecommendations({
                           : "hover-elevate border-border/50"}
                         ${disabled ? "opacity-50 pointer-events-none" : ""}
                       `}
-                      onClick={() => !disabled && onSelectShape(shape)}
+                      onClick={() => !disabled && onSelectShape(shape, recommendations)}
                       data-testid={`shape-card-${shape.category}`}
                     >
                       {index === 0 && (

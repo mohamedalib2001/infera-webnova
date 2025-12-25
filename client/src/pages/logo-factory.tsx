@@ -40,6 +40,12 @@ import {
   type PlatformLogoState
 } from "@/lib/logo-binding-engine";
 import { useLogoSyncDialog, LogoSyncResultDialog } from "@/components/logo-sync-result-dialog";
+import { AIShapeRecommendations } from "@/components/ai-shape-recommendations";
+import { 
+  type ShapeCategory, 
+  type ShapeRecommendation,
+  saveShapeSelection 
+} from "@/lib/ai-shape-recommendation-engine";
 
 // =====================================================================
 // INFERA SOVEREIGN VISUAL IDENTITY & ICONOGRAPHY MANDATORY FRAMEWORK
@@ -399,6 +405,9 @@ export default function LogoFactory() {
   const [platformName, setPlatformName] = useState('infera-platform');
   const [previewSize, setPreviewSize] = useState(256);
   const [generatedIcons, setGeneratedIcons] = useState<GeneratedIcon[]>([]);
+  
+  // AI Shape Recommendation State (MANDATORY)
+  const [selectedShape, setSelectedShape] = useState<ShapeCategory | null>(null);
   
   // MANDATORY: Target Platform Selection
   const [targetPlatformId, setTargetPlatformId] = useState<string>("");
@@ -802,8 +811,36 @@ export default function LogoFactory() {
                   {SOVEREIGN_PALETTE.accents[selectedAccent].name} | {SOVEREIGN_PALETTE.accents[selectedAccent].nameAr}
                 </p>
               </div>
-              
-              <Separator />
+            </CardContent>
+          </Card>
+          
+          {/* AI Shape Recommendations - MANDATORY */}
+          <Card className="lg:col-span-3">
+            <CardContent className="p-0">
+              <AIShapeRecommendations
+                platformType={selectedCategory}
+                selectedPattern={selectedPattern}
+                accentColor={SOVEREIGN_PALETTE.accents[selectedAccent].hex}
+                selectedShape={selectedShape}
+                onSelectShape={(shape: ShapeRecommendation, allRecommendations: ShapeRecommendation[]) => {
+                  setSelectedShape(shape.category);
+                  // Save selection with live recommendations for AI learning
+                  saveShapeSelection({
+                    platformId: targetPlatformId || 'preview',
+                    platformType: selectedCategory,
+                    pattern: selectedPattern,
+                    recommendedShapes: allRecommendations,
+                    selectedShape: shape,
+                    timestamp: Date.now()
+                  });
+                }}
+              />
+            </CardContent>
+          </Card>
+          
+          {/* Validation Status */}
+          <Card className="lg:col-span-3">
+            <CardContent className="pt-4">
               
               {/* Validation Status */}
               <div className="p-3 rounded-lg bg-muted/50">
