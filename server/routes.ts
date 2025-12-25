@@ -7076,6 +7076,25 @@ Provide realistic, data-driven predictions based on the actual platform state.`;
         }
       }
 
+      // Handle member deletion (HR system)
+      if (entityType === "member") {
+        // For members, we accept deletion directly as they're managed by HR
+        entity = entityDetails || { id: entityId, name: `Member ${entityId}` };
+        deleteSuccess = true; // Client-side handles the actual deletion via state update
+        
+        // Log the deletion attempt
+        attemptRecord.entityName = entityDetails?.name || `Member ${entityId}`;
+      }
+
+      // Handle other generic entity types
+      if (!entity && entityType !== "project" && entityType !== "member") {
+        // For generic entities, allow deletion if user is owner
+        if (user.role === "owner") {
+          entity = entityDetails || { id: entityId, name: `Entity ${entityId}` };
+          deleteSuccess = true;
+        }
+      }
+
       if (deleteSuccess) {
         attemptRecord.outcome = "success";
         await logDeletionAttempt(attemptRecord);
@@ -7088,7 +7107,7 @@ Provide realistic, data-driven predictions based on the actual platform state.`;
         });
       } else {
         attemptRecord.outcome = "failed_auth";
-        attemptRecord.failureReason = "Deletion operation failed";
+        attemptRecord.failureReason = "Deletion operation failed or unsupported entity type";
         await logDeletionAttempt(attemptRecord);
         
         return res.status(500).json({ 
