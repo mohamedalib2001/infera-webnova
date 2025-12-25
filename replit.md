@@ -177,5 +177,22 @@ Base path: `/api/nova-sovereign/`
 ### Dashboard Route
 `/owner/nova-sovereign` - Sovereign dashboard with real-time data
 
-### SECURITY NOTE (Production)
+### Security Implementation (December 2025)
+
+**Sovereign Security Middleware** (`server/sovereign-security-middleware.ts`):
+*   `requireAuthenticatedUser` - Session-only identity extraction (no headers)
+*   `requireRole(minRole)` - Role-based access with DB verification
+*   `rateLimitSovereign` - 10 requests/minute for sovereign endpoints
+*   `payloadSizeLimit` - 10KB maximum payload
+*   `requireOperationLock(name)` - Concurrency locks for critical operations
+*   `logAudit()` - HMAC-signed tamper-evident audit entries
+*   `stripClientIds()` - Removes spoofable fields from request body
+
+**Protected Endpoints** (17 POST/PATCH mutations):
+*   All mutation endpoints use session-derived identity ONLY
+*   Client-supplied actor IDs are stripped and ignored
+*   Kill Switch and Model Lifecycle have concurrency locks
+*   Role hierarchy: ROOT_OWNER(100) > owner(90) > sovereign(80) > admin(50) > user(10)
+
+**SECURITY NOTE (Production)**:
 All mutation endpoints require authenticated sessions. In development, endpoints validate user existence in database. For production deployment, ensure session middleware is properly configured with Replit Auth or custom authentication.

@@ -4,6 +4,9 @@
  * 
  * "Sovereign Decision Governor - Not Just an Assistant"
  * "حاكم القرارات السيادي - ليس مجرد مساعد"
+ * 
+ * SECURITY: All mutation endpoints use session-derived identity
+ * NEVER trust client-supplied user IDs
  */
 
 import express, { Request, Response, Router, NextFunction } from 'express';
@@ -12,57 +15,24 @@ import { novaDecisionEngine, DecisionRequest, DecisionPhase, RiskLevel, Approval
 import { db } from './db';
 import { eq, desc, and } from 'drizzle-orm';
 import { users, isRootOwner } from '@shared/schema';
+import sovereignSecurity, { 
+  AuthenticatedRequest, 
+  requireAuthenticatedUser, 
+  requireRole, 
+  rateLimitSovereign,
+  payloadSizeLimit,
+  requireOperationLock,
+  sovereignEndpoint,
+  logAudit,
+  stripClientIds,
+  getAuditLog
+} from './sovereign-security-middleware';
 
 // ==================== SOVEREIGN AUTHORITY VALIDATION ====================
 // Only ROOT_OWNER and users with 'sovereign' role can perform critical actions
 
 const OWNER_ID = 'ROOT_OWNER';
 const SOVEREIGN_ROLES = ['owner', 'sovereign'];
-
-/**
- * SECURITY: Extract authenticated user from session ONLY
- * NEVER trust client-supplied user IDs or headers (spoofable)
- * 
- * This function extracts identity from:
- * 1. Passport session (Replit Auth) - verified by OIDC
- * 2. Custom session - server-side storage only
- * 
- * For development/testing, if no session is available, operations
- * requiring authentication will return 401.
- */
-function getAuthenticatedUserId(req: Request): string | null {
-  // Check passport session (Replit Auth) - verified by OIDC provider
-  if (req.user && (req.user as any).claims?.sub) {
-    return (req.user as any).claims.sub;
-  }
-  // Check custom session (server-side, not spoofable)
-  if (req.session && (req.session as any).userId) {
-    return (req.session as any).userId;
-  }
-  // NO header fallback - headers can be spoofed by clients
-  return null;
-}
-
-/**
- * SECURITY MIDDLEWARE: Require authenticated user for protected routes
- * Call this at the start of any mutation endpoint
- */
-function requireAuth(req: Request, res: Response): string | null {
-  const userId = getAuthenticatedUserId(req);
-  if (!userId) {
-    res.status(401).json({
-      success: false,
-      error: 'Authentication required - please login',
-      errorAr: 'المصادقة مطلوبة - يرجى تسجيل الدخول'
-    });
-    return null;
-  }
-  return userId;
-}
-
-interface AuthenticatedRequest extends Request {
-  user?: { id: string; role: string };
-}
 
 // STRICT Role Hierarchy: owner > sovereign > admin > user
 const ADMIN_ROLES = ['owner', 'sovereign', 'admin'];
@@ -199,39 +169,47 @@ const createDecisionSchema = z.object({
   urgency: z.enum(['normal', 'urgent', 'critical']).optional()
 });
 
-router.post('/decisions', async (req: Request, res: Response) => {
-  try {
-    const validation = createDecisionSchema.safeParse(req.body);
-    if (!validation.success) {
-      return res.status(400).json({
+router.post('/decisions', 
+  payloadSizeLimit,
+  rateLimitSovereign,
+  requireAuthenticatedUser,
+  requireRole('admin'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const validation = createDecisionSchema.safeParse(stripClientIds(req.body));
+      if (!validation.success) {
+        logAudit(req, 'DECISION_CREATE_VALIDATION_FAILED', 'decisions', undefined, req.sovereignAuth?.userId, 'failure');
+        return res.status(400).json({
+          success: false,
+          error: 'Validation failed',
+          errorAr: 'فشل التحقق',
+          details: validation.error.flatten()
+        });
+      }
+
+      const request: DecisionRequest = {
+        ...validation.data,
+        requestedBy: req.sovereignAuth!.userId // Session-derived ID
+      };
+
+      const decision = await novaDecisionEngine.initiateDecision(request);
+      logAudit(req, 'DECISION_CREATED', 'decisions', decision.id, req.sovereignAuth?.userId, 'success');
+
+      res.status(201).json({
+        success: true,
+        message: 'Decision created and analysis started',
+        messageAr: 'تم إنشاء القرار وبدء التحليل',
+        data: decision
+      });
+    } catch (error: any) {
+      logAudit(req, 'DECISION_CREATE_ERROR', 'decisions', undefined, req.sovereignAuth?.userId, 'failure', error.message);
+      res.status(500).json({
         success: false,
-        error: 'Validation failed',
-        errorAr: 'فشل التحقق',
-        details: validation.error.flatten()
+        error: error.message,
+        errorAr: 'حدث خطأ أثناء إنشاء القرار'
       });
     }
-
-    const request: DecisionRequest = {
-      ...validation.data,
-      requestedBy: req.body.requestedBy || 'system'
-    };
-
-    const decision = await novaDecisionEngine.initiateDecision(request);
-
-    res.status(201).json({
-      success: true,
-      message: 'Decision created and analysis started',
-      messageAr: 'تم إنشاء القرار وبدء التحليل',
-      data: decision
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      errorAr: 'حدث خطأ أثناء إنشاء القرار'
-    });
-  }
-});
+  });
 
 // Get all pending decisions
 router.get('/decisions/pending', async (req: Request, res: Response) => {
@@ -294,52 +272,53 @@ router.get('/decisions/:id', async (req: Request, res: Response) => {
   }
 });
 
-// Approve decision - REQUIRES SOVEREIGN AUTHORITY
-router.post('/decisions/:id/approve', async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { approverId, notes } = req.body;
+// Approve decision - REQUIRES SOVEREIGN AUTHORITY (Session-derived)
+router.post('/decisions/:id/approve', 
+  payloadSizeLimit,
+  rateLimitSovereign,
+  requireAuthenticatedUser,
+  requireRole('admin'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { notes } = stripClientIds(req.body);
+      const approverId = req.sovereignAuth!.userId; // Session-derived, not client input
 
-    if (!approverId) {
-      return res.status(400).json({
-        success: false,
-        error: 'Approver ID is required',
-        errorAr: 'معرف المعتمد مطلوب'
-      });
-    }
+      // Get decision to check required approval level
+      const decision = await db.select()
+        .from(novaSovereignDecisions)
+        .where(eq(novaSovereignDecisions.id, id))
+        .limit(1);
 
-    // Get decision to check required approval level
-    const decision = await db.select()
-      .from(novaSovereignDecisions)
-      .where(eq(novaSovereignDecisions.id, id))
-      .limit(1);
+      if (!decision.length) {
+        logAudit(req, 'DECISION_APPROVE_NOT_FOUND', 'decisions', id, approverId, 'failure');
+        return res.status(404).json({
+          success: false,
+          error: 'Decision not found',
+          errorAr: 'القرار غير موجود'
+        });
+      }
 
-    if (!decision.length) {
-      return res.status(404).json({
-        success: false,
-        error: 'Decision not found',
-        errorAr: 'القرار غير موجود'
-      });
-    }
+      // Determine required authority from decision's approval level
+      const requiredLevel = decision[0].requiredApprovalLevel;
+      const requiredAuthority: 'owner' | 'sovereign' | 'admin' = 
+        requiredLevel === 'owner_only' ? 'owner' : 
+        requiredLevel === 'sovereign' ? 'sovereign' : 'admin';
 
-    // Determine required authority from decision's approval level
-    const requiredLevel = decision[0].requiredApprovalLevel;
-    const requiredAuthority: 'owner' | 'sovereign' | 'admin' = 
-      requiredLevel === 'owner_only' ? 'owner' : 
-      requiredLevel === 'sovereign' ? 'sovereign' : 'admin';
+      // SOVEREIGN AUTHORITY VALIDATION using session-derived ID
+      const authCheck = await validateSovereignAuthority(approverId, requiredAuthority);
+      if (!authCheck.valid) {
+        logAudit(req, 'DECISION_APPROVE_DENIED', 'decisions', id, approverId, 'denied', 
+          `Required: ${requiredAuthority}, User role: ${req.sovereignAuth?.userRole}`);
+        return res.status(403).json({
+          success: false,
+          error: `This decision requires ${requiredAuthority} authority to approve`,
+          errorAr: `هذا القرار يتطلب صلاحية ${requiredAuthority} للموافقة`
+        });
+      }
 
-    // SOVEREIGN AUTHORITY VALIDATION - Based on decision requirements, NOT client input
-    const authCheck = await validateSovereignAuthority(approverId, requiredAuthority);
-    if (!authCheck.valid) {
-      return res.status(403).json({
-        success: false,
-        error: `This decision requires ${requiredAuthority} authority to approve`,
-        errorAr: `هذا القرار يتطلب صلاحية ${requiredAuthority} للموافقة`
-      });
-    }
-
-    // Get actual role from database for audit trail
-    const actualRole = approverId === OWNER_ID || isRootOwner(approverId) ? 'owner' : 
+      // Get actual role from database for audit trail
+      const actualRole = approverId === OWNER_ID || isRootOwner(approverId) ? 'owner' : 
       await getUserRoleFromDb(approverId);
 
     const result = await novaDecisionEngine.approveDecision(
@@ -358,70 +337,82 @@ router.post('/decisions/:id/approve', async (req: Request, res: Response) => {
   }
 });
 
-// Reject decision - REQUIRES SOVEREIGN AUTHORITY
-router.post('/decisions/:id/reject', async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { rejectorId, reason, reasonAr } = req.body;
+// Reject decision - REQUIRES SOVEREIGN AUTHORITY (Session-derived)
+router.post('/decisions/:id/reject', 
+  payloadSizeLimit,
+  rateLimitSovereign,
+  requireAuthenticatedUser,
+  requireRole('admin'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { reason, reasonAr } = stripClientIds(req.body);
+      const rejectorId = req.sovereignAuth!.userId; // Session-derived, not client input
 
-    if (!rejectorId || !reason) {
-      return res.status(400).json({
+      if (!reason) {
+        return res.status(400).json({
+          success: false,
+          error: 'Reason is required',
+          errorAr: 'سبب الرفض مطلوب'
+        });
+      }
+
+      // Get decision to check required approval level
+      const decision = await db.select()
+        .from(novaSovereignDecisions)
+        .where(eq(novaSovereignDecisions.id, id))
+        .limit(1);
+
+      if (!decision.length) {
+        logAudit(req, 'DECISION_REJECT_NOT_FOUND', 'decisions', id, rejectorId, 'failure');
+        return res.status(404).json({
+          success: false,
+          error: 'Decision not found',
+          errorAr: 'القرار غير موجود'
+        });
+      }
+
+      // Determine required authority from decision's approval level
+      const requiredLevel = decision[0].requiredApprovalLevel;
+      const requiredAuthority: 'owner' | 'sovereign' | 'admin' = 
+        requiredLevel === 'owner_only' ? 'owner' : 
+        requiredLevel === 'sovereign' ? 'sovereign' : 'admin';
+
+      // SOVEREIGN AUTHORITY VALIDATION using session-derived ID
+      const authCheck = await validateSovereignAuthority(rejectorId, requiredAuthority);
+      if (!authCheck.valid) {
+        logAudit(req, 'DECISION_REJECT_DENIED', 'decisions', id, rejectorId, 'denied', 
+          `Required: ${requiredAuthority}, User role: ${req.sovereignAuth?.userRole}`);
+        return res.status(403).json({
+          success: false,
+          error: `This decision requires ${requiredAuthority} authority to reject`,
+          errorAr: `هذا القرار يتطلب صلاحية ${requiredAuthority} للرفض`
+        });
+      }
+
+      // Get actual role from database for audit trail
+      const actualRole = rejectorId === OWNER_ID || isRootOwner(rejectorId) ? 'owner' : 
+        await getUserRoleFromDb(rejectorId);
+
+      const result = await novaDecisionEngine.rejectDecision(
+        id,
+        rejectorId,
+        actualRole,
+        reason,
+        reasonAr || reason
+      );
+
+      logAudit(req, 'DECISION_REJECTED', 'decisions', id, rejectorId, 'success', reason);
+
+      res.json(result);
+    } catch (error: any) {
+      logAudit(req, 'DECISION_REJECT_ERROR', 'decisions', req.params.id, req.sovereignAuth?.userId, 'failure', error.message);
+      res.status(500).json({
         success: false,
-        error: 'Rejector ID and reason are required',
-        errorAr: 'معرف الرافض وسبب الرفض مطلوبان'
+        error: error.message
       });
     }
-
-    // Get decision to check required approval level
-    const decision = await db.select()
-      .from(novaSovereignDecisions)
-      .where(eq(novaSovereignDecisions.id, id))
-      .limit(1);
-
-    if (!decision.length) {
-      return res.status(404).json({
-        success: false,
-        error: 'Decision not found',
-        errorAr: 'القرار غير موجود'
-      });
-    }
-
-    // Determine required authority from decision's approval level
-    const requiredLevel = decision[0].requiredApprovalLevel;
-    const requiredAuthority: 'owner' | 'sovereign' | 'admin' = 
-      requiredLevel === 'owner_only' ? 'owner' : 
-      requiredLevel === 'sovereign' ? 'sovereign' : 'admin';
-
-    // SOVEREIGN AUTHORITY VALIDATION - Based on decision requirements, NOT client input
-    const authCheck = await validateSovereignAuthority(rejectorId, requiredAuthority);
-    if (!authCheck.valid) {
-      return res.status(403).json({
-        success: false,
-        error: `This decision requires ${requiredAuthority} authority to reject`,
-        errorAr: `هذا القرار يتطلب صلاحية ${requiredAuthority} للرفض`
-      });
-    }
-
-    // Get actual role from database for audit trail
-    const actualRole = rejectorId === OWNER_ID || isRootOwner(rejectorId) ? 'owner' : 
-      await getUserRoleFromDb(rejectorId);
-
-    const result = await novaDecisionEngine.rejectDecision(
-      id,
-      rejectorId,
-      actualRole,
-      reason,
-      reasonAr || reason
-    );
-
-    res.json(result);
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
+  });
 
 // Get decision status summary
 router.get('/decisions/summary/status', async (req: Request, res: Response) => {
@@ -455,77 +446,74 @@ router.get('/decisions/summary/status', async (req: Request, res: Response) => {
 
 // ==================== KILL SWITCH ENDPOINTS ====================
 
-// Activate kill switch - OWNER ONLY (CRITICAL AUTHORITY)
-router.post('/kill-switch/activate', async (req: Request, res: Response) => {
-  try {
-    const { activatedBy, reason, scope, affectedModels } = req.body;
+// Activate kill switch - OWNER ONLY (CRITICAL AUTHORITY) with concurrency lock
+router.post('/kill-switch/activate', 
+  payloadSizeLimit,
+  rateLimitSovereign,
+  requireAuthenticatedUser,
+  requireRole('owner'),
+  requireOperationLock('kill-switch'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { reason, scope, affectedModels } = stripClientIds(req.body);
+      const activatedBy = req.sovereignAuth!.userId; // Session-derived ONLY
 
-    if (!activatedBy || !reason) {
-      return res.status(400).json({
+      if (!reason) {
+        return res.status(400).json({
+          success: false,
+          error: 'Reason is required',
+          errorAr: 'سبب التنشيط مطلوب'
+        });
+      }
+
+      logAudit(req, 'KILL_SWITCH_ACTIVATE_ATTEMPT', 'kill-switch', undefined, activatedBy, 'success');
+
+      const result = await novaDecisionEngine.activateKillSwitch(
+        activatedBy,
+        reason,
+        scope || 'global',
+        affectedModels
+      );
+
+      logAudit(req, 'KILL_SWITCH_ACTIVATED', 'kill-switch', undefined, activatedBy, 'success', 
+        `Scope: ${scope || 'global'}, Reason: ${reason}`);
+
+      res.json(result);
+    } catch (error: any) {
+      logAudit(req, 'KILL_SWITCH_ACTIVATE_ERROR', 'kill-switch', undefined, req.sovereignAuth?.userId, 'failure', error.message);
+      res.status(500).json({
         success: false,
-        error: 'Activator ID and reason are required',
-        errorAr: 'معرف المنشط وسبب التنشيط مطلوبان'
+        error: error.message
       });
     }
+  });
 
-    // CRITICAL: OWNER-ONLY AUTHORITY VALIDATION
-    const authCheck = await validateSovereignAuthority(activatedBy, 'owner');
-    if (!authCheck.valid) {
-      return res.status(403).json({
+// Deactivate kill switch - OWNER ONLY (CRITICAL AUTHORITY) with concurrency lock
+router.post('/kill-switch/deactivate', 
+  payloadSizeLimit,
+  rateLimitSovereign,
+  requireAuthenticatedUser,
+  requireRole('owner'),
+  requireOperationLock('kill-switch'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const deactivatedBy = req.sovereignAuth!.userId; // Session-derived ONLY
+
+      logAudit(req, 'KILL_SWITCH_DEACTIVATE_ATTEMPT', 'kill-switch', undefined, deactivatedBy, 'success');
+
+      const result = await novaDecisionEngine.deactivateKillSwitch(deactivatedBy);
+
+      logAudit(req, 'KILL_SWITCH_DEACTIVATED', 'kill-switch', undefined, deactivatedBy, 'success');
+
+      res.json(result);
+    } catch (error: any) {
+      logAudit(req, 'KILL_SWITCH_DEACTIVATE_ERROR', 'kill-switch', undefined, req.sovereignAuth?.userId, 'failure', error.message);
+      res.status(500).json({
         success: false,
-        error: 'KILL SWITCH activation requires OWNER authority',
-        errorAr: 'تفعيل مفتاح الإيقاف يتطلب صلاحية المالك'
+        error: error.message
       });
     }
-
-    const result = await novaDecisionEngine.activateKillSwitch(
-      activatedBy,
-      reason,
-      scope || 'global',
-      affectedModels
-    );
-
-    res.json(result);
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-// Deactivate kill switch - OWNER ONLY (CRITICAL AUTHORITY)
-router.post('/kill-switch/deactivate', async (req: Request, res: Response) => {
-  try {
-    const { deactivatedBy } = req.body;
-
-    if (!deactivatedBy) {
-      return res.status(400).json({
-        success: false,
-        error: 'Deactivator ID is required',
-        errorAr: 'معرف المعطل مطلوب'
-      });
-    }
-
-    // CRITICAL: OWNER-ONLY AUTHORITY VALIDATION
-    const authCheck = await validateSovereignAuthority(deactivatedBy, 'owner');
-    if (!authCheck.valid) {
-      return res.status(403).json({
-        success: false,
-        error: 'KILL SWITCH deactivation requires OWNER authority',
-        errorAr: 'إلغاء تفعيل مفتاح الإيقاف يتطلب صلاحية المالك'
-      });
-    }
-
-    const result = await novaDecisionEngine.deactivateKillSwitch(deactivatedBy);
-    res.json(result);
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
+  });
 
 // Get kill switch status
 router.get('/kill-switch/status', async (req: Request, res: Response) => {
@@ -572,36 +560,45 @@ const createPolicySchema = z.object({
   priority: z.number().min(0).max(100).optional()
 });
 
-router.post('/policies', async (req: Request, res: Response) => {
-  try {
-    const validation = createPolicySchema.safeParse(req.body);
-    if (!validation.success) {
-      return res.status(400).json({
+router.post('/policies', 
+  payloadSizeLimit,
+  rateLimitSovereign,
+  requireAuthenticatedUser,
+  requireRole('sovereign'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const validation = createPolicySchema.safeParse(stripClientIds(req.body));
+      if (!validation.success) {
+        logAudit(req, 'POLICY_CREATE_VALIDATION_FAILED', 'policies', undefined, req.sovereignAuth?.userId, 'failure');
+        return res.status(400).json({
+          success: false,
+          error: 'Validation failed',
+          details: validation.error.flatten()
+        });
+      }
+
+      const policy = await db.insert(novaPolicies).values({
+        ...validation.data,
+        createdBy: req.sovereignAuth!.userId, // Session-derived ID
+        priority: validation.data.priority || 50
+      }).returning();
+
+      logAudit(req, 'POLICY_CREATED', 'policies', policy[0].id?.toString(), req.sovereignAuth?.userId, 'success');
+
+      res.status(201).json({
+        success: true,
+        message: 'Policy created successfully',
+        messageAr: 'تم إنشاء السياسة بنجاح',
+        data: policy[0]
+      });
+    } catch (error: any) {
+      logAudit(req, 'POLICY_CREATE_ERROR', 'policies', undefined, req.sovereignAuth?.userId, 'failure', error.message);
+      res.status(500).json({
         success: false,
-        error: 'Validation failed',
-        details: validation.error.flatten()
+        error: error.message
       });
     }
-
-    const policy = await db.insert(novaPolicies).values({
-      ...validation.data,
-      createdBy: req.body.createdBy,
-      priority: validation.data.priority || 50
-    }).returning();
-
-    res.status(201).json({
-      success: true,
-      message: 'Policy created successfully',
-      messageAr: 'تم إنشاء السياسة بنجاح',
-      data: policy[0]
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
+  });
 
 // Get all policies
 router.get('/policies', async (req: Request, res: Response) => {
@@ -626,41 +623,49 @@ router.get('/policies', async (req: Request, res: Response) => {
 
 // ==================== APPROVAL CHAINS ENDPOINTS ====================
 
-// Create approval chain
-router.post('/approval-chains', async (req: Request, res: Response) => {
-  try {
-    const { name, nameAr, levels, decisionTypes, riskLevels } = req.body;
+// Create approval chain - SOVEREIGN authority required
+router.post('/approval-chains', 
+  payloadSizeLimit,
+  rateLimitSovereign,
+  requireAuthenticatedUser,
+  requireRole('sovereign'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { name, nameAr, levels, decisionTypes, riskLevels } = stripClientIds(req.body);
 
-    if (!name || !nameAr || !levels) {
-      return res.status(400).json({
+      if (!name || !nameAr || !levels) {
+        return res.status(400).json({
+          success: false,
+          error: 'Name and levels are required',
+          errorAr: 'الاسم والمستويات مطلوبة'
+        });
+      }
+
+      const chain = await db.insert(novaApprovalChains).values({
+        name,
+        nameAr,
+        levels,
+        decisionTypes,
+        riskLevels,
+        isActive: true
+      }).returning();
+
+      logAudit(req, 'APPROVAL_CHAIN_CREATED', 'approval-chains', chain[0].id?.toString(), req.sovereignAuth?.userId, 'success');
+
+      res.status(201).json({
+        success: true,
+        message: 'Approval chain created',
+        messageAr: 'تم إنشاء سلسلة الموافقات',
+        data: chain[0]
+      });
+    } catch (error: any) {
+      logAudit(req, 'APPROVAL_CHAIN_CREATE_ERROR', 'approval-chains', undefined, req.sovereignAuth?.userId, 'failure', error.message);
+      res.status(500).json({
         success: false,
-        error: 'Name and levels are required',
-        errorAr: 'الاسم والمستويات مطلوبة'
+        error: error.message
       });
     }
-
-    const chain = await db.insert(novaApprovalChains).values({
-      name,
-      nameAr,
-      levels,
-      decisionTypes,
-      riskLevels,
-      isActive: true
-    }).returning();
-
-    res.status(201).json({
-      success: true,
-      message: 'Approval chain created',
-      messageAr: 'تم إنشاء سلسلة الموافقات',
-      data: chain[0]
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
+  });
 
 // Get all approval chains
 router.get('/approval-chains', async (req: Request, res: Response) => {
@@ -702,47 +707,63 @@ router.get('/human-in-loop', async (req: Request, res: Response) => {
   }
 });
 
-// Create human-in-loop rule
-router.post('/human-in-loop', async (req: Request, res: Response) => {
-  try {
-    const rule = await db.insert(novaHumanInLoop).values({
-      ...req.body,
-      isActive: true
-    }).returning();
+// Create human-in-loop rule - SOVEREIGN authority required
+router.post('/human-in-loop', 
+  payloadSizeLimit,
+  rateLimitSovereign,
+  requireAuthenticatedUser,
+  requireRole('sovereign'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const rule = await db.insert(novaHumanInLoop).values({
+        ...stripClientIds(req.body),
+        isActive: true
+      }).returning();
 
-    res.status(201).json({
-      success: true,
-      data: rule[0]
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
+      logAudit(req, 'HUMAN_IN_LOOP_RULE_CREATED', 'human-in-loop', rule[0].id?.toString(), req.sovereignAuth?.userId, 'success');
+
+      res.status(201).json({
+        success: true,
+        data: rule[0]
+      });
+    } catch (error: any) {
+      logAudit(req, 'HUMAN_IN_LOOP_CREATE_ERROR', 'human-in-loop', undefined, req.sovereignAuth?.userId, 'failure', error.message);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
 
 // ==================== KNOWLEDGE GRAPH ENDPOINTS ====================
 
-// Add knowledge node
-router.post('/knowledge-graph', async (req: Request, res: Response) => {
-  try {
-    const node = await db.insert(novaKnowledgeGraph).values({
-      ...req.body,
-      isActive: true
-    }).returning();
+// Add knowledge node - ADMIN authority required
+router.post('/knowledge-graph', 
+  payloadSizeLimit,
+  rateLimitSovereign,
+  requireAuthenticatedUser,
+  requireRole('admin'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const node = await db.insert(novaKnowledgeGraph).values({
+        ...stripClientIds(req.body),
+        isActive: true
+      }).returning();
 
-    res.status(201).json({
-      success: true,
-      data: node[0]
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
+      logAudit(req, 'KNOWLEDGE_NODE_CREATED', 'knowledge-graph', node[0].id, req.sovereignAuth?.userId, 'success');
+
+      res.status(201).json({
+        success: true,
+        data: node[0]
+      });
+    } catch (error: any) {
+      logAudit(req, 'KNOWLEDGE_NODE_CREATE_ERROR', 'knowledge-graph', undefined, req.sovereignAuth?.userId, 'failure', error.message);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
 
 // Get knowledge graph nodes
 router.get('/knowledge-graph', async (req: Request, res: Response) => {
@@ -1118,234 +1139,260 @@ router.get('/model-lifecycle', async (req: Request, res: Response) => {
   }
 });
 
-// Create new model lifecycle transition
-router.post('/model-lifecycle', async (req: Request, res: Response) => {
-  try {
-    const { 
-      modelId, 
-      stage,
-      previousStage,
-      transitionedBy, 
-      transitionReason,
-      riskScore,
-      biasScore,
-      driftScore,
-      performanceMetrics
-    } = req.body;
+// Create new model lifecycle transition - SOVEREIGN authority required
+router.post('/model-lifecycle', 
+  payloadSizeLimit,
+  rateLimitSovereign,
+  requireAuthenticatedUser,
+  requireRole('sovereign'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { 
+        modelId, 
+        stage,
+        previousStage,
+        transitionReason,
+        riskScore,
+        biasScore,
+        driftScore,
+        performanceMetrics
+      } = stripClientIds(req.body);
+      const transitionedBy = req.sovereignAuth!.userId; // Session-derived ONLY
 
-    if (!modelId || !stage || !transitionedBy) {
-      return res.status(400).json({
-        success: false,
-        error: 'Model ID, stage, and transitionedBy are required',
-        errorAr: 'معرف النموذج والمرحلة ومن قام بالانتقال مطلوبون'
-      });
-    }
-
-    const model = await db.insert(novaModelLifecycle).values({
-      modelId,
-      stage,
-      previousStage,
-      transitionedBy,
-      transitionReason,
-      riskScore: riskScore || 0,
-      biasScore: biasScore || 0,
-      driftScore: driftScore || 0,
-      performanceMetrics: performanceMetrics || {}
-    }).returning();
-
-    res.status(201).json({
-      success: true,
-      message: 'Model lifecycle transition created',
-      messageAr: 'تم إنشاء انتقال دورة حياة النموذج',
-      data: model[0]
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-// Transition model to new stage
-router.post('/model-lifecycle/:id/transition', async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { stage, transitionedBy, transitionReason } = req.body;
-
-    const validStages = ['training', 'validating', 'approved', 'deployed', 'paused', 'retired'];
-    
-    if (!validStages.includes(stage)) {
-      return res.status(400).json({
-        success: false,
-        error: `Invalid stage. Valid stages: ${validStages.join(', ')}`,
-        errorAr: 'مرحلة غير صالحة'
-      });
-    }
-
-    // Fetch current record to get the actual previous stage
-    const currentRecord = await db.select()
-      .from(novaModelLifecycle)
-      .where(eq(novaModelLifecycle.id, id))
-      .limit(1);
-
-    if (!currentRecord.length) {
-      return res.status(404).json({
-        success: false,
-        error: 'Model lifecycle not found',
-        errorAr: 'دورة حياة النموذج غير موجودة'
-      });
-    }
-
-    const currentStage = currentRecord[0].stage;
-
-    // Critical stages require owner authority
-    if (['approved', 'deployed', 'retired'].includes(stage)) {
-      const authCheck = await validateSovereignAuthority(transitionedBy, 'owner');
-      if (!authCheck.valid) {
-        return res.status(403).json({
+      if (!modelId || !stage) {
+        return res.status(400).json({
           success: false,
-          error: `Stage '${stage}' requires owner authority`,
-          errorAr: `المرحلة '${stage}' تتطلب صلاحية المالك`
+          error: 'Model ID and stage are required',
+          errorAr: 'معرف النموذج والمرحلة مطلوبان'
         });
       }
-    }
 
-    const updated = await db.update(novaModelLifecycle)
-      .set({ 
-        stage: stage,
-        previousStage: currentStage, // Store the ACTUAL previous stage
+      const model = await db.insert(novaModelLifecycle).values({
+        modelId,
+        stage,
+        previousStage,
         transitionedBy,
-        transitionReason
-      })
-      .where(eq(novaModelLifecycle.id, id))
-      .returning();
+        transitionReason,
+        riskScore: riskScore || 0,
+        biasScore: biasScore || 0,
+        driftScore: driftScore || 0,
+        performanceMetrics: performanceMetrics || {}
+      }).returning();
 
-    res.json({
-      success: true,
-      message: `Model transitioned from ${currentStage} to ${stage}`,
-      messageAr: `تم نقل النموذج من ${getStageAr(currentStage)} إلى ${getStageAr(stage)}`,
-      data: updated[0]
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
+      logAudit(req, 'MODEL_LIFECYCLE_CREATED', 'model-lifecycle', model[0].id, transitionedBy, 'success');
 
-// Pause model (emergency)
-router.post('/model-lifecycle/:id/pause', async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { pausedBy, reason } = req.body;
-
-    // Pause requires at least sovereign authority
-    const authCheck = await validateSovereignAuthority(pausedBy, 'sovereign');
-    if (!authCheck.valid) {
-      return res.status(403).json({
+      res.status(201).json({
+        success: true,
+        message: 'Model lifecycle transition created',
+        messageAr: 'تم إنشاء انتقال دورة حياة النموذج',
+        data: model[0]
+      });
+    } catch (error: any) {
+      logAudit(req, 'MODEL_LIFECYCLE_CREATE_ERROR', 'model-lifecycle', undefined, req.sovereignAuth?.userId, 'failure', error.message);
+      res.status(500).json({
         success: false,
-        error: 'Pausing models requires sovereign authority',
-        errorAr: 'إيقاف النماذج يتطلب صلاحية سيادية'
+        error: error.message
       });
     }
+  });
 
-    // Fetch current record to get the actual previous stage
-    const currentRecord = await db.select()
-      .from(novaModelLifecycle)
-      .where(eq(novaModelLifecycle.id, id))
-      .limit(1);
+// Transition model to new stage - with concurrency lock
+router.post('/model-lifecycle/:id/transition', 
+  payloadSizeLimit,
+  rateLimitSovereign,
+  requireAuthenticatedUser,
+  requireRole('sovereign'),
+  requireOperationLock('model-lifecycle-transition'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { stage, transitionReason } = stripClientIds(req.body);
+      const transitionedBy = req.sovereignAuth!.userId; // Session-derived ONLY
 
-    if (!currentRecord.length) {
-      return res.status(404).json({
+      const validStages = ['training', 'validating', 'approved', 'deployed', 'paused', 'retired'];
+      
+      if (!validStages.includes(stage)) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid stage. Valid stages: ${validStages.join(', ')}`,
+          errorAr: 'مرحلة غير صالحة'
+        });
+      }
+
+      // Fetch current record to get the actual previous stage
+      const currentRecord = await db.select()
+        .from(novaModelLifecycle)
+        .where(eq(novaModelLifecycle.id, id))
+        .limit(1);
+
+      if (!currentRecord.length) {
+        logAudit(req, 'MODEL_TRANSITION_NOT_FOUND', 'model-lifecycle', id, transitionedBy, 'failure');
+        return res.status(404).json({
+          success: false,
+          error: 'Model lifecycle not found',
+          errorAr: 'دورة حياة النموذج غير موجودة'
+        });
+      }
+
+      const currentStage = currentRecord[0].stage;
+
+      // Critical stages require owner authority - verify against session role
+      if (['approved', 'deployed', 'retired'].includes(stage)) {
+        const authCheck = await validateSovereignAuthority(transitionedBy, 'owner');
+        if (!authCheck.valid) {
+          logAudit(req, 'MODEL_TRANSITION_DENIED', 'model-lifecycle', id, transitionedBy, 'denied', 
+            `Stage '${stage}' requires owner`);
+          return res.status(403).json({
+            success: false,
+            error: `Stage '${stage}' requires owner authority`,
+            errorAr: `المرحلة '${stage}' تتطلب صلاحية المالك`
+          });
+        }
+      }
+
+      const updated = await db.update(novaModelLifecycle)
+        .set({ 
+          stage: stage,
+          previousStage: currentStage,
+          transitionedBy,
+          transitionReason
+        })
+        .where(eq(novaModelLifecycle.id, id))
+        .returning();
+
+      logAudit(req, 'MODEL_TRANSITIONED', 'model-lifecycle', id, transitionedBy, 'success', 
+        `${currentStage} -> ${stage}`);
+
+      res.json({
+        success: true,
+        message: `Model transitioned from ${currentStage} to ${stage}`,
+        messageAr: `تم نقل النموذج من ${getStageAr(currentStage)} إلى ${getStageAr(stage)}`,
+        data: updated[0]
+      });
+    } catch (error: any) {
+      logAudit(req, 'MODEL_TRANSITION_ERROR', 'model-lifecycle', req.params.id, req.sovereignAuth?.userId, 'failure', error.message);
+      res.status(500).json({
         success: false,
-        error: 'Model lifecycle not found',
-        errorAr: 'دورة حياة النموذج غير موجودة'
+        error: error.message
       });
     }
+  });
 
-    const currentStage = currentRecord[0].stage;
+// Pause model (emergency) - SOVEREIGN authority with lock
+router.post('/model-lifecycle/:id/pause', 
+  payloadSizeLimit,
+  rateLimitSovereign,
+  requireAuthenticatedUser,
+  requireRole('sovereign'),
+  requireOperationLock('model-lifecycle-pause'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { reason } = stripClientIds(req.body);
+      const pausedBy = req.sovereignAuth!.userId; // Session-derived ONLY
 
-    const updated = await db.update(novaModelLifecycle)
-      .set({ 
-        stage: 'paused',
-        previousStage: currentStage, // Store the ACTUAL previous stage
-        transitionedBy: pausedBy,
-        transitionReason: reason
-      })
-      .where(eq(novaModelLifecycle.id, id))
-      .returning();
+      // Fetch current record to get the actual previous stage
+      const currentRecord = await db.select()
+        .from(novaModelLifecycle)
+        .where(eq(novaModelLifecycle.id, id))
+        .limit(1);
 
-    res.json({
-      success: true,
-      message: `Model paused (was: ${currentStage})`,
-      messageAr: `تم إيقاف النموذج (كان: ${getStageAr(currentStage)})`,
-      data: updated[0]
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
+      if (!currentRecord.length) {
+        logAudit(req, 'MODEL_PAUSE_NOT_FOUND', 'model-lifecycle', id, pausedBy, 'failure');
+        return res.status(404).json({
+          success: false,
+          error: 'Model lifecycle not found',
+          errorAr: 'دورة حياة النموذج غير موجودة'
+        });
+      }
 
-// Retire model (permanent)
-router.post('/model-lifecycle/:id/retire', async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { retiredBy, reason } = req.body;
+      const currentStage = currentRecord[0].stage;
 
-    // Retire requires owner authority
-    const authCheck = await validateSovereignAuthority(retiredBy, 'owner');
-    if (!authCheck.valid) {
-      return res.status(403).json({
+      const updated = await db.update(novaModelLifecycle)
+        .set({ 
+          stage: 'paused',
+          previousStage: currentStage,
+          transitionedBy: pausedBy,
+          transitionReason: reason
+        })
+        .where(eq(novaModelLifecycle.id, id))
+        .returning();
+
+      logAudit(req, 'MODEL_PAUSED', 'model-lifecycle', id, pausedBy, 'success', 
+        `Previous: ${currentStage}, Reason: ${reason}`);
+
+      res.json({
+        success: true,
+        message: `Model paused (was: ${currentStage})`,
+        messageAr: `تم إيقاف النموذج (كان: ${getStageAr(currentStage)})`,
+        data: updated[0]
+      });
+    } catch (error: any) {
+      logAudit(req, 'MODEL_PAUSE_ERROR', 'model-lifecycle', req.params.id, req.sovereignAuth?.userId, 'failure', error.message);
+      res.status(500).json({
         success: false,
-        error: 'Retiring models requires owner authority',
-        errorAr: 'إنهاء النماذج يتطلب صلاحية المالك'
+        error: error.message
       });
     }
+  });
 
-    // Fetch current record to get the actual previous stage
-    const currentRecord = await db.select()
-      .from(novaModelLifecycle)
-      .where(eq(novaModelLifecycle.id, id))
-      .limit(1);
+// Retire model (permanent) - OWNER ONLY with lock
+router.post('/model-lifecycle/:id/retire', 
+  payloadSizeLimit,
+  rateLimitSovereign,
+  requireAuthenticatedUser,
+  requireRole('owner'),
+  requireOperationLock('model-lifecycle-retire'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { reason } = stripClientIds(req.body);
+      const retiredBy = req.sovereignAuth!.userId; // Session-derived ONLY
 
-    if (!currentRecord.length) {
-      return res.status(404).json({
+      // Fetch current record to get the actual previous stage
+      const currentRecord = await db.select()
+        .from(novaModelLifecycle)
+        .where(eq(novaModelLifecycle.id, id))
+        .limit(1);
+
+      if (!currentRecord.length) {
+        logAudit(req, 'MODEL_RETIRE_NOT_FOUND', 'model-lifecycle', id, retiredBy, 'failure');
+        return res.status(404).json({
+          success: false,
+          error: 'Model lifecycle not found',
+          errorAr: 'دورة حياة النموذج غير موجودة'
+        });
+      }
+
+      const currentStage = currentRecord[0].stage;
+
+      const updated = await db.update(novaModelLifecycle)
+        .set({ 
+          stage: 'retired',
+          previousStage: currentStage,
+          transitionedBy: retiredBy,
+          transitionReason: reason
+        })
+        .where(eq(novaModelLifecycle.id, id))
+        .returning();
+
+      logAudit(req, 'MODEL_RETIRED', 'model-lifecycle', id, retiredBy, 'success', 
+        `Previous: ${currentStage}, Reason: ${reason}`);
+
+      res.json({
+        success: true,
+        message: `Model retired permanently (was: ${currentStage})`,
+        messageAr: `تم إنهاء النموذج نهائياً (كان: ${getStageAr(currentStage)})`,
+        data: updated[0]
+      });
+    } catch (error: any) {
+      logAudit(req, 'MODEL_RETIRE_ERROR', 'model-lifecycle', req.params.id, req.sovereignAuth?.userId, 'failure', error.message);
+      res.status(500).json({
         success: false,
-        error: 'Model lifecycle not found',
-        errorAr: 'دورة حياة النموذج غير موجودة'
+        error: error.message
       });
     }
-
-    const currentStage = currentRecord[0].stage;
-
-    const updated = await db.update(novaModelLifecycle)
-      .set({ 
-        stage: 'retired',
-        previousStage: currentStage, // Store the ACTUAL previous stage
-        transitionedBy: retiredBy,
-        transitionReason: reason
-      })
-      .where(eq(novaModelLifecycle.id, id))
-      .returning();
-
-    res.json({
-      success: true,
-      message: `Model retired permanently (was: ${currentStage})`,
-      messageAr: `تم إنهاء النموذج نهائياً (كان: ${getStageAr(currentStage)})`,
-      data: updated[0]
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
+  });
 
 // Get model lifecycle summary
 router.get('/model-lifecycle/summary', async (req: Request, res: Response) => {
@@ -1530,112 +1577,114 @@ router.get('/compliance/frameworks/:id/controls', async (req: Request, res: Resp
   }
 });
 
-// Add control to framework (Owner/Sovereign only)
-router.post('/compliance/controls', async (req: Request, res: Response) => {
-  try {
-    const { createdBy, ...controlData } = req.body;
+// Add control to framework (Owner/Sovereign only) - Session-derived
+router.post('/compliance/controls', 
+  payloadSizeLimit,
+  rateLimitSovereign,
+  requireAuthenticatedUser,
+  requireRole('sovereign'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const controlData = stripClientIds(req.body);
+      const createdBy = req.sovereignAuth!.userId; // Session-derived ONLY
 
-    const authCheck = await validateSovereignAuthority(createdBy, 'sovereign');
-    if (!authCheck.valid) {
-      return res.status(403).json({
-        success: false,
-        error: 'Creating compliance controls requires sovereign authority',
-        errorAr: 'إنشاء ضوابط الامتثال يتطلب صلاحية سيادية'
+      const [control] = await db.insert(novaComplianceControls).values(controlData).returning();
+
+      logAudit(req, 'COMPLIANCE_CONTROL_CREATED', 'compliance-controls', control.id, createdBy, 'success');
+
+      res.status(201).json({
+        success: true,
+        message: 'Compliance control created',
+        messageAr: 'تم إنشاء ضابط الامتثال',
+        data: control
       });
+    } catch (error: any) {
+      logAudit(req, 'COMPLIANCE_CONTROL_CREATE_ERROR', 'compliance-controls', undefined, req.sovereignAuth?.userId, 'failure', error.message);
+      res.status(500).json({ success: false, error: error.message });
     }
+  });
 
-    const [control] = await db.insert(novaComplianceControls).values(controlData).returning();
+// Update control status - ADMIN authority with session-derived ID
+router.patch('/compliance/controls/:id', 
+  payloadSizeLimit,
+  rateLimitSovereign,
+  requireAuthenticatedUser,
+  requireRole('admin'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const updates = stripClientIds(req.body);
+      const updatedBy = req.sovereignAuth!.userId; // Session-derived ONLY
 
-    res.status(201).json({
-      success: true,
-      message: 'Compliance control created',
-      messageAr: 'تم إنشاء ضابط الامتثال',
-      data: control
-    });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+      const [updated] = await db.update(novaComplianceControls)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(novaComplianceControls.id, id))
+        .returning();
 
-// Update control status
-router.patch('/compliance/controls/:id', async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { updatedBy, ...updates } = req.body;
+      if (!updated) {
+        logAudit(req, 'COMPLIANCE_CONTROL_NOT_FOUND', 'compliance-controls', id, updatedBy, 'failure');
+        return res.status(404).json({
+          success: false,
+          error: 'Control not found',
+          errorAr: 'الضابط غير موجود'
+        });
+      }
 
-    const authCheck = await validateSovereignAuthority(updatedBy, 'admin');
-    if (!authCheck.valid) {
-      return res.status(403).json({
-        success: false,
-        error: 'Updating compliance controls requires admin authority',
-        errorAr: 'تحديث ضوابط الامتثال يتطلب صلاحية المسؤول'
+      logAudit(req, 'COMPLIANCE_CONTROL_UPDATED', 'compliance-controls', id, updatedBy, 'success');
+
+      res.json({
+        success: true,
+        message: 'Control updated',
+        messageAr: 'تم تحديث الضابط',
+        data: updated
       });
+    } catch (error: any) {
+      logAudit(req, 'COMPLIANCE_CONTROL_UPDATE_ERROR', 'compliance-controls', req.params.id, req.sovereignAuth?.userId, 'failure', error.message);
+      res.status(500).json({ success: false, error: error.message });
     }
+  });
 
-    const [updated] = await db.update(novaComplianceControls)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(novaComplianceControls.id, id))
-      .returning();
+// Create compliance assessment - ADMIN authority with session-derived ID
+router.post('/compliance/assessments', 
+  payloadSizeLimit,
+  rateLimitSovereign,
+  requireAuthenticatedUser,
+  requireRole('admin'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const assessmentData = stripClientIds(req.body);
+      const assessor = req.sovereignAuth!.userId; // Session-derived ONLY
 
-    if (!updated) {
-      return res.status(404).json({
-        success: false,
-        error: 'Control not found',
-        errorAr: 'الضابط غير موجود'
+      const [assessment] = await db.insert(novaComplianceAssessments).values({
+        ...assessmentData,
+        assessor
+      }).returning();
+
+      // Update framework compliance score
+      if (assessment.overallScore !== undefined) {
+        await db.update(novaComplianceFrameworks)
+          .set({ 
+            complianceScore: assessment.overallScore,
+            lastAuditDate: new Date(),
+            updatedAt: new Date()
+          })
+          .where(eq(novaComplianceFrameworks.id, assessmentData.frameworkId));
+      }
+
+      logAudit(req, 'COMPLIANCE_ASSESSMENT_CREATED', 'compliance-assessments', assessment.id, assessor, 'success', 
+        `Framework: ${assessmentData.frameworkId}, Score: ${assessment.overallScore}`);
+
+      res.status(201).json({
+        success: true,
+        message: 'Assessment created and framework score updated',
+        messageAr: 'تم إنشاء التقييم وتحديث درجة الإطار',
+        data: assessment
       });
+    } catch (error: any) {
+      logAudit(req, 'COMPLIANCE_ASSESSMENT_CREATE_ERROR', 'compliance-assessments', undefined, req.sovereignAuth?.userId, 'failure', error.message);
+      res.status(500).json({ success: false, error: error.message });
     }
-
-    res.json({
-      success: true,
-      message: 'Control updated',
-      messageAr: 'تم تحديث الضابط',
-      data: updated
-    });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Create compliance assessment
-router.post('/compliance/assessments', async (req: Request, res: Response) => {
-  try {
-    const { assessor, ...assessmentData } = req.body;
-
-    const authCheck = await validateSovereignAuthority(assessor, 'admin');
-    if (!authCheck.valid) {
-      return res.status(403).json({
-        success: false,
-        error: 'Creating compliance assessments requires admin authority',
-        errorAr: 'إنشاء تقييمات الامتثال يتطلب صلاحية المسؤول'
-      });
-    }
-
-    const [assessment] = await db.insert(novaComplianceAssessments).values({
-      ...assessmentData,
-      assessor
-    }).returning();
-
-    // Update framework compliance score
-    if (assessment.overallScore !== undefined) {
-      await db.update(novaComplianceFrameworks)
-        .set({ 
-          complianceScore: assessment.overallScore,
-          lastAuditDate: new Date(),
-          updatedAt: new Date()
-        })
-        .where(eq(novaComplianceFrameworks.id, assessmentData.frameworkId));
-    }
-
-    res.status(201).json({
-      success: true,
-      message: 'Assessment created and framework score updated',
-      messageAr: 'تم إنشاء التقييم وتحديث درجة الإطار',
-      data: assessment
-    });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+  });
 
 // Get framework assessments
 router.get('/compliance/frameworks/:id/assessments', async (req: Request, res: Response) => {
