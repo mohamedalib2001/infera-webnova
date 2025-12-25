@@ -1029,7 +1029,14 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
   }
 
   return (
-    <div className="h-[calc(100vh-12rem)] flex flex-col bg-background rounded-lg border overflow-hidden" dir={isRtl ? "rtl" : "ltr"}>
+    <div 
+      className={`flex flex-col bg-background overflow-hidden transition-all duration-300 ${
+        novaFullscreen.isFullscreen 
+          ? "fixed inset-0 z-[9999] rounded-none border-0" 
+          : "h-[calc(100vh-12rem)] rounded-lg border"
+      }`} 
+      dir={isRtl ? "rtl" : "ltr"}
+    >
       <div className="flex items-center justify-between gap-2 px-4 py-2 bg-gradient-to-r from-violet-950/50 to-indigo-950/50 border-b">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600">
@@ -8266,137 +8273,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
         document.body
       )}
       
-      {/* Fullscreen Overlay Portal */}
-      {novaFullscreen.isFullscreen && createPortal(
-        <div 
-          className="fixed inset-0 z-[9999] bg-background/95 backdrop-blur-sm"
-          dir={isRtl ? "rtl" : "ltr"}
-        >
-          <div className="h-full flex flex-col">
-            {/* Fullscreen Header */}
-            <div className="flex items-center justify-between gap-4 px-6 py-4 bg-gradient-to-r from-violet-950 via-indigo-950 to-fuchsia-950 border-b border-violet-500/30">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 shadow-lg shadow-violet-500/30">
-                  <Brain className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold bg-gradient-to-r from-violet-300 via-fuchsia-300 to-pink-300 bg-clip-text text-transparent flex items-center gap-2">
-                    Nova AI – Sovereign Intelligence Core
-                    <Crown className="w-5 h-5 text-amber-400" />
-                  </h1>
-                  <p className="text-sm text-violet-300/70">
-                    {isRtl ? "العقل التنفيذي والتحليلي والتخطيطي لمنظومة INFRA Engine الرقمية" : "Executive & Analytical Core of INFRA Engine Digital Ecosystem"}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  onClick={() => setShowNovaControlPanel(true)}
-                  className="border-violet-500/30 text-violet-300"
-                  data-testid="fullscreen-control-panel"
-                >
-                  <Settings2 className="h-4 w-4 mr-2" />
-                  {isRtl ? "لوحة التحكم" : "Control Panel"}
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  onClick={novaFullscreen.minimize}
-                  className="border-amber-500/30 text-amber-400"
-                  data-testid="fullscreen-minimize"
-                >
-                  <Minimize2 className="h-4 w-4 mr-2" />
-                  {isRtl ? "تصغير" : "Exit Fullscreen"}
-                </Button>
-              </div>
-            </div>
-            
-            {/* Fullscreen Chat Content */}
-            <div className="flex-1 flex overflow-hidden">
-              <ScrollArea className="flex-1 p-6">
-                <div className="max-w-4xl mx-auto space-y-4">
-                  {(messages || []).concat(localMessages).map((msg, i) => (
-                    <div
-                      key={msg.id || i}
-                      className={`flex gap-4 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                    >
-                      {msg.role === "assistant" && (
-                        <div className="p-2 rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 h-fit">
-                          <Sparkles className="w-5 h-5 text-white" />
-                        </div>
-                      )}
-                      <div
-                        className={`max-w-[70%] p-4 rounded-2xl ${
-                          msg.role === "user"
-                            ? "bg-gradient-to-br from-amber-600/20 to-orange-600/20 border border-amber-500/30"
-                            : "bg-gradient-to-br from-violet-600/20 to-fuchsia-600/20 border border-violet-500/30"
-                        }`}
-                      >
-                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                      </div>
-                      {msg.role === "user" && (
-                        <div className="relative">
-                          <img src={ownerAvatarUrl} alt="Owner" className="w-10 h-10 rounded-full border-2 border-amber-400" />
-                          <Crown className="absolute -top-1 -right-1 w-4 h-4 text-amber-400" />
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  {(isProcessing || streamingMessage) && (
-                    <div className="flex gap-4 justify-start">
-                      <div className="p-2 rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 h-fit">
-                        <Sparkles className="w-5 h-5 text-white animate-pulse" />
-                      </div>
-                      <div className="max-w-[70%] p-4 rounded-2xl bg-gradient-to-br from-violet-600/20 to-fuchsia-600/20 border border-violet-500/30">
-                        <p className="text-sm whitespace-pre-wrap">
-                          {streamingMessage || (isRtl ? "Nova تفكر..." : "Nova is thinking...")}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  <div ref={messagesEndRef} />
-                </div>
-              </ScrollArea>
-            </div>
-            
-            {/* Fullscreen Input */}
-            <div className="p-6 border-t border-violet-500/30 bg-gradient-to-r from-violet-950/50 to-indigo-950/50">
-              <div className="max-w-4xl mx-auto flex gap-4">
-                <Textarea
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder={isRtl ? "اكتب رسالتك إلى Nova AI..." : "Type your message to Nova AI..."}
-                  className="flex-1 min-h-[60px] max-h-[200px] resize-none bg-slate-900/50 border-violet-500/30 focus:border-violet-400"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      if (newMessage.trim()) {
-                        handleSendMessage();
-                      }
-                    }
-                  }}
-                  data-testid="fullscreen-message-input"
-                />
-                <Button
-                  onClick={handleSendMessage}
-                  disabled={!newMessage.trim() || isProcessing}
-                  className="h-auto px-6 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500"
-                  data-testid="fullscreen-send"
-                >
-                  {isProcessing ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <Send className="h-5 w-5" />
-                  )}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+      {/* Fullscreen mode now uses CSS class on main container instead of portal - removes this section */}
     </div>
   );
 }
