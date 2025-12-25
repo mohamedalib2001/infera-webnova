@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -39,7 +39,17 @@ import {
   ExternalLink,
   Edit3,
   Palette,
+  Link2,
+  History,
 } from "lucide-react";
+import { 
+  getPlatformLogoState, 
+  checkGlobalCompliance, 
+  getLogoHistory,
+  subscribeToLogoSync,
+  type PlatformLogoState,
+  type LogoHistoryEntry
+} from "@/lib/logo-binding-engine";
 import { format } from "date-fns";
 import type { 
   SovereignWorkspace, 
@@ -544,6 +554,34 @@ export default function SovereignWorkspacePage() {
     platformType: "custom" as SovereignPlatformType,
     category: "commercial",
   });
+  
+  // Logo Binding System State
+  const [logoStates, setLogoStates] = useState<Map<string, PlatformLogoState>>(new Map());
+  const [complianceStats, setComplianceStats] = useState<ReturnType<typeof checkGlobalCompliance> | null>(null);
+  
+  // Load logo states and subscribe to updates
+  useEffect(() => {
+    const loadLogoStates = () => {
+      const states = new Map<string, PlatformLogoState>();
+      platformIconsRegistry.forEach(platform => {
+        const state = getPlatformLogoState(platform.id);
+        if (state) {
+          states.set(platform.id, state);
+        }
+      });
+      setLogoStates(states);
+      setComplianceStats(checkGlobalCompliance());
+    };
+    
+    loadLogoStates();
+    
+    // Subscribe to logo sync events
+    const unsubscribe = subscribeToLogoSync(() => {
+      loadLogoStates();
+    });
+    
+    return unsubscribe;
+  }, []);
 
   const { data: workspace, isLoading: workspaceLoading, error: workspaceError } = useQuery<SovereignWorkspace>({
     queryKey: ["/api/sovereign-workspace/workspace"],
@@ -1261,40 +1299,93 @@ export default function SovereignWorkspacePage() {
                   {platformIconsRegistry.length} professional logos with multiple sizes and variants | {platformIconsRegistry.length} لوجو احترافي بأحجام وأشكال متعددة
                 </p>
               </div>
-              <Badge variant="outline" className="border-purple-500/50 text-purple-600">
-                <Download className="h-3 w-3 mr-1" />
-                Downloadable Assets
-              </Badge>
+              <div className="flex items-center gap-2 flex-wrap">
+                {complianceStats && (
+                  <Badge 
+                    variant={complianceStats.compliant === complianceStats.totalPlatforms ? "default" : "outline"}
+                    className={complianceStats.compliant === complianceStats.totalPlatforms ? "bg-green-500" : "border-amber-500/50 text-amber-600"}
+                  >
+                    <Link2 className="h-3 w-3 mr-1" />
+                    {complianceStats.compliant}/{complianceStats.totalPlatforms} Synced
+                  </Badge>
+                )}
+                <Badge variant="outline" className="border-purple-500/50 text-purple-600">
+                  <Download className="h-3 w-3 mr-1" />
+                  Downloadable Assets
+                </Badge>
+              </div>
             </div>
             
             <div className="grid gap-6 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
-              {platformIconsRegistry.map((platform) => (
+              {platformIconsRegistry.map((platform) => {
+                const logoState = logoStates.get(platform.id);
+                const isSynced = logoState?.complianceStatus === "compliant";
+                const isPartial = logoState?.complianceStatus === "partial";
+                
+                return (
                 <Card 
                   key={platform.id}
-                  className="group border-border/50 hover:border-purple-500/30 transition-all"
+                  className={cn(
+                    "group border-border/50 hover:border-purple-500/30 transition-all",
+                    isSynced && "border-green-500/30",
+                    isPartial && "border-amber-500/30"
+                  )}
                   data-testid={`card-logo-${platform.id}`}
                 >
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-3">
                         <div 
-                          className="flex items-center justify-center w-12 h-12 rounded-lg border border-border/50"
+                          className={cn(
+                            "flex items-center justify-center w-12 h-12 rounded-lg border border-border/50 relative",
+                            isSynced && "ring-2 ring-green-500/50"
+                          )}
                           style={{ backgroundColor: platform.colors.primary }}
                         >
                           <Globe className="h-6 w-6" style={{ color: platform.colors.accent }} />
+                          {isSynced && (
+                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                              <CheckCircle2 className="h-3 w-3 text-white" />
+                            </div>
+                          )}
+                          {isPartial && (
+                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center">
+                              <AlertCircle className="h-3 w-3 text-white" />
+                            </div>
+                          )}
                         </div>
                         <div>
                           <CardTitle className="text-sm font-semibold">{platform.name}</CardTitle>
                           <p className="text-xs text-muted-foreground">{platform.nameAr}</p>
                         </div>
                       </div>
-                      <Badge variant="secondary" className="text-[10px]">
-                        {platform.category}
-                      </Badge>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge variant="secondary" className="text-[10px]">
+                          {platform.category}
+                        </Badge>
+                        {logoState && (
+                          <Badge 
+                            variant={isSynced ? "default" : isPartial ? "outline" : "secondary"}
+                            className={cn(
+                              "text-[9px]",
+                              isSynced && "bg-green-500",
+                              isPartial && "border-amber-500/50 text-amber-600"
+                            )}
+                          >
+                            {isSynced ? "Synced" : isPartial ? "Partial" : "Not Synced"}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     <p className="text-xs text-muted-foreground mt-2 italic">
                       "{platform.meaning}" | "{platform.meaningAr}"
                     </p>
+                    {logoState && logoState.lastSync > 0 && (
+                      <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-1">
+                        <History className="h-3 w-3" />
+                        Last synced: {new Date(logoState.lastSync).toLocaleDateString()}
+                      </p>
+                    )}
                   </CardHeader>
                   
                   <CardContent className="pb-3">
@@ -1463,7 +1554,8 @@ export default function SovereignWorkspacePage() {
                     </div>
                   </CardFooter>
                 </Card>
-              ))}
+              );
+              })}
             </div>
           </div>
         </TabsContent>

@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { 
   Eye, EyeOff, Crown, Shield, User, Users, Zap, Lock, Unlock,
-  ChevronRight, X, Layers, Route, Settings, Code, Power
+  ChevronRight, X, Layers, Route, Settings, Code, Power, AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";

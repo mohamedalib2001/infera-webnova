@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,9 +25,20 @@ import {
   CheckCircle2,
   XCircle,
   AlertTriangle,
-  Crown
+  Crown,
+  Link2,
+  Zap,
+  Target,
+  Lock
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  getAllPlatformsForBinding, 
+  bindAllVariantsToPlatform,
+  getPlatformLogoState,
+  checkGlobalCompliance,
+  type PlatformLogoState
+} from "@/lib/logo-binding-engine";
 
 // =====================================================================
 // INFERA SOVEREIGN VISUAL IDENTITY & ICONOGRAPHY MANDATORY FRAMEWORK
@@ -388,6 +399,51 @@ export default function LogoFactory() {
   const [previewSize, setPreviewSize] = useState(256);
   const [generatedIcons, setGeneratedIcons] = useState<GeneratedIcon[]>([]);
   
+  // MANDATORY: Target Platform Selection
+  const [targetPlatformId, setTargetPlatformId] = useState<string>("");
+  const [platformLogoState, setPlatformLogoState] = useState<PlatformLogoState | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [complianceStats, setComplianceStats] = useState<ReturnType<typeof checkGlobalCompliance> | null>(null);
+  
+  // Get available platforms for binding
+  const availablePlatforms = getAllPlatformsForBinding();
+  
+  // Update platform logo state when target changes
+  useEffect(() => {
+    if (targetPlatformId) {
+      const state = getPlatformLogoState(targetPlatformId);
+      setPlatformLogoState(state);
+      // Auto-set platform name from selection (use actual name for display)
+      const platform = availablePlatforms.find(p => p.id === targetPlatformId);
+      if (platform) {
+        // Use lowercase slug format for file naming
+        setPlatformName(platform.name.toLowerCase().replace(/\s+/g, '-'));
+      }
+    } else {
+      setPlatformLogoState(null);
+    }
+  }, [targetPlatformId, availablePlatforms]);
+  
+  // Load compliance stats and subscribe to logo sync events
+  useEffect(() => {
+    const refreshStats = () => {
+      setComplianceStats(checkGlobalCompliance());
+      if (targetPlatformId) {
+        setPlatformLogoState(getPlatformLogoState(targetPlatformId));
+      }
+    };
+    
+    refreshStats();
+    
+    // Subscribe to logo sync events for real-time updates
+    const handleSync = () => {
+      refreshStats();
+    };
+    
+    window.addEventListener("infera-logo-sync", handleSync);
+    return () => window.removeEventListener("infera-logo-sync", handleSync);
+  }, [targetPlatformId]);
+  
   // Generate preview SVG
   const previewSVG = generateSovereignSVG(
     selectedCategory,
@@ -469,11 +525,67 @@ export default function LogoFactory() {
     });
   }, [previewSVG, selectedCategory, selectedAccent, selectedPattern, platformName, toast]);
   
+  // MANDATORY: Sync logo to target platform
+  const syncToPlatform = useCallback(() => {
+    if (!targetPlatformId) {
+      toast({
+        title: "No Platform Selected | لم يتم اختيار منصة",
+        description: "You must select a target platform before syncing",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!validation.valid) {
+      toast({
+        title: "Validation Failed | فشل التحقق",
+        description: "Logo does not meet sovereign design requirements",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsSyncing(true);
+    
+    // Generate mono version
+    const monoSVG = previewSVG
+      .replace(new RegExp(SOVEREIGN_PALETTE.accents[selectedAccent].hex, 'g'), '#FFFFFF')
+      .replace(/#0A0A0A/g, '#000000');
+    
+    // Bind all variants to platform
+    setTimeout(() => {
+      const result = bindAllVariantsToPlatform(
+        targetPlatformId,
+        previewSVG,
+        monoSVG,
+        "logo-factory"
+      );
+      
+      setIsSyncing(false);
+      
+      if (result.success) {
+        toast({
+          title: "Logo Synced Successfully | تم المزامنة بنجاح",
+          description: `All variants bound to ${platformLogoState?.platformName || targetPlatformId}`
+        });
+        // Refresh platform state
+        setPlatformLogoState(getPlatformLogoState(targetPlatformId));
+        setComplianceStats(checkGlobalCompliance());
+      } else {
+        toast({
+          title: "Sync Failed | فشل المزامنة",
+          description: result.message,
+          variant: "destructive"
+        });
+      }
+    }, 500);
+  }, [targetPlatformId, previewSVG, selectedAccent, validation.valid, platformLogoState, toast]);
+  
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Crown className="h-6 w-6 text-primary" />
@@ -484,10 +596,105 @@ export default function LogoFactory() {
               مصنع تصميم الشعارات السيادي | Sovereign Visual Identity Generator
             </p>
           </div>
-          <Badge variant="secondary" className="text-xs">
-            Mandatory Framework v1.0
-          </Badge>
+          <div className="flex items-center gap-2">
+            {complianceStats && (
+              <Badge variant={complianceStats.compliant === complianceStats.totalPlatforms ? "default" : "outline"} className="text-xs">
+                {complianceStats.compliant}/{complianceStats.totalPlatforms} Compliant
+              </Badge>
+            )}
+            <Badge variant="secondary" className="text-xs">
+              Mandatory Framework v1.0
+            </Badge>
+          </div>
         </div>
+        
+        {/* MANDATORY: Target Platform Selector */}
+        <Card className="border-2 border-amber-500/50 bg-amber-500/5">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Target className="h-5 w-5 text-amber-500" />
+                <CardTitle className="text-base">
+                  Target Platform | المنصة الهدف
+                  <Badge variant="destructive" className="ml-2 text-[10px]">MANDATORY</Badge>
+                </CardTitle>
+              </div>
+              {platformLogoState && (
+                <Badge 
+                  variant={platformLogoState.complianceStatus === "compliant" ? "default" : 
+                          platformLogoState.complianceStatus === "partial" ? "outline" : "destructive"}
+                  className="text-xs"
+                >
+                  {platformLogoState.complianceStatus === "compliant" ? "Fully Synced" :
+                   platformLogoState.complianceStatus === "partial" ? "Partially Synced" : "Not Synced"}
+                </Badge>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Select target platform before generating or exporting any logo | اختر المنصة الهدف قبل التصدير
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex-1 min-w-[250px]">
+                <Select value={targetPlatformId} onValueChange={setTargetPlatformId}>
+                  <SelectTrigger data-testid="select-target-platform" className="border-amber-500/30">
+                    <SelectValue placeholder="Select target platform | اختر المنصة" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availablePlatforms.map(platform => (
+                      <SelectItem key={platform.id} value={platform.id}>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{platform.name}</span>
+                          <span className="text-xs text-muted-foreground">| {platform.nameAr}</span>
+                          <Badge variant="secondary" className="text-[9px] ml-1">{platform.category}</Badge>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <Button
+                onClick={syncToPlatform}
+                disabled={!targetPlatformId || !validation.valid || isSyncing}
+                className="gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
+                data-testid="button-sync-to-platform"
+              >
+                {isSyncing ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <Link2 className="h-4 w-4" />
+                    Bind & Sync All Variants | ربط ومزامنة
+                  </>
+                )}
+              </Button>
+            </div>
+            
+            {!targetPlatformId && (
+              <div className="flex items-center gap-2 p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-500 text-xs">
+                <Lock className="h-4 w-4" />
+                <span>Generation and export disabled until platform is selected | الإنشاء والتصدير معطل حتى يتم اختيار منصة</span>
+              </div>
+            )}
+            
+            {platformLogoState && (
+              <div className="flex items-center gap-4 flex-wrap text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Zap className="h-3 w-3" />
+                  Last Sync: {platformLogoState.lastSync > 0 ? new Date(platformLogoState.lastSync).toLocaleString() : 'Never'}
+                </span>
+                <span className="flex items-center gap-1">
+                  Platform: {platformLogoState.platformName} | {platformLogoState.platformNameAr}
+                </span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Configuration Panel */}
