@@ -322,64 +322,68 @@ function AppContent() {
   
   if (!user) {
     return (
-      <SidebarProvider style={sidebarStyle}>
-        <div className="flex h-screen w-full">
-          <GuestSidebar />
-          <div className="flex flex-col flex-1 overflow-hidden" dir={isRTL ? "rtl" : "ltr"}>
-            <header className="flex items-center justify-between gap-2 p-2 border-b h-14 shrink-0">
-              <div className="flex items-center gap-2">
-                <SidebarTrigger data-testid="button-sidebar-toggle" />
-              </div>
-              <div className="flex items-center gap-2">
-                <LanguageToggle />
-                <ThemeToggle />
-              </div>
-            </header>
-            <main className="flex-1 overflow-auto">
-              <GuestRouter />
-            </main>
+      <div dir={isRTL ? "rtl" : "ltr"}>
+        <SidebarProvider style={sidebarStyle}>
+          <div className={`flex h-screen w-full ${isRTL ? "flex-row-reverse" : ""}`}>
+            <GuestSidebar />
+            <div className="flex flex-col flex-1 overflow-hidden">
+              <header className="flex items-center justify-between gap-2 p-2 border-b h-14 shrink-0">
+                <div className="flex items-center gap-2">
+                  <SidebarTrigger data-testid="button-sidebar-toggle" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <LanguageToggle />
+                  <ThemeToggle />
+                </div>
+              </header>
+              <main className="flex-1 overflow-auto">
+                <GuestRouter />
+              </main>
+            </div>
           </div>
-        </div>
-      </SidebarProvider>
+        </SidebarProvider>
+      </div>
     );
   }
   
   const isOwner = user?.role === "owner" || user?.role === "sovereign" || user?.id === 1;
   
   return (
-    <InspectorProvider>
-      <SovereignViewProvider>
-        <SidebarProvider style={sidebarStyle}>
-          <div className="flex h-screen w-full">
-            <AppSidebar />
-            <div className="flex flex-col flex-1 overflow-hidden" dir={isRTL ? "rtl" : "ltr"}>
-              <header className="flex items-center justify-between gap-2 p-2 border-b h-14 shrink-0">
-                <div className="flex items-center gap-2">
-                  <SidebarTrigger data-testid="button-sidebar-toggle" />
-                  {isOwner && <SovereignHeaderButton />}
-                </div>
-                <div className="flex items-center gap-2">
-                  {isOwner && <AIProviderTopbar />}
-                  {isOwner && <NovaAssistantMenu />}
-                  <NotificationBell />
-                  {isOwner && <InspectorToggle />}
-                  {isOwner && <SovereignViewToggle />}
-                  <LanguageToggle />
-                  <ThemeToggle />
-                </div>
-              </header>
-              <main className="flex-1 overflow-auto">
-                <AuthenticatedRouter />
-              </main>
+    <div dir={isRTL ? "rtl" : "ltr"}>
+      <InspectorProvider>
+        <SovereignViewProvider>
+          <SidebarProvider style={sidebarStyle}>
+            <div className={`flex h-screen w-full ${isRTL ? "flex-row-reverse" : ""}`}>
+              <AppSidebar />
+              <div className="flex flex-col flex-1 overflow-hidden">
+                <header className="flex items-center justify-between gap-2 p-2 border-b h-14 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <SidebarTrigger data-testid="button-sidebar-toggle" />
+                    {isOwner && <SovereignHeaderButton />}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isOwner && <AIProviderTopbar />}
+                    {isOwner && <NovaAssistantMenu />}
+                    <NotificationBell />
+                    {isOwner && <InspectorToggle />}
+                    {isOwner && <SovereignViewToggle />}
+                    <LanguageToggle />
+                    <ThemeToggle />
+                  </div>
+                </header>
+                <main className="flex-1 overflow-auto">
+                  <AuthenticatedRouter />
+                </main>
+              </div>
             </div>
-          </div>
-          <CommandPalette />
-          <SovereignIndicator />
-          <NovaFloatingButton />
-          {isOwner && <SovereignAccessSummary />}
-        </SidebarProvider>
-      </SovereignViewProvider>
-    </InspectorProvider>
+            <CommandPalette />
+            <SovereignIndicator />
+            <NovaFloatingButton />
+            {isOwner && <SovereignAccessSummary />}
+          </SidebarProvider>
+        </SovereignViewProvider>
+      </InspectorProvider>
+    </div>
   );
 }
 

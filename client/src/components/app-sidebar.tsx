@@ -107,12 +107,10 @@ interface AppSidebarProps {
   side?: "left" | "right";
 }
 
-export function AppSidebar({ side }: AppSidebarProps) {
+export function AppSidebar({ side = "left" }: AppSidebarProps) {
   const [location, navigate] = useLocation();
   const { user, isAuthenticated, logout, isLoggingOut, isSovereign } = useAuth();
   const { t, language } = useLanguage();
-  const isRtl = language === "ar";
-  const effectiveSide = side ?? (isRtl ? "right" : "left");
   const { isOpen, setIsOpen, openModal } = useNewPlatformModal();
   const [growthExpanded, setGrowthExpanded] = useState(false);
   const [pitchDeckExpanded, setPitchDeckExpanded] = useState(false);
@@ -298,7 +296,7 @@ export function AppSidebar({ side }: AppSidebarProps) {
 
   return (
     <>
-      <Sidebar side={effectiveSide}>
+      <Sidebar side={side}>
         <SidebarHeader className="p-4">
           <Link href="/" className="flex items-center gap-2">
             <div className="relative w-8 h-8 flex items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 via-purple-600 to-amber-500 shadow-lg">
