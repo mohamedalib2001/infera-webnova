@@ -125,6 +125,16 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     { id: "development" as AudienceTab, label: language === "ar" ? "التطوير" : "Development", icon: Hammer },
   ];
 
+  // Helper to check if a section should be shown based on audience filter
+  const shouldShowSection = (sectionAudience: AudienceTab[]) => {
+    if (activeTab === "all") return true;
+    if (activeTab === "development") return false; // Development has its own section
+    return sectionAudience.includes(activeTab);
+  };
+
+  // Owner avatar URL - use real avatar or fallback
+  const ownerAvatarUrl = user?.avatarUrl || "https://api.dicebear.com/7.x/initials/svg?seed=" + encodeURIComponent(user?.fullName || user?.username || "Owner");
+
   const developmentPages = [
     { title: language === "ar" ? "مولّد المنصات" : "Platform Generator", url: "/platform-generator", icon: TrendingUp, testId: "nav-dev-platform-generator" },
     { title: language === "ar" ? "تطبيقات الجوال" : "Mobile Apps", url: "/mobile-builder", icon: Smartphone, testId: "nav-dev-mobile" },
@@ -258,7 +268,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <Avatar className="h-12 w-12 ring-2 ring-amber-500 ring-offset-2 ring-offset-background">
-                    <AvatarImage src={user?.avatarUrl || undefined} alt={user?.fullName || "Owner"} />
+                    <AvatarImage src={ownerAvatarUrl} alt={user?.fullName || "Owner"} />
                     <AvatarFallback className="bg-gradient-to-br from-amber-500 to-purple-600 text-white font-bold">
                       {getInitials(user?.fullName, user?.email || undefined)}
                     </AvatarFallback>
@@ -350,147 +360,167 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
 
           {activeTab !== "development" && (
             <>
-              <SidebarGroup>
-                <div className="px-4 mb-4">
-                  <Button 
-                    className="w-full gap-2" 
-                    onClick={handleNewPlatform}
-                    data-testid="button-new-platform"
-                  >
-                    <Plus className="h-4 w-4" />
-                    {language === "ar" ? "منصة جديدة" : "New Platform"}
-                  </Button>
-                </div>
-              </SidebarGroup>
+              {/* New Platform Button - for visitors and owner */}
+              {shouldShowSection(["all", "visitors", "owner"]) && (
+                <SidebarGroup>
+                  <div className="px-4 mb-4">
+                    <Button 
+                      className="w-full gap-2" 
+                      onClick={handleNewPlatform}
+                      data-testid="button-new-platform"
+                    >
+                      <Plus className="h-4 w-4" />
+                      {language === "ar" ? "منصة جديدة" : "New Platform"}
+                    </Button>
+                  </div>
+                </SidebarGroup>
+              )}
 
-          <SidebarGroup>
-            <SidebarGroupLabel className="flex items-center gap-1">
-              <Wrench className="h-3 w-3" />
-              {language === "ar" ? "البناء" : "Build"}
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              {renderNavItems(buildItems)}
-            </SidebarGroupContent>
-          </SidebarGroup>
+              {/* Build Section - for visitors and owner */}
+              {shouldShowSection(["all", "visitors", "owner"]) && (
+                <SidebarGroup>
+                  <SidebarGroupLabel className="flex items-center gap-1">
+                    <Wrench className="h-3 w-3" />
+                    {language === "ar" ? "البناء" : "Build"}
+                  </SidebarGroupLabel>
+                  <SidebarGroupContent>
+                    {renderNavItems(buildItems)}
+                  </SidebarGroupContent>
+                </SidebarGroup>
+              )}
 
-          <SidebarGroup>
-            <SidebarGroupLabel className="flex items-center gap-1">
-              <Settings className="h-3 w-3" />
-              {language === "ar" ? "الإدارة" : "Management"}
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              {renderNavItems(managementItems)}
-            </SidebarGroupContent>
-          </SidebarGroup>
+              {/* Management Section - for employees, managers, and owner */}
+              {shouldShowSection(["all", "employees", "managers", "owner"]) && (
+                <SidebarGroup>
+                  <SidebarGroupLabel className="flex items-center gap-1">
+                    <Settings className="h-3 w-3" />
+                    {language === "ar" ? "الإدارة" : "Management"}
+                  </SidebarGroupLabel>
+                  <SidebarGroupContent>
+                    {renderNavItems(managementItems)}
+                  </SidebarGroupContent>
+                </SidebarGroup>
+              )}
 
-          <SidebarGroup>
-            <Collapsible open={growthExpanded} onOpenChange={setGrowthExpanded}>
-              <CollapsibleTrigger asChild>
-                <SidebarGroupLabel className="flex items-center gap-1 cursor-pointer w-full justify-between pr-2">
-                  <span className="flex items-center gap-1">
-                    <TrendingUp className="h-3 w-3" />
-                    {language === "ar" ? "النمو" : "Growth"}
-                  </span>
-                  {growthExpanded ? (
-                    <ChevronDown className="h-3 w-3" />
-                  ) : (
-                    <ChevronRight className="h-3 w-3" />
-                  )}
-                </SidebarGroupLabel>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <SidebarGroupContent>
-                  {renderNavItems(growthItems)}
-                </SidebarGroupContent>
-              </CollapsibleContent>
-            </Collapsible>
-          </SidebarGroup>
+              {/* Growth Section - for managers and owner */}
+              {shouldShowSection(["all", "managers", "owner"]) && (
+                <SidebarGroup>
+                  <Collapsible open={growthExpanded} onOpenChange={setGrowthExpanded}>
+                    <CollapsibleTrigger asChild>
+                      <SidebarGroupLabel className="flex items-center gap-1 cursor-pointer w-full justify-between pr-2">
+                        <span className="flex items-center gap-1">
+                          <TrendingUp className="h-3 w-3" />
+                          {language === "ar" ? "النمو" : "Growth"}
+                        </span>
+                        {growthExpanded ? (
+                          <ChevronDown className="h-3 w-3" />
+                        ) : (
+                          <ChevronRight className="h-3 w-3" />
+                        )}
+                      </SidebarGroupLabel>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarGroupContent>
+                        {renderNavItems(growthItems)}
+                      </SidebarGroupContent>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </SidebarGroup>
+              )}
 
-          <SidebarGroup>
-            <Collapsible open={pitchDeckExpanded} onOpenChange={setPitchDeckExpanded}>
-              <CollapsibleTrigger asChild>
-                <SidebarGroupLabel className="flex items-center gap-1 cursor-pointer w-full justify-between pr-2 text-violet-600 dark:text-violet-400">
-                  <span className="flex items-center gap-1">
-                    <Presentation className="h-3 w-3" />
-                    {language === "ar" ? "عرض المستثمرين" : "Pitch Deck"}
-                  </span>
-                  {pitchDeckExpanded ? (
-                    <ChevronDown className="h-3 w-3" />
-                  ) : (
-                    <ChevronRight className="h-3 w-3" />
-                  )}
-                </SidebarGroupLabel>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <SidebarGroupContent>
-                  {renderNavItems(pitchDeckItems)}
-                </SidebarGroupContent>
-              </CollapsibleContent>
-            </Collapsible>
-          </SidebarGroup>
+              {/* Pitch Deck Section - for owner only */}
+              {shouldShowSection(["all", "owner"]) && (
+                <SidebarGroup>
+                  <Collapsible open={pitchDeckExpanded} onOpenChange={setPitchDeckExpanded}>
+                    <CollapsibleTrigger asChild>
+                      <SidebarGroupLabel className="flex items-center gap-1 cursor-pointer w-full justify-between pr-2 text-violet-600 dark:text-violet-400">
+                        <span className="flex items-center gap-1">
+                          <Presentation className="h-3 w-3" />
+                          {language === "ar" ? "عرض المستثمرين" : "Pitch Deck"}
+                        </span>
+                        {pitchDeckExpanded ? (
+                          <ChevronDown className="h-3 w-3" />
+                        ) : (
+                          <ChevronRight className="h-3 w-3" />
+                        )}
+                      </SidebarGroupLabel>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarGroupContent>
+                        {renderNavItems(pitchDeckItems)}
+                      </SidebarGroupContent>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </SidebarGroup>
+              )}
 
-          <SidebarGroup>
-            <SidebarGroupLabel className="flex items-center gap-1">
-              <CreditCard className="h-3 w-3" />
-              {language === "ar" ? "الباقات" : "Pricing"}
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/pricing"}>
-                    <Link href="/pricing" data-testid="nav-pricing">
-                      <CreditCard className="h-4 w-4" />
-                      <span>{language === "ar" ? "الأسعار" : "Pricing"}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/invoices"}>
-                    <Link href="/invoices" data-testid="nav-invoices">
-                      <Receipt className="h-4 w-4" />
-                      <span>{language === "ar" ? "الفواتير" : "Invoices"}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/subscription"}>
-                    <Link href="/subscription" data-testid="nav-subscription">
-                      <Crown className="h-4 w-4" />
-                      <span>{language === "ar" ? "اشتراكي" : "My Subscription"}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+              {/* Pricing Section - for subscribers and owner */}
+              {shouldShowSection(["all", "subscribers", "owner"]) && (
+                <SidebarGroup>
+                  <SidebarGroupLabel className="flex items-center gap-1">
+                    <CreditCard className="h-3 w-3" />
+                    {language === "ar" ? "الباقات" : "Pricing"}
+                  </SidebarGroupLabel>
+                  <SidebarGroupContent>
+                    <SidebarMenu>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/pricing"}>
+                          <Link href="/pricing" data-testid="nav-pricing">
+                            <CreditCard className="h-4 w-4" />
+                            <span>{language === "ar" ? "الأسعار" : "Pricing"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/invoices"}>
+                          <Link href="/invoices" data-testid="nav-invoices">
+                            <Receipt className="h-4 w-4" />
+                            <span>{language === "ar" ? "الفواتير" : "Invoices"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/subscription"}>
+                          <Link href="/subscription" data-testid="nav-subscription">
+                            <Crown className="h-4 w-4" />
+                            <span>{language === "ar" ? "اشتراكي" : "My Subscription"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </SidebarGroup>
+              )}
 
-          {isAdvancedUser && (
-            <SidebarGroup>
-              <SidebarGroupLabel className="text-pink-600 dark:text-pink-400 flex items-center gap-1">
-                <Paintbrush className="h-3 w-3" />
-                {language === "ar" ? "أدوات متقدمة" : "Advanced Tools"}
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={location === "/white-label"}>
-                      <Link href="/white-label" data-testid="nav-whitelabel">
-                        <Paintbrush className="h-4 w-4" />
-                        <span>{language === "ar" ? "العلامة البيضاء" : "White Label"}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          )}
+              {/* Advanced Tools - for owner only */}
+              {shouldShowSection(["all", "owner"]) && isAdvancedUser && (
+                <SidebarGroup>
+                  <SidebarGroupLabel className="text-pink-600 dark:text-pink-400 flex items-center gap-1">
+                    <Paintbrush className="h-3 w-3" />
+                    {language === "ar" ? "أدوات متقدمة" : "Advanced Tools"}
+                  </SidebarGroupLabel>
+                  <SidebarGroupContent>
+                    <SidebarMenu>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/white-label"}>
+                          <Link href="/white-label" data-testid="nav-whitelabel">
+                            <Paintbrush className="h-4 w-4" />
+                            <span>{language === "ar" ? "العلامة البيضاء" : "White Label"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </SidebarGroup>
+              )}
 
-          {(isSovereign || isOwner) && (
-            <SidebarGroup>
-              <SidebarGroupLabel className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                <Shield className="h-3 w-3" />
-                {language === "ar" ? "النظام" : "System"}
-              </SidebarGroupLabel>
+              {/* System Section - for owner only */}
+              {shouldShowSection(["all", "owner"]) && (isSovereign || isOwner) && (
+                <SidebarGroup>
+                  <SidebarGroupLabel className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                    <Shield className="h-3 w-3" />
+                    {language === "ar" ? "النظام" : "System"}
+                  </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
                   {isSovereign && (
@@ -726,15 +756,16 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
-          )}
+              )}
 
-          {(isOwner || isSovereign) && (
-            <SidebarGroup>
-              <SidebarGroupLabel className="text-cyan-600 dark:text-cyan-400 flex items-center gap-1">
-                <Crown className="h-3 w-3" />
-                {language === "ar" ? "القيادة السيادية" : "Sovereign Command"}
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
+              {/* Sovereign Command - for owner only */}
+              {shouldShowSection(["all", "owner"]) && (isOwner || isSovereign) && (
+                <SidebarGroup>
+                  <SidebarGroupLabel className="text-cyan-600 dark:text-cyan-400 flex items-center gap-1">
+                    <Crown className="h-3 w-3" />
+                    {language === "ar" ? "القيادة السيادية" : "Sovereign Command"}
+                  </SidebarGroupLabel>
+                  <SidebarGroupContent>
                 <SidebarMenu>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild isActive={location === "/owner/isds"}>
@@ -827,15 +858,16 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
-          )}
+              )}
 
-          {isOwner && (
-            <SidebarGroup>
-              <SidebarGroupLabel className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                <Users className="h-3 w-3" />
-                {language === "ar" ? "الموارد البشرية" : "Human Resources"}
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
+              {/* Human Resources - for employees, managers, and owner */}
+              {shouldShowSection(["all", "employees", "managers", "owner"]) && isOwner && (
+                <SidebarGroup>
+                  <SidebarGroupLabel className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                    <Users className="h-3 w-3" />
+                    {language === "ar" ? "الموارد البشرية" : "Human Resources"}
+                  </SidebarGroupLabel>
+                  <SidebarGroupContent>
                 <SidebarMenu>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild isActive={location === "/departments"}>
