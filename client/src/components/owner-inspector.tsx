@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +33,8 @@ interface InspectorContextType {
   hoveredElement: ElementMetadata | null;
   selectedElement: ElementMetadata | null;
   setSelectedElement: (el: ElementMetadata | null) => void;
+  isTooltipHovered: boolean;
+  setIsTooltipHovered: (val: boolean) => void;
 }
 
 const InspectorContext = createContext<InspectorContextType | null>(null);
@@ -106,6 +108,8 @@ export function InspectorProvider({ children }: { children: React.ReactNode }) {
   const [isEnabled, setIsEnabled] = useState(false);
   const [hoveredElement, setHoveredElement] = useState<ElementMetadata | null>(null);
   const [selectedElement, setSelectedElement] = useState<ElementMetadata | null>(null);
+  const [isTooltipHovered, setIsTooltipHovered] = useState(false);
+  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Only allow for owner
   const isOwner = user?.role === "owner" || user?.role === "sovereign" || user?.username === "mohamedalib2001";
@@ -122,6 +126,12 @@ export function InspectorProvider({ children }: { children: React.ReactNode }) {
     const handleMouseOver = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (!target || target === document.body) return;
+      
+      // Cancel any pending hide
+      if (hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current);
+        hideTimeoutRef.current = null;
+      }
       
       // Find nearest element with data-testid
       let current: HTMLElement | null = target;
@@ -147,7 +157,12 @@ export function InspectorProvider({ children }: { children: React.ReactNode }) {
     };
     
     const handleMouseOut = () => {
-      setHoveredElement(null);
+      // Delay hiding to allow moving to tooltip
+      hideTimeoutRef.current = setTimeout(() => {
+        if (!isTooltipHovered) {
+          setHoveredElement(null);
+        }
+      }, 300);
     };
     
     const handleDoubleClick = (e: MouseEvent) => {
@@ -188,8 +203,11 @@ export function InspectorProvider({ children }: { children: React.ReactNode }) {
       document.removeEventListener("mouseover", handleMouseOver, true);
       document.removeEventListener("mouseout", handleMouseOut, true);
       document.removeEventListener("dblclick", handleDoubleClick, true);
+      if (hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current);
+      }
     };
-  }, [isEnabled, isOwner]);
+  }, [isEnabled, isOwner, isTooltipHovered]);
   
   // Keyboard shortcut (Ctrl+Shift+I)
   useEffect(() => {
@@ -216,7 +234,9 @@ export function InspectorProvider({ children }: { children: React.ReactNode }) {
       toggleInspector, 
       hoveredElement, 
       selectedElement,
-      setSelectedElement 
+      setSelectedElement,
+      isTooltipHovered,
+      setIsTooltipHovered
     }}>
       {children}
       {isEnabled && <InspectorOverlay />}
@@ -227,7 +247,7 @@ export function InspectorProvider({ children }: { children: React.ReactNode }) {
 
 // Overlay component showing hover tooltip
 function InspectorOverlay() {
-  const { hoveredElement } = useInspector();
+  const { hoveredElement, setIsTooltipHovered } = useInspector();
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
   
@@ -256,13 +276,15 @@ function InspectorOverlay() {
         }}
       />
       
-      {/* Tooltip */}
+      {/* Tooltip - receives pointer events to allow clicking copy button */}
       <div
         className="fixed z-[10000] bg-popover border rounded-md shadow-lg p-2 max-w-md"
         style={{
           top: Math.max(8, boundingRect.top + window.scrollY - 50),
           left: Math.min(boundingRect.left + window.scrollX, window.innerWidth - 320),
         }}
+        onMouseEnter={() => setIsTooltipHovered(true)}
+        onMouseLeave={() => setIsTooltipHovered(false)}
       >
         <div className="flex items-center gap-2">
           <Badge variant={hasErrors ? "destructive" : "secondary"} className="font-mono text-xs">
@@ -279,6 +301,7 @@ function InspectorOverlay() {
               e.stopPropagation();
               copyTestId();
             }}
+            data-testid="button-copy-testid"
           >
             {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
           </Button>
