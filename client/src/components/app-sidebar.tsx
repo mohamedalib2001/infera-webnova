@@ -120,7 +120,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
   const isOwner = user?.role === "owner";
   const isAdvancedUser = user?.role === "enterprise" || user?.role === "sovereign" || isOwner;
 
-  // Define sovereign safe zone routes
+  // Define sovereign safe zone routes - الصفحات السيادية المحمية
   const sovereignSafeZoneRoutes = [
     "/owner", "/sovereign", "/sovereign-workspace", "/sovereign-chat", 
     "/sovereign/command-center", "/sovereign/ai-governance", "/sovereign/digital-borders",
@@ -130,7 +130,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     "/owner/ai-sovereignty", "/owner/ai-capability-control", "/owner/assistant-governance",
     "/owner/ai-settings", "/owner/ai-model-registry", "/owner/infera-intelligence",
     "/owner/staff", "/owner/sovereign-permissions", "/owner/content-moderation", "/owner/control-center", "/owner/platform-maps",
-    "/api-keys", "/ssh-vault", "/github", "/sovereign-plans"
+    "/api-keys", "/ssh-vault", "/github", "/sovereign-plans", "/logo-factory"
   ];
 
   // Check if current route is in sovereign safe zone

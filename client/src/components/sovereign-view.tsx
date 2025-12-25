@@ -648,6 +648,11 @@ const pagePermissionsRegistry: Record<string, { allowedRoles: RoleType[]; descri
     description: "Sovereign Workspace - ROOT_OWNER exclusive",
     descriptionAr: "مساحة العمل السيادية - حصري للمالك الجذري"
   },
+  "/logo-factory": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "INFERA Logo Factory - Sovereign Visual Identity Generator - ROOT_OWNER exclusive",
+    descriptionAr: "مصنع شعارات إنفيرا - مولد الهوية البصرية السيادية - حصري للمالك الجذري"
+  },
   "/sovereign-plans": { 
     allowedRoles: ["owner", "sovereign"],
     description: "Sovereign Plans - ROOT_OWNER exclusive",
