@@ -50,9 +50,14 @@ The system is built around a Blueprint System (Single Source of Truth), an AI Or
 *   **Secrets Vault Service**: AES-256-GCM encrypted secret management with versioning and audit logging.
 *   **Service-to-Service Authentication**: HMAC-SHA256 signature validation.
 *   **Nova Sovereign Decision Engine**: Governs AI operations with Decision Policy Engine, Traceability, Approval Chains, Kill Switch, Human-in-the-Loop matrix, Model Lifecycle management, Bias/Drift/Risk Monitoring, Knowledge Graph, Policy Memory, and a Compliance Engine.
-*   **Smart Analysis Tools**: Includes Code Analyzer, Security Scanner (SAST), Performance Profiler, and Testing Automation.
+*   **Smart Analysis Tools**: Includes Code Analyzer, Security Scanner (SAST), Performance Profiler, and Testing Automation. Fully integrated with Nova AI IDE through handleAnalyzeCode and handleSecurityScan handlers.
 *   **CI/CD Automation Engine**: Manages pipelines, Docker, multi-cloud deployment, and GitHub automation.
 *   **Context Understanding Engine**: Analyzes databases, projects, history, and detects architectural patterns.
+*   **Military Security Database Schema**: Four dedicated tables for persistent security data storage:
+    - `pki_certificates`: PKI/X.509 certificate management with status tracking and revocation support
+    - `military_incident_response`: DoD 72-hour incident response tracking with timeline and classification
+    - `security_scan_results`: SAST/DAST scan results with OWASP categorization and findings
+    - `security_audit_logs`: Military-grade audit logging with classification levels (unclassified to top_secret)
 
 ## External Dependencies
 *   **Database**: PostgreSQL

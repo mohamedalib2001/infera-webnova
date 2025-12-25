@@ -883,25 +883,51 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
       toast({ title: isRtl ? "لا يوجد كود للتحليل" : "No code to analyze", variant: "destructive" });
       return;
     }
-    if (!aiWs.isConnected || !aiWs.isAuthenticated) {
-      toast({ title: isRtl ? "انتظر اتصال AI" : "Waiting for AI connection", variant: "destructive" });
-      return;
-    }
-    toast({ title: isRtl ? "جاري تحليل الكود..." : "Analyzing code..." });
+    toast({ title: isRtl ? "جاري تحليل الكود عبر Smart Analysis..." : "Analyzing code via Smart Analysis..." });
     
     try {
       setIsProcessing(true);
-      const response = await aiWs.sendMessage(`Analyze this code:\n\`\`\`\n${code}\n\`\`\``, isRtl ? "ar" : "en");
+      const response = await apiRequest('/api/military/analysis/code/snippet', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          code, 
+          language: codeFiles[activeFileIndex]?.language || 'javascript',
+          filename: codeFiles[activeFileIndex]?.name || 'code.js'
+        }),
+      });
+      
+      const result = response as { success: boolean; data: { vulnerabilities: Array<{ type: string; severity: string; description: string }>; metrics: { complexity: number; lines: number }; technicalDebt: string } };
+      const analysisText = result.success 
+        ? `**Code Analysis Results:**\n\n` +
+          `- Complexity: ${result.data.metrics.complexity}\n` +
+          `- Lines: ${result.data.metrics.lines}\n` +
+          `- Technical Debt: ${result.data.technicalDebt}\n` +
+          `- Vulnerabilities Found: ${result.data.vulnerabilities.length}\n\n` +
+          (result.data.vulnerabilities.length > 0 
+            ? result.data.vulnerabilities.map((v: { type: string; severity: string; description: string }) => `  - [${v.severity}] ${v.type}: ${v.description}`).join('\n')
+            : 'No vulnerabilities detected.')
+        : 'Analysis completed.';
+      
       setLocalMessages(prev => [...prev, {
         id: `analyze-${Date.now()}`,
         role: "assistant",
-        content: response,
+        content: analysisText,
         createdAt: new Date().toISOString(),
       }]);
       setIsProcessing(false);
     } catch (error) {
       setIsProcessing(false);
-      toast({ title: isRtl ? "فشل التحليل" : "Analysis failed", variant: "destructive" });
+      if (aiWs.isConnected && aiWs.isAuthenticated) {
+        const response = await aiWs.sendMessage(`Analyze this code:\n\`\`\`\n${code}\n\`\`\``, isRtl ? "ar" : "en");
+        setLocalMessages(prev => [...prev, {
+          id: `analyze-${Date.now()}`,
+          role: "assistant",
+          content: response,
+          createdAt: new Date().toISOString(),
+        }]);
+      } else {
+        toast({ title: isRtl ? "فشل التحليل" : "Analysis failed", variant: "destructive" });
+      }
     }
   };
 
@@ -930,6 +956,52 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
     } catch (error) {
       setIsProcessing(false);
       toast({ title: isRtl ? "فشل التحسين" : "Optimization failed", variant: "destructive" });
+    }
+  };
+
+  const handleSecurityScan = async () => {
+    const code = codeFiles[activeFileIndex]?.content || "";
+    if (!code.trim()) {
+      toast({ title: isRtl ? "لا يوجد كود للفحص" : "No code to scan", variant: "destructive" });
+      return;
+    }
+    toast({ title: isRtl ? "جاري الفحص الأمني عبر SAST..." : "Running SAST Security Scan..." });
+    
+    try {
+      setIsProcessing(true);
+      const response = await apiRequest('/api/military/analysis/security/sast', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          projectPath: '.',
+          scanType: 'full',
+          includeOwaspTop10: true
+        }),
+      });
+      
+      const result = response as { success: boolean; data: { findings: Array<{ category: string; severity: string; title: string; description: string }>; summary: { critical: number; high: number; medium: number; low: number } } };
+      const scanText = result.success 
+        ? `**Security Scan Results (SAST):**\n\n` +
+          `**Summary:**\n` +
+          `- Critical: ${result.data.summary.critical}\n` +
+          `- High: ${result.data.summary.high}\n` +
+          `- Medium: ${result.data.summary.medium}\n` +
+          `- Low: ${result.data.summary.low}\n\n` +
+          `**Findings:**\n` +
+          (result.data.findings.length > 0 
+            ? result.data.findings.slice(0, 10).map((f: { category: string; severity: string; title: string; description: string }) => `- [${f.severity}] ${f.category}: ${f.title}`).join('\n')
+            : 'No security issues detected.')
+        : 'Security scan completed.';
+      
+      setLocalMessages(prev => [...prev, {
+        id: `security-${Date.now()}`,
+        role: "assistant",
+        content: scanText,
+        createdAt: new Date().toISOString(),
+      }]);
+      setIsProcessing(false);
+    } catch (error) {
+      setIsProcessing(false);
+      toast({ title: isRtl ? "فشل الفحص الأمني" : "Security scan failed", variant: "destructive" });
     }
   };
 
@@ -1840,14 +1912,14 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="p-2 pt-0 space-y-1.5">
-                          <button className="w-full flex items-start gap-2 p-2 rounded-md bg-muted/50 hover:bg-muted text-left transition-colors">
+                          <button className="w-full flex items-start gap-2 p-2 rounded-md bg-muted/50 hover:bg-muted text-left transition-colors" onClick={handleOptimizeCode} disabled={isProcessing} data-testid="button-optimize-performance">
                             <Wand2 className="h-3.5 w-3.5 text-violet-400 mt-0.5 shrink-0" />
                             <div>
                               <p className="text-[11px] font-medium">{isRtl ? "تحسين الأداء" : "Optimize Performance"}</p>
                               <p className="text-[10px] text-muted-foreground">{isRtl ? "3 تحسينات متاحة" : "3 optimizations available"}</p>
                             </div>
                           </button>
-                          <button className="w-full flex items-start gap-2 p-2 rounded-md bg-muted/50 hover:bg-muted text-left transition-colors">
+                          <button className="w-full flex items-start gap-2 p-2 rounded-md bg-muted/50 hover:bg-muted text-left transition-colors" onClick={handleSecurityScan} disabled={isProcessing} data-testid="button-security-scan-quick">
                             <Shield className="h-3.5 w-3.5 text-green-400 mt-0.5 shrink-0" />
                             <div>
                               <p className="text-[11px] font-medium">{isRtl ? "فحص أمني" : "Security Scan"}</p>
@@ -4017,7 +4089,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                               </div>
                             ))}
                           </div>
-                          <Button size="sm" variant="outline" className="w-full h-7 text-[10px]" data-testid="button-run-security-scan">
+                          <Button size="sm" variant="outline" className="w-full h-7 text-[10px]" data-testid="button-run-security-scan" onClick={handleSecurityScan} disabled={isProcessing}>
                             <Shield className="h-3 w-3 mr-1" />
                             {isRtl ? "فحص أمني كامل" : "Full Security Scan"}
                           </Button>

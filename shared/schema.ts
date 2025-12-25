@@ -17410,3 +17410,182 @@ export const insertNovaComplianceAssessmentSchema = createInsertSchema(novaCompl
 });
 export type InsertNovaComplianceAssessment = z.infer<typeof insertNovaComplianceAssessmentSchema>;
 export type NovaComplianceAssessment = typeof novaComplianceAssessments.$inferSelect;
+
+// ==================== MILITARY SECURITY - PKI CERTIFICATES ====================
+
+export const pkiCertificates = pgTable("pki_certificates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  serialNumber: text("serial_number").notNull().unique(),
+  subjectDN: text("subject_dn").notNull(),
+  issuerDN: text("issuer_dn").notNull(),
+  type: text("type").notNull(), // root, intermediate, end-entity
+  algorithm: text("algorithm").notNull().default("RSA-4096-SHA256"),
+  publicKeyHash: text("public_key_hash").notNull(),
+  
+  validFrom: timestamp("valid_from").notNull(),
+  validTo: timestamp("valid_to").notNull(),
+  
+  status: text("status").notNull().default("active"), // active, revoked, expired
+  revocationReason: text("revocation_reason"),
+  revokedAt: timestamp("revoked_at"),
+  revokedBy: varchar("revoked_by"),
+  
+  tenantId: varchar("tenant_id"),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_pki_serial").on(table.serialNumber),
+  index("IDX_pki_status").on(table.status),
+  index("IDX_pki_tenant").on(table.tenantId),
+  index("IDX_pki_valid_to").on(table.validTo),
+]);
+
+export const insertPkiCertificateSchema = createInsertSchema(pkiCertificates).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertPkiCertificate = z.infer<typeof insertPkiCertificateSchema>;
+export type PkiCertificate = typeof pkiCertificates.$inferSelect;
+
+// ==================== MILITARY SECURITY - INCIDENT RESPONSE (DoD 72-Hour) ====================
+
+export const militaryIncidentResponse = pgTable("military_incident_response", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  incidentNumber: text("incident_number").notNull().unique(),
+  
+  severity: text("severity").notNull(), // critical, high, medium, low
+  type: text("type").notNull(), // breach, attack, vulnerability, policy_violation
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  
+  status: text("status").notNull().default("detected"), // detected, investigating, containing, eradicating, recovering, closed
+  priority: text("priority").notNull().default("high"),
+  
+  affectedSystems: jsonb("affected_systems").$type<string[]>().default([]),
+  attackVector: text("attack_vector"),
+  indicators: jsonb("indicators").$type<Array<{ type: string; value: string }>>(),
+  
+  detectedAt: timestamp("detected_at").notNull().defaultNow(),
+  containedAt: timestamp("contained_at"),
+  resolvedAt: timestamp("resolved_at"),
+  
+  assignedTo: varchar("assigned_to"),
+  reportedBy: varchar("reported_by"),
+  
+  timeline: jsonb("timeline").$type<Array<{ 
+    timestamp: string; 
+    action: string; 
+    actor: string; 
+    notes?: string 
+  }>>().default([]),
+  
+  dodReported: boolean("dod_reported").notNull().default(false),
+  dodReportDeadline: timestamp("dod_report_deadline"),
+  
+  tenantId: varchar("tenant_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_mil_incident_number").on(table.incidentNumber),
+  index("IDX_mil_incident_severity").on(table.severity),
+  index("IDX_mil_incident_status").on(table.status),
+  index("IDX_mil_incident_tenant").on(table.tenantId),
+  index("IDX_mil_incident_detected").on(table.detectedAt),
+]);
+
+export const insertMilitaryIncidentResponseSchema = createInsertSchema(militaryIncidentResponse).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertMilitaryIncidentResponse = z.infer<typeof insertMilitaryIncidentResponseSchema>;
+export type MilitaryIncidentResponse = typeof militaryIncidentResponse.$inferSelect;
+
+// ==================== MILITARY SECURITY - SCAN RESULTS ====================
+
+export const securityScanResults = pgTable("security_scan_results", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  scanId: text("scan_id").notNull().unique(),
+  
+  scanType: text("scan_type").notNull(), // sast, dast, dependency, secrets
+  projectPath: text("project_path").notNull(),
+  
+  summary: jsonb("summary").$type<{
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    info: number;
+    total: number;
+  }>().notNull(),
+  
+  findings: jsonb("findings").$type<Array<{
+    id: string;
+    category: string;
+    severity: string;
+    title: string;
+    description: string;
+    file?: string;
+    line?: number;
+    cweId?: string;
+    owaspCategory?: string;
+    recommendation?: string;
+  }>>().default([]),
+  
+  duration: integer("duration"), // milliseconds
+  filesScanned: integer("files_scanned").default(0),
+  
+  status: text("status").notNull().default("completed"), // running, completed, failed
+  errorMessage: text("error_message"),
+  
+  triggeredBy: varchar("triggered_by"),
+  tenantId: varchar("tenant_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_scan_id").on(table.scanId),
+  index("IDX_scan_type").on(table.scanType),
+  index("IDX_scan_tenant").on(table.tenantId),
+  index("IDX_scan_created").on(table.createdAt),
+]);
+
+export const insertSecurityScanResultSchema = createInsertSchema(securityScanResults).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertSecurityScanResult = z.infer<typeof insertSecurityScanResultSchema>;
+export type SecurityScanResult = typeof securityScanResults.$inferSelect;
+
+// ==================== MILITARY SECURITY - AUDIT LOGS ====================
+
+export const securityAuditLogs = pgTable("security_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  action: text("action").notNull(), // login, logout, access, modify, delete, encrypt, decrypt
+  resource: text("resource").notNull(), // certificate, incident, scan, key, config
+  resourceId: text("resource_id"),
+  
+  actor: text("actor").notNull(), // user ID or system
+  actorRole: text("actor_role"),
+  actorIp: text("actor_ip"),
+  
+  outcome: text("outcome").notNull(), // success, failure, denied
+  details: jsonb("details").$type<Record<string, unknown>>(),
+  
+  classification: text("classification").notNull().default("unclassified"), // unclassified, confidential, secret, top_secret
+  
+  tenantId: varchar("tenant_id"),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_sec_audit_action").on(table.action),
+  index("IDX_sec_audit_resource").on(table.resource),
+  index("IDX_sec_audit_actor").on(table.actor),
+  index("IDX_sec_audit_tenant").on(table.tenantId),
+  index("IDX_sec_audit_timestamp").on(table.timestamp),
+]);
+
+export const insertSecurityAuditLogSchema = createInsertSchema(securityAuditLogs).omit({
+  id: true,
+  timestamp: true,
+});
+export type InsertSecurityAuditLog = z.infer<typeof insertSecurityAuditLogSchema>;
+export type SecurityAuditLog = typeof securityAuditLogs.$inferSelect;
