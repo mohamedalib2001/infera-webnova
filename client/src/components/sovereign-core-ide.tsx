@@ -148,6 +148,7 @@ import {
   HardDrive,
   Clock,
   CheckCircle,
+  XCircle,
   GitPullRequest,
   Puzzle,
   ShieldAlert,
@@ -246,7 +247,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
   
   const [activeTab, setActiveTab] = useState<"chat" | "code" | "preview" | "terminal">("chat");
   const [bottomTab, setBottomTab] = useState<"terminal" | "problems" | "output">("terminal");
-  const [rightTab, setRightTab] = useState<"tools" | "files" | "database" | "backend" | "packages" | "testing" | "git" | "deploy" | "debugger" | "copilot" | "compliance" | "tenants" | "rules" | "observability" | "marketplace" | "billing" | "ai-arch" | "export" | "env" | "team" | "api-test" | "cron" | "webhooks" | "profiler" | "notifications" | "settings" | "templates" | "docs" | "deps" | "formatter" | "migrations" | "logs" | "analytics" | "vault" | "schema" | "routes" | "commands" | "governor" | "collab" | "api-docs" | "code-review" | "plugins" | "mobile" | "security" | "benchmarks" | "template-gen" | "erd" | "ai-review" | "kubernetes" | "docker" | "microservices" | "distributed-db" | "ai-ml" | "blockchain" | "event-driven" | "api-gateway" | "cloud-infra">("tools");
+  const [rightTab, setRightTab] = useState<"tools" | "files" | "database" | "backend" | "packages" | "testing" | "git" | "deploy" | "debugger" | "copilot" | "compliance" | "tenants" | "rules" | "observability" | "marketplace" | "billing" | "ai-arch" | "export" | "env" | "team" | "api-test" | "cron" | "webhooks" | "profiler" | "notifications" | "settings" | "templates" | "docs" | "deps" | "formatter" | "migrations" | "logs" | "analytics" | "vault" | "schema" | "routes" | "commands" | "governor" | "collab" | "api-docs" | "code-review" | "plugins" | "mobile" | "security" | "benchmarks" | "template-gen" | "erd" | "ai-review" | "kubernetes" | "docker" | "microservices" | "distributed-db" | "ai-ml" | "blockchain" | "event-driven" | "api-gateway" | "cloud-infra" | "permissions">("tools");
   
   const [showSidebar, setShowSidebar] = useState(true);
   const [showRightPanel, setShowRightPanel] = useState(true);
@@ -694,6 +695,45 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
   };
 
   const text = isRtl ? t.ar : t.en;
+
+  // WebNova Permissions Query
+  interface WebNovaPermission {
+    code: string;
+    nameEn: string;
+    nameAr: string;
+    descriptionEn: string;
+    descriptionAr: string;
+    securityLevel: string;
+    isGranted: boolean;
+    grantedAt?: string;
+  }
+
+  interface WebNovaPermissionsResponse {
+    success: boolean;
+    webnovaId: string;
+    powerLevel: number;
+    powerLevelLabel: string;
+    powerLevelLabelAr: string;
+    stats: { total: number; granted: number; percentage: number };
+    categories: Record<string, WebNovaPermission[]>;
+    categoryNames: Record<string, { en: string; ar: string }>;
+    allGrantedCodes: string[];
+  }
+
+  const { data: webnovaPermissions, isLoading: loadingPermissions } = useQuery<WebNovaPermissionsResponse>({
+    queryKey: ["/api/nova/permissions/webnova-full"],
+  });
+
+  const grantFullPermissionsMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/nova/permissions/grant-full-webnova"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/nova/permissions/webnova-full"] });
+      toast({ title: isRtl ? "تم منح جميع الصلاحيات" : "All permissions granted", description: isRtl ? "WebNova لديه كامل الصلاحيات الآن" : "WebNova now has full permissions" });
+    },
+    onError: () => {
+      toast({ title: isRtl ? "فشل منح الصلاحيات" : "Failed to grant permissions", variant: "destructive" });
+    },
+  });
 
   const { data: conversations, isLoading: loadingConversations } = useQuery<SovereignConversation[]>({
     queryKey: ['/api/sovereign-core/conversations', workspaceId],
@@ -1986,6 +2026,9 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                       </TabsTrigger>
                       <TabsTrigger value="cloud-infra" className="text-[10px] px-1" data-testid="tab-cloud-infra" aria-label={isRtl ? "البنية السحابية" : "Cloud Infra"}>
                         <Cloud className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="permissions" className="text-[10px] px-1" data-testid="tab-permissions" aria-label={isRtl ? "الصلاحيات" : "Permissions"}>
+                        <ShieldCheck className="h-3 w-3" />
                       </TabsTrigger>
                     </TabsList>
                   </div>
@@ -8045,6 +8088,165 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                           </div>
                         </CardContent>
                       </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Permissions Tab - تبويب الصلاحيات */}
+                  <TabsContent value="permissions" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      {loadingPermissions ? (
+                        <div className="flex items-center justify-center h-32">
+                          <RefreshCw className="h-5 w-5 animate-spin text-violet-400" />
+                          <span className="text-xs ml-2 text-muted-foreground">{isRtl ? "جاري التحميل..." : "Loading..."}</span>
+                        </div>
+                      ) : (
+                        <>
+                          <Card className="mb-2 bg-gradient-to-br from-violet-500/20 via-purple-500/10 to-transparent border-violet-500/30">
+                            <CardContent className="p-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="p-1.5 rounded-full bg-violet-500/20">
+                                  <Key className="h-4 w-4 text-violet-400" />
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium">{isRtl ? "صلاحيات WebNova السيادية" : "WebNova Sovereign Permissions"}</p>
+                                  <p className="text-[10px] text-violet-400">{isRtl ? "كامل الصلاحيات للمساحة السيادية" : "Full permissions for sovereign workspace"}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-[9px]">
+                                  <ShieldCheck className="h-2.5 w-2.5 mr-1" />
+                                  {webnovaPermissions ? (isRtl ? webnovaPermissions.powerLevelLabelAr : webnovaPermissions.powerLevelLabel) : (isRtl ? "سيادي كامل" : "FULL SOVEREIGN")}
+                                </Badge>
+                                <Badge variant="outline" className="text-[9px] border-violet-500/30 text-violet-400">
+                                  {webnovaPermissions?.stats?.total || 40} {isRtl ? "صلاحية" : "Permissions"}
+                                </Badge>
+                                {webnovaPermissions?.stats?.granted === 0 && (
+                                  <Button 
+                                    size="sm" 
+                                    className="h-5 text-[9px] bg-violet-600 hover:bg-violet-700"
+                                    onClick={() => grantFullPermissionsMutation.mutate()}
+                                    disabled={grantFullPermissionsMutation.isPending}
+                                    data-testid="button-grant-full-permissions"
+                                  >
+                                    {grantFullPermissionsMutation.isPending ? <RefreshCw className="h-2.5 w-2.5 animate-spin" /> : <Plus className="h-2.5 w-2.5 mr-1" />}
+                                    {isRtl ? "منح الصلاحيات" : "Grant All"}
+                                  </Button>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+
+                          {/* Power Level Indicator */}
+                          <Card className="mb-2 border-green-500/30">
+                            <CardContent className="p-2">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[10px] text-muted-foreground">{isRtl ? "مستوى القوة" : "Power Level"}</span>
+                                <span className="text-[10px] text-green-400 font-medium">{webnovaPermissions?.powerLevel || 0}%</span>
+                              </div>
+                              <Progress value={webnovaPermissions?.powerLevel || 0} className="h-1.5" />
+                            </CardContent>
+                          </Card>
+
+                          {/* Dynamic Permission Categories */}
+                          {webnovaPermissions?.categories && Object.entries(webnovaPermissions.categories).map(([category, perms]) => {
+                            const categoryInfo = webnovaPermissions.categoryNames?.[category];
+                            const categoryName = isRtl ? categoryInfo?.ar : categoryInfo?.en;
+                            const iconMap: Record<string, typeof Terminal> = {
+                              code_execution: Terminal,
+                              file_operations: FileCode,
+                              database_operations: Database,
+                              api_integrations: Globe,
+                              deployment: Rocket,
+                              ai_capabilities: Bot,
+                              infrastructure: Server,
+                              payment_billing: CreditCard,
+                              user_management: Users,
+                              system_config: Settings2,
+                            };
+                            const IconComponent = iconMap[category] || Shield;
+                            const colorMap: Record<string, string> = {
+                              code_execution: "text-blue-400",
+                              file_operations: "text-yellow-400",
+                              database_operations: "text-cyan-400",
+                              api_integrations: "text-indigo-400",
+                              deployment: "text-green-400",
+                              ai_capabilities: "text-violet-400",
+                              infrastructure: "text-orange-400",
+                              payment_billing: "text-emerald-400",
+                              user_management: "text-pink-400",
+                              system_config: "text-red-400",
+                            };
+                            
+                            return (
+                              <Card key={category} className="mb-2">
+                                <CardHeader className="p-2 pb-1">
+                                  <CardTitle className="text-xs flex items-center gap-2">
+                                    <IconComponent className={`h-3.5 w-3.5 ${colorMap[category] || "text-muted-foreground"}`} />
+                                    {categoryName || category}
+                                  </CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-2 pt-0 space-y-1">
+                                  {perms.map((perm: WebNovaPermission, i: number) => (
+                                    <div 
+                                      key={perm.code} 
+                                      className={`flex items-center justify-between p-1.5 rounded text-[10px] ${perm.isGranted ? "bg-green-500/10" : "bg-muted/30"}`} 
+                                      data-testid={`perm-${perm.code}`}
+                                    >
+                                      <span className="flex items-center gap-2">
+                                        {perm.isGranted ? (
+                                          <CheckCircle className="h-2.5 w-2.5 text-green-400" />
+                                        ) : (
+                                          <XCircle className="h-2.5 w-2.5 text-muted-foreground" />
+                                        )}
+                                        {isRtl ? perm.nameAr : perm.nameEn}
+                                      </span>
+                                      <Badge 
+                                        variant="outline" 
+                                        className={`text-[9px] h-4 ${
+                                          !perm.isGranted ? "text-muted-foreground border-muted" : 
+                                          perm.securityLevel === "danger" ? "text-red-400 border-red-500/30" : 
+                                          "text-green-400 border-green-500/30"
+                                        }`}
+                                      >
+                                        {perm.isGranted ? (isRtl ? "مفعّل" : "Granted") : (isRtl ? "غير مفعّل" : "Not Granted")}
+                                      </Badge>
+                                    </div>
+                                  ))}
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+
+                          {/* Sovereign Summary */}
+                          <Card className="mt-3 bg-gradient-to-br from-violet-500/10 via-green-500/5 to-transparent border-violet-500/20">
+                            <CardContent className="p-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Crown className="h-4 w-4 text-yellow-400" />
+                                <span className="text-xs font-medium">{isRtl ? "ملخص الصلاحيات" : "Permissions Summary"}</span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 text-[10px]">
+                                <div className="p-1.5 rounded bg-green-500/10 text-center">
+                                  <span className="text-green-400 font-bold">{webnovaPermissions?.stats?.granted || 0}</span>
+                                  <span className="text-muted-foreground ml-1">{isRtl ? "صلاحية ممنوحة" : "Granted"}</span>
+                                </div>
+                                <div className="p-1.5 rounded bg-red-500/10 text-center">
+                                  <span className="text-red-400 font-bold">
+                                    {webnovaPermissions?.categories ? 
+                                      Object.values(webnovaPermissions.categories).flat().filter((p: WebNovaPermission) => p.securityLevel === "danger" && p.isGranted).length 
+                                      : 0}
+                                  </span>
+                                  <span className="text-muted-foreground ml-1">{isRtl ? "خطيرة" : "Danger Level"}</span>
+                                </div>
+                              </div>
+                              <p className="text-[9px] text-muted-foreground mt-2 text-center">
+                                {webnovaPermissions?.powerLevel === 100 
+                                  ? (isRtl ? "WebNova لديه كامل الصلاحيات في المساحة السيادية" : "WebNova has full permissions in sovereign workspace")
+                                  : (isRtl ? "انقر 'منح الصلاحيات' لمنح كامل الصلاحيات" : "Click 'Grant All' to grant full permissions")}
+                              </p>
+                            </CardContent>
+                          </Card>
+                        </>
+                      )}
                     </ScrollArea>
                   </TabsContent>
                 </Tabs>

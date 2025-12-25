@@ -1306,5 +1306,138 @@ export function registerNovaPermissionRoutes(app: Express): void {
     }
   });
   
+  // ==================== صلاحيات WebNova الكاملة ====================
+  // Grant WebNova (the platform itself) all permissions in sovereign workspace
+  app.post("/api/nova/permissions/grant-full-webnova", async (req: Request, res: Response) => {
+    try {
+      const actorId = "ROOT_OWNER";
+      const webnovaId = "webnova-sovereign";
+      
+      // Grant all permissions to WebNova
+      const allPermissionCodes = DEFAULT_PERMISSIONS.map(p => p.code);
+      
+      for (const permCode of allPermissionCodes) {
+        await grantPermission(webnovaId, permCode, actorId, "Full sovereign access for WebNova Core");
+      }
+      
+      // Log audit for full access grant
+      await db.insert(novaPermissionAudit).values({
+        userId: webnovaId,
+        actorId,
+        action: "grant_full_access",
+        permissionCode: "ALL",
+        previousState: false,
+        newState: true,
+        reason: "WebNova sovereign workspace full access initialization",
+      });
+      
+      res.json({
+        success: true,
+        message: "WebNova granted full sovereign permissions",
+        messageAr: "تم منح WebNova صلاحيات سيادية كاملة",
+        grantedCount: allPermissionCodes.length,
+        permissions: allPermissionCodes,
+      });
+    } catch (error: any) {
+      console.error("[Nova Permissions] Grant full WebNova error:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+  
+  // Get WebNova's full permissions with detailed info
+  app.get("/api/nova/permissions/webnova-full", async (req: Request, res: Response) => {
+    try {
+      const webnovaId = "webnova-sovereign";
+      
+      // Get all permissions definitions
+      const allPermissions = await db.select().from(novaPermissions);
+      
+      // Get WebNova's granted permissions
+      const grants = await db
+        .select()
+        .from(novaPermissionGrants)
+        .where(and(
+          eq(novaPermissionGrants.userId, webnovaId),
+          eq(novaPermissionGrants.isGranted, true)
+        ));
+      
+      const grantedCodes = grants.map(g => g.permissionCode);
+      
+      // Build categorized permissions list
+      const categories: Record<string, Array<{
+        code: string;
+        nameEn: string;
+        nameAr: string;
+        descriptionEn: string;
+        descriptionAr: string;
+        securityLevel: string;
+        isGranted: boolean;
+        grantedAt?: Date;
+      }>> = {};
+      
+      for (const perm of allPermissions) {
+        const grant = grants.find(g => g.permissionCode === perm.code);
+        const permInfo = {
+          code: perm.code,
+          nameEn: perm.nameEn,
+          nameAr: perm.nameAr,
+          descriptionEn: perm.descriptionEn,
+          descriptionAr: perm.descriptionAr,
+          securityLevel: perm.securityLevel,
+          isGranted: grantedCodes.includes(perm.code),
+          grantedAt: grant?.grantedAt || undefined,
+        };
+        
+        if (!categories[perm.category]) {
+          categories[perm.category] = [];
+        }
+        categories[perm.category].push(permInfo);
+      }
+      
+      // Category translations
+      const categoryNames: Record<string, { en: string; ar: string }> = {
+        code_execution: { en: "Code Execution", ar: "تنفيذ الكود" },
+        file_operations: { en: "File Operations", ar: "عمليات الملفات" },
+        database_operations: { en: "Database Operations", ar: "عمليات قاعدة البيانات" },
+        api_integrations: { en: "API Integrations", ar: "تكاملات API" },
+        deployment: { en: "Deployment", ar: "النشر" },
+        ai_capabilities: { en: "AI Capabilities", ar: "قدرات الذكاء الاصطناعي" },
+        infrastructure: { en: "Infrastructure", ar: "البنية التحتية" },
+        payment_billing: { en: "Payment & Billing", ar: "الدفع والفوترة" },
+        user_management: { en: "User Management", ar: "إدارة المستخدمين" },
+        system_config: { en: "System Configuration", ar: "إعدادات النظام" },
+      };
+      
+      const totalPermissions = allPermissions.length;
+      const grantedCount = grantedCodes.length;
+      const powerLevel = Math.round((grantedCount / totalPermissions) * 100);
+      
+      res.json({
+        success: true,
+        webnovaId,
+        powerLevel,
+        powerLevelLabel: powerLevel === 100 ? "FULL_SOVEREIGN" : powerLevel >= 80 ? "HIGH" : powerLevel >= 50 ? "MEDIUM" : "LIMITED",
+        powerLevelLabelAr: powerLevel === 100 ? "سيادي كامل" : powerLevel >= 80 ? "عالي" : powerLevel >= 50 ? "متوسط" : "محدود",
+        stats: {
+          total: totalPermissions,
+          granted: grantedCount,
+          percentage: powerLevel,
+        },
+        categories,
+        categoryNames,
+        allGrantedCodes: grantedCodes,
+      });
+    } catch (error: any) {
+      console.error("[Nova Permissions] Get WebNova permissions error:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+  
   console.log("[Nova Permissions] Routes registered at /api/nova/permissions/*");
 }
