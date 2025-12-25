@@ -52,6 +52,260 @@ import { platformIconsRegistry, type PlatformIconConfig } from "@/lib/platform-i
 import { getPlatformLandingRoute, getPlatformPitchDeckRoute } from "@/lib/platform-landing-map";
 import { SovereignCore } from "@/components/sovereign-core";
 import { SovereignCoreIDE } from "@/components/sovereign-core-ide";
+import { 
+  Crown, Star, Briefcase, Heart, GraduationCap, Landmark,
+  ShoppingCart, Truck, Home, Hotel, Newspaper, Scale,
+  Cpu, Zap, Cloud, Server, Network, Layers,
+  Bot, BrainCircuit, BarChart3, Workflow, PenTool
+} from "lucide-react";
+
+// INFERA Engine Group Platforms Registry - سجل منصات مجموعة إنفيرا
+interface InferaPlatform {
+  id: string;
+  name: string;
+  nameAr: string;
+  description: string;
+  category: string;
+  tier: "ROOT" | "CORE" | "STANDARD";
+  icon: any;
+  route?: string;
+}
+
+const inferaGroupPlatforms: InferaPlatform[] = [
+  // ROOT Platform - المنصة الجذرية
+  {
+    id: "webnova",
+    name: "INFERA WebNova",
+    nameAr: "إنفيرا ويب نوفا",
+    description: "Core Operating System - Digital Platform Factory",
+    category: "Core OS",
+    tier: "ROOT",
+    icon: Crown,
+    route: "/"
+  },
+  // CORE Platforms - المنصات الأساسية
+  {
+    id: "nova-ai",
+    name: "Nova AI",
+    nameAr: "نوفا الذكاء الاصطناعي",
+    description: "Sovereign AI Assistant & Orchestrator",
+    category: "AI",
+    tier: "CORE",
+    icon: BrainCircuit,
+    route: "/nova"
+  },
+  {
+    id: "infera-agent",
+    name: "INFERA Agent",
+    nameAr: "وكيل إنفيرا",
+    description: "Autonomous Software Engineer Agent",
+    category: "AI",
+    tier: "CORE",
+    icon: Bot,
+    route: "/infera-agent"
+  },
+  {
+    id: "sovereign-core",
+    name: "Sovereign Core",
+    nameAr: "النواة السيادية",
+    description: "Governance & Access Control Engine",
+    category: "Security",
+    tier: "CORE",
+    icon: Shield,
+    route: "/sovereign"
+  },
+  {
+    id: "cloud-ide",
+    name: "Cloud IDE",
+    nameAr: "بيئة التطوير السحابية",
+    description: "Full-featured Development Environment",
+    category: "Development",
+    tier: "CORE",
+    icon: Code2,
+    route: "/cloud-ide"
+  },
+  // STANDARD Platforms - المنصات القياسية
+  {
+    id: "ecommerce",
+    name: "E-Commerce Platform",
+    nameAr: "منصة التجارة الإلكترونية",
+    description: "Complete e-commerce solution with payments",
+    category: "Commerce",
+    tier: "STANDARD",
+    icon: ShoppingCart,
+  },
+  {
+    id: "healthcare",
+    name: "Healthcare Platform",
+    nameAr: "منصة الرعاية الصحية",
+    description: "HIPAA compliant healthcare management",
+    category: "Healthcare",
+    tier: "STANDARD",
+    icon: Heart,
+  },
+  {
+    id: "education",
+    name: "Education Platform",
+    nameAr: "منصة التعليم",
+    description: "LMS & educational content delivery",
+    category: "Education",
+    tier: "STANDARD",
+    icon: GraduationCap,
+  },
+  {
+    id: "government",
+    name: "Government Portal",
+    nameAr: "البوابة الحكومية",
+    description: "Sovereign government services platform",
+    category: "Government",
+    tier: "STANDARD",
+    icon: Landmark,
+  },
+  {
+    id: "finance",
+    name: "Finance Platform",
+    nameAr: "منصة المالية",
+    description: "PCI-DSS compliant financial services",
+    category: "Finance",
+    tier: "STANDARD",
+    icon: Briefcase,
+  },
+  {
+    id: "logistics",
+    name: "Logistics Platform",
+    nameAr: "منصة اللوجستيات",
+    description: "Supply chain & delivery management",
+    category: "Logistics",
+    tier: "STANDARD",
+    icon: Truck,
+  },
+  {
+    id: "real-estate",
+    name: "Real Estate Platform",
+    nameAr: "منصة العقارات",
+    description: "Property listings & management",
+    category: "Real Estate",
+    tier: "STANDARD",
+    icon: Home,
+  },
+  {
+    id: "hospitality",
+    name: "Hospitality Platform",
+    nameAr: "منصة الضيافة",
+    description: "Hotel & booking management",
+    category: "Hospitality",
+    tier: "STANDARD",
+    icon: Hotel,
+  },
+  {
+    id: "media",
+    name: "Media Platform",
+    nameAr: "منصة الإعلام",
+    description: "Content publishing & streaming",
+    category: "Media",
+    tier: "STANDARD",
+    icon: Newspaper,
+  },
+  {
+    id: "legal",
+    name: "Legal Platform",
+    nameAr: "منصة القانون",
+    description: "Case management & legal services",
+    category: "Legal",
+    tier: "STANDARD",
+    icon: Scale,
+  },
+  {
+    id: "hr-management",
+    name: "HR Management",
+    nameAr: "إدارة الموارد البشرية",
+    description: "Employee & payroll management",
+    category: "HR",
+    tier: "STANDARD",
+    icon: Users,
+  },
+  {
+    id: "crm",
+    name: "CRM Platform",
+    nameAr: "منصة إدارة العملاء",
+    description: "Customer relationship management",
+    category: "CRM",
+    tier: "STANDARD",
+    icon: Users,
+  },
+  {
+    id: "erp",
+    name: "ERP Platform",
+    nameAr: "منصة تخطيط الموارد",
+    description: "Enterprise resource planning",
+    category: "ERP",
+    tier: "STANDARD",
+    icon: Layers,
+  },
+  {
+    id: "iot",
+    name: "IoT Platform",
+    nameAr: "منصة إنترنت الأشياء",
+    description: "Device management & data collection",
+    category: "IoT",
+    tier: "STANDARD",
+    icon: Cpu,
+  },
+  {
+    id: "analytics",
+    name: "Analytics Platform",
+    nameAr: "منصة التحليلات",
+    description: "Business intelligence & reporting",
+    category: "Analytics",
+    tier: "STANDARD",
+    icon: BarChart3,
+  },
+  {
+    id: "workflow",
+    name: "Workflow Platform",
+    nameAr: "منصة سير العمل",
+    description: "Process automation & orchestration",
+    category: "Automation",
+    tier: "STANDARD",
+    icon: Workflow,
+  },
+  {
+    id: "marketplace",
+    name: "Marketplace Platform",
+    nameAr: "منصة السوق",
+    description: "Multi-vendor marketplace solution",
+    category: "Commerce",
+    tier: "STANDARD",
+    icon: Globe,
+  },
+  {
+    id: "saas",
+    name: "SaaS Builder",
+    nameAr: "منشئ SaaS",
+    description: "Build & deploy SaaS applications",
+    category: "Development",
+    tier: "STANDARD",
+    icon: Cloud,
+  },
+  {
+    id: "booking",
+    name: "Booking Platform",
+    nameAr: "منصة الحجوزات",
+    description: "Appointment & reservation system",
+    category: "Booking",
+    tier: "STANDARD",
+    icon: Clock,
+  },
+  {
+    id: "nonprofit",
+    name: "Nonprofit Platform",
+    nameAr: "منصة غير ربحية",
+    description: "Charity & donation management",
+    category: "Nonprofit",
+    tier: "STANDARD",
+    icon: Heart,
+  },
+];
 
 function findPlatformIcon(project: SovereignWorkspaceProject): PlatformIconConfig | null {
   const code = project.code?.toLowerCase().replace(/-/g, '').replace(/_/g, '');
@@ -361,6 +615,10 @@ export default function SovereignWorkspacePage() {
           <TabsTrigger value="landing-pages" className="gap-2" data-testid="tab-landing-pages">
             <Layout className="h-4 w-4" />
             <span className="hidden sm:inline">Landing Pages</span>
+          </TabsTrigger>
+          <TabsTrigger value="infera-platforms" className="gap-2 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-purple-500/30" data-testid="tab-infera-platforms">
+            <Globe className="h-4 w-4 text-purple-500" />
+            <span className="hidden sm:inline text-purple-600 dark:text-purple-400">INFERA Platforms</span>
           </TabsTrigger>
           <TabsTrigger value="team" className="gap-2" data-testid="tab-team">
             <Users className="h-4 w-4" />
@@ -828,6 +1086,89 @@ export default function SovereignWorkspacePage() {
                 })}
               </div>
             )}
+          </div>
+        </TabsContent>
+
+        {/* INFERA Group Platforms - منصات مجموعة إنفيرا */}
+        <TabsContent value="infera-platforms" className="mt-6">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                  INFERA Engine Platforms | منصات مجموعة إنفيرا
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  30+ sovereign platforms powering the INFERA ecosystem | أكثر من 30 منصة سيادية تشغل نظام إنفيرا
+                </p>
+              </div>
+            </div>
+            
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {inferaGroupPlatforms.map((platform) => (
+                <Card 
+                  key={platform.id} 
+                  className={cn(
+                    "group hover-elevate transition-all cursor-pointer",
+                    platform.tier === "ROOT" && "border-purple-500/50 bg-gradient-to-br from-purple-500/5 to-pink-500/5",
+                    platform.tier === "CORE" && "border-blue-500/30 bg-gradient-to-br from-blue-500/5 to-cyan-500/5",
+                    platform.tier === "STANDARD" && "border-green-500/20"
+                  )}
+                  onClick={() => platform.route && setLocation(platform.route)}
+                  data-testid={`card-infera-platform-${platform.id}`}
+                >
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "flex items-center justify-center w-10 h-10 rounded-lg",
+                          platform.tier === "ROOT" ? "bg-gradient-to-br from-purple-500 to-pink-500" :
+                          platform.tier === "CORE" ? "bg-gradient-to-br from-blue-500 to-cyan-500" :
+                          "bg-gradient-to-br from-green-500 to-emerald-500"
+                        )}>
+                          <platform.icon className="h-5 w-5 text-white" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-sm font-semibold">{platform.name}</CardTitle>
+                          <p className="text-xs text-muted-foreground">{platform.nameAr}</p>
+                        </div>
+                      </div>
+                      <Badge 
+                        variant="outline" 
+                        className={cn(
+                          "text-[10px]",
+                          platform.tier === "ROOT" && "border-purple-500 text-purple-600",
+                          platform.tier === "CORE" && "border-blue-500 text-blue-600",
+                          platform.tier === "STANDARD" && "border-green-500 text-green-600"
+                        )}
+                      >
+                        {platform.tier}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pb-2">
+                    <p className="text-xs text-muted-foreground line-clamp-2">{platform.description}</p>
+                  </CardContent>
+                  <CardFooter className="pt-0">
+                    <div className="flex items-center gap-2 w-full">
+                      <Badge variant="secondary" className="text-[10px]">
+                        {platform.category}
+                      </Badge>
+                      {platform.route && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="ml-auto text-xs gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          data-testid={`button-open-platform-${platform.id}`}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Open
+                        </Button>
+                      )}
+                    </div>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
           </div>
         </TabsContent>
 
