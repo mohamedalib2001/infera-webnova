@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense, lazy } from "react";
 import { cn } from "@/lib/utils";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -43,7 +43,7 @@ import {
   History,
   Brain,
 } from "lucide-react";
-import { NovaSovereignWorkspace } from "@/components/nova-sovereign-workspace";
+const NovaSovereignWorkspace = lazy(() => import("@/components/nova-sovereign-workspace").then(m => ({ default: m.NovaSovereignWorkspace })));
 import { 
   getPlatformLogoState, 
   checkGlobalCompliance, 
@@ -223,7 +223,7 @@ function downloadAllLogoVariants(platform: PlatformIconConfig): void {
   });
 }
 import { SovereignCore } from "@/components/sovereign-core";
-import { SovereignCoreIDE } from "@/components/sovereign-core-ide";
+const SovereignCoreIDE = lazy(() => import("@/components/sovereign-core-ide").then(m => ({ default: m.SovereignCoreIDE })));
 import { 
   Crown, Star, Briefcase, Heart, GraduationCap, Landmark,
   ShoppingCart, Truck, Home, Hotel, Newspaper, Scale,
@@ -1831,10 +1831,20 @@ export default function SovereignWorkspacePage() {
         </TabsContent>
 
         <TabsContent value="sovereign-core" className="mt-6">
-          <SovereignCoreIDE 
-            workspaceId={workspace?.id || ""} 
-            isOwner={true}
-          />
+          <Suspense fallback={
+            <div className="flex items-center justify-center h-[600px] bg-gradient-to-br from-violet-950/20 to-indigo-950/20 rounded-lg border">
+              <div className="flex flex-col items-center gap-4 text-muted-foreground">
+                <Loader2 className="w-12 h-12 animate-spin text-violet-400" />
+                <span className="text-lg font-medium">جاري تحميل بيئة التطوير السيادية...</span>
+                <span className="text-sm">Loading Sovereign Core IDE...</span>
+              </div>
+            </div>
+          }>
+            <SovereignCoreIDE 
+              workspaceId={workspace?.id || ""} 
+              isOwner={true}
+            />
+          </Suspense>
         </TabsContent>
 
         <TabsContent value="nova-ai" className="mt-6">

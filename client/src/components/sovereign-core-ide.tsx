@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import Editor from "@monaco-editor/react";
+import { Suspense, lazy } from "react";
+const Editor = lazy(() => import("@monaco-editor/react"));
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -2185,24 +2186,33 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                         </Button>
                       </div>
                       <div className="flex-1">
-                        <Editor
-                          height="100%"
-                          language={codeFiles[activeFileIndex]?.language || "plaintext"}
-                          value={codeFiles[activeFileIndex]?.content || ""}
-                          onChange={(value) => {
-                            const newFiles = [...codeFiles];
-                            newFiles[activeFileIndex].content = value || "";
-                            setCodeFiles(newFiles);
-                          }}
-                          theme="vs-dark"
-                          options={{
-                            minimap: { enabled: false },
-                            fontSize: 13,
-                            padding: { top: 10 },
-                            scrollBeyondLastLine: false,
-                            automaticLayout: true,
-                          }}
-                        />
+                        <Suspense fallback={
+                          <div className="flex items-center justify-center h-full bg-slate-900/50">
+                            <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                              <Loader2 className="w-8 h-8 animate-spin text-violet-400" />
+                              <span className="text-sm">{isRtl ? "جاري تحميل المحرر..." : "Loading editor..."}</span>
+                            </div>
+                          </div>
+                        }>
+                          <Editor
+                            height="100%"
+                            language={codeFiles[activeFileIndex]?.language || "plaintext"}
+                            value={codeFiles[activeFileIndex]?.content || ""}
+                            onChange={(value) => {
+                              const newFiles = [...codeFiles];
+                              newFiles[activeFileIndex].content = value || "";
+                              setCodeFiles(newFiles);
+                            }}
+                            theme="vs-dark"
+                            options={{
+                              minimap: { enabled: false },
+                              fontSize: 13,
+                              padding: { top: 10 },
+                              scrollBeyondLastLine: false,
+                              automaticLayout: true,
+                            }}
+                          />
+                        </Suspense>
                       </div>
                     </div>
                   </div>
