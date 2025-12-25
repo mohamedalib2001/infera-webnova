@@ -50,6 +50,166 @@ import type {
 } from "@shared/schema";
 import { platformIconsRegistry, type PlatformIconConfig } from "@/lib/platform-icons-registry";
 import { getPlatformLandingRoute, getPlatformPitchDeckRoute } from "@/lib/platform-landing-map";
+
+// INFERA Logo Generation Rules - قواعد توليد شعارات إنفيرا
+// Style: Sovereign, Futuristic, Minimal, Timeless | سيادي، مستقبلي، بسيط، خالد
+// Constraints: noText, noFaces, noGloss, subtleGradients, darkTechOnly
+// بدون نص، بدون وجوه، بدون لمعان، تدرجات خفيفة، تقنية داكنة فقط
+
+function generatePlatformLogo(
+  platform: PlatformIconConfig, 
+  variant: 'app-icon' | 'favicon-32' | 'favicon-16' | 'mono' | 'light' | 'dark' | 'tab-icon',
+  size: number = 512
+): void {
+  const { primary, secondary, accent } = platform.colors;
+  
+  // Dark-tech base colors following sovereign aesthetic
+  let bgColor = primary;
+  let coreColor = secondary;
+  let accentColor = accent;
+  let gradientOpacity = 0.15; // Subtle gradients only
+  
+  if (variant === 'mono') {
+    bgColor = '#0A0A0A';
+    coreColor = '#FFFFFF';
+    accentColor = '#FFFFFF';
+    gradientOpacity = 0.1;
+  } else if (variant === 'light') {
+    bgColor = '#F5F5F5';
+    coreColor = primary;
+    accentColor = secondary;
+    gradientOpacity = 0.08;
+  } else if (variant === 'dark') {
+    bgColor = '#050505';
+    coreColor = accent;
+    accentColor = secondary;
+    gradientOpacity = 0.2;
+  }
+  
+  // Sovereign Minimal Design - No text, No faces, Dark Tech aesthetic
+  // Uses geometric symbols: hexagons, neural nodes, control cores
+  const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Subtle gradient - not glossy -->
+    <linearGradient id="bg-${platform.id}-${variant}" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="${bgColor}" stop-opacity="1"/>
+      <stop offset="100%" stop-color="${coreColor}" stop-opacity="${gradientOpacity}"/>
+    </linearGradient>
+    
+    <!-- Core glow effect -->
+    <radialGradient id="core-${platform.id}-${variant}" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="${accentColor}" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="${accentColor}" stop-opacity="0"/>
+    </radialGradient>
+    
+    <!-- Neural line gradient -->
+    <linearGradient id="neural-${platform.id}-${variant}" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="${coreColor}" stop-opacity="0.2"/>
+      <stop offset="50%" stop-color="${accentColor}" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="${coreColor}" stop-opacity="0.2"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Background - rounded sovereign container -->
+  <rect width="${size}" height="${size}" rx="${size * 0.18}" fill="url(#bg-${platform.id}-${variant})"/>
+  
+  <!-- Outer protective ring - sovereignty shield -->
+  <circle cx="${size/2}" cy="${size/2}" r="${size * 0.42}" fill="none" stroke="${coreColor}" stroke-width="${size * 0.008}" opacity="0.15"/>
+  
+  <!-- Core glow -->
+  <circle cx="${size/2}" cy="${size/2}" r="${size * 0.35}" fill="url(#core-${platform.id}-${variant})"/>
+  
+  <!-- Central hexagonal core - representing control/sovereignty -->
+  <g transform="translate(${size/2}, ${size/2})">
+    <!-- Outer hexagon -->
+    <polygon 
+      points="${[0,1,2,3,4,5].map(i => {
+        const angle = (i * 60 - 90) * Math.PI / 180;
+        const r = size * 0.28;
+        return `${Math.cos(angle) * r},${Math.sin(angle) * r}`;
+      }).join(' ')}" 
+      fill="none" 
+      stroke="${accentColor}" 
+      stroke-width="${size * 0.012}"
+      opacity="0.9"
+    />
+    
+    <!-- Inner hexagon - layered depth -->
+    <polygon 
+      points="${[0,1,2,3,4,5].map(i => {
+        const angle = (i * 60 - 90) * Math.PI / 180;
+        const r = size * 0.18;
+        return `${Math.cos(angle) * r},${Math.sin(angle) * r}`;
+      }).join(' ')}" 
+      fill="${coreColor}" 
+      opacity="0.08"
+      stroke="${coreColor}"
+      stroke-width="${size * 0.006}"
+    />
+    
+    <!-- Neural connection lines - 6 directions -->
+    ${[0,1,2,3,4,5].map(i => {
+      const angle = (i * 60 - 90) * Math.PI / 180;
+      const inner = size * 0.08;
+      const outer = size * 0.28;
+      return `<line x1="${Math.cos(angle) * inner}" y1="${Math.sin(angle) * inner}" x2="${Math.cos(angle) * outer}" y2="${Math.sin(angle) * outer}" stroke="url(#neural-${platform.id}-${variant})" stroke-width="${size * 0.008}"/>`;
+    }).join('\n    ')}
+    
+    <!-- Central intelligence node -->
+    <circle r="${size * 0.06}" fill="${accentColor}" opacity="0.9"/>
+    <circle r="${size * 0.035}" fill="${bgColor}" opacity="0.8"/>
+    <circle r="${size * 0.018}" fill="${accentColor}"/>
+    
+    <!-- Orbital nodes - representing connected systems -->
+    ${[0,2,4].map(i => {
+      const angle = (i * 60 - 90) * Math.PI / 180;
+      const r = size * 0.22;
+      return `<circle cx="${Math.cos(angle) * r}" cy="${Math.sin(angle) * r}" r="${size * 0.02}" fill="${coreColor}" opacity="0.6"/>`;
+    }).join('\n    ')}
+  </g>
+  
+  <!-- Corner sovereignty marker -->
+  <circle cx="${size * 0.85}" cy="${size * 0.15}" r="${size * 0.025}" fill="${accentColor}" opacity="0.7"/>
+</svg>`;
+
+  const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  
+  // Proper naming per archive rules
+  const fileNames: Record<string, string> = {
+    'app-icon': `app-icon-${size}.svg`,
+    'favicon-32': 'favicon-32.svg',
+    'favicon-16': 'favicon-16.svg',
+    'mono': 'mono-icon.svg',
+    'light': 'light-bg.svg',
+    'dark': 'dark-bg.svg',
+    'tab-icon': 'tab-icon.svg'
+  };
+  
+  link.download = `${platform.id}-${fileNames[variant] || `${variant}.svg`}`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadAllLogoVariants(platform: PlatformIconConfig): void {
+  // Required files per iconArchiveRules
+  const variants: Array<{ variant: 'app-icon' | 'favicon-32' | 'favicon-16' | 'mono' | 'tab-icon' | 'light' | 'dark'; size: number }> = [
+    { variant: 'app-icon', size: 1024 },
+    { variant: 'favicon-32', size: 32 },
+    { variant: 'favicon-16', size: 16 },
+    { variant: 'tab-icon', size: 64 },
+    { variant: 'mono', size: 512 },
+    { variant: 'light', size: 512 },
+    { variant: 'dark', size: 512 },
+  ];
+  
+  variants.forEach((v, i) => {
+    setTimeout(() => generatePlatformLogo(platform, v.variant, v.size), i * 400);
+  });
+}
 import { SovereignCore } from "@/components/sovereign-core";
 import { SovereignCoreIDE } from "@/components/sovereign-core-ide";
 import { 
@@ -1160,24 +1320,19 @@ export default function SovereignWorkspacePage() {
                       </div>
                     </div>
                     
-                    {/* Logo Variants Grid */}
-                    <div className="grid grid-cols-5 gap-2 p-3 bg-muted/30 rounded-lg">
+                    {/* Logo Variants Grid - 7 Required Files per Archive Rules */}
+                    <div className="grid grid-cols-7 gap-1.5 p-3 bg-muted/30 rounded-lg">
                       {/* App Icon 1024x1024 */}
                       <div className="flex flex-col items-center gap-1">
-                        <div className="w-10 h-10 rounded-lg bg-background border border-border/50 flex items-center justify-center" style={{ backgroundColor: platform.colors.primary }}>
-                          <span className="text-[8px] font-bold" style={{ color: platform.colors.accent }}>1024</span>
+                        <div className="w-9 h-9 rounded-lg border border-border/50 flex items-center justify-center" style={{ backgroundColor: platform.colors.primary }}>
+                          <div className="w-5 h-5 rounded" style={{ background: `linear-gradient(135deg, ${platform.colors.secondary}40, ${platform.colors.accent}60)` }} />
                         </div>
-                        <span className="text-[9px] text-muted-foreground text-center">App Icon</span>
+                        <span className="text-[8px] text-muted-foreground text-center">1024px</span>
                         <Button 
                           variant="ghost" 
                           size="icon" 
                           className="h-5 w-5"
-                          onClick={() => {
-                            const link = document.createElement('a');
-                            link.href = `${platform.iconPath}${platform.variants.appIcon}`;
-                            link.download = `${platform.id}-app-icon.png`;
-                            link.click();
-                          }}
+                          onClick={() => generatePlatformLogo(platform, 'app-icon', 1024)}
                           data-testid={`button-download-app-icon-${platform.id}`}
                         >
                           <Download className="h-3 w-3" />
@@ -1186,21 +1341,50 @@ export default function SovereignWorkspacePage() {
                       
                       {/* Favicon 32x32 */}
                       <div className="flex flex-col items-center gap-1">
-                        <div className="w-10 h-10 rounded-lg bg-background border border-border/50 flex items-center justify-center" style={{ backgroundColor: platform.colors.primary }}>
-                          <span className="text-[8px] font-bold" style={{ color: platform.colors.accent }}>32</span>
+                        <div className="w-9 h-9 rounded-lg border border-border/50 flex items-center justify-center" style={{ backgroundColor: platform.colors.primary }}>
+                          <div className="w-4 h-4 rounded-sm" style={{ background: `linear-gradient(135deg, ${platform.colors.secondary}40, ${platform.colors.accent}60)` }} />
                         </div>
-                        <span className="text-[9px] text-muted-foreground text-center">Favicon</span>
+                        <span className="text-[8px] text-muted-foreground text-center">32px</span>
                         <Button 
                           variant="ghost" 
                           size="icon" 
                           className="h-5 w-5"
-                          onClick={() => {
-                            const link = document.createElement('a');
-                            link.href = `${platform.iconPath}${platform.variants.favicon}`;
-                            link.download = `${platform.id}-favicon.png`;
-                            link.click();
-                          }}
-                          data-testid={`button-download-favicon-${platform.id}`}
+                          onClick={() => generatePlatformLogo(platform, 'favicon-32', 32)}
+                          data-testid={`button-download-favicon-32-${platform.id}`}
+                        >
+                          <Download className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      
+                      {/* Favicon 16x16 */}
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="w-9 h-9 rounded-lg border border-border/50 flex items-center justify-center" style={{ backgroundColor: platform.colors.primary }}>
+                          <div className="w-2.5 h-2.5 rounded-sm" style={{ background: platform.colors.accent }} />
+                        </div>
+                        <span className="text-[8px] text-muted-foreground text-center">16px</span>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-5 w-5"
+                          onClick={() => generatePlatformLogo(platform, 'favicon-16', 16)}
+                          data-testid={`button-download-favicon-16-${platform.id}`}
+                        >
+                          <Download className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      
+                      {/* Tab Icon SVG */}
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="w-9 h-9 rounded-lg border border-border/50 flex items-center justify-center bg-background">
+                          <div className="w-5 h-5 rounded" style={{ background: `linear-gradient(135deg, ${platform.colors.primary}, ${platform.colors.secondary})` }} />
+                        </div>
+                        <span className="text-[8px] text-muted-foreground text-center">Tab</span>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-5 w-5"
+                          onClick={() => generatePlatformLogo(platform, 'tab-icon', 64)}
+                          data-testid={`button-download-tab-${platform.id}`}
                         >
                           <Download className="h-3 w-3" />
                         </Button>
@@ -1208,20 +1392,15 @@ export default function SovereignWorkspacePage() {
                       
                       {/* Monochrome SVG */}
                       <div className="flex flex-col items-center gap-1">
-                        <div className="w-10 h-10 rounded-lg bg-background border border-border/50 flex items-center justify-center">
-                          <span className="text-[8px] font-bold text-foreground">MONO</span>
+                        <div className="w-9 h-9 rounded-lg border border-border/50 flex items-center justify-center bg-gray-900">
+                          <div className="w-5 h-5 rounded border border-white/50" />
                         </div>
-                        <span className="text-[9px] text-muted-foreground text-center">Mono</span>
+                        <span className="text-[8px] text-muted-foreground text-center">Mono</span>
                         <Button 
                           variant="ghost" 
                           size="icon" 
                           className="h-5 w-5"
-                          onClick={() => {
-                            const link = document.createElement('a');
-                            link.href = `${platform.iconPath}${platform.variants.monochrome}`;
-                            link.download = `${platform.id}-mono.svg`;
-                            link.click();
-                          }}
+                          onClick={() => generatePlatformLogo(platform, 'mono', 512)}
                           data-testid={`button-download-mono-${platform.id}`}
                         >
                           <Download className="h-3 w-3" />
@@ -1230,20 +1409,15 @@ export default function SovereignWorkspacePage() {
                       
                       {/* Light Background */}
                       <div className="flex flex-col items-center gap-1">
-                        <div className="w-10 h-10 rounded-lg bg-white border border-border/50 flex items-center justify-center">
-                          <span className="text-[8px] font-bold text-gray-800">LIGHT</span>
+                        <div className="w-9 h-9 rounded-lg border border-border/50 flex items-center justify-center bg-gray-100">
+                          <div className="w-5 h-5 rounded" style={{ background: platform.colors.primary }} />
                         </div>
-                        <span className="text-[9px] text-muted-foreground text-center">Light BG</span>
+                        <span className="text-[8px] text-muted-foreground text-center">Light</span>
                         <Button 
                           variant="ghost" 
                           size="icon" 
                           className="h-5 w-5"
-                          onClick={() => {
-                            const link = document.createElement('a');
-                            link.href = `${platform.iconPath}${platform.variants.light}`;
-                            link.download = `${platform.id}-light-bg.png`;
-                            link.click();
-                          }}
+                          onClick={() => generatePlatformLogo(platform, 'light', 512)}
                           data-testid={`button-download-light-${platform.id}`}
                         >
                           <Download className="h-3 w-3" />
@@ -1252,20 +1426,15 @@ export default function SovereignWorkspacePage() {
                       
                       {/* Dark Background */}
                       <div className="flex flex-col items-center gap-1">
-                        <div className="w-10 h-10 rounded-lg bg-gray-900 border border-border/50 flex items-center justify-center">
-                          <span className="text-[8px] font-bold text-white">DARK</span>
+                        <div className="w-9 h-9 rounded-lg border border-border/50 flex items-center justify-center bg-gray-950">
+                          <div className="w-5 h-5 rounded" style={{ background: platform.colors.accent }} />
                         </div>
-                        <span className="text-[9px] text-muted-foreground text-center">Dark BG</span>
+                        <span className="text-[8px] text-muted-foreground text-center">Dark</span>
                         <Button 
                           variant="ghost" 
                           size="icon" 
                           className="h-5 w-5"
-                          onClick={() => {
-                            const link = document.createElement('a');
-                            link.href = `${platform.iconPath}${platform.variants.dark}`;
-                            link.download = `${platform.id}-dark-bg.png`;
-                            link.click();
-                          }}
+                          onClick={() => generatePlatformLogo(platform, 'dark', 512)}
                           data-testid={`button-download-dark-${platform.id}`}
                         >
                           <Download className="h-3 w-3" />
@@ -1279,27 +1448,11 @@ export default function SovereignWorkspacePage() {
                       variant="outline" 
                       size="sm" 
                       className="flex-1 gap-1 text-xs"
-                      onClick={() => {
-                        const allVariants = [
-                          { name: 'app-icon', file: platform.variants.appIcon },
-                          { name: 'favicon', file: platform.variants.favicon },
-                          { name: 'mono', file: platform.variants.monochrome },
-                          { name: 'light-bg', file: platform.variants.light },
-                          { name: 'dark-bg', file: platform.variants.dark },
-                        ];
-                        allVariants.forEach((v, i) => {
-                          setTimeout(() => {
-                            const link = document.createElement('a');
-                            link.href = `${platform.iconPath}${v.file}`;
-                            link.download = `${platform.id}-${v.name}.${v.file.split('.').pop()}`;
-                            link.click();
-                          }, i * 200);
-                        });
-                      }}
+                      onClick={() => downloadAllLogoVariants(platform)}
                       data-testid={`button-download-all-${platform.id}`}
                     >
                       <Download className="h-3 w-3" />
-                      Download All Variants
+                      Download All (7 Files)
                     </Button>
                     <div className="flex items-center gap-1 flex-wrap">
                       {platform.usageContexts.slice(0, 3).map((ctx) => (
