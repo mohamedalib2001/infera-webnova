@@ -623,7 +623,7 @@ export function NovaControlPanel({ isOpen, onClose, isRtl }: NovaControlPanelPro
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="max-w-5xl h-[85vh] p-0 bg-gradient-to-br from-slate-950 via-violet-950/20 to-slate-950 border-violet-500/30" dir={isRtl ? "rtl" : "ltr"}>
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-violet-500/20">
           <div className="flex items-center justify-between gap-4">
