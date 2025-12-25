@@ -41,7 +41,9 @@ import {
   Palette,
   Link2,
   History,
+  Brain,
 } from "lucide-react";
+import { NovaSovereignWorkspace } from "@/components/nova-sovereign-workspace";
 import { 
   getPlatformLogoState, 
   checkGlobalCompliance, 
@@ -833,6 +835,10 @@ export default function SovereignWorkspacePage() {
           <TabsTrigger value="sovereign-core" className="gap-2 bg-gradient-to-r from-violet-500/10 to-indigo-500/10 border-violet-500/30" data-testid="tab-sovereign-core">
             <Shield className="h-4 w-4 text-violet-500" />
             <span className="hidden sm:inline text-violet-600 dark:text-violet-400">Sovereign Core</span>
+          </TabsTrigger>
+          <TabsTrigger value="nova-ai" className="gap-2 bg-gradient-to-r from-cyan-500/10 to-purple-500/10 border-cyan-500/30" data-testid="tab-nova-ai">
+            <Brain className="h-4 w-4 text-cyan-500" />
+            <span className="hidden sm:inline text-cyan-600 dark:text-cyan-400">Nova AI</span>
           </TabsTrigger>
         </TabsList>
 
@@ -1829,6 +1835,23 @@ export default function SovereignWorkspacePage() {
             workspaceId={workspace?.id || ""} 
             isOwner={true}
           />
+        </TabsContent>
+
+        <TabsContent value="nova-ai" className="mt-6">
+          <Card className="border-cyan-500/20 bg-gradient-to-br from-cyan-500/5 to-purple-500/5">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Brain className="h-5 w-5 text-cyan-500" />
+                Nova AI - Sovereign Decision Governor
+              </CardTitle>
+              <CardDescription>
+                حاكم القرارات السيادي - ليس مجرد مساعد بل نظام حوكمة ذكي متكامل
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="min-h-[600px]">
+              <NovaSovereignWorkspace isOwner={true} />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
