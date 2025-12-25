@@ -45,7 +45,11 @@ const emphasisIcons: Record<string, typeof Shield> = {
   stability: Shield,
   autonomy: Zap,
   security: Lock,
-  precision: Crosshair
+  precision: Crosshair,
+  power: Sparkles,
+  innovation: Lightbulb,
+  connectivity: Brain,
+  authority: Shield
 };
 
 const emphasisLabels: Record<string, { en: string; ar: string }> = {
@@ -54,7 +58,11 @@ const emphasisLabels: Record<string, { en: string; ar: string }> = {
   stability: { en: "Stability", ar: "استقرار" },
   autonomy: { en: "Autonomy", ar: "استقلالية" },
   security: { en: "Security", ar: "أمان" },
-  precision: { en: "Precision", ar: "دقة" }
+  precision: { en: "Precision", ar: "دقة" },
+  power: { en: "Power", ar: "قوة" },
+  innovation: { en: "Innovation", ar: "ابتكار" },
+  connectivity: { en: "Connectivity", ar: "اتصال" },
+  authority: { en: "Authority", ar: "سلطة" }
 };
 
 export function AIShapeRecommendations({
@@ -183,13 +191,15 @@ export function AIShapeRecommendations({
                         
                         <div className="w-full flex items-center justify-between px-1">
                           <Badge 
-                            variant={shape.complexityLevel === "advanced" ? "secondary" : "outline"} 
-                            className="text-[8px] px-1"
+                            variant={shape.complexityLevel === "sovereign" ? "default" : shape.complexityLevel === "advanced" ? "secondary" : "outline"} 
+                            className={`text-[8px] px-1 ${shape.complexityLevel === "sovereign" ? "bg-amber-500/80 text-black" : ""}`}
                           >
                             {shape.complexityLevel === "basic" 
                               ? (isAr ? "أساسي" : "Basic")
                               : shape.complexityLevel === "intermediate"
                               ? (isAr ? "متوسط" : "Mid")
+                              : shape.complexityLevel === "sovereign"
+                              ? (isAr ? "سيادي" : "SOV")
                               : (isAr ? "متقدم" : "Adv")}
                           </Badge>
                           <span className="text-[10px] font-mono text-primary">

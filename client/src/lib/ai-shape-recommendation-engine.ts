@@ -1,14 +1,17 @@
 /**
- * INFERA AI Shape Recommendation Engine
+ * INFERA AI Shape Recommendation Engine v2.0
  * Smart Shape Suggestions – Human Final Choice
  * 
  * Core Principle:
  * - AI provides intelligence
  * - Humans provide judgment
  * - The best identity emerges when guidance and choice coexist
+ * 
+ * Enhanced with 24+ shape categories and advanced AI scoring
  */
 
 export type ShapeCategory = 
+  // Geometric Core Shapes
   | "centralized-core"
   | "hexagonal-nested"
   | "orbital-nodes"
@@ -20,7 +23,20 @@ export type ShapeCategory =
   | "layered-depth"
   | "quantum-matrix"
   | "neural-mesh"
-  | "sovereign-fortress";
+  | "sovereign-fortress"
+  // Advanced Intelligence Shapes
+  | "cognitive-spiral"
+  | "fractal-core"
+  | "dimensional-gate"
+  | "synapse-cluster"
+  | "infinity-loop"
+  | "vortex-engine"
+  | "crystalline-lattice"
+  | "pulse-wave"
+  | "atomic-orbit"
+  | "digital-crown"
+  | "sacred-geometry"
+  | "nexus-point";
 
 export interface ShapeRecommendation {
   id: string;
@@ -31,11 +47,12 @@ export interface ShapeRecommendation {
   descriptionAr: string;
   reasonEn: string;
   reasonAr: string;
-  emphasis: "control" | "intelligence" | "stability" | "autonomy" | "security" | "precision";
-  complexityLevel: "basic" | "intermediate" | "advanced";
+  emphasis: "control" | "intelligence" | "stability" | "autonomy" | "security" | "precision" | "power" | "innovation" | "connectivity" | "authority";
+  complexityLevel: "basic" | "intermediate" | "advanced" | "sovereign";
   compatiblePatterns: string[];
   svgPreview: string;
   confidence: number;
+  tags: string[];
 }
 
 export interface ShapeSelectionMetadata {
@@ -47,7 +64,10 @@ export interface ShapeSelectionMetadata {
   timestamp: number;
 }
 
+type EmphasisType = ShapeRecommendation["emphasis"];
+
 const SHAPE_DEFINITIONS: Record<ShapeCategory, Omit<ShapeRecommendation, "id" | "confidence" | "svgPreview">> = {
+  // === GEOMETRIC CORE SHAPES ===
   "centralized-core": {
     category: "centralized-core",
     nameEn: "Centralized Core",
@@ -58,7 +78,8 @@ const SHAPE_DEFINITIONS: Record<ShapeCategory, Omit<ShapeRecommendation, "id" | 
     reasonAr: "يؤكد على التحكم الموحد والسلطة المركزية",
     emphasis: "control",
     complexityLevel: "basic",
-    compatiblePatterns: ["hexagonalCore", "sovereignShield", "neuralField"]
+    compatiblePatterns: ["hexagonalCore", "sovereignShield", "neuralField"],
+    tags: ["core", "central", "authority"]
   },
   "hexagonal-nested": {
     category: "hexagonal-nested",
@@ -70,7 +91,8 @@ const SHAPE_DEFINITIONS: Record<ShapeCategory, Omit<ShapeRecommendation, "id" | 
     reasonAr: "يمثل الذكاء المنظم والكفاءة",
     emphasis: "intelligence",
     complexityLevel: "intermediate",
-    compatiblePatterns: ["hexagonalCore", "cognitiveMatrix", "autonomousNexus"]
+    compatiblePatterns: ["hexagonalCore", "cognitiveMatrix", "autonomousNexus"],
+    tags: ["hexagon", "structure", "efficient"]
   },
   "orbital-nodes": {
     category: "orbital-nodes",
@@ -82,7 +104,8 @@ const SHAPE_DEFINITIONS: Record<ShapeCategory, Omit<ShapeRecommendation, "id" | 
     reasonAr: "يُظهر أنظمة ديناميكية مع نواة مستقرة",
     emphasis: "stability",
     complexityLevel: "intermediate",
-    compatiblePatterns: ["neuralField", "autonomousNexus", "quantumCircuit"]
+    compatiblePatterns: ["neuralField", "autonomousNexus", "quantumCircuit"],
+    tags: ["orbit", "dynamic", "connected"]
   },
   "shielded-lattice": {
     category: "shielded-lattice",
@@ -94,7 +117,8 @@ const SHAPE_DEFINITIONS: Record<ShapeCategory, Omit<ShapeRecommendation, "id" | 
     reasonAr: "يؤكد على الأمان والدفاع",
     emphasis: "security",
     complexityLevel: "intermediate",
-    compatiblePatterns: ["sovereignShield", "infiniteLoop", "hexagonalCore"]
+    compatiblePatterns: ["sovereignShield", "infiniteLoop", "hexagonalCore"],
+    tags: ["shield", "protection", "secure"]
   },
   "axial-spine": {
     category: "axial-spine",
@@ -106,7 +130,8 @@ const SHAPE_DEFINITIONS: Record<ShapeCategory, Omit<ShapeRecommendation, "id" | 
     reasonAr: "يمثل الدقة الهيكلية والتوازن",
     emphasis: "precision",
     complexityLevel: "basic",
-    compatiblePatterns: ["sovereignShield", "cognitiveMatrix", "neuralField"]
+    compatiblePatterns: ["sovereignShield", "cognitiveMatrix", "neuralField"],
+    tags: ["axis", "balanced", "structural"]
   },
   "radial-rings": {
     category: "radial-rings",
@@ -118,7 +143,8 @@ const SHAPE_DEFINITIONS: Record<ShapeCategory, Omit<ShapeRecommendation, "id" | 
     reasonAr: "يُظهر امتداد الذكاء المتوسع",
     emphasis: "intelligence",
     complexityLevel: "basic",
-    compatiblePatterns: ["neuralField", "quantumCircuit", "cognitiveMatrix"]
+    compatiblePatterns: ["neuralField", "quantumCircuit", "cognitiveMatrix"],
+    tags: ["radial", "expanding", "intelligence"]
   },
   "distributed-constellation": {
     category: "distributed-constellation",
@@ -130,7 +156,8 @@ const SHAPE_DEFINITIONS: Record<ShapeCategory, Omit<ShapeRecommendation, "id" | 
     reasonAr: "يؤكد على الاستقلالية اللامركزية",
     emphasis: "autonomy",
     complexityLevel: "advanced",
-    compatiblePatterns: ["autonomousNexus", "neuralField", "infiniteLoop"]
+    compatiblePatterns: ["autonomousNexus", "neuralField", "infiniteLoop"],
+    tags: ["distributed", "network", "constellation"]
   },
   "precision-kernel": {
     category: "precision-kernel",
@@ -142,7 +169,8 @@ const SHAPE_DEFINITIONS: Record<ShapeCategory, Omit<ShapeRecommendation, "id" | 
     reasonAr: "يمثل الدقة والوضوح المطلق",
     emphasis: "precision",
     complexityLevel: "basic",
-    compatiblePatterns: ["hexagonalCore", "cognitiveMatrix", "sovereignShield"]
+    compatiblePatterns: ["hexagonalCore", "cognitiveMatrix", "sovereignShield"],
+    tags: ["minimal", "focused", "precise"]
   },
   "layered-depth": {
     category: "layered-depth",
@@ -154,7 +182,8 @@ const SHAPE_DEFINITIONS: Record<ShapeCategory, Omit<ShapeRecommendation, "id" | 
     reasonAr: "يُظهر عمق ذكاء متعدد المستويات",
     emphasis: "intelligence",
     complexityLevel: "advanced",
-    compatiblePatterns: ["cognitiveMatrix", "quantumCircuit", "neuralField"]
+    compatiblePatterns: ["cognitiveMatrix", "quantumCircuit", "neuralField"],
+    tags: ["layered", "depth", "dimensional"]
   },
   "quantum-matrix": {
     category: "quantum-matrix",
@@ -166,7 +195,8 @@ const SHAPE_DEFINITIONS: Record<ShapeCategory, Omit<ShapeRecommendation, "id" | 
     reasonAr: "يمثل ذكاء حسابي متقدم",
     emphasis: "intelligence",
     complexityLevel: "advanced",
-    compatiblePatterns: ["quantumCircuit", "cognitiveMatrix", "autonomousNexus"]
+    compatiblePatterns: ["quantumCircuit", "cognitiveMatrix", "autonomousNexus"],
+    tags: ["quantum", "matrix", "computational"]
   },
   "neural-mesh": {
     category: "neural-mesh",
@@ -178,7 +208,8 @@ const SHAPE_DEFINITIONS: Record<ShapeCategory, Omit<ShapeRecommendation, "id" | 
     reasonAr: "يُظهر شبكات ذكاء تكيفية",
     emphasis: "intelligence",
     complexityLevel: "advanced",
-    compatiblePatterns: ["neuralField", "cognitiveMatrix", "autonomousNexus"]
+    compatiblePatterns: ["neuralField", "cognitiveMatrix", "autonomousNexus"],
+    tags: ["neural", "adaptive", "network"]
   },
   "sovereign-fortress": {
     category: "sovereign-fortress",
@@ -190,7 +221,166 @@ const SHAPE_DEFINITIONS: Record<ShapeCategory, Omit<ShapeRecommendation, "id" | 
     reasonAr: "يؤكد على الأمان والسيادة المطلقة",
     emphasis: "security",
     complexityLevel: "intermediate",
-    compatiblePatterns: ["sovereignShield", "hexagonalCore", "infiniteLoop"]
+    compatiblePatterns: ["sovereignShield", "hexagonalCore", "infiniteLoop"],
+    tags: ["fortress", "sovereign", "fortified"]
+  },
+  
+  // === ADVANCED INTELLIGENCE SHAPES ===
+  "cognitive-spiral": {
+    category: "cognitive-spiral",
+    nameEn: "Cognitive Spiral",
+    nameAr: "الحلزون المعرفي",
+    descriptionEn: "Evolving spiral representing growing intelligence",
+    descriptionAr: "حلزون متطور يمثل الذكاء المتنامي",
+    reasonEn: "Symbolizes continuous learning and evolution",
+    reasonAr: "يرمز للتعلم المستمر والتطور",
+    emphasis: "innovation",
+    complexityLevel: "advanced",
+    compatiblePatterns: ["cognitiveMatrix", "neuralField", "autonomousNexus"],
+    tags: ["spiral", "evolution", "learning"]
+  },
+  "fractal-core": {
+    category: "fractal-core",
+    nameEn: "Fractal Core",
+    nameAr: "النواة الكسورية",
+    descriptionEn: "Self-similar patterns at multiple scales",
+    descriptionAr: "أنماط متشابهة ذاتياً على مقاييس متعددة",
+    reasonEn: "Represents infinite scalability and complexity",
+    reasonAr: "يمثل قابلية التوسع والتعقيد اللانهائي",
+    emphasis: "power",
+    complexityLevel: "sovereign",
+    compatiblePatterns: ["quantumCircuit", "cognitiveMatrix", "neuralField"],
+    tags: ["fractal", "scalable", "infinite"]
+  },
+  "dimensional-gate": {
+    category: "dimensional-gate",
+    nameEn: "Dimensional Gate",
+    nameAr: "بوابة الأبعاد",
+    descriptionEn: "Portal-like structure suggesting transition",
+    descriptionAr: "هيكل بوابي يوحي بالانتقال",
+    reasonEn: "Symbolizes access to higher capabilities",
+    reasonAr: "يرمز للوصول إلى قدرات أعلى",
+    emphasis: "authority",
+    complexityLevel: "sovereign",
+    compatiblePatterns: ["sovereignShield", "quantumCircuit", "infiniteLoop"],
+    tags: ["portal", "gateway", "access"]
+  },
+  "synapse-cluster": {
+    category: "synapse-cluster",
+    nameEn: "Synapse Cluster",
+    nameAr: "عنقود المشابك",
+    descriptionEn: "Dense neural connection points",
+    descriptionAr: "نقاط اتصال عصبية كثيفة",
+    reasonEn: "Represents rapid information processing",
+    reasonAr: "يمثل معالجة المعلومات السريعة",
+    emphasis: "connectivity",
+    complexityLevel: "advanced",
+    compatiblePatterns: ["neuralField", "cognitiveMatrix", "autonomousNexus"],
+    tags: ["synapse", "neural", "processing"]
+  },
+  "infinity-loop": {
+    category: "infinity-loop",
+    nameEn: "Infinity Loop",
+    nameAr: "حلقة اللانهاية",
+    descriptionEn: "Continuous flow pattern with no end",
+    descriptionAr: "نمط تدفق مستمر بلا نهاية",
+    reasonEn: "Symbolizes perpetual operation and resilience",
+    reasonAr: "يرمز للعمل الدائم والمرونة",
+    emphasis: "stability",
+    complexityLevel: "intermediate",
+    compatiblePatterns: ["infiniteLoop", "autonomousNexus", "neuralField"],
+    tags: ["infinity", "continuous", "resilient"]
+  },
+  "vortex-engine": {
+    category: "vortex-engine",
+    nameEn: "Vortex Engine",
+    nameAr: "محرك الدوامة",
+    descriptionEn: "Dynamic spinning force visualization",
+    descriptionAr: "تصور قوة دوران ديناميكية",
+    reasonEn: "Represents raw computational power",
+    reasonAr: "يمثل القوة الحسابية الخام",
+    emphasis: "power",
+    complexityLevel: "advanced",
+    compatiblePatterns: ["quantumCircuit", "cognitiveMatrix", "autonomousNexus"],
+    tags: ["vortex", "power", "dynamic"]
+  },
+  "crystalline-lattice": {
+    category: "crystalline-lattice",
+    nameEn: "Crystalline Lattice",
+    nameAr: "الشبكة البلورية",
+    descriptionEn: "Perfectly ordered molecular structure",
+    descriptionAr: "هيكل جزيئي منظم بشكل مثالي",
+    reasonEn: "Symbolizes perfect organization and purity",
+    reasonAr: "يرمز للتنظيم المثالي والنقاء",
+    emphasis: "precision",
+    complexityLevel: "sovereign",
+    compatiblePatterns: ["hexagonalCore", "sovereignShield", "cognitiveMatrix"],
+    tags: ["crystal", "organized", "pure"]
+  },
+  "pulse-wave": {
+    category: "pulse-wave",
+    nameEn: "Pulse Wave",
+    nameAr: "موجة النبض",
+    descriptionEn: "Rhythmic energy wave emanation",
+    descriptionAr: "انبعاث موجة طاقة إيقاعية",
+    reasonEn: "Represents life force and activity",
+    reasonAr: "يمثل قوة الحياة والنشاط",
+    emphasis: "innovation",
+    complexityLevel: "intermediate",
+    compatiblePatterns: ["neuralField", "quantumCircuit", "autonomousNexus"],
+    tags: ["pulse", "energy", "active"]
+  },
+  "atomic-orbit": {
+    category: "atomic-orbit",
+    nameEn: "Atomic Orbit",
+    nameAr: "المدار الذري",
+    descriptionEn: "Electron-like orbital paths around nucleus",
+    descriptionAr: "مسارات مدارية شبيهة بالإلكترونات حول النواة",
+    reasonEn: "Symbolizes fundamental building blocks",
+    reasonAr: "يرمز للبنات الأساسية",
+    emphasis: "power",
+    complexityLevel: "advanced",
+    compatiblePatterns: ["quantumCircuit", "hexagonalCore", "neuralField"],
+    tags: ["atomic", "fundamental", "scientific"]
+  },
+  "digital-crown": {
+    category: "digital-crown",
+    nameEn: "Digital Crown",
+    nameAr: "التاج الرقمي",
+    descriptionEn: "Crown-like structure representing authority",
+    descriptionAr: "هيكل تاجي يمثل السلطة",
+    reasonEn: "Ultimate symbol of sovereign authority",
+    reasonAr: "الرمز الأقصى للسلطة السيادية",
+    emphasis: "authority",
+    complexityLevel: "sovereign",
+    compatiblePatterns: ["sovereignShield", "hexagonalCore", "infiniteLoop"],
+    tags: ["crown", "royal", "supreme"]
+  },
+  "sacred-geometry": {
+    category: "sacred-geometry",
+    nameEn: "Sacred Geometry",
+    nameAr: "الهندسة المقدسة",
+    descriptionEn: "Ancient mathematical patterns with deep meaning",
+    descriptionAr: "أنماط رياضية قديمة ذات معنى عميق",
+    reasonEn: "Connects to universal principles and harmony",
+    reasonAr: "يتصل بالمبادئ الكونية والانسجام",
+    emphasis: "innovation",
+    complexityLevel: "sovereign",
+    compatiblePatterns: ["hexagonalCore", "cognitiveMatrix", "quantumCircuit"],
+    tags: ["sacred", "universal", "harmony"]
+  },
+  "nexus-point": {
+    category: "nexus-point",
+    nameEn: "Nexus Point",
+    nameAr: "نقطة الوصل",
+    descriptionEn: "Central connection hub for all systems",
+    descriptionAr: "مركز اتصال مركزي لجميع الأنظمة",
+    reasonEn: "Represents ultimate connectivity and integration",
+    reasonAr: "يمثل الاتصال والتكامل النهائي",
+    emphasis: "connectivity",
+    complexityLevel: "advanced",
+    compatiblePatterns: ["autonomousNexus", "neuralField", "cognitiveMatrix"],
+    tags: ["nexus", "hub", "integration"]
   }
 };
 
@@ -294,6 +484,111 @@ function generateShapeSVG(category: ShapeCategory, accentColor: string = "#22D3E
                fill="${accentColor}" fill-opacity="0.2" stroke="${accentColor}" stroke-width="2"/>
       <polygon points="${center},${center - 10} ${center + 10},${center} ${center},${center + 10} ${center - 10},${center}" 
                fill="${accentColor}" fill-opacity="0.5"/>
+    `,
+    // === ADVANCED SHAPES ===
+    "cognitive-spiral": `
+      <path d="M${center},${center} 
+               Q${center + 8},${center - 8} ${center + 12},${center}
+               Q${center + 16},${center + 12} ${center},${center + 16}
+               Q${center - 16},${center + 12} ${center - 16},${center - 4}
+               Q${center - 12},${center - 20} ${center + 4},${center - 20}" 
+            fill="none" stroke="${accentColor}" stroke-width="2"/>
+      <circle cx="${center}" cy="${center}" r="4" fill="${accentColor}"/>
+    `,
+    "fractal-core": `
+      <polygon points="${center},${center - 20} ${center + 17.3},${center + 10} ${center - 17.3},${center + 10}" 
+               fill="none" stroke="${accentColor}" stroke-width="1.5"/>
+      <polygon points="${center},${center + 10} ${center + 8.7},${center - 5} ${center - 8.7},${center - 5}" 
+               fill="${accentColor}" fill-opacity="0.3" stroke="${accentColor}" stroke-width="1"/>
+      <circle cx="${center}" cy="${center}" r="4" fill="${accentColor}"/>
+    `,
+    "dimensional-gate": `
+      <ellipse cx="${center}" cy="${center}" rx="20" ry="12" fill="none" stroke="${accentColor}" stroke-width="1.5" opacity="0.5"/>
+      <ellipse cx="${center}" cy="${center}" rx="16" ry="8" fill="${accentColor}" fill-opacity="0.2" stroke="${accentColor}" stroke-width="1"/>
+      <circle cx="${center}" cy="${center}" r="6" fill="${accentColor}"/>
+      <line x1="${center}" y1="${center - 24}" x2="${center}" y2="${center + 24}" stroke="${accentColor}" stroke-width="1" opacity="0.3"/>
+    `,
+    "synapse-cluster": `
+      ${[[-8, -8], [8, -8], [-12, 4], [0, 8], [12, 4]].map(([dx, dy]) => 
+        `<circle cx="${center + dx}" cy="${center + dy}" r="3" fill="${accentColor}" opacity="0.7"/>`
+      ).join('')}
+      <circle cx="${center}" cy="${center}" r="5" fill="${accentColor}"/>
+      ${[[-8, -8], [8, -8], [-12, 4], [0, 8], [12, 4]].map(([dx, dy]) => 
+        `<line x1="${center}" y1="${center}" x2="${center + dx}" y2="${center + dy}" stroke="${accentColor}" stroke-width="1" opacity="0.5"/>`
+      ).join('')}
+    `,
+    "infinity-loop": `
+      <path d="M${center - 16},${center} 
+               C${center - 16},${center - 10} ${center - 6},${center - 10} ${center},${center}
+               C${center + 6},${center + 10} ${center + 16},${center + 10} ${center + 16},${center}
+               C${center + 16},${center - 10} ${center + 6},${center - 10} ${center},${center}
+               C${center - 6},${center + 10} ${center - 16},${center + 10} ${center - 16},${center}" 
+            fill="none" stroke="${accentColor}" stroke-width="2"/>
+      <circle cx="${center}" cy="${center}" r="3" fill="${accentColor}"/>
+    `,
+    "vortex-engine": `
+      <path d="M${center},${center - 18} A18,18 0 0,1 ${center + 15.6},${center + 9}" fill="none" stroke="${accentColor}" stroke-width="2" opacity="0.8"/>
+      <path d="M${center + 15.6},${center + 9} A18,18 0 0,1 ${center - 15.6},${center + 9}" fill="none" stroke="${accentColor}" stroke-width="2" opacity="0.6"/>
+      <path d="M${center - 15.6},${center + 9} A18,18 0 0,1 ${center},${center - 18}" fill="none" stroke="${accentColor}" stroke-width="2" opacity="0.4"/>
+      <circle cx="${center}" cy="${center}" r="6" fill="${accentColor}"/>
+    `,
+    "crystalline-lattice": `
+      <polygon points="${center},${center - 20} ${center + 12},${center - 6} ${center + 12},${center + 10} ${center},${center + 20} ${center - 12},${center + 10} ${center - 12},${center - 6}" 
+               fill="${accentColor}" fill-opacity="0.2" stroke="${accentColor}" stroke-width="1.5"/>
+      <line x1="${center}" y1="${center - 20}" x2="${center}" y2="${center + 20}" stroke="${accentColor}" stroke-width="1" opacity="0.5"/>
+      <line x1="${center - 12}" y1="${center + 2}" x2="${center + 12}" y2="${center + 2}" stroke="${accentColor}" stroke-width="1" opacity="0.5"/>
+    `,
+    "pulse-wave": `
+      <path d="M${center - 24},${center} 
+               L${center - 16},${center} 
+               L${center - 12},${center - 12} 
+               L${center - 4},${center + 8} 
+               L${center + 4},${center - 16} 
+               L${center + 12},${center + 4} 
+               L${center + 16},${center}
+               L${center + 24},${center}" 
+            fill="none" stroke="${accentColor}" stroke-width="2"/>
+      <circle cx="${center}" cy="${center - 4}" r="3" fill="${accentColor}"/>
+    `,
+    "atomic-orbit": `
+      <ellipse cx="${center}" cy="${center}" rx="20" ry="8" fill="none" stroke="${accentColor}" stroke-width="1" opacity="0.5" transform="rotate(0 ${center} ${center})"/>
+      <ellipse cx="${center}" cy="${center}" rx="20" ry="8" fill="none" stroke="${accentColor}" stroke-width="1" opacity="0.5" transform="rotate(60 ${center} ${center})"/>
+      <ellipse cx="${center}" cy="${center}" rx="20" ry="8" fill="none" stroke="${accentColor}" stroke-width="1" opacity="0.5" transform="rotate(-60 ${center} ${center})"/>
+      <circle cx="${center}" cy="${center}" r="6" fill="${accentColor}"/>
+    `,
+    "digital-crown": `
+      <path d="M${center - 18},${center + 8} 
+               L${center - 12},${center - 6} 
+               L${center - 6},${center + 2}
+               L${center},${center - 16}
+               L${center + 6},${center + 2}
+               L${center + 12},${center - 6}
+               L${center + 18},${center + 8}
+               Z" 
+            fill="${accentColor}" fill-opacity="0.3" stroke="${accentColor}" stroke-width="1.5"/>
+      <circle cx="${center}" cy="${center - 16}" r="3" fill="${accentColor}"/>
+    `,
+    "sacred-geometry": `
+      <circle cx="${center}" cy="${center}" r="18" fill="none" stroke="${accentColor}" stroke-width="1" opacity="0.3"/>
+      <polygon points="${[0, 60, 120, 180, 240, 300].map(angle => {
+        const rad = ((angle - 90) * Math.PI) / 180;
+        return `${center + 18 * Math.cos(rad)},${center + 18 * Math.sin(rad)}`;
+      }).join(' ')}" fill="none" stroke="${accentColor}" stroke-width="1"/>
+      <polygon points="${[30, 150, 270].map(angle => {
+        const rad = ((angle - 90) * Math.PI) / 180;
+        return `${center + 18 * Math.cos(rad)},${center + 18 * Math.sin(rad)}`;
+      }).join(' ')}" fill="${accentColor}" fill-opacity="0.2"/>
+      <circle cx="${center}" cy="${center}" r="5" fill="${accentColor}"/>
+    `,
+    "nexus-point": `
+      <circle cx="${center}" cy="${center}" r="8" fill="${accentColor}"/>
+      ${[0, 45, 90, 135, 180, 225, 270, 315].map(angle => {
+        const rad = (angle * Math.PI) / 180;
+        const x = center + 20 * Math.cos(rad);
+        const y = center + 20 * Math.sin(rad);
+        return `<line x1="${center}" y1="${center}" x2="${x}" y2="${y}" stroke="${accentColor}" stroke-width="1.5" opacity="0.5"/>
+                <circle cx="${x}" cy="${y}" r="2" fill="${accentColor}" opacity="0.7"/>`;
+      }).join('')}
     `
   };
 
@@ -303,6 +598,33 @@ function generateShapeSVG(category: ShapeCategory, accentColor: string = "#22D3E
   </svg>`;
 }
 
+// Platform type to emphasis mapping for intelligent recommendations
+const PLATFORM_EMPHASIS_MAP: Record<string, EmphasisType[]> = {
+  platform: ["control", "authority", "power"],
+  coreSystem: ["control", "stability", "security"],
+  aiModel: ["intelligence", "innovation", "connectivity"],
+  feature: ["precision", "stability", "connectivity"],
+  digitalSeal: ["authority", "security", "power"],
+  dashboard: ["intelligence", "precision", "connectivity"],
+  security: ["security", "stability", "control"],
+  ai: ["intelligence", "innovation", "power"]
+};
+
+// Pattern to emphasis mapping
+const PATTERN_EMPHASIS_MAP: Record<string, EmphasisType[]> = {
+  hexagonalCore: ["stability", "precision", "control"],
+  sovereignShield: ["security", "authority", "power"],
+  neuralField: ["intelligence", "connectivity", "innovation"],
+  cognitiveMatrix: ["intelligence", "precision", "innovation"],
+  autonomousNexus: ["autonomy", "connectivity", "power"],
+  quantumCircuit: ["power", "innovation", "intelligence"],
+  infiniteLoop: ["stability", "autonomy", "connectivity"],
+  controlRing: ["control", "precision", "stability"],
+  intelligenceCore: ["intelligence", "power", "innovation"],
+  layeredDepth: ["intelligence", "precision", "stability"],
+  quantumGrid: ["power", "innovation", "precision"]
+};
+
 export function getShapeRecommendations(
   platformType: string,
   selectedPattern: string,
@@ -310,49 +632,71 @@ export function getShapeRecommendations(
   includeAdvanced: boolean = false
 ): ShapeRecommendation[] {
   const recommendations: ShapeRecommendation[] = [];
-  
   const allCategories = Object.keys(SHAPE_DEFINITIONS) as ShapeCategory[];
+  
+  // Get emphasis preferences from platform and pattern
+  const platformEmphasis = PLATFORM_EMPHASIS_MAP[platformType] || ["control", "intelligence", "stability"];
+  const patternEmphasis = PATTERN_EMPHASIS_MAP[selectedPattern] || ["intelligence", "precision", "stability"];
   
   for (const category of allCategories) {
     const definition = SHAPE_DEFINITIONS[category];
     
-    if (!includeAdvanced && definition.complexityLevel === "advanced") {
+    // Filter by complexity level
+    if (!includeAdvanced && (definition.complexityLevel === "advanced" || definition.complexityLevel === "sovereign")) {
       continue;
     }
     
-    let confidence = 50;
+    let confidence = 40; // Base confidence
     
+    // Check pattern compatibility (+25 max)
     if (definition.compatiblePatterns.includes(selectedPattern)) {
-      confidence += 30;
+      confidence += 25;
     }
     
-    if (platformType === "platform" && ["centralized-core", "hexagonal-nested", "sovereign-fortress"].includes(category)) {
-      confidence += 15;
+    // Check emphasis alignment with platform (+20 max)
+    if (platformEmphasis.includes(definition.emphasis)) {
+      confidence += 20;
     }
-    if (platformType === "dashboard" && ["radial-rings", "layered-depth", "precision-kernel"].includes(category)) {
-      confidence += 15;
-    }
-    if (platformType === "ai" && ["neural-mesh", "quantum-matrix", "distributed-constellation"].includes(category)) {
-      confidence += 15;
-    }
-    if (platformType === "security" && ["shielded-lattice", "sovereign-fortress", "axial-spine"].includes(category)) {
+    
+    // Check emphasis alignment with pattern (+15 max)
+    if (patternEmphasis.includes(definition.emphasis)) {
       confidence += 15;
     }
     
+    // Bonus for sovereign-level shapes in sovereign contexts
+    if (definition.complexityLevel === "sovereign" && 
+        (platformType === "coreSystem" || platformType === "digitalSeal")) {
+      confidence += 10;
+    }
+    
+    // Bonus for specific platform-shape matches
+    if (platformType === "platform" && ["centralized-core", "hexagonal-nested", "sovereign-fortress", "digital-crown"].includes(category)) {
+      confidence += 8;
+    }
+    if (platformType === "aiModel" && ["neural-mesh", "quantum-matrix", "cognitive-spiral", "synapse-cluster"].includes(category)) {
+      confidence += 8;
+    }
+    if (platformType === "security" && ["shielded-lattice", "sovereign-fortress", "crystalline-lattice"].includes(category)) {
+      confidence += 8;
+    }
+    
+    // Cap confidence at 98
     confidence = Math.min(confidence, 98);
     
     recommendations.push({
       ...definition,
-      id: `shape-${category}-${Date.now()}`,
+      id: `shape-${category}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       confidence,
       svgPreview: generateShapeSVG(category, accentColor)
     });
   }
   
+  // Sort by confidence (descending)
   recommendations.sort((a, b) => b.confidence - a.confidence);
   
+  // Return appropriate number of shapes
   const minShapes = 5;
-  const maxShapes = includeAdvanced ? 12 : 7;
+  const maxShapes = includeAdvanced ? 24 : 12;
   
   return recommendations.slice(0, Math.max(minShapes, Math.min(maxShapes, recommendations.length)));
 }
@@ -366,6 +710,7 @@ export function saveShapeSelection(metadata: ShapeSelectionMetadata): void {
     
     history.unshift(metadata);
     
+    // Keep last 100 selections
     if (history.length > 100) {
       history.length = 100;
     }
