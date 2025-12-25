@@ -8163,6 +8163,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                               user_management: Users,
                               system_config: Settings2,
                               navigation_access: Layout,
+                              build_operations: Wand2,
                             };
                             const IconComponent = iconMap[category] || Shield;
                             const colorMap: Record<string, string> = {
@@ -8177,6 +8178,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                               user_management: "text-pink-400",
                               system_config: "text-red-400",
                               navigation_access: "text-sky-400",
+                              build_operations: "text-amber-400",
                             };
                             
                             return (
