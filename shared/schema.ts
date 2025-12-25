@@ -16562,3 +16562,193 @@ export const insertIconRegenerationRequestSchema = createInsertSchema(iconRegene
 });
 export type InsertIconRegenerationRequest = z.infer<typeof insertIconRegenerationRequestSchema>;
 export type IconRegenerationRequest = typeof iconRegenerationRequests.$inferSelect;
+
+// ==================== NOVA AI ENCRYPTED CONVERSATION STORAGE ====================
+// نظام الحفظ التلقائي المشفر للمحادثات
+
+// Encrypted Session Types
+export const encryptedSessionStatuses = ['active', 'closed', 'archived'] as const;
+export type EncryptedSessionStatus = typeof encryptedSessionStatuses[number];
+
+// Encrypted AI Sessions - جلسات AI المشفرة
+export const encryptedAiSessions = pgTable("encrypted_ai_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: text("session_id").notNull().unique(), // UUID جلسة فريد
+  
+  // Owner information
+  ownerId: varchar("owner_id"), // معرف المالك
+  ownerName: text("owner_name"), // اسم المالك
+  
+  // Session metadata
+  title: text("title"), // عنوان الجلسة
+  titleAr: text("title_ar"), // العنوان بالعربية
+  
+  // Encryption info
+  encryptionVersion: text("encryption_version").notNull().default("AES-256-GCM"),
+  keyId: text("key_id").notNull(), // مرجع لمفتاح التشفير
+  
+  // Statistics
+  totalMessages: integer("total_messages").notNull().default(0),
+  totalTokens: integer("total_tokens").notNull().default(0),
+  
+  // Status
+  status: text("status").notNull().default("active"),
+  
+  // Auto-save settings
+  autoSaveEnabled: boolean("auto_save_enabled").notNull().default(true),
+  autoSaveIntervalSeconds: integer("auto_save_interval_seconds").notNull().default(120),
+  lastAutoSaveAt: timestamp("last_auto_save_at"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  closedAt: timestamp("closed_at"),
+}, (table) => [
+  index("IDX_encrypted_session_owner").on(table.ownerId),
+  index("IDX_encrypted_session_status").on(table.status),
+  index("IDX_encrypted_session_id").on(table.sessionId),
+]);
+
+export const insertEncryptedAiSessionSchema = createInsertSchema(encryptedAiSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertEncryptedAiSession = z.infer<typeof insertEncryptedAiSessionSchema>;
+export type EncryptedAiSession = typeof encryptedAiSessions.$inferSelect;
+
+// Encrypted Conversation Messages - رسائل المحادثة المشفرة
+export const encryptedConversationMessages = pgTable("encrypted_conversation_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => encryptedAiSessions.id, { onDelete: "cascade" }).notNull(),
+  
+  // Message metadata (not encrypted)
+  messageType: text("message_type").notNull(), // 'user', 'ai', 'system'
+  sequenceNumber: integer("sequence_number").notNull(),
+  
+  // Encrypted content
+  encryptedContent: text("encrypted_content").notNull(), // Base64 encoded encrypted data
+  encryptedMetadata: text("encrypted_metadata"), // Additional encrypted metadata
+  
+  // Searchable tags (hashed for privacy)
+  searchableHash: text("searchable_hash"), // Hashed keywords for search
+  
+  // Token usage
+  tokenCount: integer("token_count"),
+  
+  // Timestamps
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+}, (table) => [
+  index("IDX_encrypted_msg_session").on(table.sessionId),
+  index("IDX_encrypted_msg_sequence").on(table.sequenceNumber),
+  index("IDX_encrypted_msg_type").on(table.messageType),
+  index("IDX_encrypted_msg_hash").on(table.searchableHash),
+]);
+
+export const insertEncryptedConversationMessageSchema = createInsertSchema(encryptedConversationMessages).omit({
+  id: true,
+});
+export type InsertEncryptedConversationMessage = z.infer<typeof insertEncryptedConversationMessageSchema>;
+export type EncryptedConversationMessage = typeof encryptedConversationMessages.$inferSelect;
+
+// Encryption Keys Registry - سجل مفاتيح التشفير
+export const encryptionKeysRegistry = pgTable("encryption_keys_registry", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  keyId: text("key_id").notNull().unique(), // معرف المفتاح الفريد
+  
+  // Key metadata (key itself stored in environment/vault)
+  algorithm: text("algorithm").notNull().default("AES-256-GCM"),
+  purpose: text("purpose").notNull(), // 'conversation', 'file', 'secret'
+  
+  // Key rotation
+  version: integer("version").notNull().default(1),
+  previousKeyId: text("previous_key_id"), // للتتبع عند التدوير
+  
+  // Status
+  isActive: boolean("is_active").notNull().default(true),
+  isRevoked: boolean("is_revoked").notNull().default(false),
+  revokedAt: timestamp("revoked_at"),
+  revokedReason: text("revoked_reason"),
+  
+  // Expiry
+  expiresAt: timestamp("expires_at"),
+  
+  // Audit
+  createdBy: varchar("created_by"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  rotatedAt: timestamp("rotated_at"),
+}, (table) => [
+  index("IDX_encryption_key_id").on(table.keyId),
+  index("IDX_encryption_key_active").on(table.isActive),
+  index("IDX_encryption_key_purpose").on(table.purpose),
+]);
+
+export const insertEncryptionKeyRegistrySchema = createInsertSchema(encryptionKeysRegistry).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertEncryptionKeyRegistry = z.infer<typeof insertEncryptionKeyRegistrySchema>;
+export type EncryptionKeyRegistry = typeof encryptionKeysRegistry.$inferSelect;
+
+// Conversation Restore Points - نقاط استعادة المحادثات
+export const conversationRestorePoints = pgTable("conversation_restore_points", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => encryptedAiSessions.id, { onDelete: "cascade" }).notNull(),
+  
+  // Restore point metadata
+  name: text("name"), // اسم نقطة الاستعادة
+  description: text("description"),
+  
+  // Snapshot data
+  encryptedSnapshot: text("encrypted_snapshot").notNull(), // Full encrypted conversation snapshot
+  messageCount: integer("message_count").notNull(),
+  lastMessageId: varchar("last_message_id"),
+  
+  // Restore tracking
+  restoredCount: integer("restored_count").notNull().default(0),
+  lastRestoredAt: timestamp("last_restored_at"),
+  
+  // Auto vs Manual
+  isAutomatic: boolean("is_automatic").notNull().default(false),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  expiresAt: timestamp("expires_at"), // Auto-delete after expiry
+}, (table) => [
+  index("IDX_restore_point_session").on(table.sessionId),
+  index("IDX_restore_point_auto").on(table.isAutomatic),
+]);
+
+export const insertConversationRestorePointSchema = createInsertSchema(conversationRestorePoints).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertConversationRestorePoint = z.infer<typeof insertConversationRestorePointSchema>;
+export type ConversationRestorePoint = typeof conversationRestorePoints.$inferSelect;
+
+// Conversation Search Index - فهرس البحث في المحادثات
+export const conversationSearchIndex = pgTable("conversation_search_index", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => encryptedAiSessions.id, { onDelete: "cascade" }).notNull(),
+  messageId: varchar("message_id").references(() => encryptedConversationMessages.id, { onDelete: "cascade" }).notNull(),
+  
+  // Hashed/tokenized keywords for privacy-preserving search
+  keywordHashes: jsonb("keyword_hashes").$type<string[]>().notNull(),
+  
+  // Language detection
+  detectedLanguage: text("detected_language"), // 'ar', 'en', etc.
+  
+  // Timestamp for filtering
+  messageTimestamp: timestamp("message_timestamp").notNull(),
+}, (table) => [
+  index("IDX_search_index_session").on(table.sessionId),
+  index("IDX_search_index_message").on(table.messageId),
+]);
+
+export const insertConversationSearchIndexSchema = createInsertSchema(conversationSearchIndex).omit({
+  id: true,
+});
+export type InsertConversationSearchIndex = z.infer<typeof insertConversationSearchIndexSchema>;
+export type ConversationSearchIndex = typeof conversationSearchIndex.$inferSelect;

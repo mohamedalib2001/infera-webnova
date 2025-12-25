@@ -8,6 +8,7 @@ import * as os from "os";
 import { generateWebsiteCode, refineWebsiteCode } from "./anthropic";
 import { encryptSovereignData, decryptSovereignData } from "./sovereign-encryption";
 import { decryptToken } from "./crypto-service";
+import { conversationStorage } from "./conversation-storage-service";
 import apiKeysRoutes from "./api-keys-routes";
 import { registerDomainRoutes } from "./domain-routes";
 import { registerISDSRoutes } from "./isds-routes";
@@ -25385,6 +25386,251 @@ export function registerConversationRoutes(app: Express, requireAuth: any) {
     } catch (error) {
       console.error("Error deleting conversation:", error);
       res.status(500).json({ error: "فشل حذف المحادثة" });
+    }
+  });
+
+  // ==================== NOVA AI ENCRYPTED CONVERSATION STORAGE API ====================
+  // نظام الحفظ التلقائي المشفر للمحادثات
+
+  // Create new encrypted session
+  app.post("/api/nova-ai/sessions", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId || (req as any).replitUser?.claims?.sub;
+      const { ownerName } = req.body;
+      
+      const session = await conversationStorage.createSession(userId, ownerName || "المالك");
+      conversationStorage.startAutoSave(session.id, 120);
+      
+      res.status(201).json({
+        success: true,
+        session,
+        message: "تم إنشاء جلسة جديدة مشفرة",
+        messageEn: "New encrypted session created",
+      });
+    } catch (error) {
+      console.error("Error creating session:", error);
+      res.status(500).json({ error: "فشل إنشاء الجلسة" });
+    }
+  });
+
+  // Get all sessions for owner
+  app.get("/api/nova-ai/sessions", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId || (req as any).replitUser?.claims?.sub;
+      const sessions = await conversationStorage.getSessions(userId);
+      
+      res.json({
+        success: true,
+        sessions,
+        total: sessions.length,
+      });
+    } catch (error) {
+      console.error("Error fetching sessions:", error);
+      res.status(500).json({ error: "فشل جلب الجلسات" });
+    }
+  });
+
+  // Get session by ID
+  app.get("/api/nova-ai/sessions/:sessionId", requireAuth, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const session = await conversationStorage.getSessionById(sessionId);
+      
+      if (!session) {
+        return res.status(404).json({ error: "الجلسة غير موجودة" });
+      }
+      
+      const messages = await conversationStorage.getSessionMessages(sessionId);
+      
+      res.json({
+        success: true,
+        session,
+        messages,
+        messageCount: messages.length,
+      });
+    } catch (error) {
+      console.error("Error fetching session:", error);
+      res.status(500).json({ error: "فشل جلب الجلسة" });
+    }
+  });
+
+  // Save message to session
+  app.post("/api/nova-ai/sessions/:sessionId/messages", requireAuth, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const { role, content, metadata } = req.body;
+      
+      const session = await conversationStorage.getSessionById(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "الجلسة غير موجودة" });
+      }
+      
+      const sequenceNumber = (session.totalMessages || 0) + 1;
+      const saved = await conversationStorage.saveMessage(sessionId, {
+        role,
+        content,
+        metadata,
+        timestamp: new Date(),
+      }, sequenceNumber);
+      
+      conversationStorage.addToBuffer(sessionId, { role, content, metadata });
+      
+      res.status(201).json({
+        success: true,
+        message: saved,
+        encrypted: true,
+      });
+    } catch (error) {
+      console.error("Error saving message:", error);
+      res.status(500).json({ error: "فشل حفظ الرسالة" });
+    }
+  });
+
+  // Update session title
+  app.patch("/api/nova-ai/sessions/:sessionId", requireAuth, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const { title, titleAr } = req.body;
+      
+      await conversationStorage.updateSessionTitle(sessionId, title, titleAr);
+      
+      res.json({
+        success: true,
+        message: "تم تحديث عنوان الجلسة",
+      });
+    } catch (error) {
+      console.error("Error updating session:", error);
+      res.status(500).json({ error: "فشل تحديث الجلسة" });
+    }
+  });
+
+  // Close session
+  app.post("/api/nova-ai/sessions/:sessionId/close", requireAuth, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      
+      await conversationStorage.closeSession(sessionId);
+      
+      res.json({
+        success: true,
+        message: "تم إغلاق الجلسة",
+      });
+    } catch (error) {
+      console.error("Error closing session:", error);
+      res.status(500).json({ error: "فشل إغلاق الجلسة" });
+    }
+  });
+
+  // Delete session
+  app.delete("/api/nova-ai/sessions/:sessionId", requireAuth, requireOwner, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      
+      await conversationStorage.deleteSession(sessionId);
+      
+      res.json({
+        success: true,
+        message: "تم حذف الجلسة بشكل دائم",
+      });
+    } catch (error) {
+      console.error("Error deleting session:", error);
+      res.status(500).json({ error: "فشل حذف الجلسة" });
+    }
+  });
+
+  // Create restore point
+  app.post("/api/nova-ai/sessions/:sessionId/restore-points", requireAuth, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const { name } = req.body;
+      
+      await conversationStorage.createRestorePoint(sessionId, name);
+      
+      res.status(201).json({
+        success: true,
+        message: "تم إنشاء نقطة استعادة",
+      });
+    } catch (error) {
+      console.error("Error creating restore point:", error);
+      res.status(500).json({ error: "فشل إنشاء نقطة الاستعادة" });
+    }
+  });
+
+  // Get restore points
+  app.get("/api/nova-ai/sessions/:sessionId/restore-points", requireAuth, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const restorePoints = await conversationStorage.getRestorePoints(sessionId);
+      
+      res.json({
+        success: true,
+        restorePoints,
+      });
+    } catch (error) {
+      console.error("Error fetching restore points:", error);
+      res.status(500).json({ error: "فشل جلب نقاط الاستعادة" });
+    }
+  });
+
+  // Restore from point
+  app.post("/api/nova-ai/restore-points/:restorePointId/restore", requireAuth, async (req, res) => {
+    try {
+      const { restorePointId } = req.params;
+      const messages = await conversationStorage.restoreFromPoint(restorePointId);
+      
+      res.json({
+        success: true,
+        messages,
+        message: "تم استعادة المحادثة بنجاح",
+      });
+    } catch (error) {
+      console.error("Error restoring:", error);
+      res.status(500).json({ error: "فشل الاستعادة" });
+    }
+  });
+
+  // Search conversations
+  app.get("/api/nova-ai/search", requireAuth, async (req, res) => {
+    try {
+      const { keyword, sessionId } = req.query;
+      
+      if (!keyword || typeof keyword !== 'string') {
+        return res.status(400).json({ error: "الرجاء تحديد كلمة البحث" });
+      }
+      
+      const results = await conversationStorage.searchConversations(
+        keyword, 
+        sessionId as string | undefined
+      );
+      
+      res.json({
+        success: true,
+        results,
+        total: results.length,
+      });
+    } catch (error) {
+      console.error("Error searching:", error);
+      res.status(500).json({ error: "فشل البحث" });
+    }
+  });
+
+  // Get storage stats
+  app.get("/api/nova-ai/stats", requireAuth, async (req, res) => {
+    try {
+      const stats = await conversationStorage.getStats();
+      
+      res.json({
+        success: true,
+        stats,
+        encryption: {
+          algorithm: "AES-256-GCM",
+          enabled: true,
+          autoSaveInterval: 120,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+      res.status(500).json({ error: "فشل جلب الإحصائيات" });
     }
   });
 }

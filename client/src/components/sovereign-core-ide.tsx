@@ -730,8 +730,16 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                 <Lock className="w-3 h-3 mr-1" />
                 {text.ownerOnly}
               </Badge>
+              <Badge variant="outline" className="text-xs bg-green-500/20 text-green-400 border-green-500/30 animate-pulse">
+                <Shield className="w-3 h-3 mr-1" />
+                {isRtl ? "حفظ تلقائي" : "Auto-Save"}
+              </Badge>
             </h2>
-            <p className="text-xs text-muted-foreground">{text.securityNote}</p>
+            <p className="text-xs text-muted-foreground flex items-center gap-2">
+              {text.securityNote}
+              <span className="text-green-400">•</span>
+              <span className="text-green-400 text-[10px]">{isRtl ? "كل دقيقتين" : "Every 2 min"}</span>
+            </p>
           </div>
         </div>
         
