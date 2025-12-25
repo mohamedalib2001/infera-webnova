@@ -27,11 +27,9 @@ interface GuestSidebarProps {
   side?: "left" | "right";
 }
 
-export function GuestSidebar({ side }: GuestSidebarProps) {
+export function GuestSidebar({ side = "left" }: GuestSidebarProps) {
   const [location, setLocation] = useLocation();
   const { language } = useLanguage();
-  const isRtl = language === "ar";
-  const effectiveSide = side ?? (isRtl ? "right" : "left");
 
   // Handle hash navigation for anchor links
   const handleHashClick = useCallback((e: React.MouseEvent, hash: string) => {
@@ -88,7 +86,7 @@ export function GuestSidebar({ side }: GuestSidebarProps) {
   ];
 
   return (
-    <Sidebar side={effectiveSide}>
+    <Sidebar side={side}>
       <SidebarHeader className="p-4">
         <Link href="/" className="flex items-center gap-2">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center">

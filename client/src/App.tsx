@@ -24,7 +24,7 @@ import { Bell, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
-import { CommandPalette, CommandPaletteTrigger } from "@/components/command-palette";
+import { CommandPalette } from "@/components/command-palette";
 import { NovaAssistantMenu } from "@/components/nova-assistant-menu";
 import { NovaFloatingButton } from "@/components/nova-floating-button";
 import { SovereignHeaderButton } from "@/components/sovereign-header-button";
@@ -322,71 +322,64 @@ function AppContent() {
   
   if (!user) {
     return (
-      <div dir={isRTL ? "rtl" : "ltr"}>
-        <SidebarProvider style={sidebarStyle}>
-          <div className="flex h-screen w-full">
-            {!isRTL && <GuestSidebar />}
-            <div className="flex flex-col flex-1 overflow-hidden">
-              <header className="flex items-center justify-between gap-2 p-2 border-b h-14 shrink-0">
-                <div className="flex items-center gap-2">
-                  <SidebarTrigger data-testid="button-sidebar-toggle" />
-                </div>
-                <div className="flex items-center gap-2">
-                  <LanguageToggle />
-                  <ThemeToggle />
-                </div>
-              </header>
-              <main className="flex-1 overflow-auto">
-                <GuestRouter />
-              </main>
-            </div>
-            {isRTL && <GuestSidebar />}
+      <SidebarProvider style={sidebarStyle}>
+        <div className={`flex h-screen w-full ${isRTL ? "flex-row-reverse" : ""}`} dir={isRTL ? "rtl" : "ltr"}>
+          <GuestSidebar />
+          <div className="flex flex-col flex-1 overflow-hidden">
+            <header className={`flex items-center justify-between gap-2 p-2 border-b h-14 shrink-0 ${isRTL ? "flex-row-reverse" : ""}`}>
+              <div className={`flex items-center gap-2 ${isRTL ? "flex-row-reverse" : ""}`}>
+                <SidebarTrigger data-testid="button-sidebar-toggle" />
+              </div>
+              <div className={`flex items-center gap-2 ${isRTL ? "flex-row-reverse" : ""}`}>
+                <LanguageToggle />
+                <ThemeToggle />
+              </div>
+            </header>
+            <main className="flex-1 overflow-auto">
+              <GuestRouter />
+            </main>
           </div>
-        </SidebarProvider>
-      </div>
+        </div>
+      </SidebarProvider>
     );
   }
   
   const isOwner = user?.role === "owner" || user?.role === "sovereign" || user?.id === 1;
   
   return (
-    <div dir={isRTL ? "rtl" : "ltr"}>
-      <InspectorProvider>
-        <SovereignViewProvider>
-          <SidebarProvider style={sidebarStyle}>
-            <div className="flex h-screen w-full">
-              {!isRTL && <AppSidebar />}
-              <div className="flex flex-col flex-1 overflow-hidden">
-                <header className="flex items-center justify-between gap-2 p-2 border-b h-14 shrink-0">
-                  <div className="flex items-center gap-2">
-                    <SidebarTrigger data-testid="button-sidebar-toggle" />
-                    {isOwner && <SovereignHeaderButton />}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <CommandPaletteTrigger />
-                    {isOwner && <AIProviderTopbar />}
-                    {isOwner && <NovaAssistantMenu />}
-                    <NotificationBell />
-                    {isOwner && <InspectorToggle />}
-                    {isOwner && <SovereignViewToggle />}
-                    <LanguageToggle />
-                    <ThemeToggle />
-                  </div>
-                </header>
-                <main className="flex-1 overflow-auto">
-                  <AuthenticatedRouter />
-                </main>
-              </div>
-              {isRTL && <AppSidebar />}
+    <InspectorProvider>
+      <SovereignViewProvider>
+        <SidebarProvider style={sidebarStyle}>
+          <div className={`flex h-screen w-full ${isRTL ? "flex-row-reverse" : ""}`} dir={isRTL ? "rtl" : "ltr"}>
+            <AppSidebar />
+            <div className="flex flex-col flex-1 overflow-hidden">
+              <header className={`flex items-center justify-between gap-2 p-2 border-b h-14 shrink-0 ${isRTL ? "flex-row-reverse" : ""}`}>
+                <div className={`flex items-center gap-2 ${isRTL ? "flex-row-reverse" : ""}`}>
+                  <SidebarTrigger data-testid="button-sidebar-toggle" />
+                  {isOwner && <SovereignHeaderButton />}
+                </div>
+                <div className={`flex items-center gap-2 ${isRTL ? "flex-row-reverse" : ""}`}>
+                  {isOwner && <AIProviderTopbar />}
+                  {isOwner && <NovaAssistantMenu />}
+                  <NotificationBell />
+                  {isOwner && <InspectorToggle />}
+                  {isOwner && <SovereignViewToggle />}
+                  <LanguageToggle />
+                  <ThemeToggle />
+                </div>
+              </header>
+              <main className="flex-1 overflow-auto">
+                <AuthenticatedRouter />
+              </main>
             </div>
-            <CommandPalette />
-            <SovereignIndicator />
-            <NovaFloatingButton />
-            {isOwner && <SovereignAccessSummary />}
-          </SidebarProvider>
-        </SovereignViewProvider>
-      </InspectorProvider>
-    </div>
+          </div>
+          <CommandPalette />
+          <SovereignIndicator />
+          <NovaFloatingButton />
+          {isOwner && <SovereignAccessSummary />}
+        </SidebarProvider>
+      </SovereignViewProvider>
+    </InspectorProvider>
   );
 }
 
