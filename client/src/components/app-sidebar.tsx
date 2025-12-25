@@ -190,6 +190,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     { title: language === "ar" ? "منشئ الروبوتات" : "Chatbot Builder", url: "/chatbot-builder", icon: Bot, testId: "nav-dev-chatbot" },
     { title: language === "ar" ? "خط أنابيب CI/CD" : "CI/CD Pipeline", url: "/cicd", icon: Workflow, testId: "nav-dev-cicd" },
     { title: language === "ar" ? "اختبار الأجهزة" : "Device Testing", url: "/device-testing", icon: Cpu, testId: "nav-dev-device" },
+    { title: language === "ar" ? "الأمان العسكري" : "Military Security", url: "/military-security", icon: ShieldCheck, testId: "nav-dev-military" },
   ];
 
   const buildItems = [

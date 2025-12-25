@@ -106,6 +106,7 @@ import DesktopAppBuilder from "@/pages/desktop-app-builder";
 import MapsPage from "@/pages/maps";
 import ConversationHistory from "@/pages/conversation-history";
 import CICDPipeline from "@/pages/cicd-pipeline";
+import MilitarySecurity from "@/pages/military-security";
 import DeviceTesting from "@/pages/device-testing";
 import PermissionControl from "@/pages/permission-control";
 import SovereignCompliance from "@/pages/sovereign-compliance";
@@ -417,6 +418,7 @@ function AuthenticatedRouter() {
       <Route path="/desktop-builder" component={DesktopAppBuilder} />
       <Route path="/maps" component={MapsPage} />
       <Route path="/cicd" component={CICDPipeline} />
+      <Route path="/military-security" component={MilitarySecurity} />
       <Route path="/device-testing" component={DeviceTesting} />
       <Route path="/permissions" component={PermissionControl} />
       <Route path="/sovereign/compliance" component={SovereignCompliance} />
