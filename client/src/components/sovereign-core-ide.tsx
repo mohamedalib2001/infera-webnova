@@ -149,7 +149,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
   
   const [activeTab, setActiveTab] = useState<"chat" | "code" | "preview" | "terminal">("chat");
   const [bottomTab, setBottomTab] = useState<"terminal" | "problems" | "output">("terminal");
-  const [rightTab, setRightTab] = useState<"tools" | "files" | "database">("tools");
+  const [rightTab, setRightTab] = useState<"tools" | "files" | "database" | "git" | "deploy">("tools");
   
   const [showSidebar, setShowSidebar] = useState(true);
   const [showRightPanel, setShowRightPanel] = useState(true);
@@ -1036,19 +1036,27 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
             <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
               <div className="h-full flex flex-col bg-muted/30">
                 <Tabs value={rightTab} onValueChange={(v) => setRightTab(v as typeof rightTab)} className="flex-1 flex flex-col">
-                  <div className="border-b px-2">
-                    <TabsList className="h-9 bg-transparent w-full justify-start">
-                      <TabsTrigger value="tools" className="text-xs">
-                        <Settings2 className="h-4 w-4 mr-1" />
-                        {text.tools}
+                  <div className="border-b px-1">
+                    <TabsList className="h-8 bg-transparent w-full justify-start gap-0">
+                      <TabsTrigger value="tools" className="text-[10px] px-1.5" data-testid="tab-tools" aria-label={isRtl ? "الأدوات" : "Tools"}>
+                        <Sparkles className="h-3 w-3 mr-0.5" />
+                        <span className="hidden sm:inline">{isRtl ? "أدوات" : "Tools"}</span>
                       </TabsTrigger>
-                      <TabsTrigger value="files" className="text-xs">
-                        <Folder className="h-4 w-4 mr-1" />
-                        {text.files}
+                      <TabsTrigger value="files" className="text-[10px] px-1.5" data-testid="tab-files" aria-label={isRtl ? "الملفات" : "Files"}>
+                        <Folder className="h-3 w-3 mr-0.5" />
+                        <span className="hidden sm:inline">{isRtl ? "ملفات" : "Files"}</span>
                       </TabsTrigger>
-                      <TabsTrigger value="database" className="text-xs">
-                        <Database className="h-4 w-4 mr-1" />
-                        {text.database}
+                      <TabsTrigger value="database" className="text-[10px] px-1.5" data-testid="tab-database" aria-label={isRtl ? "قاعدة البيانات" : "Database"}>
+                        <Database className="h-3 w-3 mr-0.5" />
+                        <span className="hidden sm:inline">DB</span>
+                      </TabsTrigger>
+                      <TabsTrigger value="git" className="text-[10px] px-1.5" data-testid="tab-git" aria-label="Git">
+                        <GitBranch className="h-3 w-3 mr-0.5" />
+                        <span className="hidden sm:inline">Git</span>
+                      </TabsTrigger>
+                      <TabsTrigger value="deploy" className="text-[10px] px-1.5" data-testid="tab-deploy" aria-label={isRtl ? "النشر" : "Deploy"}>
+                        <Rocket className="h-3 w-3 mr-0.5" />
+                        <span className="hidden sm:inline">{isRtl ? "نشر" : "Deploy"}</span>
                       </TabsTrigger>
                     </TabsList>
                   </div>
@@ -1293,16 +1301,356 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                     </ScrollArea>
                   </TabsContent>
 
-                  <TabsContent value="database" className="flex-1 m-0 p-2">
-                    <div className="text-center py-8">
-                      <Database className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
-                      <p className="text-xs text-muted-foreground">
-                        {isRtl ? "متصل بقاعدة البيانات" : "Connected to database"}
-                      </p>
-                      <Button size="sm" variant="outline" className="mt-2">
-                        {isRtl ? "فتح المتصفح" : "Open Browser"}
-                      </Button>
-                    </div>
+                  <TabsContent value="database" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      {/* Database Builder Header */}
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />
+                          <span className="text-xs text-green-400">{isRtl ? "متصل" : "Connected"}</span>
+                        </div>
+                        <Button size="sm" variant="ghost" className="h-7 text-xs">
+                          <RefreshCw className="h-3 w-3 mr-1" />
+                          {isRtl ? "تحديث" : "Refresh"}
+                        </Button>
+                      </div>
+
+                      {/* Quick Actions */}
+                      <div className="grid grid-cols-2 gap-1.5 mb-3">
+                        <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-new-table">
+                          <Plus className="h-4 w-4 text-green-400" />
+                          {isRtl ? "جدول جديد" : "New Table"}
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-add-relation">
+                          <Workflow className="h-4 w-4 text-blue-400" />
+                          {isRtl ? "علاقة" : "Relation"}
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-export-sql">
+                          <FileCode className="h-4 w-4 text-violet-400" />
+                          {isRtl ? "تصدير SQL" : "Export SQL"}
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-ai-generate-db">
+                          <Wand2 className="h-4 w-4 text-amber-400" />
+                          {isRtl ? "توليد AI" : "AI Generate"}
+                        </Button>
+                      </div>
+
+                      {/* Tables List */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Database className="h-3.5 w-3.5 text-cyan-400" />
+                            {isRtl ? "الجداول" : "Tables"}
+                            <Badge variant="outline" className="text-[10px] h-4 ml-auto">8</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {["users", "platforms", "sessions", "permissions", "roles", "logs", "analytics", "settings"].map((table) => (
+                            <button
+                              key={table}
+                              className="w-full flex items-center justify-between p-1.5 rounded text-xs hover:bg-muted transition-colors group"
+                            >
+                              <span className="flex items-center gap-2">
+                                <Hash className="h-3 w-3 text-muted-foreground" />
+                                <span>{table}</span>
+                              </span>
+                              <span className="text-[10px] text-muted-foreground group-hover:text-foreground">
+                                {isRtl ? "عرض" : "View"}
+                              </span>
+                            </button>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Schema Preview */}
+                      <Card className="mb-2 bg-muted/30">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Braces className="h-3.5 w-3.5" />
+                            {isRtl ? "مخطط users" : "users Schema"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0">
+                          <div className="font-mono text-[10px] space-y-0.5 text-muted-foreground">
+                            <div><span className="text-violet-400">id</span>: <span className="text-cyan-400">serial</span> PK</div>
+                            <div><span className="text-violet-400">email</span>: <span className="text-cyan-400">varchar</span></div>
+                            <div><span className="text-violet-400">role</span>: <span className="text-cyan-400">enum</span></div>
+                            <div><span className="text-violet-400">created_at</span>: <span className="text-cyan-400">timestamp</span></div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Permissions Manager */}
+                      <Card className="mb-2 border-amber-500/20">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Key className="h-3.5 w-3.5 text-amber-400" />
+                            {isRtl ? "إدارة الصلاحيات" : "Permissions"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { role: isRtl ? "المالك" : "Owner", perms: isRtl ? "كاملة" : "Full", color: "text-amber-400" },
+                            { role: isRtl ? "مدير" : "Admin", perms: "CRUD", color: "text-violet-400" },
+                            { role: isRtl ? "مستخدم" : "User", perms: "R", color: "text-blue-400" },
+                          ].map((r) => (
+                            <div key={r.role} className="flex items-center justify-between text-[10px] p-1.5 rounded bg-muted/50">
+                              <span className={r.color}>{r.role}</span>
+                              <Badge variant="outline" className="text-[9px] h-4">{r.perms}</Badge>
+                            </div>
+                          ))}
+                          <Button size="sm" variant="ghost" className="w-full h-7 text-[10px] mt-1">
+                            <Plus className="h-3 w-3 mr-1" />
+                            {isRtl ? "إضافة دور" : "Add Role"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      {/* Database Stats */}
+                      <Card className="bg-gradient-to-br from-cyan-500/10 to-transparent border-cyan-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "الجداول" : "Tables"}</span>
+                            <span className="text-cyan-400 font-medium">8</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "السجلات" : "Records"}</span>
+                            <span className="text-cyan-400 font-medium">12,458</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "الحجم" : "Size"}</span>
+                            <span className="text-cyan-400 font-medium">24.5 MB</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Git Integration Tab */}
+                  <TabsContent value="git" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      {/* Repository Status */}
+                      <Card className="mb-2 bg-gradient-to-br from-orange-500/10 to-transparent border-orange-500/20">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <GitBranch className="h-4 w-4 text-orange-400" />
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "المستودع" : "Repository"}</p>
+                              <p className="text-[10px] text-muted-foreground">infera-webnova</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px]">
+                            <Badge variant="outline" className="text-[9px] h-4 text-green-400">main</Badge>
+                            <span className="text-muted-foreground">{isRtl ? "محدث" : "Up to date"}</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Quick Git Actions */}
+                      <div className="grid grid-cols-2 gap-1.5 mb-3">
+                        <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-git-pull">
+                          <Download className="h-4 w-4 text-blue-400" />
+                          Pull
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-git-push">
+                          <Cloud className="h-4 w-4 text-green-400" />
+                          Push
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-git-branch">
+                          <GitBranch className="h-4 w-4 text-violet-400" />
+                          {isRtl ? "فرع" : "Branch"}
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-git-sync">
+                          <RefreshCw className="h-4 w-4 text-orange-400" />
+                          Sync
+                        </Button>
+                      </div>
+
+                      {/* Recent Commits */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Activity className="h-3.5 w-3.5" />
+                            {isRtl ? "آخر الإيداعات" : "Recent Commits"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1.5">
+                          {[
+                            { msg: "Enhanced AI IDE interface", time: "2m ago", color: "text-green-400" },
+                            { msg: "Added WebSocket streaming", time: "1h ago", color: "text-blue-400" },
+                            { msg: "Database builder UI", time: "3h ago", color: "text-violet-400" },
+                          ].map((commit, i) => (
+                            <div key={i} className="flex items-start gap-2 p-1.5 rounded bg-muted/30 text-[10px]">
+                              <span className={`h-1.5 w-1.5 rounded-full mt-1 ${commit.color.replace("text-", "bg-")}`} />
+                              <div className="flex-1 min-w-0">
+                                <p className="truncate">{commit.msg}</p>
+                                <p className="text-muted-foreground">{commit.time}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Changed Files */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <FileCode className="h-3.5 w-3.5 text-amber-400" />
+                            {isRtl ? "الملفات المتغيرة" : "Changed Files"}
+                            <Badge variant="outline" className="text-[10px] h-4 ml-auto">3</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { name: "sovereign-core-ide.tsx", status: "M", color: "text-amber-400" },
+                            { name: "ai-websocket.ts", status: "M", color: "text-amber-400" },
+                            { name: "schema.ts", status: "A", color: "text-green-400" },
+                          ].map((file) => (
+                            <div key={file.name} className="flex items-center justify-between p-1 text-[10px]">
+                              <span className="truncate flex-1">{file.name}</span>
+                              <Badge variant="outline" className={`text-[9px] h-4 ${file.color}`}>{file.status}</Badge>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Commit Form */}
+                      <Card className="border-green-500/20">
+                        <CardContent className="p-2 space-y-2">
+                          <Input
+                            placeholder={isRtl ? "رسالة الإيداع..." : "Commit message..."}
+                            className="h-8 text-xs"
+                            data-testid="input-commit-message"
+                          />
+                          <Button size="sm" className="w-full text-xs bg-green-600 hover:bg-green-700" data-testid="button-commit-push">
+                            <Check className="h-3 w-3 mr-1" />
+                            {isRtl ? "إيداع ورفع" : "Commit & Push"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Deployment Tab */}
+                  <TabsContent value="deploy" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      {/* Deployment Status */}
+                      <Card className="mb-2 bg-gradient-to-br from-green-500/10 to-transparent border-green-500/20">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-green-500/20">
+                              <Cloud className="h-4 w-4 text-green-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "حالة النشر" : "Deployment Status"}</p>
+                              <p className="text-[10px] text-green-400">{isRtl ? "مباشر" : "Live"}</p>
+                            </div>
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">
+                            app.infera.io
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Quick Deploy Actions */}
+                      <div className="grid grid-cols-2 gap-1.5 mb-3">
+                        <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-deploy">
+                          <Rocket className="h-4 w-4 text-green-400" />
+                          {isRtl ? "نشر" : "Deploy"}
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-rebuild">
+                          <RefreshCw className="h-4 w-4 text-blue-400" />
+                          {isRtl ? "إعادة بناء" : "Rebuild"}
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-servers">
+                          <Server className="h-4 w-4 text-violet-400" />
+                          {isRtl ? "السيرفرات" : "Servers"}
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-auto py-2 flex-col gap-1 text-[10px]" data-testid="button-domain">
+                          <Globe className="h-4 w-4 text-amber-400" />
+                          {isRtl ? "الدومين" : "Domain"}
+                        </Button>
+                      </div>
+
+                      {/* Environments */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Layers className="h-3.5 w-3.5" />
+                            {isRtl ? "البيئات" : "Environments"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1.5">
+                          {[
+                            { name: "Production", status: isRtl ? "مباشر" : "Live", color: "text-green-400", dot: "bg-green-400" },
+                            { name: "Staging", status: isRtl ? "جاهز" : "Ready", color: "text-blue-400", dot: "bg-blue-400" },
+                            { name: "Development", status: isRtl ? "محلي" : "Local", color: "text-amber-400", dot: "bg-amber-400" },
+                          ].map((env) => (
+                            <div key={env.name} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]">
+                              <span className="flex items-center gap-2">
+                                <span className={`h-2 w-2 rounded-full ${env.dot}`} />
+                                {env.name}
+                              </span>
+                              <span className={env.color}>{env.status}</span>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Server Stats */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Gauge className="h-3.5 w-3.5 text-cyan-400" />
+                            {isRtl ? "أداء السيرفر" : "Server Performance"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-2">
+                          <div>
+                            <div className="flex items-center justify-between text-[10px] mb-1">
+                              <span className="text-muted-foreground">{isRtl ? "وقت التشغيل" : "Uptime"}</span>
+                              <span className="text-green-400">99.99%</span>
+                            </div>
+                            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                              <div className="h-full bg-gradient-to-r from-green-500 to-green-400 rounded-full" style={{ width: "99.99%" }} />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-[10px]">
+                            <div className="p-2 rounded bg-muted/30">
+                              <p className="text-muted-foreground">{isRtl ? "الطلبات" : "Requests"}</p>
+                              <p className="text-lg font-bold text-cyan-400">45K</p>
+                            </div>
+                            <div className="p-2 rounded bg-muted/30">
+                              <p className="text-muted-foreground">{isRtl ? "الاستجابة" : "Response"}</p>
+                              <p className="text-lg font-bold text-green-400">23ms</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Recent Deployments */}
+                      <Card>
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <TrendingUp className="h-3.5 w-3.5" />
+                            {isRtl ? "آخر النشرات" : "Recent Deploys"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { version: "v2.4.1", time: "5m ago", status: isRtl ? "نجاح" : "Success", color: "text-green-400" },
+                            { version: "v2.4.0", time: "2h ago", status: isRtl ? "نجاح" : "Success", color: "text-green-400" },
+                            { version: "v2.3.9", time: "1d ago", status: isRtl ? "نجاح" : "Success", color: "text-green-400" },
+                          ].map((deploy) => (
+                            <div key={deploy.version} className="flex items-center justify-between p-1 text-[10px]">
+                              <span className="font-mono">{deploy.version}</span>
+                              <span className="text-muted-foreground">{deploy.time}</span>
+                              <Badge variant="outline" className={`text-[9px] h-4 ${deploy.color}`}>{deploy.status}</Badge>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
                   </TabsContent>
                 </Tabs>
               </div>
