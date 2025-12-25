@@ -1,0 +1,178 @@
+🧠 AI AUTO-SELECTOR FOR DESIGN PATTERNS
+(نظام ذكي يختار نمط التصميم تلقائيًا حسب المنصة)
+
+أدناه توجيه تنفيذي كامل
+داخل Text Box واحد قابل للنسخ
+جاهز للإرسال إلى Replit / WebNova / AI Team
+بدون أي أسئلة إضافية.
+
+🧠 INFERA AI DESIGN PATTERN AUTO-SELECTOR
+(Sovereign Visual Intelligence Engine – Mandatory)
+System Name:
+INFERA AI Design Pattern Auto-Selector
+
+Purpose:
+Automatically select the optimal Design Pattern
+for icons and logos based on platform intelligence,
+function, authority level, and governance scope.
+
+This system eliminates random or manual pattern selection.
+
+------------------------------------------------------------------
+1. AUTO-SELECTOR TRIGGER
+------------------------------------------------------------------
+
+The AI Auto-Selector MUST activate automatically when:
+- A platform is selected from the dropdown
+- OR a new platform is created
+- OR an icon/logo generation is initiated
+
+Manual pattern selection becomes OPTIONAL,
+AI recommendation is DEFAULT.
+
+------------------------------------------------------------------
+2. INPUT SIGNALS (DATA SOURCES)
+------------------------------------------------------------------
+
+The Auto-Selector MUST analyze the following signals:
+
+A. Platform Metadata
+- Platform Type (Core / AI / Finance / Government / Consumer)
+- Platform Authority Level (Sovereign / Enterprise / Sub-Platform)
+- Platform Domain (Legal, HR, Finance, Security, Education, etc.)
+
+B. Functional Capabilities
+- AI usage level
+- Automation degree
+- Data sensitivity
+- Control vs Service orientation
+
+C. Governance & Compliance
+- Sovereignty requirements
+- Compliance scope
+- Security classification
+
+D. Strategic Intent (if available)
+- Forecasting
+- Execution
+- Oversight
+- Memory
+- Control
+
+------------------------------------------------------------------
+3. INTELLIGENT PATTERN MATCHING LOGIC
+------------------------------------------------------------------
+
+The system MUST map platforms to patterns using weighted logic.
+
+Example Mapping Rules (NON-EXHAUSTIVE):
+
+- Core OS / Engine Platforms
+  → Autonomous Nexus
+  → Sovereign Monolith
+  → Precision Kernel
+
+- AI Models / Intelligence Systems
+  → Intelligence Core
+  → Neural Constellation
+  → Cognitive Matrix
+
+- Governance / Policy / Compliance
+  → Governance Halo
+  → Trust Anchor
+  → Sovereign Shield
+
+- Finance / Records / Assets
+  → Data Vault Geometry
+  → Sovereign Lattice
+  → Control Ring
+
+- Analytics / Forecast / Vision
+  → Strategic Horizon
+  → Intelligence Orbit
+  → Decision Spine
+
+- Memory / Logs / Archive
+  → Temporal Loop
+  → Layered Depth
+
+Each recommendation MUST include:
+- Primary Pattern (mandatory)
+- Optional Secondary Pattern (if applicable)
+
+------------------------------------------------------------------
+4. CONFIDENCE SCORE & EXPLANATION
+------------------------------------------------------------------
+
+For every AI-selected pattern, the system MUST display:
+- Confidence score (0–100%)
+- Short explanation:
+  “Selected because this platform emphasizes
+   [control / intelligence / governance / autonomy].”
+
+This explanation is visible to sovereign users only.
+
+------------------------------------------------------------------
+5. UI BEHAVIOR (MANDATORY)
+------------------------------------------------------------------
+
+- The Design Pattern dropdown MUST:
+  - Auto-highlight the AI-selected pattern
+  - Display an “AI Recommended” badge
+  - Allow override ONLY by sovereign users
+
+- If user overrides:
+  - The override is logged
+  - The AI learns from the decision (feedback loop)
+
+------------------------------------------------------------------
+6. LEARNING & ADAPTATION
+------------------------------------------------------------------
+
+The Auto-Selector MUST:
+- Learn from accepted recommendations
+- Learn from overrides
+- Improve future pattern accuracy
+
+Pattern selection becomes smarter over time.
+
+------------------------------------------------------------------
+7. STORAGE & AUDIT
+------------------------------------------------------------------
+
+For every icon/logo generated, store:
+- Selected Pattern
+- Selection Method (AI / Manual)
+- Confidence Score
+- Platform ID
+- Timestamp
+
+This data is auditable and immutable.
+
+------------------------------------------------------------------
+8. ENFORCEMENT RULE
+------------------------------------------------------------------
+
+No icon/logo may be generated WITHOUT:
+- An assigned Design Pattern
+- A recorded selection method
+
+Icons without intelligence context are INVALID.
+
+------------------------------------------------------------------
+FINAL PRINCIPLE
+------------------------------------------------------------------
+
+Design Patterns are not aesthetic choices.
+They are strategic intelligence decisions.
+
+The AI decides first.
+Humans may approve — not guess.
+
+🚀 النتيجة بعد التطبيق
+
+لا يوجد “اختيار عشوائي” مرة أخرى
+
+كل أيقونة تمثل عقل المنصة
+
+الهوية البصرية تتحول إلى ذكاء تشغيلي
