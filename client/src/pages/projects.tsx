@@ -8,21 +8,44 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SecureDeletionDialog } from "@/components/secure-deletion-dialog";
-import { Plus, RotateCcw, FolderOpen, Archive } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Plus, RotateCcw, FolderOpen, Archive, ShieldAlert, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Project } from "@shared/schema";
 import { useLanguage } from "@/hooks/use-language";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function Projects() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { language } = useLanguage();
+  const { user } = useAuth();
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
 
-  const { data: projects, isLoading } = useQuery<Project[]>({
+  // SECURITY: Define roles that can access projects
+  const isOwner = user?.role === "owner" || user?.role === "sovereign" || user?.username === "mohamedalib2001";
+  
+  // STAFF departments that should NOT see user projects (employee isolation)
+  // Staff members from these departments are platform employees, not platform users
+  const staffDepartments = ["hr", "human_resources", "finance", "marketing", "operations"];
+  const isStaffMember = user?.department && staffDepartments.includes(user.department.toLowerCase());
+  
+  // Fetch projects for ALL authenticated users (query always runs)
+  const { data: allProjects, isLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
   });
+  
+  // SECURITY: Filter projects based on user role
+  // - Owner/Sovereign: Can see ALL projects (sovereign access)
+  // - Staff Members (HR, Finance, etc.): See NOTHING (they are employees, not users)
+  // - Regular Subscribers: Can ONLY see their own projects (data isolation)
+  const projects = (() => {
+    if (isOwner) return allProjects; // Owner sees everything
+    if (isStaffMember) return []; // Staff sees nothing (will show access denied)
+    // Regular users see only their own projects
+    return allProjects?.filter((p: any) => p.userId === user?.id || p.ownerId === user?.id);
+  })();
 
   const handleOpenProject = (project: Project) => {
     setLocation(`/builder/${project.id}`);
@@ -114,8 +137,46 @@ export default function Projects() {
 
   const rt = recycleBinTranslations[language] || recycleBinTranslations.en;
 
+  const accessDeniedTranslations = {
+    ar: {
+      title: "الوصول مقيد",
+      description: "هذا القسم مخصص للفريق التقني والدعم الفني فقط. موظفو الموارد البشرية والمالية والتسويق لا يمكنهم الوصول لمشاريع المستخدمين لضمان خصوصية البيانات.",
+      contact: "إذا كنت بحاجة للوصول، يرجى تقديم طلب دعم فني."
+    },
+    en: {
+      title: "Access Restricted",
+      description: "This section is restricted to technical and support staff only. HR, Finance, and Marketing employees cannot access user projects to ensure data privacy.",
+      contact: "If you need access, please submit a support request."
+    }
+  };
+  const ad = accessDeniedTranslations[language] || accessDeniedTranslations.en;
+
+  // SECURITY: If user is a staff member from restricted department, show access denied
+  if (isStaffMember) {
+    return (
+      <div className="p-6 max-w-2xl mx-auto">
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardContent className="pt-6">
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className="p-4 rounded-full bg-destructive/10">
+                <ShieldAlert className="h-12 w-12 text-destructive" />
+              </div>
+              <h2 className="text-2xl font-bold text-destructive">{ad.title}</h2>
+              <p className="text-muted-foreground max-w-md">{ad.description}</p>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mt-4">
+                <Lock className="h-4 w-4" />
+                <span>{ad.contact}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   const { data: deletedProjects, isLoading: isLoadingDeleted } = useQuery<Project[]>({
     queryKey: ["/api/projects/recycle-bin"],
+    enabled: canAccessProjects && !isRestrictedDepartment,
   });
 
   const restoreMutation = useMutation({

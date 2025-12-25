@@ -12,9 +12,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { useLanguage } from "@/hooks/use-language";
 import { 
   ListTodo, Plus, Clock, CheckCircle2, AlertCircle, Pause, 
-  Calendar, User as UserIcon, Building, Edit2, Trash2, Save, MessageSquare
+  Calendar, User as UserIcon, Building, Edit2, Trash2, Save, MessageSquare,
+  Filter, Users, Briefcase
 } from "lucide-react";
 import type { EmployeeTask, User, Department } from "@shared/schema";
 
@@ -35,9 +38,12 @@ const STATUS_ICONS: Record<string, JSX.Element> = {
 
 export default function TasksPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { language } = useLanguage();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editTask, setEditTask] = useState<EmployeeTask | null>(null);
   const [filter, setFilter] = useState("all");
+  const [viewMode, setViewMode] = useState<"my" | "department" | "all">("my");
   const [newTask, setNewTask] = useState({
     title: "",
     titleAr: "",
@@ -51,9 +57,29 @@ export default function TasksPage() {
     notes: "",
   });
 
-  const { data: tasks = [], isLoading } = useQuery<EmployeeTask[]>({
+  // SECURITY: Check user role for task visibility
+  const isOwner = user?.role === "owner" || user?.role === "sovereign" || user?.username === "mohamedalib2001";
+  const isManager = user?.role === "admin" || user?.role === "finance_admin" || user?.role === "finance_manager";
+  const canViewAllTasks = isOwner; // Only owner can see ALL tasks
+  const canViewDepartmentTasks = isOwner || isManager; // Managers can see department tasks
+  const canCreateTasks = isOwner || isManager; // Only owner/managers can create tasks
+
+  const { data: allTasks = [], isLoading } = useQuery<EmployeeTask[]>({
     queryKey: ["/api/tasks"],
   });
+
+  // SECURITY: Filter tasks based on user role and view mode
+  // - Owner/Sovereign: Can see ALL tasks
+  // - Manager: Can see department tasks
+  // - Employee: Can ONLY see tasks assigned to them
+  const tasks = (() => {
+    if (isOwner && viewMode === "all") return allTasks;
+    if ((isOwner || isManager) && viewMode === "department") {
+      return allTasks.filter((t: any) => t.departmentId === user?.departmentId);
+    }
+    // Default: Only show tasks assigned to this user
+    return allTasks.filter((t: any) => t.assignedTo === user?.id);
+  })();
 
   const { data: stats } = useQuery<any>({
     queryKey: ["/api/tasks/stats/overview"],
@@ -61,11 +87,29 @@ export default function TasksPage() {
 
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/owner/users"],
+    enabled: canCreateTasks, // Only fetch users if can create tasks
   });
 
   const { data: departments = [] } = useQuery<Department[]>({
     queryKey: ["/api/departments"],
   });
+
+  // Translations for view modes
+  const viewTranslations = {
+    ar: {
+      myTasks: "مهامي",
+      departmentTasks: "مهام القسم",
+      allTasks: "جميع المهام",
+      viewAs: "عرض",
+    },
+    en: {
+      myTasks: "My Tasks",
+      departmentTasks: "Department Tasks",
+      allTasks: "All Tasks",
+      viewAs: "View",
+    }
+  };
+  const vt = viewTranslations[language as keyof typeof viewTranslations] || viewTranslations.en;
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof newTask) => {
@@ -156,12 +200,56 @@ export default function TasksPage() {
         <div className="flex items-center gap-3">
           <ListTodo className="h-8 w-8 text-primary" />
           <div>
-            <h1 className="text-2xl font-bold" data-testid="text-page-title">إدارة المهام / Tasks</h1>
-            <p className="text-muted-foreground text-sm">إنشاء وتتبع مهام الموظفين / Create and track employee tasks</p>
+            <h1 className="text-2xl font-bold" data-testid="text-page-title">
+              {language === "ar" ? "إدارة المهام" : "Tasks Management"}
+            </h1>
+            <p className="text-muted-foreground text-sm">
+              {language === "ar" ? "إنشاء وتتبع مهام الموظفين" : "Create and track employee tasks"}
+            </p>
           </div>
         </div>
 
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* View Mode Selector - Dynamic based on user role */}
+          <div className="flex items-center gap-2 bg-muted/50 rounded-lg p-1">
+            <Button
+              variant={viewMode === "my" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("my")}
+              className="gap-2"
+              data-testid="button-view-my-tasks"
+            >
+              <UserIcon className="h-4 w-4" />
+              {vt.myTasks}
+            </Button>
+            {canViewDepartmentTasks && (
+              <Button
+                variant={viewMode === "department" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("department")}
+                className="gap-2"
+                data-testid="button-view-dept-tasks"
+              >
+                <Briefcase className="h-4 w-4" />
+                {vt.departmentTasks}
+              </Button>
+            )}
+            {canViewAllTasks && (
+              <Button
+                variant={viewMode === "all" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("all")}
+                className="gap-2"
+                data-testid="button-view-all-tasks"
+              >
+                <Users className="h-4 w-4" />
+                {vt.allTasks}
+              </Button>
+            )}
+          </div>
+
+          {canCreateTasks && (
+            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
             <Button data-testid="button-create-task">
               <Plus className="h-4 w-4 ml-2" />
@@ -304,6 +392,8 @@ export default function TasksPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+          )}
+        </div>
       </div>
 
       {stats && (
