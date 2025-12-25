@@ -114,11 +114,12 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
   const { isOpen, setIsOpen, openModal } = useNewPlatformModal();
   const [growthExpanded, setGrowthExpanded] = useState(false);
   const [pitchDeckExpanded, setPitchDeckExpanded] = useState(false);
-  const [activeTab, setActiveTab] = useState<AudienceTab>("all");
+  const isOwner = user?.role === "owner";
+  
+  // Default to "owner" filter for owners, "all" for others
+  const [activeTab, setActiveTab] = useState<AudienceTab>(isOwner ? "owner" : "all");
   const [showZoneWarning, setShowZoneWarning] = useState(false);
   const [currentZone, setCurrentZone] = useState<string>("");
-
-  const isOwner = user?.role === "owner";
   const isAdvancedUser = user?.role === "enterprise" || user?.role === "sovereign" || isOwner;
 
   // Define sovereign safe zone routes - الصفحات السيادية المحمية
