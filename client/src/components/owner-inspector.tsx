@@ -140,6 +140,13 @@ export function InspectorProvider({ children }: { children: React.ReactNode }) {
       }
       
       if (current && current.getAttribute("data-testid")) {
+        const testId = current.getAttribute("data-testid") || "";
+        
+        // Skip inspector's own controls to prevent interference
+        if (testId.startsWith("button-inspector") || testId === "button-copy-testid") {
+          setHoveredElement(null);
+          return;
+        }
         const { hasErrors, messages } = detectElementErrors(current);
         
         setHoveredElement({
@@ -276,12 +283,12 @@ function InspectorOverlay() {
         }}
       />
       
-      {/* Tooltip - receives pointer events to allow clicking copy button */}
+      {/* Tooltip - fixed position at bottom-right corner to avoid interference */}
       <div
         className="fixed z-[10000] bg-popover border rounded-md shadow-lg p-2 max-w-md"
         style={{
-          top: Math.max(8, boundingRect.top + window.scrollY - 50),
-          left: Math.min(boundingRect.left + window.scrollX, window.innerWidth - 320),
+          bottom: 16,
+          right: 16,
         }}
         onMouseEnter={() => setIsTooltipHovered(true)}
         onMouseLeave={() => setIsTooltipHovered(false)}
