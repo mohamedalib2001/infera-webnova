@@ -3,9 +3,11 @@ import type { Server } from "http";
 import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "./db";
-import { conversationMessages, sovereignConversations } from "@shared/schema";
+import { conversationMessages, sovereignConversations, devFiles, isdsProjects, devWorkspaces } from "@shared/schema";
 import { encryptSovereignData } from "./sovereign-encryption";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and } from "drizzle-orm";
+import * as fs from "fs";
+import * as path from "path";
 
 // ==================== نظام WebSocket للتواصل الحي مع AI ====================
 // AI WebSocket Communication System for INFERA WebNova
@@ -22,6 +24,8 @@ enum MessageType {
   CHAT_COMPLETE = "chat_complete",
   CODE_EXECUTE = "code_execute",
   CODE_RESULT = "code_result",
+  FILE_SAVE = "file_save",
+  FILE_SAVE_RESULT = "file_save_result",
   STATUS_UPDATE = "status_update",
   ERROR = "error",
   PING = "ping",
@@ -105,6 +109,16 @@ const codeExecuteSchema = z.object({
   language: z.enum(["nodejs", "python", "typescript", "shell"]),
   code: z.string(),
   timeout: z.number().min(1000).max(60000).default(30000),
+});
+
+// File save schema - Owner only feature
+const fileSaveSchema = z.object({
+  type: z.literal(MessageType.FILE_SAVE),
+  requestId: z.string(),
+  projectId: z.string().optional(), // Optional - uses default workspace if not provided
+  filePath: z.string().min(1), // Path to save file
+  content: z.string(), // File content
+  createDirectories: z.boolean().default(true), // Auto-create parent directories
 });
 
 // Generate unique connection ID
@@ -373,6 +387,153 @@ async function processCodeExecution(
   }
 }
 
+// ==================== FILE SAVE - Owner Only Feature ====================
+// حفظ الملفات مباشرة - ميزة حصرية للمالك
+async function processFileSave(
+  ws: WebSocket,
+  state: ConnectionState,
+  data: z.infer<typeof fileSaveSchema>
+): Promise<void> {
+  // SECURITY LAYER 1: Must be authenticated first
+  if (!state.isAuthenticated) {
+    sendMessage(ws, {
+      type: MessageType.FILE_SAVE_RESULT,
+      requestId: data.requestId,
+      success: false,
+      error: "Authentication required. Complete auth handshake first.",
+      errorAr: "المصادقة مطلوبة. أكمل عملية المصادقة أولاً.",
+    });
+    return;
+  }
+  
+  // SECURITY LAYER 2: Owner/Sovereign-only feature (server-verified role)
+  if (!state.isOwner && state.userRole !== "owner" && state.userRole !== "sovereign") {
+    sendMessage(ws, {
+      type: MessageType.FILE_SAVE_RESULT,
+      requestId: data.requestId,
+      success: false,
+      error: "Permission denied. File modification requires owner or sovereign privileges.",
+      errorAr: "تم رفض الإذن. يتطلب تعديل الملفات صلاحيات المالك أو السيادي.",
+    });
+    return;
+  }
+  
+  // SECURITY LAYER 3: Verify userId exists (from server session)
+  if (!state.userId) {
+    sendMessage(ws, {
+      type: MessageType.FILE_SAVE_RESULT,
+      requestId: data.requestId,
+      success: false,
+      error: "User identity not verified. Session may be invalid.",
+      errorAr: "لم يتم التحقق من هوية المستخدم. قد تكون الجلسة غير صالحة.",
+    });
+    return;
+  }
+
+  state.isProcessing = true;
+  
+  sendMessage(ws, {
+    type: MessageType.STATUS_UPDATE,
+    requestId: data.requestId,
+    status: "saving",
+    statusAr: "جاري الحفظ",
+  });
+
+  try {
+    const filePath = data.filePath;
+    const content = data.content;
+    
+    // Validate file path - prevent directory traversal attacks
+    const normalizedPath = path.normalize(filePath).replace(/^(\.\.(\/|\\|$))+/, '');
+    if (normalizedPath.includes('..') || path.isAbsolute(normalizedPath)) {
+      throw new Error("Invalid file path - directory traversal not allowed");
+    }
+
+    // Determine save location
+    let savePath: string;
+    let savedToDb = false;
+    
+    // If projectId provided, save to devFiles table
+    if (data.projectId) {
+      // Save to database for project files
+      const existingFile = await db.query.devFiles.findFirst({
+        where: and(
+          eq(devFiles.projectId, data.projectId),
+          eq(devFiles.path, normalizedPath)
+        ),
+      });
+
+      if (existingFile) {
+        // Update existing file
+        await db.update(devFiles)
+          .set({
+            content: content,
+            sizeBytes: Buffer.byteLength(content, 'utf8'),
+            lastModifiedBy: state.userId || undefined,
+            lastModifiedAt: new Date(),
+          })
+          .where(eq(devFiles.id, existingFile.id));
+      } else {
+        // Insert new file
+        const fileName = path.basename(normalizedPath);
+        await db.insert(devFiles).values({
+          name: fileName,
+          path: normalizedPath,
+          projectId: data.projectId,
+          fileType: 'file',
+          content: content,
+          sizeBytes: Buffer.byteLength(content, 'utf8'),
+          lastModifiedBy: state.userId || undefined,
+        });
+      }
+      
+      savePath = `project:${data.projectId}/${normalizedPath}`;
+      savedToDb = true;
+    } else {
+      // Save to actual filesystem (for platform files)
+      // Base directory for platform development files
+      const baseDir = process.cwd();
+      savePath = path.join(baseDir, normalizedPath);
+      
+      // Create directories if needed
+      if (data.createDirectories) {
+        const dirPath = path.dirname(savePath);
+        if (!fs.existsSync(dirPath)) {
+          fs.mkdirSync(dirPath, { recursive: true });
+        }
+      }
+      
+      // Write file
+      fs.writeFileSync(savePath, content, 'utf8');
+    }
+
+    console.log(`[AI WebSocket] File saved by ${state.userRole}: ${savePath}`);
+    
+    sendMessage(ws, {
+      type: MessageType.FILE_SAVE_RESULT,
+      requestId: data.requestId,
+      success: true,
+      filePath: normalizedPath,
+      savedToDb,
+      message: `File saved successfully: ${normalizedPath}`,
+      messageAr: `تم حفظ الملف بنجاح: ${normalizedPath}`,
+    });
+    
+  } catch (error: any) {
+    console.error("[AI WebSocket] File save error:", error);
+    sendMessage(ws, {
+      type: MessageType.FILE_SAVE_RESULT,
+      requestId: data.requestId,
+      success: false,
+      error: error.message || "File save failed",
+      errorAr: "فشل حفظ الملف",
+    });
+  } finally {
+    state.isProcessing = false;
+    state.lastActivity = new Date();
+  }
+}
+
 // Authentication request schema
 const authRequestSchema = z.object({
   type: z.literal(MessageType.AUTH_REQUEST),
@@ -438,6 +599,11 @@ async function handleMessage(ws: WebSocket, state: ConnectionState, rawData: str
       case MessageType.CODE_EXECUTE:
         const codeData = codeExecuteSchema.parse(data);
         await processCodeExecution(ws, state, codeData);
+        break;
+        
+      case MessageType.FILE_SAVE:
+        const fileData = fileSaveSchema.parse(data);
+        await processFileSave(ws, state, fileData);
         break;
         
       default:
@@ -506,9 +672,11 @@ export function initializeAIWebSocket(server: Server): WebSocketServer {
         chat: true,
         streaming: true,
         codeExecution: true,
+        fileSave: authUser?.isOwner || false, // Owner-only feature
         languages: ["nodejs", "python", "typescript", "shell"],
       },
       isSessionValid: !!authUser, // Let client know if session was verified
+      isOwner: authUser?.isOwner || false,
     });
     
     console.log(`[AI WebSocket] Client connected: ${connectionId}, authenticated: ${!!authUser}, isOwner: ${authUser?.isOwner || false}`);

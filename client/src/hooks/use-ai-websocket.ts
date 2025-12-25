@@ -14,6 +14,8 @@ export enum AIMessageType {
   CHAT_COMPLETE = "chat_complete",
   CODE_EXECUTE = "code_execute",
   CODE_RESULT = "code_result",
+  FILE_SAVE = "file_save",
+  FILE_SAVE_RESULT = "file_save_result",
   STATUS_UPDATE = "status_update",
   ERROR = "error",
   PING = "ping",
@@ -28,13 +30,26 @@ export interface AIWebSocketState {
   lastResponse: string;
   error: string | null;
   connectionId: string | null;
+  isOwner: boolean;
+  canSaveFiles: boolean;
 }
 
 export type UserRole = "owner" | "sovereign" | "enterprise" | "admin" | "user" | "free";
 
+export interface FileSaveResult {
+  success: boolean;
+  filePath: string;
+  savedToDb?: boolean;
+  message?: string;
+  messageAr?: string;
+  error?: string;
+  errorAr?: string;
+}
+
 export interface UseAIWebSocketReturn extends AIWebSocketState {
   sendMessage: (message: string, language?: "ar" | "en", conversationId?: string, userRole?: UserRole) => Promise<string>;
   executeCode: (code: string, language: "nodejs" | "python" | "typescript" | "shell") => Promise<any>;
+  saveFile: (filePath: string, content: string, projectId?: string) => Promise<FileSaveResult>;
   connect: () => void;
   disconnect: () => void;
 }
@@ -52,6 +67,8 @@ export function useAIWebSocket(autoConnect: boolean = true): UseAIWebSocketRetur
     lastResponse: "",
     error: null,
     connectionId: null,
+    isOwner: false,
+    canSaveFiles: false,
   });
 
   const generateRequestId = () => `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -62,7 +79,12 @@ export function useAIWebSocket(autoConnect: boolean = true): UseAIWebSocketRetur
       
       switch (data.type) {
         case AIMessageType.CONNECTED:
-          setState(prev => ({ ...prev, connectionId: data.connectionId }));
+          setState(prev => ({ 
+            ...prev, 
+            connectionId: data.connectionId,
+            isOwner: data.isOwner || false,
+            canSaveFiles: data.capabilities?.fileSave || false,
+          }));
           // Auto-authenticate with session token
           if (wsRef.current?.readyState === WebSocket.OPEN) {
             const sessionToken = `session-${Date.now()}-${Math.random().toString(36).substr(2, 16)}`;
@@ -125,6 +147,23 @@ export function useAIWebSocket(autoConnect: boolean = true): UseAIWebSocketRetur
           const codeHandler = requestsRef.current.get(data.requestId);
           if (codeHandler) {
             codeHandler.resolve(data);
+            requestsRef.current.delete(data.requestId);
+          }
+          break;
+          
+        case AIMessageType.FILE_SAVE_RESULT:
+          setState(prev => ({ ...prev, isProcessing: false }));
+          const fileHandler = requestsRef.current.get(data.requestId);
+          if (fileHandler) {
+            fileHandler.resolve({
+              success: data.success,
+              filePath: data.filePath,
+              savedToDb: data.savedToDb,
+              message: data.message,
+              messageAr: data.messageAr,
+              error: data.error,
+              errorAr: data.errorAr,
+            });
             requestsRef.current.delete(data.requestId);
           }
           break;
@@ -281,6 +320,64 @@ export function useAIWebSocket(autoConnect: boolean = true): UseAIWebSocketRetur
     });
   }, [state.isAuthenticated]);
 
+  // Save file - Owner only feature
+  // حفظ الملفات - ميزة حصرية للمالك
+  const saveFile = useCallback(async (
+    filePath: string,
+    content: string,
+    projectId?: string
+  ): Promise<FileSaveResult> => {
+    return new Promise((resolve, reject) => {
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        reject(new Error("WebSocket not connected"));
+        return;
+      }
+      
+      if (!state.isAuthenticated) {
+        reject(new Error("Not authenticated"));
+        return;
+      }
+      
+      if (!state.canSaveFiles) {
+        resolve({
+          success: false,
+          filePath,
+          error: "Permission denied - file save requires owner privileges",
+          errorAr: "تم رفض الإذن - يتطلب حفظ الملفات صلاحيات المالك",
+        });
+        return;
+      }
+      
+      const requestId = generateRequestId();
+      setState(prev => ({ ...prev, isProcessing: true, error: null }));
+      
+      requestsRef.current.set(requestId, { resolve, reject });
+      
+      wsRef.current.send(JSON.stringify({
+        type: AIMessageType.FILE_SAVE,
+        requestId,
+        filePath,
+        content,
+        projectId,
+        createDirectories: true,
+      }));
+      
+      // Timeout after 30 seconds
+      setTimeout(() => {
+        if (requestsRef.current.has(requestId)) {
+          requestsRef.current.delete(requestId);
+          resolve({
+            success: false,
+            filePath,
+            error: "File save timeout",
+            errorAr: "انتهت مهلة حفظ الملف",
+          });
+          setState(prev => ({ ...prev, isProcessing: false, error: "File save timeout" }));
+        }
+      }, 30000);
+    });
+  }, [state.isAuthenticated, state.canSaveFiles]);
+
   // Connect on mount if autoConnect is true
   useEffect(() => {
     console.log("[AI WebSocket] useEffect triggered, autoConnect:", autoConnect);
@@ -302,6 +399,7 @@ export function useAIWebSocket(autoConnect: boolean = true): UseAIWebSocketRetur
     ...state,
     sendMessage,
     executeCode,
+    saveFile,
     connect,
     disconnect,
   };
