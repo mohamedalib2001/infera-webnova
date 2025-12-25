@@ -41,6 +41,9 @@ import {
   FileText,
   Globe,
   Award,
+  Printer,
+  Download,
+  Loader2,
 } from "lucide-react";
 
 interface NovaControlPanelProps {
@@ -412,20 +415,252 @@ export function NovaControlPanel({ isOpen, onClose, isRtl }: NovaControlPanelPro
 
   const text = isRtl ? t.ar : t.en;
 
+  const [isPrinting, setIsPrinting] = useState(false);
+
+  const generatePrintContent = () => {
+    const date = new Date().toLocaleDateString(isRtl ? 'ar-SA' : 'en-US', { 
+      year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' 
+    });
+    
+    const capabilitiesHtml = capabilities.map(cap => `
+      <tr>
+        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${isRtl ? cap.nameAr : cap.nameEn}</td>
+        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${isRtl ? cap.descAr : cap.descEn}</td>
+        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: center;">
+          <span style="padding: 4px 12px; border-radius: 9999px; font-size: 12px; background: ${cap.status === 'active' ? '#dcfce7' : cap.status === 'partial' ? '#fef3c7' : '#fee2e2'}; color: ${cap.status === 'active' ? '#166534' : cap.status === 'partial' ? '#92400e' : '#dc2626'};">
+            ${cap.status === 'active' ? (isRtl ? 'مفعّل' : 'Active') : cap.status === 'partial' ? (isRtl ? 'جزئي' : 'Partial') : (isRtl ? 'معطّل' : 'Disabled')}
+          </span>
+        </td>
+        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: center;">${cap.enabled ? '✓' : '✗'}</td>
+      </tr>
+    `).join('');
+
+    const complianceHtml = complianceMetrics.map(metric => `
+      <div style="padding: 16px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-weight: 600;">${isRtl ? metric.nameAr : metric.nameEn}</span>
+          <span style="font-size: 24px; font-weight: bold; color: ${metric.status === 'excellent' ? '#16a34a' : metric.status === 'good' ? '#2563eb' : metric.status === 'warning' ? '#d97706' : '#dc2626'};">${metric.score}%</span>
+        </div>
+        <div style="margin-top: 8px; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden;">
+          <div style="height: 100%; width: ${metric.score}%; background: ${metric.status === 'excellent' ? '#16a34a' : metric.status === 'good' ? '#2563eb' : metric.status === 'warning' ? '#d97706' : '#dc2626'};"></div>
+        </div>
+      </div>
+    `).join('');
+
+    const strengthsHtml = strengths.map(s => `
+      <div style="padding: 16px; border: 1px solid #dcfce7; border-radius: 8px; margin-bottom: 12px; background: #f0fdf4;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <span style="font-weight: 600; color: #166534;">${isRtl ? s.titleAr : s.titleEn}</span>
+          <span style="padding: 4px 12px; background: #dcfce7; color: #166534; border-radius: 9999px; font-size: 12px;">${s.score}%</span>
+        </div>
+        <p style="color: #4b5563; font-size: 14px; margin-bottom: 12px;">${isRtl ? s.descAr : s.descEn}</p>
+        <div style="padding: 12px; background: #dcfce7; border-radius: 6px;">
+          <strong style="color: #d97706; font-size: 12px;">${isRtl ? 'تعزيز ×10:' : 'Amplify ×10:'}</strong>
+          <p style="margin-top: 4px; font-size: 14px;">${isRtl ? s.amplificationAr : s.amplificationEn}</p>
+        </div>
+      </div>
+    `).join('');
+
+    const weaknessesHtml = weaknesses.map(w => `
+      <div style="padding: 16px; border: 1px solid ${w.severity === 'high' ? '#fee2e2' : '#fef3c7'}; border-radius: 8px; margin-bottom: 12px; background: ${w.severity === 'high' ? '#fef2f2' : '#fffbeb'};">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <span style="font-weight: 600; color: ${w.severity === 'high' ? '#dc2626' : '#d97706'};">${isRtl ? w.titleAr : w.titleEn}</span>
+          <span style="padding: 4px 12px; background: ${w.severity === 'high' ? '#fee2e2' : '#fef3c7'}; color: ${w.severity === 'high' ? '#dc2626' : '#d97706'}; border-radius: 9999px; font-size: 12px;">
+            ${w.severity === 'high' ? (isRtl ? 'حرج' : 'Critical') : (isRtl ? 'متوسط' : 'Medium')}
+          </span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; font-size: 14px;">
+          <div><strong>${isRtl ? 'النوع:' : 'Type:'}</strong><br/>${isRtl ? w.typeAr : w.typeEn}</div>
+          <div><strong>${isRtl ? 'تكلفة التجاهل:' : 'Ignore Cost:'}</strong><br/>${isRtl ? w.costAr : w.costEn}</div>
+          <div><strong>${isRtl ? 'الخطة:' : 'Plan:'}</strong><br/>${isRtl ? w.planAr : w.planEn}</div>
+        </div>
+      </div>
+    `).join('');
+
+    const labHtml = labScenarios.map(s => `
+      <div style="padding: 16px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-weight: 600;">${isRtl ? s.titleAr : s.titleEn}</span>
+          <span style="padding: 4px 12px; background: ${s.status === 'completed' ? '#dcfce7' : s.status === 'running' ? '#dbeafe' : '#f3f4f6'}; color: ${s.status === 'completed' ? '#166534' : s.status === 'running' ? '#1d4ed8' : '#374151'}; border-radius: 9999px; font-size: 12px;">
+            ${s.status === 'completed' ? (isRtl ? 'مكتمل' : 'Completed') : s.status === 'running' ? (isRtl ? 'قيد التشغيل' : 'Running') : (isRtl ? 'جاهز' : 'Ready')}
+          </span>
+        </div>
+        <p style="color: #4b5563; font-size: 14px; margin-top: 8px;">${isRtl ? s.descAr : s.descEn}</p>
+      </div>
+    `).join('');
+
+    return `
+<!DOCTYPE html>
+<html dir="${isRtl ? 'rtl' : 'ltr'}" lang="${isRtl ? 'ar' : 'en'}">
+<head>
+  <meta charset="UTF-8">
+  <title>${isRtl ? 'تقرير لوحة تحكم Nova السيادية' : 'Nova Sovereign Control Panel Report'}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
+    body { font-family: ${isRtl ? "'Tajawal', sans-serif" : "'Inter', sans-serif"}; color: #1f2937; margin: 0; padding: 40px; background: white; }
+    .header { background: linear-gradient(135deg, #7c3aed, #a855f7, #d946ef); color: white; padding: 32px; border-radius: 12px; margin-bottom: 32px; }
+    .header h1 { margin: 0 0 8px 0; font-size: 28px; display: flex; align-items: center; gap: 12px; }
+    .header p { margin: 0; opacity: 0.9; }
+    .section { margin-bottom: 32px; page-break-inside: avoid; }
+    .section-title { font-size: 20px; font-weight: 700; color: #7c3aed; border-bottom: 2px solid #7c3aed; padding-bottom: 8px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .icon { display: inline-block; width: 20px; height: 20px; background: #7c3aed; border-radius: 4px; margin-${isRtl ? 'left' : 'right'}: 8px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #f3f4f6; padding: 12px; text-align: ${isRtl ? 'right' : 'left'}; font-weight: 600; border-bottom: 2px solid #e2e8f0; }
+    .index-card { background: linear-gradient(135deg, #1e1b4b, #312e81); color: white; padding: 32px; border-radius: 12px; text-align: center; }
+    .index-score { font-size: 72px; font-weight: 700; background: linear-gradient(135deg, #a78bfa, #f472b6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; color: #6b7280; font-size: 12px; }
+    .logo { width: 32px; height: 32px; background: linear-gradient(135deg, #7c3aed, #d946ef); border-radius: 8px; display: inline-block; vertical-align: middle; margin-${isRtl ? 'left' : 'right'}: 12px; }
+    @media print { body { margin: 0; padding: 20px; } .section { page-break-inside: avoid; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1><span class="logo"></span>${isRtl ? 'تقرير لوحة تحكم Nova السيادية' : 'Nova Sovereign Control Panel Report'}</h1>
+    <p>${isRtl ? 'العقل التنفيذي والتحليلي لمنظومة INFRA Engine' : 'Executive & Analytical Core of INFRA Engine'}</p>
+    <p style="margin-top: 12px; font-size: 14px;">${isRtl ? 'تاريخ التقرير:' : 'Report Date:'} ${date}</p>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="icon"></span>${isRtl ? 'القدرات السيادية' : 'Sovereign Capabilities'}</div>
+    <table>
+      <thead>
+        <tr>
+          <th>${isRtl ? 'القدرة' : 'Capability'}</th>
+          <th>${isRtl ? 'الوصف' : 'Description'}</th>
+          <th style="text-align: center;">${isRtl ? 'الحالة' : 'Status'}</th>
+          <th style="text-align: center;">${isRtl ? 'مفعّل' : 'Enabled'}</th>
+        </tr>
+      </thead>
+      <tbody>${capabilitiesHtml}</tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="icon"></span>${isRtl ? 'التدقيق العالمي' : 'Global Audit (Compliance)'}</div>
+    ${complianceHtml}
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="icon"></span>${isRtl ? 'نقاط القوة' : 'Strengths'}</div>
+    ${strengthsHtml}
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="icon"></span>${isRtl ? 'نقاط الضعف' : 'Weaknesses'}</div>
+    ${weaknessesHtml}
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="icon"></span>${isRtl ? 'مؤشر الذكاء السيادي' : 'Sovereign Intelligence Index'}</div>
+    <div class="index-card">
+      <div class="index-score">${sovereignIndex}</div>
+      <p style="font-size: 18px; margin-top: 8px;">${isRtl ? 'من 100' : 'out of 100'}</p>
+      <p style="opacity: 0.8; margin-top: 12px;">${sovereignIndex >= 80 ? (isRtl ? 'أداء ممتاز' : 'Excellent Performance') : sovereignIndex >= 60 ? (isRtl ? 'أداء جيد' : 'Good Performance') : (isRtl ? 'يحتاج تحسين' : 'Needs Improvement')}</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="icon"></span>${isRtl ? 'مختبر التطوير' : 'Development Lab'}</div>
+    ${labHtml}
+  </div>
+
+  <div class="footer">
+    <p>INFERA WebNova - ${isRtl ? 'نظام التشغيل السيادي للمنصات الرقمية' : 'Sovereign OS for Digital Platforms'}</p>
+    <p>${isRtl ? 'المالك:' : 'Owner:'} Mohamed Ali Abdalla Mohamed | INFRA Engine</p>
+  </div>
+</body>
+</html>`;
+  };
+
+  const handlePrint = () => {
+    const printContent = generatePrintContent();
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.onload = () => {
+        printWindow.print();
+      };
+    }
+    toast({
+      title: isRtl ? "جاري الطباعة..." : "Printing...",
+      description: isRtl ? "سيتم فتح نافذة الطباعة" : "Print dialog will open",
+    });
+  };
+
+  const handleExportPDF = async () => {
+    setIsPrinting(true);
+    try {
+      const printContent = generatePrintContent();
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+        
+        toast({
+          title: isRtl ? "جاري التصدير كـ PDF" : "Exporting as PDF",
+          description: isRtl ? "اختر 'حفظ كـ PDF' في نافذة الطباعة" : "Select 'Save as PDF' in the print dialog",
+        });
+        
+        printWindow.onload = () => {
+          setTimeout(() => {
+            printWindow.print();
+            setIsPrinting(false);
+          }, 500);
+        };
+      } else {
+        throw new Error("Could not open print window");
+      }
+    } catch {
+      toast({
+        title: isRtl ? "خطأ في التصدير" : "Export Error",
+        description: isRtl ? "حدث خطأ أثناء التصدير" : "An error occurred during export",
+        variant: "destructive",
+      });
+      setIsPrinting(false);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-5xl h-[85vh] p-0 bg-gradient-to-br from-slate-950 via-violet-950/20 to-slate-950 border-violet-500/30" dir={isRtl ? "rtl" : "ltr"}>
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-violet-500/20">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 shadow-lg shadow-violet-500/20">
-              <Brain className="w-8 h-8 text-white" />
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 shadow-lg shadow-violet-500/20">
+                <Brain className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-bold bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent flex items-center gap-2">
+                  {text.title}
+                  <Crown className="w-5 h-5 text-amber-400" />
+                </DialogTitle>
+                <p className="text-sm text-muted-foreground">{text.subtitle}</p>
+              </div>
             </div>
-            <div>
-              <DialogTitle className="text-xl font-bold bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent flex items-center gap-2">
-                {text.title}
-                <Crown className="w-5 h-5 text-amber-400" />
-              </DialogTitle>
-              <p className="text-sm text-muted-foreground">{text.subtitle}</p>
+            <div className="flex items-center gap-2">
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={handlePrint}
+                className="border-violet-500/30 text-violet-300"
+                data-testid="btn-print"
+              >
+                <Printer className="w-4 h-4 mr-2" />
+                {isRtl ? "طباعة" : "Print"}
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={handleExportPDF}
+                disabled={isPrinting}
+                className="border-green-500/30 text-green-400"
+                data-testid="btn-export-pdf"
+              >
+                {isPrinting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                {isRtl ? "تصدير PDF" : "Export PDF"}
+              </Button>
             </div>
           </div>
         </DialogHeader>
