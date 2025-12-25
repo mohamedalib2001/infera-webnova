@@ -87,6 +87,31 @@ export function togglePageEnabled(route: string): boolean {
   return config.enabled;
 }
 
+// Role-based access control functions
+export function getPageAllowedRoles(route: string): string[] {
+  const config = getPageAccessConfig()[route];
+  return config?.allowedRoles || [];
+}
+
+export function toggleRoleAccess(route: string, role: string): boolean {
+  const config = getPageAccessConfig()[route] || { enabled: true, allowedUsers: [], allowedRoles: [] };
+  const index = config.allowedRoles.indexOf(role);
+  if (index > -1) {
+    config.allowedRoles.splice(index, 1);
+    setPageAccessConfig(route, config);
+    return false;
+  } else {
+    config.allowedRoles.push(role);
+    setPageAccessConfig(route, config);
+    return true;
+  }
+}
+
+export function isRoleAllowed(route: string, role: string): boolean {
+  const config = getPageAccessConfig()[route];
+  return config?.allowedRoles?.includes(role) || false;
+}
+
 type RoleType = "owner" | "sovereign" | "manager" | "employee" | "subscriber" | "free" | "pro" | "enterprise" | "public";
 type CapabilityType = string;
 
@@ -856,6 +881,7 @@ export function SovereignAccessSummary({ currentRoute }: SovereignAccessSummaryP
   
   const [pageEnabled, setPageEnabled] = useState(() => isPageEnabled(currentRoute));
   const [allowedUsers, setAllowedUsers] = useState<string[]>(() => getPageAllowedUsers(currentRoute));
+  const [customAllowedRoles, setCustomAllowedRoles] = useState<string[]>(() => getPageAllowedRoles(currentRoute));
   const [newUsername, setNewUsername] = useState("");
   const [showUserPanel, setShowUserPanel] = useState(false);
   
@@ -865,6 +891,7 @@ export function SovereignAccessSummary({ currentRoute }: SovereignAccessSummaryP
   useEffect(() => {
     setPageEnabled(isPageEnabled(currentRoute));
     setAllowedUsers(getPageAllowedUsers(currentRoute));
+    setCustomAllowedRoles(getPageAllowedRoles(currentRoute));
   }, [currentRoute]);
   
   if (!isOwner || !isEnabled) return null;
@@ -894,6 +921,9 @@ export function SovereignAccessSummary({ currentRoute }: SovereignAccessSummaryP
     userRemoved: language === "ar" ? "تم إزالة المستخدم" : "User removed",
     enterUsername: language === "ar" ? "أدخل اسم المستخدم..." : "Enter username...",
     manageUsers: language === "ar" ? "إدارة المستخدمين" : "Manage Users",
+    roleEnabled: language === "ar" ? "تم تفعيل الدور" : "Role enabled",
+    roleDisabled: language === "ar" ? "تم إلغاء تفعيل الدور" : "Role disabled",
+    clickToToggle: language === "ar" ? "انقر للتبديل" : "Click to toggle",
   };
   
   const handleTogglePage = () => {
@@ -923,6 +953,18 @@ export function SovereignAccessSummary({ currentRoute }: SovereignAccessSummaryP
     toast({
       title: t.userRemoved,
       description: username,
+    });
+  };
+  
+  const handleToggleRole = (role: string, roleLabel: string) => {
+    // Owner role cannot be toggled off
+    if (role === "owner") return;
+    
+    const newState = toggleRoleAccess(currentRoute, role);
+    setCustomAllowedRoles(getPageAllowedRoles(currentRoute));
+    toast({
+      title: newState ? t.roleEnabled : t.roleDisabled,
+      description: roleLabel,
     });
   };
   
@@ -958,10 +1000,11 @@ export function SovereignAccessSummary({ currentRoute }: SovereignAccessSummaryP
           </div>
         )}
         
-        {/* Role-based access list */}
+        {/* Role-based access list - Clickable to toggle */}
         <div className="grid gap-1.5">
           {displayRoles.map(({ role, labelEn, labelAr }) => {
-            const isAllowed = (() => {
+            // Check both default permissions and custom overrides
+            const defaultAllowed = (() => {
               if (role === "owner") return allowedRoles.includes("owner") || allowedRoles.includes("sovereign");
               if (role === "manager") return allowedRoles.includes("manager");
               if (role === "free") return allowedRoles.includes("free") || allowedRoles.includes("subscriber");
@@ -970,29 +1013,50 @@ export function SovereignAccessSummary({ currentRoute }: SovereignAccessSummaryP
               return false;
             })();
             
+            // Check if this role has been custom-enabled for this page
+            const customEnabled = customAllowedRoles.includes(role);
+            const isAllowed = defaultAllowed || customEnabled;
+            
+            // Owner role is always locked (cannot be toggled)
+            const isLocked = role === "owner";
+            // Only sovereign pages can have toggleable roles
+            const canToggle = isSovereignPage && !isLocked;
+            
             const config = roleConfig[role];
             const Icon = config.icon;
+            const roleLabel = language === "ar" ? labelAr : labelEn;
             
             return (
-              <div 
-                key={role} 
+              <button 
+                key={role}
+                onClick={() => canToggle && handleToggleRole(role, roleLabel)}
+                disabled={isLocked}
                 className={cn(
-                  "flex items-center justify-between px-2 py-1.5 rounded-md text-xs",
+                  "flex items-center justify-between px-2 py-1.5 rounded-md text-xs w-full transition-all",
                   isAllowed 
                     ? "bg-green-500/10 border border-green-500/20" 
-                    : "bg-red-500/10 border border-red-500/20 opacity-60"
+                    : "bg-red-500/10 border border-red-500/20",
+                  canToggle && "cursor-pointer hover:opacity-80 active:scale-[0.98]",
+                  isLocked && "cursor-not-allowed"
                 )}
+                title={canToggle ? t.clickToToggle : undefined}
+                data-testid={`button-toggle-role-${role}`}
               >
                 <div className="flex items-center gap-2">
                   <Icon className={cn("h-3.5 w-3.5", config.color)} />
                   <span className={isAllowed ? "text-foreground" : "text-muted-foreground"}>
-                    {language === "ar" ? labelAr : labelEn}
+                    {roleLabel}
                   </span>
+                  {customEnabled && !defaultAllowed && (
+                    <Badge variant="secondary" className="text-[8px] px-1 py-0">
+                      {language === "ar" ? "مخصص" : "Custom"}
+                    </Badge>
+                  )}
                 </div>
                 <Badge 
                   variant="outline" 
                   className={cn(
-                    "text-[10px] px-1.5",
+                    "text-[10px] px-1.5 transition-colors",
                     isAllowed 
                       ? "border-green-500/50 text-green-600 bg-green-500/10" 
                       : "border-red-500/50 text-red-500 bg-red-500/10"
@@ -1004,7 +1068,7 @@ export function SovereignAccessSummary({ currentRoute }: SovereignAccessSummaryP
                     <><Lock className="h-2.5 w-2.5 mr-0.5" />{t.blocked}</>
                   )}
                 </Badge>
-              </div>
+              </button>
             );
           })}
         </div>
