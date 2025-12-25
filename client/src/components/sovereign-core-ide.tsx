@@ -300,6 +300,14 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
   
   // Voice Input Functions
   const toggleVoiceInput = () => {
+    if (!isVoiceEnabled) {
+      toast({
+        title: isRtl ? "الإدخال الصوتي معطل" : "Voice Input Disabled",
+        description: isRtl ? "قم بتمكين الإدخال الصوتي من الإعدادات" : "Enable voice input from Nova settings",
+      });
+      return;
+    }
+    
     if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
       toast({
         title: isRtl ? "غير مدعوم" : "Not Supported",
@@ -1252,7 +1260,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                           }}
                           disabled={isProcessing || aiWs.isProcessing}
                           className={`min-h-[60px] resize-none ${isListening ? "border-red-500/50 bg-red-500/5" : ""}`}
-                          data-testid="input-message"
+                          data-testid="nova-message-input"
                         />
                         <Button
                           onClick={handleSendMessage}
