@@ -44,6 +44,7 @@ import {
   Brain,
 } from "lucide-react";
 const NovaSovereignWorkspace = lazy(() => import("@/components/nova-sovereign-workspace").then(m => ({ default: m.NovaSovereignWorkspace })));
+const LightweightIDEShell = lazy(() => import("@/components/sovereign-ide/LightweightIDEShell").then(m => ({ default: m.LightweightIDEShell })));
 import { 
   getPlatformLogoState, 
   checkGlobalCompliance, 
@@ -223,7 +224,6 @@ function downloadAllLogoVariants(platform: PlatformIconConfig): void {
   });
 }
 import { SovereignCore } from "@/components/sovereign-core";
-const SovereignCoreIDE = lazy(() => import("@/components/sovereign-core-ide").then(m => ({ default: m.SovereignCoreIDE })));
 import { 
   Crown, Star, Briefcase, Heart, GraduationCap, Landmark,
   ShoppingCart, Truck, Home, Hotel, Newspaper, Scale,
@@ -1831,16 +1831,8 @@ export default function SovereignWorkspacePage() {
         </TabsContent>
 
         <TabsContent value="sovereign-core" className="mt-6">
-          <Suspense fallback={
-            <div className="flex items-center justify-center h-[600px] bg-gradient-to-br from-violet-950/20 to-indigo-950/20 rounded-lg border">
-              <div className="flex flex-col items-center gap-4 text-muted-foreground">
-                <Loader2 className="w-12 h-12 animate-spin text-violet-400" />
-                <span className="text-lg font-medium">جاري تحميل بيئة التطوير السيادية...</span>
-                <span className="text-sm">Loading Sovereign Core IDE...</span>
-              </div>
-            </div>
-          }>
-            <SovereignCoreIDE 
+          <Suspense fallback={null}>
+            <LightweightIDEShell 
               workspaceId={workspace?.id || ""} 
               isOwner={true}
             />
