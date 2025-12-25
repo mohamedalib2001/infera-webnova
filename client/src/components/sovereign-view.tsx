@@ -554,3 +554,192 @@ export function PageTitleBadge({ visibility }: { visibility: VisibilityRule }) {
     </Badge>
   );
 }
+
+// Page permissions registry for route-based access control
+const pagePermissionsRegistry: Record<string, { allowedRoles: RoleType[]; description: string; descriptionAr: string }> = {
+  "/": { 
+    allowedRoles: ["owner", "sovereign", "manager", "employee", "subscriber", "free", "pro", "enterprise", "public"],
+    description: "Home page - accessible to everyone",
+    descriptionAr: "الصفحة الرئيسية - متاحة للجميع"
+  },
+  "/home": { 
+    allowedRoles: ["owner", "sovereign", "manager", "employee", "subscriber", "free", "pro", "enterprise", "public"],
+    description: "Home page - accessible to everyone",
+    descriptionAr: "الصفحة الرئيسية - متاحة للجميع"
+  },
+  "/owner": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Owner Dashboard - exclusive owner access",
+    descriptionAr: "لوحة تحكم المالك - حصري للمالك"
+  },
+  "/owner/content-moderation": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Content Moderation - owner governance tool",
+    descriptionAr: "مراقبة المحتوى - أداة حوكمة المالك"
+  },
+  "/api-keys": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "API Keys Management - owner only",
+    descriptionAr: "إدارة مفاتيح API - المالك فقط"
+  },
+  "/users": { 
+    allowedRoles: ["owner", "sovereign", "manager"],
+    description: "User Management - owner and managers",
+    descriptionAr: "إدارة المستخدمين - المالك والمديرين"
+  },
+  "/console": { 
+    allowedRoles: ["owner", "sovereign", "manager", "employee", "pro", "enterprise"],
+    description: "Console - authenticated users with permissions",
+    descriptionAr: "وحدة التحكم - المستخدمين المصرح لهم"
+  },
+  "/cloud-ide": { 
+    allowedRoles: ["owner", "sovereign", "manager", "employee", "subscriber", "free", "pro", "enterprise"],
+    description: "Cloud IDE - all authenticated users",
+    descriptionAr: "بيئة التطوير السحابية - جميع المستخدمين المسجلين"
+  },
+  "/ai-app-builder": { 
+    allowedRoles: ["owner", "sovereign", "manager", "employee", "subscriber", "free", "pro", "enterprise"],
+    description: "AI App Builder - all authenticated users",
+    descriptionAr: "منشئ التطبيقات بالذكاء الاصطناعي - جميع المستخدمين"
+  },
+  "/ssl-certificates": { 
+    allowedRoles: ["owner", "sovereign", "manager"],
+    description: "SSL Certificates - administrative access",
+    descriptionAr: "شهادات SSL - الوصول الإداري"
+  },
+  "/deploy": { 
+    allowedRoles: ["owner", "sovereign", "manager", "pro", "enterprise"],
+    description: "One-Click Deploy - admin and paid plans",
+    descriptionAr: "النشر بنقرة واحدة - المسؤولين والباقات المدفوعة"
+  },
+  "/backend-generator": { 
+    allowedRoles: ["owner", "sovereign", "manager", "employee", "pro", "enterprise"],
+    description: "Backend Generator - development teams",
+    descriptionAr: "مولد الواجهة الخلفية - فرق التطوير"
+  },
+  "/version-control": { 
+    allowedRoles: ["owner", "sovereign", "manager", "employee", "subscriber", "free", "pro", "enterprise"],
+    description: "Version Control - all authenticated users",
+    descriptionAr: "التحكم بالإصدارات - جميع المستخدمين"
+  },
+  "/ai-copilot": { 
+    allowedRoles: ["owner", "sovereign", "manager", "employee", "subscriber", "free", "pro", "enterprise"],
+    description: "AI Copilot - all authenticated users",
+    descriptionAr: "مساعد الذكاء الاصطناعي - جميع المستخدمين"
+  },
+  "/testing-generator": { 
+    allowedRoles: ["owner", "sovereign", "manager", "employee", "pro", "enterprise"],
+    description: "Testing Generator - development teams",
+    descriptionAr: "مولد الاختبارات - فرق التطوير"
+  },
+  "/ci-cd": { 
+    allowedRoles: ["owner", "sovereign", "manager", "pro", "enterprise"],
+    description: "CI/CD Pipeline - admin and paid plans",
+    descriptionAr: "خطوط CI/CD - المسؤولين والباقات المدفوعة"
+  },
+};
+
+// Simplified role labels for display
+const displayRoles: { role: RoleType; labelEn: string; labelAr: string }[] = [
+  { role: "owner", labelEn: "Owner", labelAr: "المالك" },
+  { role: "manager", labelEn: "Manager", labelAr: "مدير" },
+  { role: "free", labelEn: "Free Subscriber", labelAr: "مشترك مجاني" },
+  { role: "pro", labelEn: "Paid Subscriber", labelAr: "مشترك مدفوع" },
+  { role: "public", labelEn: "Visitor", labelAr: "زائر" },
+];
+
+interface SovereignAccessSummaryProps {
+  currentRoute: string;
+}
+
+export function SovereignAccessSummary({ currentRoute }: SovereignAccessSummaryProps) {
+  const { user } = useAuth();
+  const { isEnabled } = useSovereignView();
+  const { language } = useLanguage();
+  
+  const isOwner = user?.role === "owner" || user?.role === "sovereign" || user?.username === "mohamedalib2001";
+  
+  if (!isOwner || !isEnabled) return null;
+  
+  // Find matching page permissions
+  const pagePerms = pagePermissionsRegistry[currentRoute] || pagePermissionsRegistry["/"];
+  const allowedRoles = pagePerms?.allowedRoles || [];
+  
+  const t = {
+    title: language === "ar" ? "صلاحيات الوصول للصفحة الحالية" : "Current Page Access Permissions",
+    allowed: language === "ar" ? "مسموح" : "Allowed",
+    blocked: language === "ar" ? "ممنوع" : "Blocked",
+    description: language === "ar" ? pagePerms?.descriptionAr : pagePerms?.description,
+  };
+  
+  return (
+    <Card className="fixed bottom-20 left-4 z-[9997] w-72 shadow-xl border-violet-500/30 bg-background/95 backdrop-blur-sm">
+      <CardHeader className="py-2 px-3 border-b border-violet-500/20">
+        <CardTitle className="text-xs font-medium flex items-center gap-2 text-violet-500">
+          <Eye className="h-3 w-3" />
+          {t.title}
+        </CardTitle>
+        <p className="text-[10px] text-muted-foreground mt-1">{t.description}</p>
+      </CardHeader>
+      <CardContent className="p-3 space-y-2">
+        <div className="grid gap-1.5">
+          {displayRoles.map(({ role, labelEn, labelAr }) => {
+            // Map display roles to actual allowed roles
+            const isAllowed = (() => {
+              if (role === "owner") return allowedRoles.includes("owner") || allowedRoles.includes("sovereign");
+              if (role === "manager") return allowedRoles.includes("manager");
+              if (role === "free") return allowedRoles.includes("free") || allowedRoles.includes("subscriber");
+              if (role === "pro") return allowedRoles.includes("pro") || allowedRoles.includes("enterprise");
+              if (role === "public") return allowedRoles.includes("public");
+              return false;
+            })();
+            
+            const config = roleConfig[role];
+            const Icon = config.icon;
+            
+            return (
+              <div 
+                key={role} 
+                className={cn(
+                  "flex items-center justify-between px-2 py-1.5 rounded-md text-xs",
+                  isAllowed 
+                    ? "bg-green-500/10 border border-green-500/20" 
+                    : "bg-red-500/10 border border-red-500/20 opacity-60"
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <Icon className={cn("h-3.5 w-3.5", config.color)} />
+                  <span className={isAllowed ? "text-foreground" : "text-muted-foreground"}>
+                    {language === "ar" ? labelAr : labelEn}
+                  </span>
+                </div>
+                <Badge 
+                  variant="outline" 
+                  className={cn(
+                    "text-[10px] px-1.5",
+                    isAllowed 
+                      ? "border-green-500/50 text-green-600 bg-green-500/10" 
+                      : "border-red-500/50 text-red-500 bg-red-500/10"
+                  )}
+                >
+                  {isAllowed ? (
+                    <><Unlock className="h-2.5 w-2.5 mr-0.5" />{t.allowed}</>
+                  ) : (
+                    <><Lock className="h-2.5 w-2.5 mr-0.5" />{t.blocked}</>
+                  )}
+                </Badge>
+              </div>
+            );
+          })}
+        </div>
+        
+        <div className="pt-1 border-t border-border/50">
+          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            <Route className="h-3 w-3" />
+            <code className="bg-muted px-1 py-0.5 rounded text-[9px]">{currentRoute}</code>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

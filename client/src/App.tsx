@@ -12,7 +12,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { GuestSidebar } from "@/components/guest-sidebar";
 import { InspectorProvider, InspectorToggle } from "@/components/owner-inspector";
-import { SovereignViewProvider, SovereignViewToggle } from "@/components/sovereign-view";
+import { SovereignViewProvider, SovereignViewToggle, SovereignAccessSummary } from "@/components/sovereign-view";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Bell } from "lucide-react";
@@ -424,6 +424,11 @@ function AuthenticatedRouter() {
   );
 }
 
+function SovereignAccessSummaryWrapper() {
+  const [location] = useLocation();
+  return <SovereignAccessSummary currentRoute={location} />;
+}
+
 function NotificationBell() {
   const [, setLocation] = useLocation();
   const { isAuthenticated } = useAuth();
@@ -538,6 +543,9 @@ function AppContent() {
       
       {/* Sovereign Analytics Panel - لوحة التحليلات السيادية */}
       <SovereignIndicator />
+      
+      {/* Sovereign Access Summary - ملخص صلاحيات الوصول */}
+      <SovereignAccessSummaryWrapper />
       
       {/* Nova AI Floating Button - زر نوفا العائم */}
       <NovaFloatingButton />
