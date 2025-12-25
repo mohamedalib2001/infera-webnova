@@ -375,6 +375,7 @@ function AuthenticatedRouter() {
       <Route path="/agent" component={AgentStandalone} />
       <Route path="/testing" component={TestingGenerator} />
       <Route path="/marketplace" component={Marketplace} />
+      <Route path="/extensions" component={Marketplace} />
       <Route path="/collaboration" component={Collaboration} />
       <Route path="/console" component={ConsolePage} />
       <Route path="/support" component={Support} />

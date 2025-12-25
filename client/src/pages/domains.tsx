@@ -1126,7 +1126,7 @@ export default function DomainsPage() {
                 <Skeleton key={i} className="h-20 w-full" />
               ))}
             </div>
-          ) : domains.length === 0 ? (
+          ) : (!Array.isArray(domains) || domains.length === 0) ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                 <Globe className="w-12 h-12 text-muted-foreground mb-4" />
@@ -1141,7 +1141,7 @@ export default function DomainsPage() {
           ) : (
             <div className="space-y-6">
               {/* System Domains Section - نطاقات النظام */}
-              {domains.filter(d => d.isSystemDomain).length > 0 && (
+              {Array.isArray(domains) && domains.filter(d => d.isSystemDomain).length > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                     <Crown className="w-4 h-4 text-amber-500" />
@@ -1151,7 +1151,7 @@ export default function DomainsPage() {
                       {t.domainTypes.protected}
                     </Badge>
                   </div>
-                  {domains.filter(d => d.isSystemDomain).map((domain) => {
+                  {(Array.isArray(domains) ? domains.filter(d => d.isSystemDomain) : []).map((domain) => {
                     const StatusIcon = getStatusIcon(domain.status);
                     const isSelected = selectedDomain?.id === domain.id;
                     
@@ -1225,13 +1225,13 @@ export default function DomainsPage() {
 
               {/* User Domains Section - نطاقات المستخدمين */}
               <div className="space-y-3">
-                {domains.filter(d => !d.isSystemDomain).length > 0 && (
+                {Array.isArray(domains) && domains.filter(d => !d.isSystemDomain).length > 0 && (
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                     <Users className="w-4 h-4" />
                     {t.tabs.userDomains}
                   </div>
                 )}
-                {domains.filter(d => !d.isSystemDomain).map((domain) => {
+                {(Array.isArray(domains) ? domains.filter(d => !d.isSystemDomain) : []).map((domain) => {
                   const StatusIcon = getStatusIcon(domain.status);
                   const isSelected = selectedDomain?.id === domain.id;
                   
