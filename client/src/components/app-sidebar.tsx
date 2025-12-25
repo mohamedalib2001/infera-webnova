@@ -218,7 +218,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
   const managementItems = [
     { title: language === "ar" ? "المشاريع" : "Projects", url: "/projects", icon: FolderOpen, testId: "nav-projects" },
     { title: language === "ar" ? "مهامي" : "My Tasks", url: "/employee-dashboard", icon: Briefcase, testId: "nav-employee-dashboard", requiresAuth: true },
-    { title: language === "ar" ? "النطاقات" : "Domains", url: "/domains", icon: Globe, testId: "nav-domains", requiresAuth: true },
+    { title: language === "ar" ? "البحث عن نطاق" : "Domain Search", url: "/domain-search", icon: Globe, testId: "nav-domain-search", requiresAuth: true },
     { title: language === "ar" ? "الدعم" : "Support", url: "/support", icon: Headphones, testId: "nav-support", requiresAuth: true },
     { title: language === "ar" ? "الإعدادات" : "Settings", url: "/settings", icon: Settings, testId: "nav-settings", requiresAuth: true },
   ];
@@ -711,6 +711,14 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                           <Link href="/owner/policies" data-testid="nav-owner-policies">
                             <Gavel className="h-4 w-4 text-red-600" />
                             <span>{language === "ar" ? "سياسات حساب المالك" : "Owner Policies"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/domains"}>
+                          <Link href="/domains" data-testid="nav-sovereign-domains">
+                            <Globe className="h-4 w-4 text-emerald-500" />
+                            <span>{language === "ar" ? "النطاقات السيادية" : "Sovereign Domains"}</span>
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
