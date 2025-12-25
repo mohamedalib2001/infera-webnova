@@ -70,6 +70,11 @@ import {
   FileUser,
   Award,
   Presentation,
+  UserCircle,
+  Hammer,
+  UserCheck,
+  UsersRound,
+  BadgeDollarSign,
 } from "lucide-react";
 import {
   Sidebar,
@@ -84,12 +89,16 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { NewPlatformModal, useNewPlatformModal } from "@/components/new-platform-modal";
+
+type AudienceTab = "all" | "owner" | "visitors" | "employees" | "managers" | "subscribers" | "development";
 
 interface AppSidebarProps {
   side?: "left" | "right";
@@ -102,9 +111,29 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
   const { isOpen, setIsOpen, openModal } = useNewPlatformModal();
   const [growthExpanded, setGrowthExpanded] = useState(false);
   const [pitchDeckExpanded, setPitchDeckExpanded] = useState(false);
+  const [activeTab, setActiveTab] = useState<AudienceTab>("all");
 
   const isOwner = user?.role === "owner";
   const isAdvancedUser = user?.role === "enterprise" || user?.role === "sovereign" || isOwner;
+
+  const audienceTabs = [
+    { id: "all" as AudienceTab, label: language === "ar" ? "الكل" : "All", icon: LayoutDashboard },
+    { id: "owner" as AudienceTab, label: language === "ar" ? "المالك" : "Owner", icon: Crown },
+    { id: "visitors" as AudienceTab, label: language === "ar" ? "الزوار" : "Visitors", icon: UserCircle },
+    { id: "employees" as AudienceTab, label: language === "ar" ? "الموظفين" : "Employees", icon: UserCheck },
+    { id: "managers" as AudienceTab, label: language === "ar" ? "المديرين" : "Managers", icon: UsersRound },
+    { id: "subscribers" as AudienceTab, label: language === "ar" ? "المشتركين" : "Subscribers", icon: BadgeDollarSign },
+    { id: "development" as AudienceTab, label: language === "ar" ? "التطوير" : "Development", icon: Hammer },
+  ];
+
+  const developmentPages = [
+    { title: language === "ar" ? "مولّد المنصات" : "Platform Generator", url: "/platform-generator", icon: TrendingUp, testId: "nav-dev-platform-generator" },
+    { title: language === "ar" ? "تطبيقات الجوال" : "Mobile Apps", url: "/mobile-builder", icon: Smartphone, testId: "nav-dev-mobile" },
+    { title: language === "ar" ? "تطبيقات سطح المكتب" : "Desktop Apps", url: "/desktop-builder", icon: Monitor, testId: "nav-dev-desktop" },
+    { title: language === "ar" ? "منشئ الروبوتات" : "Chatbot Builder", url: "/chatbot-builder", icon: Bot, testId: "nav-dev-chatbot" },
+    { title: language === "ar" ? "خط أنابيب CI/CD" : "CI/CD Pipeline", url: "/cicd", icon: Workflow, testId: "nav-dev-cicd" },
+    { title: language === "ar" ? "اختبار الأجهزة" : "Device Testing", url: "/device-testing", icon: Cpu, testId: "nav-dev-device" },
+  ];
 
   const buildItems = [
     { title: language === "ar" ? "الرئيسية" : "Home", url: "/", icon: Home, testId: "nav-home" },
@@ -225,18 +254,99 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
         </SidebarHeader>
         
         <SidebarContent>
-          <SidebarGroup>
-            <div className="px-4 mb-4">
-              <Button 
-                className="w-full gap-2" 
-                onClick={handleNewPlatform}
-                data-testid="button-new-platform"
-              >
-                <Plus className="h-4 w-4" />
-                {language === "ar" ? "منصة جديدة" : "New Platform"}
-              </Button>
+          {isOwner && (
+            <div className="px-3 py-3 mb-2 bg-gradient-to-br from-amber-500/10 via-purple-500/10 to-cyan-500/10 border-b border-amber-500/20" data-testid="owner-sovereign-header">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Avatar className="h-12 w-12 ring-2 ring-amber-500 ring-offset-2 ring-offset-background">
+                    <AvatarImage src={user?.avatarUrl || undefined} alt={user?.fullName || "Owner"} />
+                    <AvatarFallback className="bg-gradient-to-br from-amber-500 to-purple-600 text-white font-bold">
+                      {getInitials(user?.fullName, user?.email || undefined)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="absolute -bottom-1 -right-1 bg-amber-500 rounded-full p-0.5">
+                    <Crown className="h-3 w-3 text-white" />
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-sm truncate">{user?.fullName || user?.username}</span>
+                    <Shield className="h-3.5 w-3.5 text-amber-500" />
+                  </div>
+                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0 bg-gradient-to-r from-amber-600 to-purple-600 border-0">
+                    {language === "ar" ? "مساحة العمل السيادية" : "Sovereign Workspace"}
+                  </Badge>
+                </div>
+              </div>
             </div>
-          </SidebarGroup>
+          )}
+          
+          <div className="px-2 py-2 border-b" data-testid="audience-tabs-container">
+            <ScrollArea className="w-full">
+              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as AudienceTab)} className="w-full">
+                <TabsList className="inline-flex h-auto p-1 bg-muted/50 gap-1 w-max min-w-full">
+                  {audienceTabs.map((tab) => (
+                    <TabsTrigger
+                      key={tab.id}
+                      value={tab.id}
+                      className="flex items-center gap-1 text-xs px-2 py-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm whitespace-nowrap"
+                      data-testid={`tab-${tab.id}`}
+                    >
+                      <tab.icon className="h-3 w-3" />
+                      <span>{tab.label}</span>
+                      {tab.id === "development" && (
+                        <Badge variant="secondary" className="text-[9px] px-1 py-0 ml-0.5 bg-orange-500/20 text-orange-600 dark:text-orange-400">
+                          {developmentPages.length}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
+          </div>
+
+          {activeTab === "development" && (
+            <SidebarGroup>
+              <SidebarGroupLabel className="text-orange-600 dark:text-orange-400 flex items-center gap-1">
+                <Hammer className="h-3 w-3" />
+                {language === "ar" ? "قيد التطوير" : "Under Development"}
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {developmentPages.map((item) => (
+                    <SidebarMenuItem key={item.url}>
+                      <SidebarMenuButton asChild isActive={location === item.url}>
+                        <Link href={item.url} data-testid={item.testId}>
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                          <Badge variant="secondary" className="ml-auto text-[9px] px-1.5 py-0 bg-orange-500/20 text-orange-600 dark:text-orange-400">
+                            {language === "ar" ? "تطوير" : "Dev"}
+                          </Badge>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
+
+          {activeTab !== "development" && (
+            <>
+              <SidebarGroup>
+                <div className="px-4 mb-4">
+                  <Button 
+                    className="w-full gap-2" 
+                    onClick={handleNewPlatform}
+                    data-testid="button-new-platform"
+                  >
+                    <Plus className="h-4 w-4" />
+                    {language === "ar" ? "منصة جديدة" : "New Platform"}
+                  </Button>
+                </div>
+              </SidebarGroup>
 
           <SidebarGroup>
             <SidebarGroupLabel className="flex items-center gap-1">
@@ -747,6 +857,8 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
+          )}
+            </>
           )}
         </SidebarContent>
         
