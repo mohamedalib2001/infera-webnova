@@ -137,6 +137,19 @@ import {
   HardDrive,
   Clock,
   CheckCircle,
+  GitPullRequest,
+  Puzzle,
+  ShieldAlert,
+  LayoutTemplate,
+  Share2,
+  MousePointer2,
+  Scan,
+  Star,
+  ThumbsUp,
+  ThumbsDown,
+  MessageSquarePlus,
+  RotateCcw,
+  CirclePlay,
 } from "lucide-react";
 
 interface SovereignConversation {
@@ -202,7 +215,7 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
   
   const [activeTab, setActiveTab] = useState<"chat" | "code" | "preview" | "terminal">("chat");
   const [bottomTab, setBottomTab] = useState<"terminal" | "problems" | "output">("terminal");
-  const [rightTab, setRightTab] = useState<"tools" | "files" | "database" | "backend" | "packages" | "testing" | "git" | "deploy" | "debugger" | "copilot" | "compliance" | "tenants" | "rules" | "observability" | "marketplace" | "billing" | "ai-arch" | "export" | "env" | "team" | "api-test" | "cron" | "webhooks" | "profiler" | "notifications" | "settings" | "templates" | "docs" | "deps" | "formatter" | "migrations" | "logs" | "analytics" | "vault" | "schema" | "routes" | "commands" | "governor">("tools");
+  const [rightTab, setRightTab] = useState<"tools" | "files" | "database" | "backend" | "packages" | "testing" | "git" | "deploy" | "debugger" | "copilot" | "compliance" | "tenants" | "rules" | "observability" | "marketplace" | "billing" | "ai-arch" | "export" | "env" | "team" | "api-test" | "cron" | "webhooks" | "profiler" | "notifications" | "settings" | "templates" | "docs" | "deps" | "formatter" | "migrations" | "logs" | "analytics" | "vault" | "schema" | "routes" | "commands" | "governor" | "collab" | "api-docs" | "code-review" | "plugins" | "mobile" | "security" | "benchmarks" | "template-gen" | "erd" | "ai-review">("tools");
   
   const [showSidebar, setShowSidebar] = useState(true);
   const [showRightPanel, setShowRightPanel] = useState(true);
@@ -1204,6 +1217,38 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                       </TabsTrigger>
                       <TabsTrigger value="governor" className="text-[10px] px-1" data-testid="tab-governor" aria-label={isRtl ? "الحاكم" : "Governor"}>
                         <Crown className="h-3 w-3" />
+                      </TabsTrigger>
+                      
+                      {/* Advanced Features - 10 New Tabs */}
+                      <TabsTrigger value="collab" className="text-[10px] px-1" data-testid="tab-collab" aria-label={isRtl ? "التعاون الحي" : "Live Collaboration"}>
+                        <Users className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="api-docs" className="text-[10px] px-1" data-testid="tab-api-docs" aria-label={isRtl ? "توثيق API" : "API Docs"}>
+                        <FileText className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="code-review" className="text-[10px] px-1" data-testid="tab-code-review" aria-label={isRtl ? "مراجعة الكود" : "Code Review"}>
+                        <GitPullRequest className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="plugins" className="text-[10px] px-1" data-testid="tab-plugins" aria-label={isRtl ? "الإضافات" : "Plugins"}>
+                        <Puzzle className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="mobile" className="text-[10px] px-1" data-testid="tab-mobile" aria-label={isRtl ? "معاينة الهاتف" : "Mobile Preview"}>
+                        <Smartphone className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="security" className="text-[10px] px-1" data-testid="tab-security" aria-label={isRtl ? "الفحص الأمني" : "Security Scan"}>
+                        <ShieldAlert className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="benchmarks" className="text-[10px] px-1" data-testid="tab-benchmarks" aria-label={isRtl ? "الأداء" : "Benchmarks"}>
+                        <Gauge className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="template-gen" className="text-[10px] px-1" data-testid="tab-template-gen" aria-label={isRtl ? "مولد القوالب" : "Template Generator"}>
+                        <LayoutTemplate className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="erd" className="text-[10px] px-1" data-testid="tab-erd" aria-label={isRtl ? "رسم العلاقات" : "ERD Visualizer"}>
+                        <Share2 className="h-3 w-3" />
+                      </TabsTrigger>
+                      <TabsTrigger value="ai-review" className="text-[10px] px-1" data-testid="tab-ai-review" aria-label={isRtl ? "مراجعة AI" : "AI Review"}>
+                        <Sparkles className="h-3 w-3" />
                       </TabsTrigger>
                     </TabsList>
                   </div>
@@ -5502,6 +5547,766 @@ export function SovereignCoreIDE({ workspaceId, isOwner }: SovereignCoreIDEProps
                           <div className="flex items-center justify-between text-[10px]">
                             <span className="text-muted-foreground">{isRtl ? "آخر تدقيق" : "Last Audit"}</span>
                             <span className="text-cyan-400 font-medium">{isRtl ? "منذ 2 دقيقة" : "2m ago"}</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* 1. Live Collaboration Tab */}
+                  <TabsContent value="collab" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      <Card className="mb-2 bg-gradient-to-br from-green-500/20 via-emerald-500/10 to-transparent border-green-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-green-500/20">
+                              <Users className="h-4 w-4 text-green-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "التعاون الحي" : "Live Collaboration"}</p>
+                              <p className="text-[10px] text-green-400">{isRtl ? "تحرير متزامن متعدد المستخدمين" : "Multi-user Synchronized Editing"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Active Collaborators */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <MousePointer2 className="h-3.5 w-3.5 text-green-400" />
+                            {isRtl ? "المتعاونون النشطون" : "Active Collaborators"}
+                            <Badge variant="outline" className="text-[10px] h-4 ml-auto text-green-400">3 {isRtl ? "متصل" : "Online"}</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { name: "Mohamed Ali", role: "Owner", color: "bg-amber-400", file: "app.tsx", cursor: "L42" },
+                            { name: "Ahmed Hassan", role: "Developer", color: "bg-blue-400", file: "index.ts", cursor: "L18" },
+                            { name: "Sara Ibrahim", role: "Designer", color: "bg-pink-400", file: "styles.css", cursor: "L105" },
+                          ].map((user, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`collab-user-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <span className={`h-2 w-2 rounded-full ${user.color}`} />
+                                <span className="font-medium">{user.name}</span>
+                                <Badge variant="outline" className="text-[9px] h-4">{user.role}</Badge>
+                              </span>
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <span className="font-mono">{user.file}</span>
+                                <Badge variant="outline" className="text-[9px] h-4 text-green-400">{user.cursor}</Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Invite Collaborator */}
+                      <Card className="mb-2 border-green-500/20">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Plus className="h-3.5 w-3.5 text-green-400" />
+                            {isRtl ? "دعوة متعاون" : "Invite Collaborator"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-2">
+                          <Input placeholder={isRtl ? "البريد الإلكتروني..." : "Email address..."} className="h-7 text-[10px]" data-testid="input-collab-email" />
+                          <div className="flex items-center gap-1">
+                            <Button size="sm" className="flex-1 h-7 text-[10px] bg-green-600 hover:bg-green-700" data-testid="button-send-invite">
+                              <Send className="h-3 w-3 mr-1" />
+                              {isRtl ? "إرسال دعوة" : "Send Invite"}
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-7 text-[10px]" data-testid="button-copy-link">
+                              <Link className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Session Stats */}
+                      <Card className="bg-gradient-to-br from-green-500/10 to-transparent border-green-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "جلسة نشطة" : "Active Session"}</span>
+                            <span className="text-green-400 font-medium">2h 34m</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "تعديلات اليوم" : "Edits Today"}</span>
+                            <span className="text-blue-400 font-medium">1,247</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "ملفات مشتركة" : "Shared Files"}</span>
+                            <span className="text-violet-400 font-medium">48</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* 2. API Docs Generator Tab */}
+                  <TabsContent value="api-docs" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      <Card className="mb-2 bg-gradient-to-br from-blue-500/20 via-indigo-500/10 to-transparent border-blue-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-blue-500/20">
+                              <FileText className="h-4 w-4 text-blue-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "مولد توثيق API" : "API Documentation Generator"}</p>
+                              <p className="text-[10px] text-blue-400">OpenAPI 3.0 / Swagger</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Generate Docs */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Wand2 className="h-3.5 w-3.5 text-violet-400" />
+                            {isRtl ? "توليد التوثيق" : "Generate Documentation"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-2">
+                          <div className="flex items-center gap-1">
+                            <Button size="sm" className="flex-1 h-7 text-[10px] bg-blue-600 hover:bg-blue-700" data-testid="button-generate-docs">
+                              <Sparkles className="h-3 w-3 mr-1" />
+                              {isRtl ? "توليد تلقائي" : "Auto Generate"}
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-7 text-[10px]" data-testid="button-preview-docs">
+                              <Eye className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Documented Endpoints */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Server className="h-3.5 w-3.5 text-green-400" />
+                            {isRtl ? "النقاط الموثقة" : "Documented Endpoints"}
+                            <Badge variant="outline" className="text-[10px] h-4 ml-auto">45/45</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { group: "Auth", count: 6, coverage: "100%" },
+                            { group: "Users", count: 12, coverage: "100%" },
+                            { group: "Platforms", count: 15, coverage: "100%" },
+                            { group: "AI", count: 8, coverage: "100%" },
+                            { group: "Analytics", count: 4, coverage: "100%" },
+                          ].map((ep, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`api-doc-group-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <FileCode className="h-3 w-3 text-blue-400" />
+                                <span>{ep.group}</span>
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">{ep.count} endpoints</span>
+                                <Badge variant="outline" className="text-[9px] h-4 text-green-400">{ep.coverage}</Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Export Options */}
+                      <Card className="bg-gradient-to-br from-blue-500/10 to-transparent border-blue-500/20">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs">{isRtl ? "تصدير" : "Export"}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          <Button size="sm" variant="outline" className="w-full h-7 text-[10px] justify-start" data-testid="button-export-openapi">
+                            <Download className="h-3 w-3 mr-2" />
+                            {isRtl ? "OpenAPI JSON" : "OpenAPI JSON"}
+                          </Button>
+                          <Button size="sm" variant="outline" className="w-full h-7 text-[10px] justify-start" data-testid="button-export-postman">
+                            <Download className="h-3 w-3 mr-2" />
+                            {isRtl ? "مجموعة Postman" : "Postman Collection"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* 3. Code Review System Tab */}
+                  <TabsContent value="code-review" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      <Card className="mb-2 bg-gradient-to-br from-violet-500/20 via-purple-500/10 to-transparent border-violet-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-violet-500/20">
+                              <GitPullRequest className="h-4 w-4 text-violet-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "نظام مراجعة الكود" : "Code Review System"}</p>
+                              <p className="text-[10px] text-violet-400">{isRtl ? "مراجعات وموافقات" : "Reviews & Approvals"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Pending Reviews */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Clock className="h-3.5 w-3.5 text-amber-400" />
+                            {isRtl ? "بانتظار المراجعة" : "Pending Reviews"}
+                            <Badge variant="outline" className="text-[10px] h-4 ml-auto text-amber-400">3</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { title: "feat: Add user auth", author: "Ahmed", files: 8, comments: 2 },
+                            { title: "fix: Database leak", author: "Sara", files: 3, comments: 0 },
+                            { title: "refactor: API routes", author: "Mohamed", files: 12, comments: 5 },
+                          ].map((pr, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px] cursor-pointer hover:bg-muted" data-testid={`review-pending-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <GitPullRequest className="h-3 w-3 text-violet-400" />
+                                <span className="truncate max-w-24">{pr.title}</span>
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">{pr.files} files</span>
+                                {pr.comments > 0 && <Badge variant="outline" className="text-[9px] h-4">{pr.comments}</Badge>}
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Review Actions */}
+                      <Card className="mb-2 border-violet-500/20">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs">{isRtl ? "إجراءات المراجعة" : "Review Actions"}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          <Button size="sm" className="w-full h-7 text-[10px] justify-start bg-green-600 hover:bg-green-700" data-testid="button-approve">
+                            <ThumbsUp className="h-3 w-3 mr-2" />
+                            {isRtl ? "موافقة" : "Approve"}
+                          </Button>
+                          <Button size="sm" variant="outline" className="w-full h-7 text-[10px] justify-start" data-testid="button-request-changes">
+                            <ThumbsDown className="h-3 w-3 mr-2" />
+                            {isRtl ? "طلب تغييرات" : "Request Changes"}
+                          </Button>
+                          <Button size="sm" variant="outline" className="w-full h-7 text-[10px] justify-start" data-testid="button-add-comment">
+                            <MessageSquarePlus className="h-3 w-3 mr-2" />
+                            {isRtl ? "إضافة تعليق" : "Add Comment"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      {/* Stats */}
+                      <Card className="bg-gradient-to-br from-violet-500/10 to-transparent border-violet-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "مراجعات هذا الأسبوع" : "Reviews This Week"}</span>
+                            <span className="text-violet-400 font-medium">24</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "نسبة الموافقة" : "Approval Rate"}</span>
+                            <span className="text-green-400 font-medium">94%</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* 4. Plugin Marketplace Tab */}
+                  <TabsContent value="plugins" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      <Card className="mb-2 bg-gradient-to-br from-pink-500/20 via-rose-500/10 to-transparent border-pink-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-pink-500/20">
+                              <Puzzle className="h-4 w-4 text-pink-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "سوق الإضافات" : "Plugin Marketplace"}</p>
+                              <p className="text-[10px] text-pink-400">{isRtl ? "امتدادات ومكونات" : "Extensions & Components"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Installed Plugins */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <CheckCircle className="h-3.5 w-3.5 text-green-400" />
+                            {isRtl ? "الإضافات المثبتة" : "Installed Plugins"}
+                            <Badge variant="outline" className="text-[10px] h-4 ml-auto">12</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { name: "AI Autocomplete", version: "2.1.0", active: true },
+                            { name: "Git Integration", version: "1.8.3", active: true },
+                            { name: "Theme Pack Pro", version: "3.0.0", active: true },
+                            { name: "Code Formatter", version: "1.2.1", active: false },
+                          ].map((plugin, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`plugin-installed-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <Puzzle className="h-3 w-3 text-pink-400" />
+                                <span>{plugin.name}</span>
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">v{plugin.version}</span>
+                                <Badge variant="outline" className={`text-[9px] h-4 ${plugin.active ? 'text-green-400' : 'text-muted-foreground'}`}>
+                                  {plugin.active ? (isRtl ? "نشط" : "Active") : (isRtl ? "معطل" : "Disabled")}
+                                </Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Browse Marketplace */}
+                      <Card className="mb-2 border-pink-500/20">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Store className="h-3.5 w-3.5 text-pink-400" />
+                            {isRtl ? "تصفح السوق" : "Browse Marketplace"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-2">
+                          <Input placeholder={isRtl ? "ابحث عن إضافات..." : "Search plugins..."} className="h-7 text-[10px]" data-testid="input-search-plugins" />
+                          <div className="flex flex-wrap gap-1">
+                            {["AI", "UI", "Database", "Security", "DevOps"].map(cat => (
+                              <Badge key={cat} variant="outline" className="text-[9px] h-4 cursor-pointer">{cat}</Badge>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Stats */}
+                      <Card className="bg-gradient-to-br from-pink-500/10 to-transparent border-pink-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "إضافات متاحة" : "Available Plugins"}</span>
+                            <span className="text-pink-400 font-medium">2,847</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "تحديثات متاحة" : "Updates Available"}</span>
+                            <span className="text-amber-400 font-medium">3</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* 5. Mobile Preview Tab */}
+                  <TabsContent value="mobile" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      <Card className="mb-2 bg-gradient-to-br from-cyan-500/20 via-teal-500/10 to-transparent border-cyan-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-cyan-500/20">
+                              <Smartphone className="h-4 w-4 text-cyan-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "معاينة الهاتف" : "Mobile Preview"}</p>
+                              <p className="text-[10px] text-cyan-400">iOS & Android</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Device Selector */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs">{isRtl ? "اختر الجهاز" : "Select Device"}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { name: "iPhone 15 Pro", res: "393x852", os: "iOS 17" },
+                            { name: "Samsung S24", res: "360x780", os: "Android 14" },
+                            { name: "iPad Pro 12.9", res: "1024x1366", os: "iPadOS 17" },
+                            { name: "Pixel 8", res: "412x915", os: "Android 14" },
+                          ].map((device, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px] cursor-pointer hover:bg-muted" data-testid={`device-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <Smartphone className="h-3 w-3 text-cyan-400" />
+                                <span>{device.name}</span>
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">{device.res}</span>
+                                <Badge variant="outline" className="text-[9px] h-4">{device.os}</Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Preview Actions */}
+                      <Card className="mb-2 border-cyan-500/20">
+                        <CardContent className="p-2 space-y-1">
+                          <Button size="sm" className="w-full h-7 text-[10px] justify-start bg-cyan-600 hover:bg-cyan-700" data-testid="button-launch-preview">
+                            <CirclePlay className="h-3 w-3 mr-2" />
+                            {isRtl ? "تشغيل المعاينة" : "Launch Preview"}
+                          </Button>
+                          <Button size="sm" variant="outline" className="w-full h-7 text-[10px] justify-start" data-testid="button-rotate">
+                            <RotateCcw className="h-3 w-3 mr-2" />
+                            {isRtl ? "تدوير الجهاز" : "Rotate Device"}
+                          </Button>
+                          <Button size="sm" variant="outline" className="w-full h-7 text-[10px] justify-start" data-testid="button-screenshot">
+                            <Download className="h-3 w-3 mr-2" />
+                            {isRtl ? "لقطة شاشة" : "Screenshot"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* 6. Security Scanner Tab */}
+                  <TabsContent value="security" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      <Card className="mb-2 bg-gradient-to-br from-red-500/20 via-orange-500/10 to-transparent border-red-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-red-500/20">
+                              <ShieldAlert className="h-4 w-4 text-red-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "الفحص الأمني" : "Security Scanner"}</p>
+                              <p className="text-[10px] text-green-400">{isRtl ? "لا توجد ثغرات حرجة" : "No Critical Vulnerabilities"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Scan Results */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Scan className="h-3.5 w-3.5 text-amber-400" />
+                            {isRtl ? "نتائج الفحص" : "Scan Results"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { type: isRtl ? "حرج" : "Critical", count: 0, color: "text-red-400" },
+                            { type: isRtl ? "عالي" : "High", count: 2, color: "text-orange-400" },
+                            { type: isRtl ? "متوسط" : "Medium", count: 5, color: "text-amber-400" },
+                            { type: isRtl ? "منخفض" : "Low", count: 12, color: "text-green-400" },
+                          ].map((res, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`security-result-${i}`}>
+                              <span className={`flex items-center gap-2 ${res.color}`}>
+                                <AlertTriangle className="h-3 w-3" />
+                                <span>{res.type}</span>
+                              </span>
+                              <Badge variant="outline" className={`text-[9px] h-4 ${res.color}`}>{res.count}</Badge>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Run Scan */}
+                      <Card className="mb-2 border-red-500/20">
+                        <CardContent className="p-2 space-y-1">
+                          <Button size="sm" className="w-full h-7 text-[10px] bg-red-600 hover:bg-red-700" data-testid="button-run-scan">
+                            <ShieldAlert className="h-3 w-3 mr-2" />
+                            {isRtl ? "فحص كامل" : "Full Scan"}
+                          </Button>
+                          <Button size="sm" variant="outline" className="w-full h-7 text-[10px]" data-testid="button-quick-scan">
+                            <Zap className="h-3 w-3 mr-2" />
+                            {isRtl ? "فحص سريع" : "Quick Scan"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      {/* Security Score */}
+                      <Card className="bg-gradient-to-br from-green-500/10 to-transparent border-green-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "درجة الأمان" : "Security Score"}</span>
+                            <span className="text-green-400 font-medium text-lg">A+</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "آخر فحص" : "Last Scan"}</span>
+                            <span className="text-blue-400 font-medium">{isRtl ? "منذ 2 ساعة" : "2h ago"}</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* 7. Performance Benchmarks Tab */}
+                  <TabsContent value="benchmarks" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      <Card className="mb-2 bg-gradient-to-br from-amber-500/20 via-yellow-500/10 to-transparent border-amber-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-amber-500/20">
+                              <Gauge className="h-4 w-4 text-amber-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "قياس الأداء" : "Performance Benchmarks"}</p>
+                              <p className="text-[10px] text-green-400">{isRtl ? "أداء ممتاز" : "Excellent Performance"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Metrics */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs">{isRtl ? "المقاييس" : "Metrics"}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { name: "First Contentful Paint", value: "0.8s", score: 98, color: "text-green-400" },
+                            { name: "Largest Contentful Paint", value: "1.2s", score: 95, color: "text-green-400" },
+                            { name: "Time to Interactive", value: "1.5s", score: 92, color: "text-green-400" },
+                            { name: "Cumulative Layout Shift", value: "0.02", score: 99, color: "text-green-400" },
+                            { name: "Total Blocking Time", value: "50ms", score: 96, color: "text-green-400" },
+                          ].map((m, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`benchmark-${i}`}>
+                              <span className="truncate max-w-24">{m.name}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">{m.value}</span>
+                                <Badge variant="outline" className={`text-[9px] h-4 ${m.color}`}>{m.score}</Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Run Benchmark */}
+                      <Card className="mb-2 border-amber-500/20">
+                        <CardContent className="p-2 space-y-1">
+                          <Button size="sm" className="w-full h-7 text-[10px] bg-amber-600 hover:bg-amber-700" data-testid="button-run-benchmark">
+                            <Gauge className="h-3 w-3 mr-2" />
+                            {isRtl ? "تشغيل القياس" : "Run Benchmark"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      {/* Overall Score */}
+                      <Card className="bg-gradient-to-br from-green-500/10 to-transparent border-green-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "الدرجة الإجمالية" : "Overall Score"}</span>
+                            <span className="text-green-400 font-medium text-lg">96/100</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* 8. Template Generator Tab */}
+                  <TabsContent value="template-gen" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      <Card className="mb-2 bg-gradient-to-br from-indigo-500/20 via-blue-500/10 to-transparent border-indigo-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-indigo-500/20">
+                              <LayoutTemplate className="h-4 w-4 text-indigo-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "مولد القوالب" : "Template Generator"}</p>
+                              <p className="text-[10px] text-indigo-400">{isRtl ? "إنشاء مشاريع جاهزة" : "Create Ready Projects"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Templates */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs">{isRtl ? "قوالب متاحة" : "Available Templates"}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { name: "E-Commerce Store", tech: "React + Node", stars: 4.8 },
+                            { name: "SaaS Dashboard", tech: "Next.js + Prisma", stars: 4.9 },
+                            { name: "Blog Platform", tech: "Astro + MDX", stars: 4.7 },
+                            { name: "Mobile App", tech: "React Native", stars: 4.6 },
+                            { name: "API Server", tech: "Express + PostgreSQL", stars: 4.8 },
+                          ].map((t, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px] cursor-pointer hover:bg-muted" data-testid={`template-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <LayoutTemplate className="h-3 w-3 text-indigo-400" />
+                                <span>{t.name}</span>
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">{t.tech}</span>
+                                <span className="flex items-center gap-0.5 text-amber-400">
+                                  <Star className="h-2.5 w-2.5 fill-current" />
+                                  {t.stars}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Generate */}
+                      <Card className="mb-2 border-indigo-500/20">
+                        <CardContent className="p-2 space-y-2">
+                          <Input placeholder={isRtl ? "اسم المشروع..." : "Project name..."} className="h-7 text-[10px]" data-testid="input-template-name" />
+                          <Button size="sm" className="w-full h-7 text-[10px] bg-indigo-600 hover:bg-indigo-700" data-testid="button-generate-template">
+                            <Sparkles className="h-3 w-3 mr-2" />
+                            {isRtl ? "إنشاء المشروع" : "Generate Project"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* 9. ERD Visualizer Tab */}
+                  <TabsContent value="erd" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      <Card className="mb-2 bg-gradient-to-br from-teal-500/20 via-emerald-500/10 to-transparent border-teal-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-teal-500/20">
+                              <Share2 className="h-4 w-4 text-teal-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "رسم العلاقات (ERD)" : "ERD Visualizer"}</p>
+                              <p className="text-[10px] text-teal-400">{isRtl ? "خريطة قاعدة البيانات" : "Database Relationship Map"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Tables */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Database className="h-3.5 w-3.5 text-teal-400" />
+                            {isRtl ? "الجداول" : "Tables"}
+                            <Badge variant="outline" className="text-[10px] h-4 ml-auto">24</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { name: "users", relations: 8, type: "Primary" },
+                            { name: "platforms", relations: 5, type: "Primary" },
+                            { name: "login_sessions", relations: 2, type: "Junction" },
+                            { name: "audit_logs", relations: 3, type: "Log" },
+                          ].map((t, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px]" data-testid={`erd-table-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <Database className="h-3 w-3 text-teal-400" />
+                                <span className="font-mono">{t.name}</span>
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">{t.relations} rels</span>
+                                <Badge variant="outline" className="text-[9px] h-4">{t.type}</Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Actions */}
+                      <Card className="mb-2 border-teal-500/20">
+                        <CardContent className="p-2 space-y-1">
+                          <Button size="sm" className="w-full h-7 text-[10px] bg-teal-600 hover:bg-teal-700" data-testid="button-view-erd">
+                            <Eye className="h-3 w-3 mr-2" />
+                            {isRtl ? "عرض الرسم البياني" : "View Diagram"}
+                          </Button>
+                          <Button size="sm" variant="outline" className="w-full h-7 text-[10px]" data-testid="button-export-erd">
+                            <Download className="h-3 w-3 mr-2" />
+                            {isRtl ? "تصدير PNG" : "Export PNG"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      {/* Stats */}
+                      <Card className="bg-gradient-to-br from-teal-500/10 to-transparent border-teal-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "العلاقات" : "Relationships"}</span>
+                            <span className="text-teal-400 font-medium">42</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "مفاتيح أجنبية" : "Foreign Keys"}</span>
+                            <span className="text-blue-400 font-medium">38</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* 10. AI Code Review Tab */}
+                  <TabsContent value="ai-review" className="flex-1 m-0 overflow-hidden">
+                    <ScrollArea className="h-full p-2">
+                      <Card className="mb-2 bg-gradient-to-br from-violet-500/20 via-pink-500/10 to-transparent border-violet-500/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-full bg-violet-500/20">
+                              <Sparkles className="h-4 w-4 text-violet-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium">{isRtl ? "مراجعة AI الذكية" : "AI Smart Review"}</p>
+                              <p className="text-[10px] text-violet-400">{isRtl ? "تحليل وتحسين تلقائي" : "Auto Analysis & Optimization"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* AI Suggestions */}
+                      <Card className="mb-2">
+                        <CardHeader className="p-2 pb-1">
+                          <CardTitle className="text-xs flex items-center gap-2">
+                            <Lightbulb className="h-3.5 w-3.5 text-amber-400" />
+                            {isRtl ? "اقتراحات AI" : "AI Suggestions"}
+                            <Badge variant="outline" className="text-[10px] h-4 ml-auto">8</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 pt-0 space-y-1">
+                          {[
+                            { type: isRtl ? "تحسين الأداء" : "Performance", msg: isRtl ? "استخدم useMemo في المكون" : "Use useMemo in component", file: "App.tsx" },
+                            { type: isRtl ? "أمان" : "Security", msg: isRtl ? "تحقق من المدخلات" : "Validate user input", file: "auth.ts" },
+                            { type: isRtl ? "أسلوب" : "Style", msg: isRtl ? "استخدم الثوابت" : "Use constants", file: "config.ts" },
+                            { type: isRtl ? "تحسين" : "Refactor", msg: isRtl ? "فصل المكون" : "Split component", file: "Dashboard.tsx" },
+                          ].map((s, i) => (
+                            <div key={i} className="flex items-center justify-between p-1.5 rounded bg-muted/30 text-[10px] cursor-pointer hover:bg-muted" data-testid={`ai-suggestion-${i}`}>
+                              <span className="flex items-center gap-2">
+                                <Sparkles className="h-3 w-3 text-violet-400" />
+                                <span className="truncate max-w-20">{s.msg}</span>
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-[9px] h-4">{s.type}</Badge>
+                                <span className="text-muted-foreground font-mono">{s.file}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      {/* Run AI Review */}
+                      <Card className="mb-2 border-violet-500/20">
+                        <CardContent className="p-2 space-y-1">
+                          <Button size="sm" className="w-full h-7 text-[10px] bg-violet-600 hover:bg-violet-700" data-testid="button-run-ai-review">
+                            <Sparkles className="h-3 w-3 mr-2" />
+                            {isRtl ? "مراجعة ذكية كاملة" : "Full AI Review"}
+                          </Button>
+                          <Button size="sm" variant="outline" className="w-full h-7 text-[10px]" data-testid="button-apply-suggestions">
+                            <CheckCircle className="h-3 w-3 mr-2" />
+                            {isRtl ? "تطبيق الاقتراحات" : "Apply All Suggestions"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      {/* AI Stats */}
+                      <Card className="bg-gradient-to-br from-violet-500/10 to-transparent border-violet-500/20">
+                        <CardContent className="p-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "جودة الكود" : "Code Quality"}</span>
+                            <span className="text-green-400 font-medium">A+</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "اقتراحات مطبقة" : "Applied Suggestions"}</span>
+                            <span className="text-violet-400 font-medium">124</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">{isRtl ? "أخطاء مكتشفة" : "Bugs Found"}</span>
+                            <span className="text-amber-400 font-medium">3</span>
                           </div>
                         </CardContent>
                       </Card>
