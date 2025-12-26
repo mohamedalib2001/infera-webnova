@@ -8336,7 +8336,7 @@ ${project.description || ""}
     }
   ];
 
-  // Get all templates (with seeding)
+  // Get all templates (with seeding) - returns lightweight version without code
   app.get("/api/templates", async (req, res) => {
     try {
       let templates = await storage.getTemplates();
@@ -8360,7 +8360,15 @@ ${project.description || ""}
         templates = await storage.getTemplates();
       }
       
-      res.json(templates);
+      // Return lightweight templates without bulky code fields for faster loading
+      const lightTemplates = templates.map((t: any) => ({
+        ...t,
+        htmlCode: t.htmlCode ? '[has-code]' : '',
+        cssCode: t.cssCode ? '[has-code]' : '',
+        jsCode: t.jsCode ? '[has-code]' : '',
+      }));
+      
+      res.json(lightTemplates);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch templates" });
     }
