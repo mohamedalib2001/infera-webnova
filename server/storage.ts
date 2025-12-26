@@ -174,6 +174,9 @@ import {
   aiSovereigntyAuditLogs,
   type AISovereigntyAuditLogRecord,
   type InsertAISovereigntyAuditLog,
+  userWorkspaces,
+  type UserWorkspace,
+  type InsertUserWorkspace,
   aiConstitution,
   type AIConstitutionRecord,
   type InsertAIConstitution,
@@ -615,6 +618,17 @@ export interface IStorage {
   getPaymentsByUser(userId: string): Promise<Payment[]>;
   createPayment(payment: InsertPayment): Promise<Payment>;
   updatePayment(id: string, payment: Partial<InsertPayment>): Promise<Payment | undefined>;
+  
+  // User Workspaces (مساحات العمل الخاصة)
+  getUserWorkspace(userId: string): Promise<UserWorkspace | undefined>;
+  getWorkspaceById(workspaceId: string): Promise<UserWorkspace | undefined>;
+  createUserWorkspace(userId: string): Promise<UserWorkspace>;
+  updateUserWorkspace(workspaceId: string, updates: Partial<InsertUserWorkspace>): Promise<UserWorkspace | undefined>;
+  getOrCreateUserWorkspace(userId: string): Promise<UserWorkspace>;
+  
+  // Workspace-scoped operations
+  getProjectsByWorkspace(workspaceId: string): Promise<Project[]>;
+  getMessagesByWorkspace(workspaceId: string): Promise<Message[]>;
   
   // AI Usage
   getAiUsage(userId: string, month: string): Promise<AiUsage | undefined>;
@@ -2697,6 +2711,68 @@ body { font-family: 'Tajawal', sans-serif; }
       .where(eq(payments.id, id))
       .returning();
     return payment || undefined;
+  }
+
+  // ==================== USER WORKSPACES (مساحات العمل الخاصة) ====================
+  
+  async getUserWorkspace(userId: string): Promise<UserWorkspace | undefined> {
+    const [workspace] = await db
+      .select()
+      .from(userWorkspaces)
+      .where(eq(userWorkspaces.userId, userId));
+    return workspace || undefined;
+  }
+
+  async getWorkspaceById(workspaceId: string): Promise<UserWorkspace | undefined> {
+    const [workspace] = await db
+      .select()
+      .from(userWorkspaces)
+      .where(eq(userWorkspaces.id, workspaceId));
+    return workspace || undefined;
+  }
+
+  async createUserWorkspace(userId: string): Promise<UserWorkspace> {
+    const [workspace] = await db
+      .insert(userWorkspaces)
+      .values({
+        userId,
+        name: "My Workspace",
+        nameAr: "مساحة العمل الخاصة",
+        isActive: true,
+      } as any)
+      .returning();
+    return workspace;
+  }
+
+  async updateUserWorkspace(workspaceId: string, updates: Partial<InsertUserWorkspace>): Promise<UserWorkspace | undefined> {
+    const [workspace] = await db
+      .update(userWorkspaces)
+      .set({ ...updates, updatedAt: new Date() } as any)
+      .where(eq(userWorkspaces.id, workspaceId))
+      .returning();
+    return workspace || undefined;
+  }
+
+  async getOrCreateUserWorkspace(userId: string): Promise<UserWorkspace> {
+    let workspace = await this.getUserWorkspace(userId);
+    if (!workspace) {
+      workspace = await this.createUserWorkspace(userId);
+    }
+    // Update last accessed
+    await this.updateUserWorkspace(workspace.id, { lastAccessedAt: new Date() } as any);
+    return workspace;
+  }
+
+  async getProjectsByWorkspace(workspaceId: string): Promise<Project[]> {
+    return db.select().from(projects)
+      .where(and(eq(projects.workspaceId, workspaceId), sql`${projects.deletedAt} IS NULL`))
+      .orderBy(desc(projects.updatedAt));
+  }
+
+  async getMessagesByWorkspace(workspaceId: string): Promise<Message[]> {
+    return db.select().from(messages)
+      .where(eq(messages.workspaceId, workspaceId))
+      .orderBy(desc(messages.createdAt));
   }
 
   // AI Usage methods

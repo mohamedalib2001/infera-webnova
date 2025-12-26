@@ -379,12 +379,43 @@ export const insertPaymentSchema = createInsertSchema(payments).omit({
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 export type Payment = typeof payments.$inferSelect;
 
+// ==================== USER WORKSPACES (مساحات العمل الخاصة) ====================
+
+// User workspaces - Each user has a private isolated workspace
+export const userWorkspaces = pgTable("user_workspaces", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull().unique(),
+  name: text("name").notNull().default("My Workspace"),
+  nameAr: text("name_ar").notNull().default("مساحة العمل الخاصة"),
+  isActive: boolean("is_active").notNull().default(true),
+  storageUsed: integer("storage_used").notNull().default(0), // in bytes
+  storageLimit: integer("storage_limit").notNull().default(1073741824), // 1GB default
+  projectsCount: integer("projects_count").notNull().default(0),
+  projectsLimit: integer("projects_limit").notNull().default(10), // default limit
+  encryptionKey: text("encryption_key"), // Per-workspace encryption key (encrypted)
+  lastAccessedAt: timestamp("last_accessed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_workspace_user").on(table.userId),
+]);
+
+export const insertUserWorkspaceSchema = createInsertSchema(userWorkspaces).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertUserWorkspace = z.infer<typeof insertUserWorkspaceSchema>;
+export type UserWorkspace = typeof userWorkspaces.$inferSelect;
+
 // ==================== PROJECTS ====================
 
 // Projects table - Extended with user ownership and content moderation
 export const projects = pgTable("projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id"), // Owner of the project
+  workspaceId: varchar("workspace_id").references(() => userWorkspaces.id, { onDelete: "cascade" }), // Workspace isolation
   name: text("name").notNull(),
   description: text("description"),
   industry: text("industry"), // e-commerce, services, education, legal, etc.
@@ -715,10 +746,14 @@ export const messages = pgTable("messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id"),
   userId: varchar("user_id"),
+  workspaceId: varchar("workspace_id").references(() => userWorkspaces.id, { onDelete: "cascade" }), // Workspace isolation
   role: text("role").notNull(), // 'user' | 'assistant'
   content: text("content").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_messages_workspace").on(table.workspaceId),
+  index("idx_messages_user").on(table.userId),
+]);
 
 export const insertMessageSchema = createInsertSchema(messages).omit({
   id: true,
