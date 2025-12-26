@@ -252,96 +252,75 @@ export function useRealPageAnalyzer() {
         clearTimeout(analysisTimeoutRef.current);
       }
       
-      // Wait for next animation frame then collect metrics
       requestAnimationFrame(() => {
         analysisTimeoutRef.current = setTimeout(() => {
-          const attemptCollection = (retryCount: number = 0): void => {
-            try {
-              const services = detectServices();
-              const metrics = collectRealMetrics();
-              const detectedFeatures = detectFeatures();
-              
-              // Validate we have meaningful metrics
-              const isValidMetrics = metrics.loadTime >= 100 && 
-                metrics.componentCount >= 1 && 
-                metrics.interactiveElements >= 1 &&
-                metrics.resourceCount > 0;
-              
-              if (!isValidMetrics && retryCount < 3) {
-                // Retry after delay with increasing intervals
-                setTimeout(() => attemptCollection(retryCount + 1), 300 * (retryCount + 1));
-                return;
-              }
-              
-              // Always return analysis even if metrics aren't ideal
-              const newAnalysis: RealPageAnalysis = {
-                path: location,
-                services,
-                metrics,
-                detectedFeatures,
-                timestamp: Date.now(),
-              };
-              
-              setAnalysis(newAnalysis);
-              setIsAnalyzing(false);
-              resolve(newAnalysis);
-            } catch (error) {
-              console.debug('[RealPageAnalyzer] Error:', error);
-              // Return fallback analysis on error
-              const fallbackAnalysis: RealPageAnalysis = {
-                path: location,
-                services: [],
-                metrics: {
-                  loadTime: Math.round(performance.now()),
-                  domContentLoaded: Math.round(performance.now()),
-                  firstContentfulPaint: 0,
-                  largestContentfulPaint: 0,
-                  timeToInteractive: 0,
-                  resourceCount: 0,
-                  totalTransferSize: 0,
-                  componentCount: 0,
-                  interactiveElements: 0,
-                  formCount: 0,
-                  apiCallsDetected: 0,
-                  hasWebSocket: false,
-                  hasRealTimeUpdates: false,
-                  memoryUsage: null,
-                },
-                detectedFeatures: {
-                  hasAI: false,
-                  hasAutomation: false,
-                  hasAuthentication: false,
-                  hasAnalytics: false,
-                  hasRealTimeData: false,
-                  hasForms: false,
-                  hasCharts: false,
-                  hasTables: false,
-                  hasEditors: false,
-                  hasFileUpload: false,
-                },
-                timestamp: Date.now(),
-              };
-              setAnalysis(fallbackAnalysis);
-              setIsAnalyzing(false);
-              resolve(fallbackAnalysis);
-            }
-          };
-          
-          attemptCollection(0);
-        }, 400);
+          try {
+            const services = detectServices();
+            const metrics = collectRealMetrics();
+            const detectedFeatures = detectFeatures();
+            
+            const newAnalysis: RealPageAnalysis = {
+              path: location,
+              services,
+              metrics,
+              detectedFeatures,
+              timestamp: Date.now(),
+            };
+            
+            setAnalysis(newAnalysis);
+            setIsAnalyzing(false);
+            resolve(newAnalysis);
+          } catch (error) {
+            console.debug('[RealPageAnalyzer] Error:', error);
+            const fallbackAnalysis: RealPageAnalysis = {
+              path: location,
+              services: [],
+              metrics: {
+                loadTime: Math.round(performance.now()),
+                domContentLoaded: Math.round(performance.now()),
+                firstContentfulPaint: 0,
+                largestContentfulPaint: 0,
+                timeToInteractive: 0,
+                resourceCount: 0,
+                totalTransferSize: 0,
+                componentCount: 0,
+                interactiveElements: 0,
+                formCount: 0,
+                apiCallsDetected: 0,
+                hasWebSocket: false,
+                hasRealTimeUpdates: false,
+                memoryUsage: null,
+              },
+              detectedFeatures: {
+                hasAI: false,
+                hasAutomation: false,
+                hasAuthentication: false,
+                hasAnalytics: false,
+                hasRealTimeData: false,
+                hasForms: false,
+                hasCharts: false,
+                hasTables: false,
+                hasEditors: false,
+                hasFileUpload: false,
+              },
+              timestamp: Date.now(),
+            };
+            setAnalysis(fallbackAnalysis);
+            setIsAnalyzing(false);
+            resolve(fallbackAnalysis);
+          }
+        }, 100);
       });
     });
   }, [location]);
   
   useEffect(() => {
-    analyzeCurrentPage();
-    
     return () => {
       if (analysisTimeoutRef.current) {
         clearTimeout(analysisTimeoutRef.current);
       }
     };
-  }, [location]);
+  }, []);
   
   return {
     analysis,

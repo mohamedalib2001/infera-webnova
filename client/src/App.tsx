@@ -17,7 +17,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Bell } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import Home from "@/pages/home";
 import Landing from "@/pages/landing";
 import Auth from "@/pages/auth";
 import Preview from "@/pages/preview";
@@ -25,7 +24,7 @@ import Pricing from "@/pages/pricing";
 import Sovereign from "@/pages/sovereign";
 import NotFound from "@/pages/not-found";
 import {
-  LazyBuilder, LazyCloudIDE, LazyAiAppBuilder, LazyMobileAppBuilder, LazyDesktopAppBuilder,
+  LazyHome, LazyBuilder, LazyCloudIDE, LazyAiAppBuilder, LazyMobileAppBuilder, LazyDesktopAppBuilder,
   LazyTestingGenerator, LazyBackendGenerator, LazyGitControl, LazyAICopilot, LazyMarketplace,
   LazyCollaboration, LazyMilitarySecurity, LazyNovaAIDashboard, LazyNovaSovereignDashboard,
   LazyOwnerDashboard, LazyOwnerControlCenter, LazySovereignWorkspace, LazySovereignPermissions,
@@ -70,7 +69,8 @@ import {
 import PaymentSuccess from "@/pages/payment-success";
 import PaymentCancel from "@/pages/payment-cancel";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
-import { SovereignIndicator } from "@/components/sovereign-indicator";
+import { lazy, Suspense } from "react";
+const LazySovereignIndicator = lazy(() => import("@/components/sovereign-indicator"));
 import { CommandPalette } from "@/components/command-palette";
 import { NovaAssistantMenu } from "@/components/nova-assistant-menu";
 import { NovaFloatingButton } from "@/components/nova-floating-button";
@@ -107,7 +107,7 @@ function GuestRouter() {
 function AuthenticatedRouter() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
+      <Route path="/" component={LazyHome} />
       <Route path="/infera-group" component={LazyInferaLanding} />
       <Route path="/engine-control" component={LazyEngineControlLanding} />
       <Route path="/engine" component={LazyEngineLanding} />
@@ -424,7 +424,9 @@ function AppContent() {
       </SidebarProvider>
       
       {/* Sovereign Analytics Panel - لوحة التحليلات السيادية */}
-      <SovereignIndicator />
+      <Suspense fallback={null}>
+        <LazySovereignIndicator />
+      </Suspense>
       
       {/* Sovereign Access Summary - ملخص صلاحيات الوصول */}
       <SovereignAccessSummaryWrapper />

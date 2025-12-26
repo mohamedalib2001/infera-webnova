@@ -24,6 +24,7 @@ function lazyPage(
   };
 }
 
+export const LazyHome = lazyPage(() => import('@/pages/home'));
 export const LazyBuilder = lazyPage(() => import('@/pages/builder'));
 export const LazyCloudIDE = lazyPage(() => import('@/pages/cloud-ide'));
 export const LazyAiAppBuilder = lazyPage(() => import('@/pages/ai-app-builder'));
