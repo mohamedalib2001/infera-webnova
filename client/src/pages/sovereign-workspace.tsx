@@ -612,14 +612,17 @@ const roleLabels: Record<SovereignWorkspaceRole, { en: string; ar: string; descr
 export default function SovereignWorkspacePage() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const [activeTab, setActiveTab] = useState("platforms");
   
   // Read initial prompt from URL for Nova AI chat
-  const [initialPrompt] = useState(() => {
+  const urlInitialPrompt = (() => {
     const urlParams = new URLSearchParams(window.location.search);
     const promptParam = urlParams.get("prompt");
     return promptParam ? decodeURIComponent(promptParam) : "";
-  });
+  })();
+  
+  // If there's an initial prompt, auto-switch to Nova AI tab
+  const [activeTab, setActiveTab] = useState(urlInitialPrompt ? "nova" : "platforms");
+  const [initialPrompt] = useState(urlInitialPrompt);
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
   const [inviteMemberDialogOpen, setInviteMemberDialogOpen] = useState(false);
   const [previewProject, setPreviewProject] = useState<SovereignWorkspaceProject | null>(null);
