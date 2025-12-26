@@ -33,26 +33,6 @@ import {
   LazyNovaChat,
   LazySupport,
   LazySubscription,
-  LazyInferaLanding,
-  LazyEngineControlLanding,
-  LazyEngineLanding,
-  LazyFinanceLanding,
-  LazyHumanIQLanding,
-  LazyLegalLanding,
-  LazyAppForgeLanding,
-  LazyMarketingLanding,
-  LazyMarketplaceLanding,
-  LazyEducationLanding,
-  LazyAttendLanding,
-  LazySmartDocsLanding,
-  LazyHospitalityLanding,
-  LazyFeasibilityLanding,
-  LazyCVBuilderLanding,
-  LazyJobsLanding,
-  LazyTrainAILanding,
-  LazyGlobalCloudLanding,
-  LazyShieldGridLanding,
-  LazySmartRemoteLanding,
   LazyAbout,
   LazyContact,
   LazyTerms,
@@ -96,28 +76,6 @@ function AuthenticatedRouter() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      
-      {/* Platform Landings */}
-      <Route path="/infera-group" component={LazyInferaLanding} />
-      <Route path="/engine-control" component={LazyEngineControlLanding} />
-      <Route path="/engine" component={LazyEngineLanding} />
-      <Route path="/finance" component={LazyFinanceLanding} />
-      <Route path="/humaniq" component={LazyHumanIQLanding} />
-      <Route path="/legal" component={LazyLegalLanding} />
-      <Route path="/appforge" component={LazyAppForgeLanding} />
-      <Route path="/marketing" component={LazyMarketingLanding} />
-      <Route path="/marketplace" component={LazyMarketplaceLanding} />
-      <Route path="/education" component={LazyEducationLanding} />
-      <Route path="/attend" component={LazyAttendLanding} />
-      <Route path="/smartdocs" component={LazySmartDocsLanding} />
-      <Route path="/hospitality" component={LazyHospitalityLanding} />
-      <Route path="/feasibility" component={LazyFeasibilityLanding} />
-      <Route path="/cvbuilder" component={LazyCVBuilderLanding} />
-      <Route path="/jobs" component={LazyJobsLanding} />
-      <Route path="/trainai" component={LazyTrainAILanding} />
-      <Route path="/globalcloud" component={LazyGlobalCloudLanding} />
-      <Route path="/shieldgrid" component={LazyShieldGridLanding} />
-      <Route path="/smartremote" component={LazySmartRemoteLanding} />
       
       {/* Core Pages */}
       <Route path="/auth" component={Auth} />
