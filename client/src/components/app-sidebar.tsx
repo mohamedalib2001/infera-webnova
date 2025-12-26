@@ -100,6 +100,7 @@ import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFoo
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { NewPlatformModal, useNewPlatformModal } from "@/components/new-platform-modal";
+import { PlatformHeartbeat } from "@/components/platform-heartbeat";
 
 type AudienceTab = "all" | "owner" | "visitors" | "employees" | "managers" | "subscribers" | "development";
 
@@ -192,6 +193,13 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     { title: language === "ar" ? "خط أنابيب CI/CD" : "CI/CD Pipeline", url: "/cicd", icon: Workflow, testId: "nav-dev-cicd" },
     { title: language === "ar" ? "اختبار الأجهزة" : "Device Testing", url: "/device-testing", icon: Cpu, testId: "nav-dev-device" },
     { title: language === "ar" ? "الأمان العسكري" : "Military Security", url: "/military-security", icon: ShieldCheck, testId: "nav-dev-military" },
+    { title: language === "ar" ? "مولّد الاختبارات" : "Testing Generator", url: "/testing", icon: TestTube2, testId: "nav-dev-testing" },
+    { title: language === "ar" ? "التعاون الجماعي" : "Collaboration", url: "/collaboration", icon: Users, testId: "nav-dev-collaboration" },
+    { title: language === "ar" ? "الخرائط" : "Maps", url: "/maps", icon: MapPin, testId: "nav-dev-maps" },
+    { title: language === "ar" ? "سوق الإضافات" : "Extensions", url: "/extensions", icon: Store, testId: "nav-dev-extensions" },
+    { title: language === "ar" ? "القوالب" : "Templates", url: "/templates", icon: LayoutTemplate, testId: "nav-dev-templates" },
+    { title: language === "ar" ? "مولّد الباك إند" : "Backend Generator", url: "/backend-generator", icon: ServerCog, testId: "nav-dev-backend" },
+    { title: language === "ar" ? "لوحة Nova AI" : "Nova AI Dashboard", url: "/nova/dashboard", icon: Brain, testId: "nav-dev-nova-dashboard" },
   ];
 
   const buildItems = [
@@ -345,6 +353,9 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                     )}
                   </div>
                 </div>
+              </div>
+              <div className="mt-3 flex justify-center">
+                <PlatformHeartbeat />
               </div>
             </div>
           )}
