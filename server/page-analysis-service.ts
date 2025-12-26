@@ -7,6 +7,7 @@ interface AnalysisTask {
   nameEn: string;
   completed: boolean;
   evidence?: string;
+  weight: number;
 }
 
 interface PageAnalysis {
@@ -19,6 +20,8 @@ interface PageAnalysis {
   lineCount: number;
   tasks: AnalysisTask[];
   completionPercentage: number;
+  weightedScore: number;
+  totalWeight: number;
   lastModified?: Date;
 }
 
@@ -27,6 +30,7 @@ interface AnalysisCriteria {
   nameAr: string;
   nameEn: string;
   patterns: RegExp[];
+  minMatches: number;
   weight: number;
 }
 
@@ -36,12 +40,14 @@ const ANALYSIS_CRITERIA: AnalysisCriteria[] = [
     nameAr: "مكونات واجهة المستخدم",
     nameEn: "UI Components",
     patterns: [
-      /import.*from.*@\/components\/ui/,
-      /<Card/,
-      /<Button/,
-      /<Badge/,
-      /className=/
+      /import\s*\{[^}]*\}\s*from\s*["']@\/components\/ui/,
+      /<Card[\s>]/,
+      /<Button[\s>]/,
+      /<Badge[\s>]/,
+      /<Dialog[\s>]/,
+      /<ScrollArea[\s>]/,
     ],
+    minMatches: 3,
     weight: 1
   },
   {
@@ -49,12 +55,12 @@ const ANALYSIS_CRITERIA: AnalysisCriteria[] = [
     nameAr: "تكامل API",
     nameEn: "API Integration",
     patterns: [
-      /useQuery/,
-      /useMutation/,
-      /fetch\(/,
-      /apiRequest/,
-      /\/api\//
+      /useQuery\s*\(/,
+      /useMutation\s*\(/,
+      /apiRequest\s*\(/,
+      /queryKey:\s*\[["']\/api/,
     ],
+    minMatches: 2,
     weight: 1.5
   },
   {
@@ -62,12 +68,13 @@ const ANALYSIS_CRITERIA: AnalysisCriteria[] = [
     nameAr: "معالجة النماذج",
     nameEn: "Form Handling",
     patterns: [
-      /useForm/,
-      /<Form/,
-      /<Input/,
-      /onSubmit/,
-      /zodResolver/
+      /useForm\s*\(/,
+      /<Form[\s>]/,
+      /onSubmit\s*=/,
+      /zodResolver\s*\(/,
+      /<FormField[\s>]/,
     ],
+    minMatches: 2,
     weight: 1
   },
   {
@@ -75,13 +82,13 @@ const ANALYSIS_CRITERIA: AnalysisCriteria[] = [
     nameAr: "معالجة الأخطاء",
     nameEn: "Error Handling",
     patterns: [
-      /try\s*{/,
-      /catch\s*\(/,
-      /\.catch\(/,
-      /onError/,
-      /isError/,
-      /error\s*&&/
+      /try\s*\{[\s\S]*?catch\s*\(/,
+      /\.catch\s*\(/,
+      /onError\s*:/,
+      /isError\s*[&|?:]/,
+      /error\s*&&\s*</,
     ],
+    minMatches: 2,
     weight: 1
   },
   {
@@ -89,12 +96,12 @@ const ANALYSIS_CRITERIA: AnalysisCriteria[] = [
     nameAr: "حالات التحميل",
     nameEn: "Loading States",
     patterns: [
-      /isLoading/,
-      /isPending/,
-      /<Skeleton/,
-      /Loading/,
-      /Spinner/
+      /isLoading\s*[&|?:]/,
+      /isPending\s*[&|?:]/,
+      /<Skeleton[\s>]/,
+      /import.*Skeleton.*from/,
     ],
+    minMatches: 2,
     weight: 1
   },
   {
@@ -102,13 +109,13 @@ const ANALYSIS_CRITERIA: AnalysisCriteria[] = [
     nameAr: "التصميم المتجاوب",
     nameEn: "Responsive Design",
     patterns: [
-      /md:/,
-      /lg:/,
-      /sm:/,
-      /xl:/,
-      /grid-cols/,
-      /flex-wrap/
+      /\bmd:/,
+      /\blg:/,
+      /\bsm:/,
+      /\bxl:/,
+      /grid-cols-\d+\s+md:grid-cols/,
     ],
+    minMatches: 3,
     weight: 0.8
   },
   {
@@ -116,12 +123,12 @@ const ANALYSIS_CRITERIA: AnalysisCriteria[] = [
     nameAr: "إمكانية الوصول",
     nameEn: "Accessibility",
     patterns: [
-      /aria-/,
-      /role=/,
-      /data-testid/,
-      /alt=/,
-      /tabIndex/
+      /aria-label=/,
+      /aria-describedby=/,
+      /role=["']/,
+      /data-testid=/,
     ],
+    minMatches: 2,
     weight: 0.8
   },
   {
@@ -129,12 +136,12 @@ const ANALYSIS_CRITERIA: AnalysisCriteria[] = [
     nameAr: "إدارة الحالة",
     nameEn: "State Management",
     patterns: [
-      /useState/,
-      /useEffect/,
-      /useMemo/,
-      /useCallback/,
-      /useContext/
+      /useState\s*</,
+      /useEffect\s*\(/,
+      /useMemo\s*\(/,
+      /useCallback\s*\(/,
     ],
+    minMatches: 2,
     weight: 1
   },
   {
@@ -142,12 +149,11 @@ const ANALYSIS_CRITERIA: AnalysisCriteria[] = [
     nameAr: "التنقل",
     nameEn: "Navigation",
     patterns: [
-      /useLocation/,
-      /<Link/,
-      /navigate\(/,
-      /href=/,
-      /router/
+      /useLocation\s*\(/,
+      /<Link\s+/,
+      /from\s*["']wouter["']/,
     ],
+    minMatches: 1,
     weight: 0.8
   },
   {
@@ -155,12 +161,11 @@ const ANALYSIS_CRITERIA: AnalysisCriteria[] = [
     nameAr: "المصادقة",
     nameEn: "Authentication",
     patterns: [
-      /useAuth/,
+      /useAuth\s*\(/,
+      /user\s*\?\./,
       /isAuthenticated/,
-      /user\??\./,
-      /login/i,
-      /logout/i
     ],
+    minMatches: 1,
     weight: 1
   },
   {
@@ -168,12 +173,12 @@ const ANALYSIS_CRITERIA: AnalysisCriteria[] = [
     nameAr: "تعدد اللغات",
     nameEn: "Internationalization",
     patterns: [
-      /useLanguage/,
-      /isArabic/,
+      /useLanguage\s*\(/,
+      /isArabic\s*[?&|:]/,
       /language\s*===?\s*["']ar["']/,
-      /dir=/,
-      /rtl/
+      /dir=\{isArabic/,
     ],
+    minMatches: 2,
     weight: 0.7
   },
   {
@@ -181,10 +186,11 @@ const ANALYSIS_CRITERIA: AnalysisCriteria[] = [
     nameAr: "الإشعارات",
     nameEn: "Toast Notifications",
     patterns: [
-      /useToast/,
-      /toast\(/,
-      /toast\./
+      /useToast\s*\(/,
+      /toast\s*\(\s*\{/,
+      /toast\.\w+\s*\(/,
     ],
+    minMatches: 1,
     weight: 0.5
   }
 ];
@@ -231,15 +237,26 @@ const PAGE_DEFINITIONS: { route: string; nameAr: string; nameEn: string; categor
   { route: "/pages-completion", nameAr: "تتبع الإكتمال", nameEn: "Completion Tracker", category: "development", fileName: "pages-completion-tracker.tsx" },
 ];
 
-function analyzeFile(filePath: string): { content: string; lineCount: number; exists: boolean; lastModified?: Date } {
-  try {
-    const stats = fs.statSync(filePath);
-    const content = fs.readFileSync(filePath, "utf-8");
-    const lineCount = content.split("\n").length;
-    return { content, lineCount, exists: true, lastModified: stats.mtime };
-  } catch {
-    return { content: "", lineCount: 0, exists: false };
-  }
+let analysisCache: { data: PageAnalysis[]; timestamp: number } | null = null;
+const CACHE_TTL = 30000;
+
+function analyzeFileAsync(filePath: string): Promise<{ content: string; lineCount: number; exists: boolean; lastModified?: Date }> {
+  return new Promise((resolve) => {
+    fs.stat(filePath, (statErr, stats) => {
+      if (statErr) {
+        resolve({ content: "", lineCount: 0, exists: false });
+        return;
+      }
+      fs.readFile(filePath, "utf-8", (readErr, content) => {
+        if (readErr) {
+          resolve({ content: "", lineCount: 0, exists: false });
+          return;
+        }
+        const lineCount = content.split("\n").length;
+        resolve({ content, lineCount, exists: true, lastModified: stats.mtime });
+      });
+    });
+  });
 }
 
 function checkCriteria(content: string, criteria: AnalysisCriteria): { completed: boolean; matchCount: number; evidence: string } {
@@ -251,22 +268,102 @@ function checkCriteria(content: string, criteria: AnalysisCriteria): { completed
     if (matches) {
       matchCount += matches.length;
       if (!evidence && matches.length > 0) {
-        evidence = matches[0].substring(0, 50);
+        const match = matches[0];
+        evidence = match.length > 40 ? match.substring(0, 40) + "..." : match;
       }
     }
   }
   
-  const completed = matchCount >= 2;
+  const completed = matchCount >= criteria.minMatches;
   return { completed, matchCount, evidence };
 }
 
+export async function analyzeAllPagesAsync(): Promise<PageAnalysis[]> {
+  if (analysisCache && Date.now() - analysisCache.timestamp < CACHE_TTL) {
+    return analysisCache.data;
+  }
+
+  const pagesDir = path.join(process.cwd(), "client", "src", "pages");
+  const results: PageAnalysis[] = [];
+  
+  const analyses = await Promise.all(
+    PAGE_DEFINITIONS.map(async (pageDef) => {
+      const filePath = path.join(pagesDir, pageDef.fileName);
+      const { content, lineCount, exists, lastModified } = await analyzeFileAsync(filePath);
+      
+      const tasks: AnalysisTask[] = [];
+      let totalWeight = 0;
+      let completedWeight = 0;
+      
+      for (const criteria of ANALYSIS_CRITERIA) {
+        const { completed, matchCount, evidence } = checkCriteria(content, criteria);
+        
+        tasks.push({
+          id: criteria.id,
+          nameAr: criteria.nameAr,
+          nameEn: criteria.nameEn,
+          completed,
+          evidence: completed ? `${matchCount} matches` : undefined,
+          weight: criteria.weight
+        });
+        
+        totalWeight += criteria.weight;
+        if (completed) {
+          completedWeight += criteria.weight;
+        }
+      }
+      
+      const completionPercentage = exists 
+        ? Math.round((completedWeight / totalWeight) * 100)
+        : 0;
+      
+      return {
+        path: pageDef.route,
+        fileName: pageDef.fileName,
+        nameAr: pageDef.nameAr,
+        nameEn: pageDef.nameEn,
+        category: pageDef.category,
+        fileExists: exists,
+        lineCount,
+        tasks,
+        completionPercentage,
+        weightedScore: completedWeight,
+        totalWeight,
+        lastModified
+      };
+    })
+  );
+  
+  results.push(...analyses);
+  
+  analysisCache = { data: results, timestamp: Date.now() };
+  return results;
+}
+
 export function analyzeAllPages(): PageAnalysis[] {
+  if (analysisCache && Date.now() - analysisCache.timestamp < CACHE_TTL) {
+    return analysisCache.data;
+  }
+
   const pagesDir = path.join(process.cwd(), "client", "src", "pages");
   const results: PageAnalysis[] = [];
   
   for (const pageDef of PAGE_DEFINITIONS) {
     const filePath = path.join(pagesDir, pageDef.fileName);
-    const { content, lineCount, exists, lastModified } = analyzeFile(filePath);
+    let content = "";
+    let lineCount = 0;
+    let exists = false;
+    let lastModified: Date | undefined;
+    
+    try {
+      const stats = fs.statSync(filePath);
+      content = fs.readFileSync(filePath, "utf-8");
+      lineCount = content.split("\n").length;
+      exists = true;
+      lastModified = stats.mtime;
+    } catch {
+      exists = false;
+    }
     
     const tasks: AnalysisTask[] = [];
     let totalWeight = 0;
@@ -280,7 +377,8 @@ export function analyzeAllPages(): PageAnalysis[] {
         nameAr: criteria.nameAr,
         nameEn: criteria.nameEn,
         completed,
-        evidence: completed ? `${matchCount} matches` : undefined
+        evidence: completed ? `${matchCount} matches` : undefined,
+        weight: criteria.weight
       });
       
       totalWeight += criteria.weight;
@@ -303,10 +401,13 @@ export function analyzeAllPages(): PageAnalysis[] {
       lineCount,
       tasks,
       completionPercentage,
+      weightedScore: completedWeight,
+      totalWeight,
       lastModified
     });
   }
   
+  analysisCache = { data: results, timestamp: Date.now() };
   return results;
 }
 
@@ -319,9 +420,12 @@ export function getAnalysisSummary(): {
   totalPages: number;
   existingPages: number;
   averageCompletion: number;
+  totalWeightedScore: number;
+  maxPossibleScore: number;
+  weightedCompletion: number;
   totalTasks: number;
   completedTasks: number;
-  categoryStats: Record<string, { pages: number; avgCompletion: number }>;
+  categoryStats: Record<string, { pages: number; avgCompletion: number; weightedAvg: number }>;
 } {
   const results = analyzeAllPages();
   const existingPages = results.filter(p => p.fileExists);
@@ -332,20 +436,31 @@ export function getAnalysisSummary(): {
     0
   );
   
-  const categoryStats: Record<string, { pages: number; totalCompletion: number; avgCompletion: number }> = {};
+  const totalWeightedScore = results.reduce((sum, p) => sum + p.weightedScore, 0);
+  const maxPossibleScore = results.reduce((sum, p) => sum + p.totalWeight, 0);
+  const weightedCompletion = maxPossibleScore > 0 
+    ? Math.round((totalWeightedScore / maxPossibleScore) * 100)
+    : 0;
+  
+  const categoryStats: Record<string, { pages: number; totalCompletion: number; totalWeighted: number; maxWeighted: number; avgCompletion: number; weightedAvg: number }> = {};
   
   for (const page of results) {
     if (!categoryStats[page.category]) {
-      categoryStats[page.category] = { pages: 0, totalCompletion: 0, avgCompletion: 0 };
+      categoryStats[page.category] = { pages: 0, totalCompletion: 0, totalWeighted: 0, maxWeighted: 0, avgCompletion: 0, weightedAvg: 0 };
     }
     categoryStats[page.category].pages++;
     categoryStats[page.category].totalCompletion += page.completionPercentage;
+    categoryStats[page.category].totalWeighted += page.weightedScore;
+    categoryStats[page.category].maxWeighted += page.totalWeight;
   }
   
   for (const cat of Object.keys(categoryStats)) {
     categoryStats[cat].avgCompletion = Math.round(
       categoryStats[cat].totalCompletion / categoryStats[cat].pages
     );
+    categoryStats[cat].weightedAvg = categoryStats[cat].maxWeighted > 0
+      ? Math.round((categoryStats[cat].totalWeighted / categoryStats[cat].maxWeighted) * 100)
+      : 0;
   }
   
   return {
@@ -354,8 +469,15 @@ export function getAnalysisSummary(): {
     averageCompletion: existingPages.length > 0
       ? Math.round(existingPages.reduce((sum, p) => sum + p.completionPercentage, 0) / existingPages.length)
       : 0,
+    totalWeightedScore,
+    maxPossibleScore,
+    weightedCompletion,
     totalTasks,
     completedTasks,
     categoryStats
   };
+}
+
+export function clearAnalysisCache(): void {
+  analysisCache = null;
 }
