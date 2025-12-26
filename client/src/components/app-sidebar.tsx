@@ -316,28 +316,30 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
             </div>
           )}
           
-          <div className="px-3 py-2 border-b" data-testid="audience-filter-container">
-            <Select value={activeTab} onValueChange={(v) => setActiveTab(v as AudienceTab)}>
-              <SelectTrigger className="w-full h-9" data-testid="select-audience-filter">
-                <SelectValue placeholder={language === "ar" ? "اختر العرض" : "Select View"} />
-              </SelectTrigger>
-              <SelectContent>
-                {audienceTabs.map((tab) => (
-                  <SelectItem key={tab.id} value={tab.id} data-testid={`option-${tab.id}`}>
-                    <div className="flex items-center gap-2">
-                      <tab.icon className="h-4 w-4" />
-                      <span>{tab.label}</span>
-                      {tab.id === "development" && (
-                        <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-2 bg-orange-500/20 text-orange-600 dark:text-orange-400">
-                          {developmentPages.length}
-                        </Badge>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {(isOwner || isSovereign) && (
+            <div className="px-3 py-2 border-b" data-testid="audience-filter-container">
+              <Select value={activeTab} onValueChange={(v) => setActiveTab(v as AudienceTab)}>
+                <SelectTrigger className="w-full h-9" data-testid="select-audience-filter">
+                  <SelectValue placeholder={language === "ar" ? "اختر العرض" : "Select View"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {audienceTabs.map((tab) => (
+                    <SelectItem key={tab.id} value={tab.id} data-testid={`option-${tab.id}`}>
+                      <div className="flex items-center gap-2">
+                        <tab.icon className="h-4 w-4" />
+                        <span>{tab.label}</span>
+                        {tab.id === "development" && (
+                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-2 bg-orange-500/20 text-orange-600 dark:text-orange-400">
+                            {developmentPages.length}
+                          </Badge>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {activeTab === "development" && (
             <SidebarGroup>
