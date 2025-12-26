@@ -113,7 +113,6 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
   const { user, isAuthenticated, logout, isLoggingOut, isSovereign } = useAuth();
   const { t, language } = useLanguage();
   const { isOpen, setIsOpen, openModal } = useNewPlatformModal();
-  const [pitchDeckExpanded, setPitchDeckExpanded] = useState(false);
   const isOwner = user?.role === "owner";
   
   // Default to "owner" filter for owners, "all" for others
@@ -214,18 +213,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
   ];
 
   
-  const pitchDeckItems = [
-    { title: language === "ar" ? "نظرة عامة" : "Overview", url: "/pitch-deck", icon: LayoutDashboard, testId: "nav-pitch-overview" },
-    { title: language === "ar" ? "رؤية المنصة" : "Platform Vision", url: "/pitch-deck/vision", icon: Eye, testId: "nav-pitch-vision" },
-    { title: language === "ar" ? "المشكلة والحل" : "Problem & Solution", url: "/pitch-deck/solution", icon: Lightbulb, testId: "nav-pitch-solution" },
-    { title: language === "ar" ? "نموذج العمل" : "Business Model", url: "/pitch-deck/business", icon: TrendingUp, testId: "nav-pitch-business" },
-    { title: language === "ar" ? "التحليل المالي" : "Financial Analysis", url: "/pitch-deck/financials", icon: LineChart, testId: "nav-pitch-financials" },
-    { title: language === "ar" ? "الفريق" : "Team", url: "/pitch-deck/team", icon: Users, testId: "nav-pitch-team" },
-    { title: language === "ar" ? "خارطة الطريق" : "Roadmap", url: "/pitch-deck/roadmap", icon: Workflow, testId: "nav-pitch-roadmap" },
-    { title: language === "ar" ? "المستثمرين" : "Investors", url: "/pitch-deck/investors", icon: Landmark, testId: "nav-pitch-investors" },
-    { title: language === "ar" ? "تصدير PDF" : "Export PDF", url: "/pitch-deck/export", icon: FileText, testId: "nav-pitch-export" },
-  ];
-
+  
   const roleLabels: Record<string, { ar: string; en: string; color: "secondary" | "default" | "destructive" }> = {
     free: { ar: "مجاني", en: "Free", color: "secondary" },
     basic: { ar: "أساسي", en: "Basic", color: "secondary" },
@@ -472,32 +460,6 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                   <SidebarGroupContent>
                     {renderNavItems(managementItems)}
                   </SidebarGroupContent>
-                </SidebarGroup>
-              )}
-
-              {/* Pitch Deck Section - for owner only */}
-              {shouldShowSection(["all", "owner"]) && (
-                <SidebarGroup>
-                  <Collapsible open={pitchDeckExpanded} onOpenChange={setPitchDeckExpanded}>
-                    <CollapsibleTrigger asChild>
-                      <SidebarGroupLabel className="flex items-center gap-1 cursor-pointer w-full justify-between pr-2 text-violet-600 dark:text-violet-400">
-                        <span className="flex items-center gap-1">
-                          <Presentation className="h-3 w-3" />
-                          {language === "ar" ? "عرض المستثمرين" : "Pitch Deck"}
-                        </span>
-                        {pitchDeckExpanded ? (
-                          <ChevronDown className="h-3 w-3" />
-                        ) : (
-                          <ChevronRight className="h-3 w-3" />
-                        )}
-                      </SidebarGroupLabel>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <SidebarGroupContent>
-                        {renderNavItems(pitchDeckItems)}
-                      </SidebarGroupContent>
-                    </CollapsibleContent>
-                  </Collapsible>
                 </SidebarGroup>
               )}
 
