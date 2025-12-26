@@ -27,6 +27,7 @@ function lazyPage(
 // Core Pages
 export const LazySettings = lazyPage(() => import('@/pages/settings'));
 export const LazySovereignWorkspace = lazyPage(() => import('@/pages/sovereign-workspace'));
+export const LazyUserBuilder = lazyPage(() => import('@/pages/user-builder'));
 export const LazyNovaAIDashboard = lazyPage(() => import('@/pages/nova-ai-dashboard'));
 export const LazyNovaChat = lazyPage(() => import('@/pages/nova-chat'));
 export const LazySupport = lazyPage(() => import('@/pages/support'));

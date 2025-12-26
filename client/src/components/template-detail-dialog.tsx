@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useLanguage } from "@/hooks/use-language";
+import { useAuth } from "@/hooks/use-auth";
 import type { Template } from "@shared/schema";
 import {
   Sparkles,
@@ -116,10 +117,13 @@ const monetizationConfig: Record<string, { icon: any; badgeClass: string; label:
 
 export function TemplateDetailDialog({ template, open, onOpenChange }: TemplateDetailDialogProps) {
   const { language, isRtl } = useLanguage();
+  const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [selectedPlan, setSelectedPlan] = useState<"free" | "paid">("free");
 
   if (!template) return null;
+  
+  const isSovereign = user?.role === "sovereign" || user?.role === "owner";
 
   const intelligenceConfig = intelligenceLevelConfig[template.intelligenceLevel as keyof typeof intelligenceLevelConfig] || intelligenceLevelConfig.basic;
   const IntelligenceIcon = intelligenceConfig.icon;
@@ -144,7 +148,8 @@ export function TemplateDetailDialog({ template, open, onOpenChange }: TemplateD
     const prompt = language === "ar" 
       ? `أنشئ منصة بناءً على قالب "${template.name}" مع كل الميزات والقدرات المطلوبة`
       : `Create a platform based on the "${template.name}" template with all required features and capabilities`;
-    setLocation(`/sovereign-workspace?prompt=${encodeURIComponent(prompt)}&templateId=${template.id}`);
+    const targetPath = isSovereign ? '/sovereign-workspace' : '/user-builder';
+    setLocation(`${targetPath}?prompt=${encodeURIComponent(prompt)}&templateId=${template.id}`);
     onOpenChange(false);
   };
 

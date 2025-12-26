@@ -177,12 +177,16 @@ export default function Home() {
     });
   }, [templates, selectedCategory, selectedIntelligence]);
 
+  const isSovereign = user?.role === "sovereign" || user?.role === "owner";
+  
   const handleChatSubmit = async (message: string) => {
-    setLocation(`/sovereign-workspace?prompt=${encodeURIComponent(message)}`);
+    const targetPath = isSovereign ? '/sovereign-workspace' : '/user-builder';
+    setLocation(`${targetPath}?prompt=${encodeURIComponent(message)}`);
   };
 
   const handleOpenProject = (project: Project) => {
-    setLocation(`/sovereign-workspace?project=${project.id}`);
+    const targetPath = isSovereign ? '/sovereign-workspace' : '/user-builder';
+    setLocation(`${targetPath}?project=${project.id}`);
   };
 
   const handleDeleteProject = (project: Project) => {
