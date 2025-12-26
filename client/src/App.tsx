@@ -1,4 +1,5 @@
 import { Switch, Route, useLocation } from "wouter";
+import { lazy, Suspense } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -11,8 +12,6 @@ import { LanguageProvider, useLanguage } from "@/hooks/use-language";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { GuestSidebar } from "@/components/guest-sidebar";
-import { InspectorProvider, InspectorToggle } from "@/components/owner-inspector";
-import { SovereignViewProvider, SovereignViewToggle, SovereignAccessSummary } from "@/components/sovereign-view";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Bell } from "lucide-react";
@@ -40,12 +39,18 @@ import {
   LazyRefund,
 } from "@/lib/lazy-routes";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
-import { CommandPalette } from "@/components/command-palette";
-import { NovaAssistantMenu } from "@/components/nova-assistant-menu";
-import { NovaFloatingButton } from "@/components/nova-floating-button";
-import { SovereignHeaderButton } from "@/components/sovereign-header-button";
-import { AIProviderTopbar } from "@/components/ai-provider-topbar";
-import { PerformanceTracker } from "@/hooks/use-performance-tracker";
+
+const CommandPalette = lazy(() => import("@/components/command-palette").then(m => ({ default: m.CommandPalette })));
+const NovaAssistantMenu = lazy(() => import("@/components/nova-assistant-menu").then(m => ({ default: m.NovaAssistantMenu })));
+const NovaFloatingButton = lazy(() => import("@/components/nova-floating-button").then(m => ({ default: m.NovaFloatingButton })));
+const SovereignHeaderButton = lazy(() => import("@/components/sovereign-header-button").then(m => ({ default: m.SovereignHeaderButton })));
+const AIProviderTopbar = lazy(() => import("@/components/ai-provider-topbar").then(m => ({ default: m.AIProviderTopbar })));
+const PerformanceTracker = lazy(() => import("@/hooks/use-performance-tracker").then(m => ({ default: m.PerformanceTracker })));
+const InspectorProvider = lazy(() => import("@/components/owner-inspector").then(m => ({ default: m.InspectorProvider })));
+const InspectorToggle = lazy(() => import("@/components/owner-inspector").then(m => ({ default: m.InspectorToggle })));
+const SovereignViewProvider = lazy(() => import("@/components/sovereign-view").then(m => ({ default: m.SovereignViewProvider })));
+const SovereignViewToggle = lazy(() => import("@/components/sovereign-view").then(m => ({ default: m.SovereignViewToggle })));
+const SovereignAccessSummary = lazy(() => import("@/components/sovereign-view").then(m => ({ default: m.SovereignAccessSummary })));
 
 function RedirectToAuth() {
   const [, setLocation] = useLocation();
@@ -109,7 +114,11 @@ function AuthenticatedRouter() {
 
 function SovereignAccessSummaryWrapper() {
   const [location] = useLocation();
-  return <SovereignAccessSummary currentRoute={location} />;
+  return (
+    <Suspense fallback={null}>
+      <SovereignAccessSummary currentRoute={location} />
+    </Suspense>
+  );
 }
 
 function NotificationBell() {
@@ -147,6 +156,44 @@ function NotificationBell() {
   );
 }
 
+function DeferredComponents() {
+  const { isAuthenticated } = useAuth();
+  const { isRtl } = useLanguage();
+  
+  if (!isAuthenticated) return null;
+  
+  return (
+    <Suspense fallback={null}>
+      <SovereignAccessSummaryWrapper />
+      <NovaFloatingButton />
+      <PerformanceTracker />
+    </Suspense>
+  );
+}
+
+function HeaderControls() {
+  const { isAuthenticated } = useAuth();
+  const { isRtl } = useLanguage();
+  
+  return (
+    <>
+      <Suspense fallback={null}>
+        {isAuthenticated && (
+          <>
+            <AIProviderTopbar />
+            <NovaAssistantMenu />
+            <SovereignHeaderButton />
+            <SovereignViewToggle />
+            <InspectorToggle />
+          </>
+        )}
+      </Suspense>
+      <NotificationBell />
+      <LanguageToggle />
+      <ThemeToggle />
+    </>
+  );
+}
 
 function AppContent() {
   const { isRtl } = useLanguage();
@@ -159,10 +206,7 @@ function AppContent() {
     "--sidebar-width-icon": "3rem",
   };
 
-  return (
-    <WorkspaceProvider authUser={user} initialRtl={isRtl}>
-    <SovereignViewProvider>
-    <InspectorProvider>
+  const MainContent = (
     <div dir={isRtl ? "rtl" : "ltr"}>
       <SidebarProvider style={style as React.CSSProperties}>
         <div className="flex h-screen w-full">
@@ -175,17 +219,14 @@ function AppContent() {
             <header className="flex items-center justify-between gap-2 p-3 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
               <div className="flex items-center gap-2">
                 <SidebarTrigger data-testid="button-sidebar-toggle" />
-                {isAuthenticated && <CommandPalette language={isRtl ? "ar" : "en"} />}
+                {isAuthenticated && (
+                  <Suspense fallback={null}>
+                    <CommandPalette language={isRtl ? "ar" : "en"} />
+                  </Suspense>
+                )}
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                <AIProviderTopbar />
-                <NovaAssistantMenu />
-                <SovereignHeaderButton />
-                <SovereignViewToggle />
-                <InspectorToggle />
-                <NotificationBell />
-                <LanguageToggle />
-                <ThemeToggle />
+                <HeaderControls />
               </div>
             </header>
             <main className="flex-1 overflow-auto">
@@ -223,12 +264,27 @@ function AppContent() {
         </div>
       </SidebarProvider>
       
-      <SovereignAccessSummaryWrapper />
-      <NovaFloatingButton />
-      <PerformanceTracker />
+      <DeferredComponents />
     </div>
-    </InspectorProvider>
-    </SovereignViewProvider>
+  );
+
+  if (!isAuthenticated) {
+    return (
+      <WorkspaceProvider authUser={user} initialRtl={isRtl}>
+        {MainContent}
+      </WorkspaceProvider>
+    );
+  }
+
+  return (
+    <WorkspaceProvider authUser={user} initialRtl={isRtl}>
+      <Suspense fallback={MainContent}>
+        <SovereignViewProvider>
+          <InspectorProvider>
+            {MainContent}
+          </InspectorProvider>
+        </SovereignViewProvider>
+      </Suspense>
     </WorkspaceProvider>
   );
 }
