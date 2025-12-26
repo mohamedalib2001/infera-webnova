@@ -144,7 +144,7 @@ export function TemplateDetailDialog({ template, open, onOpenChange }: TemplateD
     const prompt = language === "ar" 
       ? `أنشئ منصة بناءً على قالب "${template.name}" مع كل الميزات والقدرات المطلوبة`
       : `Create a platform based on the "${template.name}" template with all required features and capabilities`;
-    setLocation(`/builder?prompt=${encodeURIComponent(prompt)}&templateId=${template.id}`);
+    setLocation(`/sovereign-workspace?prompt=${encodeURIComponent(prompt)}&templateId=${template.id}`);
     onOpenChange(false);
   };
 
