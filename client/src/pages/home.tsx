@@ -115,23 +115,15 @@ export default function Home() {
   const [selectedComplianceFramework, setSelectedComplianceFramework] = useState<string | undefined>(undefined);
   const [showDeferredContent, setShowDeferredContent] = useState(false);
 
-  // Defer heavy content until after initial render for better LCP
+  // Defer heavy content until after initial paint for better LCP (500ms delay)
   useEffect(() => {
-    const timer = requestAnimationFrame(() => {
+    const timer = setTimeout(() => {
       setShowDeferredContent(true);
-    });
-    return () => cancelAnimationFrame(timer);
+    }, 500);
+    return () => clearTimeout(timer);
   }, []);
 
-  const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
-    queryKey: ["/api/projects"],
-  });
-
-  const { data: templates, isLoading: templatesLoading } = useQuery<Template[]>({
-    queryKey: ["/api/templates"],
-  });
-
-  // Dashboard Analytics Query
+  // Dashboard Analytics interface
   interface DashboardAnalytics {
     kpis: {
       activeUsers: number;
@@ -159,9 +151,21 @@ export default function Home() {
     timestamp: string;
   }
 
+  // Defer all API calls until after initial paint
+  const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
+    queryKey: ["/api/projects"],
+    enabled: showDeferredContent,
+  });
+
+  const { data: templates, isLoading: templatesLoading } = useQuery<Template[]>({
+    queryKey: ["/api/templates"],
+    enabled: showDeferredContent,
+  });
+
   const { data: dashboardAnalytics, isLoading: analyticsLoading } = useQuery<DashboardAnalytics>({
     queryKey: ["/api/dashboard-analytics"],
-    refetchInterval: 30000, // Refresh every 30 seconds for real-time feel
+    enabled: showDeferredContent,
+    refetchInterval: 30000,
   });
 
   const filteredTemplates = useMemo(() => {
