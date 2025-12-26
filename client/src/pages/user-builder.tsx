@@ -58,8 +58,10 @@ export default function UserBuilder() {
     queryKey: ["/api/templates"],
   });
 
+  // Use workspace-isolated projects for current user only
   const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
-    queryKey: ["/api/projects"],
+    queryKey: ["/api/workspace/projects"],
+    enabled: !!user, // Only fetch if user is authenticated
   });
 
   const filteredTemplates = useMemo(() => {

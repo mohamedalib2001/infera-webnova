@@ -6651,6 +6651,103 @@ Provide realistic, data-driven predictions based on the actual platform state.`;
     }
   });
 
+  // ============ User Workspaces (مساحات العمل الخاصة) ============
+
+  // Get current user's workspace
+  app.get("/api/workspace", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ error: "Authentication required" });
+      
+      const workspace = await storage.getOrCreateUserWorkspace(userId);
+      res.json(workspace);
+    } catch (error) {
+      console.error("Failed to get workspace:", error);
+      res.status(500).json({ error: "Failed to get workspace" });
+    }
+  });
+
+  // Get workspace projects (isolated to current user only)
+  app.get("/api/workspace/projects", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ error: "Authentication required" });
+      
+      const workspace = await storage.getOrCreateUserWorkspace(userId);
+      const projects = await storage.getProjectsByWorkspace(workspace.id);
+      res.json(projects);
+    } catch (error) {
+      console.error("Failed to get workspace projects:", error);
+      res.status(500).json({ error: "Failed to get workspace projects" });
+    }
+  });
+
+  // Create project in user's workspace
+  app.post("/api/workspace/projects", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ error: "Authentication required" });
+      
+      const workspace = await storage.getOrCreateUserWorkspace(userId);
+      const data = insertProjectSchema.parse(req.body);
+      
+      const project = await storage.createProject({
+        ...data,
+        userId,
+        workspaceId: workspace.id,
+      });
+      
+      // Update workspace storage usage
+      await storage.updateUserWorkspace(workspace.id, {
+        storageUsed: (workspace.storageUsed || 0) + 1000, // Estimate 1KB initial
+        projectCount: (workspace.projectCount || 0) + 1,
+      } as any);
+      
+      res.status(201).json(project);
+    } catch (error) {
+      console.error("Failed to create workspace project:", error);
+      res.status(500).json({ error: "Failed to create workspace project" });
+    }
+  });
+
+  // Get workspace messages (isolated to current user)
+  app.get("/api/workspace/messages", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ error: "Authentication required" });
+      
+      const workspace = await storage.getOrCreateUserWorkspace(userId);
+      const messages = await storage.getMessagesByWorkspace(workspace.id);
+      res.json(messages);
+    } catch (error) {
+      console.error("Failed to get workspace messages:", error);
+      res.status(500).json({ error: "Failed to get workspace messages" });
+    }
+  });
+
+  // Update workspace settings
+  app.patch("/api/workspace", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ error: "Authentication required" });
+      
+      const workspace = await storage.getUserWorkspace(userId);
+      if (!workspace) return res.status(404).json({ error: "Workspace not found" });
+      
+      const { name, nameAr, settings } = req.body;
+      const updated = await storage.updateUserWorkspace(workspace.id, {
+        name: name || workspace.name,
+        nameAr: nameAr || workspace.nameAr,
+        settings: settings || workspace.settings,
+      } as any);
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Failed to update workspace:", error);
+      res.status(500).json({ error: "Failed to update workspace" });
+    }
+  });
+
   // ============ Projects Routes ============
   
   // Get all projects with owner subscription data
