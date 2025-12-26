@@ -35,6 +35,7 @@ import OwnerCommand from "@/pages/owner-command";
 import NovaSovereignDashboard from "@/pages/nova-sovereign-dashboard";
 import NovaAIDashboard from "@/pages/nova-ai-dashboard";
 import PagePerformanceMonitor from "@/pages/page-performance-monitor";
+import PagesCompletionTracker from "@/pages/pages-completion-tracker";
 import OwnerNotifications from "@/pages/owner-notifications";
 import OwnerInfrastructure from "@/pages/owner-infrastructure";
 import OwnerIntegrations from "@/pages/owner-integrations";
@@ -417,6 +418,7 @@ function AuthenticatedRouter() {
       <Route path="/nova/dashboard" component={NovaAIDashboard} />
       <Route path="/nova/operations" component={OperationsDashboard} />
       <Route path="/page-performance" component={PagePerformanceMonitor} />
+      <Route path="/pages-completion" component={PagesCompletionTracker} />
       <Route path="/nova/builds" component={BuildManager} />
       <Route path="/mobile-builder" component={MobileAppBuilder} />
       <Route path="/desktop-builder" component={DesktopAppBuilder} />

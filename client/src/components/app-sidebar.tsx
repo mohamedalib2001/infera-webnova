@@ -78,6 +78,7 @@ import {
   BadgeDollarSign,
   Hexagon,
   Activity,
+  CheckCircle,
 } from "lucide-react";
 import { SidebarItemBadge } from "@/components/sovereign-view";
 import {
@@ -202,6 +203,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     { title: language === "ar" ? "مولّد الباك إند" : "Backend Generator", url: "/backend-generator", icon: ServerCog, testId: "nav-dev-backend" },
     { title: language === "ar" ? "لوحة Nova AI" : "Nova AI Dashboard", url: "/nova/dashboard", icon: Brain, testId: "nav-dev-nova-dashboard" },
     { title: language === "ar" ? "مراقبة أداء الصفحات" : "Page Performance", url: "/page-performance", icon: Activity, testId: "nav-dev-page-performance" },
+    { title: language === "ar" ? "تتبع نسب الإكتمال" : "Completion Tracker", url: "/pages-completion", icon: CheckCircle, testId: "nav-dev-completion-tracker" },
   ];
 
   const buildItems = [
