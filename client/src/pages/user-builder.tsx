@@ -77,17 +77,22 @@ export default function UserBuilder() {
   const [aiResponse, setAiResponse] = useState("");
   const [buildSteps, setBuildSteps] = useState<BuilderStep[]>([]);
   
-  // Parse URL parameters
+  // Parse URL parameters and consume prompt (prevents re-triggering)
   const urlParams = new URLSearchParams(searchString);
   const initialPrompt = urlParams.get('prompt');
+  const [promptConsumed, setPromptConsumed] = useState(false);
   
-  // Handle initial prompt from URL
+  // Handle initial prompt from URL - consume and clear to prevent re-triggering
   useEffect(() => {
-    if (initialPrompt && !isBuilding && !currentPrompt) {
+    if (initialPrompt && !isBuilding && !currentPrompt && !promptConsumed) {
+      setPromptConsumed(true);
       setCurrentPrompt(initialPrompt);
+      // Clear URL param to prevent re-triggering
+      setLocation('/user-builder', { replace: true });
+      // Start build after clearing URL
       handleStartBuild(initialPrompt);
     }
-  }, [initialPrompt]);
+  }, [initialPrompt, isBuilding, currentPrompt, promptConsumed, setLocation]);
 
   // Platform creation mutation - isolated to user's workspace
   const createPlatformMutation = useMutation({

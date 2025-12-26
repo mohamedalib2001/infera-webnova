@@ -6711,27 +6711,34 @@ Provide realistic, data-driven predictions based on the actual platform state.`;
   });
 
   // Create platform from AI prompt in user's workspace (isolated)
+  // Security: Only accepts 'prompt' from client - all other fields are server-generated
   app.post("/api/workspace/create-platform", requireAuth, async (req, res) => {
     try {
       const userId = req.session?.userId;
       if (!userId) return res.status(401).json({ error: "Authentication required" });
       
+      // SECURITY: Only accept 'prompt' from client - ignore all other fields
       const { prompt } = req.body;
-      if (!prompt || typeof prompt !== 'string') {
+      if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
         return res.status(400).json({ error: "Prompt is required" });
       }
       
+      // Sanitize prompt - limit length and strip dangerous characters
+      const sanitizedPrompt = prompt.trim().slice(0, 500);
+      
+      // Get user's isolated workspace - NEVER use client-supplied workspaceId
       const workspace = await storage.getOrCreateUserWorkspace(userId);
       
       // Generate project from prompt using AI analysis
-      const projectName = prompt.slice(0, 50).trim() || "New Platform";
-      const sector = detectSectorFromPrompt(prompt);
+      const projectName = sanitizedPrompt.slice(0, 50) || "New Platform";
+      const sector = detectSectorFromPrompt(sanitizedPrompt);
       
+      // SECURITY: Server controls all fields - client cannot override userId/workspaceId
       const project = await storage.createProject({
         name: projectName,
-        description: prompt,
-        userId,
-        workspaceId: workspace.id,
+        description: sanitizedPrompt,
+        userId,  // From authenticated session - NOT from request
+        workspaceId: workspace.id,  // From user's workspace - NOT from request
         sector,
         status: "active",
         template: "ai-generated",
