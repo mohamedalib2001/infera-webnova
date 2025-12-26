@@ -6826,13 +6826,41 @@ Provide realistic, data-driven predictions based on the actual platform state.`;
     }
   });
 
-  // Get single project
+  // Get single project (with tenant isolation - requireAuth enforced)
   app.get("/api/projects/:id", async (req, res) => {
     try {
       const project = await storage.getProject(req.params.id);
       if (!project) {
         return res.status(404).json({ error: "Project not found" });
       }
+      
+      // System projects are accessible to all authenticated users
+      if (project.isSystemProject) {
+        return res.json(project);
+      }
+      
+      // Require authentication for non-system projects
+      let userId: string | null = null;
+      if (req.isAuthenticated && req.isAuthenticated() && req.user) {
+        userId = (req.user as any).claims?.sub || null;
+      } else if (req.session?.userId) {
+        userId = req.session.userId;
+      }
+      
+      // Must be authenticated
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      // Check tenant isolation - only owner or project owner can access
+      const user = await storage.getUser(userId);
+      const isOwner = user?.role === "owner";
+      const isProjectOwner = project.userId === userId;
+      
+      if (!isOwner && !isProjectOwner) {
+        return res.status(403).json({ error: "Access denied - you don't have permission to view this project" });
+      }
+      
       res.json(project);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch project" });
@@ -6894,14 +6922,28 @@ Provide realistic, data-driven predictions based on the actual platform state.`;
     }
   });
 
-  // Update project
-  app.patch("/api/projects/:id", async (req, res) => {
+  // Update project (with tenant isolation)
+  app.patch("/api/projects/:id", requireAuth, async (req, res) => {
     try {
-      const data = insertProjectSchema.partial().parse(req.body);
-      const project = await storage.updateProject(req.params.id, data);
-      if (!project) {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ error: "Authentication required" });
+      
+      const existingProject = await storage.getProject(req.params.id);
+      if (!existingProject) {
         return res.status(404).json({ error: "Project not found" });
       }
+      
+      // Check tenant isolation - only owner or project owner can update
+      const user = await storage.getUser(userId);
+      const isOwner = user?.role === "owner";
+      const isProjectOwner = existingProject.userId === userId;
+      
+      if (!isOwner && !isProjectOwner) {
+        return res.status(403).json({ error: "Access denied - you don't have permission to update this project" });
+      }
+      
+      const data = insertProjectSchema.partial().parse(req.body);
+      const project = await storage.updateProject(req.params.id, data);
       res.json(project);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -8478,9 +8520,34 @@ ${project.description || ""}
 
   // ============ Messages Routes ============
   
-  // Get messages for a project
+  // Get messages for a project (with tenant isolation)
   app.get("/api/projects/:projectId/messages", async (req, res) => {
     try {
+      // Get authenticated user
+      let userId: string | null = null;
+      if (req.isAuthenticated && req.isAuthenticated() && req.user) {
+        userId = (req.user as any).claims?.sub || null;
+      } else if (req.session?.userId) {
+        userId = req.session.userId;
+      }
+      
+      // Check project ownership for tenant isolation
+      const project = await storage.getProject(req.params.projectId);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      // System projects accessible to all authenticated users
+      if (!project.isSystemProject && userId) {
+        const user = await storage.getUser(userId);
+        const isOwner = user?.role === "owner";
+        const isProjectOwner = project.userId === userId;
+        
+        if (!isOwner && !isProjectOwner) {
+          return res.status(403).json({ error: "Access denied" });
+        }
+      }
+      
       const messages = await storage.getMessagesByProject(req.params.projectId);
       res.json(messages);
     } catch (error) {
@@ -8488,11 +8555,32 @@ ${project.description || ""}
     }
   });
 
-  // Create message
-  app.post("/api/messages", async (req, res) => {
+  // Create message (with tenant isolation)
+  app.post("/api/messages", requireAuth, async (req, res) => {
     try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ error: "Authentication required" });
+      
       const data = insertMessageSchema.parse(req.body);
-      const message = await storage.createMessage(data);
+      
+      // Validate project ownership if projectId is provided
+      if (data.projectId) {
+        const project = await storage.getProject(data.projectId);
+        if (project && !project.isSystemProject) {
+          const user = await storage.getUser(userId);
+          const isOwner = user?.role === "owner";
+          const isProjectOwner = project.userId === userId;
+          
+          if (!isOwner && !isProjectOwner) {
+            return res.status(403).json({ error: "Access denied to this project" });
+          }
+        }
+      }
+      
+      // Attach workspaceId to message
+      const workspace = await storage.getOrCreateUserWorkspace(userId);
+      const messageData = { ...data, userId, workspaceId: workspace.id };
+      const message = await storage.createMessage(messageData);
       res.status(201).json(message);
     } catch (error) {
       if (error instanceof z.ZodError) {
