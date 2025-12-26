@@ -8520,15 +8520,12 @@ ${project.description || ""}
 
   // ============ Messages Routes ============
   
-  // Get messages for a project (with tenant isolation)
-  app.get("/api/projects/:projectId/messages", async (req, res) => {
+  // Get messages for a project (with tenant isolation - requires auth)
+  app.get("/api/projects/:projectId/messages", requireAuth, async (req, res) => {
     try {
-      // Get authenticated user
-      let userId: string | null = null;
-      if (req.isAuthenticated && req.isAuthenticated() && req.user) {
-        userId = (req.user as any).claims?.sub || null;
-      } else if (req.session?.userId) {
-        userId = req.session.userId;
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
       }
       
       // Check project ownership for tenant isolation
@@ -8537,14 +8534,14 @@ ${project.description || ""}
         return res.status(404).json({ error: "Project not found" });
       }
       
-      // System projects accessible to all authenticated users
-      if (!project.isSystemProject && userId) {
+      // Non-system projects require ownership check
+      if (!project.isSystemProject) {
         const user = await storage.getUser(userId);
         const isOwner = user?.role === "owner";
         const isProjectOwner = project.userId === userId;
         
         if (!isOwner && !isProjectOwner) {
-          return res.status(403).json({ error: "Access denied" });
+          return res.status(403).json({ error: "Access denied - you don't have permission to view messages for this project" });
         }
       }
       
