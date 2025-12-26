@@ -489,14 +489,14 @@ export default function UserBuilder() {
                         </CardDescription>
                         
                         <div className="flex flex-wrap gap-1 mb-4">
-                          {template.features.slice(0, 3).map((feature, idx) => (
+                          {(template.features || []).slice(0, 3).map((feature, idx) => (
                             <Badge key={idx} variant="outline" className="text-xs">
                               {feature}
                             </Badge>
                           ))}
-                          {template.features.length > 3 && (
+                          {(template.features?.length || 0) > 3 && (
                             <Badge variant="outline" className="text-xs">
-                              +{template.features.length - 3}
+                              +{template.features!.length - 3}
                             </Badge>
                           )}
                         </div>
