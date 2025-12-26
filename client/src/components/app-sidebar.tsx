@@ -103,6 +103,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { NewPlatformModal, useNewPlatformModal } from "@/components/new-platform-modal";
 import { PlatformHeartbeat } from "@/components/platform-heartbeat";
+import { AIIntelligenceHeartbeat } from "@/components/ai-intelligence-heartbeat";
 
 type AudienceTab = "all" | "owner" | "visitors" | "employees" | "managers" | "subscribers" | "development";
 
@@ -354,8 +355,9 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                   </div>
                 </div>
               </div>
-              <div className="mt-3 flex justify-center">
+              <div className="mt-3 flex flex-col items-center gap-2">
                 <PlatformHeartbeat />
+                <AIIntelligenceHeartbeat />
               </div>
             </div>
           )}

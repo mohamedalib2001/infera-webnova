@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
-import { Heart, Activity, Zap, Server, Clock } from "lucide-react";
+import { Heart, Activity, Zap, Server, Clock, Copy, Check } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 
 interface PerformanceMetrics {
   pageLoadTime: number;
@@ -14,6 +16,7 @@ interface PerformanceMetrics {
 
 export function PlatformHeartbeat() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [metrics, setMetrics] = useState<PerformanceMetrics>({
     pageLoadTime: 0,
     platformLatency: 0,
@@ -23,6 +26,7 @@ export function PlatformHeartbeat() {
   });
   const [pulse, setPulse] = useState(false);
   const [lastPage, setLastPage] = useState("");
+  const [copied, setCopied] = useState(false);
 
   const isOwner = user?.role === "owner" || user?.role === "sovereign" || user?.role === "ROOT_OWNER";
 
@@ -131,6 +135,36 @@ export function PlatformHeartbeat() {
     }
   };
 
+  const handleCopy = async () => {
+    const metricsText = `
+❤️ نبض المنصة - INFERA WebNova
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 الحالة: ${getStatusText()}
+⚡ سرعة الصفحة: ${metrics.pageLoadTime}ms
+🖥️ سرعة المنصة: ${metrics.platformLatency}ms
+🎬 معدل الإطارات: ${metrics.fps} FPS
+💾 استخدام الذاكرة: ${metrics.memoryUsage}%
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🕐 ${new Date().toLocaleString("ar-SA")}
+    `.trim();
+
+    try {
+      await navigator.clipboard.writeText(metricsText);
+      setCopied(true);
+      toast({
+        title: "تم النسخ",
+        description: "تم نسخ إحصائيات المنصة",
+      });
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast({
+        title: "فشل النسخ",
+        description: "لم يتمكن من نسخ البيانات",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -183,17 +217,28 @@ export function PlatformHeartbeat() {
         className="bg-slate-900 border-slate-700 p-4 min-w-[280px]"
       >
         <div className="space-y-3">
-          <div className="flex items-center gap-2 border-b border-slate-700 pb-2">
-            <Activity className={`w-5 h-5 ${getStatusColor()}`} />
-            <span className="font-bold text-white">نبض المنصة</span>
-            <span className={`text-xs px-2 py-0.5 rounded-full ${
-              metrics.status === "excellent" ? "bg-emerald-500/20 text-emerald-400" :
-              metrics.status === "good" ? "bg-green-500/20 text-green-400" :
-              metrics.status === "fair" ? "bg-yellow-500/20 text-yellow-400" :
-              "bg-red-500/20 text-red-400"
-            }`}>
-              {getStatusText()}
-            </span>
+          <div className="flex items-center justify-between border-b border-slate-700 pb-2">
+            <div className="flex items-center gap-2">
+              <Activity className={`w-5 h-5 ${getStatusColor()}`} />
+              <span className="font-bold text-white">نبض المنصة</span>
+              <span className={`text-xs px-2 py-0.5 rounded-full ${
+                metrics.status === "excellent" ? "bg-emerald-500/20 text-emerald-400" :
+                metrics.status === "good" ? "bg-green-500/20 text-green-400" :
+                metrics.status === "fair" ? "bg-yellow-500/20 text-yellow-400" :
+                "bg-red-500/20 text-red-400"
+              }`}>
+                {getStatusText()}
+              </span>
+            </div>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 text-slate-300 hover:text-white hover:bg-slate-800"
+              onClick={handleCopy}
+              data-testid="button-copy-platform-metrics"
+            >
+              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            </Button>
           </div>
 
           <div className="grid grid-cols-2 gap-3 text-sm">
