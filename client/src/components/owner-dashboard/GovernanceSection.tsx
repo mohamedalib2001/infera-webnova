@@ -150,7 +150,7 @@ export function GovernanceSection({ t, language }: GovernanceSectionProps) {
                   </span>
                 </div>
                 <div className="grid gap-2">
-                  {governanceStatus?.checks.map((check, i) => (
+                  {(governanceStatus?.checks || []).map((check, i) => (
                     <div key={i} className="flex items-center justify-between p-2 bg-muted rounded-md">
                       <span className="text-sm">{language === 'ar' ? check.nameAr : check.name}</span>
                       <Badge variant={check.passed ? 'default' : 'destructive'} className="text-xs">
