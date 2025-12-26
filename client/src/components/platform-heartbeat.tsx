@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Heart, Activity, Zap, Server, Clock, Copy, Check } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
@@ -27,14 +27,46 @@ export function PlatformHeartbeat() {
   const [pulse, setPulse] = useState(false);
   const [lastPage, setLastPage] = useState("");
   const [copied, setCopied] = useState(false);
+  const fpsRef = useRef(60);
+  const rafIdRef = useRef<number | null>(null);
 
   const isOwner = user?.role === "owner" || user?.role === "sovereign" || user?.role === "ROOT_OWNER";
 
   const { data: platformData } = useQuery({
     queryKey: ["/api/nova/platform/realtime"],
     enabled: isOwner,
-    refetchInterval: 5000,
+    refetchInterval: 10000,
   });
+
+  useEffect(() => {
+    if (!isOwner) return;
+
+    let frameCount = 0;
+    let lastTime = performance.now();
+    let isRunning = true;
+
+    const measureFPS = () => {
+      if (!isRunning) return;
+      frameCount++;
+      const currentTime = performance.now();
+      if (currentTime - lastTime >= 1000) {
+        fpsRef.current = frameCount;
+        frameCount = 0;
+        lastTime = currentTime;
+      }
+      rafIdRef.current = requestAnimationFrame(measureFPS);
+    };
+
+    rafIdRef.current = requestAnimationFrame(measureFPS);
+
+    return () => {
+      isRunning = false;
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+    };
+  }, [isOwner]);
 
   useEffect(() => {
     if (!isOwner) return;
@@ -46,22 +78,7 @@ export function PlatformHeartbeat() {
       const memory = (performance as any).memory;
       const memoryUsage = memory ? Math.round((memory.usedJSHeapSize / memory.jsHeapSizeLimit) * 100) : 0;
 
-      let fps = 60;
-      let lastTime = performance.now();
-      let frameCount = 0;
-      
-      const measureFPS = () => {
-        frameCount++;
-        const currentTime = performance.now();
-        if (currentTime - lastTime >= 1000) {
-          fps = frameCount;
-          frameCount = 0;
-          lastTime = currentTime;
-        }
-        if (isOwner) requestAnimationFrame(measureFPS);
-      };
-      requestAnimationFrame(measureFPS);
-
+      const fps = fpsRef.current;
       const platformLatency = platformData?.metrics?.uptime ? Math.round(Math.random() * 50 + 10) : 25;
 
       let status: PerformanceMetrics["status"] = "excellent";
@@ -79,7 +96,7 @@ export function PlatformHeartbeat() {
     };
 
     measurePerformance();
-    const interval = setInterval(measurePerformance, 3000);
+    const interval = setInterval(measurePerformance, 5000);
 
     return () => clearInterval(interval);
   }, [isOwner, platformData]);
