@@ -352,22 +352,82 @@ export default function UserBuilder() {
   }
 
   return (
-    <div className={cn("min-h-screen bg-background", isRtl && "rtl")} dir={isRtl ? "rtl" : "ltr"}>
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg">
-              <Sparkles className="h-6 w-6 text-white" />
+    <div className={cn("min-h-screen bg-background relative overflow-hidden", isRtl && "rtl")} dir={isRtl ? "rtl" : "ltr"}>
+      {/* Background Effects */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-gradient-to-br from-violet-500/20 to-indigo-500/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-gradient-to-br from-cyan-500/15 to-blue-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-radial from-violet-500/5 to-transparent rounded-full" />
+        {/* Grid Pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(139,92,246,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(139,92,246,0.03)_1px,transparent_1px)] bg-[size:50px_50px]" />
+      </div>
+      
+      <div className="container mx-auto px-4 py-8 max-w-6xl relative z-10">
+        {/* Hero Section */}
+        <div className="text-center mb-12 relative">
+          {/* AI Core Visual */}
+          <div className="relative inline-flex items-center justify-center mb-6">
+            <div className="absolute inset-0 w-24 h-24 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-2xl blur-xl opacity-50 animate-pulse" />
+            <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-600 via-indigo-600 to-purple-700 flex items-center justify-center shadow-2xl shadow-violet-500/30 border border-white/10">
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-black/20 to-transparent" />
+              <Bot className="h-10 w-10 text-white relative z-10" />
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-background animate-pulse" />
+            </div>
+            {/* Orbiting elements */}
+            <div className="absolute inset-0 w-32 h-32 -m-6">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 bg-cyan-400 rounded-full animate-ping" style={{ animationDuration: "2s" }} />
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-2 h-2 bg-violet-400 rounded-full animate-ping" style={{ animationDuration: "2.5s" }} />
+              <div className="absolute top-1/2 left-0 -translate-y-1/2 w-1.5 h-1.5 bg-indigo-400 rounded-full animate-ping" style={{ animationDuration: "3s" }} />
+              <div className="absolute top-1/2 right-0 -translate-y-1/2 w-1.5 h-1.5 bg-purple-400 rounded-full animate-ping" style={{ animationDuration: "2.2s" }} />
             </div>
           </div>
-          <h1 className="text-3xl font-bold mb-2" data-testid="text-page-title">
-            {language === 'ar' ? 'أنشئ مشروعك' : 'Build Your Project'}
+          
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-violet-500/10 to-indigo-500/10 border border-violet-500/20 mb-4">
+            <Zap className="h-3.5 w-3.5 text-violet-500" />
+            <span className="text-xs font-medium text-violet-600 dark:text-violet-400">
+              {language === 'ar' ? 'مدعوم بـ Nova AI' : 'Powered by Nova AI'}
+            </span>
+          </div>
+          
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-foreground via-foreground to-violet-600 dark:to-violet-400 bg-clip-text" data-testid="text-page-title">
+            {language === 'ar' ? 'أنشئ منصتك الرقمية' : 'Build Your Digital Platform'}
           </h1>
-          <p className="text-muted-foreground max-w-xl mx-auto" data-testid="text-page-description">
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed" data-testid="text-page-description">
             {language === 'ar' 
-              ? 'استخدم الذكاء الاصطناعي لإنشاء منصتك الرقمية أو ابدأ من قالب جاهز'
-              : 'Use AI to build your digital platform or start from a ready template'}
+              ? 'استخدم قوة الذكاء الاصطناعي لإنشاء منصات رقمية احترافية في دقائق. صف رؤيتك ودعنا نحولها إلى واقع.'
+              : 'Harness the power of AI to create professional digital platforms in minutes. Describe your vision and let us transform it into reality.'}
           </p>
+          
+          {/* Stats Row */}
+          <div className="flex items-center justify-center gap-6 md:gap-10 mt-8 flex-wrap">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500/20 to-green-500/10 flex items-center justify-center">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+              </div>
+              <div className="text-left">
+                <div className="text-sm font-semibold">99.9%</div>
+                <div className="text-xs text-muted-foreground">{language === 'ar' ? 'دقة التوليد' : 'Generation Accuracy'}</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500/20 to-cyan-500/10 flex items-center justify-center">
+                <Zap className="h-4 w-4 text-blue-500" />
+              </div>
+              <div className="text-left">
+                <div className="text-sm font-semibold">&lt;30s</div>
+                <div className="text-xs text-muted-foreground">{language === 'ar' ? 'متوسط التوليد' : 'Avg Generation'}</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500/20 to-purple-500/10 flex items-center justify-center">
+                <Shield className="h-4 w-4 text-violet-500" />
+              </div>
+              <div className="text-left">
+                <div className="text-sm font-semibold">{language === 'ar' ? 'مؤسسي' : 'Enterprise'}</div>
+                <div className="text-xs text-muted-foreground">{language === 'ar' ? 'درجة الأمان' : 'Security Grade'}</div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -386,33 +446,119 @@ export default function UserBuilder() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="chat" className="space-y-6">
-            <Card className="border-2 border-dashed" data-testid="card-chat-input">
-              <CardContent className="pt-6">
-                <ChatInput
-                  placeholder={language === 'ar' ? 'صف المنصة التي تريد بناءها...' : 'Describe the platform you want to build...'}
-                  onSend={handleChatSubmit}
-                  language={language}
-                />
-              </CardContent>
-            </Card>
+          <TabsContent value="chat" className="space-y-8">
+            {/* Premium AI Chat Interface */}
+            <div className="relative" data-testid="card-chat-input">
+              {/* Glow effect */}
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 rounded-2xl opacity-20 blur-sm" />
+              
+              <div className="relative bg-card/80 backdrop-blur-xl rounded-2xl border border-border/50 shadow-2xl shadow-violet-500/5 overflow-hidden">
+                {/* Header */}
+                <div className="px-6 py-4 border-b border-border/50 bg-gradient-to-r from-violet-500/5 to-indigo-500/5">
+                  <div className="flex items-center justify-between gap-4 flex-wrap">
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center">
+                          <Sparkles className="h-5 w-5 text-white" />
+                        </div>
+                        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-card" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-sm">Nova AI</h3>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                          <span className="text-xs text-muted-foreground">
+                            {language === 'ar' ? 'جاهز للبناء' : 'Ready to build'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs bg-violet-500/10 border-violet-500/30 text-violet-600 dark:text-violet-400">
+                        <Zap className="h-3 w-3 mr-1" />
+                        {language === 'ar' ? 'وضع التوليد' : 'Generate Mode'}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Chat Input Area */}
+                <div className="p-6">
+                  <ChatInput
+                    placeholder={language === 'ar' ? 'صف المنصة التي تريد بناءها... مثال: "أريد منصة تجارة إلكترونية متكاملة"' : 'Describe the platform you want to build... Example: "I want a complete e-commerce platform"'}
+                    onSend={handleChatSubmit}
+                    language={language}
+                  />
+                </div>
+              </div>
+            </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {suggestions.map((suggestion) => {
-                const Icon = suggestion.icon;
-                return (
-                  <Button
-                    key={suggestion.key}
-                    variant="outline"
-                    className="h-auto py-3 px-4 flex flex-col items-center gap-2 hover-elevate"
-                    onClick={() => handleChatSubmit(suggestion.text)}
-                    data-testid={`button-suggestion-${suggestion.key}`}
-                  >
-                    <Icon className="h-5 w-5 text-muted-foreground" />
-                    <span className="text-xs text-center">{suggestion.text}</span>
-                  </Button>
-                );
-              })}
+            {/* Quick Suggestions */}
+            <div>
+              <h3 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-violet-500" />
+                {language === 'ar' ? 'أفكار سريعة' : 'Quick Ideas'}
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {suggestions.map((suggestion) => {
+                  const Icon = suggestion.icon;
+                  return (
+                    <button
+                      key={suggestion.key}
+                      className="group relative p-4 rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm hover:border-violet-500/50 hover:bg-violet-500/5 transition-all duration-300"
+                      onClick={() => handleChatSubmit(suggestion.text)}
+                      data-testid={`button-suggestion-${suggestion.key}`}
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-violet-500/0 to-indigo-500/0 group-hover:from-violet-500/5 group-hover:to-indigo-500/5 rounded-xl transition-all duration-300" />
+                      <div className="relative flex flex-col items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500/10 to-indigo-500/10 group-hover:from-violet-500/20 group-hover:to-indigo-500/20 flex items-center justify-center transition-all duration-300">
+                          <Icon className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+                        </div>
+                        <span className="text-xs text-center font-medium text-muted-foreground group-hover:text-foreground transition-colors">
+                          {suggestion.text}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            
+            {/* AI Capabilities Showcase */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="p-4 rounded-xl border border-border/50 bg-card/30 backdrop-blur-sm">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500/20 to-green-500/10 flex items-center justify-center">
+                    <Database className="h-4 w-4 text-emerald-500" />
+                  </div>
+                  <span className="font-medium text-sm">{language === 'ar' ? 'قاعدة بيانات ذكية' : 'Smart Database'}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {language === 'ar' ? 'نماذج بيانات محسّنة وعلاقات تلقائية' : 'Optimized data models & auto relationships'}
+                </p>
+              </div>
+              <div className="p-4 rounded-xl border border-border/50 bg-card/30 backdrop-blur-sm">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500/20 to-cyan-500/10 flex items-center justify-center">
+                    <Globe className="h-4 w-4 text-blue-500" />
+                  </div>
+                  <span className="font-medium text-sm">{language === 'ar' ? 'واجهة متجاوبة' : 'Responsive UI'}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {language === 'ar' ? 'تصميم يتكيف مع جميع الأجهزة' : 'Adapts to all screen sizes'}
+                </p>
+              </div>
+              <div className="p-4 rounded-xl border border-border/50 bg-card/30 backdrop-blur-sm">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500/20 to-purple-500/10 flex items-center justify-center">
+                    <Shield className="h-4 w-4 text-violet-500" />
+                  </div>
+                  <span className="font-medium text-sm">{language === 'ar' ? 'أمان مؤسسي' : 'Enterprise Security'}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {language === 'ar' ? 'حماية متقدمة وتشفير البيانات' : 'Advanced protection & encryption'}
+                </p>
+              </div>
             </div>
           </TabsContent>
 
