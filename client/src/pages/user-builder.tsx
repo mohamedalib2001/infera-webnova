@@ -87,10 +87,7 @@ export default function UserBuilder() {
   useEffect(() => {
     const createSession = async () => {
       try {
-        const response = await apiRequest('/api/nova/sessions', {
-          method: 'POST',
-          body: JSON.stringify({ title: 'Platform Builder Session' }),
-        });
+        const response = await apiRequest('POST', '/api/nova/sessions', { title: 'Platform Builder Session' });
         setSessionId(response.id);
         
         // Add welcome message
@@ -128,10 +125,7 @@ export default function UserBuilder() {
     setIsLoading(true);
     
     try {
-      const response = await apiRequest(`/api/nova/sessions/${sessionId}/messages`, {
-        method: 'POST',
-        body: JSON.stringify({ content: content.trim() }),
-      });
+      const response = await apiRequest('POST', `/api/nova/sessions/${sessionId}/messages`, { content: content.trim() });
       
       // Parse AI response to check for build plan
       const aiContent = response.aiMessage?.content || response.content || '';
@@ -297,17 +291,14 @@ export default function UserBuilder() {
       // Call the Nova AI to generate the platform
       const buildPrompt = `Build a ${currentBuildPlan.name} platform with these features: ${currentBuildPlan.features.join(', ')}. Description: ${currentBuildPlan.description}`;
       
-      const response = await apiRequest('/api/nova/sessions/' + sessionId + '/messages', {
-        method: 'POST',
-        body: JSON.stringify({ 
-          content: buildPrompt,
-          action: 'generate_platform',
-          platformConfig: {
-            name: currentBuildPlan.name,
-            features: currentBuildPlan.features,
-            techStack: currentBuildPlan.techStack,
-          }
-        }),
+      const response = await apiRequest('POST', `/api/nova/sessions/${sessionId}/messages`, { 
+        content: buildPrompt,
+        action: 'generate_platform',
+        platformConfig: {
+          name: currentBuildPlan.name,
+          features: currentBuildPlan.features,
+          techStack: currentBuildPlan.techStack,
+        }
       });
       
       setBuildSteps(prev => prev.map((s, idx) => 
