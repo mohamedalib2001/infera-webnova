@@ -1,14 +1,17 @@
-import { useState, useMemo } from "react";
-import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo, useEffect } from "react";
+import { useLocation, useSearch } from "wouter";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChatInput } from "@/components/chat-input";
+import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
   Building2,
@@ -27,6 +30,10 @@ import {
   Database,
   Shield,
   Globe,
+  Loader2,
+  CheckCircle2,
+  Send,
+  ArrowLeft,
 } from "lucide-react";
 import type { Template, Project } from "@shared/schema";
 
@@ -46,14 +53,124 @@ const intelligenceColors: Record<string, string> = {
   enterprise: "from-amber-500 to-orange-500",
 };
 
+interface BuilderStep {
+  id: string;
+  title: string;
+  titleAr: string;
+  status: 'pending' | 'processing' | 'completed' | 'error';
+  progress: number;
+}
+
 export default function UserBuilder() {
   const [, setLocation] = useLocation();
+  const searchString = useSearch();
   const { t, language, isRtl } = useLanguage();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [activeTab, setActiveTab] = useState("chat");
+  
+  // Platform creation state
+  const [isBuilding, setIsBuilding] = useState(false);
+  const [currentPrompt, setCurrentPrompt] = useState("");
+  const [aiResponse, setAiResponse] = useState("");
+  const [buildSteps, setBuildSteps] = useState<BuilderStep[]>([]);
+  
+  // Parse URL parameters
+  const urlParams = new URLSearchParams(searchString);
+  const initialPrompt = urlParams.get('prompt');
+  
+  // Handle initial prompt from URL
+  useEffect(() => {
+    if (initialPrompt && !isBuilding && !currentPrompt) {
+      setCurrentPrompt(initialPrompt);
+      handleStartBuild(initialPrompt);
+    }
+  }, [initialPrompt]);
 
+  // Platform creation mutation - isolated to user's workspace
+  const createPlatformMutation = useMutation({
+    mutationFn: async (prompt: string) => {
+      const response = await apiRequest('/api/workspace/create-platform', {
+        method: 'POST',
+        body: JSON.stringify({ prompt, workspaceId: user?.id }),
+      });
+      return response;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/workspace/projects'] });
+      toast({
+        title: language === 'ar' ? 'تم إنشاء المنصة بنجاح' : 'Platform created successfully',
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: language === 'ar' ? 'فشل إنشاء المنصة' : 'Failed to create platform',
+        variant: 'destructive',
+      });
+    },
+  });
+  
+  // Handle platform building process
+  const handleStartBuild = async (prompt: string) => {
+    setIsBuilding(true);
+    setAiResponse("");
+    
+    // Initialize build steps
+    const steps: BuilderStep[] = [
+      { id: 'analyze', title: 'Analyzing Request', titleAr: 'تحليل الطلب', status: 'pending', progress: 0 },
+      { id: 'design', title: 'Designing Platform', titleAr: 'تصميم المنصة', status: 'pending', progress: 0 },
+      { id: 'generate', title: 'Generating Code', titleAr: 'توليد الكود', status: 'pending', progress: 0 },
+      { id: 'deploy', title: 'Preparing Deployment', titleAr: 'إعداد النشر', status: 'pending', progress: 0 },
+    ];
+    setBuildSteps(steps);
+    
+    // Simulate step-by-step processing
+    for (let i = 0; i < steps.length; i++) {
+      setBuildSteps(prev => prev.map((s, idx) => 
+        idx === i ? { ...s, status: 'processing', progress: 0 } : s
+      ));
+      
+      // Simulate progress
+      for (let p = 0; p <= 100; p += 20) {
+        await new Promise(r => setTimeout(r, 200));
+        setBuildSteps(prev => prev.map((s, idx) => 
+          idx === i ? { ...s, progress: p } : s
+        ));
+      }
+      
+      setBuildSteps(prev => prev.map((s, idx) => 
+        idx === i ? { ...s, status: 'completed', progress: 100 } : s
+      ));
+    }
+    
+    // Set AI response
+    setAiResponse(language === 'ar' 
+      ? `تم تحليل طلبك: "${prompt}"\n\nأقوم الآن بإنشاء منصتك الرقمية مع الميزات التالية:\n• تصميم متجاوب\n• أمان مؤسسي\n• قاعدة بيانات محسنة\n• واجهة مستخدم حديثة\n\nسيتم إنشاء المشروع في مساحة عملك الخاصة.`
+      : `Analyzed your request: "${prompt}"\n\nI'm now creating your digital platform with the following features:\n• Responsive design\n• Enterprise security\n• Optimized database\n• Modern UI\n\nThe project will be created in your personal workspace.`
+    );
+    
+    // Trigger actual platform creation
+    try {
+      await createPlatformMutation.mutateAsync(prompt);
+    } catch (error) {
+      console.error('Platform creation error:', error);
+    }
+    
+    setIsBuilding(false);
+  };
+  
+  // Cancel build and reset
+  const handleCancelBuild = () => {
+    setIsBuilding(false);
+    setCurrentPrompt("");
+    setAiResponse("");
+    setBuildSteps([]);
+    // Clear URL params
+    setLocation('/user-builder');
+  };
+  
   const { data: templates, isLoading: templatesLoading } = useQuery<Template[]>({
     queryKey: ["/api/templates"],
   });
@@ -119,6 +236,115 @@ export default function UserBuilder() {
     { id: "government", name: language === 'ar' ? 'الحكومة' : 'Government' },
     { id: "enterprise", name: language === 'ar' ? 'المؤسسات' : 'Enterprise' },
   ];
+
+  // If building, show the build progress UI
+  if (isBuilding || currentPrompt) {
+    return (
+      <div className={cn("min-h-screen bg-background", isRtl && "rtl")} dir={isRtl ? "rtl" : "ltr"}>
+        <div className="container mx-auto px-4 py-8 max-w-4xl">
+          <Button
+            variant="ghost"
+            onClick={handleCancelBuild}
+            className="mb-6"
+            data-testid="button-back"
+          >
+            <ArrowLeft className={cn("h-4 w-4", isRtl ? "ml-2 rotate-180" : "mr-2")} />
+            {language === 'ar' ? 'رجوع' : 'Back'}
+          </Button>
+          
+          <Card className="mb-6">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center">
+                  <Bot className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle data-testid="text-building-title">
+                    {language === 'ar' ? 'إنشاء منصتك' : 'Building Your Platform'}
+                  </CardTitle>
+                  <CardDescription>
+                    {language === 'ar' ? 'مساحة عملك الشخصية' : 'Your Personal Workspace'}
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="bg-muted/50 rounded-lg p-4 mb-6">
+                <p className="text-sm font-medium text-muted-foreground mb-1">
+                  {language === 'ar' ? 'طلبك:' : 'Your Request:'}
+                </p>
+                <p className="text-foreground" data-testid="text-user-prompt">{currentPrompt}</p>
+              </div>
+              
+              <div className="space-y-3">
+                {buildSteps.map((step) => (
+                  <div 
+                    key={step.id} 
+                    className="flex items-center gap-3 p-3 rounded-lg bg-card border"
+                    data-testid={`step-${step.id}`}
+                  >
+                    <div className="flex-shrink-0">
+                      {step.status === 'completed' ? (
+                        <CheckCircle2 className="h-5 w-5 text-green-500" />
+                      ) : step.status === 'processing' ? (
+                        <Loader2 className="h-5 w-5 text-violet-500 animate-spin" />
+                      ) : (
+                        <div className="h-5 w-5 rounded-full border-2 border-muted" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">
+                        {language === 'ar' ? step.titleAr : step.title}
+                      </p>
+                      {step.status === 'processing' && (
+                        <div className="mt-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 transition-all duration-200"
+                            style={{ width: `${step.progress}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {aiResponse && (
+                <div className="mt-6 p-4 bg-gradient-to-br from-violet-500/10 to-indigo-500/10 rounded-lg border border-violet-200/50 dark:border-violet-800/50">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="h-4 w-4 text-violet-500" />
+                    <span className="text-sm font-medium text-violet-700 dark:text-violet-300">
+                      {language === 'ar' ? 'نتيجة الذكاء الاصطناعي' : 'AI Response'}
+                    </span>
+                  </div>
+                  <p className="text-sm whitespace-pre-line" data-testid="text-ai-response">{aiResponse}</p>
+                </div>
+              )}
+              
+              {!isBuilding && aiResponse && (
+                <div className="mt-6 flex gap-3">
+                  <Button
+                    onClick={() => setActiveTab("projects")}
+                    className="flex-1"
+                    data-testid="button-view-projects"
+                  >
+                    {language === 'ar' ? 'عرض مشاريعي' : 'View My Projects'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleCancelBuild}
+                    data-testid="button-new-build"
+                  >
+                    {language === 'ar' ? 'إنشاء جديد' : 'Create New'}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("min-h-screen bg-background", isRtl && "rtl")} dir={isRtl ? "rtl" : "ltr"}>

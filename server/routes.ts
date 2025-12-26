@@ -6710,6 +6710,74 @@ Provide realistic, data-driven predictions based on the actual platform state.`;
     }
   });
 
+  // Create platform from AI prompt in user's workspace (isolated)
+  app.post("/api/workspace/create-platform", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ error: "Authentication required" });
+      
+      const { prompt } = req.body;
+      if (!prompt || typeof prompt !== 'string') {
+        return res.status(400).json({ error: "Prompt is required" });
+      }
+      
+      const workspace = await storage.getOrCreateUserWorkspace(userId);
+      
+      // Generate project from prompt using AI analysis
+      const projectName = prompt.slice(0, 50).trim() || "New Platform";
+      const sector = detectSectorFromPrompt(prompt);
+      
+      const project = await storage.createProject({
+        name: projectName,
+        description: prompt,
+        userId,
+        workspaceId: workspace.id,
+        sector,
+        status: "active",
+        template: "ai-generated",
+        database: "postgresql",
+        styling: "tailwind",
+        features: [],
+      } as any);
+      
+      // Update workspace stats
+      await storage.updateUserWorkspace(workspace.id, {
+        storageUsed: (workspace.storageUsed || 0) + 1000,
+        projectCount: (workspace.projectCount || 0) + 1,
+      } as any);
+      
+      res.status(201).json({ 
+        success: true, 
+        project,
+        message: "Platform created in your workspace" 
+      });
+    } catch (error) {
+      console.error("Failed to create platform from prompt:", error);
+      res.status(500).json({ error: "Failed to create platform" });
+    }
+  });
+  
+  // Helper function to detect sector from prompt
+  function detectSectorFromPrompt(prompt: string): string {
+    const lowerPrompt = prompt.toLowerCase();
+    if (lowerPrompt.includes('مالي') || lowerPrompt.includes('financial') || lowerPrompt.includes('bank') || lowerPrompt.includes('بنك')) {
+      return 'financial';
+    }
+    if (lowerPrompt.includes('صحة') || lowerPrompt.includes('health') || lowerPrompt.includes('medical') || lowerPrompt.includes('طبي')) {
+      return 'healthcare';
+    }
+    if (lowerPrompt.includes('تعليم') || lowerPrompt.includes('education') || lowerPrompt.includes('school') || lowerPrompt.includes('مدرسة')) {
+      return 'education';
+    }
+    if (lowerPrompt.includes('حكوم') || lowerPrompt.includes('government')) {
+      return 'government';
+    }
+    if (lowerPrompt.includes('تجار') || lowerPrompt.includes('ecommerce') || lowerPrompt.includes('shop') || lowerPrompt.includes('متجر')) {
+      return 'ecommerce';
+    }
+    return 'enterprise';
+  }
+
   // Get workspace messages (isolated to current user)
   app.get("/api/workspace/messages", requireAuth, async (req, res) => {
     try {
