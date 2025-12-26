@@ -469,13 +469,7 @@ const pageServicesMap: Record<string, { name: string; nameAr: string; type: stri
     { name: 'Cloud Integration', nameAr: 'تكامل السحابة', type: 'infrastructure' },
     { name: 'Monitoring', nameAr: 'المراقبة', type: 'analytics' },
   ],
-  '/ai-copilot': [
-    { name: 'Code Generation', nameAr: 'توليد الكود', type: 'ai' },
-    { name: 'Code Explanation', nameAr: 'شرح الكود', type: 'ai' },
-    { name: 'Auto Complete', nameAr: 'الإكمال التلقائي', type: 'ai' },
-    { name: 'Error Fixing', nameAr: 'إصلاح الأخطاء', type: 'ai' },
-  ],
-  '/settings': [
+    '/settings': [
     { name: 'Profile Settings', nameAr: 'إعدادات الملف', type: 'core' },
     { name: 'Security Settings', nameAr: 'إعدادات الأمان', type: 'security' },
     { name: 'Notification Settings', nameAr: 'إعدادات الإشعارات', type: 'core' },

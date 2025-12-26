@@ -722,12 +722,7 @@ const pagePermissionsRegistry: Record<string, { allowedRoles: RoleType[]; descri
     description: "Version Control - all authenticated users",
     descriptionAr: "التحكم بالإصدارات - جميع المستخدمين"
   },
-  "/ai-copilot": { 
-    allowedRoles: ["owner", "sovereign", "manager", "employee", "subscriber", "free", "pro", "enterprise"],
-    description: "AI Copilot - all authenticated users",
-    descriptionAr: "مساعد الذكاء الاصطناعي - جميع المستخدمين"
-  },
-  "/testing-generator": { 
+    "/testing-generator": { 
     allowedRoles: ["owner", "sovereign", "manager", "employee", "pro", "enterprise"],
     description: "Testing Generator - development teams",
     descriptionAr: "مولد الاختبارات - فرق التطوير"

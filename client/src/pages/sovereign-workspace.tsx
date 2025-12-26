@@ -349,17 +349,7 @@ const inferaGroupPlatforms: InferaPlatform[] = [
     icon: BrainCircuit,
     route: "/nova"
   },
-  {
-    id: "infera-agent",
-    name: "INFERA Agent",
-    nameAr: "وكيل إنفيرا",
-    description: "Autonomous Software Engineer Agent",
-    category: "AI",
-    tier: "CORE",
-    icon: Bot,
-    route: "/infera-agent"
-  },
-  {
+    {
     id: "sovereign-core",
     name: "Sovereign Core",
     nameAr: "النواة السيادية",
