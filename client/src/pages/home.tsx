@@ -178,11 +178,11 @@ export default function Home() {
   }, [templates, selectedCategory, selectedIntelligence]);
 
   const handleChatSubmit = async (message: string) => {
-    setLocation(`/builder?prompt=${encodeURIComponent(message)}`);
+    setLocation(`/sovereign-workspace?prompt=${encodeURIComponent(message)}`);
   };
 
   const handleOpenProject = (project: Project) => {
-    setLocation(`/builder/${project.id}`);
+    setLocation(`/sovereign-workspace?project=${project.id}`);
   };
 
   const handleDeleteProject = (project: Project) => {
