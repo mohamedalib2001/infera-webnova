@@ -200,7 +200,6 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
 
   const buildItems = [
     { title: language === "ar" ? "الرئيسية" : "Home", url: "/", icon: Home, testId: "nav-home" },
-    { title: language === "ar" ? "الاقتراحات الذكية" : "Smart Suggestions", url: "/smart-suggestions", icon: Lightbulb, testId: "nav-smart-suggestions" },
     { title: language === "ar" ? "النشر بنقرة" : "One-Click Deploy", url: "/deploy", icon: Rocket, testId: "nav-deploy" },
         { title: language === "ar" ? "خط أنابيب CI/CD" : "CI/CD Pipeline", url: "/cicd", icon: Workflow, testId: "nav-cicd" },
     { title: language === "ar" ? "سوق الإضافات" : "Extensions", url: "/extensions", icon: Store, testId: "nav-extensions" },
