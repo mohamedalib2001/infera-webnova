@@ -20,187 +20,55 @@ import { useAuth } from "@/hooks/use-auth";
 import Home from "@/pages/home";
 import Landing from "@/pages/landing";
 import Auth from "@/pages/auth";
-import Builder from "@/pages/builder";
-import Projects from "@/pages/projects";
-import Templates from "@/pages/templates";
 import Preview from "@/pages/preview";
 import Pricing from "@/pages/pricing";
 import Sovereign from "@/pages/sovereign";
-import ChatbotBuilder from "@/pages/chatbot-builder";
-import Analytics from "@/pages/analytics";
-import SEOOptimizer from "@/pages/seo-optimizer";
-import WhiteLabel from "@/pages/white-label";
-import OwnerDashboard from "@/pages/owner-dashboard";
-import OwnerCommand from "@/pages/owner-command";
-import NovaSovereignDashboard from "@/pages/nova-sovereign-dashboard";
-import NovaAIDashboard from "@/pages/nova-ai-dashboard";
-import PagePerformanceMonitor from "@/pages/page-performance-monitor";
-import PagesCompletionTracker from "@/pages/pages-completion-tracker";
-import OwnerNotifications from "@/pages/owner-notifications";
-import OwnerInfrastructure from "@/pages/owner-infrastructure";
-import OwnerIntegrations from "@/pages/owner-integrations";
-import OwnerAISovereignty from "@/pages/owner-ai-sovereignty";
-import OwnerEmailSettings from "@/pages/owner-email-settings";
-import AISettings from "@/pages/ai-settings";
-import AIModelRegistry from "@/pages/ai-model-registry";
-import InferaIntelligenceModels from "@/pages/infera-intelligence-models";
-import InferaAgent from "@/pages/infera-agent";
-import InferaAgentV2 from "@/pages/infera-agent-v2";
-import AgentStandalone from "@/pages/agent-standalone";
-import AiAppBuilder from "@/pages/ai-app-builder";
-import IDEProjects from "@/pages/ide-projects";
-import CloudIDE from "@/pages/cloud-ide";
-import SovereignControlCenter from "@/pages/sovereign-control-center";
-import SovereignCommandCenter from "@/pages/sovereign-command-center";
-import AIGovernanceEngine from "@/pages/ai-governance-engine";
-import DigitalBorders from "@/pages/digital-borders";
-import PolicyEngine from "@/pages/policy-engine";
-import TrustCompliance from "@/pages/trust-compliance";
-import StrategicForecast from "@/pages/strategic-forecast";
-import Domains from "@/pages/domains";
-import DomainSearch from "@/pages/domain-search";
-import Settings from "@/pages/settings";
-import PlatformGenerator from "@/pages/platform-generator";
-import ApiKeys from "@/pages/api-keys";
-import PaymentsDashboard from "@/pages/payments-dashboard";
+import NotFound from "@/pages/not-found";
+import {
+  LazyBuilder, LazyCloudIDE, LazyAiAppBuilder, LazyMobileAppBuilder, LazyDesktopAppBuilder,
+  LazyTestingGenerator, LazyBackendGenerator, LazyGitControl, LazyAICopilot, LazyMarketplace,
+  LazyCollaboration, LazyMilitarySecurity, LazyNovaAIDashboard, LazyNovaSovereignDashboard,
+  LazyOwnerDashboard, LazyOwnerControlCenter, LazySovereignWorkspace, LazySovereignPermissions,
+  LazyPagePerformanceMonitor, LazyPagesCompletionTracker, LazyAnalytics, LazyTemplates, LazyProjects,
+  LazyInferaAgent, LazyInferaAgentV2, LazyAgentStandalone, LazyChatbotBuilder, LazySEOOptimizer,
+  LazyWhiteLabel, LazyOwnerCommand, LazyOwnerNotifications, LazyOwnerInfrastructure,
+  LazyOwnerIntegrations, LazyOwnerAISovereignty, LazyOwnerEmailSettings, LazyAISettings,
+  LazyAIModelRegistry, LazyInferaIntelligenceModels, LazyIDEProjects, LazySovereignControlCenter,
+  LazySovereignCommandCenter, LazyAIGovernanceEngine, LazyDigitalBorders, LazyPolicyEngine,
+  LazyTrustCompliance, LazyStrategicForecast, LazyDomains, LazyDomainSearch, LazySettings,
+  LazyPlatformGenerator, LazyApiKeys, LazyPaymentsDashboard, LazySubscription, LazyNotifications,
+  LazyMarketing, LazyInvoices, LazyIntegrations, LazySmartSuggestions, LazyOneClickDeploy,
+  LazySSLCertificates, LazySSHVault, LazyGitHubManager, LazySovereignPlans, LazyLogoFactory,
+  LazyGovernmentCompliance, LazyOwnerPolicies, LazyDepartmentsPage, LazyTasksPage,
+  LazyEmployeeDashboard, LazyConsolePage, LazySupport, LazySupportAgentDashboard,
+  LazyAgentCommandCenter, LazyAdminSubscriptions, LazyDeletionManagement, LazyISDSPage,
+  LazySpomPage, LazyQualityDashboard, LazySidebarManager, LazySovereignChat, LazyPlatformRegistry,
+  LazyNovaChat, LazyOperationsDashboard, LazyBuildManager, LazyMapsPage, LazyConversationHistory,
+  LazyCICDPipeline, LazyDeviceTesting, LazyPermissionControl, LazySovereignCompliance,
+  LazyStaffManagement, LazyContentModeration, LazyOwnerAICapabilityControl,
+  LazyAssistantGovernancePage, LazyDynamicControlPage, LazyNovaPermissionsPage,
+  LazyFinanceLanding, LazyHumanIQLanding, LazyLegalLanding, LazyAppForgeLanding,
+  LazyMarketingLanding, LazyMarketplaceLanding, LazyEducationLanding, LazyAttendLanding,
+  LazySmartDocsLanding, LazyHospitalityLanding, LazyFeasibilityLanding, LazyCVBuilderLanding,
+  LazyJobsLanding, LazyTrainAILanding, LazyGlobalCloudLanding, LazyShieldGridLanding,
+  LazySmartRemoteLanding, LazyInferaLanding, LazyEngineControlLanding, LazyEngineLanding,
+  LazyPitchDeck, LazyPitchDeckEngine, LazyPitchDeckFinance, LazyPitchDeckHumanIQ,
+  LazyPitchDeckLegal, LazyPitchDeckAppForge, LazyPitchDeckMarketing, LazyPitchDeckMarketplace,
+  LazyPitchDeckEducation, LazyPitchDeckAttend, LazyPitchDeckSmartDocs, LazyPitchDeckHospitality,
+  LazyPitchDeckSmartMemory, LazyPitchDeckVisionFeasibility, LazyPitchDeckCVBuilder,
+  LazyPitchDeckJobsAI, LazyPitchDeckTrainAI, LazyPitchDeckSovereignFinance, LazyPitchDeckGlobalCloud,
+  LazyPitchDeckShieldGrid, LazyPitchDeckSmartRemote, LazyPitchDeckMaster, LazyPlatformMaps,
+  LazyInvestorNarrative, LazyExecutiveSummaries, LazyDemoStoryboards, LazySovereignNarrative,
+  LazyCompetitiveKillMap, LazySovereignReadiness, LazyInvestorObjections, LazyExitStrategy,
+  LazyGovernmentAdoption, LazyEconomicEngine, LazyGTMPlaybook, LazyTrustProof, LazyFounderNarrative,
+  LazyRedLineRules, LazyTimeDominance, LazyCrisisPlaybook, LazyIrreplaceabilityProof,
+  LazyBoardDocuments, LazyGovernmentPack, LazyDocumentGovernance, LazyLaunchSequencing,
+  LazyStakeholderAccess, LazyLaunchChecklist, LazyCrisisCommunication, LazyWarRoom,
+  LazyFounderFramework, LazyAbout, LazyTerms, LazyPrivacy, LazyRefund, LazyAIPolicy,
+  LazyPerformancePolicy, LazyMultiAppPolicy, LazyVisualIdentity, LazyIconManagement, LazyContact
+} from "@/lib/lazy-routes";
 import PaymentSuccess from "@/pages/payment-success";
 import PaymentCancel from "@/pages/payment-cancel";
-import Subscription from "@/pages/subscription";
-import Notifications from "@/pages/notifications";
-import Marketing from "@/pages/marketing";
-import Invoices from "@/pages/invoices";
-import Integrations from "@/pages/integrations";
-import SmartSuggestions from "@/pages/smart-suggestions";
-import OneClickDeploy from "@/pages/one-click-deploy";
-import BackendGenerator from "@/pages/backend-generator";
-import GitControl from "@/pages/git-control";
-import AICopilot from "@/pages/ai-copilot";
-import TestingGenerator from "@/pages/testing-generator";
-import Marketplace from "@/pages/marketplace";
-import Collaboration from "@/pages/collaboration";
-import SSLCertificates from "@/pages/ssl-certificates";
-import SSHVault from "@/pages/ssh-vault";
-import GitHubManager from "@/pages/github-manager";
-import SovereignPlans from "@/pages/sovereign-plans";
-import SovereignWorkspace from "@/pages/sovereign-workspace";
-import LogoFactory from "@/pages/logo-factory";
-import GovernmentCompliance from "@/pages/government-compliance";
-import OwnerPolicies from "@/pages/owner-policies";
-import DepartmentsPage from "@/pages/departments";
-import TasksPage from "@/pages/tasks";
-import EmployeeDashboard from "@/pages/employee-dashboard";
-import ConsolePage from "@/pages/console";
-import Support from "@/pages/support";
-import SupportAgentDashboard from "@/pages/support-agent-dashboard";
-import AgentCommandCenter from "@/pages/agent-command-center";
-import AdminSubscriptions from "@/pages/admin-subscriptions";
-import DeletionManagement from "@/pages/deletion-management";
-import ISDSPage from "@/pages/isds";
-import SpomPage from "@/pages/owner/spom";
-import QualityDashboard from "@/pages/quality-dashboard";
-import SidebarManager from "@/pages/sidebar-manager";
-import SovereignChat from "@/pages/sovereign-chat";
-import PlatformRegistry from "@/pages/platform-registry";
-import NovaChat from "@/pages/nova-chat";
-import OperationsDashboard from "@/pages/operations-dashboard";
-import BuildManager from "@/pages/build-manager";
-import MobileAppBuilder from "@/pages/mobile-app-builder";
-import DesktopAppBuilder from "@/pages/desktop-app-builder";
-import MapsPage from "@/pages/maps";
-import ConversationHistory from "@/pages/conversation-history";
-import CICDPipeline from "@/pages/cicd-pipeline";
-import MilitarySecurity from "@/pages/military-security";
-import DeviceTesting from "@/pages/device-testing";
-import PermissionControl from "@/pages/permission-control";
-import SovereignCompliance from "@/pages/sovereign-compliance";
-import StaffManagement from "@/pages/staff-management";
-import SovereignPermissions from "@/pages/sovereign-permissions";
-import ContentModeration from "@/pages/content-moderation";
-import OwnerAICapabilityControl from "@/pages/owner/ai-capability-control";
-import AssistantGovernancePage from "@/pages/owner/assistant-governance";
-import DynamicControlPage from "@/pages/owner/dynamic-control";
-import NovaPermissionsPage from "@/pages/owner/nova-permissions";
-import OwnerControlCenter from "@/pages/owner-control-center";
-import InferaLanding from "@/pages/infera-landing";
-import EngineControlLanding from "@/pages/engine-control-landing";
-import EngineLanding from "@/pages/engine-landing";
-import FinanceLanding from "@/pages/finance-landing";
-import HumanIQLanding from "@/pages/humaniq-landing";
-import LegalLanding from "@/pages/legal-landing";
-import AppForgeLanding from "@/pages/appforge-landing";
-import MarketingLanding from "@/pages/marketing-landing";
-import MarketplaceLanding from "@/pages/marketplace-landing";
-import EducationLanding from "@/pages/education-landing";
-import AttendLanding from "@/pages/attend-landing";
-import SmartDocsLanding from "@/pages/smartdocs-landing";
-import HospitalityLanding from "@/pages/hospitality-landing";
-import FeasibilityLanding from "@/pages/feasibility-landing";
-import CVBuilderLanding from "@/pages/cvbuilder-landing";
-import JobsLanding from "@/pages/jobs-landing";
-import TrainAILanding from "@/pages/trainai-landing";
-import GlobalCloudLanding from "@/pages/globalcloud-landing";
-import ShieldGridLanding from "@/pages/shieldgrid-landing";
-import SmartRemoteLanding from "@/pages/smartremote-landing";
-import PitchDeck from "@/pages/pitch-deck";
-import PitchDeckEngine from "@/pages/pitch-deck-engine";
-import PitchDeckFinance from "@/pages/pitch-deck-finance";
-import PitchDeckHumanIQ from "@/pages/pitch-deck-humaniq";
-import PitchDeckLegal from "@/pages/pitch-deck-legal";
-import PitchDeckAppForge from "@/pages/pitch-deck-appforge";
-import PitchDeckMarketing from "@/pages/pitch-deck-marketing";
-import PitchDeckMarketplace from "@/pages/pitch-deck-marketplace";
-import PitchDeckEducation from "@/pages/pitch-deck-education";
-import PitchDeckAttend from "@/pages/pitch-deck-attend";
-import PitchDeckSmartDocs from "@/pages/pitch-deck-smartdocs";
-import PitchDeckHospitality from "@/pages/pitch-deck-hospitality";
-import PitchDeckSmartMemory from "@/pages/pitch-deck-smartmemory";
-import PitchDeckVisionFeasibility from "@/pages/pitch-deck-visionfeasibility";
-import PitchDeckCVBuilder from "@/pages/pitch-deck-cvbuilder";
-import PitchDeckJobsAI from "@/pages/pitch-deck-jobsai";
-import PitchDeckTrainAI from "@/pages/pitch-deck-trainai";
-import PitchDeckSovereignFinance from "@/pages/pitch-deck-sovereignfinance";
-import PitchDeckGlobalCloud from "@/pages/pitch-deck-globalcloud";
-import PitchDeckShieldGrid from "@/pages/pitch-deck-shieldgrid";
-import PitchDeckSmartRemote from "@/pages/pitch-deck-smartremote";
-import PitchDeckMaster from "@/pages/pitch-deck-master";
-import PlatformMaps from "@/pages/platform-maps";
-import InvestorNarrative from "@/pages/investor-narrative";
-import ExecutiveSummaries from "@/pages/executive-summaries";
-import DemoStoryboards from "@/pages/demo-storyboards";
-import SovereignNarrative from "@/pages/sovereign-narrative";
-import CompetitiveKillMap from "@/pages/competitive-kill-map";
-import SovereignReadiness from "@/pages/sovereign-readiness";
-import InvestorObjections from "@/pages/investor-objections";
-import ExitStrategy from "@/pages/exit-strategy";
-import GovernmentAdoption from "@/pages/government-adoption";
-import EconomicEngine from "@/pages/economic-engine";
-import GTMPlaybook from "@/pages/gtm-playbook";
-import TrustProof from "@/pages/trust-proof";
-import FounderNarrative from "@/pages/founder-narrative";
-import RedLineRules from "@/pages/red-line-rules";
-import TimeDominance from "@/pages/time-dominance";
-import CrisisPlaybook from "@/pages/crisis-playbook";
-import IrreplaceabilityProof from "@/pages/irreplaceability-proof";
-import BoardDocuments from "@/pages/board-documents";
-import GovernmentPack from "@/pages/government-pack";
-import DocumentGovernance from "@/pages/document-governance";
-import LaunchSequencing from "@/pages/launch-sequencing";
-import StakeholderAccess from "@/pages/stakeholder-access";
-import LaunchChecklist from "@/pages/launch-checklist";
-import CrisisCommunication from "@/pages/crisis-communication";
-import WarRoom from "@/pages/war-room";
-import FounderFramework from "@/pages/founder-framework";
-import About from "@/pages/about";
-import Terms from "@/pages/terms";
-import Privacy from "@/pages/privacy";
-import Refund from "@/pages/refund";
-import AIPolicy from "@/pages/ai-policy";
-import PerformancePolicy from "@/pages/performance-policy";
-import MultiAppPolicy from "@/pages/multi-app-policy";
-import VisualIdentity from "@/pages/visual-identity";
-import IconManagement from "@/pages/icon-management";
-import Contact from "@/pages/contact";
-import NotFound from "@/pages/not-found";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { SovereignIndicator } from "@/components/sovereign-indicator";
 import { CommandPalette } from "@/components/command-palette";
@@ -229,7 +97,7 @@ function GuestRouter() {
       <Route path="/" component={Landing} />
       <Route path="/auth" component={Auth} />
       <Route path="/pricing" component={Pricing} />
-      <Route path="/support" component={Support} />
+      <Route path="/support" component={LazySupport} />
       <Route path="/preview/:shareCode" component={Preview} />
       <Route component={RedirectToAuth} />
     </Switch>
@@ -240,198 +108,198 @@ function AuthenticatedRouter() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/infera-group" component={InferaLanding} />
-      <Route path="/engine-control" component={EngineControlLanding} />
-      <Route path="/engine" component={EngineLanding} />
-      <Route path="/finance" component={FinanceLanding} />
-      <Route path="/humaniq" component={HumanIQLanding} />
-      <Route path="/legal" component={LegalLanding} />
-      <Route path="/appforge" component={AppForgeLanding} />
-      <Route path="/marketing" component={MarketingLanding} />
-      <Route path="/marketplace" component={MarketplaceLanding} />
-      <Route path="/education" component={EducationLanding} />
-      <Route path="/attend" component={AttendLanding} />
-      <Route path="/smartdocs" component={SmartDocsLanding} />
-      <Route path="/hospitality" component={HospitalityLanding} />
-      <Route path="/feasibility" component={FeasibilityLanding} />
-      <Route path="/cvbuilder" component={CVBuilderLanding} />
-      <Route path="/jobs" component={JobsLanding} />
-      <Route path="/trainai" component={TrainAILanding} />
-      <Route path="/globalcloud" component={GlobalCloudLanding} />
-      <Route path="/shieldgrid" component={ShieldGridLanding} />
-      <Route path="/smartremote" component={SmartRemoteLanding} />
-      <Route path="/pitch-deck" component={PitchDeck} />
-      <Route path="/pitch-deck/engine" component={PitchDeckEngine} />
-      <Route path="/pitch-deck/finance" component={PitchDeckFinance} />
-      <Route path="/pitch-deck/humaniq" component={PitchDeckHumanIQ} />
-      <Route path="/pitch-deck/legal" component={PitchDeckLegal} />
-      <Route path="/pitch-deck/appforge" component={PitchDeckAppForge} />
-      <Route path="/pitch-deck/marketing" component={PitchDeckMarketing} />
-      <Route path="/pitch-deck/marketplace" component={PitchDeckMarketplace} />
-      <Route path="/pitch-deck/education" component={PitchDeckEducation} />
-      <Route path="/pitch-deck/attend" component={PitchDeckAttend} />
-      <Route path="/pitch-deck/smartdocs" component={PitchDeckSmartDocs} />
-      <Route path="/pitch-deck/hospitality" component={PitchDeckHospitality} />
-      <Route path="/pitch-deck/smartmemory" component={PitchDeckSmartMemory} />
-      <Route path="/pitch-deck/visionfeasibility" component={PitchDeckVisionFeasibility} />
-      <Route path="/pitch-deck/cvbuilder" component={PitchDeckCVBuilder} />
-      <Route path="/pitch-deck/jobsai" component={PitchDeckJobsAI} />
-      <Route path="/pitch-deck/trainai" component={PitchDeckTrainAI} />
-      <Route path="/pitch-deck/sovereignfinance" component={PitchDeckSovereignFinance} />
-      <Route path="/pitch-deck/globalcloud" component={PitchDeckGlobalCloud} />
-      <Route path="/pitch-deck/shieldgrid" component={PitchDeckShieldGrid} />
-      <Route path="/pitch-deck/smartremote" component={PitchDeckSmartRemote} />
-      <Route path="/pitch-deck/master" component={PitchDeckMaster} />
-      <Route path="/pitch-deck/vision" component={PitchDeck} />
-      <Route path="/pitch-deck/solution" component={PitchDeck} />
-      <Route path="/pitch-deck/business" component={PitchDeck} />
-      <Route path="/pitch-deck/financials" component={PitchDeck} />
-      <Route path="/pitch-deck/team" component={PitchDeck} />
-      <Route path="/pitch-deck/roadmap" component={PitchDeck} />
-      <Route path="/pitch-deck/investors" component={PitchDeck} />
-      <Route path="/pitch-deck/export" component={PitchDeck} />
-      <Route path="/investor-narrative" component={InvestorNarrative} />
-      <Route path="/executive-summaries" component={ExecutiveSummaries} />
-      <Route path="/demo-storyboards" component={DemoStoryboards} />
-      <Route path="/sovereign-narrative" component={SovereignNarrative} />
-      <Route path="/competitive-kill-map" component={CompetitiveKillMap} />
-      <Route path="/sovereign-readiness" component={SovereignReadiness} />
-      <Route path="/investor-objections" component={InvestorObjections} />
-      <Route path="/exit-strategy" component={ExitStrategy} />
-      <Route path="/government-adoption" component={GovernmentAdoption} />
-      <Route path="/economic-engine" component={EconomicEngine} />
-      <Route path="/gtm-playbook" component={GTMPlaybook} />
-      <Route path="/trust-proof" component={TrustProof} />
-      <Route path="/founder-narrative" component={FounderNarrative} />
-      <Route path="/red-line-rules" component={RedLineRules} />
-      <Route path="/time-dominance" component={TimeDominance} />
-      <Route path="/crisis-playbook" component={CrisisPlaybook} />
-      <Route path="/irreplaceability-proof" component={IrreplaceabilityProof} />
-      <Route path="/board-documents" component={BoardDocuments} />
-      <Route path="/government-pack" component={GovernmentPack} />
-      <Route path="/document-governance" component={DocumentGovernance} />
-      <Route path="/launch-sequencing" component={LaunchSequencing} />
-      <Route path="/stakeholder-access" component={StakeholderAccess} />
-      <Route path="/launch-checklist" component={LaunchChecklist} />
-      <Route path="/crisis-communication" component={CrisisCommunication} />
-      <Route path="/war-room" component={WarRoom} />
-      <Route path="/founder-framework" component={FounderFramework} />
-      <Route path="/about" component={About} />
-      <Route path="/terms" component={Terms} />
-      <Route path="/privacy" component={Privacy} />
-      <Route path="/refund" component={Refund} />
-      <Route path="/ai-policy" component={AIPolicy} />
-      <Route path="/performance-policy" component={PerformancePolicy} />
-      <Route path="/multi-app-policy" component={MultiAppPolicy} />
-      <Route path="/visual-identity" component={VisualIdentity} />
-      <Route path="/icon-management" component={IconManagement} />
-      <Route path="/contact" component={Contact} />
+      <Route path="/infera-group" component={LazyInferaLanding} />
+      <Route path="/engine-control" component={LazyEngineControlLanding} />
+      <Route path="/engine" component={LazyEngineLanding} />
+      <Route path="/finance" component={LazyFinanceLanding} />
+      <Route path="/humaniq" component={LazyHumanIQLanding} />
+      <Route path="/legal" component={LazyLegalLanding} />
+      <Route path="/appforge" component={LazyAppForgeLanding} />
+      <Route path="/marketing" component={LazyMarketingLanding} />
+      <Route path="/marketplace" component={LazyMarketplaceLanding} />
+      <Route path="/education" component={LazyEducationLanding} />
+      <Route path="/attend" component={LazyAttendLanding} />
+      <Route path="/smartdocs" component={LazySmartDocsLanding} />
+      <Route path="/hospitality" component={LazyHospitalityLanding} />
+      <Route path="/feasibility" component={LazyFeasibilityLanding} />
+      <Route path="/cvbuilder" component={LazyCVBuilderLanding} />
+      <Route path="/jobs" component={LazyJobsLanding} />
+      <Route path="/trainai" component={LazyTrainAILanding} />
+      <Route path="/globalcloud" component={LazyGlobalCloudLanding} />
+      <Route path="/shieldgrid" component={LazyShieldGridLanding} />
+      <Route path="/smartremote" component={LazySmartRemoteLanding} />
+      <Route path="/pitch-deck" component={LazyPitchDeck} />
+      <Route path="/pitch-deck/engine" component={LazyPitchDeckEngine} />
+      <Route path="/pitch-deck/finance" component={LazyPitchDeckFinance} />
+      <Route path="/pitch-deck/humaniq" component={LazyPitchDeckHumanIQ} />
+      <Route path="/pitch-deck/legal" component={LazyPitchDeckLegal} />
+      <Route path="/pitch-deck/appforge" component={LazyPitchDeckAppForge} />
+      <Route path="/pitch-deck/marketing" component={LazyPitchDeckMarketing} />
+      <Route path="/pitch-deck/marketplace" component={LazyPitchDeckMarketplace} />
+      <Route path="/pitch-deck/education" component={LazyPitchDeckEducation} />
+      <Route path="/pitch-deck/attend" component={LazyPitchDeckAttend} />
+      <Route path="/pitch-deck/smartdocs" component={LazyPitchDeckSmartDocs} />
+      <Route path="/pitch-deck/hospitality" component={LazyPitchDeckHospitality} />
+      <Route path="/pitch-deck/smartmemory" component={LazyPitchDeckSmartMemory} />
+      <Route path="/pitch-deck/visionfeasibility" component={LazyPitchDeckVisionFeasibility} />
+      <Route path="/pitch-deck/cvbuilder" component={LazyPitchDeckCVBuilder} />
+      <Route path="/pitch-deck/jobsai" component={LazyPitchDeckJobsAI} />
+      <Route path="/pitch-deck/trainai" component={LazyPitchDeckTrainAI} />
+      <Route path="/pitch-deck/sovereignfinance" component={LazyPitchDeckSovereignFinance} />
+      <Route path="/pitch-deck/globalcloud" component={LazyPitchDeckGlobalCloud} />
+      <Route path="/pitch-deck/shieldgrid" component={LazyPitchDeckShieldGrid} />
+      <Route path="/pitch-deck/smartremote" component={LazyPitchDeckSmartRemote} />
+      <Route path="/pitch-deck/master" component={LazyPitchDeckMaster} />
+      <Route path="/pitch-deck/vision" component={LazyPitchDeck} />
+      <Route path="/pitch-deck/solution" component={LazyPitchDeck} />
+      <Route path="/pitch-deck/business" component={LazyPitchDeck} />
+      <Route path="/pitch-deck/financials" component={LazyPitchDeck} />
+      <Route path="/pitch-deck/team" component={LazyPitchDeck} />
+      <Route path="/pitch-deck/roadmap" component={LazyPitchDeck} />
+      <Route path="/pitch-deck/investors" component={LazyPitchDeck} />
+      <Route path="/pitch-deck/export" component={LazyPitchDeck} />
+      <Route path="/investor-narrative" component={LazyInvestorNarrative} />
+      <Route path="/executive-summaries" component={LazyExecutiveSummaries} />
+      <Route path="/demo-storyboards" component={LazyDemoStoryboards} />
+      <Route path="/sovereign-narrative" component={LazySovereignNarrative} />
+      <Route path="/competitive-kill-map" component={LazyCompetitiveKillMap} />
+      <Route path="/sovereign-readiness" component={LazySovereignReadiness} />
+      <Route path="/investor-objections" component={LazyInvestorObjections} />
+      <Route path="/exit-strategy" component={LazyExitStrategy} />
+      <Route path="/government-adoption" component={LazyGovernmentAdoption} />
+      <Route path="/economic-engine" component={LazyEconomicEngine} />
+      <Route path="/gtm-playbook" component={LazyGTMPlaybook} />
+      <Route path="/trust-proof" component={LazyTrustProof} />
+      <Route path="/founder-narrative" component={LazyFounderNarrative} />
+      <Route path="/red-line-rules" component={LazyRedLineRules} />
+      <Route path="/time-dominance" component={LazyTimeDominance} />
+      <Route path="/crisis-playbook" component={LazyCrisisPlaybook} />
+      <Route path="/irreplaceability-proof" component={LazyIrreplaceabilityProof} />
+      <Route path="/board-documents" component={LazyBoardDocuments} />
+      <Route path="/government-pack" component={LazyGovernmentPack} />
+      <Route path="/document-governance" component={LazyDocumentGovernance} />
+      <Route path="/launch-sequencing" component={LazyLaunchSequencing} />
+      <Route path="/stakeholder-access" component={LazyStakeholderAccess} />
+      <Route path="/launch-checklist" component={LazyLaunchChecklist} />
+      <Route path="/crisis-communication" component={LazyCrisisCommunication} />
+      <Route path="/war-room" component={LazyWarRoom} />
+      <Route path="/founder-framework" component={LazyFounderFramework} />
+      <Route path="/about" component={LazyAbout} />
+      <Route path="/terms" component={LazyTerms} />
+      <Route path="/privacy" component={LazyPrivacy} />
+      <Route path="/refund" component={LazyRefund} />
+      <Route path="/ai-policy" component={LazyAIPolicy} />
+      <Route path="/performance-policy" component={LazyPerformancePolicy} />
+      <Route path="/multi-app-policy" component={LazyMultiAppPolicy} />
+      <Route path="/visual-identity" component={LazyVisualIdentity} />
+      <Route path="/icon-management" component={LazyIconManagement} />
+      <Route path="/contact" component={LazyContact} />
       <Route path="/auth" component={Auth} />
-      <Route path="/builder" component={Builder} />
-      <Route path="/builder/:id" component={Builder} />
-      <Route path="/conversations" component={ConversationHistory} />
-      <Route path="/projects" component={Projects} />
-      <Route path="/templates" component={Templates} />
+      <Route path="/builder" component={LazyBuilder} />
+      <Route path="/builder/:id" component={LazyBuilder} />
+      <Route path="/conversations" component={LazyConversationHistory} />
+      <Route path="/projects" component={LazyProjects} />
+      <Route path="/templates" component={LazyTemplates} />
       <Route path="/pricing" component={Pricing} />
       <Route path="/sovereign" component={Sovereign} />
-      <Route path="/chatbot-builder" component={ChatbotBuilder} />
-      <Route path="/analytics" component={Analytics} />
-      <Route path="/seo-optimizer" component={SEOOptimizer} />
-      <Route path="/white-label" component={WhiteLabel} />
-      <Route path="/owner" component={OwnerDashboard} />
-      <Route path="/owner/command" component={OwnerCommand} />
-      <Route path="/owner/nova-sovereign" component={NovaSovereignDashboard} />
-      <Route path="/owner/notifications" component={OwnerNotifications} />
-      <Route path="/owner/infrastructure" component={OwnerInfrastructure} />
-      <Route path="/owner/integrations" component={OwnerIntegrations} />
-      <Route path="/owner/ai-sovereignty" component={OwnerAISovereignty} />
-      <Route path="/owner/ai-capability-control" component={OwnerAICapabilityControl} />
-      <Route path="/owner/assistant-governance" component={AssistantGovernancePage} />
-      <Route path="/owner/dynamic-control" component={DynamicControlPage} />
-      <Route path="/owner/nova-permissions" component={NovaPermissionsPage} />
-      <Route path="/owner/email-settings" component={OwnerEmailSettings} />
-      <Route path="/owner/ai-settings" component={AISettings} />
-      <Route path="/owner/ai-model-registry" component={AIModelRegistry} />
-      <Route path="/owner/infera-intelligence" component={InferaIntelligenceModels} />
-      <Route path="/owner/infera-agent" component={InferaAgent} />
-      <Route path="/ai-builder" component={AiAppBuilder} />
-      <Route path="/ide" component={IDEProjects} />
-      <Route path="/ide/:id" component={CloudIDE} />
-      <Route path="/sovereign-control" component={SovereignControlCenter} />
-      <Route path="/sovereign/command-center" component={SovereignCommandCenter} />
-      <Route path="/sovereign/ai-governance" component={AIGovernanceEngine} />
-      <Route path="/sovereign/digital-borders" component={DigitalBorders} />
-      <Route path="/sovereign/policy-engine" component={PolicyEngine} />
-      <Route path="/sovereign/trust-compliance" component={TrustCompliance} />
-      <Route path="/sovereign/strategic-forecast" component={StrategicForecast} />
-      <Route path="/domains" component={Domains} />
-      <Route path="/domain-search" component={DomainSearch} />
-      <Route path="/settings" component={Settings} />
-      <Route path="/platform-generator" component={PlatformGenerator} />
-      <Route path="/api-keys" component={ApiKeys} />
-      <Route path="/payments" component={PaymentsDashboard} />
+      <Route path="/chatbot-builder" component={LazyChatbotBuilder} />
+      <Route path="/analytics" component={LazyAnalytics} />
+      <Route path="/seo-optimizer" component={LazySEOOptimizer} />
+      <Route path="/white-label" component={LazyWhiteLabel} />
+      <Route path="/owner" component={LazyOwnerDashboard} />
+      <Route path="/owner/command" component={LazyOwnerCommand} />
+      <Route path="/owner/nova-sovereign" component={LazyNovaSovereignDashboard} />
+      <Route path="/owner/notifications" component={LazyOwnerNotifications} />
+      <Route path="/owner/infrastructure" component={LazyOwnerInfrastructure} />
+      <Route path="/owner/integrations" component={LazyOwnerIntegrations} />
+      <Route path="/owner/ai-sovereignty" component={LazyOwnerAISovereignty} />
+      <Route path="/owner/ai-capability-control" component={LazyOwnerAICapabilityControl} />
+      <Route path="/owner/assistant-governance" component={LazyAssistantGovernancePage} />
+      <Route path="/owner/dynamic-control" component={LazyDynamicControlPage} />
+      <Route path="/owner/nova-permissions" component={LazyNovaPermissionsPage} />
+      <Route path="/owner/email-settings" component={LazyOwnerEmailSettings} />
+      <Route path="/owner/ai-settings" component={LazyAISettings} />
+      <Route path="/owner/ai-model-registry" component={LazyAIModelRegistry} />
+      <Route path="/owner/infera-intelligence" component={LazyInferaIntelligenceModels} />
+      <Route path="/owner/infera-agent" component={LazyInferaAgent} />
+      <Route path="/ai-builder" component={LazyAiAppBuilder} />
+      <Route path="/ide" component={LazyIDEProjects} />
+      <Route path="/ide/:id" component={LazyCloudIDE} />
+      <Route path="/sovereign-control" component={LazySovereignControlCenter} />
+      <Route path="/sovereign/command-center" component={LazySovereignCommandCenter} />
+      <Route path="/sovereign/ai-governance" component={LazyAIGovernanceEngine} />
+      <Route path="/sovereign/digital-borders" component={LazyDigitalBorders} />
+      <Route path="/sovereign/policy-engine" component={LazyPolicyEngine} />
+      <Route path="/sovereign/trust-compliance" component={LazyTrustCompliance} />
+      <Route path="/sovereign/strategic-forecast" component={LazyStrategicForecast} />
+      <Route path="/domains" component={LazyDomains} />
+      <Route path="/domain-search" component={LazyDomainSearch} />
+      <Route path="/settings" component={LazySettings} />
+      <Route path="/platform-generator" component={LazyPlatformGenerator} />
+      <Route path="/api-keys" component={LazyApiKeys} />
+      <Route path="/payments" component={LazyPaymentsDashboard} />
       <Route path="/payment/success" component={PaymentSuccess} />
       <Route path="/payment/cancel" component={PaymentCancel} />
-      <Route path="/subscription" component={Subscription} />
-      <Route path="/notifications" component={Notifications} />
-      <Route path="/marketing" component={Marketing} />
-      <Route path="/invoices" component={Invoices} />
-      <Route path="/integrations" component={Integrations} />
-      <Route path="/smart-suggestions" component={SmartSuggestions} />
-      <Route path="/deploy" component={OneClickDeploy} />
-      <Route path="/ssl" component={SSLCertificates} />
-      <Route path="/ssl-certificates" component={SSLCertificates} />
-      <Route path="/ssh-vault" component={SSHVault} />
-      <Route path="/github" component={GitHubManager} />
-      <Route path="/sovereign-plans" component={SovereignPlans} />
-      <Route path="/sovereign-workspace" component={SovereignWorkspace} />
-      <Route path="/logo-factory" component={LogoFactory} />
-      <Route path="/government-compliance" component={GovernmentCompliance} />
-      <Route path="/owner/policies" component={OwnerPolicies} />
-      <Route path="/departments" component={DepartmentsPage} />
-      <Route path="/tasks" component={TasksPage} />
-      <Route path="/employee-dashboard" component={EmployeeDashboard} />
-      <Route path="/backend-generator" component={BackendGenerator} />
-      <Route path="/git" component={GitControl} />
-      <Route path="/ai-copilot" component={AICopilot} />
-      <Route path="/infera-agent" component={InferaAgentV2} />
-      <Route path="/infera-agent-old" component={InferaAgent} />
-      <Route path="/agent" component={AgentStandalone} />
-      <Route path="/testing" component={TestingGenerator} />
-      <Route path="/marketplace" component={Marketplace} />
-      <Route path="/extensions" component={Marketplace} />
-      <Route path="/collaboration" component={Collaboration} />
-      <Route path="/console" component={ConsolePage} />
-      <Route path="/support" component={Support} />
-      <Route path="/support/agent" component={SupportAgentDashboard} />
-      <Route path="/support/command-center" component={AgentCommandCenter} />
-      <Route path="/admin/subscriptions" component={AdminSubscriptions} />
-      <Route path="/owner/deletion-management" component={DeletionManagement} />
-      <Route path="/owner/isds" component={ISDSPage} />
-      <Route path="/owner/spom" component={SpomPage} />
-      <Route path="/owner/quality" component={QualityDashboard} />
-      <Route path="/owner/sidebar-manager" component={SidebarManager} />
-      <Route path="/owner/platform-maps" component={PlatformMaps} />
-      <Route path="/sovereign-chat" component={SovereignChat} />
-      <Route path="/owner/platform-registry" component={PlatformRegistry} />
-      <Route path="/nova" component={NovaChat} />
-      <Route path="/nova/dashboard" component={NovaAIDashboard} />
-      <Route path="/nova/operations" component={OperationsDashboard} />
-      <Route path="/page-performance" component={PagePerformanceMonitor} />
-      <Route path="/pages-completion" component={PagesCompletionTracker} />
-      <Route path="/nova/builds" component={BuildManager} />
-      <Route path="/mobile-builder" component={MobileAppBuilder} />
-      <Route path="/desktop-builder" component={DesktopAppBuilder} />
-      <Route path="/maps" component={MapsPage} />
-      <Route path="/cicd" component={CICDPipeline} />
-      <Route path="/military-security" component={MilitarySecurity} />
-      <Route path="/device-testing" component={DeviceTesting} />
-      <Route path="/permissions" component={PermissionControl} />
-      <Route path="/sovereign/compliance" component={SovereignCompliance} />
-      <Route path="/owner/staff" component={StaffManagement} />
-      <Route path="/owner/sovereign-permissions" component={SovereignPermissions} />
-      <Route path="/owner/content-moderation" component={ContentModeration} />
-      <Route path="/owner/control-center" component={OwnerControlCenter} />
+      <Route path="/subscription" component={LazySubscription} />
+      <Route path="/notifications" component={LazyNotifications} />
+      <Route path="/marketing" component={LazyMarketing} />
+      <Route path="/invoices" component={LazyInvoices} />
+      <Route path="/integrations" component={LazyIntegrations} />
+      <Route path="/smart-suggestions" component={LazySmartSuggestions} />
+      <Route path="/deploy" component={LazyOneClickDeploy} />
+      <Route path="/ssl" component={LazySSLCertificates} />
+      <Route path="/ssl-certificates" component={LazySSLCertificates} />
+      <Route path="/ssh-vault" component={LazySSHVault} />
+      <Route path="/github" component={LazyGitHubManager} />
+      <Route path="/sovereign-plans" component={LazySovereignPlans} />
+      <Route path="/sovereign-workspace" component={LazySovereignWorkspace} />
+      <Route path="/logo-factory" component={LazyLogoFactory} />
+      <Route path="/government-compliance" component={LazyGovernmentCompliance} />
+      <Route path="/owner/policies" component={LazyOwnerPolicies} />
+      <Route path="/departments" component={LazyDepartmentsPage} />
+      <Route path="/tasks" component={LazyTasksPage} />
+      <Route path="/employee-dashboard" component={LazyEmployeeDashboard} />
+      <Route path="/backend-generator" component={LazyBackendGenerator} />
+      <Route path="/git" component={LazyGitControl} />
+      <Route path="/ai-copilot" component={LazyAICopilot} />
+      <Route path="/infera-agent" component={LazyInferaAgentV2} />
+      <Route path="/infera-agent-old" component={LazyInferaAgent} />
+      <Route path="/agent" component={LazyAgentStandalone} />
+      <Route path="/testing" component={LazyTestingGenerator} />
+      <Route path="/marketplace" component={LazyMarketplace} />
+      <Route path="/extensions" component={LazyMarketplace} />
+      <Route path="/collaboration" component={LazyCollaboration} />
+      <Route path="/console" component={LazyConsolePage} />
+      <Route path="/support" component={LazySupport} />
+      <Route path="/support/agent" component={LazySupportAgentDashboard} />
+      <Route path="/support/command-center" component={LazyAgentCommandCenter} />
+      <Route path="/admin/subscriptions" component={LazyAdminSubscriptions} />
+      <Route path="/owner/deletion-management" component={LazyDeletionManagement} />
+      <Route path="/owner/isds" component={LazyISDSPage} />
+      <Route path="/owner/spom" component={LazySpomPage} />
+      <Route path="/owner/quality" component={LazyQualityDashboard} />
+      <Route path="/owner/sidebar-manager" component={LazySidebarManager} />
+      <Route path="/owner/platform-maps" component={LazyPlatformMaps} />
+      <Route path="/sovereign-chat" component={LazySovereignChat} />
+      <Route path="/owner/platform-registry" component={LazyPlatformRegistry} />
+      <Route path="/nova" component={LazyNovaChat} />
+      <Route path="/nova/dashboard" component={LazyNovaAIDashboard} />
+      <Route path="/nova/operations" component={LazyOperationsDashboard} />
+      <Route path="/page-performance" component={LazyPagePerformanceMonitor} />
+      <Route path="/pages-completion" component={LazyPagesCompletionTracker} />
+      <Route path="/nova/builds" component={LazyBuildManager} />
+      <Route path="/mobile-builder" component={LazyMobileAppBuilder} />
+      <Route path="/desktop-builder" component={LazyDesktopAppBuilder} />
+      <Route path="/maps" component={LazyMapsPage} />
+      <Route path="/cicd" component={LazyCICDPipeline} />
+      <Route path="/military-security" component={LazyMilitarySecurity} />
+      <Route path="/device-testing" component={LazyDeviceTesting} />
+      <Route path="/permissions" component={LazyPermissionControl} />
+      <Route path="/sovereign/compliance" component={LazySovereignCompliance} />
+      <Route path="/owner/staff" component={LazyStaffManagement} />
+      <Route path="/owner/sovereign-permissions" component={LazySovereignPermissions} />
+      <Route path="/owner/content-moderation" component={LazyContentModeration} />
+      <Route path="/owner/control-center" component={LazyOwnerControlCenter} />
       <Route path="/preview/:shareCode" component={Preview} />
       <Route component={NotFound} />
     </Switch>
