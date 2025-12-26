@@ -120,6 +120,7 @@ export default function Home() {
 
   const { data: templates, isLoading: templatesLoading } = useQuery<Template[]>({
     queryKey: ["/api/templates"],
+    enabled: activeTab === "templates",
   });
 
   // Dashboard Analytics Query
