@@ -135,7 +135,10 @@ export function PlatformHeartbeat() {
     }
   };
 
-  const handleCopy = async () => {
+  const handleCopy = async (e: React.PointerEvent | React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    
     const metricsText = `
 ❤️ نبض المنصة - INFERA WebNova
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -234,7 +237,7 @@ export function PlatformHeartbeat() {
               size="icon"
               variant="ghost"
               className="h-7 w-7 text-slate-300 hover:text-white hover:bg-slate-800"
-              onClick={handleCopy}
+              onPointerDown={handleCopy}
               data-testid="button-copy-platform-metrics"
             >
               {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}

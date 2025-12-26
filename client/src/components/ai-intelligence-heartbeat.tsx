@@ -155,14 +155,14 @@ export function AIIntelligenceHeartbeat() {
 
     if (aiProviderData.providers) {
       aiProviderData.providers.forEach((provider) => {
-        if (provider.status === "active") {
+        if (provider.status === "active" && provider.isFeeding) {
           externalCount++;
           activeProviders.push({
             id: provider.id,
             name: provider.name,
             type: "external",
             model: provider.model,
-            status: provider.isFeeding ? "feeding" : "active",
+            status: "feeding",
             contribution: 0,
           });
         }
@@ -251,7 +251,10 @@ export function AIIntelligenceHeartbeat() {
     return () => clearInterval(pulseInterval);
   }, [isOwner]);
 
-  const handleTestSpeed = async () => {
+  const handleTestSpeed = async (e: React.PointerEvent | React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    
     if (isTestingSpeed) return;
     setIsTestingSpeed(true);
 
@@ -296,7 +299,10 @@ export function AIIntelligenceHeartbeat() {
     }
   };
 
-  const handleCopy = async () => {
+  const handleCopy = async (e: React.PointerEvent | React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    
     const internalProviders = metrics.activeProviders.filter(p => p.type === "internal");
     const externalProviders = metrics.activeProviders.filter(p => p.type === "external");
 
@@ -449,7 +455,7 @@ ${externalProviders.map(p => `   • ${p.name} (${p.model}) - ${p.contribution}%
               size="icon"
               variant="ghost"
               className="h-7 w-7 text-violet-300 hover:text-white hover:bg-violet-800/50"
-              onClick={handleCopy}
+              onPointerDown={handleCopy}
               data-testid="button-copy-ai-metrics"
             >
               {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
@@ -556,7 +562,7 @@ ${externalProviders.map(p => `   • ${p.name} (${p.model}) - ${p.contribution}%
               size="sm"
               variant="ghost"
               className="h-6 text-xs text-violet-300 hover:text-white hover:bg-violet-800/50"
-              onClick={handleTestSpeed}
+              onPointerDown={handleTestSpeed}
               disabled={isTestingSpeed}
               data-testid="button-test-ai-speed"
             >
