@@ -780,6 +780,14 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                       <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/page-performance"}>
+                          <Link href="/page-performance" data-testid="nav-page-performance">
+                            <Activity className="h-4 w-4 text-rose-500" />
+                            <span>{language === "ar" ? "مراقبة أداء الصفحات" : "Page Performance"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
                         <SidebarMenuButton asChild isActive={location === "/owner/ai-capability-control"}>
                           <Link href="/owner/ai-capability-control" data-testid="nav-owner-ai-capability-control">
                             <Cpu className="h-4 w-4 text-indigo-500" />
