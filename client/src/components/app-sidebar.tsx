@@ -205,7 +205,6 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     { title: language === "ar" ? "الرئيسية" : "Home", url: "/", icon: Home, testId: "nav-home" },
     { title: language === "ar" ? "الاقتراحات الذكية" : "Smart Suggestions", url: "/smart-suggestions", icon: Lightbulb, testId: "nav-smart-suggestions" },
     { title: language === "ar" ? "النشر بنقرة" : "One-Click Deploy", url: "/deploy", icon: Rocket, testId: "nav-deploy" },
-    { title: language === "ar" ? "شهادات SSL" : "SSL Certificates", url: "/ssl", icon: ShieldCheck, testId: "nav-ssl" },
     { title: language === "ar" ? "مساعد AI Copilot" : "AI Copilot", url: "/ai-copilot", icon: Brain, testId: "nav-copilot" },
     { title: language === "ar" ? "وكيل إنفرا" : "INFERA Agent", url: "/infera-agent", icon: Bot, testId: "nav-infera-agent" },
     { title: language === "ar" ? "مولّد الاختبارات" : "Testing Generator", url: "/testing", icon: TestTube2, testId: "nav-testing" },
