@@ -319,6 +319,8 @@ const withSovereignContext = async (req: Request, res: Response, next: NextFunct
   next();
 };
 
+import { analyzeAllPages, getPageAnalysis, getAnalysisSummary } from "./page-analysis-service";
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -344,6 +346,40 @@ export async function registerRoutes(
       version: process.env.npm_package_version || "1.0.0",
       uptime: process.uptime()
     });
+  });
+
+  // ============ Page Analysis API - تحليل الصفحات الديناميكي ============
+  
+  app.get("/api/pages/analysis", async (req, res) => {
+    try {
+      const pages = analyzeAllPages();
+      res.json({ success: true, pages });
+    } catch (error) {
+      res.status(500).json({ success: false, error: "Failed to analyze pages" });
+    }
+  });
+
+  app.get("/api/pages/analysis/summary", async (req, res) => {
+    try {
+      const summary = getAnalysisSummary();
+      res.json({ success: true, summary });
+    } catch (error) {
+      res.status(500).json({ success: false, error: "Failed to get summary" });
+    }
+  });
+
+  app.get("/api/pages/analysis/:route", async (req, res) => {
+    try {
+      const route = "/" + (req.params.route || "");
+      const analysis = getPageAnalysis(route);
+      if (analysis) {
+        res.json({ success: true, analysis });
+      } else {
+        res.status(404).json({ success: false, error: "Page not found" });
+      }
+    } catch (error) {
+      res.status(500).json({ success: false, error: "Failed to analyze page" });
+    }
   });
   
   // Proxy main agent dashboard and API
