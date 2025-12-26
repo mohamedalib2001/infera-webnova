@@ -77,6 +77,7 @@ import {
   UsersRound,
   BadgeDollarSign,
   Hexagon,
+  Activity,
 } from "lucide-react";
 import { SidebarItemBadge } from "@/components/sovereign-view";
 import {
@@ -183,7 +184,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
   };
 
   // Owner avatar URL - use real avatar or fallback
-  const ownerAvatarUrl = user?.avatarUrl || "https://api.dicebear.com/7.x/initials/svg?seed=" + encodeURIComponent(user?.fullName || user?.username || "Owner");
+  const ownerAvatarUrl = user?.avatar || "https://api.dicebear.com/7.x/initials/svg?seed=" + encodeURIComponent(user?.fullName || user?.username || "Owner");
 
   const developmentPages = [
     { title: language === "ar" ? "مولّد المنصات" : "Platform Generator", url: "/platform-generator", icon: TrendingUp, testId: "nav-dev-platform-generator" },
@@ -200,6 +201,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     { title: language === "ar" ? "القوالب" : "Templates", url: "/templates", icon: LayoutTemplate, testId: "nav-dev-templates" },
     { title: language === "ar" ? "مولّد الباك إند" : "Backend Generator", url: "/backend-generator", icon: ServerCog, testId: "nav-dev-backend" },
     { title: language === "ar" ? "لوحة Nova AI" : "Nova AI Dashboard", url: "/nova/dashboard", icon: Brain, testId: "nav-dev-nova-dashboard" },
+    { title: language === "ar" ? "مراقبة أداء الصفحات" : "Page Performance", url: "/page-performance", icon: Activity, testId: "nav-dev-page-performance" },
   ];
 
   const buildItems = [
