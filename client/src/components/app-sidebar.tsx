@@ -183,11 +183,9 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
   const ownerAvatarUrl = user?.avatar || "https://api.dicebear.com/7.x/initials/svg?seed=" + encodeURIComponent(user?.fullName || user?.username || "Owner");
 
   const developmentPages = [
-    { title: language === "ar" ? "مولّد المنصات" : "Platform Generator", url: "/platform-generator", icon: TrendingUp, testId: "nav-dev-platform-generator" },
     { title: language === "ar" ? "منشئ الروبوتات" : "Chatbot Builder", url: "/chatbot-builder", icon: Bot, testId: "nav-dev-chatbot" },
-        { title: language === "ar" ? "الأمان العسكري" : "Military Security", url: "/military-security", icon: ShieldCheck, testId: "nav-dev-military" },
-    { title: language === "ar" ? "التعاون الجماعي" : "Collaboration", url: "/collaboration", icon: Users, testId: "nav-dev-collaboration" },
-            { title: language === "ar" ? "القوالب" : "Templates", url: "/templates", icon: LayoutTemplate, testId: "nav-dev-templates" },
+    { title: language === "ar" ? "الأمان العسكري" : "Military Security", url: "/military-security", icon: ShieldCheck, testId: "nav-dev-military" },
+    { title: language === "ar" ? "القوالب" : "Templates", url: "/templates", icon: LayoutTemplate, testId: "nav-dev-templates" },
     { title: language === "ar" ? "لوحة Nova AI" : "Nova AI Dashboard", url: "/nova/dashboard", icon: Brain, testId: "nav-dev-nova-dashboard" },
     { title: language === "ar" ? "مراقبة أداء الصفحات" : "Page Performance", url: "/page-performance", icon: Activity, testId: "nav-dev-page-performance" },
     { title: language === "ar" ? "تتبع نسب الإكتمال" : "Completion Tracker", url: "/pages-completion", icon: CheckCircle, testId: "nav-dev-completion-tracker" },
@@ -196,11 +194,9 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
   const buildItems = [
     { title: language === "ar" ? "الرئيسية" : "Home", url: "/", icon: Home, testId: "nav-home" },
     { title: language === "ar" ? "النشر بنقرة" : "One-Click Deploy", url: "/deploy", icon: Rocket, testId: "nav-deploy" },
-                { title: language === "ar" ? "التعاون الجماعي" : "Collaboration", url: "/collaboration", icon: Users, testId: "nav-collaboration" },
-    { title: language === "ar" ? "مولّد المنصات" : "Platform Generator", url: "/platform-generator", icon: TrendingUp, testId: "nav-platform-generator" },
     { title: language === "ar" ? "القوالب" : "Templates", url: "/templates", icon: LayoutTemplate, testId: "nav-templates" },
     { title: language === "ar" ? "منشئ الروبوتات" : "Chatbot Builder", url: "/chatbot-builder", icon: Bot, testId: "nav-chatbot" },
-      ];
+  ];
 
   const managementItems = [
     { title: language === "ar" ? "المشاريع" : "Projects", url: "/projects", icon: FolderOpen, testId: "nav-projects" },
