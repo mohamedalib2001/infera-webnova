@@ -113,7 +113,6 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
   const { user, isAuthenticated, logout, isLoggingOut, isSovereign } = useAuth();
   const { t, language } = useLanguage();
   const { isOpen, setIsOpen, openModal } = useNewPlatformModal();
-  const [growthExpanded, setGrowthExpanded] = useState(false);
   const [pitchDeckExpanded, setPitchDeckExpanded] = useState(false);
   const isOwner = user?.role === "owner";
   
@@ -148,8 +147,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     if (path.startsWith("/projects")) return language === "ar" ? "المشاريع" : "Projects";
     if (path.startsWith("/templates")) return language === "ar" ? "القوالب" : "Templates";
     if (path.startsWith("/settings")) return language === "ar" ? "الإعدادات" : "Settings";
-    if (path.startsWith("/analytics")) return language === "ar" ? "التحليلات" : "Analytics";
-    if (path.startsWith("/pricing")) return language === "ar" ? "الأسعار" : "Pricing";
+        if (path.startsWith("/pricing")) return language === "ar" ? "الأسعار" : "Pricing";
     return path.split("/").pop()?.replace(/-/g, " ") || path;
   };
 
@@ -215,12 +213,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     { title: language === "ar" ? "الإعدادات" : "Settings", url: "/settings", icon: Settings, testId: "nav-settings", requiresAuth: true },
   ];
 
-  const growthItems = [
-    { title: language === "ar" ? "محسّن SEO" : "SEO Optimizer", url: "/seo-optimizer", icon: Search, testId: "nav-seo" },
-    { title: language === "ar" ? "التحليلات" : "Analytics", url: "/analytics", icon: BarChart3, testId: "nav-analytics" },
-    { title: language === "ar" ? "التسويق" : "Marketing", url: "/marketing", icon: Megaphone, testId: "nav-marketing" },
-  ];
-
+  
   const pitchDeckItems = [
     { title: language === "ar" ? "نظرة عامة" : "Overview", url: "/pitch-deck", icon: LayoutDashboard, testId: "nav-pitch-overview" },
     { title: language === "ar" ? "رؤية المنصة" : "Platform Vision", url: "/pitch-deck/vision", icon: Eye, testId: "nav-pitch-vision" },
@@ -479,32 +472,6 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                   <SidebarGroupContent>
                     {renderNavItems(managementItems)}
                   </SidebarGroupContent>
-                </SidebarGroup>
-              )}
-
-              {/* Growth Section - for managers, subscribers and owner (not visitors) */}
-              {shouldShowSection(["all", "managers", "subscribers", "owner"]) && activeTab !== "visitors" && (
-                <SidebarGroup>
-                  <Collapsible open={growthExpanded} onOpenChange={setGrowthExpanded}>
-                    <CollapsibleTrigger asChild>
-                      <SidebarGroupLabel className="flex items-center gap-1 cursor-pointer w-full justify-between pr-2">
-                        <span className="flex items-center gap-1">
-                          <TrendingUp className="h-3 w-3" />
-                          {language === "ar" ? "النمو" : "Growth"}
-                        </span>
-                        {growthExpanded ? (
-                          <ChevronDown className="h-3 w-3" />
-                        ) : (
-                          <ChevronRight className="h-3 w-3" />
-                        )}
-                      </SidebarGroupLabel>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <SidebarGroupContent>
-                        {renderNavItems(growthItems)}
-                      </SidebarGroupContent>
-                    </CollapsibleContent>
-                  </Collapsible>
                 </SidebarGroup>
               )}
 
