@@ -189,8 +189,6 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
 
   const developmentPages = [
     { title: language === "ar" ? "مولّد المنصات" : "Platform Generator", url: "/platform-generator", icon: TrendingUp, testId: "nav-dev-platform-generator" },
-    { title: language === "ar" ? "تطبيقات الجوال" : "Mobile Apps", url: "/mobile-builder", icon: Smartphone, testId: "nav-dev-mobile" },
-    { title: language === "ar" ? "تطبيقات سطح المكتب" : "Desktop Apps", url: "/desktop-builder", icon: Monitor, testId: "nav-dev-desktop" },
     { title: language === "ar" ? "منشئ الروبوتات" : "Chatbot Builder", url: "/chatbot-builder", icon: Bot, testId: "nav-dev-chatbot" },
     { title: language === "ar" ? "خط أنابيب CI/CD" : "CI/CD Pipeline", url: "/cicd", icon: Workflow, testId: "nav-dev-cicd" },
     { title: language === "ar" ? "اختبار الأجهزة" : "Device Testing", url: "/device-testing", icon: Cpu, testId: "nav-dev-device" },
@@ -226,8 +224,6 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     { title: language === "ar" ? "مولّد المنصات" : "Platform Generator", url: "/platform-generator", icon: TrendingUp, testId: "nav-platform-generator" },
     { title: language === "ar" ? "القوالب" : "Templates", url: "/templates", icon: LayoutTemplate, testId: "nav-templates" },
     { title: language === "ar" ? "منشئ الروبوتات" : "Chatbot Builder", url: "/chatbot-builder", icon: Bot, testId: "nav-chatbot" },
-    { title: language === "ar" ? "تطبيقات الجوال" : "Mobile Apps", url: "/mobile-builder", icon: Smartphone, testId: "nav-mobile-builder" },
-    { title: language === "ar" ? "تطبيقات سطح المكتب" : "Desktop Apps", url: "/desktop-builder", icon: Monitor, testId: "nav-desktop-builder" },
     { title: language === "ar" ? "الخرائط" : "Maps", url: "/maps", icon: MapPin, testId: "nav-maps" },
   ];
 
