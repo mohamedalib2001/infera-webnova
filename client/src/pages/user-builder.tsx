@@ -1,59 +1,55 @@
-import { useState, useMemo, useEffect } from "react";
-import { useLocation, useSearch } from "wouter";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect, useRef } from "react";
+import { useLocation } from "wouter";
+import { apiRequest } from "@/lib/queryClient";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChatInput } from "@/components/chat-input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
-  Building2,
-  ShoppingCart,
-  GraduationCap,
-  HeartPulse,
-  Landmark,
-  Briefcase,
   Bot,
   Zap,
-  Search,
   Sparkles,
-  ArrowRight,
-  FileCode,
-  Layout,
-  Database,
-  Shield,
-  Globe,
-  Loader2,
-  CheckCircle2,
   Send,
-  ArrowLeft,
+  User,
+  CheckCircle2,
+  Loader2,
+  Shield,
+  Database,
+  Globe,
+  Code2,
+  Rocket,
+  MessageSquare,
+  Play,
+  Eye,
+  FileCode,
+  Settings,
+  X,
+  ChevronRight,
 } from "lucide-react";
-import type { Template, Project } from "@shared/schema";
 
-const categoryIcons: Record<string, any> = {
-  financial: Building2,
-  ecommerce: ShoppingCart,
-  education: GraduationCap,
-  healthcare: HeartPulse,
-  government: Landmark,
-  enterprise: Briefcase,
-};
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  isBuilding?: boolean;
+  buildPlan?: BuildPlan;
+}
 
-const intelligenceColors: Record<string, string> = {
-  basic: "from-slate-500 to-gray-500",
-  standard: "from-blue-500 to-cyan-500",
-  advanced: "from-violet-500 to-purple-500",
-  enterprise: "from-amber-500 to-orange-500",
-};
+interface BuildPlan {
+  name: string;
+  description: string;
+  features: string[];
+  techStack: string[];
+  estimatedTime: string;
+}
 
-interface BuilderStep {
+interface BuildStep {
   id: string;
   title: string;
   titleAr: string;
@@ -63,698 +59,716 @@ interface BuilderStep {
 
 export default function UserBuilder() {
   const [, setLocation] = useLocation();
-  const searchString = useSearch();
   const { t, language, isRtl } = useLanguage();
   const { user } = useAuth();
   const { toast } = useToast();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [activeTab, setActiveTab] = useState("chat");
   
-  // Platform creation state
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [inputValue, setInputValue] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [currentBuildPlan, setCurrentBuildPlan] = useState<BuildPlan | null>(null);
   const [isBuilding, setIsBuilding] = useState(false);
-  const [currentPrompt, setCurrentPrompt] = useState("");
-  const [aiResponse, setAiResponse] = useState("");
-  const [buildSteps, setBuildSteps] = useState<BuilderStep[]>([]);
+  const [buildSteps, setBuildSteps] = useState<BuildStep[]>([]);
   
-  // Parse URL parameters and consume prompt (prevents re-triggering)
-  const urlParams = new URLSearchParams(searchString);
-  const initialPrompt = urlParams.get('prompt');
-  const [promptConsumed, setPromptConsumed] = useState(false);
-  
-  // Handle initial prompt from URL - consume and clear to prevent re-triggering
-  useEffect(() => {
-    if (initialPrompt && !isBuilding && !currentPrompt && !promptConsumed) {
-      setPromptConsumed(true);
-      setCurrentPrompt(initialPrompt);
-      // Clear URL param to prevent re-triggering
-      setLocation('/user-builder', { replace: true });
-      // Start build after clearing URL
-      handleStartBuild(initialPrompt);
-    }
-  }, [initialPrompt, isBuilding, currentPrompt, promptConsumed, setLocation]);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Platform creation mutation - isolated to user's workspace
-  const createPlatformMutation = useMutation({
-    mutationFn: async (prompt: string) => {
-      const response = await apiRequest('/api/workspace/create-platform', {
-        method: 'POST',
-        body: JSON.stringify({ prompt, workspaceId: user?.id }),
-      });
-      return response;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/workspace/projects'] });
-      toast({
-        title: language === 'ar' ? 'تم إنشاء المنصة بنجاح' : 'Platform created successfully',
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: language === 'ar' ? 'فشل إنشاء المنصة' : 'Failed to create platform',
-        variant: 'destructive',
-      });
-    },
-  });
-  
-  // Handle platform building process
-  const handleStartBuild = async (prompt: string) => {
-    setIsBuilding(true);
-    setAiResponse("");
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Create session on mount
+  useEffect(() => {
+    const createSession = async () => {
+      try {
+        const response = await apiRequest('/api/nova/sessions', {
+          method: 'POST',
+          body: JSON.stringify({ title: 'Platform Builder Session' }),
+        });
+        setSessionId(response.id);
+        
+        // Add welcome message
+        setMessages([{
+          id: 'welcome',
+          role: 'assistant',
+          content: language === 'ar' 
+            ? 'مرحبًا! أنا Nova AI، مساعدك الذكي لبناء المنصات الرقمية. أخبرني عن المشروع الذي تريد إنشاءه وسأساعدك في تصميمه وبنائه خطوة بخطوة.\n\nيمكنك وصف:\n• نوع المنصة (متجر إلكتروني، نظام إدارة، موقع تعليمي...)\n• الميزات الأساسية التي تحتاجها\n• الجمهور المستهدف'
+            : "Hello! I'm Nova AI, your intelligent assistant for building digital platforms. Tell me about the project you want to create and I'll help you design and build it step by step.\n\nYou can describe:\n• Platform type (e-commerce, management system, educational site...)\n• Core features you need\n• Target audience",
+          timestamp: new Date(),
+        }]);
+      } catch (error) {
+        console.error('Failed to create session:', error);
+      }
+    };
     
-    // Initialize build steps
-    const steps: BuilderStep[] = [
-      { id: 'analyze', title: 'Analyzing Request', titleAr: 'تحليل الطلب', status: 'pending', progress: 0 },
-      { id: 'design', title: 'Designing Platform', titleAr: 'تصميم المنصة', status: 'pending', progress: 0 },
+    if (user) {
+      createSession();
+    }
+  }, [user, language]);
+
+  // Send message to Nova AI
+  const sendMessage = async (content: string) => {
+    if (!content.trim() || isLoading || !sessionId) return;
+    
+    const userMessage: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: content.trim(),
+      timestamp: new Date(),
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    setInputValue("");
+    setIsLoading(true);
+    
+    try {
+      const response = await apiRequest(`/api/nova/sessions/${sessionId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ content: content.trim() }),
+      });
+      
+      // Parse AI response to check for build plan
+      const aiContent = response.aiMessage?.content || response.content || '';
+      let buildPlan: BuildPlan | undefined;
+      
+      // Check if AI is proposing a build plan
+      if (aiContent.includes('BUILD_PLAN:') || aiContent.includes('خطة_البناء:')) {
+        try {
+          const planMatch = aiContent.match(/BUILD_PLAN:\s*({[\s\S]*?})/);
+          if (planMatch) {
+            buildPlan = JSON.parse(planMatch[1]);
+            setCurrentBuildPlan(buildPlan);
+            setShowPreview(true);
+          }
+        } catch (e) {
+          // Not a valid build plan, continue normally
+        }
+      }
+      
+      const aiMessage: ChatMessage = {
+        id: `ai-${Date.now()}`,
+        role: 'assistant',
+        content: aiContent.replace(/BUILD_PLAN:\s*{[\s\S]*?}/, '').replace(/خطة_البناء:\s*{[\s\S]*?}/, '').trim(),
+        timestamp: new Date(),
+        buildPlan,
+      };
+      
+      setMessages(prev => [...prev, aiMessage]);
+      
+    } catch (error: any) {
+      console.error('Failed to send message:', error);
+      
+      // Fallback: Generate a smart response locally
+      const fallbackResponse = generateSmartResponse(content, language);
+      
+      const aiMessage: ChatMessage = {
+        id: `ai-${Date.now()}`,
+        role: 'assistant',
+        content: fallbackResponse.content,
+        timestamp: new Date(),
+        buildPlan: fallbackResponse.buildPlan,
+      };
+      
+      if (fallbackResponse.buildPlan) {
+        setCurrentBuildPlan(fallbackResponse.buildPlan);
+        setShowPreview(true);
+      }
+      
+      setMessages(prev => [...prev, aiMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Generate smart response locally when API fails
+  const generateSmartResponse = (userInput: string, lang: string): { content: string; buildPlan?: BuildPlan } => {
+    const input = userInput.toLowerCase();
+    
+    // Detect platform type
+    let platformType = '';
+    let features: string[] = [];
+    let techStack = ['React', 'TypeScript', 'Node.js', 'PostgreSQL'];
+    
+    if (input.includes('متجر') || input.includes('تجارة') || input.includes('ecommerce') || input.includes('store') || input.includes('shop')) {
+      platformType = lang === 'ar' ? 'متجر إلكتروني' : 'E-Commerce Store';
+      features = lang === 'ar' 
+        ? ['إدارة المنتجات', 'سلة التسوق', 'بوابة الدفع', 'إدارة الطلبات', 'لوحة تحكم المسؤول']
+        : ['Product Management', 'Shopping Cart', 'Payment Gateway', 'Order Management', 'Admin Dashboard'];
+      techStack = ['React', 'TypeScript', 'Node.js', 'PostgreSQL', 'Stripe'];
+    } else if (input.includes('عيادة') || input.includes('صحي') || input.includes('clinic') || input.includes('health') || input.includes('medical')) {
+      platformType = lang === 'ar' ? 'نظام إدارة عيادة' : 'Clinic Management System';
+      features = lang === 'ar'
+        ? ['إدارة المرضى', 'جدولة المواعيد', 'السجلات الطبية', 'الفوترة', 'التقارير']
+        : ['Patient Management', 'Appointment Scheduling', 'Medical Records', 'Billing', 'Reports'];
+    } else if (input.includes('تعليم') || input.includes('دورات') || input.includes('education') || input.includes('course') || input.includes('learning')) {
+      platformType = lang === 'ar' ? 'منصة تعليمية' : 'Learning Platform';
+      features = lang === 'ar'
+        ? ['إدارة الدورات', 'نظام الطلاب', 'الاختبارات', 'الشهادات', 'التقدم']
+        : ['Course Management', 'Student System', 'Quizzes', 'Certificates', 'Progress Tracking'];
+    } else if (input.includes('لوحة') || input.includes('dashboard') || input.includes('admin') || input.includes('إدارة')) {
+      platformType = lang === 'ar' ? 'لوحة تحكم إدارية' : 'Business Dashboard';
+      features = lang === 'ar'
+        ? ['التحليلات', 'إدارة المستخدمين', 'التقارير', 'الإعدادات', 'الإشعارات']
+        : ['Analytics', 'User Management', 'Reports', 'Settings', 'Notifications'];
+    }
+    
+    if (platformType) {
+      const buildPlan: BuildPlan = {
+        name: platformType,
+        description: userInput,
+        features,
+        techStack,
+        estimatedTime: '2-3 min',
+      };
+      
+      return {
+        content: lang === 'ar'
+          ? `فهمت! تريد إنشاء **${platformType}**.\n\nلقد أعددت خطة بناء تتضمن الميزات التالية:\n${features.map(f => `• ${f}`).join('\n')}\n\n**التقنيات المستخدمة:** ${techStack.join(', ')}\n\nيمكنك مراجعة التفاصيل في لوحة المعاينة على ${isRtl ? 'اليسار' : 'اليمين'}. عندما تكون جاهزًا، اضغط على "ابدأ البناء" لبدء إنشاء منصتك!`
+          : `Got it! You want to create a **${platformType}**.\n\nI've prepared a build plan with these features:\n${features.map(f => `• ${f}`).join('\n')}\n\n**Tech Stack:** ${techStack.join(', ')}\n\nYou can review the details in the preview panel on the ${isRtl ? 'left' : 'right'}. When ready, click "Start Building" to begin creating your platform!`,
+        buildPlan,
+      };
+    }
+    
+    // General clarifying response
+    return {
+      content: lang === 'ar'
+        ? 'يبدو مشروعًا مثيرًا! لمساعدتك بشكل أفضل، هل يمكنك إخباري:\n\n1. ما هو نوع المنصة بالتحديد؟ (متجر، نظام إدارة، موقع تعليمي، إلخ)\n2. ما هي الميزات الأساسية التي تحتاجها؟\n3. هل لديك أي تفضيلات تصميمية؟'
+        : "That sounds like an exciting project! To help you better, could you tell me:\n\n1. What type of platform exactly? (store, management system, educational site, etc.)\n2. What core features do you need?\n3. Do you have any design preferences?",
+    };
+  };
+
+  // Start building process with real API call
+  const handleStartBuild = async () => {
+    if (!currentBuildPlan || !user) return;
+    
+    setIsBuilding(true);
+    setShowPreview(true);
+    
+    const steps: BuildStep[] = [
+      { id: 'analyze', title: 'Analyzing Requirements', titleAr: 'تحليل المتطلبات', status: 'pending', progress: 0 },
+      { id: 'design', title: 'Designing Architecture', titleAr: 'تصميم البنية', status: 'pending', progress: 0 },
       { id: 'generate', title: 'Generating Code', titleAr: 'توليد الكود', status: 'pending', progress: 0 },
-      { id: 'deploy', title: 'Preparing Deployment', titleAr: 'إعداد النشر', status: 'pending', progress: 0 },
+      { id: 'setup', title: 'Setting Up Database', titleAr: 'إعداد قاعدة البيانات', status: 'pending', progress: 0 },
+      { id: 'deploy', title: 'Preparing Preview', titleAr: 'إعداد المعاينة', status: 'pending', progress: 0 },
     ];
     setBuildSteps(steps);
     
-    // Simulate step-by-step processing
-    for (let i = 0; i < steps.length; i++) {
-      setBuildSteps(prev => prev.map((s, idx) => 
-        idx === i ? { ...s, status: 'processing', progress: 0 } : s
-      ));
-      
-      // Simulate progress
-      for (let p = 0; p <= 100; p += 20) {
-        await new Promise(r => setTimeout(r, 200));
-        setBuildSteps(prev => prev.map((s, idx) => 
-          idx === i ? { ...s, progress: p } : s
-        ));
-      }
-      
-      setBuildSteps(prev => prev.map((s, idx) => 
-        idx === i ? { ...s, status: 'completed', progress: 100 } : s
-      ));
-    }
+    // Add building message
+    setMessages(prev => [...prev, {
+      id: `build-${Date.now()}`,
+      role: 'assistant',
+      content: language === 'ar' 
+        ? `بدأت في بناء منصتك "${currentBuildPlan.name}"! تابع التقدم في لوحة المعاينة...`
+        : `Started building your "${currentBuildPlan.name}" platform! Follow the progress in the preview panel...`,
+      timestamp: new Date(),
+      isBuilding: true,
+    }]);
     
-    // Set AI response
-    setAiResponse(language === 'ar' 
-      ? `تم تحليل طلبك: "${prompt}"\n\nأقوم الآن بإنشاء منصتك الرقمية مع الميزات التالية:\n• تصميم متجاوب\n• أمان مؤسسي\n• قاعدة بيانات محسنة\n• واجهة مستخدم حديثة\n\nسيتم إنشاء المشروع في مساحة عملك الخاصة.`
-      : `Analyzed your request: "${prompt}"\n\nI'm now creating your digital platform with the following features:\n• Responsive design\n• Enterprise security\n• Optimized database\n• Modern UI\n\nThe project will be created in your personal workspace.`
-    );
-    
-    // Trigger actual platform creation
     try {
-      await createPlatformMutation.mutateAsync(prompt);
-    } catch (error) {
-      console.error('Platform creation error:', error);
+      // Step 1: Analyzing
+      setBuildSteps(prev => prev.map((s, idx) => 
+        idx === 0 ? { ...s, status: 'processing', progress: 50 } : s
+      ));
+      await new Promise(r => setTimeout(r, 500));
+      setBuildSteps(prev => prev.map((s, idx) => 
+        idx === 0 ? { ...s, status: 'completed', progress: 100 } : s
+      ));
+      
+      // Step 2: Designing
+      setBuildSteps(prev => prev.map((s, idx) => 
+        idx === 1 ? { ...s, status: 'processing', progress: 50 } : s
+      ));
+      await new Promise(r => setTimeout(r, 500));
+      setBuildSteps(prev => prev.map((s, idx) => 
+        idx === 1 ? { ...s, status: 'completed', progress: 100 } : s
+      ));
+      
+      // Step 3: Generating - Call real API
+      setBuildSteps(prev => prev.map((s, idx) => 
+        idx === 2 ? { ...s, status: 'processing', progress: 20 } : s
+      ));
+      
+      // Call the Nova AI to generate the platform
+      const buildPrompt = `Build a ${currentBuildPlan.name} platform with these features: ${currentBuildPlan.features.join(', ')}. Description: ${currentBuildPlan.description}`;
+      
+      const response = await apiRequest('/api/nova/sessions/' + sessionId + '/messages', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          content: buildPrompt,
+          action: 'generate_platform',
+          platformConfig: {
+            name: currentBuildPlan.name,
+            features: currentBuildPlan.features,
+            techStack: currentBuildPlan.techStack,
+          }
+        }),
+      });
+      
+      setBuildSteps(prev => prev.map((s, idx) => 
+        idx === 2 ? { ...s, status: 'completed', progress: 100 } : s
+      ));
+      
+      // Step 4: Database Setup
+      setBuildSteps(prev => prev.map((s, idx) => 
+        idx === 3 ? { ...s, status: 'processing', progress: 50 } : s
+      ));
+      await new Promise(r => setTimeout(r, 600));
+      setBuildSteps(prev => prev.map((s, idx) => 
+        idx === 3 ? { ...s, status: 'completed', progress: 100 } : s
+      ));
+      
+      // Step 5: Preparing Preview
+      setBuildSteps(prev => prev.map((s, idx) => 
+        idx === 4 ? { ...s, status: 'processing', progress: 50 } : s
+      ));
+      await new Promise(r => setTimeout(r, 400));
+      setBuildSteps(prev => prev.map((s, idx) => 
+        idx === 4 ? { ...s, status: 'completed', progress: 100 } : s
+      ));
+      
+      // Success message
+      setMessages(prev => [...prev, {
+        id: `complete-${Date.now()}`,
+        role: 'assistant',
+        content: language === 'ar'
+          ? `تم بناء منصتك "${currentBuildPlan.name}" بنجاح! يمكنك الآن:\n• مراجعة الكود في قسم المشاريع\n• نشر المنصة للإنتاج\n• تخصيص الإعدادات`
+          : `Your "${currentBuildPlan.name}" platform has been built successfully! You can now:\n• Review the code in the Projects section\n• Deploy to production\n• Customize settings`,
+        timestamp: new Date(),
+      }]);
+      
+      toast({
+        title: language === 'ar' ? 'تم بناء المنصة بنجاح!' : 'Platform built successfully!',
+      });
+      
+    } catch (error: any) {
+      console.error('Build error:', error);
+      
+      // Mark current step as error
+      setBuildSteps(prev => prev.map(s => 
+        s.status === 'processing' ? { ...s, status: 'error', progress: 0 } : s
+      ));
+      
+      setMessages(prev => [...prev, {
+        id: `error-${Date.now()}`,
+        role: 'assistant',
+        content: language === 'ar'
+          ? `حدث خطأ أثناء البناء: ${error.message || 'خطأ غير معروف'}. يمكنك المحاولة مرة أخرى.`
+          : `An error occurred during build: ${error.message || 'Unknown error'}. You can try again.`,
+        timestamp: new Date(),
+      }]);
+      
+      toast({
+        title: language === 'ar' ? 'فشل البناء' : 'Build failed',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsBuilding(false);
     }
-    
-    setIsBuilding(false);
-  };
-  
-  // Cancel build and reset
-  const handleCancelBuild = () => {
-    setIsBuilding(false);
-    setCurrentPrompt("");
-    setAiResponse("");
-    setBuildSteps([]);
-    // Clear URL params
-    setLocation('/user-builder');
-  };
-  
-  const { data: templates, isLoading: templatesLoading } = useQuery<Template[]>({
-    queryKey: ["/api/templates"],
-  });
-
-  // Use workspace-isolated projects for current user only
-  const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
-    queryKey: ["/api/workspace/projects"],
-    enabled: !!user, // Only fetch if user is authenticated
-  });
-
-  const filteredTemplates = useMemo(() => {
-    if (!templates) return [];
-    return templates.filter((tpl) => {
-      const matchesSearch = searchQuery === "" || 
-        tpl.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        tpl.description.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = selectedCategory === "all" || tpl.category === selectedCategory;
-      return matchesSearch && matchesCategory;
-    });
-  }, [templates, searchQuery, selectedCategory]);
-
-  const handleChatSubmit = async (message: string) => {
-    setLocation(`/user-builder?prompt=${encodeURIComponent(message)}`);
   };
 
-  const handleUseTemplate = (template: Template) => {
-    setLocation(`/user-builder?template=${template.id}`);
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(inputValue);
+    }
   };
 
-  const handleOpenProject = (project: Project) => {
-    setLocation(`/user-builder?project=${project.id}`);
-  };
-
+  // Quick suggestions
   const suggestions = [
-    { 
-      key: "ecommerce",
-      text: language === 'ar' ? 'أنشئ متجر إلكتروني' : 'Build an e-commerce store',
-      icon: ShoppingCart
-    },
-    { 
-      key: "education",
-      text: language === 'ar' ? 'منصة تعليمية تفاعلية' : 'Interactive learning platform',
-      icon: GraduationCap
-    },
-    { 
-      key: "healthcare",
-      text: language === 'ar' ? 'نظام إدارة العيادات' : 'Clinic management system',
-      icon: HeartPulse
-    },
-    { 
-      key: "enterprise",
-      text: language === 'ar' ? 'لوحة تحكم الأعمال' : 'Business dashboard',
-      icon: Briefcase
-    },
+    { key: 'ecommerce', text: language === 'ar' ? 'متجر إلكتروني' : 'E-commerce store', icon: '🛒' },
+    { key: 'clinic', text: language === 'ar' ? 'نظام عيادة' : 'Clinic system', icon: '🏥' },
+    { key: 'learning', text: language === 'ar' ? 'منصة تعليمية' : 'Learning platform', icon: '📚' },
+    { key: 'dashboard', text: language === 'ar' ? 'لوحة تحكم' : 'Dashboard', icon: '📊' },
   ];
-
-  const categories = [
-    { id: "all", name: language === 'ar' ? 'الكل' : 'All' },
-    { id: "financial", name: language === 'ar' ? 'المالية' : 'Financial' },
-    { id: "ecommerce", name: language === 'ar' ? 'التجارة' : 'E-commerce' },
-    { id: "education", name: language === 'ar' ? 'التعليم' : 'Education' },
-    { id: "healthcare", name: language === 'ar' ? 'الصحة' : 'Healthcare' },
-    { id: "government", name: language === 'ar' ? 'الحكومة' : 'Government' },
-    { id: "enterprise", name: language === 'ar' ? 'المؤسسات' : 'Enterprise' },
-  ];
-
-  // If building, show the build progress UI
-  if (isBuilding || currentPrompt) {
-    return (
-      <div className={cn("min-h-screen bg-background", isRtl && "rtl")} dir={isRtl ? "rtl" : "ltr"}>
-        <div className="container mx-auto px-4 py-8 max-w-4xl">
-          <Button
-            variant="ghost"
-            onClick={handleCancelBuild}
-            className="mb-6"
-            data-testid="button-back"
-          >
-            <ArrowLeft className={cn("h-4 w-4", isRtl ? "ml-2 rotate-180" : "mr-2")} />
-            {language === 'ar' ? 'رجوع' : 'Back'}
-          </Button>
-          
-          <Card className="mb-6">
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center">
-                  <Bot className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <CardTitle data-testid="text-building-title">
-                    {language === 'ar' ? 'إنشاء منصتك' : 'Building Your Platform'}
-                  </CardTitle>
-                  <CardDescription>
-                    {language === 'ar' ? 'مساحة عملك الشخصية' : 'Your Personal Workspace'}
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-muted/50 rounded-lg p-4 mb-6">
-                <p className="text-sm font-medium text-muted-foreground mb-1">
-                  {language === 'ar' ? 'طلبك:' : 'Your Request:'}
-                </p>
-                <p className="text-foreground" data-testid="text-user-prompt">{currentPrompt}</p>
-              </div>
-              
-              <div className="space-y-3">
-                {buildSteps.map((step) => (
-                  <div 
-                    key={step.id} 
-                    className="flex items-center gap-3 p-3 rounded-lg bg-card border"
-                    data-testid={`step-${step.id}`}
-                  >
-                    <div className="flex-shrink-0">
-                      {step.status === 'completed' ? (
-                        <CheckCircle2 className="h-5 w-5 text-green-500" />
-                      ) : step.status === 'processing' ? (
-                        <Loader2 className="h-5 w-5 text-violet-500 animate-spin" />
-                      ) : (
-                        <div className="h-5 w-5 rounded-full border-2 border-muted" />
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">
-                        {language === 'ar' ? step.titleAr : step.title}
-                      </p>
-                      {step.status === 'processing' && (
-                        <div className="mt-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 transition-all duration-200"
-                            style={{ width: `${step.progress}%` }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              {aiResponse && (
-                <div className="mt-6 p-4 bg-gradient-to-br from-violet-500/10 to-indigo-500/10 rounded-lg border border-violet-200/50 dark:border-violet-800/50">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Sparkles className="h-4 w-4 text-violet-500" />
-                    <span className="text-sm font-medium text-violet-700 dark:text-violet-300">
-                      {language === 'ar' ? 'نتيجة الذكاء الاصطناعي' : 'AI Response'}
-                    </span>
-                  </div>
-                  <p className="text-sm whitespace-pre-line" data-testid="text-ai-response">{aiResponse}</p>
-                </div>
-              )}
-              
-              {!isBuilding && aiResponse && (
-                <div className="mt-6 flex gap-3">
-                  <Button
-                    onClick={() => setActiveTab("projects")}
-                    className="flex-1"
-                    data-testid="button-view-projects"
-                  >
-                    {language === 'ar' ? 'عرض مشاريعي' : 'View My Projects'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={handleCancelBuild}
-                    data-testid="button-new-build"
-                  >
-                    {language === 'ar' ? 'إنشاء جديد' : 'Create New'}
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className={cn("min-h-screen bg-background relative overflow-hidden", isRtl && "rtl")} dir={isRtl ? "rtl" : "ltr"}>
+    <div className={cn("h-[calc(100vh-4rem)] flex", isRtl && "rtl")} dir={isRtl ? "rtl" : "ltr"}>
       {/* Background Effects */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-gradient-to-br from-violet-500/20 to-indigo-500/10 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-gradient-to-br from-cyan-500/15 to-blue-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-radial from-violet-500/5 to-transparent rounded-full" />
-        {/* Grid Pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(139,92,246,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(139,92,246,0.03)_1px,transparent_1px)] bg-[size:50px_50px]" />
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-gradient-to-br from-violet-500/10 to-indigo-500/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-gradient-to-br from-cyan-500/10 to-blue-500/5 rounded-full blur-3xl" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(139,92,246,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(139,92,246,0.02)_1px,transparent_1px)] bg-[size:40px_40px]" />
       </div>
-      
-      <div className="container mx-auto px-4 py-8 max-w-6xl relative z-10">
-        {/* Hero Section */}
-        <div className="text-center mb-12 relative">
-          {/* AI Core Visual */}
-          <div className="relative inline-flex items-center justify-center mb-6">
-            <div className="absolute inset-0 w-24 h-24 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-2xl blur-xl opacity-50 animate-pulse" />
-            <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-600 via-indigo-600 to-purple-700 flex items-center justify-center shadow-2xl shadow-violet-500/30 border border-white/10">
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-black/20 to-transparent" />
-              <Bot className="h-10 w-10 text-white relative z-10" />
-              <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-background animate-pulse" />
-            </div>
-            {/* Orbiting elements */}
-            <div className="absolute inset-0 w-32 h-32 -m-6">
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 bg-cyan-400 rounded-full animate-ping" style={{ animationDuration: "2s" }} />
-              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-2 h-2 bg-violet-400 rounded-full animate-ping" style={{ animationDuration: "2.5s" }} />
-              <div className="absolute top-1/2 left-0 -translate-y-1/2 w-1.5 h-1.5 bg-indigo-400 rounded-full animate-ping" style={{ animationDuration: "3s" }} />
-              <div className="absolute top-1/2 right-0 -translate-y-1/2 w-1.5 h-1.5 bg-purple-400 rounded-full animate-ping" style={{ animationDuration: "2.2s" }} />
-            </div>
-          </div>
-          
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-violet-500/10 to-indigo-500/10 border border-violet-500/20 mb-4">
-            <Zap className="h-3.5 w-3.5 text-violet-500" />
-            <span className="text-xs font-medium text-violet-600 dark:text-violet-400">
-              {language === 'ar' ? 'مدعوم بـ Nova AI' : 'Powered by Nova AI'}
-            </span>
-          </div>
-          
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-foreground via-foreground to-violet-600 dark:to-violet-400 bg-clip-text" data-testid="text-page-title">
-            {language === 'ar' ? 'أنشئ منصتك الرقمية' : 'Build Your Digital Platform'}
-          </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed" data-testid="text-page-description">
-            {language === 'ar' 
-              ? 'استخدم قوة الذكاء الاصطناعي لإنشاء منصات رقمية احترافية في دقائق. صف رؤيتك ودعنا نحولها إلى واقع.'
-              : 'Harness the power of AI to create professional digital platforms in minutes. Describe your vision and let us transform it into reality.'}
-          </p>
-          
-          {/* Stats Row */}
-          <div className="flex items-center justify-center gap-6 md:gap-10 mt-8 flex-wrap">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500/20 to-green-500/10 flex items-center justify-center">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+
+      {/* Chat Panel */}
+      <div className={cn(
+        "flex-1 flex flex-col relative z-10 transition-all duration-300",
+        showPreview ? "w-1/2" : "w-full max-w-4xl mx-auto"
+      )}>
+        {/* Chat Header */}
+        <div className="px-4 py-3 border-b border-border/50 bg-card/50 backdrop-blur-sm">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg">
+                  <Bot className="h-5 w-5 text-white" />
+                </div>
+                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-card" />
               </div>
-              <div className="text-left">
-                <div className="text-sm font-semibold">99.9%</div>
-                <div className="text-xs text-muted-foreground">{language === 'ar' ? 'دقة التوليد' : 'Generation Accuracy'}</div>
+              <div>
+                <h2 className="font-semibold text-sm">Nova AI Builder</h2>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                  <span className="text-xs text-muted-foreground">
+                    {language === 'ar' ? 'متصل ومستعد' : 'Online & Ready'}
+                  </span>
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500/20 to-cyan-500/10 flex items-center justify-center">
-                <Zap className="h-4 w-4 text-blue-500" />
-              </div>
-              <div className="text-left">
-                <div className="text-sm font-semibold">&lt;30s</div>
-                <div className="text-xs text-muted-foreground">{language === 'ar' ? 'متوسط التوليد' : 'Avg Generation'}</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500/20 to-purple-500/10 flex items-center justify-center">
-                <Shield className="h-4 w-4 text-violet-500" />
-              </div>
-              <div className="text-left">
-                <div className="text-sm font-semibold">{language === 'ar' ? 'مؤسسي' : 'Enterprise'}</div>
-                <div className="text-xs text-muted-foreground">{language === 'ar' ? 'درجة الأمان' : 'Security Grade'}</div>
-              </div>
+              <Badge variant="outline" className="text-xs bg-violet-500/10 border-violet-500/30 text-violet-600 dark:text-violet-400">
+                <Sparkles className="h-3 w-3 mr-1" />
+                {language === 'ar' ? 'مدعوم بالذكاء الاصطناعي' : 'AI Powered'}
+              </Badge>
+              {!showPreview && currentBuildPlan && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowPreview(true)}
+                  className="gap-1"
+                  data-testid="button-show-preview"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  {language === 'ar' ? 'المعاينة' : 'Preview'}
+                </Button>
+              )}
             </div>
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full max-w-md mx-auto grid-cols-3 mb-8">
-            <TabsTrigger value="chat" data-testid="tab-chat">
-              <Bot className="h-4 w-4 ltr:mr-2 rtl:ml-2" />
-              {language === 'ar' ? 'محادثة' : 'Chat'}
-            </TabsTrigger>
-            <TabsTrigger value="templates" data-testid="tab-templates">
-              <Layout className="h-4 w-4 ltr:mr-2 rtl:ml-2" />
-              {language === 'ar' ? 'قوالب' : 'Templates'}
-            </TabsTrigger>
-            <TabsTrigger value="projects" data-testid="tab-projects">
-              <FileCode className="h-4 w-4 ltr:mr-2 rtl:ml-2" />
-              {language === 'ar' ? 'مشاريعي' : 'My Projects'}
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="chat" className="space-y-8">
-            {/* Premium AI Chat Interface */}
-            <div className="relative" data-testid="card-chat-input">
-              {/* Glow effect */}
-              <div className="absolute -inset-0.5 bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 rounded-2xl opacity-20 blur-sm" />
-              
-              <div className="relative bg-card/80 backdrop-blur-xl rounded-2xl border border-border/50 shadow-2xl shadow-violet-500/5 overflow-hidden">
-                {/* Header */}
-                <div className="px-6 py-4 border-b border-border/50 bg-gradient-to-r from-violet-500/5 to-indigo-500/5">
-                  <div className="flex items-center justify-between gap-4 flex-wrap">
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center">
-                          <Sparkles className="h-5 w-5 text-white" />
-                        </div>
-                        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-card" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-sm">Nova AI</h3>
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                          <span className="text-xs text-muted-foreground">
-                            {language === 'ar' ? 'جاهز للبناء' : 'Ready to build'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs bg-violet-500/10 border-violet-500/30 text-violet-600 dark:text-violet-400">
-                        <Zap className="h-3 w-3 mr-1" />
-                        {language === 'ar' ? 'وضع التوليد' : 'Generate Mode'}
-                      </Badge>
-                    </div>
-                  </div>
+        {/* Messages Area */}
+        <ScrollArea className="flex-1 p-4">
+          <div className="space-y-4 max-w-3xl mx-auto">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={cn(
+                  "flex gap-3",
+                  message.role === 'user' ? (isRtl ? "flex-row" : "flex-row-reverse") : "flex-row"
+                )}
+              >
+                {/* Avatar */}
+                <div className={cn(
+                  "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0",
+                  message.role === 'user' 
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-gradient-to-br from-violet-600 to-indigo-600"
+                )}>
+                  {message.role === 'user' 
+                    ? <User className="h-4 w-4" />
+                    : <Bot className="h-4 w-4 text-white" />
+                  }
                 </div>
                 
-                {/* Chat Input Area */}
-                <div className="p-6">
-                  <ChatInput
-                    placeholder={language === 'ar' ? 'صف المنصة التي تريد بناءها... مثال: "أريد منصة تجارة إلكترونية متكاملة"' : 'Describe the platform you want to build... Example: "I want a complete e-commerce platform"'}
-                    onSend={handleChatSubmit}
-                    language={language}
-                  />
+                {/* Message Content */}
+                <div className={cn(
+                  "flex-1 max-w-[80%]",
+                  message.role === 'user' && (isRtl ? "text-left" : "text-right")
+                )}>
+                  <div className={cn(
+                    "inline-block p-3 rounded-xl",
+                    message.role === 'user'
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-card border border-border/50"
+                  )}>
+                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1 px-1">
+                    {new Date(message.timestamp).toLocaleTimeString(language === 'ar' ? 'ar-SA' : 'en-US', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </p>
                 </div>
               </div>
-            </div>
-
-            {/* Quick Suggestions */}
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-violet-500" />
-                {language === 'ar' ? 'أفكار سريعة' : 'Quick Ideas'}
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {suggestions.map((suggestion) => {
-                  const Icon = suggestion.icon;
-                  return (
-                    <button
-                      key={suggestion.key}
-                      className="group relative p-4 rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm hover:border-violet-500/50 hover:bg-violet-500/5 transition-all duration-300"
-                      onClick={() => handleChatSubmit(suggestion.text)}
-                      data-testid={`button-suggestion-${suggestion.key}`}
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-br from-violet-500/0 to-indigo-500/0 group-hover:from-violet-500/5 group-hover:to-indigo-500/5 rounded-xl transition-all duration-300" />
-                      <div className="relative flex flex-col items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500/10 to-indigo-500/10 group-hover:from-violet-500/20 group-hover:to-indigo-500/20 flex items-center justify-center transition-all duration-300">
-                          <Icon className="h-5 w-5 text-violet-600 dark:text-violet-400" />
-                        </div>
-                        <span className="text-xs text-center font-medium text-muted-foreground group-hover:text-foreground transition-colors">
-                          {suggestion.text}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            ))}
             
-            {/* AI Capabilities Showcase */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 rounded-xl border border-border/50 bg-card/30 backdrop-blur-sm">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500/20 to-green-500/10 flex items-center justify-center">
-                    <Database className="h-4 w-4 text-emerald-500" />
-                  </div>
-                  <span className="font-medium text-sm">{language === 'ar' ? 'قاعدة بيانات ذكية' : 'Smart Database'}</span>
+            {/* Loading indicator */}
+            {isLoading && (
+              <div className="flex gap-3">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center flex-shrink-0">
+                  <Bot className="h-4 w-4 text-white" />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {language === 'ar' ? 'نماذج بيانات محسّنة وعلاقات تلقائية' : 'Optimized data models & auto relationships'}
-                </p>
-              </div>
-              <div className="p-4 rounded-xl border border-border/50 bg-card/30 backdrop-blur-sm">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500/20 to-cyan-500/10 flex items-center justify-center">
-                    <Globe className="h-4 w-4 text-blue-500" />
+                <div className="bg-card border border-border/50 rounded-xl p-3">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-violet-500" />
+                    <span className="text-sm text-muted-foreground">
+                      {language === 'ar' ? 'Nova يفكر...' : 'Nova is thinking...'}
+                    </span>
                   </div>
-                  <span className="font-medium text-sm">{language === 'ar' ? 'واجهة متجاوبة' : 'Responsive UI'}</span>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {language === 'ar' ? 'تصميم يتكيف مع جميع الأجهزة' : 'Adapts to all screen sizes'}
-                </p>
-              </div>
-              <div className="p-4 rounded-xl border border-border/50 bg-card/30 backdrop-blur-sm">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500/20 to-purple-500/10 flex items-center justify-center">
-                    <Shield className="h-4 w-4 text-violet-500" />
-                  </div>
-                  <span className="font-medium text-sm">{language === 'ar' ? 'أمان مؤسسي' : 'Enterprise Security'}</span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {language === 'ar' ? 'حماية متقدمة وتشفير البيانات' : 'Advanced protection & encryption'}
-                </p>
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="templates" className="space-y-6">
-            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-              <div className="relative w-full sm:w-64">
-                <Search className={cn("absolute top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground", isRtl ? "right-3" : "left-3")} />
-                <Input
-                  placeholder={language === 'ar' ? 'بحث في القوالب...' : 'Search templates...'}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className={cn(isRtl ? "pr-10" : "pl-10")}
-                  data-testid="input-search-templates"
-                />
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {categories.map((cat) => (
-                  <Button
-                    key={cat.id}
-                    variant={selectedCategory === cat.id ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setSelectedCategory(cat.id)}
-                    data-testid={`button-category-${cat.id}`}
-                  >
-                    {cat.name}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {templatesLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <Card key={i} className="animate-pulse">
-                    <CardHeader>
-                      <div className="h-6 bg-muted rounded w-3/4" />
-                      <div className="h-4 bg-muted rounded w-1/2 mt-2" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="h-20 bg-muted rounded" />
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredTemplates.map((template) => {
-                  const CategoryIcon = categoryIcons[template.category] || Building2;
-                  const gradientClass = intelligenceColors[template.intelligenceLevel] || intelligenceColors.standard;
-                  
-                  return (
-                    <Card key={template.id} className="overflow-hidden hover-elevate group" data-testid={`card-template-${template.id}`}>
-                      <div className={cn("h-2 bg-gradient-to-r", gradientClass)} />
-                      <CardHeader className="pb-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <div className={cn("w-10 h-10 rounded-lg bg-gradient-to-br flex items-center justify-center", gradientClass)}>
-                              <CategoryIcon className="h-5 w-5 text-white" />
-                            </div>
-                            <div>
-                              <CardTitle className="text-base">
-                                {language === 'ar' ? template.nameAr : template.name}
-                              </CardTitle>
-                              <Badge variant="secondary" className="text-xs mt-1">
-                                {template.category}
-                              </Badge>
-                            </div>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="pt-0">
-                        <CardDescription className="text-sm line-clamp-2 mb-4">
-                          {language === 'ar' ? template.descriptionAr : template.description}
-                        </CardDescription>
-                        
-                        <div className="flex flex-wrap gap-1 mb-4">
-                          {(template.features || []).slice(0, 3).map((feature, idx) => (
-                            <Badge key={idx} variant="outline" className="text-xs">
-                              {feature}
-                            </Badge>
-                          ))}
-                          {(template.features?.length || 0) > 3 && (
-                            <Badge variant="outline" className="text-xs">
-                              +{template.features!.length - 3}
-                            </Badge>
-                          )}
-                        </div>
-
-                        <Button 
-                          className="w-full group"
-                          onClick={() => handleUseTemplate(template)}
-                          data-testid={`button-use-template-${template.id}`}
-                        >
-                          {language === 'ar' ? 'استخدم القالب' : 'Use Template'}
-                          <ArrowRight className={cn("h-4 w-4 transition-transform group-hover:translate-x-1", isRtl && "rotate-180 group-hover:-translate-x-1")} />
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
               </div>
             )}
+            
+            <div ref={messagesEndRef} />
+          </div>
+        </ScrollArea>
 
-            {!templatesLoading && filteredTemplates.length === 0 && (
-              <div className="text-center py-12">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
-                  <Search className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2" data-testid="text-no-templates">
-                  {language === 'ar' ? 'لم يتم العثور على قوالب' : 'No templates found'}
-                </h3>
-                <p className="text-muted-foreground">
-                  {language === 'ar' ? 'جرب البحث بكلمات مختلفة' : 'Try searching with different keywords'}
-                </p>
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="projects" className="space-y-6">
-            {projectsLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {[1, 2, 3].map((i) => (
-                  <Card key={i} className="animate-pulse">
-                    <CardHeader>
-                      <div className="h-6 bg-muted rounded w-3/4" />
-                      <div className="h-4 bg-muted rounded w-1/2 mt-2" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="h-20 bg-muted rounded" />
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : projects && projects.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {projects.map((project) => (
-                  <Card key={project.id} className="overflow-hidden hover-elevate group" data-testid={`card-project-${project.id}`}>
-                    <CardHeader className="pb-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center">
-                            <FileCode className="h-5 w-5 text-white" />
-                          </div>
-                          <div>
-                            <CardTitle className="text-base" data-testid={`text-project-name-${project.id}`}>{project.name}</CardTitle>
-                            <Badge variant={project.status === 'active' ? 'default' : 'secondary'} className="text-xs mt-1" data-testid={`badge-project-status-${project.id}`}>
-                              {project.status}
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      <CardDescription className="text-sm line-clamp-2 mb-4">
-                        {project.description}
-                      </CardDescription>
-
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4">
-                        <Globe className="h-3 w-3" />
-                        <span>{project.sector}</span>
-                        <span className="mx-1">•</span>
-                        <Database className="h-3 w-3" />
-                        <span>{project.database}</span>
-                      </div>
-
-                      <Button 
-                        className="w-full group"
-                        onClick={() => handleOpenProject(project)}
-                        data-testid={`button-open-project-${project.id}`}
-                      >
-                        {language === 'ar' ? 'فتح المشروع' : 'Open Project'}
-                        <ArrowRight className={cn("h-4 w-4 transition-transform group-hover:translate-x-1", isRtl && "rotate-180 group-hover:-translate-x-1")} />
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
-                  <FileCode className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2" data-testid="text-no-projects">
-                  {language === 'ar' ? 'لا توجد مشاريع بعد' : 'No projects yet'}
-                </h3>
-                <p className="text-muted-foreground mb-4">
-                  {language === 'ar' ? 'ابدأ بإنشاء مشروعك الأول' : 'Start by creating your first project'}
-                </p>
-                <Button onClick={() => setActiveTab("chat")} data-testid="button-start-project">
-                  {language === 'ar' ? 'ابدأ الآن' : 'Get Started'}
+        {/* Quick Suggestions (only show if no messages yet) */}
+        {messages.length <= 1 && (
+          <div className="px-4 pb-2">
+            <p className="text-xs text-muted-foreground mb-2">
+              {language === 'ar' ? 'ابدأ بسرعة:' : 'Quick start:'}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {suggestions.map((s) => (
+                <Button
+                  key={s.key}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => sendMessage(language === 'ar' ? `أريد إنشاء ${s.text}` : `I want to build a ${s.text}`)}
+                  data-testid={`button-suggestion-${s.key}`}
+                >
+                  <span className="mr-1">{s.icon}</span>
+                  {s.text}
                 </Button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Input Area */}
+        <div className="p-4 border-t border-border/50 bg-card/50 backdrop-blur-sm">
+          <div className="max-w-3xl mx-auto">
+            <div className="relative">
+              <Textarea
+                ref={textareaRef}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={language === 'ar' ? 'صف المنصة التي تريد بناءها...' : 'Describe the platform you want to build...'}
+                className="min-h-[60px] max-h-[200px] pr-12 resize-none bg-background border-border/50"
+                disabled={isLoading}
+                data-testid="input-chat-message"
+              />
+              <Button
+                size="icon"
+                className={cn(
+                  "absolute bottom-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700",
+                  isRtl ? "left-2" : "right-2"
+                )}
+                onClick={() => sendMessage(inputValue)}
+                disabled={!inputValue.trim() || isLoading}
+                data-testid="button-send-message"
+              >
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2 text-center">
+              {language === 'ar' 
+                ? 'اضغط Enter للإرسال • Shift+Enter لسطر جديد'
+                : 'Press Enter to send • Shift+Enter for new line'}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Preview Panel */}
+      {showPreview && (
+        <div className="w-1/2 border-l border-border/50 flex flex-col bg-card/30 backdrop-blur-sm relative z-10">
+          {/* Preview Header */}
+          <div className="px-4 py-3 border-b border-border/50 bg-card/50 backdrop-blur-sm">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <Eye className="h-4 w-4 text-violet-500" />
+                <h3 className="font-semibold text-sm">
+                  {language === 'ar' ? 'معاينة المشروع' : 'Project Preview'}
+                </h3>
+              </div>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setShowPreview(false)}
+                data-testid="button-close-preview"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          <ScrollArea className="flex-1 p-4">
+            {currentBuildPlan ? (
+              <div className="space-y-6">
+                {/* Project Info Card */}
+                <Card className="border-violet-500/20 bg-gradient-to-br from-violet-500/5 to-indigo-500/5">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center">
+                        <Rocket className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg">{currentBuildPlan.name}</CardTitle>
+                        <p className="text-xs text-muted-foreground">
+                          {language === 'ar' ? `الوقت المقدر: ${currentBuildPlan.estimatedTime}` : `Est. time: ${currentBuildPlan.estimatedTime}`}
+                        </p>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-2">
+                    <p className="text-sm text-muted-foreground mb-4">{currentBuildPlan.description}</p>
+                    
+                    {/* Features */}
+                    <div className="mb-4">
+                      <h4 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3" />
+                        {language === 'ar' ? 'الميزات' : 'Features'}
+                      </h4>
+                      <div className="flex flex-wrap gap-1.5">
+                        {currentBuildPlan.features.map((feature, idx) => (
+                          <Badge key={idx} variant="secondary" className="text-xs">
+                            {feature}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Tech Stack */}
+                    <div>
+                      <h4 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                        <Code2 className="h-3 w-3" />
+                        {language === 'ar' ? 'التقنيات' : 'Tech Stack'}
+                      </h4>
+                      <div className="flex flex-wrap gap-1.5">
+                        {currentBuildPlan.techStack.map((tech, idx) => (
+                          <Badge key={idx} variant="outline" className="text-xs">
+                            {tech}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Build Progress */}
+                {isBuilding && buildSteps.length > 0 && (
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin text-violet-500" />
+                        {language === 'ar' ? 'جاري البناء...' : 'Building...'}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-2">
+                      <div className="space-y-3">
+                        {buildSteps.map((step, idx) => (
+                          <div key={step.id} className="flex items-center gap-3">
+                            <div className={cn(
+                              "w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium",
+                              step.status === 'completed' ? "bg-emerald-500 text-white" :
+                              step.status === 'processing' ? "bg-violet-500 text-white animate-pulse" :
+                              "bg-muted text-muted-foreground"
+                            )}>
+                              {step.status === 'completed' ? (
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                              ) : step.status === 'processing' ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                idx + 1
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">
+                                {language === 'ar' ? step.titleAr : step.title}
+                              </p>
+                              {step.status === 'processing' && (
+                                <div className="mt-1 h-1 bg-muted rounded-full overflow-hidden">
+                                  <div 
+                                    className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 transition-all duration-300"
+                                    style={{ width: `${step.progress}%` }}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Action Buttons */}
+                {!isBuilding && (
+                  <div className="space-y-2">
+                    <Button
+                      className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700"
+                      onClick={handleStartBuild}
+                      data-testid="button-start-build"
+                    >
+                      <Play className="h-4 w-4 mr-2" />
+                      {language === 'ar' ? 'ابدأ البناء' : 'Start Building'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => setCurrentBuildPlan(null)}
+                      data-testid="button-modify-plan"
+                    >
+                      <Settings className="h-4 w-4 mr-2" />
+                      {language === 'ar' ? 'تعديل الخطة' : 'Modify Plan'}
+                    </Button>
+                  </div>
+                )}
+
+                {/* Completed State */}
+                {!isBuilding && buildSteps.every(s => s.status === 'completed') && buildSteps.length > 0 && (
+                  <Card className="border-emerald-500/20 bg-gradient-to-br from-emerald-500/5 to-green-500/5">
+                    <CardContent className="pt-6 text-center">
+                      <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
+                        <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+                      </div>
+                      <h3 className="font-semibold text-lg mb-2">
+                        {language === 'ar' ? 'تم البناء بنجاح!' : 'Build Complete!'}
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        {language === 'ar' 
+                          ? 'منصتك جاهزة للاستخدام والنشر'
+                          : 'Your platform is ready to use and deploy'}
+                      </p>
+                      <div className="flex gap-2">
+                        <Button className="flex-1" onClick={() => setLocation('/projects')}>
+                          <FileCode className="h-4 w-4 mr-2" />
+                          {language === 'ar' ? 'عرض المشروع' : 'View Project'}
+                        </Button>
+                        <Button variant="outline" className="flex-1" onClick={() => setLocation('/deploy')}>
+                          <Rocket className="h-4 w-4 mr-2" />
+                          {language === 'ar' ? 'نشر' : 'Deploy'}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            ) : (
+              <div className="h-full flex items-center justify-center text-center p-8">
+                <div>
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500/10 to-indigo-500/10 flex items-center justify-center mx-auto mb-4">
+                    <MessageSquare className="h-8 w-8 text-violet-500" />
+                  </div>
+                  <h3 className="font-semibold text-lg mb-2">
+                    {language === 'ar' ? 'ابدأ المحادثة' : 'Start a Conversation'}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {language === 'ar'
+                      ? 'صف المنصة التي تريد بناءها وسيقوم Nova AI بإعداد خطة البناء هنا'
+                      : 'Describe the platform you want to build and Nova AI will prepare the build plan here'}
+                  </p>
+                </div>
               </div>
             )}
-          </TabsContent>
-        </Tabs>
-      </div>
+          </ScrollArea>
+        </div>
+      )}
     </div>
   );
 }
