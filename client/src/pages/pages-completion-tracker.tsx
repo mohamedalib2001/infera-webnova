@@ -2,20 +2,20 @@ import { useState, useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   CheckCircle,
   Clock,
   AlertCircle,
   ExternalLink,
   Search,
-  BarChart3,
   Home,
   SquareTerminal,
   Code,
@@ -57,529 +57,101 @@ import {
   Key,
   Server,
   Database,
-  MessageSquare,
-  Workflow,
   Layers,
-  Package
+  Package,
+  RefreshCw,
+  FileCode
 } from "lucide-react";
 
-interface CompletionTask {
+interface AnalysisTask {
   id: string;
   nameAr: string;
   nameEn: string;
   completed: boolean;
+  evidence?: string;
 }
 
-interface PageCompletion {
+interface PageAnalysis {
   path: string;
+  fileName: string;
   nameAr: string;
   nameEn: string;
-  icon: any;
-  category: "core" | "owner" | "development" | "platforms" | "security" | "ai" | "business";
-  tasks: CompletionTask[];
+  category: string;
+  fileExists: boolean;
+  lineCount: number;
+  tasks: AnalysisTask[];
+  completionPercentage: number;
+  lastModified?: string;
 }
 
-const PAGES_COMPLETION: PageCompletion[] = [
-  // Core Pages
-  {
-    path: "/",
-    nameAr: "الرئيسية",
-    nameEn: "Home",
-    icon: Home,
-    category: "core",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "responsive", nameAr: "تصميم متجاوب", nameEn: "Responsive Design", completed: true },
-      { id: "auth", nameAr: "التحقق من الهوية", nameEn: "Authentication", completed: true },
-      { id: "navigation", nameAr: "التنقل", nameEn: "Navigation", completed: true },
-    ]
-  },
-  {
-    path: "/console",
-    nameAr: "وحدة التحكم",
-    nameEn: "Console",
-    icon: SquareTerminal,
-    category: "core",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "stats", nameAr: "الإحصائيات", nameEn: "Statistics", completed: true },
-      { id: "quick-actions", nameAr: "إجراءات سريعة", nameEn: "Quick Actions", completed: true },
-      { id: "activity", nameAr: "سجل النشاط", nameEn: "Activity Log", completed: false },
-    ]
-  },
-  {
-    path: "/ide",
-    nameAr: "بيئة التطوير",
-    nameEn: "Cloud IDE",
-    icon: Code,
-    category: "development",
-    tasks: [
-      { id: "monaco", nameAr: "محرر Monaco", nameEn: "Monaco Editor", completed: true },
-      { id: "file-tree", nameAr: "شجرة الملفات", nameEn: "File Tree", completed: true },
-      { id: "terminal", nameAr: "الطرفية", nameEn: "Terminal", completed: true },
-      { id: "preview", nameAr: "المعاينة", nameEn: "Preview", completed: true },
-      { id: "git", nameAr: "تكامل Git", nameEn: "Git Integration", completed: false },
-      { id: "collab", nameAr: "التعاون المباشر", nameEn: "Live Collaboration", completed: false },
-    ]
-  },
-  {
-    path: "/ai-app-builder",
-    nameAr: "منشئ التطبيقات بالذكاء",
-    nameEn: "AI App Builder",
-    icon: Sparkles,
-    category: "ai",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "ai-chat", nameAr: "محادثة AI", nameEn: "AI Chat", completed: true },
-      { id: "code-gen", nameAr: "توليد الكود", nameEn: "Code Generation", completed: true },
-      { id: "templates", nameAr: "القوالب", nameEn: "Templates", completed: false },
-      { id: "preview", nameAr: "المعاينة المباشرة", nameEn: "Live Preview", completed: false },
-    ]
-  },
-  {
-    path: "/projects",
-    nameAr: "المشاريع",
-    nameEn: "Projects",
-    icon: FolderKanban,
-    category: "core",
-    tasks: [
-      { id: "list", nameAr: "قائمة المشاريع", nameEn: "Project List", completed: true },
-      { id: "create", nameAr: "إنشاء مشروع", nameEn: "Create Project", completed: true },
-      { id: "delete", nameAr: "حذف مشروع", nameEn: "Delete Project", completed: true },
-      { id: "search", nameAr: "البحث", nameEn: "Search", completed: false },
-    ]
-  },
-  // Owner Pages
-  {
-    path: "/owner",
-    nameAr: "لوحة المالك",
-    nameEn: "Owner Dashboard",
-    icon: Crown,
-    category: "owner",
-    tasks: [
-      { id: "stats", nameAr: "الإحصائيات", nameEn: "Statistics", completed: true },
-      { id: "users", nameAr: "إدارة المستخدمين", nameEn: "User Management", completed: true },
-      { id: "revenue", nameAr: "الإيرادات", nameEn: "Revenue", completed: true },
-      { id: "governance", nameAr: "الحوكمة", nameEn: "Governance", completed: true },
-      { id: "activity", nameAr: "سجل النشاط", nameEn: "Activity Log", completed: true },
-    ]
-  },
-  {
-    path: "/owner-control-center",
-    nameAr: "مركز التحكم",
-    nameEn: "Control Center",
-    icon: Target,
-    category: "owner",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "commands", nameAr: "الأوامر", nameEn: "Commands", completed: true },
-      { id: "monitoring", nameAr: "المراقبة", nameEn: "Monitoring", completed: false },
-    ]
-  },
-  {
-    path: "/sovereign-workspace",
-    nameAr: "مساحة العمل السيادية",
-    nameEn: "Sovereign Workspace",
-    icon: Rocket,
-    category: "owner",
-    tasks: [
-      { id: "ide", nameAr: "بيئة التطوير", nameEn: "IDE", completed: true },
-      { id: "terminal", nameAr: "الطرفية", nameEn: "Terminal", completed: true },
-      { id: "preview", nameAr: "المعاينة", nameEn: "Preview", completed: true },
-      { id: "ai", nameAr: "مساعد AI", nameEn: "AI Assistant", completed: true },
-      { id: "deploy", nameAr: "النشر", nameEn: "Deployment", completed: false },
-    ]
-  },
-  // Security Pages
-  {
-    path: "/military-security",
-    nameAr: "الأمان العسكري",
-    nameEn: "Military Security",
-    icon: ShieldCheck,
-    category: "security",
-    tasks: [
-      { id: "fips", nameAr: "FIPS 140-3", nameEn: "FIPS 140-3", completed: true },
-      { id: "pki", nameAr: "PKI/X.509", nameEn: "PKI/X.509", completed: true },
-      { id: "sbom", nameAr: "SBOM Generator", nameEn: "SBOM Generator", completed: true },
-      { id: "incident", nameAr: "الاستجابة للحوادث", nameEn: "Incident Response", completed: true },
-      { id: "zero-trust", nameAr: "Zero Trust", nameEn: "Zero Trust", completed: false },
-    ]
-  },
-  {
-    path: "/sovereign-permissions",
-    nameAr: "الصلاحيات السيادية",
-    nameEn: "Sovereign Permissions",
-    icon: Lock,
-    category: "security",
-    tasks: [
-      { id: "64-perms", nameAr: "64 صلاحية", nameEn: "64 Permissions", completed: true },
-      { id: "12-cats", nameAr: "12 فئة", nameEn: "12 Categories", completed: true },
-      { id: "roles", nameAr: "الأدوار", nameEn: "Roles", completed: true },
-      { id: "audit", nameAr: "سجل التدقيق", nameEn: "Audit Log", completed: false },
-    ]
-  },
-  // AI Pages
-  {
-    path: "/nova-ai-dashboard",
-    nameAr: "لوحة Nova AI",
-    nameEn: "Nova AI Dashboard",
-    icon: Brain,
-    category: "ai",
-    tasks: [
-      { id: "status", nameAr: "حالة النظام", nameEn: "System Status", completed: true },
-      { id: "memory", nameAr: "الذاكرة", nameEn: "Memory", completed: true },
-      { id: "context", nameAr: "السياق", nameEn: "Context", completed: true },
-      { id: "decisions", nameAr: "القرارات", nameEn: "Decisions", completed: false },
-      { id: "learning", nameAr: "التعلم", nameEn: "Learning", completed: false },
-    ]
-  },
-  {
-    path: "/nova-sovereign-dashboard",
-    nameAr: "لوحة Nova السيادية",
-    nameEn: "Nova Sovereign Dashboard",
-    icon: Crown,
-    category: "ai",
-    tasks: [
-      { id: "governance", nameAr: "الحوكمة", nameEn: "Governance", completed: true },
-      { id: "policies", nameAr: "السياسات", nameEn: "Policies", completed: true },
-      { id: "decisions", nameAr: "القرارات", nameEn: "Decisions", completed: true },
-      { id: "kill-switch", nameAr: "مفتاح الإيقاف", nameEn: "Kill Switch", completed: true },
-    ]
-  },
-  {
-    path: "/infera-agent",
-    nameAr: "وكيل إنفرا",
-    nameEn: "INFERA Agent",
-    icon: Bot,
-    category: "ai",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "chat", nameAr: "المحادثة", nameEn: "Chat", completed: true },
-      { id: "actions", nameAr: "الإجراءات", nameEn: "Actions", completed: false },
-      { id: "memory", nameAr: "الذاكرة", nameEn: "Memory", completed: false },
-    ]
-  },
-  // Development Pages
-  {
-    path: "/testing-generator",
-    nameAr: "مولد الاختبارات",
-    nameEn: "Testing Generator",
-    icon: TestTube,
-    category: "development",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "unit", nameAr: "اختبارات الوحدة", nameEn: "Unit Tests", completed: false },
-      { id: "integration", nameAr: "اختبارات التكامل", nameEn: "Integration Tests", completed: false },
-      { id: "e2e", nameAr: "اختبارات E2E", nameEn: "E2E Tests", completed: false },
-    ]
-  },
-  {
-    path: "/backend-generator",
-    nameAr: "مولد الباك إند",
-    nameEn: "Backend Generator",
-    icon: Server,
-    category: "development",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "api", nameAr: "توليد API", nameEn: "API Generation", completed: false },
-      { id: "db", nameAr: "قاعدة البيانات", nameEn: "Database", completed: false },
-      { id: "auth", nameAr: "المصادقة", nameEn: "Authentication", completed: false },
-    ]
-  },
-  {
-    path: "/cicd-pipeline",
-    nameAr: "خط أنابيب CI/CD",
-    nameEn: "CI/CD Pipeline",
-    icon: Workflow,
-    category: "development",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "github", nameAr: "تكامل GitHub", nameEn: "GitHub Integration", completed: true },
-      { id: "docker", nameAr: "Docker", nameEn: "Docker", completed: false },
-      { id: "deploy", nameAr: "النشر التلقائي", nameEn: "Auto Deploy", completed: false },
-    ]
-  },
-  {
-    path: "/git-control",
-    nameAr: "تحكم Git",
-    nameEn: "Git Control",
-    icon: GitBranch,
-    category: "development",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "commits", nameAr: "الـ Commits", nameEn: "Commits", completed: true },
-      { id: "branches", nameAr: "الفروع", nameEn: "Branches", completed: false },
-      { id: "merge", nameAr: "الدمج", nameEn: "Merge", completed: false },
-    ]
-  },
-  {
-    path: "/collaboration",
-    nameAr: "التعاون",
-    nameEn: "Collaboration",
-    icon: Users,
-    category: "development",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "realtime", nameAr: "التحرير المباشر", nameEn: "Realtime Editing", completed: false },
-      { id: "chat", nameAr: "الدردشة", nameEn: "Chat", completed: false },
-      { id: "presence", nameAr: "التواجد", nameEn: "Presence", completed: false },
-    ]
-  },
-  {
-    path: "/templates",
-    nameAr: "القوالب",
-    nameEn: "Templates",
-    icon: LayoutTemplate,
-    category: "development",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "list", nameAr: "قائمة القوالب", nameEn: "Template List", completed: true },
-      { id: "create", nameAr: "إنشاء من قالب", nameEn: "Create from Template", completed: false },
-    ]
-  },
-  {
-    path: "/marketplace",
-    nameAr: "السوق",
-    nameEn: "Marketplace",
-    icon: Store,
-    category: "development",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "extensions", nameAr: "الإضافات", nameEn: "Extensions", completed: false },
-      { id: "install", nameAr: "التثبيت", nameEn: "Install", completed: false },
-    ]
-  },
-  {
-    path: "/maps",
-    nameAr: "الخرائط",
-    nameEn: "Maps",
-    icon: Map,
-    category: "development",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "google", nameAr: "خرائط Google", nameEn: "Google Maps", completed: false },
-    ]
-  },
-  // Platform Landing Pages
-  {
-    path: "/shieldgrid-landing",
-    nameAr: "ShieldGrid",
-    nameEn: "ShieldGrid",
-    icon: Shield,
-    category: "platforms",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "features", nameAr: "الميزات", nameEn: "Features", completed: true },
-      { id: "pricing", nameAr: "الأسعار", nameEn: "Pricing", completed: false },
-    ]
-  },
-  {
-    path: "/globalcloud-landing",
-    nameAr: "GlobalCloud",
-    nameEn: "GlobalCloud",
-    icon: Globe,
-    category: "platforms",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "features", nameAr: "الميزات", nameEn: "Features", completed: true },
-      { id: "pricing", nameAr: "الأسعار", nameEn: "Pricing", completed: false },
-    ]
-  },
-  {
-    path: "/humaniq-landing",
-    nameAr: "HumanIQ",
-    nameEn: "HumanIQ",
-    icon: Users,
-    category: "platforms",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "features", nameAr: "الميزات", nameEn: "Features", completed: true },
-      { id: "pricing", nameAr: "الأسعار", nameEn: "Pricing", completed: false },
-    ]
-  },
-  {
-    path: "/finance-landing",
-    nameAr: "Finance AI",
-    nameEn: "Finance AI",
-    icon: TrendingUp,
-    category: "platforms",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "features", nameAr: "الميزات", nameEn: "Features", completed: true },
-      { id: "pricing", nameAr: "الأسعار", nameEn: "Pricing", completed: false },
-    ]
-  },
-  {
-    path: "/legal-landing",
-    nameAr: "Legal AI",
-    nameEn: "Legal AI",
-    icon: Scale,
-    category: "platforms",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "features", nameAr: "الميزات", nameEn: "Features", completed: true },
-      { id: "pricing", nameAr: "الأسعار", nameEn: "Pricing", completed: false },
-    ]
-  },
-  {
-    path: "/marketing-landing",
-    nameAr: "Marketing AI",
-    nameEn: "Marketing AI",
-    icon: Megaphone,
-    category: "platforms",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "features", nameAr: "الميزات", nameEn: "Features", completed: true },
-      { id: "pricing", nameAr: "الأسعار", nameEn: "Pricing", completed: false },
-    ]
-  },
-  {
-    path: "/education-landing",
-    nameAr: "Education Hub",
-    nameEn: "Education Hub",
-    icon: GraduationCap,
-    category: "platforms",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "features", nameAr: "الميزات", nameEn: "Features", completed: true },
-      { id: "pricing", nameAr: "الأسعار", nameEn: "Pricing", completed: false },
-    ]
-  },
-  {
-    path: "/hospitality-landing",
-    nameAr: "Hospitality AI",
-    nameEn: "Hospitality AI",
-    icon: Hotel,
-    category: "platforms",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "features", nameAr: "الميزات", nameEn: "Features", completed: true },
-      { id: "pricing", nameAr: "الأسعار", nameEn: "Pricing", completed: false },
-    ]
-  },
-  {
-    path: "/trainai-landing",
-    nameAr: "TrainAI",
-    nameEn: "TrainAI",
-    icon: Train,
-    category: "platforms",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "features", nameAr: "الميزات", nameEn: "Features", completed: true },
-      { id: "pricing", nameAr: "الأسعار", nameEn: "Pricing", completed: false },
-    ]
-  },
-  {
-    path: "/cvbuilder-landing",
-    nameAr: "CV Builder",
-    nameEn: "CV Builder",
-    icon: FileText,
-    category: "platforms",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "features", nameAr: "الميزات", nameEn: "Features", completed: true },
-      { id: "pricing", nameAr: "الأسعار", nameEn: "Pricing", completed: false },
-    ]
-  },
-  {
-    path: "/jobs-landing",
-    nameAr: "Jobs AI",
-    nameEn: "Jobs AI",
-    icon: Briefcase,
-    category: "platforms",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "features", nameAr: "الميزات", nameEn: "Features", completed: true },
-      { id: "pricing", nameAr: "الأسعار", nameEn: "Pricing", completed: false },
-    ]
-  },
-  {
-    path: "/feasibility-landing",
-    nameAr: "Feasibility",
-    nameEn: "Feasibility",
-    icon: FileSearch,
-    category: "platforms",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "features", nameAr: "الميزات", nameEn: "Features", completed: true },
-      { id: "pricing", nameAr: "الأسعار", nameEn: "Pricing", completed: false },
-    ]
-  },
-  {
-    path: "/appforge-landing",
-    nameAr: "AppForge",
-    nameEn: "AppForge",
-    icon: Package,
-    category: "platforms",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "features", nameAr: "الميزات", nameEn: "Features", completed: true },
-      { id: "pricing", nameAr: "الأسعار", nameEn: "Pricing", completed: false },
-    ]
-  },
-  // Business Pages
-  {
-    path: "/pricing",
-    nameAr: "الأسعار",
-    nameEn: "Pricing",
-    icon: CreditCard,
-    category: "business",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "plans", nameAr: "الخطط", nameEn: "Plans", completed: true },
-      { id: "stripe", nameAr: "تكامل Stripe", nameEn: "Stripe Integration", completed: true },
-      { id: "checkout", nameAr: "الدفع", nameEn: "Checkout", completed: true },
-    ]
-  },
-  {
-    path: "/analytics",
-    nameAr: "التحليلات",
-    nameEn: "Analytics",
-    icon: BarChart3,
-    category: "business",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "charts", nameAr: "الرسوم البيانية", nameEn: "Charts", completed: true },
-      { id: "export", nameAr: "التصدير", nameEn: "Export", completed: false },
-    ]
-  },
-  {
-    path: "/settings",
-    nameAr: "الإعدادات",
-    nameEn: "Settings",
-    icon: Settings,
-    category: "core",
-    tasks: [
-      { id: "profile", nameAr: "الملف الشخصي", nameEn: "Profile", completed: true },
-      { id: "security", nameAr: "الأمان", nameEn: "Security", completed: true },
-      { id: "notifications", nameAr: "الإشعارات", nameEn: "Notifications", completed: false },
-      { id: "api-keys", nameAr: "مفاتيح API", nameEn: "API Keys", completed: false },
-    ]
-  },
-  {
-    path: "/page-performance-monitor",
-    nameAr: "مراقب الأداء",
-    nameEn: "Performance Monitor",
-    icon: Activity,
-    category: "development",
-    tasks: [
-      { id: "ui", nameAr: "واجهة المستخدم", nameEn: "UI Design", completed: true },
-      { id: "metrics", nameAr: "المقاييس", nameEn: "Metrics", completed: true },
-      { id: "issues", nameAr: "المشاكل", nameEn: "Issues", completed: true },
-      { id: "solutions", nameAr: "الحلول", nameEn: "Solutions", completed: true },
-    ]
-  },
-];
+interface AnalysisResponse {
+  success: boolean;
+  pages: PageAnalysis[];
+}
 
-const CATEGORY_LABELS = {
-  core: { ar: "الصفحات الأساسية", en: "Core Pages", color: "bg-blue-500" },
-  owner: { ar: "صفحات المالك", en: "Owner Pages", color: "bg-purple-500" },
-  development: { ar: "صفحات التطوير", en: "Development Pages", color: "bg-green-500" },
-  platforms: { ar: "صفحات المنصات", en: "Platform Pages", color: "bg-orange-500" },
-  security: { ar: "صفحات الأمان", en: "Security Pages", color: "bg-red-500" },
-  ai: { ar: "صفحات الذكاء", en: "AI Pages", color: "bg-cyan-500" },
-  business: { ar: "صفحات الأعمال", en: "Business Pages", color: "bg-yellow-500" },
+interface SummaryResponse {
+  success: boolean;
+  summary: {
+    totalPages: number;
+    existingPages: number;
+    averageCompletion: number;
+    totalTasks: number;
+    completedTasks: number;
+    categoryStats: Record<string, { pages: number; avgCompletion: number }>;
+  };
+}
+
+const CATEGORY_LABELS: Record<string, { ar: string; en: string; color: string }> = {
+  core: { ar: "أساسي", en: "Core", color: "bg-blue-500" },
+  owner: { ar: "المالك", en: "Owner", color: "bg-purple-500" },
+  development: { ar: "التطوير", en: "Development", color: "bg-green-500" },
+  platforms: { ar: "المنصات", en: "Platforms", color: "bg-orange-500" },
+  security: { ar: "الأمان", en: "Security", color: "bg-red-500" },
+  ai: { ar: "الذكاء الاصطناعي", en: "AI", color: "bg-pink-500" },
+  business: { ar: "الأعمال", en: "Business", color: "bg-cyan-500" },
 };
+
+const PAGE_ICONS: Record<string, any> = {
+  "home.tsx": Home,
+  "console.tsx": SquareTerminal,
+  "cloud-ide.tsx": Code,
+  "ai-app-builder.tsx": Sparkles,
+  "projects.tsx": FolderKanban,
+  "owner-dashboard.tsx": Crown,
+  "owner-control-center.tsx": Target,
+  "sovereign-workspace.tsx": Cpu,
+  "military-security.tsx": Shield,
+  "sovereign-permissions.tsx": Lock,
+  "nova-ai-dashboard.tsx": Brain,
+  "nova-sovereign-dashboard.tsx": Bot,
+  "infera-agent.tsx": Zap,
+  "testing-generator.tsx": TestTube,
+  "backend-generator.tsx": Server,
+  "cicd-pipeline.tsx": Rocket,
+  "git-control.tsx": GitBranch,
+  "collaboration.tsx": Users,
+  "templates.tsx": LayoutTemplate,
+  "marketplace.tsx": Store,
+  "maps.tsx": Map,
+  "pricing.tsx": CreditCard,
+  "analytics.tsx": TrendingUp,
+  "settings.tsx": Settings,
+  "page-performance-monitor.tsx": Activity,
+  "pages-completion-tracker.tsx": CheckCircle,
+};
+
+function getCompletionColor(percentage: number): string {
+  if (percentage >= 80) return "text-green-500";
+  if (percentage >= 50) return "text-yellow-500";
+  return "text-orange-500";
+}
+
+function getCompletionBadge(percentage: number, isArabic: boolean): { label: string; variant: "default" | "secondary" | "destructive" | "outline" } {
+  if (percentage >= 80) return { label: isArabic ? "مكتمل" : "Complete", variant: "default" };
+  if (percentage >= 50) return { label: isArabic ? "تقدم جيد" : "In Progress", variant: "secondary" };
+  if (percentage > 0) return { label: isArabic ? "بداية" : "Started", variant: "outline" };
+  return { label: isArabic ? "غير موجود" : "Missing", variant: "destructive" };
+}
 
 export default function PagesCompletionTracker() {
   const { user } = useAuth();
@@ -588,116 +160,126 @@ export default function PagesCompletionTracker() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
-  const calculateCompletion = (tasks: CompletionTask[]) => {
-    if (tasks.length === 0) return 0;
-    const completed = tasks.filter(t => t.completed).length;
-    return Math.round((completed / tasks.length) * 100);
-  };
+  const { data: analysisData, isLoading: pagesLoading, refetch: refetchPages } = useQuery<AnalysisResponse>({
+    queryKey: ["/api/pages/analysis"],
+  });
+
+  const { data: summaryData, isLoading: summaryLoading, refetch: refetchSummary } = useQuery<SummaryResponse>({
+    queryKey: ["/api/pages/analysis/summary"],
+  });
+
+  const pages = analysisData?.pages || [];
+  const summary = summaryData?.summary;
 
   const filteredPages = useMemo(() => {
-    return PAGES_COMPLETION.filter(page => {
+    return pages.filter((page) => {
       const matchesSearch = searchTerm === "" || 
-        page.nameAr.includes(searchTerm) || 
+        page.nameAr.toLowerCase().includes(searchTerm.toLowerCase()) ||
         page.nameEn.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        page.path.includes(searchTerm);
+        page.path.toLowerCase().includes(searchTerm.toLowerCase());
+      
       const matchesCategory = selectedCategory === "all" || page.category === selectedCategory;
+      
       return matchesSearch && matchesCategory;
     });
-  }, [searchTerm, selectedCategory]);
-
-  const overallStats = useMemo(() => {
-    let totalTasks = 0;
-    let completedTasks = 0;
-    PAGES_COMPLETION.forEach(page => {
-      totalTasks += page.tasks.length;
-      completedTasks += page.tasks.filter(t => t.completed).length;
-    });
-    return {
-      totalPages: PAGES_COMPLETION.length,
-      totalTasks,
-      completedTasks,
-      percentage: Math.round((completedTasks / totalTasks) * 100)
-    };
-  }, []);
+  }, [pages, searchTerm, selectedCategory]);
 
   const categoryStats = useMemo(() => {
-    const stats: Record<string, { total: number; completed: number; pages: number }> = {};
-    Object.keys(CATEGORY_LABELS).forEach(cat => {
-      stats[cat] = { total: 0, completed: 0, pages: 0 };
-    });
-    PAGES_COMPLETION.forEach(page => {
-      stats[page.category].pages++;
-      stats[page.category].total += page.tasks.length;
-      stats[page.category].completed += page.tasks.filter(t => t.completed).length;
-    });
+    const stats: Record<string, { pages: number; completed: number; total: number }> = {};
+    
+    for (const cat of Object.keys(CATEGORY_LABELS)) {
+      stats[cat] = { pages: 0, completed: 0, total: 0 };
+    }
+    
+    for (const page of pages) {
+      if (stats[page.category]) {
+        stats[page.category].pages++;
+        stats[page.category].completed += page.tasks.filter(t => t.completed).length;
+        stats[page.category].total += page.tasks.length;
+      }
+    }
+    
     return stats;
-  }, []);
+  }, [pages]);
 
-  const getCompletionColor = (percentage: number) => {
-    if (percentage >= 100) return "text-green-500";
-    if (percentage >= 75) return "text-blue-500";
-    if (percentage >= 50) return "text-yellow-500";
-    if (percentage >= 25) return "text-orange-500";
-    return "text-red-500";
+  const handleRefresh = () => {
+    refetchPages();
+    refetchSummary();
   };
 
-  const getCompletionBadge = (percentage: number) => {
-    if (percentage >= 100) return { variant: "default" as const, label: isArabic ? "مكتمل" : "Complete" };
-    if (percentage >= 75) return { variant: "secondary" as const, label: isArabic ? "متقدم" : "Advanced" };
-    if (percentage >= 50) return { variant: "outline" as const, label: isArabic ? "متوسط" : "In Progress" };
-    return { variant: "destructive" as const, label: isArabic ? "مبكر" : "Early" };
-  };
+  if (pagesLoading || summaryLoading) {
+    return (
+      <div className="p-6 space-y-6" dir={isArabic ? "rtl" : "ltr"}>
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-32" />
+          ))}
+        </div>
+        <Skeleton className="h-64" />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-background" dir={isArabic ? "rtl" : "ltr"}>
-      <div className="container mx-auto p-6 space-y-6">
+    <div className="p-6" dir={isArabic ? "rtl" : "ltr"}>
+      <div className="space-y-6 max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-3xl font-bold" data-testid="text-page-title">
-              {isArabic ? "تتبع نسب الإكتمال" : "Completion Tracker"}
+            <h1 className="text-3xl font-bold">
+              {isArabic ? "تتبع إكتمال الصفحات" : "Pages Completion Tracker"}
             </h1>
             <p className="text-muted-foreground mt-1">
               {isArabic 
-                ? "متابعة تقدم العمل في كل صفحة من صفحات WebNova"
-                : "Track work progress for each WebNova page"}
+                ? "تحليل ديناميكي حقيقي للكود - يفحص الملفات ويحلل المعايير" 
+                : "Real dynamic code analysis - inspects files and analyzes criteria"}
             </p>
           </div>
-          <Link href="/page-performance-monitor">
-            <Button variant="outline" data-testid="button-performance-monitor">
-              <Activity className="w-4 h-4 mr-2" />
-              {isArabic ? "مراقب الأداء" : "Performance Monitor"}
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="gap-1">
+              <FileCode className="w-4 h-4" />
+              {isArabic ? "تحليل ديناميكي" : "Dynamic Analysis"}
+            </Badge>
+            <Button variant="outline" size="sm" onClick={handleRefresh} data-testid="button-refresh">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              {isArabic ? "تحديث" : "Refresh"}
             </Button>
-          </Link>
+          </div>
         </div>
 
         {/* Overall Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <div>
                   <p className="text-sm text-muted-foreground">
-                    {isArabic ? "الإكتمال الكلي" : "Overall Completion"}
+                    {isArabic ? "متوسط الإكتمال" : "Average Completion"}
                   </p>
-                  <p className={`text-3xl font-bold ${getCompletionColor(overallStats.percentage)}`}>
-                    {overallStats.percentage}%
+                  <p className={`text-3xl font-bold ${getCompletionColor(summary?.averageCompletion || 0)}`}>
+                    {summary?.averageCompletion || 0}%
                   </p>
                 </div>
-                <CheckCircle className={`w-12 h-12 ${getCompletionColor(overallStats.percentage)}`} />
+                <CheckCircle className={`w-12 h-12 ${getCompletionColor(summary?.averageCompletion || 0)}`} />
               </div>
-              <Progress value={overallStats.percentage} className="mt-3" />
+              <Progress value={summary?.averageCompletion || 0} className="mt-3" />
             </CardContent>
           </Card>
 
           <Card>
             <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <div>
                   <p className="text-sm text-muted-foreground">
-                    {isArabic ? "إجمالي الصفحات" : "Total Pages"}
+                    {isArabic ? "الصفحات الموجودة" : "Existing Pages"}
                   </p>
-                  <p className="text-3xl font-bold">{overallStats.totalPages}</p>
+                  <p className="text-3xl font-bold">
+                    {summary?.existingPages || 0}/{summary?.totalPages || 0}
+                  </p>
                 </div>
                 <Layers className="w-12 h-12 text-muted-foreground" />
               </div>
@@ -706,12 +288,12 @@ export default function PagesCompletionTracker() {
 
           <Card>
             <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <div>
                   <p className="text-sm text-muted-foreground">
-                    {isArabic ? "المهام المكتملة" : "Completed Tasks"}
+                    {isArabic ? "المعايير المكتملة" : "Completed Criteria"}
                   </p>
-                  <p className="text-3xl font-bold text-green-500">{overallStats.completedTasks}</p>
+                  <p className="text-3xl font-bold text-green-500">{summary?.completedTasks || 0}</p>
                 </div>
                 <CheckCircle className="w-12 h-12 text-green-500" />
               </div>
@@ -720,13 +302,13 @@ export default function PagesCompletionTracker() {
 
           <Card>
             <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <div>
                   <p className="text-sm text-muted-foreground">
-                    {isArabic ? "المهام المتبقية" : "Remaining Tasks"}
+                    {isArabic ? "المعايير المتبقية" : "Remaining Criteria"}
                   </p>
                   <p className="text-3xl font-bold text-orange-500">
-                    {overallStats.totalTasks - overallStats.completedTasks}
+                    {(summary?.totalTasks || 0) - (summary?.completedTasks || 0)}
                   </p>
                 </div>
                 <Clock className="w-12 h-12 text-orange-500" />
@@ -772,8 +354,38 @@ export default function PagesCompletionTracker() {
           </CardContent>
         </Card>
 
+        {/* Analysis Criteria Legend */}
+        <Card>
+          <CardHeader>
+            <CardTitle>{isArabic ? "معايير التحليل (12 معيار)" : "Analysis Criteria (12 Criteria)"}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              {[
+                { id: "ui_components", ar: "مكونات UI", en: "UI Components", weight: "1x" },
+                { id: "api_integration", ar: "تكامل API", en: "API Integration", weight: "1.5x" },
+                { id: "form_handling", ar: "معالجة النماذج", en: "Form Handling", weight: "1x" },
+                { id: "error_handling", ar: "معالجة الأخطاء", en: "Error Handling", weight: "1x" },
+                { id: "loading_states", ar: "حالات التحميل", en: "Loading States", weight: "1x" },
+                { id: "responsive_design", ar: "تصميم متجاوب", en: "Responsive", weight: "0.8x" },
+                { id: "accessibility", ar: "إمكانية الوصول", en: "Accessibility", weight: "0.8x" },
+                { id: "state_management", ar: "إدارة الحالة", en: "State Mgmt", weight: "1x" },
+                { id: "navigation", ar: "التنقل", en: "Navigation", weight: "0.8x" },
+                { id: "authentication", ar: "المصادقة", en: "Authentication", weight: "1x" },
+                { id: "internationalization", ar: "تعدد اللغات", en: "i18n", weight: "0.7x" },
+                { id: "toast_notifications", ar: "الإشعارات", en: "Toasts", weight: "0.5x" },
+              ].map((c) => (
+                <div key={c.id} className="p-2 rounded-md border text-center">
+                  <div className="text-xs font-medium">{isArabic ? c.ar : c.en}</div>
+                  <Badge variant="outline" className="mt-1 text-xs">{c.weight}</Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Search and Filter */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
@@ -799,18 +411,17 @@ export default function PagesCompletionTracker() {
         <ScrollArea className="h-[600px]">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-4">
             {filteredPages.map((page) => {
-              const completion = calculateCompletion(page.tasks);
-              const completedCount = page.tasks.filter(t => t.completed).length;
-              const badge = getCompletionBadge(completion);
-              const Icon = page.icon;
+              const badge = getCompletionBadge(page.completionPercentage, isArabic);
+              const Icon = PAGE_ICONS[page.fileName] || FileCode;
               const categoryLabel = CATEGORY_LABELS[page.category];
+              const completedCount = page.tasks.filter(t => t.completed).length;
 
               return (
                 <Card key={page.path} className="overflow-visible" data-testid={`card-page-${page.path.replace(/\//g, '-')}`}>
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${categoryLabel.color} bg-opacity-20`}>
+                        <div className={`p-2 rounded-lg ${categoryLabel?.color || 'bg-gray-500'} bg-opacity-20`}>
                           <Icon className="w-5 h-5" />
                         </div>
                         <div>
@@ -826,45 +437,69 @@ export default function PagesCompletionTracker() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {/* File Info */}
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <FileCode className="w-3 h-3" />
+                      <span>{page.fileName}</span>
+                      {page.fileExists && (
+                        <>
+                          <span>•</span>
+                          <span>{page.lineCount} {isArabic ? "سطر" : "lines"}</span>
+                        </>
+                      )}
+                    </div>
+
                     {/* Progress */}
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className={`text-2xl font-bold ${getCompletionColor(completion)}`}>
-                          {completion}%
+                        <span className={`text-2xl font-bold ${getCompletionColor(page.completionPercentage)}`}>
+                          {page.completionPercentage}%
                         </span>
                         <span className="text-sm text-muted-foreground">
-                          {completedCount}/{page.tasks.length} {isArabic ? "مهمة" : "tasks"}
+                          {completedCount}/{page.tasks.length} {isArabic ? "معيار" : "criteria"}
                         </span>
                       </div>
-                      <Progress value={completion} className="h-2" />
+                      <Progress value={page.completionPercentage} className="h-2" />
                     </div>
 
                     {/* Tasks */}
-                    <div className="space-y-2">
+                    <div className="space-y-1 max-h-32 overflow-y-auto">
                       {page.tasks.map((task) => (
                         <div 
                           key={task.id}
-                          className="flex items-center gap-2 text-sm"
+                          className="flex items-center gap-2 text-xs"
                         >
                           {task.completed ? (
-                            <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                            <CheckCircle className="w-3 h-3 text-green-500 flex-shrink-0" />
                           ) : (
-                            <Clock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                            <Clock className="w-3 h-3 text-muted-foreground flex-shrink-0" />
                           )}
-                          <span className={task.completed ? "text-muted-foreground line-through" : ""}>
+                          <span className={task.completed ? "text-muted-foreground" : ""}>
                             {isArabic ? task.nameAr : task.nameEn}
                           </span>
+                          {task.evidence && (
+                            <Badge variant="outline" className="text-[10px] px-1">
+                              {task.evidence}
+                            </Badge>
+                          )}
                         </div>
                       ))}
                     </div>
 
                     {/* Action */}
-                    <Link href={page.path}>
-                      <Button variant="outline" className="w-full" size="sm" data-testid={`button-visit-${page.path.replace(/\//g, '-')}`}>
-                        <ExternalLink className="w-4 h-4 mr-2" />
-                        {isArabic ? "زيارة الصفحة" : "Visit Page"}
+                    {page.fileExists ? (
+                      <Link href={page.path}>
+                        <Button variant="outline" className="w-full" size="sm" data-testid={`button-visit-${page.path.replace(/\//g, '-')}`}>
+                          <ExternalLink className="w-4 h-4 mr-2" />
+                          {isArabic ? "زيارة الصفحة" : "Visit Page"}
+                        </Button>
+                      </Link>
+                    ) : (
+                      <Button variant="outline" className="w-full" size="sm" disabled>
+                        <AlertCircle className="w-4 h-4 mr-2" />
+                        {isArabic ? "الملف غير موجود" : "File Missing"}
                       </Button>
-                    </Link>
+                    )}
                   </CardContent>
                 </Card>
               );
