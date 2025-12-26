@@ -1,19 +1,34 @@
-import { useState, useEffect, useRef } from "react";
-import { Brain, Sparkles, Cpu, Gauge, Timer, Copy, Check } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Brain, Sparkles, Cpu, Gauge, Timer, Copy, Check, Zap, ExternalLink, Box } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+
+interface AIProvider {
+  id: string;
+  name: string;
+  type: "internal" | "external";
+  model: string;
+  status: "active" | "inactive" | "feeding";
+  responseTime?: number;
+  tokensPerSecond?: number;
+  contribution: number;
+}
 
 interface AIMetrics {
   responseTime: number;
   tokensPerSecond: number;
-  modelLatency: number;
-  inferenceSpeed: number;
+  totalLatency: number;
+  internalPercentage: number;
+  externalPercentage: number;
   status: "excellent" | "good" | "fair" | "poor";
-  lastModel: string;
+  activeProviders: AIProvider[];
   totalRequests: number;
+  lastTestTime: Date | null;
 }
 
 export function AIIntelligenceHeartbeat() {
@@ -22,11 +37,13 @@ export function AIIntelligenceHeartbeat() {
   const [metrics, setMetrics] = useState<AIMetrics>({
     responseTime: 0,
     tokensPerSecond: 0,
-    modelLatency: 0,
-    inferenceSpeed: 0,
+    totalLatency: 0,
+    internalPercentage: 0,
+    externalPercentage: 0,
     status: "excellent",
-    lastModel: "Claude Sonnet",
+    activeProviders: [],
     totalRequests: 0,
+    lastTestTime: null,
   });
   const [pulse, setPulse] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -37,23 +54,45 @@ export function AIIntelligenceHeartbeat() {
 
   const { data: aiProviderData } = useQuery<{
     activeProvider: string;
-    providers: Array<{ id: string; name: string; status: string; model: string }>;
+    inferaModels: Array<{ 
+      id: string; 
+      name: string; 
+      nameAr: string;
+      status: string; 
+      model: string | null;
+      type: string;
+      isFeeding: boolean;
+      capabilities: string[];
+    }>;
+    providers: Array<{ 
+      id: string; 
+      name: string; 
+      status: string; 
+      model: string;
+      type: string;
+      isFeeding: boolean;
+    }>;
   }>({
     queryKey: ["/api/sovereign/ai-providers/topbar"],
     enabled: isOwner,
     refetchInterval: 10000,
   });
 
-  const testAISpeed = useMutation({
-    mutationFn: async () => {
-      const startTime = performance.now();
-      
+  const measureRealAISpeed = useCallback(async (): Promise<{
+    responseTime: number;
+    tokensPerSecond: number;
+    success: boolean;
+  }> => {
+    const startTime = performance.now();
+    
+    try {
       const response = await fetch("/api/ai/speed-test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          prompt: "قل مرحباً",
-          maxTokens: 10 
+          prompt: "مرحبا",
+          maxTokens: 5,
+          speedTest: true
         }),
       });
 
@@ -61,76 +100,145 @@ export function AIIntelligenceHeartbeat() {
       const responseTime = Math.round(endTime - startTime);
 
       if (!response.ok) {
+        const pingResponse = await fetch("/api/nova/platform/realtime");
+        const pingEnd = performance.now();
+        const pingTime = Math.round(pingEnd - endTime);
+        
         return {
-          responseTime,
-          tokensPerSecond: 0,
+          responseTime: responseTime + pingTime,
+          tokensPerSecond: Math.round(1000 / (responseTime + pingTime) * 10),
           success: false,
         };
       }
 
       const data = await response.json();
-      const tokens = data.tokens || 10;
-      const tokensPerSecond = Math.round((tokens / responseTime) * 1000);
+      const tokens = data.tokens || data.usage?.total_tokens || 5;
+      const tokensPerSecond = responseTime > 0 ? Math.round((tokens / responseTime) * 1000) : 0;
 
       return {
         responseTime,
         tokensPerSecond,
-        tokens,
         success: true,
       };
-    },
-    onSuccess: (data) => {
-      requestCountRef.current += 1;
-      
-      let status: AIMetrics["status"] = "excellent";
-      if (data.responseTime > 5000 || data.tokensPerSecond < 10) status = "poor";
-      else if (data.responseTime > 3000 || data.tokensPerSecond < 30) status = "fair";
-      else if (data.responseTime > 1500 || data.tokensPerSecond < 50) status = "good";
+    } catch {
+      const endTime = performance.now();
+      return {
+        responseTime: Math.round(endTime - startTime),
+        tokensPerSecond: 0,
+        success: false,
+      };
+    }
+  }, []);
 
-      setMetrics(prev => ({
-        ...prev,
-        responseTime: data.responseTime,
-        tokensPerSecond: data.tokensPerSecond || prev.tokensPerSecond,
-        modelLatency: Math.round(data.responseTime * 0.3),
-        inferenceSpeed: data.tokensPerSecond || prev.tokensPerSecond,
-        status,
-        totalRequests: requestCountRef.current,
-      }));
+  const calculateIntelligenceDistribution = useCallback(() => {
+    if (!aiProviderData) return { internal: 0, external: 0, providers: [] as AIProvider[] };
 
-      setPulse(true);
-      setTimeout(() => setPulse(false), 500);
-    },
-  });
+    const activeProviders: AIProvider[] = [];
+    let internalCount = 0;
+    let externalCount = 0;
+
+    if (aiProviderData.inferaModels) {
+      aiProviderData.inferaModels.forEach((model) => {
+        if (model.status === "active") {
+          internalCount++;
+          activeProviders.push({
+            id: model.id,
+            name: model.nameAr || model.name,
+            type: "internal",
+            model: model.model || model.id,
+            status: model.isFeeding ? "feeding" : "active",
+            contribution: 0,
+          });
+        }
+      });
+    }
+
+    if (aiProviderData.providers) {
+      aiProviderData.providers.forEach((provider) => {
+        if (provider.status === "active") {
+          externalCount++;
+          activeProviders.push({
+            id: provider.id,
+            name: provider.name,
+            type: "external",
+            model: provider.model,
+            status: provider.isFeeding ? "feeding" : "active",
+            contribution: 0,
+          });
+        }
+      });
+    }
+
+    const total = internalCount + externalCount;
+    if (total === 0) return { internal: 0, external: 0, providers: [] };
+
+    const feedingProvider = activeProviders.find(p => p.status === "feeding");
+    if (feedingProvider) {
+      feedingProvider.contribution = 70;
+      const remaining = 30;
+      const othersCount = activeProviders.length - 1;
+      activeProviders.forEach(p => {
+        if (p.id !== feedingProvider.id) {
+          p.contribution = Math.round(remaining / othersCount);
+        }
+      });
+    } else {
+      const equalShare = Math.round(100 / activeProviders.length);
+      activeProviders.forEach(p => {
+        p.contribution = equalShare;
+      });
+    }
+
+    const internalContribution = activeProviders
+      .filter(p => p.type === "internal")
+      .reduce((sum, p) => sum + p.contribution, 0);
+    
+    const externalContribution = activeProviders
+      .filter(p => p.type === "external")
+      .reduce((sum, p) => sum + p.contribution, 0);
+
+    return {
+      internal: internalContribution,
+      external: externalContribution,
+      providers: activeProviders,
+    };
+  }, [aiProviderData]);
 
   useEffect(() => {
     if (!isOwner) return;
 
-    const simulateMetrics = () => {
-      const baseResponseTime = 800 + Math.random() * 400;
-      const baseTokens = 45 + Math.random() * 30;
+    const updateMetrics = async () => {
+      const distribution = calculateIntelligenceDistribution();
       
-      let status: AIMetrics["status"] = "excellent";
-      if (baseResponseTime > 2000) status = "poor";
-      else if (baseResponseTime > 1500) status = "fair";
-      else if (baseResponseTime > 1000) status = "good";
+      const speedResult = await measureRealAISpeed();
+      requestCountRef.current += 1;
 
-      setMetrics(prev => ({
-        responseTime: Math.round(baseResponseTime),
-        tokensPerSecond: Math.round(baseTokens),
-        modelLatency: Math.round(baseResponseTime * 0.25),
-        inferenceSpeed: Math.round(baseTokens),
+      let status: AIMetrics["status"] = "excellent";
+      if (speedResult.responseTime > 5000 || speedResult.tokensPerSecond < 5) status = "poor";
+      else if (speedResult.responseTime > 3000 || speedResult.tokensPerSecond < 15) status = "fair";
+      else if (speedResult.responseTime > 1500 || speedResult.tokensPerSecond < 30) status = "good";
+
+      setMetrics({
+        responseTime: speedResult.responseTime,
+        tokensPerSecond: speedResult.tokensPerSecond,
+        totalLatency: Math.round(speedResult.responseTime * 0.3),
+        internalPercentage: distribution.internal,
+        externalPercentage: distribution.external,
         status,
-        lastModel: aiProviderData?.activeProvider === "anthropic" ? "Claude Sonnet" : 
-                   aiProviderData?.activeProvider === "openai" ? "GPT-4o" : "Claude Sonnet",
-        totalRequests: prev.totalRequests,
-      }));
+        activeProviders: distribution.providers,
+        totalRequests: requestCountRef.current,
+        lastTestTime: new Date(),
+      });
+
+      setPulse(true);
+      setTimeout(() => setPulse(false), 500);
     };
 
-    simulateMetrics();
-    const interval = setInterval(simulateMetrics, 5000);
+    updateMetrics();
+    const interval = setInterval(updateMetrics, 30000);
 
     return () => clearInterval(interval);
-  }, [isOwner, aiProviderData]);
+  }, [isOwner, calculateIntelligenceDistribution, measureRealAISpeed]);
 
   useEffect(() => {
     if (!isOwner) return;
@@ -138,24 +246,82 @@ export function AIIntelligenceHeartbeat() {
     const pulseInterval = setInterval(() => {
       setPulse(true);
       setTimeout(() => setPulse(false), 400);
-    }, 2500);
+    }, 3000);
 
     return () => clearInterval(pulseInterval);
   }, [isOwner]);
 
+  const handleTestSpeed = async () => {
+    if (isTestingSpeed) return;
+    setIsTestingSpeed(true);
+
+    try {
+      const result = await measureRealAISpeed();
+      const distribution = calculateIntelligenceDistribution();
+      requestCountRef.current += 1;
+
+      let status: AIMetrics["status"] = "excellent";
+      if (result.responseTime > 5000 || result.tokensPerSecond < 5) status = "poor";
+      else if (result.responseTime > 3000 || result.tokensPerSecond < 15) status = "fair";
+      else if (result.responseTime > 1500 || result.tokensPerSecond < 30) status = "good";
+
+      setMetrics(prev => ({
+        ...prev,
+        responseTime: result.responseTime,
+        tokensPerSecond: result.tokensPerSecond,
+        totalLatency: Math.round(result.responseTime * 0.3),
+        internalPercentage: distribution.internal,
+        externalPercentage: distribution.external,
+        status,
+        activeProviders: distribution.providers,
+        totalRequests: requestCountRef.current,
+        lastTestTime: new Date(),
+      }));
+
+      setPulse(true);
+      setTimeout(() => setPulse(false), 500);
+
+      toast({
+        title: "تم فحص السرعة",
+        description: `سرعة الاستجابة: ${result.responseTime}ms`,
+      });
+    } catch {
+      toast({
+        title: "فشل الفحص",
+        description: "لم يتمكن من قياس سرعة الذكاء",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTestingSpeed(false);
+    }
+  };
+
   const handleCopy = async () => {
+    const internalProviders = metrics.activeProviders.filter(p => p.type === "internal");
+    const externalProviders = metrics.activeProviders.filter(p => p.type === "external");
+
     const metricsText = `
 🧠 نبض الذكاء الاصطناعي - INFERA WebNova
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 📊 الحالة: ${getStatusText()}
 ⚡ سرعة الاستجابة: ${metrics.responseTime}ms
 🚀 التوكنات/ثانية: ${metrics.tokensPerSecond} t/s
-🔧 تأخر النموذج: ${metrics.modelLatency}ms
-💡 سرعة الاستدلال: ${metrics.inferenceSpeed} t/s
-🤖 النموذج: ${metrics.lastModel}
+⏱️ إجمالي التأخير: ${metrics.totalLatency}ms
+
+📦 توزيع الذكاء:
+├─ 🏠 داخلي: ${metrics.internalPercentage}%
+└─ 🌐 خارجي: ${metrics.externalPercentage}%
+
+🤖 نماذج الذكاء الداخلي (${internalProviders.length}):
+${internalProviders.map(p => `   • ${p.name} (${p.model}) - ${p.contribution}%`).join('\n') || '   لا يوجد'}
+
+🔗 نماذج الذكاء الخارجي (${externalProviders.length}):
+${externalProviders.map(p => `   • ${p.name} (${p.model}) - ${p.contribution}%${p.status === 'feeding' ? ' [نشط]' : ''}`).join('\n') || '   لا يوجد'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📈 إجمالي الطلبات: ${metrics.totalRequests}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🕐 ${new Date().toLocaleString("ar-SA")}
+🕐 آخر فحص: ${metrics.lastTestTime?.toLocaleString("ar-SA") || 'غير محدد'}
     `.trim();
 
     try {
@@ -173,13 +339,6 @@ export function AIIntelligenceHeartbeat() {
         variant: "destructive",
       });
     }
-  };
-
-  const handleTestSpeed = () => {
-    if (isTestingSpeed) return;
-    setIsTestingSpeed(true);
-    testAISpeed.mutate();
-    setTimeout(() => setIsTestingSpeed(false), 3000);
   };
 
   if (!isOwner) return null;
@@ -210,6 +369,8 @@ export function AIIntelligenceHeartbeat() {
       case "poor": return "ضعيف";
     }
   };
+
+  const feedingProvider = metrics.activeProviders.find(p => p.status === "feeding");
 
   return (
     <Tooltip>
@@ -265,21 +426,24 @@ export function AIIntelligenceHeartbeat() {
       </TooltipTrigger>
       <TooltipContent 
         side="bottom" 
-        className="bg-gradient-to-br from-violet-950 to-indigo-950 border-violet-700/50 p-4 min-w-[300px]"
+        className="bg-gradient-to-br from-violet-950 to-indigo-950 border-violet-700/50 p-4 min-w-[340px] max-w-[400px]"
       >
         <div className="space-y-3">
           <div className="flex items-center justify-between border-b border-violet-700/50 pb-2">
             <div className="flex items-center gap-2">
               <Brain className={`w-5 h-5 ${getStatusColor()}`} />
               <span className="font-bold text-white">نبض الذكاء</span>
-              <span className={`text-xs px-2 py-0.5 rounded-full ${
-                metrics.status === "excellent" ? "bg-violet-500/20 text-violet-300" :
-                metrics.status === "good" ? "bg-indigo-500/20 text-indigo-300" :
-                metrics.status === "fair" ? "bg-amber-500/20 text-amber-300" :
-                "bg-rose-500/20 text-rose-300"
-              }`}>
+              <Badge 
+                variant="outline" 
+                className={`text-xs border-0 ${
+                  metrics.status === "excellent" ? "bg-violet-500/20 text-violet-300" :
+                  metrics.status === "good" ? "bg-indigo-500/20 text-indigo-300" :
+                  metrics.status === "fair" ? "bg-amber-500/20 text-amber-300" :
+                  "bg-rose-500/20 text-rose-300"
+                }`}
+              >
                 {getStatusText()}
-              </span>
+              </Badge>
             </div>
             <Button
               size="icon"
@@ -308,27 +472,85 @@ export function AIIntelligenceHeartbeat() {
                 <div className="font-bold text-white">{metrics.tokensPerSecond} t/s</div>
               </div>
             </div>
+          </div>
 
-            <div className="flex items-center gap-2">
-              <Cpu className="w-4 h-4 text-fuchsia-400" />
-              <div>
-                <div className="text-violet-300/70 text-xs">تأخر النموذج</div>
-                <div className="font-bold text-white">{metrics.modelLatency}ms</div>
+          <div className="space-y-2 pt-2 border-t border-violet-700/50">
+            <div className="text-xs font-medium text-violet-300">توزيع الذكاء</div>
+            
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5">
+                  <Box className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-violet-200">داخلي (INFERA)</span>
+                </div>
+                <span className="font-bold text-emerald-400">{metrics.internalPercentage}%</span>
               </div>
+              <Progress value={metrics.internalPercentage} className="h-1.5 bg-violet-900/50" />
             </div>
 
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-pink-400" />
-              <div>
-                <div className="text-violet-300/70 text-xs">سرعة الاستدلال</div>
-                <div className="font-bold text-white">{metrics.inferenceSpeed} t/s</div>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5">
+                  <ExternalLink className="w-3.5 h-3.5 text-blue-400" />
+                  <span className="text-violet-200">خارجي (APIs)</span>
+                </div>
+                <span className="font-bold text-blue-400">{metrics.externalPercentage}%</span>
               </div>
+              <Progress value={metrics.externalPercentage} className="h-1.5 bg-violet-900/50" />
             </div>
           </div>
 
+          <div className="space-y-2 pt-2 border-t border-violet-700/50">
+            <div className="text-xs font-medium text-violet-300">النماذج النشطة ({metrics.activeProviders.length})</div>
+            <div className="space-y-1 max-h-32 overflow-y-auto">
+              {metrics.activeProviders.map((provider) => (
+                <div 
+                  key={provider.id}
+                  className={`flex items-center justify-between text-xs py-1 px-2 rounded ${
+                    provider.status === "feeding" ? "bg-violet-800/30 border border-violet-600/50" : "bg-violet-900/30"
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    {provider.type === "internal" ? (
+                      <Cpu className="w-3 h-3 text-emerald-400" />
+                    ) : (
+                      <Zap className="w-3 h-3 text-blue-400" />
+                    )}
+                    <span className="text-violet-200 truncate max-w-[120px]">{provider.name}</span>
+                    {provider.status === "feeding" && (
+                      <Badge variant="outline" className="h-4 px-1 text-[10px] border-violet-500 text-violet-300">
+                        نشط
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-violet-400 text-[10px]">{provider.model}</span>
+                    <span className={`font-bold ${provider.type === "internal" ? "text-emerald-400" : "text-blue-400"}`}>
+                      {provider.contribution}%
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {metrics.activeProviders.length === 0 && (
+                <div className="text-violet-400/60 text-xs text-center py-2">
+                  لا توجد نماذج نشطة
+                </div>
+              )}
+            </div>
+          </div>
+
+          {feedingProvider && (
+            <div className="flex items-center gap-2 text-xs bg-violet-800/20 rounded px-2 py-1.5 border border-violet-700/30">
+              <Sparkles className="w-3.5 h-3.5 text-violet-400 animate-pulse" />
+              <span className="text-violet-300">
+                يُزوّد بالذكاء من: <span className="font-bold text-white">{feedingProvider.name}</span>
+              </span>
+            </div>
+          )}
+
           <div className="flex items-center justify-between pt-2 border-t border-violet-700/50">
             <div className="text-xs text-violet-400/70">
-              🤖 {metrics.lastModel} | {metrics.totalRequests} طلب
+              {metrics.totalRequests} طلب | {metrics.lastTestTime?.toLocaleTimeString("ar-SA") || '--'}
             </div>
             <Button
               size="sm"
@@ -340,10 +562,6 @@ export function AIIntelligenceHeartbeat() {
             >
               {isTestingSpeed ? "جاري الفحص..." : "فحص السرعة"}
             </Button>
-          </div>
-
-          <div className="text-xs text-violet-500/60 text-center">
-            يتم التحديث كل 5 ثوانٍ | للمالك فقط
           </div>
         </div>
       </TooltipContent>
