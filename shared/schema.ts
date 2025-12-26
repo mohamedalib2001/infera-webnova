@@ -1487,12 +1487,18 @@ export interface PaymentAnalytics {
 
 // ==================== AUTHENTICATION METHODS ====================
 
-// Available authentication method types
+// Available authentication method types (Extended for MFA)
 export const authMethodTypes = [
   'email_password', 'google', 'facebook', 'twitter', 'github', 
-  'apple', 'microsoft', 'otp_email', 'otp_sms', 'magic_link'
+  'apple', 'microsoft', 'otp_email', 'otp_sms', 'magic_link',
+  // MFA methods - طرق المصادقة متعددة المراحل
+  'password', 'face_id', 'email_otp', 'totp', 'sms_otp', 'security_key'
 ] as const;
 export type AuthMethodType = typeof authMethodTypes[number];
+
+// MFA-specific method types
+export const mfaMethodTypes = ['password', 'face_id', 'email_otp', 'totp', 'sms_otp', 'security_key'] as const;
+export type MfaMethodType = typeof mfaMethodTypes[number];
 
 // Authentication methods configuration (owner-controlled)
 export const authMethods = pgTable("auth_methods", {
@@ -17821,3 +17827,225 @@ export const insertNovaPlatformStateSchema = createInsertSchema(novaPlatformStat
 });
 export type InsertNovaPlatformState = z.infer<typeof insertNovaPlatformStateSchema>;
 export type NovaPlatformState = typeof novaPlatformState.$inferSelect;
+
+// ==================== MULTI-FACTOR AUTHENTICATION (MFA) SYSTEM ====================
+// نظام المصادقة متعدد المراحل - التحقق الذكي متعدد الخطوات
+
+// User Auth Method Settings - إعدادات طرق المصادقة للمستخدم
+export const userAuthMethodSettings = pgTable("user_auth_method_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  
+  // Method configuration
+  method: text("method").notNull(), // password, face_id, email_otp, totp, sms_otp, security_key
+  enabled: boolean("enabled").notNull().default(false),
+  position: integer("position").notNull().default(0), // Order in auth flow
+  
+  // Method-specific config
+  config: jsonb("config").$type<{
+    // For email_otp
+    verifiedEmail?: string;
+    // For sms_otp
+    verifiedPhone?: string;
+    // For totp
+    totpConfigured?: boolean;
+    // For face_id/security_key
+    credentialId?: string;
+    // Additional settings
+    backupEnabled?: boolean;
+    lastUsed?: string;
+  }>().default({}),
+  
+  // Recovery options
+  recoveryEnabled: boolean("recovery_enabled").notNull().default(true),
+  recoveryEmail: text("recovery_email"),
+  recoveryPhone: text("recovery_phone"),
+  
+  // Audit
+  enrolledAt: timestamp("enrolled_at"),
+  lastVerifiedAt: timestamp("last_verified_at"),
+  failedAttempts: integer("failed_attempts").notNull().default(0),
+  lockedUntil: timestamp("locked_until"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_user_auth_method_user").on(table.userId),
+  index("idx_user_auth_method_enabled").on(table.enabled),
+]);
+
+export const insertUserAuthMethodSettingsSchema = createInsertSchema(userAuthMethodSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertUserAuthMethodSettings = z.infer<typeof insertUserAuthMethodSettingsSchema>;
+export type UserAuthMethodSettings = typeof userAuthMethodSettings.$inferSelect;
+
+// User Login Flows - تدفق تسجيل الدخول متعدد المراحل
+export const userLoginFlows = pgTable("user_login_flows", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  
+  // Flow state
+  flowToken: text("flow_token").notNull().unique(), // HMAC-signed token
+  currentStep: integer("current_step").notNull().default(0),
+  totalSteps: integer("total_steps").notNull(),
+  
+  // Method states - track each verification step
+  methodStates: jsonb("method_states").$type<Array<{
+    method: string;
+    position: number;
+    status: 'pending' | 'verified' | 'failed' | 'skipped';
+    verifiedAt?: string;
+    failedAt?: string;
+    attempts: number;
+  }>>().notNull().default([]),
+  
+  // Device info for security
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  deviceFingerprint: text("device_fingerprint"),
+  
+  // Flow status
+  status: text("status").notNull().default("in_progress"), // in_progress, completed, failed, expired, cancelled
+  completedAt: timestamp("completed_at"),
+  failedAt: timestamp("failed_at"),
+  failureReason: text("failure_reason"),
+  
+  // Expiration
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_login_flow_user").on(table.userId),
+  index("idx_login_flow_token").on(table.flowToken),
+  index("idx_login_flow_status").on(table.status),
+  index("idx_login_flow_expires").on(table.expiresAt),
+]);
+
+export const insertUserLoginFlowSchema = createInsertSchema(userLoginFlows).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertUserLoginFlow = z.infer<typeof insertUserLoginFlowSchema>;
+export type UserLoginFlow = typeof userLoginFlows.$inferSelect;
+
+// WebAuthn Credentials - بيانات التعرف البيومتري
+export const webauthnCredentials = pgTable("webauthn_credentials", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  
+  // Credential data
+  credentialId: text("credential_id").notNull().unique(),
+  publicKey: text("public_key").notNull(), // Base64 encoded
+  counter: integer("counter").notNull().default(0),
+  
+  // Device info
+  deviceType: text("device_type"), // platform, cross-platform
+  transports: jsonb("transports").$type<string[]>().default([]), // usb, ble, nfc, internal
+  aaguid: text("aaguid"), // Authenticator Attestation GUID
+  
+  // Metadata
+  friendlyName: text("friendly_name"), // "iPhone Face ID", "MacBook TouchID"
+  lastUsedAt: timestamp("last_used_at"),
+  
+  // Attestation
+  attestationFormat: text("attestation_format"),
+  attestationObject: text("attestation_object"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_webauthn_user").on(table.userId),
+  index("idx_webauthn_credential_id").on(table.credentialId),
+]);
+
+export const insertWebauthnCredentialSchema = createInsertSchema(webauthnCredentials).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertWebauthnCredential = z.infer<typeof insertWebauthnCredentialSchema>;
+export type WebauthnCredential = typeof webauthnCredentials.$inferSelect;
+
+// TOTP Secrets - أسرار المصادقة الثنائية (Google Authenticator)
+export const userTotpSecrets = pgTable("user_totp_secrets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull().unique(),
+  
+  // Encrypted secret
+  encryptedSecret: text("encrypted_secret").notNull(),
+  encryptionIv: text("encryption_iv").notNull(),
+  
+  // Configuration
+  algorithm: text("algorithm").notNull().default("SHA1"),
+  digits: integer("digits").notNull().default(6),
+  period: integer("period").notNull().default(30),
+  
+  // Backup codes (hashed)
+  backupCodes: jsonb("backup_codes").$type<Array<{
+    codeHash: string;
+    used: boolean;
+    usedAt?: string;
+  }>>().default([]),
+  
+  // Rotation
+  rotatedAt: timestamp("rotated_at"),
+  previousSecretHash: text("previous_secret_hash"), // For rollback
+  
+  // Verification
+  verified: boolean("verified").notNull().default(false),
+  verifiedAt: timestamp("verified_at"),
+  lastUsedAt: timestamp("last_used_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_totp_user").on(table.userId),
+]);
+
+export const insertUserTotpSecretSchema = createInsertSchema(userTotpSecrets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertUserTotpSecret = z.infer<typeof insertUserTotpSecretSchema>;
+export type UserTotpSecret = typeof userTotpSecrets.$inferSelect;
+
+// MFA Audit Log - سجل تدقيق المصادقة
+export const mfaAuditLogs = pgTable("mfa_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  
+  // Event details
+  eventType: text("event_type").notNull(), // enroll, verify, fail, disable, recover
+  method: text("method").notNull(), // password, face_id, email_otp, totp
+  success: boolean("success").notNull(),
+  
+  // Context
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  deviceFingerprint: text("device_fingerprint"),
+  
+  // Details
+  details: jsonb("details").$type<{
+    reason?: string;
+    flowId?: string;
+    step?: number;
+    failureType?: string;
+    riskScore?: number;
+  }>(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_mfa_audit_user").on(table.userId),
+  index("idx_mfa_audit_event").on(table.eventType),
+  index("idx_mfa_audit_created").on(table.createdAt),
+]);
+
+export const insertMfaAuditLogSchema = createInsertSchema(mfaAuditLogs).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertMfaAuditLog = z.infer<typeof insertMfaAuditLogSchema>;
+export type MfaAuditLog = typeof mfaAuditLogs.$inferSelect;

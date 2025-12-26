@@ -1136,6 +1136,350 @@ export async function registerRoutes(
     }
   });
 
+  // ============ Multi-Factor Authentication (MFA) Routes - نظام المصادقة متعدد المراحل ============
+  
+  const { mfaService } = await import("./services/mfa-service");
+  
+  // Get user's MFA methods configuration
+  app.get("/api/auth/mfa/methods", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId || req.session.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "غير مسجل الدخول / Not logged in" });
+      }
+      
+      await mfaService.initializeUserMethods(userId);
+      const methods = await mfaService.getUserAuthMethods(userId);
+      
+      res.json({
+        success: true,
+        methods,
+        methodLabels: {
+          password: { en: "Password", ar: "كلمة المرور", icon: "Lock" },
+          face_id: { en: "Face ID / Touch ID", ar: "بصمة الوجه / البصمة", icon: "Scan" },
+          email_otp: { en: "Email Code", ar: "رمز البريد الإلكتروني", icon: "Mail" },
+          totp: { en: "Authenticator App", ar: "تطبيق المصادقة", icon: "Smartphone" },
+          sms_otp: { en: "SMS Code", ar: "رمز SMS", icon: "MessageSquare" },
+          security_key: { en: "Security Key", ar: "مفتاح الأمان", icon: "Key" },
+        }
+      });
+    } catch (error) {
+      console.error("MFA methods error:", error);
+      res.status(500).json({ error: "فشل في الحصول على طرق المصادقة / Failed to get MFA methods" });
+    }
+  });
+  
+  // Update MFA methods order
+  app.patch("/api/auth/mfa/methods/order", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId || req.session.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "غير مسجل الدخول / Not logged in" });
+      }
+      
+      const { orderedMethods } = req.body;
+      if (!Array.isArray(orderedMethods)) {
+        return res.status(400).json({ error: "ترتيب غير صحيح / Invalid order" });
+      }
+      
+      await mfaService.updateMethodOrder(userId, orderedMethods);
+      const methods = await mfaService.getUserAuthMethods(userId);
+      
+      res.json({
+        success: true,
+        methods,
+        message: "تم تحديث ترتيب المصادقة بنجاح / Auth order updated successfully"
+      });
+    } catch (error) {
+      console.error("MFA order update error:", error);
+      res.status(500).json({ error: "فشل في تحديث ترتيب المصادقة / Failed to update MFA order" });
+    }
+  });
+  
+  // Toggle MFA method
+  app.patch("/api/auth/mfa/methods/:method/toggle", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId || req.session.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "غير مسجل الدخول / Not logged in" });
+      }
+      
+      const { method } = req.params;
+      const { enabled } = req.body;
+      
+      if (typeof enabled !== 'boolean') {
+        return res.status(400).json({ error: "حالة التفعيل مطلوبة / Enabled state required" });
+      }
+      
+      // Prevent disabling password if it's the only enabled method
+      if (method === 'password' && !enabled) {
+        const methods = await mfaService.getUserAuthMethods(userId);
+        const enabledCount = methods.filter(m => m.enabled).length;
+        if (enabledCount <= 1) {
+          return res.status(400).json({ 
+            error: "يجب إبقاء طريقة مصادقة واحدة على الأقل مفعلة / At least one auth method must remain enabled" 
+          });
+        }
+      }
+      
+      const success = await mfaService.toggleMethod(userId, method as any, enabled);
+      
+      if (!success) {
+        return res.status(400).json({ 
+          error: enabled 
+            ? "يجب تسجيل طريقة المصادقة أولاً / Method must be enrolled first"
+            : "فشل في تغيير حالة طريقة المصادقة / Failed to toggle method"
+        });
+      }
+      
+      const methods = await mfaService.getUserAuthMethods(userId);
+      
+      res.json({
+        success: true,
+        methods,
+        message: enabled 
+          ? "تم تفعيل طريقة المصادقة / Auth method enabled"
+          : "تم تعطيل طريقة المصادقة / Auth method disabled"
+      });
+    } catch (error) {
+      console.error("MFA toggle error:", error);
+      res.status(500).json({ error: "فشل في تغيير حالة طريقة المصادقة / Failed to toggle method" });
+    }
+  });
+  
+  // Enroll TOTP (Google Authenticator)
+  app.post("/api/auth/mfa/enroll/totp", requireAuth, async (req, res) => {
+    try {
+      const QRCode = await import("qrcode");
+      const userId = req.session.userId || req.session.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "غير مسجل الدخول / Not logged in" });
+      }
+      
+      const enrollment = await mfaService.enrollTotp(userId);
+      
+      // Generate QR code
+      const qrCodeDataUrl = await QRCode.toDataURL(enrollment.qrCodeUrl, {
+        width: 256,
+        margin: 2,
+        color: { dark: "#000000", light: "#ffffff" },
+      });
+      
+      res.json({
+        success: true,
+        secret: enrollment.secret,
+        qrCode: qrCodeDataUrl,
+        backupCodes: enrollment.backupCodes,
+        message: "امسح رمز QR باستخدام تطبيق المصادقة / Scan QR with authenticator app"
+      });
+    } catch (error) {
+      console.error("TOTP enrollment error:", error);
+      res.status(500).json({ error: "فشل في إعداد تطبيق المصادقة / Failed to setup authenticator" });
+    }
+  });
+  
+  // Verify TOTP enrollment
+  app.post("/api/auth/mfa/enroll/totp/verify", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId || req.session.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "غير مسجل الدخول / Not logged in" });
+      }
+      
+      const { code } = req.body;
+      if (!code || code.length !== 6) {
+        return res.status(400).json({ error: "رمز التحقق غير صحيح / Invalid verification code" });
+      }
+      
+      const verified = await mfaService.verifyTotpEnrollment(userId, code);
+      
+      if (!verified) {
+        return res.status(400).json({ error: "رمز التحقق غير صحيح / Invalid verification code" });
+      }
+      
+      const methods = await mfaService.getUserAuthMethods(userId);
+      
+      res.json({
+        success: true,
+        methods,
+        message: "تم تسجيل تطبيق المصادقة بنجاح / Authenticator enrolled successfully"
+      });
+    } catch (error) {
+      console.error("TOTP verification error:", error);
+      res.status(500).json({ error: "فشل في التحقق / Verification failed" });
+    }
+  });
+  
+  // Send Email OTP for MFA
+  app.post("/api/auth/mfa/send-email-otp", async (req, res) => {
+    try {
+      const { flowToken } = req.body;
+      
+      // Get flow to find userId
+      const flow = await mfaService.getFlowStatus(flowToken);
+      if (!flow) {
+        return res.status(400).json({ error: "تدفق تسجيل الدخول غير صحيح / Invalid login flow" });
+      }
+      
+      // Get userId from flow (need to query DB)
+      const userId = req.session.userId || req.session.user?.id || req.session.pendingMfaUserId;
+      if (!userId) {
+        return res.status(401).json({ error: "غير مسجل الدخول / Not logged in" });
+      }
+      
+      const sent = await mfaService.sendEmailOtp(userId);
+      
+      if (!sent) {
+        return res.status(400).json({ error: "فشل في إرسال رمز التحقق / Failed to send OTP" });
+      }
+      
+      res.json({
+        success: true,
+        message: "تم إرسال رمز التحقق إلى بريدك الإلكتروني / OTP sent to your email"
+      });
+    } catch (error) {
+      console.error("Send email OTP error:", error);
+      res.status(500).json({ error: "فشل في إرسال رمز التحقق / Failed to send OTP" });
+    }
+  });
+  
+  // Start MFA login flow
+  app.post("/api/auth/mfa/login/start", async (req, res) => {
+    try {
+      const { email, username } = req.body;
+      
+      // Find user by email or username
+      let user = null;
+      if (email) {
+        user = await storage.getUserByEmail(email);
+      } else if (username) {
+        user = await storage.getUserByUsername(username);
+      }
+      
+      if (!user) {
+        return res.status(404).json({ error: "المستخدم غير موجود / User not found" });
+      }
+      
+      // Store pending MFA user in session
+      req.session.pendingMfaUserId = user.id;
+      
+      const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || 
+                        req.socket.remoteAddress || '127.0.0.1';
+      const userAgent = req.headers['user-agent'] || '';
+      
+      const flow = await mfaService.startLoginFlow(user.id, ipAddress, userAgent);
+      
+      res.json({
+        success: true,
+        flow,
+        message: "بدأ تدفق المصادقة متعدد المراحل / MFA login flow started"
+      });
+    } catch (error) {
+      console.error("MFA login start error:", error);
+      res.status(500).json({ error: "فشل في بدء تسجيل الدخول / Failed to start login" });
+    }
+  });
+  
+  // Verify MFA step
+  app.post("/api/auth/mfa/login/verify", async (req, res) => {
+    try {
+      const { flowToken, method, payload } = req.body;
+      
+      if (!flowToken || !method || !payload) {
+        return res.status(400).json({ error: "بيانات ناقصة / Missing data" });
+      }
+      
+      const result = await mfaService.verifyStep(flowToken, method, payload);
+      
+      if (!result.success) {
+        return res.status(400).json({ 
+          success: false,
+          error: result.error || "فشل في التحقق / Verification failed" 
+        });
+      }
+      
+      // If completed, finalize login
+      if (result.completed) {
+        const userId = req.session.pendingMfaUserId;
+        if (userId) {
+          const user = await storage.getUser(userId);
+          if (user) {
+            const { password: _, ...userWithoutPassword } = user;
+            req.session.user = userWithoutPassword;
+            req.session.userId = user.id;
+            delete req.session.pendingMfaUserId;
+            
+            // Create login session
+            const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || 
+                              req.socket.remoteAddress || '127.0.0.1';
+            const userAgent = req.headers['user-agent'] || '';
+            await createLoginSession(user.id, req.sessionID, ipAddress, userAgent, 'mfa');
+            
+            return res.json({
+              success: true,
+              completed: true,
+              user: userWithoutPassword,
+              message: "تم تسجيل الدخول بنجاح / Login successful"
+            });
+          }
+        }
+      }
+      
+      res.json({
+        success: true,
+        completed: result.completed,
+        nextMethod: result.nextMethod,
+        message: result.completed 
+          ? "تم تسجيل الدخول بنجاح / Login successful"
+          : "تم التحقق، انتقل إلى الخطوة التالية / Verified, proceed to next step"
+      });
+    } catch (error) {
+      console.error("MFA verify error:", error);
+      res.status(500).json({ error: "فشل في التحقق / Verification failed" });
+    }
+  });
+  
+  // Get MFA flow status
+  app.get("/api/auth/mfa/login/status/:flowToken", async (req, res) => {
+    try {
+      const { flowToken } = req.params;
+      const flow = await mfaService.getFlowStatus(flowToken);
+      
+      if (!flow) {
+        return res.status(404).json({ error: "تدفق تسجيل الدخول غير موجود / Login flow not found" });
+      }
+      
+      res.json({
+        success: true,
+        flow
+      });
+    } catch (error) {
+      console.error("MFA flow status error:", error);
+      res.status(500).json({ error: "فشل في الحصول على حالة التدفق / Failed to get flow status" });
+    }
+  });
+  
+  // Cancel MFA flow
+  app.post("/api/auth/mfa/login/cancel", async (req, res) => {
+    try {
+      const { flowToken } = req.body;
+      
+      if (flowToken) {
+        await mfaService.cancelFlow(flowToken);
+      }
+      
+      delete req.session.pendingMfaUserId;
+      
+      res.json({
+        success: true,
+        message: "تم إلغاء تسجيل الدخول / Login cancelled"
+      });
+    } catch (error) {
+      console.error("MFA cancel error:", error);
+      res.status(500).json({ error: "فشل في الإلغاء / Failed to cancel" });
+    }
+  });
+
   // ============ User Profile Routes - مسارات الملف الشخصي ============
 
   // Update user profile
