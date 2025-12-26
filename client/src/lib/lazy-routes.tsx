@@ -33,6 +33,9 @@ export const LazyNovaChat = lazyPage(() => import('@/pages/nova-chat'));
 export const LazySupport = lazyPage(() => import('@/pages/support'));
 export const LazySubscription = lazyPage(() => import('@/pages/subscription'));
 
+// Business Pages
+export const LazyWhiteLabel = lazyPage(() => import('@/pages/white-label'));
+
 // Legal Pages
 export const LazyAbout = lazyPage(() => import('@/pages/about'));
 export const LazyContact = lazyPage(() => import('@/pages/contact'));

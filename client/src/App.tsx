@@ -35,6 +35,7 @@ import {
   LazyNovaChat,
   LazySupport,
   LazySubscription,
+  LazyWhiteLabel,
   LazyAbout,
   LazyContact,
   LazyTerms,
@@ -102,6 +103,9 @@ function AuthenticatedRouter() {
       {/* Payments */}
       <Route path="/payment/success" component={PaymentSuccess} />
       <Route path="/payment/cancel" component={PaymentCancel} />
+      
+      {/* Business Pages */}
+      <Route path="/white-label" component={LazyWhiteLabel} />
       
       {/* Legal Pages */}
       <Route path="/about" component={LazyAbout} />
