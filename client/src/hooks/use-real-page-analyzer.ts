@@ -310,11 +310,13 @@ export function useRealPageAnalyzer() {
                 detectedFeatures: {
                   hasAI: false,
                   hasAutomation: false,
+                  hasAuthentication: false,
+                  hasAnalytics: false,
                   hasRealTimeData: false,
+                  hasForms: false,
                   hasCharts: false,
                   hasTables: false,
                   hasEditors: false,
-                  hasForms: false,
                   hasFileUpload: false,
                 },
                 timestamp: Date.now(),
@@ -334,28 +336,12 @@ export function useRealPageAnalyzer() {
   useEffect(() => {
     analyzeCurrentPage();
     
-    const mutationObserver = new MutationObserver(() => {
-      if (analysisTimeoutRef.current) {
-        clearTimeout(analysisTimeoutRef.current);
-      }
-      analysisTimeoutRef.current = setTimeout(() => {
-        analyzeCurrentPage();
-      }, 800);
-    });
-    
-    mutationObserver.observe(document.body, {
-      childList: true,
-      subtree: true,
-      attributes: false,
-    });
-    
     return () => {
-      mutationObserver.disconnect();
       if (analysisTimeoutRef.current) {
         clearTimeout(analysisTimeoutRef.current);
       }
     };
-  }, [location, analyzeCurrentPage]);
+  }, [location]);
   
   return {
     analysis,

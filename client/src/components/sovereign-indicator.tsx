@@ -1347,12 +1347,18 @@ export function SovereignIndicator() {
   // Use real page analyzer for actual DOM analysis
   const { analysis: realPageAnalysis, isAnalyzing: isRealAnalyzing, refresh: refreshRealAnalysis } = useRealPageAnalyzer();
   
-  // Run analysis with real API using real DOM data
+  // Track analyzed paths to prevent repeated calls
+  const analyzedPathRef = useRef<string>('');
+  
+  // Run analysis with real API using real DOM data - only once per route
   useEffect(() => {
     if (!isSovereign || !isAuthenticated) return;
     if (!realPageAnalysis) return;
+    // Skip if already analyzed this path
+    if (analyzedPathRef.current === location) return;
     
     let cancelled = false;
+    analyzedPathRef.current = location;
     
     const fetchAnalysis = async () => {
       setIsAnalyzing(true);
@@ -1388,13 +1394,11 @@ export function SovereignIndicator() {
         });
         
         if (!cancelled) {
-          console.log('[Sovereign] Analysis result received:', result.finalScore);
           setAnalysis(result);
           setIsAnalyzing(false);
         }
       } catch (err) {
         if (!cancelled) {
-          console.log('[Sovereign] Using fallback analysis', err);
           const result = analyzePageIntelligently(location, 0);
           setAnalysis(result);
           setIsAnalyzing(false);
@@ -1412,6 +1416,8 @@ export function SovereignIndicator() {
     if (!isSovereign || !isAuthenticated) return;
     
     setIsAnalyzing(true);
+    // Reset the analyzed path to allow re-analysis
+    analyzedPathRef.current = '';
     
     try {
       // Await the real DOM analysis to complete
