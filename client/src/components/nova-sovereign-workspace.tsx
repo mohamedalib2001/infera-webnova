@@ -6,7 +6,7 @@
  * حاكم القرارات السيادي - ليس مجرد مساعد
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useLanguage } from "@/hooks/use-language";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -117,12 +117,20 @@ function getPlatformIcon(iconName: string) {
 interface NovaSovereignWorkspaceProps {
   isOwner: boolean;
   onClose?: () => void;
+  initialPrompt?: string;
 }
 
-export function NovaSovereignWorkspace({ isOwner, onClose }: NovaSovereignWorkspaceProps) {
+export function NovaSovereignWorkspace({ isOwner, onClose, initialPrompt }: NovaSovereignWorkspaceProps) {
   const { language } = useLanguage();
   const isAr = language === "ar";
   const { toast } = useToast();
+  
+  // Handle initial prompt from URL - fill input field
+  useEffect(() => {
+    if (initialPrompt && initialPrompt.trim()) {
+      setUserInput(initialPrompt);
+    }
+  }, [initialPrompt]);
   
   // State
   const [selectedPlatform, setSelectedPlatform] = useState<InferaPlatform | null>(null);

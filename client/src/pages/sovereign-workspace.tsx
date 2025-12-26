@@ -613,6 +613,13 @@ export default function SovereignWorkspacePage() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("platforms");
+  
+  // Read initial prompt from URL for Nova AI chat
+  const [initialPrompt] = useState(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const promptParam = urlParams.get("prompt");
+    return promptParam ? decodeURIComponent(promptParam) : "";
+  });
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
   const [inviteMemberDialogOpen, setInviteMemberDialogOpen] = useState(false);
   const [previewProject, setPreviewProject] = useState<SovereignWorkspaceProject | null>(null);
@@ -1919,7 +1926,7 @@ export default function SovereignWorkspacePage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="min-h-[600px]">
-              <NovaSovereignWorkspace isOwner={true} />
+              <NovaSovereignWorkspace isOwner={true} initialPrompt={initialPrompt} />
             </CardContent>
           </Card>
         </TabsContent>
