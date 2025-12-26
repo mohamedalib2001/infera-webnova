@@ -8360,15 +8360,7 @@ ${project.description || ""}
         templates = await storage.getTemplates();
       }
       
-      // Return lightweight templates without bulky code fields for faster loading
-      const lightTemplates = templates.map((t: any) => ({
-        ...t,
-        htmlCode: t.htmlCode ? '[has-code]' : '',
-        cssCode: t.cssCode ? '[has-code]' : '',
-        jsCode: t.jsCode ? '[has-code]' : '',
-      }));
-      
-      res.json(lightTemplates);
+      res.json(templates);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch templates" });
     }

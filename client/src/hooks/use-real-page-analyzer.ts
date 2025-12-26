@@ -315,12 +315,14 @@ export function useRealPageAnalyzer() {
   }, [location]);
   
   useEffect(() => {
+    analyzeCurrentPage();
+    
     return () => {
       if (analysisTimeoutRef.current) {
         clearTimeout(analysisTimeoutRef.current);
       }
     };
-  }, []);
+  }, [location]);
   
   return {
     analysis,
