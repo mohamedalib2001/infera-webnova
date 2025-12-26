@@ -14,19 +14,20 @@ import Anthropic from "@anthropic-ai/sdk";
 import os from "os";
 import { execSync } from "child_process";
 import { db } from "./db";
-import { sessions } from "@shared/schema";
-import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
-import {
+import { 
+  sessions,
   novaAiMemory,
   novaAiContext,
   novaPlatformState,
   insertNovaAiMemorySchema,
   insertNovaAiContextSchema,
+  isRootOwner,
   type NovaAiMemory,
   type NovaAiContext,
   type NovaPlatformState,
   type InsertNovaAiMemory,
 } from "@shared/schema";
+import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
 
 const anthropic = new Anthropic();
 
@@ -479,11 +480,13 @@ function requireOwnerAuth(req: Request, res: Response, next: Function): void {
     return;
   }
   
-  const isOwner = user.isOwner || 
+  const allowedRoles = ['owner', 'sovereign', 'ROOT_OWNER'];
+  const hasOwnerAccess = user.isOwner || 
     user.email === process.env.OWNER_EMAIL || 
-    user.role === 'root_owner';
+    isRootOwner(user.role) ||
+    allowedRoles.includes(user.role);
   
-  if (!isOwner) {
+  if (!hasOwnerAccess) {
     res.status(403).json({ success: false, error: "صلاحيات المالك مطلوبة | Owner access required" });
     return;
   }
