@@ -60,7 +60,6 @@ import {
   LazyRefund,
 } from "@/lib/lazy-routes";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
-import { SovereignIndicator } from "@/components/sovereign-indicator";
 import { CommandPalette } from "@/components/command-palette";
 import { NovaAssistantMenu } from "@/components/nova-assistant-menu";
 import { NovaFloatingButton } from "@/components/nova-floating-button";
@@ -266,7 +265,6 @@ function AppContent() {
         </div>
       </SidebarProvider>
       
-      <SovereignIndicator />
       <SovereignAccessSummaryWrapper />
       <NovaFloatingButton />
       <PerformanceTracker />
