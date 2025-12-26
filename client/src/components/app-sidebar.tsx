@@ -16,8 +16,6 @@ import {
   BarChart3, 
   Search, 
   Paintbrush, 
-  Sparkles, 
-  Terminal,
   Globe,
   TrendingUp,
   Megaphone,
@@ -41,7 +39,6 @@ import {
   Users,
   ShieldCheck,
   Mail,
-  SquareTerminal,
   Headphones,
   Scale,
   Gavel,
@@ -207,9 +204,6 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
 
   const buildItems = [
     { title: language === "ar" ? "الرئيسية" : "Home", url: "/", icon: Home, testId: "nav-home" },
-    { title: language === "ar" ? "وحدة التحكم" : "Console", url: "/console", icon: SquareTerminal, testId: "nav-console" },
-    { title: language === "ar" ? "بيئة التطوير" : "Cloud IDE", url: "/ide", icon: Terminal, testId: "nav-cloud-ide" },
-    { title: language === "ar" ? "منشئ التطبيقات" : "AI App Builder", url: "/ai-builder", icon: Sparkles, testId: "nav-ai-builder" },
     { title: language === "ar" ? "الاقتراحات الذكية" : "Smart Suggestions", url: "/smart-suggestions", icon: Lightbulb, testId: "nav-smart-suggestions" },
     { title: language === "ar" ? "النشر بنقرة" : "One-Click Deploy", url: "/deploy", icon: Rocket, testId: "nav-deploy" },
     { title: language === "ar" ? "شهادات SSL" : "SSL Certificates", url: "/ssl", icon: ShieldCheck, testId: "nav-ssl" },
@@ -278,12 +272,12 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
   const handleNewPlatform = () => {
     const shouldShow = openModal();
     if (!shouldShow) {
-      navigate("/builder");
+      navigate("/");
     }
   };
 
   const handleConfirmNewPlatform = () => {
-    navigate("/builder");
+    navigate("/");
   };
 
   const renderNavItems = (items: typeof buildItems) => (
