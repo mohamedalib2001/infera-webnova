@@ -575,6 +575,31 @@
   background: hsl(var(--muted-foreground) / 0.5);
 }
 
+/* Thin Scrollbar Utility */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: hsl(262 80% 50% / 0.4);
+  border-radius: 2px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: hsl(262 80% 50% / 0.6);
+}
+
+/* Firefox scrollbar support */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(262 80% 50% / 0.4) transparent;
+}
+
 /* Shimmer Loading Effect */
 @keyframes shimmer {
   0% { background-position: -200% 0; }

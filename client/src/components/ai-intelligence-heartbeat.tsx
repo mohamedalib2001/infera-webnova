@@ -299,53 +299,89 @@ export function AIIntelligenceHeartbeat() {
     }
   };
 
-  const handleCopy = async (e: React.PointerEvent | React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
+  const copyToClipboard = async (text: string): Promise<boolean> => {
+    // Try modern API first
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        // Fall through to legacy method
+      }
+    }
     
+    // Legacy fallback
+    try {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
+      textArea.style.top = "-999999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      const result = document.execCommand("copy");
+      document.body.removeChild(textArea);
+      return result;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleCopy = useCallback(async () => {
     const internalProviders = metrics.activeProviders.filter(p => p.type === "internal");
     const externalProviders = metrics.activeProviders.filter(p => p.type === "external");
 
+    const getStatusLabel = () => {
+      switch (metrics.status) {
+        case "excellent": return "ممتاز";
+        case "good": return "جيد";
+        case "fair": return "متوسط";
+        case "poor": return "ضعيف";
+      }
+    };
+
     const metricsText = `
-🧠 نبض الذكاء الاصطناعي - INFERA WebNova
+نبض الذكاء الاصطناعي - INFERA WebNova
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📊 الحالة: ${getStatusText()}
-⚡ سرعة الاستجابة: ${metrics.responseTime}ms
-🚀 التوكنات/ثانية: ${metrics.tokensPerSecond} t/s
-⏱️ إجمالي التأخير: ${metrics.totalLatency}ms
+الحالة: ${getStatusLabel()}
+سرعة الاستجابة: ${metrics.responseTime}ms
+التوكنات/ثانية: ${metrics.tokensPerSecond} t/s
+إجمالي التأخير: ${metrics.totalLatency}ms
 
-📦 توزيع الذكاء:
-├─ 🏠 داخلي: ${metrics.internalPercentage}%
-└─ 🌐 خارجي: ${metrics.externalPercentage}%
+توزيع الذكاء:
+- داخلي: ${metrics.internalPercentage}%
+- خارجي: ${metrics.externalPercentage}%
 
-🤖 نماذج الذكاء الداخلي (${internalProviders.length}):
-${internalProviders.map(p => `   • ${p.name} (${p.model}) - ${p.contribution}%`).join('\n') || '   لا يوجد'}
+نماذج الذكاء الداخلي (${internalProviders.length}):
+${internalProviders.map(p => `   - ${p.name} (${p.model}) - ${p.contribution}%`).join('\n') || '   لا يوجد'}
 
-🔗 نماذج الذكاء الخارجي (${externalProviders.length}):
-${externalProviders.map(p => `   • ${p.name} (${p.model}) - ${p.contribution}%${p.status === 'feeding' ? ' [نشط]' : ''}`).join('\n') || '   لا يوجد'}
+نماذج الذكاء الخارجي (${externalProviders.length}):
+${externalProviders.map(p => `   - ${p.name} (${p.model}) - ${p.contribution}%${p.status === 'feeding' ? ' [نشط]' : ''}`).join('\n') || '   لا يوجد'}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📈 إجمالي الطلبات: ${metrics.totalRequests}
-🕐 آخر فحص: ${metrics.lastTestTime?.toLocaleString("ar-SA") || 'غير محدد'}
+إجمالي الطلبات: ${metrics.totalRequests}
+آخر فحص: ${metrics.lastTestTime?.toLocaleString("ar-SA") || 'غير محدد'}
     `.trim();
 
-    try {
-      await navigator.clipboard.writeText(metricsText);
+    const success = await copyToClipboard(metricsText);
+    
+    if (success) {
       setCopied(true);
       toast({
         title: "تم النسخ",
         description: "تم نسخ إحصائيات الذكاء الاصطناعي",
       });
       setTimeout(() => setCopied(false), 2000);
-    } catch {
+    } else {
       toast({
         title: "فشل النسخ",
         description: "لم يتمكن من نسخ البيانات",
         variant: "destructive",
       });
     }
-  };
+  }, [metrics, toast]);
 
   if (!isOwner) return null;
 
@@ -451,15 +487,24 @@ ${externalProviders.map(p => `   • ${p.name} (${p.model}) - ${p.contribution}%
                 {getStatusText()}
               </Badge>
             </div>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-7 w-7 text-violet-300 hover:text-white hover:bg-violet-800/50"
-              onPointerDown={handleCopy}
+            <div 
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCopy();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.stopPropagation();
+                  handleCopy();
+                }
+              }}
+              className="h-7 w-7 flex items-center justify-center rounded text-violet-300 hover:text-white hover:bg-violet-800/50 cursor-pointer transition-colors"
               data-testid="button-copy-ai-metrics"
             >
               {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-            </Button>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3 text-sm">
@@ -508,7 +553,7 @@ ${externalProviders.map(p => `   • ${p.name} (${p.model}) - ${p.contribution}%
 
           <div className="space-y-2 pt-2 border-t border-violet-700/50">
             <div className="text-xs font-medium text-violet-300">النماذج النشطة ({metrics.activeProviders.length})</div>
-            <div className="space-y-1 max-h-32 overflow-y-auto">
+            <div className="space-y-1 max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-violet-600 scrollbar-track-violet-900/30 pr-1">
               {metrics.activeProviders.map((provider) => (
                 <div 
                   key={provider.id}
