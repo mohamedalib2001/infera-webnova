@@ -17589,3 +17589,200 @@ export const insertSecurityAuditLogSchema = createInsertSchema(securityAuditLogs
 });
 export type InsertSecurityAuditLog = z.infer<typeof insertSecurityAuditLogSchema>;
 export type SecurityAuditLog = typeof securityAuditLogs.$inferSelect;
+
+// ==================== NOVA AI MEMORY SYSTEM ====================
+// نظام ذاكرة نوفا AI - السياق المستمر والتعلم التراكمي
+
+export const novaMemoryTypes = [
+  'conversation',     // محادثات
+  'decision',         // قرارات
+  'learning',         // تعلم
+  'context',          // سياق
+  'preference',       // تفضيلات المستخدم
+  'pattern',          // أنماط مكتشفة
+  'insight',          // رؤى
+  'correction',       // تصحيحات
+] as const;
+export type NovaMemoryType = typeof novaMemoryTypes[number];
+
+export const novaAiMemory = pgTable("nova_ai_memory", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  memoryType: text("memory_type").notNull(), // conversation, decision, learning, context, preference
+  
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  
+  importance: text("importance").notNull().default("medium"), // critical, high, medium, low
+  
+  embedding: jsonb("embedding").$type<number[]>(),
+  keywords: jsonb("keywords").$type<string[]>().default([]),
+  
+  relatedMemories: jsonb("related_memories").$type<string[]>().default([]),
+  
+  context: jsonb("context").$type<{
+    sessionId?: string;
+    projectId?: string;
+    userId?: string;
+    pageContext?: string;
+    userIntent?: string;
+    platformState?: Record<string, unknown>;
+  }>(),
+  
+  metadata: jsonb("metadata").$type<{
+    sourceType?: string;
+    tags?: string[];
+    confidence?: number;
+    expiresAt?: string;
+    version?: number;
+  }>(),
+  
+  accessCount: integer("access_count").default(0),
+  lastAccessedAt: timestamp("last_accessed_at"),
+  
+  tenantId: varchar("tenant_id"),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_nova_memory_type").on(table.memoryType),
+  index("IDX_nova_memory_importance").on(table.importance),
+  index("IDX_nova_memory_tenant").on(table.tenantId),
+  index("IDX_nova_memory_created").on(table.createdAt),
+  index("IDX_nova_memory_accessed").on(table.lastAccessedAt),
+]);
+
+export const insertNovaAiMemorySchema = createInsertSchema(novaAiMemory).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertNovaAiMemory = z.infer<typeof insertNovaAiMemorySchema>;
+export type NovaAiMemory = typeof novaAiMemory.$inferSelect;
+
+// ==================== NOVA AI CONTEXT (Working Memory) ====================
+// ذاكرة العمل النشطة لنوفا - السياق الحالي للجلسة
+
+export const novaAiContext = pgTable("nova_ai_context", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  sessionId: varchar("session_id").notNull().unique(),
+  userId: varchar("user_id"),
+  
+  activeProject: jsonb("active_project").$type<{
+    id: string;
+    name: string;
+    type: string;
+    path?: string;
+  }>(),
+  
+  currentTask: jsonb("current_task").$type<{
+    id: string;
+    description: string;
+    status: string;
+    startedAt: string;
+  }>(),
+  
+  conversationHistory: jsonb("conversation_history").$type<Array<{
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp: string;
+  }>>().default([]),
+  
+  platformState: jsonb("platform_state").$type<{
+    activeServices: string[];
+    systemHealth: 'healthy' | 'degraded' | 'critical';
+    pendingTasks: number;
+    recentErrors: number;
+  }>(),
+  
+  userPreferences: jsonb("user_preferences").$type<{
+    language: string;
+    responseStyle: string;
+    expertiseLevel: string;
+    notifications: boolean;
+  }>(),
+  
+  insights: jsonb("insights").$type<Array<{
+    type: string;
+    message: string;
+    priority: string;
+    timestamp: string;
+  }>>().default([]),
+  
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_nova_context_session").on(table.sessionId),
+  index("IDX_nova_context_user").on(table.userId),
+  index("IDX_nova_context_expires").on(table.expiresAt),
+]);
+
+export const insertNovaAiContextSchema = createInsertSchema(novaAiContext).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertNovaAiContext = z.infer<typeof insertNovaAiContextSchema>;
+export type NovaAiContext = typeof novaAiContext.$inferSelect;
+
+// ==================== NOVA PLATFORM STATE (Monitoring View) ====================
+// حالة المنصة من منظور نوفا - رؤية شاملة للمنصة
+
+export const novaPlatformState = pgTable("nova_platform_state", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  snapshotTime: timestamp("snapshot_time").notNull().defaultNow(),
+  
+  systemMetrics: jsonb("system_metrics").$type<{
+    cpuUsage: number;
+    memoryUsage: number;
+    diskUsage: number;
+    uptime: number;
+  }>().notNull(),
+  
+  applicationMetrics: jsonb("application_metrics").$type<{
+    activeUsers: number;
+    activeSessions: number;
+    requestsPerMinute: number;
+    averageLatency: number;
+    errorRate: number;
+  }>().notNull(),
+  
+  serviceHealth: jsonb("service_health").$type<Array<{
+    name: string;
+    status: 'healthy' | 'degraded' | 'down';
+    lastCheck: string;
+    responseTime?: number;
+  }>>().default([]),
+  
+  recentEvents: jsonb("recent_events").$type<Array<{
+    type: string;
+    severity: string;
+    message: string;
+    timestamp: string;
+  }>>().default([]),
+  
+  aiInsights: jsonb("ai_insights").$type<Array<{
+    type: 'warning' | 'suggestion' | 'anomaly' | 'prediction';
+    title: string;
+    description: string;
+    priority: 'high' | 'medium' | 'low';
+    actionable: boolean;
+  }>>().default([]),
+  
+  overallHealth: text("overall_health").notNull().default("healthy"), // healthy, degraded, critical
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_nova_platform_snapshot").on(table.snapshotTime),
+  index("IDX_nova_platform_health").on(table.overallHealth),
+]);
+
+export const insertNovaPlatformStateSchema = createInsertSchema(novaPlatformState).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertNovaPlatformState = z.infer<typeof insertNovaPlatformStateSchema>;
+export type NovaPlatformState = typeof novaPlatformState.$inferSelect;

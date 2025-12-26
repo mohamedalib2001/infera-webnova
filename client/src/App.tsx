@@ -33,6 +33,7 @@ import WhiteLabel from "@/pages/white-label";
 import OwnerDashboard from "@/pages/owner-dashboard";
 import OwnerCommand from "@/pages/owner-command";
 import NovaSovereignDashboard from "@/pages/nova-sovereign-dashboard";
+import NovaAIDashboard from "@/pages/nova-ai-dashboard";
 import OwnerNotifications from "@/pages/owner-notifications";
 import OwnerInfrastructure from "@/pages/owner-infrastructure";
 import OwnerIntegrations from "@/pages/owner-integrations";
@@ -412,6 +413,7 @@ function AuthenticatedRouter() {
       <Route path="/sovereign-chat" component={SovereignChat} />
       <Route path="/owner/platform-registry" component={PlatformRegistry} />
       <Route path="/nova" component={NovaChat} />
+      <Route path="/nova/dashboard" component={NovaAIDashboard} />
       <Route path="/nova/operations" component={OperationsDashboard} />
       <Route path="/nova/builds" component={BuildManager} />
       <Route path="/mobile-builder" component={MobileAppBuilder} />
