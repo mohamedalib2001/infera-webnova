@@ -125,17 +125,11 @@ export function NovaSovereignWorkspace({ isOwner, onClose, initialPrompt }: Nova
   const isAr = language === "ar";
   const { toast } = useToast();
   
-  // Handle initial prompt from URL - fill input field
-  useEffect(() => {
-    if (initialPrompt && initialPrompt.trim()) {
-      setUserInput(initialPrompt);
-    }
-  }, [initialPrompt]);
-  
   // State
   const [selectedPlatform, setSelectedPlatform] = useState<InferaPlatform | null>(null);
   const [userInput, setUserInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [autoSubmitTriggered, setAutoSubmitTriggered] = useState(false);
   const [currentDecision, setCurrentDecision] = useState<NovaDecision | null>(null);
   const [executionHistory, setExecutionHistory] = useState<NovaDecision[]>([]);
   const [showApprovalDialog, setShowApprovalDialog] = useState(false);
@@ -161,6 +155,19 @@ export function NovaSovereignWorkspace({ isOwner, onClose, initialPrompt }: Nova
       });
     }
   }, [isAr, toast]);
+  
+  // Auto-select WebNova platform and set input when initialPrompt is provided
+  useEffect(() => {
+    if (initialPrompt && initialPrompt.trim() && !autoSubmitTriggered) {
+      setUserInput(initialPrompt);
+      // Auto-select WebNova (the main platform factory)
+      const webnovaPlatform = INFERA_PLATFORMS_REGISTRY.find(p => p.id === "webnova");
+      if (webnovaPlatform) {
+        setSelectedPlatform(webnovaPlatform);
+        setAutoSubmitTriggered(true);
+      }
+    }
+  }, [initialPrompt, autoSubmitTriggered]);
   
   // Generate execution steps based on input
   const generateExecutionSteps = useCallback((input: string, platform: InferaPlatform): ExecutionStep[] => {
@@ -316,6 +323,17 @@ export function NovaSovereignWorkspace({ isOwner, onClose, initialPrompt }: Nova
     
     setIsProcessing(false);
   }, [userInput, selectedPlatform, isAr, toast, generateExecutionSteps]);
+  
+  // Auto-submit when initialPrompt is provided and platform is selected
+  useEffect(() => {
+    if (autoSubmitTriggered && selectedPlatform && userInput.trim() && !isProcessing && !currentDecision) {
+      // Small delay to ensure state is fully updated
+      const timer = setTimeout(() => {
+        handleProcessRequest();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [autoSubmitTriggered, selectedPlatform, userInput, isProcessing, currentDecision, handleProcessRequest]);
   
   // Handle step approval
   const handleApproveStep = useCallback(() => {
