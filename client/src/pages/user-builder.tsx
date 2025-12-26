@@ -391,8 +391,8 @@ export default function UserBuilder() {
               <CardContent className="pt-6">
                 <ChatInput
                   placeholder={language === 'ar' ? 'صف المنصة التي تريد بناءها...' : 'Describe the platform you want to build...'}
-                  onSubmit={handleChatSubmit}
-                  data-testid="chat-input-builder"
+                  onSend={handleChatSubmit}
+                  language={language}
                 />
               </CardContent>
             </Card>
