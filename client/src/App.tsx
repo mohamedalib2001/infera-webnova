@@ -27,6 +27,11 @@ const Pricing = lazy(() => import("@/pages/pricing"));
 const Sovereign = lazy(() => import("@/pages/sovereign"));
 const PaymentSuccess = lazy(() => import("@/pages/payment-success"));
 const PaymentCancel = lazy(() => import("@/pages/payment-cancel"));
+const Projects = lazy(() => import("@/pages/projects"));
+const Templates = lazy(() => import("@/pages/templates"));
+const Deploy = lazy(() => import("@/pages/deploy"));
+const ChatbotBuilder = lazy(() => import("@/pages/chatbot-builder"));
+const Invoices = lazy(() => import("@/pages/invoices"));
 import {
   LazySettings,
   LazySovereignWorkspace,
@@ -95,6 +100,14 @@ function AuthenticatedRouter() {
       <Route path="/settings" component={LazySettings} />
       <Route path="/subscription" component={LazySubscription} />
       <Route path="/support" component={LazySupport} />
+      
+      {/* Build Pages */}
+      <Route path="/projects" component={Projects} />
+      <Route path="/templates" component={Templates} />
+      <Route path="/deploy" component={Deploy} />
+      <Route path="/one-click-deploy" component={Deploy} />
+      <Route path="/chatbot-builder" component={ChatbotBuilder} />
+      <Route path="/invoices" component={Invoices} />
       
       {/* Nova AI */}
       <Route path="/nova" component={LazyNovaChat} />
