@@ -191,8 +191,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     { title: language === "ar" ? "خط أنابيب CI/CD" : "CI/CD Pipeline", url: "/cicd", icon: Workflow, testId: "nav-dev-cicd" },
     { title: language === "ar" ? "الأمان العسكري" : "Military Security", url: "/military-security", icon: ShieldCheck, testId: "nav-dev-military" },
     { title: language === "ar" ? "التعاون الجماعي" : "Collaboration", url: "/collaboration", icon: Users, testId: "nav-dev-collaboration" },
-    { title: language === "ar" ? "الخرائط" : "Maps", url: "/maps", icon: MapPin, testId: "nav-dev-maps" },
-    { title: language === "ar" ? "سوق الإضافات" : "Extensions", url: "/extensions", icon: Store, testId: "nav-dev-extensions" },
+        { title: language === "ar" ? "سوق الإضافات" : "Extensions", url: "/extensions", icon: Store, testId: "nav-dev-extensions" },
     { title: language === "ar" ? "القوالب" : "Templates", url: "/templates", icon: LayoutTemplate, testId: "nav-dev-templates" },
     { title: language === "ar" ? "لوحة Nova AI" : "Nova AI Dashboard", url: "/nova/dashboard", icon: Brain, testId: "nav-dev-nova-dashboard" },
     { title: language === "ar" ? "مراقبة أداء الصفحات" : "Page Performance", url: "/page-performance", icon: Activity, testId: "nav-dev-page-performance" },
@@ -211,14 +210,11 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     { title: language === "ar" ? "مولّد المنصات" : "Platform Generator", url: "/platform-generator", icon: TrendingUp, testId: "nav-platform-generator" },
     { title: language === "ar" ? "القوالب" : "Templates", url: "/templates", icon: LayoutTemplate, testId: "nav-templates" },
     { title: language === "ar" ? "منشئ الروبوتات" : "Chatbot Builder", url: "/chatbot-builder", icon: Bot, testId: "nav-chatbot" },
-    { title: language === "ar" ? "الخرائط" : "Maps", url: "/maps", icon: MapPin, testId: "nav-maps" },
-  ];
+      ];
 
   const managementItems = [
     { title: language === "ar" ? "المشاريع" : "Projects", url: "/projects", icon: FolderOpen, testId: "nav-projects" },
-    { title: language === "ar" ? "مهامي" : "My Tasks", url: "/employee-dashboard", icon: Briefcase, testId: "nav-employee-dashboard", requiresAuth: true },
-    { title: language === "ar" ? "البحث عن نطاق" : "Domain Search", url: "/domain-search", icon: Globe, testId: "nav-domain-search", requiresAuth: true },
-    { title: language === "ar" ? "الدعم" : "Support", url: "/support", icon: Headphones, testId: "nav-support", requiresAuth: true },
+        { title: language === "ar" ? "الدعم" : "Support", url: "/support", icon: Headphones, testId: "nav-support", requiresAuth: true },
     { title: language === "ar" ? "الإعدادات" : "Settings", url: "/settings", icon: Settings, testId: "nav-settings", requiresAuth: true },
   ];
 

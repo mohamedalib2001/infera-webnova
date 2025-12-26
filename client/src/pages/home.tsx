@@ -104,6 +104,16 @@ export default function Home() {
   const { user } = useAuth();
   const { toast } = useToast();
   
+  // Check if user is sovereign (owner or sovereign role)
+  const isSovereign = user?.role === "sovereign" || user?.role === "owner";
+  
+  // Redirect regular users to user-builder
+  useEffect(() => {
+    if (user && !isSovereign) {
+      setLocation('/user-builder');
+    }
+  }, [user, isSovereign, setLocation]);
+  
   // Get synced logo for INFERA WebNova
   const { logoSVG: syncedLogo, isLoaded: logoLoaded } = useSyncedLogo('infera-webnova');
   
@@ -177,8 +187,6 @@ export default function Home() {
     });
   }, [templates, selectedCategory, selectedIntelligence]);
 
-  const isSovereign = user?.role === "sovereign" || user?.role === "owner";
-  
   const handleChatSubmit = async (message: string) => {
     const targetPath = isSovereign ? '/sovereign-workspace' : '/user-builder';
     setLocation(`${targetPath}?prompt=${encodeURIComponent(message)}`);
