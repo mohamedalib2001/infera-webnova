@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { Link, useLocation } from "wouter";
 import ownerDefaultAvatar from "@assets/unnamed_1766659248817.jpg";
 import { 
@@ -97,8 +97,10 @@ import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFoo
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { NewPlatformModal, useNewPlatformModal } from "@/components/new-platform-modal";
-import { PlatformHeartbeat } from "@/components/platform-heartbeat";
-import { AIIntelligenceHeartbeat } from "@/components/ai-intelligence-heartbeat";
+
+// Lazy load heartbeat components for better initial load performance
+const PlatformHeartbeat = lazy(() => import("@/components/platform-heartbeat").then(m => ({ default: m.PlatformHeartbeat })));
+const AIIntelligenceHeartbeat = lazy(() => import("@/components/ai-intelligence-heartbeat").then(m => ({ default: m.AIIntelligenceHeartbeat })));
 
 type AudienceTab = "all" | "owner" | "visitors" | "employees" | "managers" | "subscribers" | "development";
 
@@ -344,10 +346,12 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                   </div>
                 </div>
               </div>
-              <div className="mt-3 flex flex-col items-center gap-2">
-                <PlatformHeartbeat />
-                <AIIntelligenceHeartbeat />
-              </div>
+              <Suspense fallback={null}>
+                <div className="mt-3 flex flex-col items-center gap-2">
+                  <PlatformHeartbeat />
+                  <AIIntelligenceHeartbeat />
+                </div>
+              </Suspense>
             </div>
           )}
           

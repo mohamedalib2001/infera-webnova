@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
@@ -113,6 +113,15 @@ export default function Home() {
   const [showTemplateDetail, setShowTemplateDetail] = useState(false);
   const [showCompliancePanel, setShowCompliancePanel] = useState(false);
   const [selectedComplianceFramework, setSelectedComplianceFramework] = useState<string | undefined>(undefined);
+  const [showDeferredContent, setShowDeferredContent] = useState(false);
+
+  // Defer heavy content until after initial render for better LCP
+  useEffect(() => {
+    const timer = requestAnimationFrame(() => {
+      setShowDeferredContent(true);
+    });
+    return () => cancelAnimationFrame(timer);
+  }, []);
 
   const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -309,27 +318,28 @@ export default function Home() {
         </div>
       </div>
       
-      <div className="bg-background/80 backdrop-blur-xl border-t">
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          <Tabs value={activeTab} onValueChange={setActiveTab} dir={isRtl ? "rtl" : "ltr"}>
-            <TabsList className="mb-6 w-fit">
-              <TabsTrigger value="platforms" data-testid="tab-platforms">
-                <Activity className="h-4 w-4 me-2" />
-                {t("home.recent")}
-              </TabsTrigger>
-              <TabsTrigger value="blueprints" data-testid="tab-blueprints">
-                <Cpu className="h-4 w-4 me-2" />
-                {t("home.blueprints")}
-              </TabsTrigger>
-              <TabsTrigger value="templates" data-testid="tab-templates">
-                <Sparkles className="h-4 w-4 me-2" />
-                {t("home.templates")}
-              </TabsTrigger>
-              <TabsTrigger value="analytics" data-testid="tab-analytics">
-                <BarChart3 className="h-4 w-4 me-2" />
-                {language === "ar" ? "التحليلات" : "Analytics"}
-              </TabsTrigger>
-            </TabsList>
+      {showDeferredContent && (
+        <div className="bg-background/80 backdrop-blur-xl border-t">
+          <div className="max-w-7xl mx-auto px-4 py-8">
+            <Tabs value={activeTab} onValueChange={setActiveTab} dir={isRtl ? "rtl" : "ltr"}>
+              <TabsList className="mb-6 w-fit">
+                <TabsTrigger value="platforms" data-testid="tab-platforms">
+                  <Activity className="h-4 w-4 me-2" />
+                  {t("home.recent")}
+                </TabsTrigger>
+                <TabsTrigger value="blueprints" data-testid="tab-blueprints">
+                  <Cpu className="h-4 w-4 me-2" />
+                  {t("home.blueprints")}
+                </TabsTrigger>
+                <TabsTrigger value="templates" data-testid="tab-templates">
+                  <Sparkles className="h-4 w-4 me-2" />
+                  {t("home.templates")}
+                </TabsTrigger>
+                <TabsTrigger value="analytics" data-testid="tab-analytics">
+                  <BarChart3 className="h-4 w-4 me-2" />
+                  {language === "ar" ? "التحليلات" : "Analytics"}
+                </TabsTrigger>
+              </TabsList>
             
             <TabsContent value="platforms">
               {projectsLoading ? (
@@ -832,9 +842,10 @@ export default function Home() {
                 )}
               </div>
             </TabsContent>
-          </Tabs>
+            </Tabs>
+          </div>
         </div>
-      </div>
+      )}
 
       <SecureDeletionDialog
         open={showDeleteDialog}

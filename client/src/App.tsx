@@ -16,15 +16,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Bell } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Landing from "@/pages/landing";
 import Auth from "@/pages/auth";
-import Preview from "@/pages/preview";
-import Pricing from "@/pages/pricing";
-import Sovereign from "@/pages/sovereign";
-import NotFound from "@/pages/not-found";
-import PaymentSuccess from "@/pages/payment-success";
-import PaymentCancel from "@/pages/payment-cancel";
+
+// Lazy load secondary pages for better performance
+const Preview = lazy(() => import("@/pages/preview"));
+const Pricing = lazy(() => import("@/pages/pricing"));
+const Sovereign = lazy(() => import("@/pages/sovereign"));
+const PaymentSuccess = lazy(() => import("@/pages/payment-success"));
+const PaymentCancel = lazy(() => import("@/pages/payment-cancel"));
 import {
   LazySettings,
   LazySovereignWorkspace,
@@ -230,7 +232,9 @@ function AppContent() {
               </div>
             </header>
             <main className="flex-1 overflow-auto">
-              {isAuthenticated ? <AuthenticatedRouter /> : <GuestRouter />}
+              <Suspense fallback={<div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}>
+                {isAuthenticated ? <AuthenticatedRouter /> : <GuestRouter />}
+              </Suspense>
             </main>
             {isAuthenticated && (
               <footer className="border-t bg-gradient-to-r from-background via-muted/30 to-background py-3 px-4">
