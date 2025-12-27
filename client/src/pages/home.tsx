@@ -1,7 +1,7 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useSyncedLogo } from "@/hooks/use-synced-logo";
 import { GradientBackground } from "@/components/gradient-background";
@@ -17,6 +17,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { 
   Sparkles, 
   Building2, 
@@ -47,7 +49,30 @@ import {
   Users,
   Server,
   Gauge,
+  Send,
+  X,
+  Loader2,
+  Code,
+  ArrowLeft,
+  Play,
 } from "lucide-react";
+
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  buildPlan?: BuildPlan;
+}
+
+interface BuildPlan {
+  name: string;
+  description: string;
+  features: string[];
+  techStack: string[];
+  estimatedTime: string;
+  complexity: 'basic' | 'intermediate' | 'advanced';
+}
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import type { Project, Template } from "@shared/schema";
@@ -124,6 +149,209 @@ export default function Home() {
   const [showCompliancePanel, setShowCompliancePanel] = useState(false);
   const [selectedComplianceFramework, setSelectedComplianceFramework] = useState<string | undefined>(undefined);
   const [showDeferredContent, setShowDeferredContent] = useState(false);
+  
+  // Conversation state for embedded chat
+  const [showConversation, setShowConversation] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [currentBuildPlan, setCurrentBuildPlan] = useState<BuildPlan | null>(null);
+  const [inputValue, setInputValue] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+  
+  // Generate smart response for Nova AI conversation
+  const generateSmartResponse = useCallback((userMessage: string, lang: string): { content: string; buildPlan?: BuildPlan } => {
+    const isAr = lang === 'ar';
+    const lowerMessage = userMessage.toLowerCase();
+    
+    // Detect project type from user message
+    let projectType = 'general';
+    let features: string[] = [];
+    let techStack = ['React', 'TypeScript', 'Node.js', 'PostgreSQL'];
+    
+    if (lowerMessage.includes('ecommerce') || lowerMessage.includes('متجر') || lowerMessage.includes('تجار')) {
+      projectType = 'ecommerce';
+      features = isAr 
+        ? ['إدارة المنتجات', 'سلة التسوق', 'الدفع الإلكتروني', 'إدارة الطلبات', 'تتبع الشحن']
+        : ['Product Management', 'Shopping Cart', 'Payment Processing', 'Order Management', 'Shipping Tracking'];
+      techStack = ['React', 'TypeScript', 'Node.js', 'PostgreSQL', 'Stripe'];
+    } else if (lowerMessage.includes('healthcare') || lowerMessage.includes('صح') || lowerMessage.includes('طب')) {
+      projectType = 'healthcare';
+      features = isAr
+        ? ['إدارة المرضى', 'جدولة المواعيد', 'السجلات الطبية', 'التقارير', 'الامتثال HIPAA']
+        : ['Patient Management', 'Appointment Scheduling', 'Medical Records', 'Reports', 'HIPAA Compliance'];
+      techStack = ['React', 'TypeScript', 'Node.js', 'PostgreSQL', 'HL7 FHIR'];
+    } else if (lowerMessage.includes('financial') || lowerMessage.includes('مال') || lowerMessage.includes('بنك')) {
+      projectType = 'financial';
+      features = isAr
+        ? ['إدارة الحسابات', 'التحويلات', 'التقارير المالية', 'الامتثال PCI-DSS', 'التحقق من الهوية']
+        : ['Account Management', 'Transfers', 'Financial Reports', 'PCI-DSS Compliance', 'Identity Verification'];
+      techStack = ['React', 'TypeScript', 'Node.js', 'PostgreSQL', 'Plaid API'];
+    } else if (lowerMessage.includes('government') || lowerMessage.includes('حكوم')) {
+      projectType = 'government';
+      features = isAr
+        ? ['بوابة المواطنين', 'إدارة الخدمات', 'التحقق من الهوية', 'التقارير', 'إمكانية الوصول WCAG']
+        : ['Citizen Portal', 'Service Management', 'Identity Verification', 'Reports', 'WCAG Accessibility'];
+      techStack = ['React', 'TypeScript', 'Node.js', 'PostgreSQL', 'OAuth 2.0'];
+    } else if (lowerMessage.includes('education') || lowerMessage.includes('تعليم') || lowerMessage.includes('مدرس')) {
+      projectType = 'education';
+      features = isAr
+        ? ['إدارة الطلاب', 'الدورات التعليمية', 'الاختبارات', 'التقارير', 'الامتثال FERPA']
+        : ['Student Management', 'Courses', 'Assessments', 'Reports', 'FERPA Compliance'];
+      techStack = ['React', 'TypeScript', 'Node.js', 'PostgreSQL', 'WebRTC'];
+    } else {
+      features = isAr
+        ? ['لوحة التحكم', 'إدارة المستخدمين', 'التقارير', 'الإعدادات', 'الإشعارات']
+        : ['Dashboard', 'User Management', 'Reports', 'Settings', 'Notifications'];
+    }
+    
+    // First response - ask clarifying questions
+    if (messages.length === 0) {
+      const content = isAr
+        ? `مرحباً! أنا Nova، مساعدك الذكي لبناء المنصات السيادية. 
+
+فهمت أنك تريد بناء منصة ${projectType === 'ecommerce' ? 'تجارة إلكترونية' : projectType === 'healthcare' ? 'صحية' : projectType === 'financial' ? 'مالية' : projectType === 'government' ? 'حكومية' : projectType === 'education' ? 'تعليمية' : 'رقمية'}.
+
+لأساعدك بشكل أفضل، أخبرني:
+1. ما هي الميزات الأساسية التي تحتاجها؟
+2. هل لديك متطلبات أمان أو امتثال محددة؟
+3. ما هو الجدول الزمني المتوقع للإطلاق؟`
+        : `Hello! I'm Nova, your intelligent assistant for building sovereign platforms.
+
+I understand you want to build a ${projectType === 'ecommerce' ? 'e-commerce' : projectType === 'healthcare' ? 'healthcare' : projectType === 'financial' ? 'financial' : projectType === 'government' ? 'government' : projectType === 'education' ? 'education' : 'digital'} platform.
+
+To help you better, tell me:
+1. What are the core features you need?
+2. Do you have specific security or compliance requirements?
+3. What is your expected launch timeline?`;
+      
+      return { content };
+    }
+    
+    // Second response - propose build plan
+    const buildPlan: BuildPlan = {
+      name: isAr ? `منصة ${projectType === 'ecommerce' ? 'التجارة الإلكترونية' : projectType === 'healthcare' ? 'الرعاية الصحية' : projectType === 'financial' ? 'الخدمات المالية' : projectType === 'government' ? 'الخدمات الحكومية' : projectType === 'education' ? 'التعليم' : 'الأعمال'} السيادية` : `Sovereign ${projectType.charAt(0).toUpperCase() + projectType.slice(1)} Platform`,
+      description: isAr 
+        ? `منصة ${projectType} متكاملة مع أمان على مستوى المؤسسات وامتثال كامل للمعايير`
+        : `Complete ${projectType} platform with enterprise-grade security and full compliance`,
+      features,
+      techStack,
+      estimatedTime: isAr ? '2-3 أسابيع' : '2-3 weeks',
+      complexity: projectType === 'general' ? 'basic' : 'intermediate',
+    };
+    
+    const content = isAr
+      ? `ممتاز! بناءً على متطلباتك، إليك خطة البناء المقترحة:
+
+**${buildPlan.name}**
+${buildPlan.description}
+
+**الميزات:**
+${features.map(f => `• ${f}`).join('\n')}
+
+**التقنيات:**
+${techStack.join(' • ')}
+
+**الوقت المتوقع:** ${buildPlan.estimatedTime}
+
+هل توافق على هذه الخطة؟ يمكنني البدء في البناء فوراً عند موافقتك.`
+      : `Excellent! Based on your requirements, here's the proposed build plan:
+
+**${buildPlan.name}**
+${buildPlan.description}
+
+**Features:**
+${features.map(f => `• ${f}`).join('\n')}
+
+**Tech Stack:**
+${techStack.join(' • ')}
+
+**Estimated Time:** ${buildPlan.estimatedTime}
+
+Do you approve this plan? I can start building immediately upon your approval.`;
+    
+    return { content, buildPlan };
+  }, [messages.length]);
+  
+  // Send message in conversation
+  const sendMessage = useCallback(async (content: string) => {
+    if (!content.trim() || isLoading) return;
+    
+    const userMessage: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: content.trim(),
+      timestamp: new Date(),
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    setInputValue("");
+    setIsLoading(true);
+    
+    // Simulate AI response with smart generation
+    setTimeout(() => {
+      const response = generateSmartResponse(content, language);
+      
+      const aiMessage: ChatMessage = {
+        id: `ai-${Date.now()}`,
+        role: 'assistant',
+        content: response.content,
+        timestamp: new Date(),
+        buildPlan: response.buildPlan,
+      };
+      
+      if (response.buildPlan) {
+        setCurrentBuildPlan(response.buildPlan);
+      }
+      
+      setMessages(prev => [...prev, aiMessage]);
+      setIsLoading(false);
+    }, 1500);
+  }, [isLoading, language, generateSmartResponse]);
+  
+  // Handle starting a conversation
+  const handleStartConversation = useCallback((initialMessage?: string) => {
+    setShowConversation(true);
+    setMessages([]);
+    setCurrentBuildPlan(null);
+    
+    // Add welcome message from Nova
+    const welcomeMessage: ChatMessage = {
+      id: 'welcome',
+      role: 'assistant',
+      content: language === 'ar'
+        ? 'مرحباً! أنا Nova، مساعدك الذكي لبناء المنصات الرقمية السيادية. أخبرني ماذا تريد أن تبني اليوم؟'
+        : "Hello! I'm Nova, your intelligent assistant for building sovereign digital platforms. Tell me what you want to build today?",
+      timestamp: new Date(),
+    };
+    setMessages([welcomeMessage]);
+    
+    // If there's an initial message, send it after welcome
+    if (initialMessage) {
+      setTimeout(() => sendMessage(initialMessage), 500);
+    }
+  }, [language, sendMessage]);
+  
+  // Handle build confirmation
+  const handleConfirmBuild = useCallback(() => {
+    if (!currentBuildPlan) return;
+    
+    // Navigate to workspace with the build plan
+    const targetPath = isSovereign ? '/sovereign-workspace' : '/user-builder';
+    setLocation(`${targetPath}?prompt=${encodeURIComponent(currentBuildPlan.name)}&confirmed=true`);
+  }, [currentBuildPlan, isSovereign, setLocation]);
+  
+  // Close conversation
+  const handleCloseConversation = useCallback(() => {
+    setShowConversation(false);
+    setMessages([]);
+    setCurrentBuildPlan(null);
+    setInputValue("");
+  }, []);
 
   // Defer heavy content until after initial paint for better LCP (500ms delay)
   useEffect(() => {
@@ -188,8 +416,8 @@ export default function Home() {
   }, [templates, selectedCategory, selectedIntelligence]);
 
   const handleChatSubmit = async (message: string) => {
-    const targetPath = isSovereign ? '/sovereign-workspace' : '/user-builder';
-    setLocation(`${targetPath}?prompt=${encodeURIComponent(message)}`);
+    // Open embedded conversation instead of redirecting
+    handleStartConversation(message);
   };
 
   const handleOpenProject = (project: Project) => {
@@ -230,6 +458,206 @@ export default function Home() {
 
   return (
     <GradientBackground className="flex flex-col min-h-screen">
+      {/* Embedded Conversation Interface */}
+      {showConversation && (
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm">
+          <div className="h-full flex flex-col lg:flex-row">
+            {/* Chat Panel - Left Side */}
+            <div className="flex-1 flex flex-col h-full lg:w-1/2 border-r border-border">
+              {/* Chat Header */}
+              <div className="flex items-center justify-between gap-2 p-4 border-b border-border bg-card/50">
+                <div className="flex items-center gap-3">
+                  <Button 
+                    size="icon" 
+                    variant="ghost" 
+                    onClick={handleCloseConversation}
+                    data-testid="button-close-conversation"
+                  >
+                    <ArrowLeft className="h-5 w-5" />
+                  </Button>
+                  <div className="flex items-center gap-2">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center">
+                      <Sparkles className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">Nova AI</h3>
+                      <p className="text-xs text-muted-foreground">
+                        {language === 'ar' ? 'مساعد بناء المنصات' : 'Platform Builder Assistant'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <Badge variant="outline" className="text-xs">
+                  {language === 'ar' ? 'محادثة نشطة' : 'Active Conversation'}
+                </Badge>
+              </div>
+              
+              {/* Messages */}
+              <ScrollArea className="flex-1 p-4">
+                <div className="space-y-4">
+                  {messages.map((message) => (
+                    <div 
+                      key={message.id}
+                      className={`flex gap-3 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}
+                    >
+                      <Avatar className="h-8 w-8 flex-shrink-0">
+                        <AvatarFallback className={message.role === 'assistant' ? 'bg-gradient-to-br from-violet-600 to-indigo-600 text-white' : 'bg-primary text-primary-foreground'}>
+                          {message.role === 'assistant' ? <Sparkles className="h-4 w-4" /> : user?.username?.charAt(0).toUpperCase() || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className={`max-w-[80%] ${message.role === 'user' ? 'text-right' : ''}`}>
+                        <div className={`rounded-lg p-3 ${message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                        </div>
+                        <span className="text-xs text-muted-foreground mt-1 block">
+                          {message.timestamp.toLocaleTimeString(language === 'ar' ? 'ar-SA' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {isLoading && (
+                    <div className="flex gap-3">
+                      <Avatar className="h-8 w-8 flex-shrink-0">
+                        <AvatarFallback className="bg-gradient-to-br from-violet-600 to-indigo-600 text-white">
+                          <Sparkles className="h-4 w-4" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="bg-muted rounded-lg p-3">
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span className="text-sm text-muted-foreground">
+                            {language === 'ar' ? 'Nova يفكر...' : 'Nova is thinking...'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
+              </ScrollArea>
+              
+              {/* Chat Input */}
+              <div className="p-4 border-t border-border bg-card/50">
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    sendMessage(inputValue);
+                  }}
+                  className="flex gap-2"
+                >
+                  <input
+                    type="text"
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    placeholder={language === 'ar' ? 'اكتب رسالتك...' : 'Type your message...'}
+                    className="flex-1 bg-background border border-border rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    disabled={isLoading}
+                    data-testid="input-chat-message"
+                  />
+                  <Button 
+                    type="submit" 
+                    size="icon" 
+                    disabled={isLoading || !inputValue.trim()}
+                    data-testid="button-send-message"
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </form>
+              </div>
+            </div>
+            
+            {/* Preview Panel - Right Side */}
+            <div className="hidden lg:flex lg:w-1/2 flex-col h-full bg-muted/30">
+              <div className="flex items-center justify-between gap-2 p-4 border-b border-border">
+                <div className="flex items-center gap-2">
+                  <Code className="h-5 w-5 text-muted-foreground" />
+                  <h3 className="font-semibold">
+                    {language === 'ar' ? 'معاينة خطة البناء' : 'Build Plan Preview'}
+                  </h3>
+                </div>
+              </div>
+              
+              <div className="flex-1 p-6 overflow-auto">
+                {currentBuildPlan ? (
+                  <div className="space-y-6">
+                    <Card className="bg-card">
+                      <CardHeader>
+                        <CardTitle className="text-lg">{currentBuildPlan.name}</CardTitle>
+                        <p className="text-sm text-muted-foreground">{currentBuildPlan.description}</p>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div>
+                          <h4 className="font-medium mb-2 flex items-center gap-2">
+                            <CheckCircle className="h-4 w-4 text-green-500" />
+                            {language === 'ar' ? 'الميزات' : 'Features'}
+                          </h4>
+                          <ul className="space-y-1">
+                            {currentBuildPlan.features.map((feature, idx) => (
+                              <li key={idx} className="text-sm text-muted-foreground flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                                {feature}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        
+                        <div>
+                          <h4 className="font-medium mb-2 flex items-center gap-2">
+                            <Code className="h-4 w-4 text-blue-500" />
+                            {language === 'ar' ? 'التقنيات' : 'Tech Stack'}
+                          </h4>
+                          <div className="flex flex-wrap gap-2">
+                            {currentBuildPlan.techStack.map((tech, idx) => (
+                              <Badge key={idx} variant="secondary">{tech}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-4 text-sm">
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            <span>{currentBuildPlan.estimatedTime}</span>
+                          </div>
+                          <Badge variant={currentBuildPlan.complexity === 'basic' ? 'outline' : currentBuildPlan.complexity === 'intermediate' ? 'secondary' : 'default'}>
+                            {currentBuildPlan.complexity}
+                          </Badge>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    
+                    {/* Build Confirmation Button */}
+                    <Button 
+                      className="w-full" 
+                      size="lg"
+                      onClick={handleConfirmBuild}
+                      data-testid="button-confirm-build"
+                    >
+                      <Play className="h-5 w-5 me-2" />
+                      {language === 'ar' ? 'ابدأ البناء الآن' : 'Start Building Now'}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground">
+                    <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
+                      <Sparkles className="h-10 w-10" />
+                    </div>
+                    <h3 className="font-medium mb-2">
+                      {language === 'ar' ? 'في انتظار خطة البناء' : 'Waiting for Build Plan'}
+                    </h3>
+                    <p className="text-sm max-w-xs">
+                      {language === 'ar' 
+                        ? 'تحدث مع Nova لوصف ما تريد بناءه. سيظهر ملخص خطة البناء هنا.'
+                        : "Chat with Nova to describe what you want to build. The build plan summary will appear here."}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-16">
         <div className="flex items-center gap-3 mb-6">
           {syncedLogo && logoLoaded ? (
