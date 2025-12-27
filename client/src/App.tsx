@@ -32,6 +32,7 @@ const Templates = lazy(() => import("@/pages/templates"));
 const Deploy = lazy(() => import("@/pages/deploy"));
 const ChatbotBuilder = lazy(() => import("@/pages/chatbot-builder"));
 const Invoices = lazy(() => import("@/pages/invoices"));
+const ApiKeys = lazy(() => import("@/pages/api-keys"));
 import {
   LazySettings,
   LazySovereignWorkspace,
@@ -100,6 +101,7 @@ function AuthenticatedRouter() {
       {/* Owner Pages - Sovereign Access */}
       <Route path="/owner" component={Sovereign} />
       <Route path="/owner/:page*" component={Sovereign} />
+      <Route path="/api-keys" component={ApiKeys} />
       <Route path="/user-builder" component={LazyUserBuilder} />
       <Route path="/settings" component={LazySettings} />
       <Route path="/subscription" component={LazySubscription} />
