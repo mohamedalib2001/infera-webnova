@@ -96,6 +96,9 @@ function AuthenticatedRouter() {
       <Route path="/pricing" component={Pricing} />
       <Route path="/sovereign" component={Sovereign} />
       <Route path="/sovereign-workspace" component={LazySovereignWorkspace} />
+      
+      {/* Owner Pages - Sovereign Access */}
+      <Route path="/owner/:page*" component={Sovereign} />
       <Route path="/user-builder" component={LazyUserBuilder} />
       <Route path="/settings" component={LazySettings} />
       <Route path="/subscription" component={LazySubscription} />
