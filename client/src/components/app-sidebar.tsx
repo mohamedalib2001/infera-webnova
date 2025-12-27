@@ -93,6 +93,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
@@ -120,6 +121,18 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
   const [showZoneWarning, setShowZoneWarning] = useState(false);
   const [currentZone, setCurrentZone] = useState<string>("");
   const isAdvancedUser = user?.role === "enterprise" || user?.role === "sovereign" || isOwner;
+  
+  // Zone warning toggle - stored in localStorage
+  const [zoneWarningEnabled, setZoneWarningEnabled] = useState(() => {
+    const stored = localStorage.getItem("sovereignZoneWarningEnabled");
+    return stored === null ? true : stored === "true";
+  });
+  
+  const toggleZoneWarning = () => {
+    const newValue = !zoneWarningEnabled;
+    setZoneWarningEnabled(newValue);
+    localStorage.setItem("sovereignZoneWarningEnabled", String(newValue));
+  };
 
   // Define sovereign safe zone routes - الصفحات السيادية المحمية
   const sovereignSafeZoneRoutes = [
@@ -155,12 +168,12 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
   const [hasSeenWarning, setHasSeenWarning] = useState<Set<string>>(new Set());
   
   useEffect(() => {
-    if (isOwner && !isInSovereignZone && !hasSeenWarning.has(location)) {
+    if (zoneWarningEnabled && isOwner && !isInSovereignZone && !hasSeenWarning.has(location)) {
       setCurrentZone(getZoneName(location));
       setShowZoneWarning(true);
       setHasSeenWarning(prev => new Set(prev).add(location));
     }
-  }, [location, isOwner, isInSovereignZone]);
+  }, [location, isOwner, isInSovereignZone, zoneWarningEnabled]);
 
   const audienceTabs = [
     { id: "all" as AudienceTab, label: language === "ar" ? "الكل" : "All", icon: LayoutDashboard },
@@ -1028,6 +1041,22 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
+          
+          {/* Toggle to enable/disable zone warnings */}
+          <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-muted/50 border">
+            <div className="flex items-center gap-2">
+              <Bell className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm">
+                {language === "ar" ? "تنبيهات خروج المنطقة السيادية" : "Sovereign zone exit alerts"}
+              </span>
+            </div>
+            <Switch 
+              checked={zoneWarningEnabled}
+              onCheckedChange={toggleZoneWarning}
+              data-testid="switch-zone-warning"
+            />
+          </div>
+          
           <AlertDialogFooter className="flex-row gap-2 sm:justify-between">
             <Button 
               variant="outline" 
