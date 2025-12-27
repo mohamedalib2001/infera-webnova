@@ -98,6 +98,7 @@ function AuthenticatedRouter() {
       <Route path="/sovereign-workspace" component={LazySovereignWorkspace} />
       
       {/* Owner Pages - Sovereign Access */}
+      <Route path="/owner" component={Sovereign} />
       <Route path="/owner/:page*" component={Sovereign} />
       <Route path="/user-builder" component={LazyUserBuilder} />
       <Route path="/settings" component={LazySettings} />
