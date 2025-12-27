@@ -59,6 +59,8 @@ const translations = {
     options: {
       emailNotifications: "إشعارات البريد الإلكتروني",
       pushNotifications: "الإشعارات الفورية",
+      sovereignZoneAlerts: "تنبيهات خروج المنطقة السيادية",
+      sovereignZoneAlertsDesc: "إظهار تنبيه عند الخروج من المنطقة السيادية الآمنة",
       twoFactor: "المصادقة الثنائية",
       sessionTimeout: "مهلة الجلسة",
       manageDomains: "إدارة النطاقات",
@@ -119,6 +121,8 @@ const translations = {
     options: {
       emailNotifications: "Email Notifications",
       pushNotifications: "Push Notifications",
+      sovereignZoneAlerts: "Sovereign Zone Exit Alerts",
+      sovereignZoneAlertsDesc: "Show alert when leaving the secure sovereign zone",
       twoFactor: "Two-Factor Authentication",
       sessionTimeout: "Session Timeout",
       manageDomains: "Manage Domains",
@@ -167,6 +171,7 @@ export default function SettingsPage() {
   const { isAuthenticated, user } = useAuth();
   const { toast } = useToast();
   const t = translations[language];
+  const isOwner = user?.role === "owner";
   
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
@@ -191,6 +196,17 @@ export default function SettingsPage() {
   // Notification preferences state
   const [emailNotifications, setEmailNotifications] = useState(false);
   const [pushNotifications, setPushNotifications] = useState(false);
+  
+  // Sovereign zone alerts - stored in localStorage
+  const [sovereignZoneAlerts, setSovereignZoneAlerts] = useState(() => {
+    const stored = localStorage.getItem("sovereignZoneWarningEnabled");
+    return stored === null ? true : stored === "true";
+  });
+  
+  const handleSovereignZoneAlertsToggle = (value: boolean) => {
+    setSovereignZoneAlerts(value);
+    localStorage.setItem("sovereignZoneWarningEnabled", String(value));
+  };
   const [twoFactor, setTwoFactor] = useState(false);
 
   // Fetch 2FA status
@@ -548,6 +564,23 @@ export default function SettingsPage() {
                 disabled={saveNotificationsMutation.isPending}
               />
             </div>
+            {isOwner && (
+              <>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="sovereign-zone-alerts">{t.options.sovereignZoneAlerts}</Label>
+                    <p className="text-sm text-muted-foreground">{t.options.sovereignZoneAlertsDesc}</p>
+                  </div>
+                  <Switch 
+                    id="sovereign-zone-alerts" 
+                    data-testid="switch-sovereign-zone-alerts"
+                    checked={sovereignZoneAlerts}
+                    onCheckedChange={handleSovereignZoneAlertsToggle}
+                  />
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
