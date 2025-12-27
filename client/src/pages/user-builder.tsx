@@ -93,11 +93,25 @@ export default function UserBuilder() {
     scrollToBottom();
   }, [messages]);
 
+  // Read prompt and templateId from URL query parameters (only once on mount)
+  const [urlState] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return {
+      initialPrompt: params.get('prompt'),
+      templateId: params.get('templateId')
+    };
+  });
+  const { initialPrompt, templateId } = urlState;
+  const [promptSent, setPromptSent] = useState(false);
+
   // Create session on mount
   useEffect(() => {
     const createSession = async () => {
       try {
-        const response = await apiRequest('POST', '/api/nova/sessions', { title: 'Platform Builder Session' });
+        const response = await apiRequest('POST', '/api/nova/sessions', { 
+          title: initialPrompt ? `Project: ${initialPrompt.substring(0, 50)}...` : 'Platform Builder Session',
+          templateId: templateId || undefined 
+        });
         setSessionId(response.id);
         
         // Add welcome message
@@ -117,7 +131,18 @@ export default function UserBuilder() {
     if (user) {
       createSession();
     }
-  }, [user, language]);
+  }, [user, language, initialPrompt, templateId]);
+  
+  // Auto-send initial prompt from URL if present
+  useEffect(() => {
+    if (sessionId && initialPrompt && !promptSent && messages.length > 0) {
+      setPromptSent(true);
+      // Clear the URL params after reading
+      window.history.replaceState({}, '', window.location.pathname);
+      // Send the initial prompt
+      sendMessage(initialPrompt);
+    }
+  }, [sessionId, initialPrompt, promptSent, messages.length]);
 
   // Send message to Nova AI
   const sendMessage = async (content: string) => {
@@ -147,7 +172,7 @@ export default function UserBuilder() {
           const planMatch = aiContent.match(/BUILD_PLAN:\s*({[\s\S]*?})/);
           if (planMatch) {
             buildPlan = JSON.parse(planMatch[1]);
-            setCurrentBuildPlan(buildPlan);
+            setCurrentBuildPlan(buildPlan || null);
             setShowPreview(true);
           }
         } catch (e) {
