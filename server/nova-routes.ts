@@ -2068,9 +2068,9 @@ ${clarifyingQuestions.length > 0 ? (isArabic
         const updatedBlueprint = {
           ...(projectContext?.activeBlueprint || {}),
           _conversationState: conversationState,
-        };
+        } as Record<string, unknown>;
         await storage.upsertNovaProjectContext(currentProjectId, userId, {
-          activeBlueprint: updatedBlueprint,
+          activeBlueprint: updatedBlueprint as any,
           configHistory: projectContext?.configHistory || [],
         });
         console.log(`[Nova State] Saved state: phase=${conversationState.phase}, intent=${conversationState.intent}`);
