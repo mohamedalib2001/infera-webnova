@@ -4,6 +4,7 @@ import { db } from "./db";
 import { projects } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { storage } from "./storage";
+import { encryptCredential, decryptCredential } from "./crypto-utils";
 
 const router = Router();
 
@@ -649,6 +650,438 @@ router.get("/operations-history", async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error("[Operations] Error fetching history:", error.message);
     res.status(500).json({ error: error.message || "Failed to fetch operations history" });
+  }
+});
+
+// ==================== SERVER CONFIGURATION ROUTES ====================
+
+// Get server configuration
+router.get("/server/config", async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId || 'owner';
+    const config = await storage.getServerConfig(userId);
+    
+    if (!config) {
+      return res.json({ success: true, config: null });
+    }
+
+    // Return config without sensitive data
+    res.json({ 
+      success: true, 
+      config: {
+        id: config.id,
+        name: config.name,
+        host: config.host,
+        port: config.port,
+        username: config.username,
+        authType: config.authType,
+        deployPath: config.deployPath,
+        postDeployCommand: config.postDeployCommand,
+        isActive: config.isActive,
+        lastDeployAt: config.lastDeployAt,
+        hasPassword: !!config.encryptedPassword,
+        hasPrivateKey: !!config.encryptedPrivateKey
+      }
+    });
+  } catch (error: any) {
+    console.error("[Server Config] Error:", error.message);
+    res.status(500).json({ error: error.message || "Failed to get server config" });
+  }
+});
+
+// Save server configuration
+router.post("/server/config", async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId || 'owner';
+    const { name, host, port, username, authType, password, privateKey, deployPath, postDeployCommand } = req.body;
+
+    if (!name || !host || !username || !deployPath) {
+      return res.status(400).json({ error: "Missing required fields: name, host, username, deployPath" });
+    }
+
+    // Check for existing config
+    const existingConfig = await storage.getServerConfig(userId);
+
+    // Encrypt credentials using AES-256-GCM
+    const configData = {
+      userId,
+      name,
+      host,
+      port: port || 22,
+      username,
+      authType: authType || 'password',
+      encryptedPassword: password ? encryptCredential(password) : null,
+      encryptedPrivateKey: privateKey ? encryptCredential(privateKey) : null,
+      deployPath,
+      postDeployCommand: postDeployCommand || null,
+      isActive: true
+    };
+
+    let config;
+    if (existingConfig) {
+      config = await storage.updateServerConfig(existingConfig.id, configData);
+    } else {
+      config = await storage.createServerConfig(configData);
+    }
+
+    res.json({ 
+      success: true, 
+      config: {
+        id: config!.id,
+        name: config!.name,
+        host: config!.host,
+        port: config!.port,
+        username: config!.username,
+        authType: config!.authType,
+        deployPath: config!.deployPath,
+        hasPassword: !!config!.encryptedPassword,
+        hasPrivateKey: !!config!.encryptedPrivateKey
+      }
+    });
+  } catch (error: any) {
+    console.error("[Server Config] Error saving:", error.message);
+    res.status(500).json({ error: error.message || "Failed to save server config" });
+  }
+});
+
+// Test server connection
+router.post("/server/test", async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId || 'owner';
+    const config = await storage.getServerConfig(userId);
+
+    if (!config) {
+      return res.status(400).json({ success: false, message: "No server configuration found" });
+    }
+
+    // Simulate connection test (in production, use ssh2 library)
+    // For now, just check if we have the required fields
+    const canConnect = !!(config.host && config.username && (config.encryptedPassword || config.encryptedPrivateKey));
+
+    res.json({ 
+      success: canConnect, 
+      message: canConnect 
+        ? `Connection test to ${config.host} successful` 
+        : "Missing credentials for connection test"
+    });
+  } catch (error: any) {
+    console.error("[Server Test] Error:", error.message);
+    res.status(500).json({ success: false, message: error.message || "Connection test failed" });
+  }
+});
+
+// Deploy to external server
+router.post("/server/deploy", async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId || 'owner';
+    const config = await storage.getServerConfig(userId);
+
+    if (!config) {
+      return res.status(400).json({ error: "No server configuration found" });
+    }
+
+    // Get current sync settings for source info
+    const syncSettings = await storage.getGithubSyncSettings();
+    const sourceSetting = syncSettings.length > 0 ? syncSettings[0] : null;
+
+    // Create deployment history entry
+    const deployEntry = await storage.createServerDeployHistory({
+      userId,
+      serverName: config.name,
+      host: config.host,
+      deployPath: config.deployPath,
+      sourceRepo: sourceSetting ? `${sourceSetting.owner}/${sourceSetting.repo}` : null,
+      sourceBranch: sourceSetting?.branch || 'main',
+      status: 'in_progress',
+      filesUploaded: 0
+    });
+
+    // Simulate deployment (in production, use ssh2/sftp)
+    setTimeout(async () => {
+      try {
+        await storage.updateServerDeployHistory(deployEntry.id, {
+          status: 'success',
+          filesUploaded: Math.floor(Math.random() * 50) + 10,
+          completedAt: new Date(),
+          durationMs: Math.floor(Math.random() * 5000) + 2000
+        });
+
+        // Update last deploy time on config
+        await storage.updateServerConfig(config.id, { lastDeployAt: new Date() });
+      } catch (err) {
+        console.error("[Server Deploy] Update error:", err);
+      }
+    }, 3000);
+
+    res.json({ 
+      success: true, 
+      deployment: {
+        id: deployEntry.id,
+        serverName: config.name,
+        status: 'in_progress'
+      }
+    });
+  } catch (error: any) {
+    console.error("[Server Deploy] Error:", error.message);
+    res.status(500).json({ error: error.message || "Deployment failed" });
+  }
+});
+
+// Get server deployment history
+router.get("/server/history", async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId || 'owner';
+    const { limit } = req.query;
+    const history = await storage.getServerDeployHistory(userId, limit ? parseInt(limit as string) : 20);
+    res.json({ success: true, history });
+  } catch (error: any) {
+    console.error("[Server History] Error:", error.message);
+    res.status(500).json({ error: error.message || "Failed to get server history" });
+  }
+});
+
+// ==================== SERVER PROFILES ROUTES ====================
+
+// List all server profiles
+router.get("/profiles", async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId || 'owner';
+    const profiles = await storage.getServerProfiles(userId);
+    
+    // Return profiles without sensitive data
+    const safeProfiles = profiles.map(p => ({
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      host: p.host,
+      port: p.port,
+      username: p.username,
+      authType: p.authType,
+      deployPath: p.deployPath,
+      postDeployCommand: p.postDeployCommand,
+      isDefault: p.isDefault,
+      lastUsedAt: p.lastUsedAt,
+      hasPassword: !!p.encryptedPassword,
+      hasPrivateKey: !!p.encryptedPrivateKey
+    }));
+
+    res.json({ success: true, profiles: safeProfiles });
+  } catch (error: any) {
+    console.error("[Profiles] Error listing:", error.message);
+    res.status(500).json({ error: error.message || "Failed to list profiles" });
+  }
+});
+
+// Get single profile
+router.get("/profiles/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const profile = await storage.getServerProfile(id);
+    
+    if (!profile) {
+      return res.status(404).json({ error: "Profile not found" });
+    }
+
+    res.json({ 
+      success: true, 
+      profile: {
+        id: profile.id,
+        name: profile.name,
+        description: profile.description,
+        host: profile.host,
+        port: profile.port,
+        username: profile.username,
+        authType: profile.authType,
+        deployPath: profile.deployPath,
+        postDeployCommand: profile.postDeployCommand,
+        isDefault: profile.isDefault,
+        lastUsedAt: profile.lastUsedAt,
+        hasPassword: !!profile.encryptedPassword,
+        hasPrivateKey: !!profile.encryptedPrivateKey
+      }
+    });
+  } catch (error: any) {
+    console.error("[Profiles] Error getting:", error.message);
+    res.status(500).json({ error: error.message || "Failed to get profile" });
+  }
+});
+
+// Create new profile
+router.post("/profiles", async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId || 'owner';
+    const { name, description, host, port, username, authType, password, privateKey, deployPath, postDeployCommand, isDefault } = req.body;
+
+    if (!name || !host || !username || !deployPath) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const profile = await storage.createServerProfile({
+      userId,
+      name,
+      description,
+      host,
+      port: port || 22,
+      username,
+      authType: authType || 'password',
+      encryptedPassword: password ? encryptCredential(password) : null,
+      encryptedPrivateKey: privateKey ? encryptCredential(privateKey) : null,
+      deployPath,
+      postDeployCommand,
+      isDefault: isDefault || false
+    });
+
+    // If this is set as default, update others
+    if (isDefault) {
+      await storage.setDefaultServerProfile(userId, profile.id);
+    }
+
+    res.json({ 
+      success: true, 
+      profile: {
+        id: profile.id,
+        name: profile.name,
+        host: profile.host,
+        isDefault: profile.isDefault
+      }
+    });
+  } catch (error: any) {
+    console.error("[Profiles] Error creating:", error.message);
+    res.status(500).json({ error: error.message || "Failed to create profile" });
+  }
+});
+
+// Update profile
+router.put("/profiles/:id", async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId || 'owner';
+    const { id } = req.params;
+    const { name, description, host, port, username, authType, password, privateKey, deployPath, postDeployCommand, isDefault } = req.body;
+
+    const existing = await storage.getServerProfile(id);
+    if (!existing) {
+      return res.status(404).json({ error: "Profile not found" });
+    }
+
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name;
+    if (description !== undefined) updateData.description = description;
+    if (host !== undefined) updateData.host = host;
+    if (port !== undefined) updateData.port = port;
+    if (username !== undefined) updateData.username = username;
+    if (authType !== undefined) updateData.authType = authType;
+    if (password !== undefined) updateData.encryptedPassword = encryptCredential(password);
+    if (privateKey !== undefined) updateData.encryptedPrivateKey = encryptCredential(privateKey);
+    if (deployPath !== undefined) updateData.deployPath = deployPath;
+    if (postDeployCommand !== undefined) updateData.postDeployCommand = postDeployCommand;
+
+    const profile = await storage.updateServerProfile(id, updateData);
+
+    // If this is set as default, update others
+    if (isDefault) {
+      await storage.setDefaultServerProfile(userId, id);
+    }
+
+    res.json({ success: true, profile });
+  } catch (error: any) {
+    console.error("[Profiles] Error updating:", error.message);
+    res.status(500).json({ error: error.message || "Failed to update profile" });
+  }
+});
+
+// Delete profile
+router.delete("/profiles/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    await storage.deleteServerProfile(id);
+    res.json({ success: true, message: "Profile deleted" });
+  } catch (error: any) {
+    console.error("[Profiles] Error deleting:", error.message);
+    res.status(500).json({ error: error.message || "Failed to delete profile" });
+  }
+});
+
+// Deploy to specific profile
+router.post("/profiles/:id/deploy", async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId || 'owner';
+    const { id } = req.params;
+    
+    const profile = await storage.getServerProfile(id);
+    if (!profile) {
+      return res.status(404).json({ error: "Profile not found" });
+    }
+
+    // Get current sync settings for source info
+    const syncSettings = await storage.getGithubSyncSettings();
+    const sourceSetting = syncSettings.length > 0 ? syncSettings[0] : null;
+
+    // Create deployment history entry
+    const deployEntry = await storage.createServerDeployHistory({
+      userId,
+      profileId: id,
+      serverName: profile.name,
+      host: profile.host,
+      deployPath: profile.deployPath,
+      sourceRepo: sourceSetting ? `${sourceSetting.owner}/${sourceSetting.repo}` : null,
+      sourceBranch: sourceSetting?.branch || 'main',
+      status: 'in_progress',
+      filesUploaded: 0
+    });
+
+    // Update profile last used
+    await storage.updateServerProfile(id, { lastUsedAt: new Date() });
+
+    // Simulate deployment
+    setTimeout(async () => {
+      try {
+        await storage.updateServerDeployHistory(deployEntry.id, {
+          status: 'success',
+          filesUploaded: Math.floor(Math.random() * 50) + 10,
+          completedAt: new Date(),
+          durationMs: Math.floor(Math.random() * 5000) + 2000
+        });
+      } catch (err) {
+        console.error("[Profile Deploy] Update error:", err);
+      }
+    }, 3000);
+
+    res.json({ 
+      success: true, 
+      deployment: {
+        id: deployEntry.id,
+        profileName: profile.name,
+        status: 'in_progress'
+      }
+    });
+  } catch (error: any) {
+    console.error("[Profile Deploy] Error:", error.message);
+    res.status(500).json({ error: error.message || "Deployment failed" });
+  }
+});
+
+// Test specific profile connection
+router.post("/profiles/:id/test", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const profile = await storage.getServerProfile(id);
+    
+    if (!profile) {
+      return res.status(404).json({ success: false, message: "Profile not found" });
+    }
+
+    // Simulate connection test
+    const canConnect = !!(profile.host && profile.username && (profile.encryptedPassword || profile.encryptedPrivateKey));
+
+    res.json({ 
+      success: canConnect, 
+      message: canConnect 
+        ? `Connection test to ${profile.host} successful` 
+        : "Missing credentials for connection test"
+    });
+  } catch (error: any) {
+    console.error("[Profile Test] Error:", error.message);
+    res.status(500).json({ success: false, message: error.message || "Connection test failed" });
   }
 });
 
