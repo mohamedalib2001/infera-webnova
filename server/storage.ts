@@ -575,6 +575,13 @@ import {
   conversationMessages,
   type ConversationMessage,
   type InsertConversationMessage,
+  // GitHub Sync
+  githubSyncSettings,
+  type GithubSyncSettings,
+  type InsertGithubSyncSettings,
+  githubSyncHistory,
+  type GithubSyncHistory,
+  type InsertGithubSyncHistory,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt, gte, lte, sql, ne } from "drizzle-orm";
@@ -9132,6 +9139,66 @@ body { font-family: 'Tajawal', sans-serif; }
   async createConversationMessage(data: InsertConversationMessage): Promise<ConversationMessage> {
     const [created] = await db.insert(conversationMessages).values(data as any).returning();
     return created;
+  }
+
+  // ==================== GITHUB SYNC ====================
+
+  async getGithubSyncSettings(userId?: string): Promise<GithubSyncSettings | undefined> {
+    if (userId) {
+      const [result] = await db.select().from(githubSyncSettings).where(eq(githubSyncSettings.userId, userId));
+      return result;
+    }
+    const [result] = await db.select().from(githubSyncSettings).limit(1);
+    return result;
+  }
+
+  async getGithubSyncSettingsByRepo(owner: string, repo: string): Promise<GithubSyncSettings | undefined> {
+    const [result] = await db.select().from(githubSyncSettings)
+      .where(and(eq(githubSyncSettings.owner, owner), eq(githubSyncSettings.repo, repo)));
+    return result;
+  }
+
+  async createGithubSyncSettings(data: InsertGithubSyncSettings): Promise<GithubSyncSettings> {
+    const [created] = await db.insert(githubSyncSettings).values(data as any).returning();
+    return created;
+  }
+
+  async updateGithubSyncSettings(id: string, data: Partial<InsertGithubSyncSettings>): Promise<GithubSyncSettings | undefined> {
+    const [updated] = await db.update(githubSyncSettings)
+      .set({ ...data as any, updatedAt: new Date() })
+      .where(eq(githubSyncSettings.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteGithubSyncSettings(id: string): Promise<boolean> {
+    await db.delete(githubSyncSettings).where(eq(githubSyncSettings.id, id));
+    return true;
+  }
+
+  async getGithubSyncHistory(settingsId?: string, limit?: number): Promise<GithubSyncHistory[]> {
+    if (settingsId) {
+      return db.select().from(githubSyncHistory)
+        .where(eq(githubSyncHistory.settingsId, settingsId))
+        .orderBy(desc(githubSyncHistory.startedAt))
+        .limit(limit || 50);
+    }
+    return db.select().from(githubSyncHistory)
+      .orderBy(desc(githubSyncHistory.startedAt))
+      .limit(limit || 50);
+  }
+
+  async createGithubSyncHistory(data: InsertGithubSyncHistory): Promise<GithubSyncHistory> {
+    const [created] = await db.insert(githubSyncHistory).values(data as any).returning();
+    return created;
+  }
+
+  async updateGithubSyncHistory(id: string, data: Partial<InsertGithubSyncHistory>): Promise<GithubSyncHistory | undefined> {
+    const [updated] = await db.update(githubSyncHistory)
+      .set(data as any)
+      .where(eq(githubSyncHistory.id, id))
+      .returning();
+    return updated;
   }
 }
 
