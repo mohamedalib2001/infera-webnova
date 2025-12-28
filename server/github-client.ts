@@ -184,8 +184,8 @@ export async function pushFilesToRepo(
       const { data } = await client.git.createBlob({
         owner,
         repo,
-        content: Buffer.from(file.content).toString('base64'),
-        encoding: 'base64'
+        content: file.content,
+        encoding: 'utf-8'
       });
       return {
         path: file.path,

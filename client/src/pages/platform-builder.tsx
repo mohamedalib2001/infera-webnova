@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
@@ -22,7 +22,7 @@ import {
   Video, MessageSquare, BarChart3, Settings, Download,
   AlertTriangle, HardDrive, Cpu, Gauge, ShoppingCart,
   Search, User, GraduationCap, Bell, Heart, FolderTree,
-  File, FileJson, FileType2
+  File, FileJson, FileType2, Save, Upload
 } from "lucide-react";
 import { generatePlatformCode, generatePackageJson, type GeneratedCode, type PlatformSpec } from "@/lib/platform-code-generator";
 
@@ -112,9 +112,174 @@ export default function PlatformBuilderPage() {
   const [selectedFile, setSelectedFile] = useState<GeneratedCode | null>(null);
   const [platformSpec, setPlatformSpec] = useState<PlatformSpec | null>(null);
   const [currentBuildId, setCurrentBuildId] = useState<string | null>(null);
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [projectName, setProjectName] = useState<string>('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [githubStatus, setGithubStatus] = useState<{ synced: boolean; repo?: string; url?: string; lastSync?: string } | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const { data: githubConnectionStatus } = useQuery<{ connected: boolean; username?: string }>({
+    queryKey: ['/api/github/status'],
+    staleTime: 60000,
+  });
+
+  const saveProjectMutation = useMutation({
+    mutationFn: async (data: { name: string; description?: string; files: GeneratedCode[]; platformSpec?: any; dockerCompose?: string; kubernetesManifest?: string }) => {
+      const filesPayload = data.files.map(f => ({
+        path: f.filePath || f.fileName,
+        content: f.content,
+        type: f.category || 'config'
+      }));
+      
+      const currentProjectId = projectId;
+      if (currentProjectId) {
+        return apiRequest('PATCH', `/api/projects/${currentProjectId}`, {
+          name: data.name,
+          description: data.description,
+          generatedFiles: filesPayload,
+          platformSpec: data.platformSpec,
+          dockerCompose: data.dockerCompose,
+          kubernetesManifest: data.kubernetesManifest,
+        });
+      } else {
+        return apiRequest('POST', '/api/projects', {
+          name: data.name,
+          description: data.description,
+          generatedFiles: filesPayload,
+          platformSpec: data.platformSpec,
+          dockerCompose: data.dockerCompose,
+          kubernetesManifest: data.kubernetesManifest,
+        });
+      }
+    },
+    onSuccess: async (response) => {
+      const data = await response.json();
+      if (data.id) {
+        setProjectId(data.id);
+      }
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      toast({
+        title: language === 'ar' ? 'تم الحفظ!' : 'Saved!',
+        description: language === 'ar' ? 'تم حفظ المشروع بنجاح' : 'Project saved successfully',
+      });
+      return data;
+    },
+    onError: (error: any) => {
+      setIsSaving(false);
+      toast({
+        title: language === 'ar' ? 'خطأ في الحفظ' : 'Save Error',
+        description: error.message || 'Failed to save project',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const syncToGitHubMutation = useMutation({
+    mutationFn: async (data: { projectId: string; repoName?: string; commitMessage?: string }) => {
+      return apiRequest('POST', `/api/github/sync-project/${data.projectId}`, {
+        repoName: data.repoName,
+        commitMessage: data.commitMessage,
+        isPrivate: true,
+      });
+    },
+    onSuccess: async (response) => {
+      const data = await response.json();
+      setGithubStatus({
+        synced: true,
+        repo: data.repo,
+        url: data.url,
+        lastSync: new Date().toISOString(),
+      });
+      toast({
+        title: language === 'ar' ? 'تمت المزامنة!' : 'Synced!',
+        description: language === 'ar' ? `تم رفع المشروع إلى ${data.repo}` : `Project pushed to ${data.repo}`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: language === 'ar' ? 'خطأ في المزامنة' : 'Sync Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleSaveProject = async (): Promise<string | null> => {
+    if (generatedFiles.length === 0) {
+      toast({
+        title: language === 'ar' ? 'لا يوجد ملفات' : 'No Files',
+        description: language === 'ar' ? 'قم ببناء المنصة أولاً' : 'Build the platform first',
+        variant: 'destructive',
+      });
+      return null;
+    }
+
+    const name = projectName || (platformSpec?.name || 'New Platform');
+    setProjectName(name);
+    setIsSaving(true);
+    try {
+      const response = await saveProjectMutation.mutateAsync({
+        name,
+        description: `Platform: ${name}`,
+        files: generatedFiles,
+        platformSpec,
+        dockerCompose,
+        kubernetesManifest,
+      });
+      const data = await response.json();
+      if (data.id) {
+        setProjectId(data.id);
+        return data.id;
+      }
+      return projectId;
+    } catch (error) {
+      return null;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSyncToGitHub = async () => {
+    if (!githubConnectionStatus?.connected) {
+      toast({
+        title: language === 'ar' ? 'GitHub غير متصل' : 'GitHub Not Connected',
+        description: language === 'ar' ? 'يرجى ربط حساب GitHub من الإعدادات' : 'Please connect GitHub from settings',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    let currentProjectId = projectId;
+    
+    if (!currentProjectId) {
+      currentProjectId = await handleSaveProject();
+      if (!currentProjectId) {
+        toast({
+          title: language === 'ar' ? 'فشل حفظ المشروع' : 'Failed to Save Project',
+          description: language === 'ar' ? 'يجب حفظ المشروع قبل المزامنة' : 'Project must be saved before syncing',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
+    setIsSyncing(true);
+    try {
+      const repoName = projectName || platformSpec?.name || 'nova-platform';
+      await syncToGitHubMutation.mutateAsync({
+        projectId: currentProjectId,
+        repoName: repoName.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+        commitMessage: `Update: ${new Date().toLocaleString()}`,
+      });
+    } catch (error) {
+      console.error('Sync error:', error);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -1492,21 +1657,66 @@ spec:
           )}
         </div>
 
-        {previewUrl && (
+        {(previewUrl || generatedFiles.length > 0) && (
           <div className="p-3 border-t border-border bg-card/50">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30 gap-1">
-                  <CheckCircle className="w-3 h-3" />
-                  {t('Deployed', 'تم النشر')}
-                </Badge>
-                <span className="text-sm text-muted-foreground">{previewUrl}</span>
+                {previewUrl && (
+                  <>
+                    <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30 gap-1">
+                      <CheckCircle className="w-3 h-3" />
+                      {t('Deployed', 'تم النشر')}
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">{previewUrl}</span>
+                  </>
+                )}
+                {githubStatus?.synced && (
+                  <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/30 gap-1">
+                    <GitBranch className="w-3 h-3" />
+                    {githubStatus.repo}
+                  </Badge>
+                )}
+                {projectId && (
+                  <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30 gap-1">
+                    <Save className="w-3 h-3" />
+                    {t('Saved', 'محفوظ')}
+                  </Badge>
+                )}
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="gap-1" data-testid="button-github">
-                  <GitBranch className="w-3 h-3" />
-                  GitHub
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-1" 
+                  onClick={handleSaveProject}
+                  disabled={isSaving || generatedFiles.length === 0}
+                  data-testid="button-save"
+                >
+                  {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                  {t('Save', 'حفظ')}
                 </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-1" 
+                  onClick={handleSyncToGitHub}
+                  disabled={isSyncing || generatedFiles.length === 0 || !githubConnectionStatus?.connected}
+                  data-testid="button-github"
+                >
+                  {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <GitBranch className="w-3 h-3" />}
+                  {githubStatus?.synced ? t('Sync', 'مزامنة') : t('Push to GitHub', 'رفع إلى GitHub')}
+                </Button>
+                {githubStatus?.url && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="gap-1" 
+                    onClick={() => window.open(githubStatus.url, '_blank')}
+                    data-testid="button-open-github"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                  </Button>
+                )}
                 <Button size="sm" className="gap-1" data-testid="button-publish">
                   <Globe className="w-3 h-3" />
                   {t('Publish', 'نشر')}
