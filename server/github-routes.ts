@@ -427,16 +427,36 @@ router.get("/sync-history", async (req: Request, res: Response) => {
 // Create sync history entry (used when sync starts)
 router.post("/sync-history", async (req: Request, res: Response) => {
   try {
-    const { settingsId, syncType, triggeredBy, status } = req.body;
+    const { settingsId, syncType, triggeredBy, status, owner, repo, branch } = req.body;
 
     if (!settingsId || !syncType) {
       return res.status(400).json({ error: "settingsId and syncType are required" });
     }
 
+    // Get settings to fill in owner/repo if not provided
+    let finalOwner = owner;
+    let finalRepo = repo;
+    let finalBranch = branch;
+    
+    if (!finalOwner || !finalRepo) {
+      const settings = await storage.getGithubSyncSettingsById(settingsId);
+      if (settings) {
+        finalOwner = finalOwner || settings.owner;
+        finalRepo = finalRepo || settings.repo;
+        finalBranch = finalBranch || settings.branch;
+      }
+    }
+
+    if (!finalOwner || !finalRepo) {
+      return res.status(400).json({ error: "owner and repo are required" });
+    }
+
     const entry = await storage.createGithubSyncHistory({
       settingsId,
+      owner: finalOwner,
+      repo: finalRepo,
+      branch: finalBranch || 'main',
       syncType,
-      triggeredBy: triggeredBy || 'manual',
       status: status || 'running',
       startedAt: new Date()
     });

@@ -9152,6 +9152,11 @@ body { font-family: 'Tajawal', sans-serif; }
     return result;
   }
 
+  async getGithubSyncSettingsById(id: string): Promise<GithubSyncSettings | undefined> {
+    const [result] = await db.select().from(githubSyncSettings).where(eq(githubSyncSettings.id, id));
+    return result;
+  }
+
   async getGithubSyncSettingsByRepo(owner: string, repo: string): Promise<GithubSyncSettings | undefined> {
     const [result] = await db.select().from(githubSyncSettings)
       .where(and(eq(githubSyncSettings.owner, owner), eq(githubSyncSettings.repo, repo)));
