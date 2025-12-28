@@ -687,6 +687,180 @@ const NOVA_CAPABILITIES = {
     data_size: 'Petabytes',
     availability: '99.99%',
     regions: 'Global Multi-Region'
+  },
+  
+  // ==================== ADVANCED PLATFORM TOOLS ====================
+  
+  // 1. AI-Powered Auto-Scaling Predictor
+  auto_scaling_ai: {
+    enabled: true,
+    prediction_window: '30-60 minutes',
+    features: {
+      historical_pattern_analysis: true,
+      external_event_correlation: true,
+      proactive_scaling: true,
+      ml_load_prediction: true,
+    },
+    supported_platforms: ['kubernetes', 'aws_ecs', 'azure_aks', 'gcp_gke'],
+    description: 'Predict load 30-60 min ahead, proactive auto-scaling instead of reactive'
+  },
+  
+  // 2. Zero-Downtime Multi-Cloud Migration
+  cloud_migration: {
+    enabled: true,
+    features: {
+      live_database_migration: true,
+      zero_downtime: true,
+      multi_region_sync: true,
+      data_validation: true,
+      rollback_capability: true,
+    },
+    supported_data_size: '100TB+',
+    supported_clouds: ['aws', 'gcp', 'azure', 'hetzner', 'digitalocean'],
+    description: 'Zero-downtime migration of 100TB+ data between clouds'
+  },
+  
+  // 3. Intelligent Database Sharding Automation
+  intelligent_sharding: {
+    enabled: true,
+    features: {
+      auto_shard_strategy: true,
+      query_pattern_analysis: true,
+      dynamic_redistribution: true,
+      hotspot_prediction: true,
+      automatic_rebalancing: true,
+    },
+    supported_databases: ['postgresql', 'mysql', 'mongodb', 'cassandra'],
+    description: 'AI-powered automatic sharding with hotspot prediction'
+  },
+  
+  // 4. Universal AI API Gateway
+  ai_api_gateway: {
+    enabled: true,
+    features: {
+      smart_rate_limiting: true,
+      predictive_caching: true,
+      realtime_threat_detection: true,
+      api_analytics: true,
+      behavior_based_throttling: true,
+    },
+    protocols: ['rest', 'graphql', 'grpc', 'websocket'],
+    description: 'AI-powered API Gateway with smart rate limiting and threat detection'
+  },
+  
+  // 5. Code-to-Architecture Visualization
+  code_to_architecture: {
+    enabled: true,
+    features: {
+      codebase_analysis: true,
+      architecture_visualization: true,
+      optimization_suggestions: true,
+      bottleneck_prediction: true,
+      auto_documentation: true,
+    },
+    supported_languages: ['typescript', 'javascript', 'python', 'go', 'java', 'rust'],
+    description: 'Analyze codebase and generate architecture diagrams with optimization suggestions'
+  },
+  
+  // 6. Autonomous Security Orchestration
+  security_orchestration: {
+    enabled: true,
+    features: {
+      ai_threat_monitoring: true,
+      auto_remediation: true,
+      predictive_threat_modeling: true,
+      zero_false_positive: true,
+      incident_response_automation: true,
+    },
+    compliance: ['soc2', 'pci_dss', 'hipaa', 'gdpr'],
+    description: 'AI-powered 24/7 security monitoring with auto-remediation'
+  },
+  
+  // 7. Intelligent Cost Optimization Engine
+  cost_optimization: {
+    enabled: true,
+    features: {
+      usage_pattern_analysis: true,
+      rightsizing_recommendations: true,
+      monthly_cost_prediction: true,
+      reserved_instance_advisor: true,
+      spot_instance_optimization: true,
+    },
+    supported_clouds: ['aws', 'gcp', 'azure'],
+    savings_potential: '30-70%',
+    description: 'AI-powered cost optimization with up to 70% savings'
+  },
+  
+  // 8. Multi-Language Microservices Generator
+  microservices_generator: {
+    enabled: true,
+    supported_languages: ['nodejs', 'python', 'go', 'rust', 'java', 'kotlin', 'scala', 'csharp', 'ruby', 'php'],
+    features: {
+      consistent_api_contracts: true,
+      auto_documentation: true,
+      built_in_observability: true,
+      service_mesh_ready: true,
+      kubernetes_manifests: true,
+    },
+    description: 'Generate microservices in 10+ languages with consistent API contracts'
+  },
+  
+  // 9. Chaos Engineering Automation
+  chaos_engineering: {
+    enabled: true,
+    features: {
+      experiment_planning: true,
+      safe_production_execution: true,
+      impact_analysis: true,
+      resilience_reporting: true,
+      auto_recommendations: true,
+    },
+    experiment_types: ['network_failure', 'pod_kill', 'latency_injection', 'cpu_stress', 'memory_pressure'],
+    description: 'AI-planned chaos experiments with safe production execution'
+  },
+  
+  // 10. Real-time Performance Debugging
+  performance_debugging: {
+    enabled: true,
+    features: {
+      distributed_tracing: true,
+      cross_service_tracking: true,
+      root_cause_analysis: true,
+      realtime_profiling: true,
+      anomaly_detection: true,
+    },
+    scale: '100+ microservices',
+    latency: 'seconds',
+    description: 'Debug performance across 100+ microservices in seconds'
+  },
+  
+  // 11. Streaming Data Processing Engine
+  streaming_engine: {
+    enabled: true,
+    throughput: '1M+ events/second',
+    features: {
+      complex_event_processing: true,
+      realtime_ml: true,
+      exactly_once_semantics: true,
+      windowed_aggregations: true,
+      state_management: true,
+    },
+    technologies: ['kafka_streams', 'flink', 'spark_streaming'],
+    description: 'Process 1M+ events/second with real-time ML'
+  },
+  
+  // 12. Automated Data Pipeline Orchestration
+  data_pipeline_ai: {
+    enabled: true,
+    features: {
+      schema_change_detection: true,
+      pipeline_optimization: true,
+      auto_failure_handling: true,
+      data_quality_monitoring: true,
+      lineage_tracking: true,
+    },
+    supported_sources: ['databases', 'apis', 'files', 'streams', 'events'],
+    description: 'AI-automated data pipelines with schema change detection'
   }
 };
 
@@ -866,6 +1040,68 @@ export function registerNovaRoutes(app: Express) {
 • Docker Container Isolation
 • Sandbox آمن ومعزول
 
+## 🛠️ أدوات المنصات العملاقة المتقدمة (12 أداة):
+
+### 1. AI Auto-Scaling Predictor
+• تنبؤ بالأحمال قبل 30-60 دقيقة
+• تحليل patterns التاريخية + الأحداث الخارجية
+• Auto-scaling استباقي وليس reactive
+
+### 2. Zero-Downtime Cloud Migration
+• نقل 100TB+ بيانات بين clouds بدون توقف
+• Live database migration
+• Real-time sync بين multiple regions
+
+### 3. Intelligent Database Sharding
+• تحليل query patterns وتوزيع البيانات تلقائياً
+• توقع الـ hotspots قبل حدوثها
+• إعادة توزيع dynamic
+
+### 4. AI API Gateway
+• Rate Limiting ذكي حسب user behavior
+• تنبؤ بالـ cache invalidation
+• Threat detection في real-time
+
+### 5. Code-to-Architecture AI
+• تحليل الكود وتحويله لـ architecture diagrams
+• اقتراح تحسينات الأداء
+• توقع الـ bottlenecks
+
+### 6. Autonomous Security Orchestration
+• AI يراقب ويحلل التهديدات 24/7
+• Auto-remediation للـ security incidents
+• Zero-false-positive system
+
+### 7. Cost Optimization AI
+• تحليل استخدام الموارد بدقة
+• اقتراح optimal instance sizes
+• توقع التكاليف مع نمو المنصة (توفير 30-70%)
+
+### 8. Multi-Language Microservices Generator
+• إنشاء microservices بـ 10+ لغات
+• Consistent API contracts
+• Built-in observability
+
+### 9. Chaos Engineering AI
+• تخطيط تجارب chaos تلقائياً
+• تنفيذ آمن في production
+• تحليل المرونة وتقديم توصيات
+
+### 10. Performance Debugging
+• Debug عبر 100+ microservices
+• Root cause analysis في ثوانٍ
+• Distributed tracing متقدم
+
+### 11. Streaming Data Engine
+• معالجة 1M+ events/second
+• Complex Event Processing
+• Machine learning في real-time
+
+### 12. Data Pipeline AI
+• تتبع تغييرات البيانات تلقائياً
+• تحسين الأداء والتكاليف
+• معالجة الأخطاء تلقائياً
+
 ## تعليمات:
 - عند السؤال عن قدراتك، اشرح بالتفصيل مع أمثلة عملية وكود
 - عند طلب بناء منصة، اسأل عن: نوع المنصة، عدد المستخدمين، الميزانية، الـ Timeline، المناطق الجغرافية
@@ -1011,6 +1247,68 @@ You can build platforms serving ${NOVA_CAPABILITIES.scale.max_users} users, with
 • Languages: ${NOVA_CAPABILITIES.languages.join(', ')}
 • Docker Container Isolation
 • Secure Sandboxed Environment
+
+## 🛠️ Advanced Enterprise Platform Tools (12 Tools):
+
+### 1. AI Auto-Scaling Predictor
+• Predict load 30-60 minutes ahead
+• Historical pattern + external event analysis
+• Proactive scaling, not reactive
+
+### 2. Zero-Downtime Cloud Migration
+• Migrate 100TB+ data between clouds without downtime
+• Live database migration
+• Real-time multi-region sync
+
+### 3. Intelligent Database Sharding
+• Auto-analyze query patterns and distribute data
+• Predict hotspots before they occur
+• Dynamic redistribution
+
+### 4. AI API Gateway
+• Smart rate limiting based on user behavior
+• Predictive cache invalidation
+• Real-time threat detection
+
+### 5. Code-to-Architecture AI
+• Analyze code and generate architecture diagrams
+• Suggest performance optimizations
+• Predict bottlenecks
+
+### 6. Autonomous Security Orchestration
+• AI monitors and analyzes threats 24/7
+• Auto-remediation for security incidents
+• Zero-false-positive system
+
+### 7. Cost Optimization AI
+• Analyze resource usage precisely
+• Suggest optimal instance sizes
+• Predict costs with platform growth (30-70% savings)
+
+### 8. Multi-Language Microservices Generator
+• Generate microservices in 10+ languages
+• Consistent API contracts
+• Built-in observability
+
+### 9. Chaos Engineering AI
+• Auto-plan chaos experiments
+• Safe production execution
+• Resilience analysis and recommendations
+
+### 10. Performance Debugging
+• Debug across 100+ microservices
+• Root cause analysis in seconds
+• Advanced distributed tracing
+
+### 11. Streaming Data Engine
+• Process 1M+ events/second
+• Complex Event Processing
+• Real-time machine learning
+
+### 12. Data Pipeline AI
+• Auto-detect schema changes
+• Optimize performance and costs
+• Automatic error handling
 
 ## Instructions:
 - When asked about capabilities, explain in detail with practical examples and code
@@ -1195,6 +1493,21 @@ ${JSON.stringify(projectContext?.activeBlueprint || {}, null, 2)}`;
         compliance: {
           enabled: true,
           standards: NOVA_CAPABILITIES.compliance
+        },
+        // 12 Advanced Enterprise Platform Tools
+        advanced_tools: {
+          auto_scaling_ai: NOVA_CAPABILITIES.auto_scaling_ai,
+          cloud_migration: NOVA_CAPABILITIES.cloud_migration,
+          intelligent_sharding: NOVA_CAPABILITIES.intelligent_sharding,
+          ai_api_gateway: NOVA_CAPABILITIES.ai_api_gateway,
+          code_to_architecture: NOVA_CAPABILITIES.code_to_architecture,
+          security_orchestration: NOVA_CAPABILITIES.security_orchestration,
+          cost_optimization: NOVA_CAPABILITIES.cost_optimization,
+          microservices_generator: NOVA_CAPABILITIES.microservices_generator,
+          chaos_engineering: NOVA_CAPABILITIES.chaos_engineering,
+          performance_debugging: NOVA_CAPABILITIES.performance_debugging,
+          streaming_engine: NOVA_CAPABILITIES.streaming_engine,
+          data_pipeline_ai: NOVA_CAPABILITIES.data_pipeline_ai
         }
       }
     });
