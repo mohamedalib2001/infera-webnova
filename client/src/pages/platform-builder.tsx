@@ -1428,7 +1428,7 @@ spec:
                   <div className="p-2 space-y-1">
                     {generatedFiles.length > 0 ? (
                       <>
-                        {['frontend', 'backend', 'database', 'infrastructure', 'config'].map(category => {
+                        {['frontend', 'backend', 'shared', 'database', 'infrastructure', 'config', 'docs', 'generated'].map(category => {
                           const categoryFiles = generatedFiles.filter(f => f.category === category);
                           if (categoryFiles.length === 0) return null;
                           return (
@@ -1436,8 +1436,11 @@ spec:
                               <div className="text-xs font-medium text-muted-foreground px-2 py-1 uppercase">
                                 {category === 'frontend' ? t('Frontend', 'الواجهة') :
                                  category === 'backend' ? t('Backend', 'الخادم') :
+                                 category === 'shared' ? t('Shared', 'المشترك') :
                                  category === 'database' ? t('Database', 'قاعدة البيانات') :
                                  category === 'infrastructure' ? t('Infrastructure', 'البنية التحتية') :
+                                 category === 'docs' ? t('Documentation', 'التوثيق') :
+                                 category === 'generated' ? t('Generated', 'المولّد') :
                                  t('Config', 'الإعدادات')}
                               </div>
                               {categoryFiles.map(file => (
