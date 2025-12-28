@@ -1552,25 +1552,39 @@ function generatePaymentSystem(spec: PlatformSpec): GeneratedCode[] {
   if (!spec.hasPayments) return files;
   
   const stripeWebhook = `
-import { Router } from "express";
+import { Router, raw } from "express";
 import Stripe from "stripe";
 import { db } from "../db";
 import { payments, subscriptions, users } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 const router = Router();
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2024-12-18.acacia" });
-const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
-router.post("/stripe", async (req, res) => {
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error("STRIPE_SECRET_KEY environment variable is required");
+}
+if (!process.env.STRIPE_WEBHOOK_SECRET) {
+  throw new Error("STRIPE_WEBHOOK_SECRET environment variable is required");
+}
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2024-12-18.acacia" });
+const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+router.post("/stripe", raw({ type: "application/json" }), async (req, res) => {
   const sig = req.headers["stripe-signature"] as string;
+  
+  if (!sig) {
+    return res.status(400).send("Missing stripe-signature header");
+  }
+  
   let event: Stripe.Event;
 
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
-  } catch (err) {
-    console.error("Webhook signature verification failed:", err);
-    return res.status(400).send("Webhook Error: Invalid signature");
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("Webhook signature verification failed:", message);
+    return res.status(400).send(\`Webhook Error: \${message}\`);
   }
 
   try {
