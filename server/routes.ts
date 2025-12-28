@@ -96,6 +96,7 @@ import {
   insertInferaApiKeySchema,
   contentScans,
   platforms,
+  sovereignWorkspaceProjects,
 } from "@shared/schema";
 import Anthropic from "@anthropic-ai/sdk";
 import { sql } from "drizzle-orm";
@@ -26574,7 +26575,7 @@ ${contentToAnalyze}`
       const userId = req.session?.userId;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
-      const projects = await storage.getSovereignWorkspaceProjectsByOwner(userId);
+      const projects = await db.select().from(sovereignWorkspaceProjects).limit(50);
       const totalPlatforms = projects?.length || 0;
       const livePlatforms = projects?.filter(p => p.status === "live" || p.status === "active").length || 0;
       
