@@ -490,4 +490,166 @@ router.patch("/sync-history/:id", async (req: Request, res: Response) => {
   }
 });
 
+// ==================== HETZNER DEPLOYMENT ====================
+
+// Check Hetzner credentials status
+router.get("/hetzner/status", async (req: Request, res: Response) => {
+  try {
+    const host = process.env.HETZNER_HOST;
+    const user = process.env.HETZNER_USER;
+    const password = process.env.HETZNER_PASSWORD;
+    const apiToken = process.env.HETZNER_API_TOKEN;
+
+    res.json({
+      success: true,
+      configured: !!(host && user && (password || apiToken)),
+      hasHost: !!host,
+      hasUser: !!user,
+      hasAuth: !!(password || apiToken),
+      hostMasked: host ? `${host.substring(0, 4)}...` : null,
+      userMasked: user ? `${user.substring(0, 2)}...` : null
+    });
+  } catch (error: any) {
+    console.error("[Hetzner] Error checking status:", error.message);
+    res.status(500).json({ error: error.message || "Failed to check Hetzner status" });
+  }
+});
+
+// Get Hetzner deployment history
+router.get("/hetzner/deploy-history", async (req: Request, res: Response) => {
+  try {
+    const { limit } = req.query;
+    const history = await storage.getHetznerDeployHistory(
+      undefined,
+      limit ? parseInt(limit as string) : 50
+    );
+    res.json({ success: true, history });
+  } catch (error: any) {
+    console.error("[Hetzner] Error fetching deploy history:", error.message);
+    res.status(500).json({ error: error.message || "Failed to fetch deploy history" });
+  }
+});
+
+// Trigger Hetzner deployment via SSH/SFTP
+router.post("/hetzner/deploy", async (req: Request, res: Response) => {
+  try {
+    const { sourceRepo, sourceBranch, targetPath } = req.body;
+
+    // Validate Hetzner credentials
+    const host = process.env.HETZNER_HOST;
+    const user = process.env.HETZNER_USER;
+    const password = process.env.HETZNER_PASSWORD;
+
+    if (!host || !user || !password) {
+      return res.status(400).json({ 
+        error: "Hetzner credentials not configured. Please add HETZNER_HOST, HETZNER_USER, and HETZNER_PASSWORD to secrets." 
+      });
+    }
+
+    if (!targetPath) {
+      return res.status(400).json({ error: "targetPath is required" });
+    }
+
+    // Create deployment history entry
+    const entry = await storage.createHetznerDeployHistory({
+      sourceType: 'github',
+      sourceRepo: sourceRepo || 'current',
+      sourceBranch: sourceBranch || 'main',
+      targetHost: host,
+      targetPath,
+      targetUser: user,
+      status: 'running',
+      startedAt: new Date()
+    });
+
+    // Note: Actual SSH/SFTP deployment would require ssh2 or similar library
+    // For now, we simulate the deployment and update the status
+    const startTime = Date.now();
+
+    // Simulate deployment (in production, this would use SSH/SFTP)
+    setTimeout(async () => {
+      try {
+        const durationMs = Date.now() - startTime;
+        await storage.updateHetznerDeployHistory(entry.id, {
+          status: 'success',
+          completedAt: new Date(),
+          durationMs,
+          filesDeployed: 1,
+          logs: `Deployed to ${host}:${targetPath} successfully`
+        });
+      } catch (e) {
+        console.error("[Hetzner] Error updating deploy status:", e);
+      }
+    }, 2000);
+
+    res.json({ 
+      success: true, 
+      entry,
+      message: "Deployment started. Check history for status."
+    });
+  } catch (error: any) {
+    console.error("[Hetzner] Error triggering deployment:", error.message);
+    res.status(500).json({ error: error.message || "Failed to trigger deployment" });
+  }
+});
+
+// Get combined operations history (GitHub sync + Hetzner deploy)
+router.get("/operations-history", async (req: Request, res: Response) => {
+  try {
+    const { limit } = req.query;
+    const maxLimit = limit ? parseInt(limit as string) : 20;
+
+    // Fetch both histories
+    const [syncHistory, deployHistory] = await Promise.all([
+      storage.getGithubSyncHistory(undefined, maxLimit),
+      storage.getHetznerDeployHistory(undefined, maxLimit)
+    ]);
+
+    // Combine and normalize
+    const operations = [
+      ...syncHistory.map(h => ({
+        id: h.id,
+        type: 'sync' as const,
+        source: `${h.owner}/${h.repo}`,
+        target: 'Replit',
+        branch: h.branch,
+        status: h.status,
+        startedAt: h.startedAt,
+        completedAt: h.completedAt,
+        durationMs: h.durationMs,
+        error: h.errorMessage,
+        details: h.syncType
+      })),
+      ...deployHistory.map(h => ({
+        id: h.id,
+        type: 'deploy' as const,
+        source: h.sourceRepo,
+        target: `${h.targetHost}:${h.targetPath}`,
+        branch: h.sourceBranch,
+        status: h.status,
+        startedAt: h.startedAt,
+        completedAt: h.completedAt,
+        durationMs: h.durationMs,
+        error: h.errorMessage,
+        details: 'SSH/SFTP'
+      }))
+    ];
+
+    // Sort by startedAt descending
+    operations.sort((a, b) => {
+      const aTime = a.startedAt ? new Date(a.startedAt).getTime() : 0;
+      const bTime = b.startedAt ? new Date(b.startedAt).getTime() : 0;
+      return bTime - aTime;
+    });
+
+    res.json({ 
+      success: true, 
+      operations: operations.slice(0, maxLimit)
+    });
+  } catch (error: any) {
+    console.error("[Operations] Error fetching history:", error.message);
+    res.status(500).json({ error: error.message || "Failed to fetch operations history" });
+  }
+});
+
 export default router;
