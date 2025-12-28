@@ -491,6 +491,30 @@ export async function registerRoutes(
     }
   });
 
+
+  // Platform Preview endpoint
+  app.get("/api/platforms/preview/:buildId", async (req, res) => {
+    try {
+      const build = getBuild(req.params.buildId);
+      if (!build) {
+        return res.status(404).send("<h1>Build not found</h1>");
+      }
+
+      if (build.status !== "complete") {
+        return res.status(400).send("<h1>Build not complete</h1>");
+      }
+
+      if (!build.previewHtml) {
+        return res.status(404).send("<h1>Preview not available</h1>");
+      }
+
+      res.setHeader("Content-Type", "text/html");
+      res.send(build.previewHtml);
+    } catch (error) {
+      console.error("Preview error:", error);
+      res.status(500).send("<h1>Preview failed</h1>");
+    }
+  });
   
   app.get("/api/pages/analysis", async (req, res) => {
     try {

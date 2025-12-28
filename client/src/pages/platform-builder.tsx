@@ -554,8 +554,6 @@ spec:
     setBuildSteps(prev => prev.map(step => ({ ...step, status: 'complete' })));
     
     const projectName = arch.platformType.toLowerCase().replace(/\s+/g, '-');
-    const mockPreviewUrl = `https://${projectName}.infera.dev`;
-    setPreviewUrl(mockPreviewUrl);
     
     setDockerCompose(generateDockerCompose(arch));
     setKubernetesManifest(generateKubernetesManifest(arch));
@@ -614,6 +612,7 @@ spec:
       
       if (buildResponse.success && buildResponse.buildId) {
         setCurrentBuildId(buildResponse.buildId);
+        setPreviewUrl(`/api/platforms/preview/${buildResponse.buildId}`);
         
         const filesResponse = await fetch(`/api/platforms/build/${buildResponse.buildId}/files`);
         if (filesResponse.ok) {
@@ -663,9 +662,10 @@ spec:
     
     setActiveTab('architecture');
     
+    const dynamicPreviewUrl = previewUrl || `https://${projectName}.infera.dev`;
     return {
       success: true,
-      previewUrl: mockPreviewUrl,
+      previewUrl: dynamicPreviewUrl,
       githubUrl: `https://github.com/infera/${projectName}`,
       projectName,
       architecture: arch
@@ -995,172 +995,12 @@ spec:
                       <RefreshCw className="w-3 h-3" />
                     </Button>
                   </div>
-                  <div className="h-[calc(100%-2rem)] bg-white dark:bg-zinc-900 overflow-auto">
-                    {architecture?.platformType.includes('commerce') || architecture?.platformType.includes('E-commerce') ? (
-                      <div className="min-h-full">
-                        <nav className="bg-gradient-to-r from-violet-600 to-purple-600 text-white px-6 py-4">
-                          <div className="flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
-                                <ShoppingCart className="w-5 h-5" />
-                              </div>
-                              <span className="font-bold text-lg">{t('My Store', 'متجري')}</span>
-                            </div>
-                            <div className="hidden md:flex items-center gap-6 text-sm">
-                              <span>{t('Products', 'المنتجات')}</span>
-                              <span>{t('Categories', 'الفئات')}</span>
-                              <span>{t('Offers', 'العروض')}</span>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <Search className="w-5 h-5" />
-                              <ShoppingCart className="w-5 h-5" />
-                              <User className="w-5 h-5" />
-                            </div>
-                          </div>
-                        </nav>
-                        <div className="p-6">
-                          <div className="bg-gradient-to-r from-violet-100 to-purple-100 dark:from-violet-900/30 dark:to-purple-900/30 rounded-xl p-8 mb-6">
-                            <h1 className="text-2xl font-bold mb-2">{t('Welcome to Our Store', 'مرحباً بك في متجرنا')}</h1>
-                            <p className="text-muted-foreground mb-4">{t('Discover the best products at the best prices', 'اكتشف أفضل المنتجات بأفضل الأسعار')}</p>
-                            <Button size="sm">{t('Shop Now', 'تسوق الآن')}</Button>
-                          </div>
-                          <h2 className="font-semibold mb-4">{t('Featured Products', 'منتجات مميزة')}</h2>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            {[1, 2, 3, 4].map(i => (
-                              <div key={i} className="bg-muted/30 rounded-lg p-3">
-                                <div className="aspect-square bg-gradient-to-br from-violet-200 to-purple-200 dark:from-violet-800/50 dark:to-purple-800/50 rounded-lg mb-2 flex items-center justify-center">
-                                  <Box className="w-8 h-8 text-violet-500" />
-                                </div>
-                                <div className="text-sm font-medium">{t('Product', 'منتج')} {i}</div>
-                                <div className="text-xs text-muted-foreground">$99.99</div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    ) : architecture?.platformType.includes('Education') || architecture?.platformType.includes('تعليم') ? (
-                      <div className="min-h-full">
-                        <nav className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-6 py-4">
-                          <div className="flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
-                                <GraduationCap className="w-5 h-5" />
-                              </div>
-                              <span className="font-bold text-lg">{t('Learn Platform', 'منصة التعلم')}</span>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <Search className="w-5 h-5" />
-                              <User className="w-5 h-5" />
-                            </div>
-                          </div>
-                        </nav>
-                        <div className="p-6">
-                          <div className="bg-gradient-to-r from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30 rounded-xl p-8 mb-6">
-                            <h1 className="text-2xl font-bold mb-2">{t('Start Learning Today', 'ابدأ التعلم اليوم')}</h1>
-                            <p className="text-muted-foreground mb-4">{t('Thousands of courses from top instructors', 'آلاف الدورات من أفضل المدربين')}</p>
-                            <Button size="sm">{t('Browse Courses', 'تصفح الدورات')}</Button>
-                          </div>
-                          <h2 className="font-semibold mb-4">{t('Popular Courses', 'دورات شائعة')}</h2>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {[1, 2, 3, 4].map(i => (
-                              <div key={i} className="bg-muted/30 rounded-lg p-4 flex gap-4">
-                                <div className="w-20 h-16 bg-gradient-to-br from-blue-200 to-cyan-200 dark:from-blue-800/50 dark:to-cyan-800/50 rounded-lg flex items-center justify-center flex-shrink-0">
-                                  <Play className="w-6 h-6 text-blue-500" />
-                                </div>
-                                <div>
-                                  <div className="text-sm font-medium">{t('Course', 'دورة')} {i}</div>
-                                  <div className="text-xs text-muted-foreground">{t('12 lessons', '12 درس')}</div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    ) : architecture?.platformType.includes('Social') || architecture?.platformType.includes('اجتماع') ? (
-                      <div className="min-h-full">
-                        <nav className="bg-gradient-to-r from-pink-600 to-rose-600 text-white px-6 py-4">
-                          <div className="flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
-                                <MessageSquare className="w-5 h-5" />
-                              </div>
-                              <span className="font-bold text-lg">{t('Social Hub', 'المركز الاجتماعي')}</span>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <Bell className="w-5 h-5" />
-                              <User className="w-5 h-5" />
-                            </div>
-                          </div>
-                        </nav>
-                        <div className="p-6">
-                          <div className="space-y-4">
-                            {[1, 2, 3].map(i => (
-                              <div key={i} className="bg-muted/30 rounded-lg p-4">
-                                <div className="flex items-center gap-3 mb-3">
-                                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-400 to-rose-400" />
-                                  <div>
-                                    <div className="text-sm font-medium">{t('User', 'مستخدم')} {i}</div>
-                                    <div className="text-xs text-muted-foreground">{t('2 hours ago', 'منذ ساعتين')}</div>
-                                  </div>
-                                </div>
-                                <p className="text-sm text-muted-foreground">{t('This is a sample post content...', 'هذا محتوى منشور تجريبي...')}</p>
-                                <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
-                                  <span className="flex items-center gap-1"><Heart className="w-4 h-4" /> 42</span>
-                                  <span className="flex items-center gap-1"><MessageSquare className="w-4 h-4" /> 12</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="min-h-full">
-                        <nav className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-6 py-4">
-                          <div className="flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
-                                <Rocket className="w-5 h-5" />
-                              </div>
-                              <span className="font-bold text-lg">{architecture?.platformType || t('Platform', 'المنصة')}</span>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <User className="w-5 h-5" />
-                            </div>
-                          </div>
-                        </nav>
-                        <div className="p-6">
-                          <div className="bg-gradient-to-r from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30 rounded-xl p-8 mb-6">
-                            <h1 className="text-2xl font-bold mb-2">{architecture?.platformType || t('Welcome', 'مرحباً')}</h1>
-                            <p className="text-muted-foreground mb-4">{t('Your platform is ready and deployed', 'منصتك جاهزة ومنشورة')}</p>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <Badge variant="outline" className={getComplexityColor(architecture?.complexity || 'simple')}>
-                                {architecture?.complexity === 'enterprise' ? t('Enterprise', 'مؤسسي') : architecture?.complexity === 'medium' ? t('Medium', 'متوسط') : t('Simple', 'بسيط')}
-                              </Badge>
-                              <Badge variant="outline" className="gap-1">
-                                <Users className="w-3 h-3" />
-                                {architecture?.estimatedUsers}
-                              </Badge>
-                              <Badge variant="outline" className="gap-1">
-                                <Server className="w-3 h-3" />
-                                {architecture?.microservices.length} {t('services', 'خدمة')}
-                              </Badge>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            {architecture?.microservices.filter(s => s.type === 'api').slice(0, 4).map(service => (
-                              <div key={service.id} className="bg-muted/30 rounded-lg p-4">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <service.icon className="w-5 h-5 text-emerald-500" />
-                                  <span className="font-medium text-sm">{language === 'ar' ? service.nameAr : service.name}</span>
-                                </div>
-                                <div className="text-xs text-muted-foreground">{t('Active', 'نشط')}</div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  <iframe 
+                    src={previewUrl} 
+                    className="h-[calc(100%-2rem)] w-full border-0"
+                    title={t('Platform Preview', 'معاينة المنصة')}
+                    data-testid="iframe-platform-preview"
+                  />
                 </div>
               ) : (
                 <div className="text-center p-8">
