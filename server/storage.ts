@@ -582,6 +582,9 @@ import {
   githubSyncHistory,
   type GithubSyncHistory,
   type InsertGithubSyncHistory,
+  hetznerDeployHistory,
+  type HetznerDeployHistory,
+  type InsertHetznerDeployHistory,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt, gte, lte, sql, ne } from "drizzle-orm";
@@ -9202,6 +9205,33 @@ body { font-family: 'Tajawal', sans-serif; }
     const [updated] = await db.update(githubSyncHistory)
       .set(data as any)
       .where(eq(githubSyncHistory.id, id))
+      .returning();
+    return updated;
+  }
+
+  // ==================== HETZNER DEPLOYMENT HISTORY ====================
+
+  async getHetznerDeployHistory(userId?: string, limit?: number): Promise<HetznerDeployHistory[]> {
+    if (userId) {
+      return db.select().from(hetznerDeployHistory)
+        .where(eq(hetznerDeployHistory.userId, userId))
+        .orderBy(desc(hetznerDeployHistory.startedAt))
+        .limit(limit || 50);
+    }
+    return db.select().from(hetznerDeployHistory)
+      .orderBy(desc(hetznerDeployHistory.startedAt))
+      .limit(limit || 50);
+  }
+
+  async createHetznerDeployHistory(data: InsertHetznerDeployHistory): Promise<HetznerDeployHistory> {
+    const [created] = await db.insert(hetznerDeployHistory).values(data as any).returning();
+    return created;
+  }
+
+  async updateHetznerDeployHistory(id: string, data: Partial<InsertHetznerDeployHistory>): Promise<HetznerDeployHistory | undefined> {
+    const [updated] = await db.update(hetznerDeployHistory)
+      .set(data as any)
+      .where(eq(hetznerDeployHistory.id, id))
       .returning();
     return updated;
   }
