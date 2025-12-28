@@ -17,6 +17,14 @@ const adapterRegistry: Map<PaymentGateway, new () => PaymentAdapter> = new Map([
   ['FAWRY', FawryAdapter],
 ]);
 
+export function getImplementedGateways(): PaymentGateway[] {
+  return Array.from(adapterRegistry.keys());
+}
+
+export function isAdapterImplemented(gateway: PaymentGateway): boolean {
+  return adapterRegistry.has(gateway);
+}
+
 const adapterInstances: Map<PaymentGateway, PaymentAdapter> = new Map();
 
 export function getAdapterConfigFromEnv(gateway: PaymentGateway): PaymentAdapterConfig {

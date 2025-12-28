@@ -41,7 +41,7 @@ router.post('/callback/:gateway', async (req: Request, res: Response) => {
     const headers: Record<string, string> = {};
     for (const [key, value] of Object.entries(req.headers)) {
       if (typeof value === 'string') {
-        headers[key.toLowerCase()] = value;
+        headers[key] = value;
       }
     }
     

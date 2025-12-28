@@ -193,3 +193,40 @@ The system is built around a Blueprint System (Single Source of Truth), an AI Or
 *   **Maps**: Google Maps
 *   **Development Tools**: Replit, GitHub Copilot
 *   **IaC**: Terraform, Ansible
+## Unified Payment Orchestrator System
+
+### Core Principles (Non-Negotiable)
+- **NO Platform Direct Gateway Access**: All payments must go through the central Payment Orchestrator
+- **Dynamic Gateway Selection**: Routing is config-based via `server/payment/routing-config.ts`
+- **Unified Contract**: All platforms use `UnifiedPaymentContract` schema
+- **Zero Code Changes**: Adding new country/gateway = Config + Adapter only
+
+### Supported Regions & Gateways
+| Region | Currency | Gateways |
+|--------|----------|----------|
+| EGYPT | EGP | Paymob, Fawry, PaySky, Meeza, InstaPay |
+| UAE | AED | PayTabs, Telr, Amazon Payment Services, Apple Pay, Google Pay |
+| KSA | SAR | STC Pay, Mada, HyperPay, PayTabs, Apple Pay |
+
+### API Endpoints
+- `POST /api/payment-orchestrator/create` - Create payment with unified contract
+- `POST /api/payment-orchestrator/callback/:gateway` - Handle gateway callbacks
+- `POST /api/payment-orchestrator/refund` - Process refunds
+- `POST /api/payment-orchestrator/payout` - Process payouts
+- `GET /api/payment-orchestrator/transaction/:id` - Get transaction status
+- `GET /api/payment-orchestrator/gateways/:region` - Get available gateways
+- `GET /api/payment-orchestrator/config` - Get routing configuration
+- `GET /api/payment-orchestrator/health` - Gateway health check
+
+### Security Features
+- Signature verification for all callbacks
+- Idempotency keys for all operations
+- Secrets loaded from environment only
+- No API keys in platform code
+
+### Adding New Gateway
+1. Create adapter in `server/payment/adapters/`
+2. Implement `PaymentAdapter` interface
+3. Register in `server/payment/adapters/index.ts`
+4. Add to routing config
+

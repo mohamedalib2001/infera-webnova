@@ -38,9 +38,10 @@ export class PaymobAdapter extends BasePaymentAdapter {
     
     const data = payload as Record<string, unknown>;
     const obj = data.obj as Record<string, unknown> || data;
+    const order = obj.order as Record<string, unknown> | undefined;
     
     return {
-      transaction_id: String(obj.order?.merchant_order_id || obj.id || 'unknown'),
+      transaction_id: String(order?.merchant_order_id || obj.id || 'unknown'),
       status: obj.success ? 'SUCCESS' : 'FAILED',
       amount: Number(obj.amount_cents || 0) / 100,
       currency: 'EGP',

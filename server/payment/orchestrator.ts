@@ -14,7 +14,7 @@ import {
   type PaymentRegion
 } from '@shared/payment-types';
 import { paymentRouter } from './routing-config';
-import { getAdapter, isGatewaySupported } from './adapters';
+import { getAdapter, isGatewaySupported, isAdapterImplemented, getImplementedGateways } from './adapters';
 
 interface IdempotencyEntry {
   key: string;
@@ -41,11 +41,14 @@ class PaymentOrchestrator {
     const region = paymentRouter.resolveRegion(validated.company_region);
     const currency = paymentRouter.resolveCurrency(validated.currency, region);
     
-    const gateway = paymentRouter.selectGateway(region);
+    const availableGateways = paymentRouter.getAvailableGateways(region)
+      .filter(g => isAdapterImplemented(g));
     
-    if (!isGatewaySupported(gateway)) {
-      throw new Error(`Gateway ${gateway} is not supported in region ${region}`);
+    if (availableGateways.length === 0) {
+      throw new Error(`No implemented gateways available for region ${region}`);
     }
+    
+    const gateway = availableGateways[0];
     
     const adapter = await getAdapter(gateway);
     if (!adapter) {
@@ -74,12 +77,27 @@ class PaymentOrchestrator {
     payload: unknown,
     headers: Record<string, string>
   ): Promise<PaymentCallbackResponse> {
+    if (!isAdapterImplemented(gateway)) {
+      throw new Error(`No adapter implemented for gateway: ${gateway}`);
+    }
+    
     const adapter = await getAdapter(gateway);
     if (!adapter) {
       throw new Error(`No adapter available for gateway: ${gateway}`);
     }
     
-    const signature = headers['x-signature'] || headers['hmac'] || headers['signature'] || '';
+    const signatureHeaders = [
+      'x-signature', 'X-Signature', 'hmac', 'HMAC', 'signature', 'Signature',
+      'x-paymob-signature', 'x-paytabs-signature', 'x-hyperpay-signature'
+    ];
+    
+    let signature = '';
+    for (const h of signatureHeaders) {
+      if (headers[h]) {
+        signature = headers[h];
+        break;
+      }
+    }
     
     if (signature) {
       const isValid = await adapter.verifySignature(payload, signature);
@@ -185,7 +203,8 @@ class PaymentOrchestrator {
   }
 
   getAvailableGateways(region: Exclude<PaymentRegion, 'AUTO'>): PaymentGateway[] {
-    return paymentRouter.getAvailableGateways(region);
+    return paymentRouter.getAvailableGateways(region)
+      .filter(g => isAdapterImplemented(g));
   }
 
   private extractGatewayFromTransactionId(transactionId: string): PaymentGateway {
