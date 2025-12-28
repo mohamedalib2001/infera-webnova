@@ -160,11 +160,10 @@ export default function NovaCommandPage() {
     setMessages(prev => [...prev, thinkingMessage]);
 
     try {
-      const response = await apiRequest('POST', '/api/nova/command/chat', { 
-        message: content,
-        context: { language, userId: user?.id }
+      const data = await apiRequest('POST', '/api/nova/command/chat', { 
+        message: content, 
+        context: { language, userId: user?.id } 
       });
-      const data = await response.json();
       
       setMessages(prev => prev.filter(m => m.id !== thinkingMessage.id));
       
