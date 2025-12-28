@@ -1547,25 +1547,169 @@ export default router;
 }
 
 function generatePaymentSystem(spec: PlatformSpec): GeneratedCode[] {
-  return [];
+  const files: GeneratedCode[] = [];
+  
+  if (!spec.hasPayments) return files;
+  
+  const stripeWebhook = `
+import { Router } from "express";
+import Stripe from "stripe";
+import { db } from "../db";
+import { payments, subscriptions, users } from "@shared/schema";
+import { eq } from "drizzle-orm";
+
+const router = Router();
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2024-12-18.acacia" });
+const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+
+router.post("/stripe", async (req, res) => {
+  const sig = req.headers["stripe-signature"] as string;
+  let event: Stripe.Event;
+
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+  } catch (err) {
+    console.error("Webhook signature verification failed:", err);
+    return res.status(400).send("Webhook Error: Invalid signature");
+  }
+
+  try {
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const userId = parseInt(session.metadata?.userId || "0");
+        const planId = parseInt(session.metadata?.planId || "0");
+        
+        if (userId && planId) {
+          await db.insert(subscriptions).values({
+            userId,
+            planId,
+            status: "active",
+            stripeSubscriptionId: session.subscription as string,
+            stripeCustomerId: session.customer as string,
+            currentPeriodStart: new Date(),
+            currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          });
+        }
+        break;
+      }
+
+      case "invoice.paid": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const customerId = invoice.customer as string;
+        
+        const [subscription] = await db.select().from(subscriptions)
+          .where(eq(subscriptions.stripeCustomerId, customerId));
+        
+        if (subscription) {
+          await db.insert(payments).values({
+            userId: subscription.userId,
+            subscriptionId: subscription.id,
+            amount: (invoice.amount_paid / 100).toFixed(2),
+            currency: invoice.currency.toUpperCase(),
+            status: "completed",
+            stripeInvoiceId: invoice.id,
+            receiptUrl: invoice.hosted_invoice_url || undefined,
+            paidAt: new Date(),
+          });
+        }
+        break;
+      }
+
+      case "customer.subscription.deleted": {
+        const sub = event.data.object as Stripe.Subscription;
+        await db.update(subscriptions)
+          .set({ status: "cancelled", canceledAt: new Date() })
+          .where(eq(subscriptions.stripeSubscriptionId, sub.id));
+        break;
+      }
+    }
+
+    res.json({ received: true });
+  } catch (error) {
+    console.error("Webhook processing error:", error);
+    res.status(500).json({ error: "Webhook processing failed" });
+  }
+});
+
+export default router;
+`;
+
+  files.push({
+    fileName: 'webhooks.ts',
+    filePath: 'server/routes/webhooks.ts',
+    language: 'typescript',
+    content: stripeWebhook,
+    category: 'backend'
+  });
+
+  return files;
 }
 
 function generateAPIRoutes(spec: PlatformSpec): GeneratedCode[] {
   const files: GeneratedCode[] = [];
 
   const mainRoutes = `
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
+import { z } from "zod";
 import authRoutes from "./routes/auth";
 ${spec.hasSubscriptions ? 'import subscriptionRoutes from "./routes/subscriptions";' : ''}
+${spec.hasPayments ? 'import webhookRoutes from "./routes/webhooks";' : ''}
 
 const router = Router();
 
 router.use("/auth", authRoutes);
 ${spec.hasSubscriptions ? 'router.use("/subscriptions", subscriptionRoutes);' : ''}
+${spec.hasPayments ? 'router.use("/webhooks", webhookRoutes);' : ''}
 
 router.get("/health", (req, res) => {
-  res.json({ status: "healthy", timestamp: new Date().toISOString() });
+  res.json({ 
+    status: "healthy", 
+    timestamp: new Date().toISOString(),
+    version: process.env.npm_package_version || "1.0.0",
+    environment: process.env.NODE_ENV || "development"
+  });
 });
+
+router.get("/platform/branding", async (req, res) => {
+  try {
+    const { db } = await import("../db");
+    const { settings } = await import("@shared/schema");
+    const { eq, or } = await import("drizzle-orm");
+    
+    const brandingSettings = await db.select().from(settings)
+      .where(or(
+        eq(settings.key, "platform_name"),
+        eq(settings.key, "platform_logo"),
+        eq(settings.key, "primary_color"),
+        eq(settings.key, "secondary_color")
+      ));
+    
+    const branding = brandingSettings.reduce((acc, s) => {
+      acc[s.key] = s.value;
+      return acc;
+    }, {} as Record<string, unknown>);
+    
+    res.json(branding);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load branding" });
+  }
+});
+
+function errorHandler(err: Error, req: Request, res: Response, next: NextFunction) {
+  console.error("API Error:", err);
+  
+  if (err instanceof z.ZodError) {
+    return res.status(400).json({ 
+      error: "Validation failed", 
+      details: err.errors.map(e => ({ path: e.path.join("."), message: e.message }))
+    });
+  }
+  
+  res.status(500).json({ error: "Internal server error" });
+}
+
+router.use(errorHandler);
 
 export default router;
 `;
@@ -1575,6 +1719,62 @@ export default router;
     filePath: 'server/routes/index.ts',
     language: 'typescript',
     content: mainRoutes,
+    category: 'backend'
+  });
+  
+  const serverIndex = `
+import express from "express";
+import cors from "cors";
+import session from "express-session";
+import routes from "./routes";
+import { testConnection } from "./db";
+
+const app = express();
+const PORT = parseInt(process.env.PORT || "5000");
+
+app.use(cors({
+  origin: process.env.NODE_ENV === "production" 
+    ? process.env.ALLOWED_ORIGINS?.split(",") 
+    : ["http://localhost:5173", "http://localhost:5000"],
+  credentials: true,
+}));
+
+app.use(express.json());
+
+app.use(session({
+  secret: process.env.SESSION_SECRET || "change-me-in-production",
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === "production",
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000,
+    sameSite: "lax",
+  },
+}));
+
+app.use("/api", routes);
+
+async function start() {
+  const dbConnected = await testConnection();
+  if (!dbConnected) {
+    console.error("Failed to connect to database. Exiting...");
+    process.exit(1);
+  }
+
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(\`Server running on http://0.0.0.0:\${PORT}\`);
+  });
+}
+
+start();
+`;
+
+  files.push({
+    fileName: 'index.ts',
+    filePath: 'server/index.ts',
+    language: 'typescript',
+    content: serverIndex,
     category: 'backend'
   });
 
