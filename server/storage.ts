@@ -585,6 +585,16 @@ import {
   hetznerDeployHistory,
   type HetznerDeployHistory,
   type InsertHetznerDeployHistory,
+  // Server Configuration & Profiles
+  serverConfigs,
+  type ServerConfig,
+  type InsertServerConfig,
+  serverProfiles,
+  type ServerProfile,
+  type InsertServerProfile,
+  serverDeployHistory,
+  type ServerDeployHistory,
+  type InsertServerDeployHistory,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, gt, gte, lte, sql, ne } from "drizzle-orm";
@@ -9232,6 +9242,111 @@ body { font-family: 'Tajawal', sans-serif; }
     const [updated] = await db.update(hetznerDeployHistory)
       .set(data as any)
       .where(eq(hetznerDeployHistory.id, id))
+      .returning();
+    return updated;
+  }
+
+  // ==================== SERVER CONFIGURATION ====================
+
+  async getServerConfig(userId: string): Promise<ServerConfig | undefined> {
+    const [config] = await db.select().from(serverConfigs)
+      .where(and(eq(serverConfigs.userId, userId), eq(serverConfigs.isActive, true)))
+      .limit(1);
+    return config;
+  }
+
+  async createServerConfig(data: InsertServerConfig): Promise<ServerConfig> {
+    const [created] = await db.insert(serverConfigs).values(data as any).returning();
+    return created;
+  }
+
+  async updateServerConfig(id: string, data: Partial<InsertServerConfig>): Promise<ServerConfig | undefined> {
+    const [updated] = await db.update(serverConfigs)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where(eq(serverConfigs.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteServerConfig(id: string): Promise<boolean> {
+    const result = await db.delete(serverConfigs).where(eq(serverConfigs.id, id));
+    return true;
+  }
+
+  // ==================== SERVER PROFILES ====================
+
+  async getServerProfiles(userId: string): Promise<ServerProfile[]> {
+    return db.select().from(serverProfiles)
+      .where(eq(serverProfiles.userId, userId))
+      .orderBy(desc(serverProfiles.createdAt));
+  }
+
+  async getServerProfile(id: string): Promise<ServerProfile | undefined> {
+    const [profile] = await db.select().from(serverProfiles)
+      .where(eq(serverProfiles.id, id))
+      .limit(1);
+    return profile;
+  }
+
+  async getDefaultServerProfile(userId: string): Promise<ServerProfile | undefined> {
+    const [profile] = await db.select().from(serverProfiles)
+      .where(and(eq(serverProfiles.userId, userId), eq(serverProfiles.isDefault, true)))
+      .limit(1);
+    return profile;
+  }
+
+  async createServerProfile(data: InsertServerProfile): Promise<ServerProfile> {
+    const [created] = await db.insert(serverProfiles).values(data as any).returning();
+    return created;
+  }
+
+  async updateServerProfile(id: string, data: Partial<InsertServerProfile>): Promise<ServerProfile | undefined> {
+    const [updated] = await db.update(serverProfiles)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where(eq(serverProfiles.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteServerProfile(id: string): Promise<boolean> {
+    await db.delete(serverProfiles).where(eq(serverProfiles.id, id));
+    return true;
+  }
+
+  async setDefaultServerProfile(userId: string, profileId: string): Promise<void> {
+    await db.update(serverProfiles)
+      .set({ isDefault: false })
+      .where(eq(serverProfiles.userId, userId));
+    await db.update(serverProfiles)
+      .set({ isDefault: true })
+      .where(eq(serverProfiles.id, profileId));
+  }
+
+  // ==================== SERVER DEPLOYMENT HISTORY ====================
+
+  async getServerDeployHistory(userId: string, limit?: number): Promise<ServerDeployHistory[]> {
+    return db.select().from(serverDeployHistory)
+      .where(eq(serverDeployHistory.userId, userId))
+      .orderBy(desc(serverDeployHistory.startedAt))
+      .limit(limit || 50);
+  }
+
+  async getServerDeployHistoryByProfile(profileId: string, limit?: number): Promise<ServerDeployHistory[]> {
+    return db.select().from(serverDeployHistory)
+      .where(eq(serverDeployHistory.profileId, profileId))
+      .orderBy(desc(serverDeployHistory.startedAt))
+      .limit(limit || 20);
+  }
+
+  async createServerDeployHistory(data: InsertServerDeployHistory): Promise<ServerDeployHistory> {
+    const [created] = await db.insert(serverDeployHistory).values(data as any).returning();
+    return created;
+  }
+
+  async updateServerDeployHistory(id: string, data: Partial<InsertServerDeployHistory>): Promise<ServerDeployHistory | undefined> {
+    const [updated] = await db.update(serverDeployHistory)
+      .set(data as any)
+      .where(eq(serverDeployHistory.id, id))
       .returning();
     return updated;
   }
