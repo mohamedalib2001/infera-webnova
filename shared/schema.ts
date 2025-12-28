@@ -18060,3 +18060,128 @@ export const insertMfaAuditLogSchema = createInsertSchema(mfaAuditLogs).omit({
 });
 export type InsertMfaAuditLog = z.infer<typeof insertMfaAuditLogSchema>;
 export type MfaAuditLog = typeof mfaAuditLogs.$inferSelect;
+
+// ==================== DATABASE PLAYGROUND ====================
+// Temporary database instances for testing - قواعد بيانات مؤقتة للاختبار
+
+export const databasePlaygroundInstances = pgTable("database_playground_instances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  projectId: varchar("project_id"),
+  
+  dbType: text("db_type").notNull(), // postgresql, redis, mongodb
+  name: text("name").notNull(),
+  schema: text("schema"), // Schema name for PostgreSQL
+  
+  connectionInfo: jsonb("connection_info").$type<{
+    host: string;
+    port: number;
+    database?: string;
+    username?: string;
+    password?: string;
+    connectionString?: string;
+  }>(),
+  
+  status: text("status").notNull().default("creating"), // creating, running, expired, terminated
+  
+  expiresAt: timestamp("expires_at").notNull(),
+  terminatedAt: timestamp("terminated_at"),
+  terminationReason: text("termination_reason"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_playground_user").on(table.userId),
+  index("idx_playground_status").on(table.status),
+  index("idx_playground_expires").on(table.expiresAt),
+]);
+
+export const insertDatabasePlaygroundInstanceSchema = createInsertSchema(databasePlaygroundInstances).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertDatabasePlaygroundInstance = z.infer<typeof insertDatabasePlaygroundInstanceSchema>;
+export type DatabasePlaygroundInstance = typeof databasePlaygroundInstances.$inferSelect;
+
+// ==================== SECURITY SCAN JOBS ====================
+// Security scanning jobs and results - وظائف الفحص الأمني ونتائجها
+
+export const securityScanJobs = pgTable("security_scan_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  projectId: varchar("project_id"),
+  
+  scanType: text("scan_type").notNull(), // sast, dast, dependency, container, secrets
+  targetType: text("target_type").notNull(), // code, url, container, repository
+  target: text("target").notNull(), // Code snippet, URL, or file path
+  language: text("language"), // For code scans
+  
+  status: text("status").notNull().default("pending"), // pending, running, completed, failed
+  
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  
+  scanDuration: integer("scan_duration"), // milliseconds
+  scannerVersion: text("scanner_version"),
+  
+  summary: jsonb("summary").$type<{
+    totalFindings: number;
+    bySeverity: { critical: number; high: number; medium: number; low: number; info: number };
+  }>(),
+  
+  errorMessage: text("error_message"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_scan_user").on(table.userId),
+  index("idx_scan_project").on(table.projectId),
+  index("idx_scan_status").on(table.status),
+  index("idx_scan_type").on(table.scanType),
+]);
+
+export const insertSecurityScanJobSchema = createInsertSchema(securityScanJobs).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertSecurityScanJob = z.infer<typeof insertSecurityScanJobSchema>;
+export type SecurityScanJob = typeof securityScanJobs.$inferSelect;
+
+// Security Findings - نتائج الفحص الأمني
+export const securityFindings = pgTable("security_findings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  scanJobId: varchar("scan_job_id").references(() => securityScanJobs.id, { onDelete: "cascade" }).notNull(),
+  
+  severity: text("severity").notNull(), // critical, high, medium, low, info
+  category: text("category").notNull(),
+  
+  title: text("title").notNull(),
+  titleAr: text("title_ar"),
+  description: text("description").notNull(),
+  descriptionAr: text("description_ar"),
+  
+  location: text("location"), // File path or URL
+  lineNumber: integer("line_number"),
+  
+  recommendation: text("recommendation").notNull(),
+  recommendationAr: text("recommendation_ar"),
+  
+  cweId: text("cwe_id"), // CWE-89, CWE-79, etc.
+  owaspCategory: text("owasp_category"), // A01-A10
+  
+  verified: boolean("verified").default(false),
+  falsePositive: boolean("false_positive").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_finding_scan").on(table.scanJobId),
+  index("idx_finding_severity").on(table.severity),
+  index("idx_finding_category").on(table.category),
+]);
+
+export const insertSecurityFindingSchema = createInsertSchema(securityFindings).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertSecurityFinding = z.infer<typeof insertSecurityFindingSchema>;
+export type SecurityFinding = typeof securityFindings.$inferSelect;

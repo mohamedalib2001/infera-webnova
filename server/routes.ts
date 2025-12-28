@@ -117,6 +117,8 @@ import {
 } from "./sovereign-context";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { registerExecutionRoutes } from "./execution-engine";
+import { registerDatabasePlaygroundRoutes } from "./database-playground";
+import { registerSecurityScanningRoutes } from "./security-scanning-service";
 import { inferaAgent } from "./infera-agent-controller";
 import { registerDeploymentRoutes } from "./deployment-integration";
 import { registerVisionRoutes } from "./vision-processing";
@@ -18934,7 +18936,13 @@ ${project.description || ""}
 
   // ==================== EXECUTION ENGINE - SECURE CODE EXECUTION ====================
   registerExecutionRoutes(app);
-  console.log("Execution Engine routes registered | تم تسجيل مسارات محرك التنفيذ");
+
+  // ==================== DATABASE PLAYGROUND - TEMPORARY DATABASES ====================
+  registerDatabasePlaygroundRoutes(app);
+
+  // ==================== SECURITY SCANNING - CODE & INFRASTRUCTURE SECURITY ====================
+  registerSecurityScanningRoutes(app);
+  console.log("Security Scanning routes registered | تم تسجيل مسارات الفحص الأمني");
 
   // ==================== INSTITUTIONAL MEMORY - KNOWLEDGE PERSISTENCE ====================
   registerMemoryRoutes(app);
