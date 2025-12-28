@@ -25,6 +25,7 @@ import sovereignPlansRoutes from "./sovereign-plans-routes";
 import sovereignWorkspaceRoutes from "./sovereign-workspace-routes";
 import { registerAppBuilderRoutes } from "./app-builder-routes";
 import { buildRoutes } from "./build-routes";
+import { buildPlatform, getBuild, createZipBuffer, type PlatformSpec } from "./platform-build-service";
 import { registerEnterpriseServicesRoutes } from "./enterprise-services-routes";
 import militaryPlatformRoutes from "./military-platform-routes";
 import {
@@ -350,6 +351,145 @@ export async function registerRoutes(
   });
 
   // ============ Page Analysis API - تحليل الصفحات الديناميكي ============
+
+  // ============ Platform Build API - بناء المنصات ============
+  
+  const platformSpecSchema = z.object({
+    name: z.string().min(1),
+    nameAr: z.string().optional(),
+    description: z.string().min(1),
+    descriptionAr: z.string().optional(),
+    sector: z.string(),
+    features: z.array(z.string()),
+    hasAuth: z.boolean().default(true),
+    hasPayments: z.boolean().default(false),
+    hasSubscriptions: z.boolean().default(false),
+    hasCMS: z.boolean().default(false),
+    hasAnalytics: z.boolean().default(false),
+    primaryColor: z.string().optional(),
+    secondaryColor: z.string().optional(),
+  });
+
+  app.post("/api/platforms/build", requireAuth, async (req, res) => {
+    try {
+      const validated = platformSpecSchema.safeParse(req.body);
+      if (!validated.success) {
+        return res.status(400).json({ 
+          error: "Invalid platform specification", 
+          details: validated.error.flatten() 
+        });
+      }
+
+      const spec = validated.data as PlatformSpec;
+      const result = await buildPlatform(spec);
+      
+      res.json({
+        success: true,
+        buildId: result.id,
+        status: result.status,
+        filesCount: result.files.length,
+        downloadUrl: result.downloadUrl,
+        platform: {
+          name: spec.name,
+          sector: spec.sector,
+          features: spec.features,
+        }
+      });
+    } catch (error) {
+      console.error("Platform build error:", error);
+      res.status(500).json({ error: "Failed to build platform" });
+    }
+  });
+
+  app.get("/api/platforms/build/:buildId", requireAuth, async (req, res) => {
+    try {
+      const build = getBuild(req.params.buildId);
+      if (!build) {
+        return res.status(404).json({ error: "Build not found" });
+      }
+
+      res.json({
+        id: build.id,
+        status: build.status,
+        platform: build.platform,
+        filesCount: build.files.length,
+        downloadUrl: build.downloadUrl,
+        error: build.error,
+        createdAt: build.createdAt,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get build status" });
+    }
+  });
+
+  app.get("/api/platforms/build/:buildId/files", requireAuth, async (req, res) => {
+    try {
+      const build = getBuild(req.params.buildId);
+      if (!build) {
+        return res.status(404).json({ error: "Build not found" });
+      }
+
+      res.json({
+        files: build.files.map(f => ({
+          fileName: f.fileName,
+          filePath: f.filePath,
+          language: f.language,
+          category: f.category,
+          size: f.content.length,
+        })),
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get build files" });
+    }
+  });
+
+  app.get("/api/platforms/build/:buildId/file/:filePath(*)", requireAuth, async (req, res) => {
+    try {
+      const build = getBuild(req.params.buildId);
+      if (!build) {
+        return res.status(404).json({ error: "Build not found" });
+      }
+
+      const file = build.files.find(f => f.filePath === req.params.filePath);
+      if (!file) {
+        return res.status(404).json({ error: "File not found" });
+      }
+
+      res.json({
+        fileName: file.fileName,
+        filePath: file.filePath,
+        language: file.language,
+        content: file.content,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get file content" });
+    }
+  });
+
+  app.get("/api/platforms/download/:buildId", requireAuth, async (req, res) => {
+    try {
+      const build = getBuild(req.params.buildId);
+      if (!build) {
+        return res.status(404).json({ error: "Build not found" });
+      }
+
+      if (build.status !== "complete") {
+        return res.status(400).json({ error: "Build not complete" });
+      }
+
+      const zipBuffer = await createZipBuffer(build);
+      const fileName = `${build.platform.name.toLowerCase().replace(/\s+/g, '-')}-platform.zip`;
+
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+      res.setHeader("Content-Length", zipBuffer.length);
+      res.send(zipBuffer);
+    } catch (error) {
+      console.error("Download error:", error);
+      res.status(500).json({ error: "Failed to create download" });
+    }
+  });
+
   
   app.get("/api/pages/analysis", async (req, res) => {
     try {
