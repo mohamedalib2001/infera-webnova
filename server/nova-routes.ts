@@ -1341,7 +1341,441 @@ function buildIntelligenceContext(
   return contextParts.join('\n');
 }
 
-// ==================== END NOVA INTELLIGENCE SYSTEM ====================
+// ==================== NOVA DEEP REASONING ENGINE ====================
+// Chain of Thought reasoning for complex analysis
+
+interface ReasoningStep {
+  step: number;
+  thought: string;
+  conclusion: string;
+}
+
+interface CostEstimate {
+  development: { min: number; max: number; currency: string };
+  monthly: { min: number; max: number; currency: string };
+  breakdown: {
+    infrastructure: number;
+    development: number;
+    maintenance: number;
+    licenses: number;
+  };
+  timeEstimate: { weeks: number; months: number };
+  factors: string[];
+}
+
+// Platform cost estimation based on requirements
+function calculatePlatformCost(collectedInfo: Record<string, any>, intent: string): CostEstimate {
+  const baseDevCost = 5000; // Base development cost in USD
+  const baseMonthly = 200; // Base monthly cost in USD
+  
+  let devMultiplier = 1;
+  let monthlyMultiplier = 1;
+  const factors: string[] = [];
+  
+  // User scale factor
+  const users = collectedInfo.numbers?.find((n: number) => n > 100) || 1000;
+  if (users > 100000) {
+    devMultiplier *= 3;
+    monthlyMultiplier *= 5;
+    factors.push(`High user scale (${users.toLocaleString()}+)`);
+  } else if (users > 10000) {
+    devMultiplier *= 2;
+    monthlyMultiplier *= 2.5;
+    factors.push(`Medium user scale (${users.toLocaleString()}+)`);
+  } else {
+    factors.push(`Standard user scale`);
+  }
+  
+  // Platform type complexity
+  const platformType = collectedInfo.platform_type;
+  if (platformType === 'healthcare' || platformType === 'fintech') {
+    devMultiplier *= 2.5;
+    monthlyMultiplier *= 2;
+    factors.push(`${platformType} requires enhanced security & compliance`);
+  } else if (platformType === 'ecommerce') {
+    devMultiplier *= 1.8;
+    monthlyMultiplier *= 1.5;
+    factors.push(`E-commerce with payment integration`);
+  } else if (platformType === 'education') {
+    devMultiplier *= 1.5;
+    monthlyMultiplier *= 1.3;
+    factors.push(`Education platform with content management`);
+  }
+  
+  // Compliance requirements
+  const compliance = collectedInfo.compliance || [];
+  if (compliance.includes('PCI-DSS')) {
+    devMultiplier *= 1.4;
+    monthlyMultiplier *= 1.3;
+    factors.push('PCI-DSS compliance for payments');
+  }
+  if (compliance.includes('HIPAA')) {
+    devMultiplier *= 1.5;
+    monthlyMultiplier *= 1.4;
+    factors.push('HIPAA compliance for healthcare data');
+  }
+  if (compliance.includes('GDPR')) {
+    devMultiplier *= 1.2;
+    factors.push('GDPR data protection');
+  }
+  
+  // Region factor
+  const regions = collectedInfo.regions || [];
+  if (regions.length > 3) {
+    devMultiplier *= 1.3;
+    monthlyMultiplier *= 1.5;
+    factors.push(`Multi-region deployment (${regions.length} regions)`);
+  }
+  
+  // Technology stack
+  const technologies = collectedInfo.technologies || [];
+  if (technologies.some((t: string) => ['kubernetes', 'k8s', 'microservices'].includes(t?.toLowerCase()))) {
+    devMultiplier *= 1.4;
+    monthlyMultiplier *= 1.3;
+    factors.push('Kubernetes/Microservices architecture');
+  }
+  if (technologies.some((t: string) => ['ai', 'ml', 'machine learning'].includes(t?.toLowerCase()))) {
+    devMultiplier *= 1.6;
+    monthlyMultiplier *= 1.5;
+    factors.push('AI/ML capabilities');
+  }
+  
+  const devCost = Math.round(baseDevCost * devMultiplier);
+  const monthlyCost = Math.round(baseMonthly * monthlyMultiplier);
+  
+  // Time estimate based on complexity
+  const weeks = Math.round(4 + (devMultiplier * 2));
+  
+  return {
+    development: { min: devCost * 0.8, max: devCost * 1.3, currency: 'USD' },
+    monthly: { min: monthlyCost * 0.7, max: monthlyCost * 1.2, currency: 'USD' },
+    breakdown: {
+      infrastructure: Math.round(devCost * 0.2),
+      development: Math.round(devCost * 0.5),
+      maintenance: Math.round(devCost * 0.15),
+      licenses: Math.round(devCost * 0.15),
+    },
+    timeEstimate: { weeks, months: Math.ceil(weeks / 4) },
+    factors,
+  };
+}
+
+// Deep reasoning with Chain of Thought
+function performDeepReasoning(
+  message: string,
+  intent: string,
+  collectedInfo: Record<string, any>,
+  isArabic: boolean
+): { reasoning: ReasoningStep[]; summary: string; recommendations: string[] } {
+  const steps: ReasoningStep[] = [];
+  const recommendations: string[] = [];
+  
+  // Step 1: Understand the core request
+  steps.push({
+    step: 1,
+    thought: isArabic 
+      ? `تحليل الطلب الأساسي: "${message.substring(0, 100)}..."` 
+      : `Analyzing core request: "${message.substring(0, 100)}..."`,
+    conclusion: isArabic
+      ? `النية المكتشفة: ${intent} - هذا يتطلب ${intent === 'BUILD_PLATFORM' ? 'بناء منصة كاملة' : 'تنفيذ مهمة محددة'}`
+      : `Detected intent: ${intent} - This requires ${intent === 'BUILD_PLATFORM' ? 'building a complete platform' : 'executing a specific task'}`,
+  });
+  
+  // Step 2: Evaluate requirements
+  const infoCount = Object.keys(collectedInfo).length;
+  steps.push({
+    step: 2,
+    thought: isArabic
+      ? `تقييم المتطلبات المجمعة: ${infoCount} معلومة متوفرة`
+      : `Evaluating collected requirements: ${infoCount} pieces of information available`,
+    conclusion: isArabic
+      ? infoCount >= 3 ? 'لدينا معلومات كافية للبدء' : 'نحتاج معلومات إضافية للتنفيذ الأمثل'
+      : infoCount >= 3 ? 'We have sufficient information to proceed' : 'We need additional information for optimal execution',
+  });
+  
+  // Step 3: Analyze complexity
+  const platformType = collectedInfo.platform_type;
+  const compliance = collectedInfo.compliance || [];
+  const complexityScore = (platformType ? 2 : 0) + compliance.length + (collectedInfo.technologies?.length || 0);
+  
+  steps.push({
+    step: 3,
+    thought: isArabic
+      ? `تحليل التعقيد: نوع المنصة=${platformType || 'غير محدد'}, المتطلبات التنظيمية=${compliance.length}`
+      : `Complexity analysis: Platform type=${platformType || 'unspecified'}, Compliance requirements=${compliance.length}`,
+    conclusion: isArabic
+      ? `درجة التعقيد: ${complexityScore > 5 ? 'عالي' : complexityScore > 2 ? 'متوسط' : 'منخفض'}`
+      : `Complexity level: ${complexityScore > 5 ? 'High' : complexityScore > 2 ? 'Medium' : 'Low'}`,
+  });
+  
+  // Generate recommendations based on analysis
+  if (intent === 'BUILD_PLATFORM') {
+    if (isArabic) {
+      recommendations.push('استخدم Event-Driven Architecture للمرونة والتوسع');
+      if (compliance.length > 0) {
+        recommendations.push(`تطبيق معايير ${compliance.join(', ')} من البداية`);
+      }
+      recommendations.push('ابدأ بـ MVP ثم توسع تدريجياً');
+    } else {
+      recommendations.push('Use Event-Driven Architecture for flexibility and scalability');
+      if (compliance.length > 0) {
+        recommendations.push(`Implement ${compliance.join(', ')} compliance from the start`);
+      }
+      recommendations.push('Start with MVP then expand gradually');
+    }
+  }
+  
+  // Summary
+  const summary = isArabic
+    ? `بناءً على تحليل ${steps.length} خطوات: ${intent === 'BUILD_PLATFORM' ? 'جاهز لبناء منصتك' : 'جاهز للمساعدة'} ${infoCount >= 3 ? 'بالمعلومات المتوفرة' : 'بعد جمع معلومات إضافية'}.`
+    : `Based on ${steps.length}-step analysis: ${intent === 'BUILD_PLATFORM' ? 'Ready to build your platform' : 'Ready to help'} ${infoCount >= 3 ? 'with available information' : 'after gathering more details'}.`;
+  
+  return { reasoning: steps, summary, recommendations };
+}
+
+// ==================== PLATFORM TEMPLATES LIBRARY ====================
+// Consistent, production-ready templates
+
+const PLATFORM_TEMPLATES: Record<string, {
+  name: { ar: string; en: string };
+  description: { ar: string; en: string };
+  features: string[];
+  architecture: string;
+  estimatedCost: { dev: number; monthly: number };
+  timeWeeks: number;
+}> = {
+  ecommerce: {
+    name: { ar: 'منصة تجارة إلكترونية', en: 'E-Commerce Platform' },
+    description: {
+      ar: 'منصة متكاملة للتجارة الإلكترونية مع نظام دفع ومخزون وتوصيل',
+      en: 'Complete e-commerce platform with payment, inventory, and delivery systems',
+    },
+    features: [
+      'Product catalog with categories',
+      'Shopping cart & checkout',
+      'Multi-gateway payments (Stripe, PayPal, local gateways)',
+      'Inventory management',
+      'Order tracking',
+      'Customer accounts',
+      'Admin dashboard',
+      'Analytics & reporting',
+    ],
+    architecture: 'Microservices with Event Sourcing',
+    estimatedCost: { dev: 15000, monthly: 500 },
+    timeWeeks: 8,
+  },
+  healthcare: {
+    name: { ar: 'منصة صحية', en: 'Healthcare Platform' },
+    description: {
+      ar: 'نظام إدارة صحي متوافق مع HIPAA للعيادات والمستشفيات',
+      en: 'HIPAA-compliant health management system for clinics and hospitals',
+    },
+    features: [
+      'Patient records (EMR/EHR)',
+      'Appointment scheduling',
+      'Telemedicine video calls',
+      'Prescription management',
+      'Lab results integration',
+      'Billing & insurance',
+      'HIPAA compliance built-in',
+      'Audit logging',
+    ],
+    architecture: 'Secure multi-tenant with encryption at rest',
+    estimatedCost: { dev: 35000, monthly: 1200 },
+    timeWeeks: 16,
+  },
+  education: {
+    name: { ar: 'منصة تعليمية', en: 'Education Platform' },
+    description: {
+      ar: 'منصة تعلم عبر الإنترنت مع دورات وشهادات واختبارات',
+      en: 'Online learning platform with courses, certificates, and assessments',
+    },
+    features: [
+      'Course creation & management',
+      'Video lessons with streaming',
+      'Quizzes & assessments',
+      'Progress tracking',
+      'Certificates generation',
+      'Discussion forums',
+      'Student-teacher messaging',
+      'Payment & subscriptions',
+    ],
+    architecture: 'Modular monolith with CDN for media',
+    estimatedCost: { dev: 12000, monthly: 400 },
+    timeWeeks: 10,
+  },
+  fintech: {
+    name: { ar: 'منصة مالية', en: 'Fintech Platform' },
+    description: {
+      ar: 'نظام مالي آمن متوافق مع PCI-DSS للمدفوعات والتحويلات',
+      en: 'Secure financial system PCI-DSS compliant for payments and transfers',
+    },
+    features: [
+      'Secure wallet system',
+      'P2P transfers',
+      'Multi-currency support',
+      'Transaction history',
+      'KYC/AML verification',
+      'Fraud detection',
+      'PCI-DSS compliance',
+      'Real-time notifications',
+    ],
+    architecture: 'Zero-trust with hardware security modules',
+    estimatedCost: { dev: 50000, monthly: 2000 },
+    timeWeeks: 20,
+  },
+  saas: {
+    name: { ar: 'منصة SaaS', en: 'SaaS Platform' },
+    description: {
+      ar: 'منصة خدمات برمجية متعددة المستأجرين مع اشتراكات',
+      en: 'Multi-tenant software service platform with subscriptions',
+    },
+    features: [
+      'Multi-tenant architecture',
+      'Subscription billing',
+      'Role-based access control',
+      'API access & webhooks',
+      'White-label support',
+      'Usage analytics',
+      'Customer support portal',
+      'Documentation & API docs',
+    ],
+    architecture: 'Multi-tenant with tenant isolation',
+    estimatedCost: { dev: 18000, monthly: 600 },
+    timeWeeks: 12,
+  },
+  government: {
+    name: { ar: 'منصة حكومية', en: 'Government Platform' },
+    description: {
+      ar: 'نظام خدمات حكومية إلكترونية آمن ومتوافق مع المعايير',
+      en: 'Secure e-government services system compliant with standards',
+    },
+    features: [
+      'Citizen portal',
+      'Service request management',
+      'Document management',
+      'Digital signatures',
+      'Workflow automation',
+      'Multi-language support',
+      'Accessibility compliance',
+      'Audit trail & transparency',
+    ],
+    architecture: 'Sovereign cloud with data residency',
+    estimatedCost: { dev: 40000, monthly: 1500 },
+    timeWeeks: 18,
+  },
+};
+
+// Get matching template based on collected info
+function matchPlatformTemplate(collectedInfo: Record<string, any>): typeof PLATFORM_TEMPLATES[keyof typeof PLATFORM_TEMPLATES] | null {
+  const platformType = collectedInfo.platform_type?.toLowerCase();
+  if (platformType && PLATFORM_TEMPLATES[platformType]) {
+    return PLATFORM_TEMPLATES[platformType];
+  }
+  return null;
+}
+
+// ==================== PROFESSIONAL RESPONSE FORMATTER ====================
+
+interface FormattedResponse {
+  greeting?: string;
+  reasoning?: string;
+  mainContent: string;
+  costEstimate?: string;
+  recommendations?: string[];
+  nextSteps?: string[];
+  cta?: string;
+}
+
+function formatProfessionalResponse(
+  response: FormattedResponse,
+  isArabic: boolean
+): string {
+  const parts: string[] = [];
+  
+  if (response.greeting) {
+    parts.push(response.greeting);
+    parts.push('');
+  }
+  
+  if (response.reasoning) {
+    parts.push(isArabic ? '## 🧠 تحليلي:' : '## 🧠 My Analysis:');
+    parts.push(response.reasoning);
+    parts.push('');
+  }
+  
+  parts.push(response.mainContent);
+  
+  if (response.costEstimate) {
+    parts.push('');
+    parts.push(isArabic ? '## 💰 تقدير التكلفة:' : '## 💰 Cost Estimate:');
+    parts.push(response.costEstimate);
+  }
+  
+  if (response.recommendations && response.recommendations.length > 0) {
+    parts.push('');
+    parts.push(isArabic ? '## 💡 توصياتي:' : '## 💡 My Recommendations:');
+    response.recommendations.forEach((rec, i) => {
+      parts.push(`${i + 1}. ${rec}`);
+    });
+  }
+  
+  if (response.nextSteps && response.nextSteps.length > 0) {
+    parts.push('');
+    parts.push(isArabic ? '## ⏭️ الخطوات التالية:' : '## ⏭️ Next Steps:');
+    response.nextSteps.forEach((step, i) => {
+      parts.push(`${i + 1}. ${step}`);
+    });
+  }
+  
+  if (response.cta) {
+    parts.push('');
+    parts.push(response.cta);
+  }
+  
+  return parts.join('\n');
+}
+
+// Format cost estimate for display
+function formatCostEstimate(cost: CostEstimate, isArabic: boolean): string {
+  const parts: string[] = [];
+  
+  if (isArabic) {
+    parts.push(`**تكلفة التطوير:** $${cost.development.min.toLocaleString()} - $${cost.development.max.toLocaleString()}`);
+    parts.push(`**التكلفة الشهرية:** $${cost.monthly.min.toLocaleString()} - $${cost.monthly.max.toLocaleString()}`);
+    parts.push(`**الوقت المقدر:** ${cost.timeEstimate.weeks} أسبوع (${cost.timeEstimate.months} شهر)`);
+    parts.push('');
+    parts.push('**تفاصيل التكلفة:**');
+    parts.push(`- البنية التحتية: $${cost.breakdown.infrastructure.toLocaleString()}`);
+    parts.push(`- التطوير: $${cost.breakdown.development.toLocaleString()}`);
+    parts.push(`- الصيانة: $${cost.breakdown.maintenance.toLocaleString()}`);
+    parts.push(`- التراخيص: $${cost.breakdown.licenses.toLocaleString()}`);
+    if (cost.factors.length > 0) {
+      parts.push('');
+      parts.push('**عوامل التسعير:**');
+      cost.factors.forEach(f => parts.push(`• ${f}`));
+    }
+  } else {
+    parts.push(`**Development Cost:** $${cost.development.min.toLocaleString()} - $${cost.development.max.toLocaleString()}`);
+    parts.push(`**Monthly Cost:** $${cost.monthly.min.toLocaleString()} - $${cost.monthly.max.toLocaleString()}`);
+    parts.push(`**Estimated Time:** ${cost.timeEstimate.weeks} weeks (${cost.timeEstimate.months} months)`);
+    parts.push('');
+    parts.push('**Cost Breakdown:**');
+    parts.push(`- Infrastructure: $${cost.breakdown.infrastructure.toLocaleString()}`);
+    parts.push(`- Development: $${cost.breakdown.development.toLocaleString()}`);
+    parts.push(`- Maintenance: $${cost.breakdown.maintenance.toLocaleString()}`);
+    parts.push(`- Licenses: $${cost.breakdown.licenses.toLocaleString()}`);
+    if (cost.factors.length > 0) {
+      parts.push('');
+      parts.push('**Pricing Factors:**');
+      cost.factors.forEach(f => parts.push(`• ${f}`));
+    }
+  }
+  
+  return parts.join('\n');
+}
+
+// ==================== END NOVA DEEP REASONING ENGINE ====================
 
 export function registerNovaRoutes(app: Express) {
   // ==================== NOVA ENHANCED CHAT ====================
@@ -1980,6 +2414,88 @@ ${clarifyingQuestions.length > 0 ? (isArabic
   : `## Suggested Clarifying Questions:\n${clarifyingQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n\n(If confidence is low, ask these questions first before executing)`) 
   : ''}`;
 
+      // ========== DEEP REASONING & COST CALCULATION ==========
+      // Perform chain-of-thought reasoning for complex requests
+      const reasoning = performDeepReasoning(message, intentAnalysis.intent, conversationState.collectedInfo, isArabic);
+      console.log(`[Nova Reasoning] ${reasoning.summary}`);
+      
+      // Calculate cost estimate for platform building requests
+      let costEstimate: CostEstimate | null = null;
+      let matchedTemplate: typeof PLATFORM_TEMPLATES[keyof typeof PLATFORM_TEMPLATES] | null = null;
+      
+      if (intentAnalysis.intent === 'BUILD_PLATFORM' && Object.keys(conversationState.collectedInfo).length >= 2) {
+        costEstimate = calculatePlatformCost(conversationState.collectedInfo, intentAnalysis.intent);
+        matchedTemplate = matchPlatformTemplate(conversationState.collectedInfo);
+        console.log(`[Nova Cost] Dev: $${costEstimate.development.min}-${costEstimate.development.max}, Monthly: $${costEstimate.monthly.min}-${costEstimate.monthly.max}`);
+      }
+      
+      // Build enhanced reasoning context for system prompt
+      const reasoningContext = isArabic ? `
+## 🧠 تحليل عميق (Chain of Thought):
+${reasoning.reasoning.map(step => `### الخطوة ${step.step}:\n- **التفكير:** ${step.thought}\n- **الاستنتاج:** ${step.conclusion}`).join('\n\n')}
+
+**ملخص التحليل:** ${reasoning.summary}
+
+${reasoning.recommendations.length > 0 ? `## 💡 توصيات:\n${reasoning.recommendations.map((r, i) => `${i + 1}. ${r}`).join('\n')}` : ''}
+
+${costEstimate ? `
+## 💰 تقدير التكلفة (محسوب تلقائياً):
+${formatCostEstimate(costEstimate, true)}
+
+**مهم:** عند مناقشة التكلفة مع المستخدم، استخدم هذه الأرقام الدقيقة.
+` : ''}
+
+${matchedTemplate ? `
+## 📋 القالب المطابق:
+**الاسم:** ${matchedTemplate.name.ar}
+**الوصف:** ${matchedTemplate.description.ar}
+**المعمارية:** ${matchedTemplate.architecture}
+**الميزات:** ${matchedTemplate.features.join(', ')}
+` : ''}
+
+## 📝 تعليمات الاحتراف:
+1. فكر بعمق قبل الرد - استخدم التحليل أعلاه
+2. قدم تقدير التكلفة والوقت إذا كان متوفراً
+3. اقترح البنية المعمارية المناسبة
+4. كن محترفاً وواضحاً في ردودك
+5. استخدم العناوين والقوائم لتنظيم الرد
+6. إذا كانت المعلومات ناقصة، اطرح أسئلة محددة
+` : `
+## 🧠 Deep Analysis (Chain of Thought):
+${reasoning.reasoning.map(step => `### Step ${step.step}:\n- **Thought:** ${step.thought}\n- **Conclusion:** ${step.conclusion}`).join('\n\n')}
+
+**Analysis Summary:** ${reasoning.summary}
+
+${reasoning.recommendations.length > 0 ? `## 💡 Recommendations:\n${reasoning.recommendations.map((r, i) => `${i + 1}. ${r}`).join('\n')}` : ''}
+
+${costEstimate ? `
+## 💰 Cost Estimate (Auto-calculated):
+${formatCostEstimate(costEstimate, false)}
+
+**Important:** When discussing cost with user, use these exact figures.
+` : ''}
+
+${matchedTemplate ? `
+## 📋 Matched Template:
+**Name:** ${matchedTemplate.name.en}
+**Description:** ${matchedTemplate.description.en}
+**Architecture:** ${matchedTemplate.architecture}
+**Features:** ${matchedTemplate.features.join(', ')}
+` : ''}
+
+## 📝 Professional Instructions:
+1. Think deeply before responding - use the analysis above
+2. Provide cost and time estimates if available
+3. Suggest appropriate architecture
+4. Be professional and clear in your responses
+5. Use headings and lists to organize your response
+6. If information is missing, ask specific questions
+`;
+
+      // Append reasoning context to system prompt
+      const enhancedSystemPrompt = systemPrompt + '\n\n' + reasoningContext;
+      // ========== END DEEP REASONING ==========
+
       // Build conversation with memory from database
       const messages: Anthropic.MessageParam[] = [];
       
@@ -2019,7 +2535,7 @@ ${clarifyingQuestions.length > 0 ? (isArabic
       const response = await anthropic.messages.create({
         model: 'claude-sonnet-4-20250514',
         max_tokens: isComplexRequest ? 4096 : 2048,
-        system: systemPrompt,
+        system: enhancedSystemPrompt,
         messages: messages
       });
       
@@ -2086,7 +2602,27 @@ ${clarifyingQuestions.length > 0 ? (isArabic
         capabilities: NOVA_CAPABILITIES,
         memoryEnabled: true,
         projectId: currentProjectId,
-        sessionId: sessions?.[0]?.id
+        sessionId: sessions?.[0]?.id,
+        // Nova Intelligence data for frontend display
+        intelligence: {
+          intent: intentAnalysis.intent,
+          confidence: intentAnalysis.confidence,
+          phase: conversationState.phase,
+          reasoning: reasoning?.summary || null,
+          recommendations: reasoning?.recommendations || [],
+          costEstimate: costEstimate ? {
+            development: costEstimate.development,
+            monthly: costEstimate.monthly,
+            timeEstimate: costEstimate.timeEstimate,
+            factors: costEstimate.factors,
+          } : null,
+          matchedTemplate: matchedTemplate ? {
+            name: isArabic ? matchedTemplate.name.ar : matchedTemplate.name.en,
+            description: isArabic ? matchedTemplate.description.ar : matchedTemplate.description.en,
+            architecture: matchedTemplate.architecture,
+            features: matchedTemplate.features,
+          } : null,
+        },
       });
     } catch (error: any) {
       console.error('Nova chat error:', error);
