@@ -1048,16 +1048,32 @@ How can I help you? Describe the platform you want to build.`;
     <div className={`flex h-screen bg-background ${isRTL ? 'flex-row-reverse' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
       <div className={`w-[450px] flex flex-col border-${isRTL ? 'l' : 'r'} border-border bg-card/50`}>
         <div className="p-4 border-b border-border bg-gradient-to-r from-primary/10 to-transparent">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-                <Brain className="w-5 h-5 text-white" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                  <Brain className="w-5 h-5 text-white" />
+                </div>
+                <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-card" />
               </div>
-              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-card" />
+              <div>
+                <h2 className="font-semibold text-foreground">Nova Enterprise Builder</h2>
+                <p className="text-xs text-muted-foreground">{t('Build scalable platforms', 'بناء منصات عملاقة')}</p>
+              </div>
             </div>
-            <div>
-              <h2 className="font-semibold text-foreground">Nova Enterprise Builder</h2>
-              <p className="text-xs text-muted-foreground">{t('Build scalable platforms', 'بناء منصات عملاقة')}</p>
+            <div className="flex items-center gap-2">
+              {projectId && (
+                <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30 gap-1 text-xs">
+                  <Save className="w-3 h-3" />
+                  {t('Saved', 'محفوظ')}
+                </Badge>
+              )}
+              {githubStatus?.synced && (
+                <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/30 gap-1 text-xs">
+                  <GitBranch className="w-3 h-3" />
+                  {githubStatus.repo?.split('/')[1]}
+                </Badge>
+              )}
             </div>
           </div>
         </div>
@@ -1737,82 +1753,83 @@ How can I help you? Describe the platform you want to build.`;
           )}
         </div>
 
-        {(previewUrl || generatedFiles.length > 0) && (
-          <div className="p-3 border-t border-border bg-card/50">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                {previewUrl && (
-                  <>
-                    <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30 gap-1">
-                      <CheckCircle className="w-3 h-3" />
-                      {t('Deployed', 'تم النشر')}
-                    </Badge>
-                    <span className="text-sm text-muted-foreground">{previewUrl}</span>
-                  </>
-                )}
-                {githubStatus?.synced && (
-                  <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/30 gap-1">
-                    <GitBranch className="w-3 h-3" />
-                    {githubStatus.repo}
+        <div className="p-3 border-t border-border bg-gradient-to-r from-card via-card/80 to-card">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              {previewUrl && (
+                <>
+                  <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30 gap-1">
+                    <CheckCircle className="w-3 h-3" />
+                    {t('Deployed', 'تم النشر')}
                   </Badge>
-                )}
-                {projectId && (
-                  <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30 gap-1">
-                    <Save className="w-3 h-3" />
-                    {t('Saved', 'محفوظ')}
-                  </Badge>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground truncate max-w-[200px]">{previewUrl}</span>
+                </>
+              )}
+              {generatedFiles.length > 0 && (
+                <Badge variant="outline" className="bg-violet-500/10 text-violet-600 border-violet-500/30 gap-1">
+                  <FileCode className="w-3 h-3" />
+                  {generatedFiles.length} {t('files', 'ملفات')}
+                </Badge>
+              )}
+              {!previewUrl && generatedFiles.length === 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {t('Build a platform to enable actions', 'قم ببناء منصة لتفعيل الإجراءات')}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-1.5" 
+                onClick={handleSaveProject}
+                disabled={isSaving || generatedFiles.length === 0}
+                data-testid="button-save"
+              >
+                {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                {t('Save Project', 'حفظ المشروع')}
+              </Button>
+              <GitHubRepoSelector
+                projectId={projectId}
+                projectName={projectName || undefined}
+                language={language}
+                onSyncComplete={(result) => {
+                  setGithubStatus({
+                    synced: true,
+                    repo: result.repo,
+                    url: result.url,
+                    lastSync: new Date().toISOString()
+                  });
+                  toast({
+                    title: language === 'ar' ? 'تمت المزامنة' : 'Sync Complete',
+                    description: language === 'ar' 
+                      ? `تمت مزامنة المشروع إلى ${result.repo}` 
+                      : `Project synced to ${result.repo}`
+                  });
+                }}
+              />
+              {githubStatus?.url && (
                 <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="gap-1" 
-                  onClick={handleSaveProject}
-                  disabled={isSaving || generatedFiles.length === 0}
-                  data-testid="button-save"
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => window.open(githubStatus.url, '_blank')}
+                  data-testid="button-open-github"
                 >
-                  {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-                  {t('Save', 'حفظ')}
+                  <ExternalLink className="w-4 h-4" />
                 </Button>
-                <GitHubRepoSelector
-                  projectId={projectId}
-                  projectName={projectName || undefined}
-                  language={language}
-                  onSyncComplete={(result) => {
-                    setGithubStatus({
-                      synced: true,
-                      repo: result.repo,
-                      url: result.url,
-                      lastSync: new Date().toISOString()
-                    });
-                    toast({
-                      title: language === 'ar' ? 'تمت المزامنة' : 'Sync Complete',
-                      description: language === 'ar' 
-                        ? `تمت مزامنة المشروع إلى ${result.repo}` 
-                        : `Project synced to ${result.repo}`
-                    });
-                  }}
-                />
-                {githubStatus?.url && (
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="gap-1" 
-                    onClick={() => window.open(githubStatus.url, '_blank')}
-                    data-testid="button-open-github"
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                  </Button>
-                )}
-                <Button size="sm" className="gap-1" data-testid="button-publish">
-                  <Globe className="w-3 h-3" />
-                  {t('Publish', 'نشر')}
-                </Button>
-              </div>
+              )}
+              <Button 
+                size="sm" 
+                className="gap-1.5 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700" 
+                disabled={generatedFiles.length === 0}
+                data-testid="button-publish"
+              >
+                <Rocket className="w-3.5 h-3.5" />
+                {t('Publish', 'نشر')}
+              </Button>
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
