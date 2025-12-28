@@ -125,6 +125,8 @@ import { registerVisionRoutes } from "./vision-processing";
 import { registerNovaPermissionRoutes } from "./nova-permissions";
 import { registerMemoryRoutes } from "./memory-service";
 import { registerNovaMemoryRoutes } from "./nova-memory-service";
+import { registerNovaIntelligentMemoryRoutes } from "./nova-intelligent-memory";
+import { registerNovaIntelligentEngineRoutes } from "./nova-intelligent-engine";
 import { registerOwnershipRoutes } from "./ownership-routes";
 import sidebarRoutes from "./sidebar-routes";
 import governanceRoutes from "./governance-routes";
@@ -18951,6 +18953,10 @@ ${project.description || ""}
   // ==================== NOVA AI MEMORY SYSTEM - CONTEXT, LEARNING, MONITORING ====================
   registerNovaMemoryRoutes(app);
   console.log("Nova AI Memory System routes registered | تم تسجيل مسارات نظام ذاكرة نوفا AI");
+  // ==================== NOVA INTELLIGENT AI - MEMORY AND ENGINE ====================
+  registerNovaIntelligentMemoryRoutes(app);
+  registerNovaIntelligentEngineRoutes(app);
+  console.log("Nova Intelligent AI routes registered | تم تسجيل مسارات نوفا الذكية");
 
   // ==================== DEPLOYMENT INTEGRATION - VERCEL, NETLIFY, GITHUB ====================
   registerDeploymentRoutes(app);
