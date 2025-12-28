@@ -37,6 +37,7 @@ const ChatbotBuilder = lazy(() => import("@/pages/chatbot-builder"));
 const Invoices = lazy(() => import("@/pages/invoices"));
 const ApiKeys = lazy(() => import("@/pages/api-keys"));
 const SshVault = lazy(() => import("@/pages/ssh-vault"));
+const PlatformBuilder = lazy(() => import("@/pages/platform-builder"));
 import {
   LazySettings,
   LazySovereignWorkspace,
@@ -119,6 +120,7 @@ function AuthenticatedRouter() {
       <Route path="/deploy" component={Deploy} />
       <Route path="/one-click-deploy" component={Deploy} />
       <Route path="/chatbot-builder" component={ChatbotBuilder} />
+      <Route path="/builder" component={PlatformBuilder} />
       <Route path="/invoices" component={Invoices} />
       
       {/* Nova AI */}

@@ -74,6 +74,7 @@ import {
   Hexagon,
   Activity,
   CheckCircle,
+  Sparkles,
 } from "lucide-react";
 import { SidebarItemBadge } from "@/components/sovereign-view";
 import {
@@ -206,6 +207,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
 
   const buildItems = [
     { title: language === "ar" ? "الرئيسية" : "Home", url: "/", icon: Home, testId: "nav-home" },
+    { title: language === "ar" ? "بناء منصة" : "Build Platform", url: "/builder", icon: Sparkles, testId: "nav-builder", highlight: true },
     { title: language === "ar" ? "النشر بنقرة" : "One-Click Deploy", url: "/deploy", icon: Rocket, testId: "nav-deploy" },
     { title: language === "ar" ? "القوالب" : "Templates", url: "/templates", icon: LayoutTemplate, testId: "nav-templates" },
     { title: language === "ar" ? "منشئ الروبوتات" : "Chatbot Builder", url: "/chatbot-builder", icon: Bot, testId: "nav-chatbot" },
