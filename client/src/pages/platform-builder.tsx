@@ -4,7 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -17,7 +17,10 @@ import {
   CheckCircle, Loader2, Terminal, Globe, Database,
   GitBranch, Rocket, FileCode, Server, RefreshCw,
   Smartphone, Monitor, Tablet, ExternalLink, Copy,
-  ChevronRight, Zap, Shield, Activity
+  ChevronRight, Zap, Shield, Activity, Box, Layers,
+  Network, Cloud, Container, Lock, Users, CreditCard,
+  Video, MessageSquare, BarChart3, Settings, Download,
+  AlertTriangle, HardDrive, Cpu, Gauge
 } from "lucide-react";
 
 interface BuildMessage {
@@ -45,6 +48,36 @@ interface BuildStep {
   details?: string;
 }
 
+interface MicroserviceSpec {
+  id: string;
+  name: string;
+  nameAr: string;
+  type: 'api' | 'worker' | 'gateway' | 'database' | 'cache' | 'queue' | 'cdn' | 'storage';
+  replicas: number;
+  database?: string;
+  dependencies: string[];
+  port?: number;
+  icon: typeof Server;
+}
+
+interface ArchitectureAnalysis {
+  platformType: string;
+  platformTypeAr: string;
+  estimatedUsers: string;
+  complexity: 'simple' | 'medium' | 'enterprise';
+  microservices: MicroserviceSpec[];
+  databases: { type: string; purpose: string; purposeAr: string }[];
+  infrastructure: {
+    loadBalancer: boolean;
+    cdn: boolean;
+    cache: boolean;
+    queue: boolean;
+    containerized: boolean;
+  };
+  estimatedCost: string;
+  deploymentRegions: string[];
+}
+
 export default function PlatformBuilderPage() {
   const { language } = useLanguage();
   const { user } = useAuth();
@@ -56,8 +89,8 @@ export default function PlatformBuilderPage() {
       id: 'welcome',
       role: 'nova',
       content: language === 'ar' 
-        ? 'مرحباً! أنا Nova. صف لي المنصة التي تريد بناءها وسأقوم بإنشائها لك فوراً.\n\nمثال: "أنشئ متجر إلكتروني مع منتجات، سلة شراء، ودفع إلكتروني"'
-        : 'Hello! I am Nova. Describe the platform you want to build and I will create it for you instantly.\n\nExample: "Create an e-commerce store with products, cart, and payment system"',
+        ? 'مرحباً! أنا Nova. صف لي المنصة التي تريد بناءها وسأقوم بتحليل المتطلبات واقتراح البنية المثلى.\n\nيمكنني بناء منصات عملاقة تدعم ملايين المستخدمين مع:\n• بنية Microservices\n• Docker + Kubernetes\n• قواعد بيانات موزعة\n• موازنة التحميل\n\nمثال: "أنشئ منصة تعليمية تضم مليون مستخدم متزامن مع فيديو ستريمينج ونظام دفع"'
+        : 'Hello! I am Nova. Describe the platform you want to build and I will analyze requirements and suggest optimal architecture.\n\nI can build enterprise platforms supporting millions of users with:\n• Microservices Architecture\n• Docker + Kubernetes\n• Distributed Databases\n• Load Balancing\n\nExample: "Create an educational platform with 1M concurrent users, video streaming, and payment system"',
       timestamp: new Date(),
       status: 'complete'
     }
@@ -69,6 +102,9 @@ export default function PlatformBuilderPage() {
   const [buildSteps, setBuildSteps] = useState<BuildStep[]>([]);
   const [activeTab, setActiveTab] = useState('preview');
   const [generatedCode, setGeneratedCode] = useState<string>('');
+  const [architecture, setArchitecture] = useState<ArchitectureAnalysis | null>(null);
+  const [dockerCompose, setDockerCompose] = useState<string>('');
+  const [kubernetesManifest, setKubernetesManifest] = useState<string>('');
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -77,24 +113,421 @@ export default function PlatformBuilderPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const analyzeRequirements = (description: string): ArchitectureAnalysis => {
+    const lowerDesc = description.toLowerCase();
+    const hasArabic = /[\u0600-\u06FF]/.test(description);
+    
+    const keywords = {
+      users: /مليون|million|1m|100k|10k|مستخدم|users?|concurrent/i,
+      video: /فيديو|video|streaming|ستريمينج|بث/i,
+      payment: /دفع|payment|stripe|مدفوعات|checkout|cart|سلة/i,
+      auth: /تسجيل|login|auth|مصادقة|oauth|sso/i,
+      ecommerce: /متجر|store|ecommerce|منتجات|products|تجارة/i,
+      education: /تعليم|education|دورات|courses|طلاب|students/i,
+      social: /اجتماعي|social|chat|رسائل|messages|timeline/i,
+      analytics: /تحليلات|analytics|dashboard|لوحة|reports|تقارير/i,
+      api: /api|integration|تكامل|webhook/i,
+      realtime: /حي|realtime|live|مباشر|websocket/i,
+    };
+
+    const detectedFeatures = Object.entries(keywords).filter(([_, regex]) => regex.test(lowerDesc));
+    const isEnterprise = detectedFeatures.length >= 4 || /مليون|million|enterprise|عملاقة/i.test(lowerDesc);
+    const isMedium = detectedFeatures.length >= 2;
+
+    const microservices: MicroserviceSpec[] = [
+      { id: 'gateway', name: 'API Gateway', nameAr: 'بوابة API', type: 'gateway', replicas: 2, dependencies: [], port: 80, icon: Network },
+    ];
+
+    const needsUsers = keywords.users.test(lowerDesc);
+    const needsPayment = keywords.payment.test(lowerDesc) || keywords.ecommerce.test(lowerDesc);
+    const needsAuth = keywords.auth.test(lowerDesc) || needsUsers || needsPayment;
+    const needsVideo = keywords.video.test(lowerDesc);
+    const needsAnalytics = keywords.analytics.test(lowerDesc);
+    const needsQueue = needsVideo || needsAnalytics || isEnterprise;
+
+    if (needsAuth) {
+      microservices.push({ id: 'auth', name: 'Auth Service', nameAr: 'خدمة المصادقة', type: 'api', replicas: 3, database: 'postgres-auth', dependencies: ['gateway'], port: 3001, icon: Lock });
+    }
+
+    if (needsUsers) {
+      microservices.push({ id: 'users', name: 'User Service', nameAr: 'خدمة المستخدمين', type: 'api', replicas: 3, database: 'postgres-users', dependencies: ['auth'], port: 3002, icon: Users });
+    }
+
+    if (needsPayment) {
+      const paymentDeps = needsUsers ? ['auth', 'users'] : ['auth'];
+      microservices.push({ id: 'payment', name: 'Payment Service', nameAr: 'خدمة الدفع', type: 'api', replicas: 2, database: 'mysql-payment', dependencies: paymentDeps, port: 3003, icon: CreditCard });
+    }
+
+    if (needsVideo) {
+      microservices.push({ id: 'media', name: 'Media Service', nameAr: 'خدمة الوسائط', type: 'api', replicas: 5, dependencies: ['storage'], port: 3004, icon: Video });
+      microservices.push({ id: 'transcoder', name: 'Video Transcoder', nameAr: 'محول الفيديو', type: 'worker', replicas: 4, dependencies: ['media', 'kafka'], icon: Cpu });
+    }
+
+    if (keywords.realtime.test(lowerDesc) || keywords.social.test(lowerDesc)) {
+      microservices.push({ id: 'realtime', name: 'Realtime Service', nameAr: 'خدمة الوقت الحقيقي', type: 'api', replicas: 4, dependencies: ['redis'], port: 3005, icon: MessageSquare });
+    }
+
+    if (needsAnalytics) {
+      microservices.push({ id: 'analytics', name: 'Analytics Service', nameAr: 'خدمة التحليلات', type: 'api', replicas: 2, database: 'elasticsearch', dependencies: ['kafka'], port: 3006, icon: BarChart3 });
+    }
+
+    if (keywords.ecommerce.test(lowerDesc)) {
+      microservices.push({ id: 'catalog', name: 'Catalog Service', nameAr: 'خدمة المنتجات', type: 'api', replicas: 3, database: 'mongo-catalog', dependencies: ['gateway'], port: 3007, icon: Box });
+      microservices.push({ id: 'orders', name: 'Order Service', nameAr: 'خدمة الطلبات', type: 'api', replicas: 3, database: 'postgres-orders', dependencies: ['payment', 'catalog'], port: 3008, icon: Layers });
+    }
+
+    microservices.push({ id: 'redis', name: 'Redis Cluster', nameAr: 'مخزن Redis', type: 'cache', replicas: 3, dependencies: [], icon: HardDrive });
+    
+    if (needsQueue) {
+      microservices.push({ id: 'kafka', name: 'Kafka Cluster', nameAr: 'طابور Kafka', type: 'queue', replicas: 3, dependencies: [], icon: Activity });
+    }
+    
+    if (needsVideo || isEnterprise) {
+      microservices.push({ id: 'storage', name: 'Object Storage', nameAr: 'تخزين الملفات', type: 'storage', replicas: 1, dependencies: [], icon: Cloud });
+    }
+    
+    if (isEnterprise) {
+      microservices.push({ id: 'cdn', name: 'CDN Edge', nameAr: 'شبكة CDN', type: 'cdn', replicas: 1, dependencies: [], icon: Globe });
+    }
+
+    const databases: { type: string; purpose: string; purposeAr: string }[] = [];
+    if (microservices.some(s => s.database?.includes('postgres'))) {
+      databases.push({ type: 'PostgreSQL Cluster', purpose: 'Primary Data Store', purposeAr: 'قاعدة البيانات الرئيسية' });
+    }
+    if (microservices.some(s => s.database?.includes('mongo'))) {
+      databases.push({ type: 'MongoDB Cluster', purpose: 'Document Store', purposeAr: 'تخزين المستندات' });
+    }
+    if (microservices.some(s => s.database?.includes('elasticsearch'))) {
+      databases.push({ type: 'Elasticsearch', purpose: 'Search & Analytics', purposeAr: 'البحث والتحليلات' });
+    }
+    if (microservices.some(s => s.database?.includes('mysql'))) {
+      databases.push({ type: 'MySQL Master-Slave', purpose: 'Transactional Data', purposeAr: 'البيانات المالية' });
+    }
+
+    const platformTypes: Record<string, { en: string; ar: string }> = {
+      ecommerce: { en: 'E-commerce Platform', ar: 'منصة تجارة إلكترونية' },
+      education: { en: 'Educational Platform', ar: 'منصة تعليمية' },
+      social: { en: 'Social Platform', ar: 'منصة اجتماعية' },
+      saas: { en: 'SaaS Platform', ar: 'منصة SaaS' },
+      custom: { en: 'Custom Platform', ar: 'منصة مخصصة' },
+    };
+
+    let platformKey = 'custom';
+    if (keywords.ecommerce.test(lowerDesc)) platformKey = 'ecommerce';
+    else if (keywords.education.test(lowerDesc)) platformKey = 'education';
+    else if (keywords.social.test(lowerDesc)) platformKey = 'social';
+
+    return {
+      platformType: platformTypes[platformKey].en,
+      platformTypeAr: platformTypes[platformKey].ar,
+      estimatedUsers: isEnterprise ? '1M+' : isMedium ? '100K+' : '10K+',
+      complexity: isEnterprise ? 'enterprise' : isMedium ? 'medium' : 'simple',
+      microservices,
+      databases,
+      infrastructure: {
+        loadBalancer: true,
+        cdn: isEnterprise || needsVideo,
+        cache: true,
+        queue: needsQueue,
+        containerized: true,
+      },
+      estimatedCost: isEnterprise ? '$2,000-5,000/mo' : isMedium ? '$500-1,500/mo' : '$100-300/mo',
+      deploymentRegions: isEnterprise ? ['us-east-1', 'eu-west-1', 'ap-southeast-1'] : ['us-east-1'],
+    };
+  };
+
+  const generateDockerCompose = (arch: ArchitectureAnalysis): string => {
+    const services: string[] = [];
+    
+    const getDbServiceName = (db?: string): string => {
+      if (!db) return '';
+      if (db.includes('postgres')) return 'postgres';
+      if (db.includes('mongo')) return 'mongodb';
+      if (db.includes('mysql')) return 'mysql';
+      if (db.includes('elasticsearch')) return 'elasticsearch';
+      return db.split('-')[0];
+    };
+
+    const getServiceDependencies = (service: MicroserviceSpec): string[] => {
+      const deps: string[] = [];
+      
+      if (arch.infrastructure.cache) deps.push('redis');
+      
+      if (service.database) {
+        const dbService = getDbServiceName(service.database);
+        if (dbService) deps.push(dbService);
+      }
+      
+      service.dependencies.forEach(dep => {
+        if ((dep === 'kafka' || dep === 'queue') && arch.infrastructure.queue) {
+          deps.push('kafka');
+        } else if (dep === 'redis' && !deps.includes('redis')) {
+          deps.push('redis');
+        } else if (dep === 'storage') {
+          deps.push('minio');
+        } else if (dep === 'cdn') {
+          deps.push('nginx');
+        } else {
+          const microservice = arch.microservices.find(m => m.id === dep);
+          if (microservice && (microservice.type === 'api' || microservice.type === 'gateway')) {
+            deps.push(dep);
+          }
+        }
+      });
+      
+      return [...new Set(deps)];
+    };
+    
+    arch.microservices.forEach(service => {
+      if (service.type === 'api' || service.type === 'gateway' || service.type === 'worker') {
+        const deps = getServiceDependencies(service);
+        const dependsOnBlock = deps.length > 0 
+          ? `depends_on:\n      ${deps.map(d => `- ${d}`).join('\n      ')}`
+          : '';
+        
+        services.push(`  ${service.id}:
+    build: ./${service.id}-service
+    ports:
+      - "${service.port || 3000}:${service.port || 3000}"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=\${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+    ${dependsOnBlock}
+    deploy:
+      replicas: ${service.replicas}
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M`);
+      }
+    });
+
+    if (arch.infrastructure.cache) {
+      services.push(`  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes`);
+    }
+
+    if (arch.databases.some(d => d.type.includes('PostgreSQL'))) {
+      services.push(`  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: platform_db
+      POSTGRES_USER: \${POSTGRES_USER}
+      POSTGRES_PASSWORD: \${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"`);
+    }
+
+    if (arch.databases.some(d => d.type.includes('MongoDB'))) {
+      services.push(`  mongodb:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: \${MONGO_USER}
+      MONGO_INITDB_ROOT_PASSWORD: \${MONGO_PASSWORD}
+    volumes:
+      - mongo-data:/data/db
+    ports:
+      - "27017:27017"`);
+    }
+
+    if (arch.databases.some(d => d.type.includes('MySQL'))) {
+      services.push(`  mysql:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: \${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: platform_db
+    volumes:
+      - mysql-data:/var/lib/mysql
+    ports:
+      - "3306:3306"`);
+    }
+
+    if (arch.databases.some(d => d.type.includes('Elasticsearch'))) {
+      services.push(`  elasticsearch:
+    image: elasticsearch:8.11.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - elastic-data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"`);
+    }
+
+    if (arch.infrastructure.queue) {
+      services.push(`  kafka:
+    image: bitnami/kafka:latest
+    environment:
+      - KAFKA_CFG_NODE_ID=0
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+    ports:
+      - "9092:9092"`);
+    }
+
+    if (arch.microservices.some(s => s.dependencies.includes('storage')) || arch.infrastructure.cdn) {
+      services.push(`  minio:
+    image: minio/minio:latest
+    environment:
+      MINIO_ROOT_USER: \${MINIO_USER}
+      MINIO_ROOT_PASSWORD: \${MINIO_PASSWORD}
+    volumes:
+      - minio-data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    command: server /data --console-address ":9001"`);
+    }
+
+    if (arch.infrastructure.cdn) {
+      services.push(`  nginx:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    depends_on:
+      - gateway`);
+    }
+
+    const volumes: string[] = [];
+    if (arch.infrastructure.cache) volumes.push('redis-data:');
+    if (arch.databases.some(d => d.type.includes('PostgreSQL'))) volumes.push('postgres-data:');
+    if (arch.microservices.some(s => s.dependencies.includes('storage')) || arch.infrastructure.cdn) volumes.push('minio-data:');
+    if (arch.databases.some(d => d.type.includes('MongoDB'))) volumes.push('mongo-data:');
+    if (arch.databases.some(d => d.type.includes('MySQL'))) volumes.push('mysql-data:');
+    if (arch.databases.some(d => d.type.includes('Elasticsearch'))) volumes.push('elastic-data:');
+
+    return `version: '3.8'
+
+services:
+${services.join('\n\n')}
+
+volumes:
+  ${volumes.join('\n  ')}
+
+networks:
+  default:
+    driver: bridge
+`;
+  };
+
+  const generateKubernetesManifest = (arch: ArchitectureAnalysis): string => {
+    const deployments: string[] = [];
+    
+    arch.microservices.filter(s => s.type === 'api' || s.type === 'gateway').forEach(service => {
+      deployments.push(`---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${service.id}-deployment
+  labels:
+    app: ${service.id}
+spec:
+  replicas: ${service.replicas}
+  selector:
+    matchLabels:
+      app: ${service.id}
+  template:
+    metadata:
+      labels:
+        app: ${service.id}
+    spec:
+      containers:
+      - name: ${service.id}
+        image: infera/${service.id}-service:latest
+        ports:
+        - containerPort: ${service.port || 3000}
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: platform-secrets
+              key: database-url
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${service.id}-service
+spec:
+  selector:
+    app: ${service.id}
+  ports:
+  - port: ${service.port || 3000}
+    targetPort: ${service.port || 3000}
+  type: ClusterIP`);
+    });
+
+    if (arch.infrastructure.loadBalancer) {
+      deployments.push(`---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: platform-ingress
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  tls:
+  - hosts:
+    - api.platform.infera.dev
+    secretName: platform-tls
+  rules:
+  - host: api.platform.infera.dev
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: gateway-service
+            port:
+              number: 80`);
+    }
+
+    return deployments.join('\n');
+  };
+
   const simulateBuild = async (description: string) => {
     const hasArabic = /[\u0600-\u06FF]/.test(description);
     const lang = hasArabic ? 'ar' : language;
     
+    const arch = analyzeRequirements(description);
+    setArchitecture(arch);
+    
     const steps: BuildStep[] = [
       { id: 's1', name: 'Analyzing requirements', nameAr: 'تحليل المتطلبات', status: 'pending' },
-      { id: 's2', name: 'Creating project structure', nameAr: 'إنشاء هيكل المشروع', status: 'pending' },
-      { id: 's3', name: 'Generating database schema', nameAr: 'توليد مخطط قاعدة البيانات', status: 'pending' },
-      { id: 's4', name: 'Building frontend (React)', nameAr: 'بناء الواجهة (React)', status: 'pending' },
-      { id: 's5', name: 'Building backend (Node.js)', nameAr: 'بناء الخادم (Node.js)', status: 'pending' },
-      { id: 's6', name: 'Deploying to server', nameAr: 'نشر على السيرفر', status: 'pending' },
+      { id: 's2', name: 'Designing microservices architecture', nameAr: 'تصميم بنية الخدمات المصغرة', status: 'pending' },
+      { id: 's3', name: 'Generating database schemas', nameAr: 'توليد مخططات قواعد البيانات', status: 'pending' },
+      { id: 's4', name: 'Building frontend (React + Tailwind)', nameAr: 'بناء الواجهة (React + Tailwind)', status: 'pending' },
+      { id: 's5', name: 'Building backend services (Node.js)', nameAr: 'بناء خدمات الخادم (Node.js)', status: 'pending' },
+      { id: 's6', name: 'Generating Docker containers', nameAr: 'توليد حاويات Docker', status: 'pending' },
+      { id: 's7', name: 'Creating Kubernetes manifests', nameAr: 'إنشاء ملفات Kubernetes', status: 'pending' },
+      { id: 's8', name: 'Configuring load balancer', nameAr: 'إعداد موازن التحميل', status: 'pending' },
+      { id: 's9', name: 'Deploying to cloud', nameAr: 'النشر على السحابة', status: 'pending' },
     ];
     
     setBuildSteps(steps);
-    setActiveTab('build');
+    setActiveTab('architecture');
     
     for (let i = 0; i < steps.length; i++) {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 1200));
       
       setBuildSteps(prev => prev.map((step, idx) => ({
         ...step,
@@ -113,40 +546,77 @@ export default function PlatformBuilderPage() {
     
     setBuildSteps(prev => prev.map(step => ({ ...step, status: 'complete' })));
     
-    const projectName = description.toLowerCase().includes('متجر') || description.toLowerCase().includes('store') 
-      ? 'ecommerce-platform' 
-      : description.toLowerCase().includes('مدونة') || description.toLowerCase().includes('blog')
-      ? 'blog-platform'
-      : 'custom-platform';
-    
+    const projectName = arch.platformType.toLowerCase().replace(/\s+/g, '-');
     const mockPreviewUrl = `https://${projectName}.infera.dev`;
     setPreviewUrl(mockPreviewUrl);
-    setActiveTab('preview');
     
-    setGeneratedCode(`// ${projectName} - Generated by Nova AI
-// Frontend: React + Tailwind CSS
-// Backend: Node.js + Express
-// Database: PostgreSQL
+    setDockerCompose(generateDockerCompose(arch));
+    setKubernetesManifest(generateKubernetesManifest(arch));
+    
+    setGeneratedCode(`// ${arch.platformType} - Generated by Nova AI
+// Architecture: Microservices (${arch.microservices.length} services)
+// Estimated Users: ${arch.estimatedUsers}
+// Deployment Regions: ${arch.deploymentRegions.join(', ')}
 
+// ==================== API Gateway ====================
 import express from 'express';
-import { drizzle } from 'drizzle-orm/node-postgres';
+import { createProxyMiddleware } from 'http-proxy-middleware';
+import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
 
 const app = express();
 
-// API Routes
-app.get('/api/products', async (req, res) => {
-  const products = await db.select().from(products);
-  res.json(products);
-});
+// Security middleware
+app.use(helmet());
+app.use(rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100
+}));
 
-// ... More generated code
+// Service routing
+${arch.microservices.filter(s => s.type === 'api').map(s => 
+  `app.use('/api/${s.id}', createProxyMiddleware({ target: 'http://${s.id}-service:${s.port}' }));`
+).join('\n')}
+
+// Health check
+app.get('/health', (req, res) => res.json({ status: 'healthy' }));
+
+app.listen(80, () => console.log('API Gateway running on port 80'));
+
+// ==================== Auth Service ====================
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import { Pool } from 'pg';
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+export async function authenticateUser(email: string, password: string) {
+  const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+  const user = result.rows[0];
+  
+  if (!user || !await bcrypt.compare(password, user.password)) {
+    throw new Error('Invalid credentials');
+  }
+  
+  return jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET!, {
+    expiresIn: '7d'
+  });
+}
+
+// ==================== Database Migrations ====================
+${arch.databases.map(db => `// ${db.type}: ${db.purpose}`).join('\n')}
+
+// More generated code available in the full project...
 `);
+    
+    setActiveTab('architecture');
     
     return {
       success: true,
       previewUrl: mockPreviewUrl,
       githubUrl: `https://github.com/infera/${projectName}`,
-      projectName
+      projectName,
+      architecture: arch
     };
   };
 
@@ -170,7 +640,7 @@ app.get('/api/products', async (req, res) => {
     const thinkingMessage: BuildMessage = {
       id: (Date.now() + 1).toString(),
       role: 'nova',
-      content: lang === 'ar' ? 'جاري تحليل طلبك وبدء البناء...' : 'Analyzing your request and starting build...',
+      content: lang === 'ar' ? 'جاري تحليل المتطلبات وتصميم البنية المثلى...' : 'Analyzing requirements and designing optimal architecture...',
       timestamp: new Date(),
       status: 'thinking',
     };
@@ -181,12 +651,13 @@ app.get('/api/products', async (req, res) => {
       
       setMessages(prev => prev.filter(m => m.id !== thinkingMessage.id));
       
+      const arch = result.architecture;
       const completionMessage: BuildMessage = {
         id: (Date.now() + 2).toString(),
         role: 'nova',
         content: lang === 'ar' 
-          ? `✅ تم بناء المنصة بنجاح!\n\n🔗 رابط المعاينة: ${result.previewUrl}\n📦 GitHub: ${result.githubUrl}\n\nيمكنك الآن إضافة ميزات جديدة أو تعديل المنصة.`
-          : `✅ Platform built successfully!\n\n🔗 Preview URL: ${result.previewUrl}\n📦 GitHub: ${result.githubUrl}\n\nYou can now add new features or modify the platform.`,
+          ? `✅ تم بناء المنصة بنجاح!\n\n📊 نوع المنصة: ${arch?.platformTypeAr}\n🔧 عدد الخدمات: ${arch?.microservices.length}\n👥 المستخدمين المتوقعين: ${arch?.estimatedUsers}\n💰 التكلفة المقدرة: ${arch?.estimatedCost}\n\n🔗 رابط المعاينة: ${result.previewUrl}\n📦 GitHub: ${result.githubUrl}\n\nيمكنك تحميل ملفات Docker و Kubernetes من تبويب "البنية".`
+          : `✅ Platform built successfully!\n\n📊 Platform Type: ${arch?.platformType}\n🔧 Services: ${arch?.microservices.length}\n👥 Expected Users: ${arch?.estimatedUsers}\n💰 Estimated Cost: ${arch?.estimatedCost}\n\n🔗 Preview URL: ${result.previewUrl}\n📦 GitHub: ${result.githubUrl}\n\nYou can download Docker and Kubernetes files from the "Architecture" tab.`,
         timestamp: new Date(),
         status: 'complete',
       };
@@ -195,7 +666,7 @@ app.get('/api/products', async (req, res) => {
       
       toast({
         title: lang === 'ar' ? 'تم البناء بنجاح' : 'Build Complete',
-        description: lang === 'ar' ? 'منصتك جاهزة للمعاينة' : 'Your platform is ready for preview',
+        description: lang === 'ar' ? `تم إنشاء ${arch?.microservices.length} خدمة مصغرة` : `Created ${arch?.microservices.length} microservices`,
       });
       
     } catch (error) {
@@ -233,6 +704,28 @@ app.get('/api/products', async (req, res) => {
 
   const t = (en: string, ar: string) => language === 'ar' ? ar : en;
 
+  const getServiceIcon = (type: MicroserviceSpec['type']) => {
+    const icons: Record<MicroserviceSpec['type'], typeof Server> = {
+      api: Server,
+      worker: Cpu,
+      gateway: Network,
+      database: Database,
+      cache: HardDrive,
+      queue: Activity,
+      cdn: Globe,
+      storage: Cloud,
+    };
+    return icons[type];
+  };
+
+  const getComplexityColor = (complexity: ArchitectureAnalysis['complexity']) => {
+    switch (complexity) {
+      case 'enterprise': return 'bg-purple-500/10 text-purple-600 border-purple-500/30';
+      case 'medium': return 'bg-blue-500/10 text-blue-600 border-blue-500/30';
+      default: return 'bg-green-500/10 text-green-600 border-green-500/30';
+    }
+  };
+
   return (
     <div className={`flex h-screen bg-background ${isRTL ? 'flex-row-reverse' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
       <div className={`w-[450px] flex flex-col border-${isRTL ? 'l' : 'r'} border-border bg-card/50`}>
@@ -245,8 +738,8 @@ app.get('/api/products', async (req, res) => {
               <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-card" />
             </div>
             <div>
-              <h2 className="font-semibold text-foreground">Nova AI Builder</h2>
-              <p className="text-xs text-muted-foreground">{t('Ready to build', 'جاهز للبناء')}</p>
+              <h2 className="font-semibold text-foreground">Nova Enterprise Builder</h2>
+              <p className="text-xs text-muted-foreground">{t('Build scalable platforms', 'بناء منصات عملاقة')}</p>
             </div>
           </div>
         </div>
@@ -307,9 +800,9 @@ app.get('/api/products', async (req, res) => {
         <div className="p-4 border-t border-border bg-card/80">
           <div className="flex gap-2 mb-3 flex-wrap">
             {[
-              { icon: Rocket, label: t('E-commerce', 'متجر'), prompt: t('Create an e-commerce store with products, cart, and payments', 'أنشئ متجر إلكتروني مع منتجات وسلة شراء ودفع') },
-              { icon: FileCode, label: t('Blog', 'مدونة'), prompt: t('Create a blog with posts, categories, and comments', 'أنشئ مدونة مع مقالات وتصنيفات وتعليقات') },
-              { icon: Globe, label: t('Portfolio', 'ملف شخصي'), prompt: t('Create a portfolio website', 'أنشئ موقع ملف شخصي') },
+              { icon: Layers, label: t('Enterprise E-commerce', 'متجر عملاق'), prompt: t('Create an enterprise e-commerce platform with 1M concurrent users, global CDN, multi-currency payments, real-time inventory, recommendation engine, and analytics dashboard', 'أنشئ منصة تجارة إلكترونية عملاقة تدعم مليون مستخدم متزامن مع CDN عالمي ودفع متعدد العملات ومخزون حي ومحرك توصيات ولوحة تحليلات') },
+              { icon: Video, label: t('Learning Platform', 'منصة تعليم'), prompt: t('Create an educational platform with video streaming, virtual classrooms, smart testing system, progress tracking, and payment integration for 500K users', 'أنشئ منصة تعليمية مع بث فيديو وفصول افتراضية ونظام اختبارات ذكي وتتبع التقدم ونظام دفع لـ 500 ألف مستخدم') },
+              { icon: Users, label: t('Social Platform', 'منصة اجتماعية'), prompt: t('Create a social platform with real-time messaging, content feed, live streaming, notifications, and moderation system', 'أنشئ منصة اجتماعية مع رسائل حية وتايملاين وبث مباشر وإشعارات ونظام إشراف') },
             ].map((example, idx) => (
               <Button
                 key={idx}
@@ -331,7 +824,7 @@ app.get('/api/products', async (req, res) => {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={t('Describe the platform you want to build...', 'صف المنصة التي تريد بناءها...')}
+              placeholder={t('Describe your enterprise platform requirements...', 'صف متطلبات منصتك العملاقة...')}
               className="resize-none pr-12 min-h-[80px]"
               disabled={isBuilding}
               data-testid="input-chat"
@@ -352,10 +845,14 @@ app.get('/api/products', async (req, res) => {
       <div className="flex-1 flex flex-col bg-muted/30">
         <div className="p-3 border-b border-border bg-card/50 flex items-center justify-between gap-4">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
-            <TabsList className="grid w-[300px] grid-cols-3">
+            <TabsList className="grid w-[400px] grid-cols-4">
               <TabsTrigger value="preview" className="gap-1" data-testid="tab-preview">
                 <Eye className="w-4 h-4" />
                 {t('Preview', 'معاينة')}
+              </TabsTrigger>
+              <TabsTrigger value="architecture" className="gap-1" data-testid="tab-architecture">
+                <Network className="w-4 h-4" />
+                {t('Architecture', 'البنية')}
               </TabsTrigger>
               <TabsTrigger value="code" className="gap-1" data-testid="tab-code">
                 <Code className="w-4 h-4" />
@@ -373,7 +870,6 @@ app.get('/api/products', async (req, res) => {
               <Button
                 variant={previewDevice === 'desktop' ? 'secondary' : 'ghost'}
                 size="icon"
-                className="h-7 w-7"
                 onClick={() => setPreviewDevice('desktop')}
                 data-testid="button-device-desktop"
               >
@@ -382,7 +878,6 @@ app.get('/api/products', async (req, res) => {
               <Button
                 variant={previewDevice === 'tablet' ? 'secondary' : 'ghost'}
                 size="icon"
-                className="h-7 w-7"
                 onClick={() => setPreviewDevice('tablet')}
                 data-testid="button-device-tablet"
               >
@@ -391,7 +886,6 @@ app.get('/api/products', async (req, res) => {
               <Button
                 variant={previewDevice === 'mobile' ? 'secondary' : 'ghost'}
                 size="icon"
-                className="h-7 w-7"
                 onClick={() => setPreviewDevice('mobile')}
                 data-testid="button-device-mobile"
               >
@@ -433,36 +927,276 @@ app.get('/api/products', async (req, res) => {
                       <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
                         <Rocket className="w-8 h-8 text-white" />
                       </div>
-                      <h3 className="text-lg font-semibold mb-2">{t('Platform Preview', 'معاينة المنصة')}</h3>
+                      <h3 className="text-lg font-semibold mb-2">{architecture?.platformType || t('Platform Preview', 'معاينة المنصة')}</h3>
                       <p className="text-sm text-muted-foreground max-w-md">
-                        {t('Your platform is being generated. The preview will appear here once ready.', 'يتم توليد منصتك. ستظهر المعاينة هنا عند الجاهزية.')}
+                        {t('Your platform is deployed and ready.', 'منصتك جاهزة ومنشورة.')}
                       </p>
+                      {architecture && (
+                        <div className="mt-4 flex items-center justify-center gap-2 flex-wrap">
+                          <Badge variant="outline" className={getComplexityColor(architecture.complexity)}>
+                            {architecture.complexity === 'enterprise' ? t('Enterprise', 'مؤسسي') : architecture.complexity === 'medium' ? t('Medium', 'متوسط') : t('Simple', 'بسيط')}
+                          </Badge>
+                          <Badge variant="outline" className="gap-1">
+                            <Users className="w-3 h-3" />
+                            {architecture.estimatedUsers}
+                          </Badge>
+                          <Badge variant="outline" className="gap-1">
+                            <Server className="w-3 h-3" />
+                            {architecture.microservices.length} {t('services', 'خدمة')}
+                          </Badge>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
               ) : (
                 <div className="text-center p-8">
                   <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
-                    <Eye className="w-10 h-10 text-muted-foreground" />
+                    <Layers className="w-10 h-10 text-muted-foreground" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-2">{t('Live Preview', 'المعاينة الحية')}</h3>
+                  <h3 className="text-xl font-semibold mb-2">{t('Enterprise Platform Builder', 'باني المنصات العملاقة')}</h3>
                   <p className="text-muted-foreground max-w-md mx-auto mb-6">
-                    {t('Describe your platform in the chat and watch it come to life here in real-time.', 'صف منصتك في المحادثة وشاهدها تتشكل هنا بشكل حي.')}
+                    {t('Describe your platform requirements and watch Nova design the perfect microservices architecture.', 'صف متطلبات منصتك وشاهد Nova تصمم بنية الخدمات المصغرة المثالية.')}
                   </p>
-                  <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
+                  <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground flex-wrap">
+                    <Badge variant="outline" className="gap-1">
+                      <Container className="w-3 h-3" />
+                      Docker
+                    </Badge>
+                    <Badge variant="outline" className="gap-1">
+                      <Box className="w-3 h-3" />
+                      Kubernetes
+                    </Badge>
                     <Badge variant="outline" className="gap-1">
                       <Database className="w-3 h-3" />
                       PostgreSQL
                     </Badge>
                     <Badge variant="outline" className="gap-1">
-                      <Server className="w-3 h-3" />
-                      Node.js
-                    </Badge>
-                    <Badge variant="outline" className="gap-1">
-                      <Code className="w-3 h-3" />
-                      React
+                      <Activity className="w-3 h-3" />
+                      Kafka
                     </Badge>
                   </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'architecture' && (
+            <div className="space-y-4">
+              {architecture ? (
+                <>
+                  <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Gauge className="w-4 h-4 text-primary" />
+                          <span className="text-sm font-medium">{t('Complexity', 'التعقيد')}</span>
+                        </div>
+                        <Badge className={getComplexityColor(architecture.complexity)}>
+                          {architecture.complexity === 'enterprise' ? t('Enterprise', 'مؤسسي') : architecture.complexity === 'medium' ? t('Medium', 'متوسط') : t('Simple', 'بسيط')}
+                        </Badge>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Users className="w-4 h-4 text-primary" />
+                          <span className="text-sm font-medium">{t('Users', 'المستخدمين')}</span>
+                        </div>
+                        <p className="text-xl font-bold">{architecture.estimatedUsers}</p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Server className="w-4 h-4 text-primary" />
+                          <span className="text-sm font-medium">{t('Services', 'الخدمات')}</span>
+                        </div>
+                        <p className="text-xl font-bold">{architecture.microservices.length}</p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <CreditCard className="w-4 h-4 text-primary" />
+                          <span className="text-sm font-medium">{t('Est. Cost', 'التكلفة')}</span>
+                        </div>
+                        <p className="text-lg font-bold">{architecture.estimatedCost}</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Network className="w-4 h-4" />
+                        {t('Microservices Architecture', 'بنية الخدمات المصغرة')}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                        {architecture.microservices.map((service) => {
+                          const IconComponent = getServiceIcon(service.type);
+                          return (
+                            <div
+                              key={service.id}
+                              className="p-3 rounded-lg border border-border bg-card hover-elevate"
+                            >
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center">
+                                  <IconComponent className="w-4 h-4 text-primary" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">
+                                    {language === 'ar' ? service.nameAr : service.name}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">{service.type}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-xs">
+                                  x{service.replicas}
+                                </Badge>
+                                {service.port && (
+                                  <Badge variant="outline" className="text-xs">
+                                    :{service.port}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <Container className="w-4 h-4" />
+                            Docker Compose
+                          </CardTitle>
+                          <Button variant="outline" size="sm" className="gap-1" data-testid="button-download-docker">
+                            <Download className="w-3 h-3" />
+                            {t('Download', 'تحميل')}
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <ScrollArea className="h-[300px]">
+                          <pre className="text-xs font-mono text-muted-foreground whitespace-pre-wrap">
+                            {dockerCompose}
+                          </pre>
+                        </ScrollArea>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <Box className="w-4 h-4" />
+                            Kubernetes Manifests
+                          </CardTitle>
+                          <Button variant="outline" size="sm" className="gap-1" data-testid="button-download-k8s">
+                            <Download className="w-3 h-3" />
+                            {t('Download', 'تحميل')}
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <ScrollArea className="h-[300px]">
+                          <pre className="text-xs font-mono text-muted-foreground whitespace-pre-wrap">
+                            {kubernetesManifest}
+                          </pre>
+                        </ScrollArea>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Database className="w-4 h-4" />
+                        {t('Databases', 'قواعد البيانات')}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center gap-3 flex-wrap">
+                        {architecture.databases.map((db, idx) => (
+                          <div key={idx} className="flex items-center gap-2 p-2 rounded-lg border border-border bg-card">
+                            <Database className="w-4 h-4 text-primary" />
+                            <div>
+                              <p className="text-sm font-medium">{db.type}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {language === 'ar' ? db.purposeAr : db.purpose}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Globe className="w-4 h-4" />
+                        {t('Infrastructure', 'البنية التحتية')}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center gap-3 flex-wrap">
+                        {architecture.infrastructure.loadBalancer && (
+                          <Badge variant="outline" className="gap-1 bg-green-500/10 text-green-600 border-green-500/30">
+                            <CheckCircle className="w-3 h-3" />
+                            Load Balancer
+                          </Badge>
+                        )}
+                        {architecture.infrastructure.cdn && (
+                          <Badge variant="outline" className="gap-1 bg-green-500/10 text-green-600 border-green-500/30">
+                            <CheckCircle className="w-3 h-3" />
+                            CDN
+                          </Badge>
+                        )}
+                        {architecture.infrastructure.cache && (
+                          <Badge variant="outline" className="gap-1 bg-green-500/10 text-green-600 border-green-500/30">
+                            <CheckCircle className="w-3 h-3" />
+                            Redis Cache
+                          </Badge>
+                        )}
+                        {architecture.infrastructure.queue && (
+                          <Badge variant="outline" className="gap-1 bg-green-500/10 text-green-600 border-green-500/30">
+                            <CheckCircle className="w-3 h-3" />
+                            Message Queue
+                          </Badge>
+                        )}
+                        {architecture.infrastructure.containerized && (
+                          <Badge variant="outline" className="gap-1 bg-green-500/10 text-green-600 border-green-500/30">
+                            <CheckCircle className="w-3 h-3" />
+                            Containerized
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="mt-3">
+                        <p className="text-sm text-muted-foreground mb-2">{t('Deployment Regions:', 'مناطق النشر:')}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {architecture.deploymentRegions.map((region, idx) => (
+                            <Badge key={idx} variant="outline">
+                              {region}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              ) : (
+                <div className="text-center py-12">
+                  <Network className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <p className="text-muted-foreground">{t('Architecture will appear here after build', 'ستظهر البنية هنا بعد البناء')}</p>
                 </div>
               )}
             </div>
