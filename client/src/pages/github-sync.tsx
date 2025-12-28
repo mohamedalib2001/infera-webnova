@@ -460,6 +460,22 @@ export default function GitHubSync() {
                             >
                               <ExternalLink className="h-4 w-4" />
                             </Button>
+                            {isConfigured && (
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={handleSyncNow}
+                                disabled={isSyncing || triggerSync.isPending}
+                                data-testid={`button-sync-repo-${repo.id}`}
+                              >
+                                {isSyncing || triggerSync.isPending ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="h-4 w-4" />
+                                )}
+                                <span className={isRtl ? "mr-1" : "ml-1"}>{txt.syncNow}</span>
+                              </Button>
+                            )}
                             {!isConfigured && (
                               <Button
                                 variant="outline"
