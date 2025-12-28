@@ -7460,25 +7460,37 @@ Provide realistic, data-driven predictions based on the actual platform state.`;
   // Create project - attach to authenticated user (requires auth)
   app.post("/api/projects", async (req, res) => {
     try {
-      // Get authenticated user
+      console.log("POST /api/projects - Creating project:", req.body?.name);
+      
+      // Get authenticated user or create guest session identity
       let userId: string | null = null;
       
       if (req.isAuthenticated && req.isAuthenticated() && req.user) {
         const replitUser = req.user as any;
         userId = replitUser.claims?.sub || null;
+        console.log("Replit auth user:", userId);
       } else if (req.session?.userId) {
         userId = req.session.userId;
+        console.log("Session user:", userId);
+      } else if (req.session && req.sessionID) {
+        // Use session ID as guest identity for Nova platform builder
+        userId = `guest_${req.sessionID}`;
+        // Safely persist guest identity
+        req.session.userId = userId;
+        console.log("Guest session user:", userId);
       }
       
-      // Require authentication to create projects
       if (!userId) {
-        return res.status(401).json({ error: "Authentication required to create projects" });
+        return res.status(401).json({ error: "Session required - please refresh the page" });
       }
+      
+      console.log("Creating project for user:", userId);
       
       const data = insertProjectSchema.parse(req.body);
-      // Attach userId to project
+      // Attach userId to project if authenticated
       const projectData = { ...data, userId };
       const project = await storage.createProject(projectData);
+      console.log("Project created:", project.id);
       
       // Auto-provision if requested
       const autoProvision = req.body.autoProvision !== false; // Default to true
@@ -7512,23 +7524,56 @@ Provide realistic, data-driven predictions based on the actual platform state.`;
     }
   });
 
-  // Update project (with tenant isolation)
-  app.patch("/api/projects/:id", requireAuth, async (req, res) => {
+  // Update project (with tenant isolation and guest session support)
+  app.patch("/api/projects/:id", async (req, res) => {
     try {
-      const userId = req.session?.userId;
-      if (!userId) return res.status(401).json({ error: "Authentication required" });
+      // Get user identity from multiple sources with proper session handling
+      let userId: string | null = null;
+      let isGuest = false;
+      
+      // Priority 1: Replit Auth (OAuth)
+      if (req.isAuthenticated && req.isAuthenticated() && req.user) {
+        const replitUser = req.user as any;
+        userId = replitUser.claims?.sub || null;
+      } 
+      // Priority 2: Traditional session auth
+      else if (req.session?.userId) {
+        userId = req.session.userId;
+        isGuest = userId?.startsWith('guest_') || false;
+      }
+      // Priority 3: Guest session (requires session to exist)
+      else if (req.session && req.sessionID) {
+        userId = `guest_${req.sessionID}`;
+        isGuest = true;
+        // Safely persist guest identity
+        req.session.userId = userId;
+      }
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
       
       const existingProject = await storage.getProject(req.params.id);
       if (!existingProject) {
         return res.status(404).json({ error: "Project not found" });
       }
       
-      // Check tenant isolation - only owner or project owner can update
-      const user = await storage.getUser(userId);
-      const isOwner = user?.role === "owner";
+      // SECURITY: Check tenant isolation - project owner check is mandatory
       const isProjectOwner = existingProject.userId === userId;
       
-      if (!isOwner && !isProjectOwner) {
+      // For authenticated (non-guest) users, also check admin/owner role and account status
+      let isAdmin = false;
+      if (!isGuest && userId) {
+        const user = await storage.getUser(userId);
+        // Check if user account is active (not suspended/banned)
+        if (user && (user.status === 'SUSPENDED' || user.status === 'BANNED' || user.status === 'DEACTIVATED')) {
+          return res.status(403).json({ error: "Account suspended - please contact support" });
+        }
+        isAdmin = user?.role === "owner" || user?.role === "admin";
+      }
+      
+      if (!isProjectOwner && !isAdmin) {
+        console.log(`Access denied: userId=${userId}, projectOwner=${existingProject.userId}`);
         return res.status(403).json({ error: "Access denied - you don't have permission to update this project" });
       }
       

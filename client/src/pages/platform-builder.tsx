@@ -156,9 +156,8 @@ export default function PlatformBuilderPage() {
         });
       }
     },
-    onSuccess: async (response) => {
-      const data = await response.json();
-      if (data.id) {
+    onSuccess: (data) => {
+      if (data && data.id) {
         setProjectId(data.id);
       }
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
@@ -186,8 +185,7 @@ export default function PlatformBuilderPage() {
         isPrivate: true,
       });
     },
-    onSuccess: async (response) => {
-      const data = await response.json();
+    onSuccess: (data) => {
       setGithubStatus({
         synced: true,
         repo: data.repo,
@@ -222,7 +220,7 @@ export default function PlatformBuilderPage() {
     setProjectName(name);
     setIsSaving(true);
     try {
-      const response = await saveProjectMutation.mutateAsync({
+      const data = await saveProjectMutation.mutateAsync({
         name,
         description: `Platform: ${name}`,
         files: generatedFiles,
@@ -230,8 +228,7 @@ export default function PlatformBuilderPage() {
         dockerCompose,
         kubernetesManifest,
       });
-      const data = await response.json();
-      if (data.id) {
+      if (data && data.id) {
         setProjectId(data.id);
         return data.id;
       }
