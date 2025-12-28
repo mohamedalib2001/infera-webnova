@@ -18244,3 +18244,35 @@ export const insertGithubSyncHistorySchema = createInsertSchema(githubSyncHistor
 });
 export type InsertGithubSyncHistory = z.infer<typeof insertGithubSyncHistorySchema>;
 export type GithubSyncHistory = typeof githubSyncHistory.$inferSelect;
+
+// ==================== HETZNER DEPLOYMENT HISTORY (SSH/SFTP) ====================
+
+export const hetznerDeployHistory = pgTable("hetzner_deploy_history", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id"),
+  sourceType: text("source_type").notNull().default("github"),
+  sourceRepo: text("source_repo"),
+  sourceBranch: text("source_branch"),
+  targetHost: text("target_host").notNull(),
+  targetPath: text("target_path").notNull(),
+  targetUser: text("target_user").notNull(),
+  status: text("status").notNull().default("pending"),
+  filesDeployed: integer("files_deployed"),
+  totalSize: integer("total_size"),
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  durationMs: integer("duration_ms"),
+  errorMessage: text("error_message"),
+  logs: text("logs"),
+}, (table) => [
+  index("idx_hetzner_history_user").on(table.userId),
+  index("idx_hetzner_history_status").on(table.status),
+  index("idx_hetzner_history_started").on(table.startedAt),
+]);
+
+export const insertHetznerDeployHistorySchema = createInsertSchema(hetznerDeployHistory).omit({
+  id: true,
+  startedAt: true,
+});
+export type InsertHetznerDeployHistory = z.infer<typeof insertHetznerDeployHistorySchema>;
+export type HetznerDeployHistory = typeof hetznerDeployHistory.$inferSelect;
