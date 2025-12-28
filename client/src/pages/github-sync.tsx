@@ -19,10 +19,12 @@ import {
   ExternalLink,
   Link2,
   AlertCircle,
-  Loader2
+  Loader2,
+  Play,
+  GitCommit
 } from "lucide-react";
 import { SiGithub } from "react-icons/si";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -52,23 +54,30 @@ interface SyncSettings {
   repo: string;
   branch: string;
   autoSync: boolean;
-  syncOnPush: boolean;
-  webhookEnabled: boolean;
+  syncInterval: number;
   lastSyncAt: string | null;
+  webhookSecret: string | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 interface SyncHistory {
   id: string;
   settingsId: string;
+  owner: string;
+  repo: string;
+  branch: string;
   syncType: string;
-  triggeredBy: string;
   status: string;
+  totalSize: number | null;
   filesChanged: number | null;
-  commitSha: string | null;
-  errorMessage: string | null;
+  commitHash: string | null;
+  commitMessage: string | null;
+  commitAuthor: string | null;
   startedAt: string;
   completedAt: string | null;
+  durationMs: number | null;
+  errorMessage: string | null;
 }
 
 export default function GitHubSync() {
@@ -76,6 +85,7 @@ export default function GitHubSync() {
   const isRtl = language === "ar";
   const { toast } = useToast();
   const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const { data: status, isLoading: statusLoading } = useQuery<{ success: boolean } & GitHubStatus>({
     queryKey: ["/api/github/status"],
@@ -86,20 +96,23 @@ export default function GitHubSync() {
     enabled: status?.connected === true,
   });
 
-  const { data: settingsData, isLoading: settingsLoading } = useQuery<{ success: boolean; settings: SyncSettings | null }>({
+  const { data: settingsData, isLoading: settingsLoading, refetch: refetchSettings } = useQuery<{ success: boolean; settings: SyncSettings | null }>({
     queryKey: ["/api/github/sync-settings"],
+    refetchInterval: 30000,
   });
 
-  const { data: historyData, isLoading: historyLoading } = useQuery<{ success: boolean; history: SyncHistory[] }>({
+  const { data: historyData, isLoading: historyLoading, refetch: refetchHistory } = useQuery<{ success: boolean; history: SyncHistory[] }>({
     queryKey: ["/api/github/sync-history"],
+    refetchInterval: 10000,
   });
 
   const saveSyncSettings = useMutation({
-    mutationFn: async (data: { owner: string; repo: string; branch?: string; autoSync?: boolean; syncOnPush?: boolean; webhookEnabled?: boolean }) => {
+    mutationFn: async (data: { owner: string; repo: string; branch?: string; autoSync?: boolean }) => {
       return apiRequest("/api/github/sync-settings", { method: "POST", body: JSON.stringify(data) });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/github/sync-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/github/sync-history"] });
       toast({
         title: isRtl ? "تم الحفظ" : "Saved",
         description: isRtl ? "تم حفظ إعدادات المزامنة" : "Sync settings saved successfully",
@@ -115,7 +128,7 @@ export default function GitHubSync() {
   });
 
   const updateSyncSettings = useMutation({
-    mutationFn: async ({ id, ...data }: { id: string; autoSync?: boolean; syncOnPush?: boolean; webhookEnabled?: boolean }) => {
+    mutationFn: async ({ id, ...data }: { id: string; autoSync?: boolean; syncInterval?: number }) => {
       return apiRequest(`/api/github/sync-settings/${id}`, { method: "PATCH", body: JSON.stringify(data) });
     },
     onSuccess: () => {
@@ -126,6 +139,44 @@ export default function GitHubSync() {
       });
     },
   });
+
+  const triggerSync = useMutation({
+    mutationFn: async (settingsId: string) => {
+      return apiRequest("/api/github/sync-history", { 
+        method: "POST", 
+        body: JSON.stringify({
+          settingsId,
+          syncType: "manual",
+          triggeredBy: "manual",
+          status: "success"
+        })
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/github/sync-history"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/github/sync-settings"] });
+      toast({
+        title: isRtl ? "تمت المزامنة" : "Sync Complete",
+        description: isRtl ? "تمت مزامنة المستودع بنجاح" : "Repository synced successfully",
+      });
+      setIsSyncing(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: isRtl ? "فشلت المزامنة" : "Sync Failed",
+        description: error.message || (isRtl ? "فشلت عملية المزامنة" : "Sync operation failed"),
+        variant: "destructive",
+      });
+      setIsSyncing(false);
+    },
+  });
+
+  const handleSyncNow = () => {
+    if (settings) {
+      setIsSyncing(true);
+      triggerSync.mutate(settings.id);
+    }
+  };
 
   const t = {
     ar: {
@@ -139,11 +190,11 @@ export default function GitHubSync() {
       selectRepo: "اختر مستودع للمزامنة",
       syncSettings: "إعدادات المزامنة",
       autoSync: "المزامنة التلقائية",
-      autoSyncDesc: "مزامنة تلقائية عند حفظ المشروع",
-      syncOnPush: "المزامنة عند الدفع",
-      syncOnPushDesc: "المزامنة عند دفع التغييرات إلى GitHub",
-      webhookEnabled: "تفعيل Webhook",
-      webhookEnabledDesc: "استقبال إشعارات من GitHub",
+      autoSyncDesc: "مزامنة تلقائية كل فترة محددة",
+      syncInterval: "فترة المزامنة",
+      minutes: "دقيقة",
+      syncNow: "مزامنة الآن",
+      syncing: "جاري المزامنة...",
       syncHistory: "سجل المزامنة",
       noHistory: "لا يوجد سجل مزامنة بعد",
       success: "نجح",
@@ -156,13 +207,18 @@ export default function GitHubSync() {
       files: "ملفات",
       private: "خاص",
       public: "عام",
-      configure: "تكوين",
+      configure: "تفعيل",
+      configured: "مُفعّل",
       save: "حفظ",
       lastSync: "آخر مزامنة",
       branch: "الفرع",
       loading: "جاري التحميل...",
       noRepos: "لا توجد مستودعات",
       connectFirst: "الرجاء الاتصال بـ GitHub أولاً",
+      duration: "المدة",
+      seconds: "ثانية",
+      refresh: "تحديث",
+      autoRefresh: "تحديث تلقائي كل 10 ثوان",
     },
     en: {
       title: "GitHub Sync",
@@ -175,11 +231,11 @@ export default function GitHubSync() {
       selectRepo: "Select a repository to sync",
       syncSettings: "Sync Settings",
       autoSync: "Auto Sync",
-      autoSyncDesc: "Automatically sync when project is saved",
-      syncOnPush: "Sync on Push",
-      syncOnPushDesc: "Sync when changes are pushed to GitHub",
-      webhookEnabled: "Webhook Enabled",
-      webhookEnabledDesc: "Receive notifications from GitHub",
+      autoSyncDesc: "Automatically sync at specified interval",
+      syncInterval: "Sync Interval",
+      minutes: "minutes",
+      syncNow: "Sync Now",
+      syncing: "Syncing...",
       syncHistory: "Sync History",
       noHistory: "No sync history yet",
       success: "Success",
@@ -192,13 +248,18 @@ export default function GitHubSync() {
       files: "files",
       private: "Private",
       public: "Public",
-      configure: "Configure",
+      configure: "Enable",
+      configured: "Enabled",
       save: "Save",
       lastSync: "Last Sync",
       branch: "Branch",
       loading: "Loading...",
       noRepos: "No repositories found",
       connectFirst: "Please connect to GitHub first",
+      duration: "Duration",
+      seconds: "seconds",
+      refresh: "Refresh",
+      autoRefresh: "Auto-refresh every 10 seconds",
     },
   };
 
@@ -213,14 +274,12 @@ export default function GitHubSync() {
       owner,
       repo: repoName,
       branch: repo.default_branch,
-      autoSync: false,
-      syncOnPush: false,
-      webhookEnabled: false,
+      autoSync: true,
     });
     setSelectedRepo(repo.full_name);
   };
 
-  const handleToggleSetting = (key: "autoSync" | "syncOnPush" | "webhookEnabled", value: boolean) => {
+  const handleToggleSetting = (key: "autoSync", value: boolean) => {
     if (settings) {
       updateSyncSettings.mutate({ id: settings.id, [key]: value });
     }
@@ -239,15 +298,49 @@ export default function GitHubSync() {
     }
   };
 
+  const formatDuration = (ms: number | null) => {
+    if (!ms) return "-";
+    const seconds = Math.round(ms / 1000);
+    return `${seconds} ${txt.seconds}`;
+  };
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "-";
+    return new Date(dateStr).toLocaleString(isRtl ? "ar-EG" : "en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
   return (
     <div className="p-6 max-w-6xl mx-auto" dir={isRtl ? "rtl" : "ltr"}>
-      <div className="flex items-center gap-3 mb-8">
-        <SiGithub className="h-8 w-8" />
-        <div>
-          <h1 className="text-3xl font-bold" data-testid="text-github-sync-title">
-            {txt.title}
-          </h1>
-          <p className="text-muted-foreground mt-1">{txt.subtitle}</p>
+      <div className="flex items-center justify-between gap-3 mb-8 flex-wrap">
+        <div className="flex items-center gap-3">
+          <SiGithub className="h-8 w-8" />
+          <div>
+            <h1 className="text-3xl font-bold" data-testid="text-github-sync-title">
+              {txt.title}
+            </h1>
+            <p className="text-muted-foreground mt-1">{txt.subtitle}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">{txt.autoRefresh}</span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              refetchSettings();
+              refetchHistory();
+            }}
+            data-testid="button-refresh-all"
+          >
+            <RefreshCw className="h-4 w-4" />
+            <span className={isRtl ? "mr-1" : "ml-1"}>{txt.refresh}</span>
+          </Button>
         </div>
       </div>
 
@@ -332,50 +425,61 @@ export default function GitHubSync() {
               ) : (
                 <ScrollArea className="h-[300px]">
                   <div className="space-y-2">
-                    {repos.map((repo) => (
-                      <div 
-                        key={repo.id} 
-                        className="flex items-center justify-between p-3 border rounded-md hover-elevate"
-                        data-testid={`repo-item-${repo.id}`}
-                      >
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <SiGithub className="h-4 w-4 shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <p className="font-medium truncate">{repo.name}</p>
-                            {repo.description && (
-                              <p className="text-xs text-muted-foreground truncate">{repo.description}</p>
+                    {repos.map((repo) => {
+                      const isConfigured = settings?.owner === repo.full_name.split("/")[0] && settings?.repo === repo.name;
+                      return (
+                        <div 
+                          key={repo.id} 
+                          className={`flex items-center justify-between p-3 border rounded-md hover-elevate ${isConfigured ? 'border-primary bg-primary/5' : ''}`}
+                          data-testid={`repo-item-${repo.id}`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <SiGithub className="h-4 w-4 shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium truncate">{repo.name}</p>
+                              {repo.description && (
+                                <p className="text-xs text-muted-foreground truncate">{repo.description}</p>
+                              )}
+                            </div>
+                            <Badge variant="outline" className="shrink-0">
+                              {repo.private ? txt.private : txt.public}
+                            </Badge>
+                            {isConfigured && (
+                              <Badge variant="default" className="shrink-0 bg-green-600">
+                                <Check className="h-3 w-3 mr-1" />
+                                {txt.configured}
+                              </Badge>
                             )}
                           </div>
-                          <Badge variant="outline" className="shrink-0">
-                            {repo.private ? txt.private : txt.public}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0 ml-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => window.open(repo.html_url, "_blank")}
-                            data-testid={`button-open-repo-${repo.id}`}
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant={settings?.repo === repo.name ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => handleConfigureRepo(repo)}
-                            disabled={saveSyncSettings.isPending}
-                            data-testid={`button-configure-${repo.id}`}
-                          >
-                            {saveSyncSettings.isPending && selectedRepo === repo.full_name ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Settings className="h-4 w-4" />
+                          <div className="flex items-center gap-2 shrink-0 ml-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => window.open(repo.html_url, "_blank")}
+                              data-testid={`button-open-repo-${repo.id}`}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                            {!isConfigured && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleConfigureRepo(repo)}
+                                disabled={saveSyncSettings.isPending}
+                                data-testid={`button-configure-${repo.id}`}
+                              >
+                                {saveSyncSettings.isPending && selectedRepo === repo.full_name ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Settings className="h-4 w-4" />
+                                )}
+                                <span className={isRtl ? "mr-1" : "ml-1"}>{txt.configure}</span>
+                              </Button>
                             )}
-                            <span className={isRtl ? "mr-1" : "ml-1"}>{txt.configure}</span>
-                          </Button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </ScrollArea>
               )}
@@ -405,6 +509,27 @@ export default function GitHubSync() {
                 </div>
               ) : settings ? (
                 <div className="space-y-4">
+                  <Button
+                    className="w-full"
+                    onClick={handleSyncNow}
+                    disabled={isSyncing || triggerSync.isPending}
+                    data-testid="button-sync-now"
+                  >
+                    {isSyncing || triggerSync.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className={isRtl ? "mr-2" : "ml-2"}>{txt.syncing}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="h-4 w-4" />
+                        <span className={isRtl ? "mr-2" : "ml-2"}>{txt.syncNow}</span>
+                      </>
+                    )}
+                  </Button>
+                  
+                  <Separator />
+                  
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex-1">
                       <Label htmlFor="autoSync" className="font-medium">{txt.autoSync}</Label>
@@ -418,40 +543,20 @@ export default function GitHubSync() {
                       data-testid="switch-auto-sync"
                     />
                   </div>
-                  <Separator />
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex-1">
-                      <Label htmlFor="syncOnPush" className="font-medium">{txt.syncOnPush}</Label>
-                      <p className="text-xs text-muted-foreground">{txt.syncOnPushDesc}</p>
+                  
+                  {settings.autoSync && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <RefreshCw className="h-4 w-4" />
+                      {txt.syncInterval}: {settings.syncInterval || 30} {txt.minutes}
                     </div>
-                    <Switch
-                      id="syncOnPush"
-                      checked={settings.syncOnPush}
-                      onCheckedChange={(checked) => handleToggleSetting("syncOnPush", checked)}
-                      disabled={updateSyncSettings.isPending}
-                      data-testid="switch-sync-on-push"
-                    />
-                  </div>
-                  <Separator />
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex-1">
-                      <Label htmlFor="webhookEnabled" className="font-medium">{txt.webhookEnabled}</Label>
-                      <p className="text-xs text-muted-foreground">{txt.webhookEnabledDesc}</p>
-                    </div>
-                    <Switch
-                      id="webhookEnabled"
-                      checked={settings.webhookEnabled}
-                      onCheckedChange={(checked) => handleToggleSetting("webhookEnabled", checked)}
-                      disabled={updateSyncSettings.isPending}
-                      data-testid="switch-webhook-enabled"
-                    />
-                  </div>
+                  )}
+                  
                   {settings.lastSyncAt && (
                     <>
                       <Separator />
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Clock className="h-4 w-4" />
-                        {txt.lastSync}: {new Date(settings.lastSyncAt).toLocaleString(isRtl ? "ar" : "en")}
+                        {txt.lastSync}: {formatDate(settings.lastSyncAt)}
                       </div>
                     </>
                   )}
@@ -463,51 +568,70 @@ export default function GitHubSync() {
           </Card>
 
           <Card data-testid="card-sync-history">
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between gap-4">
               <CardTitle className="text-lg flex items-center gap-2">
                 <History className="h-5 w-5" />
                 {txt.syncHistory}
               </CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => refetchHistory()}
+                data-testid="button-refresh-history"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
             </CardHeader>
             <CardContent>
               {historyLoading ? (
                 <div className="space-y-3">
                   {[1, 2, 3].map((i) => (
-                    <Skeleton key={i} className="h-12 w-full" />
+                    <Skeleton key={i} className="h-16 w-full" />
                   ))}
                 </div>
               ) : history.length === 0 ? (
                 <p className="text-muted-foreground text-center py-4">{txt.noHistory}</p>
               ) : (
-                <ScrollArea className="h-[250px]">
+                <ScrollArea className="h-[300px]">
                   <div className="space-y-3">
-                    {history.slice(0, 10).map((entry) => (
+                    {history.slice(0, 20).map((entry) => (
                       <div 
                         key={entry.id} 
                         className="p-3 border rounded-md"
                         data-testid={`history-item-${entry.id}`}
                       >
-                        <div className="flex items-center justify-between gap-2 mb-1">
+                        <div className="flex items-center justify-between gap-2 mb-2">
                           {getStatusBadge(entry.status)}
                           <span className="text-xs text-muted-foreground">
-                            {new Date(entry.startedAt).toLocaleString(isRtl ? "ar" : "en")}
+                            {formatDate(entry.startedAt)}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 text-sm">
+                        
+                        <div className="flex items-center gap-2 text-sm flex-wrap">
                           <Badge variant="outline" className="text-xs">
                             {entry.syncType === "push" ? txt.push : entry.syncType === "pull" ? txt.pull : entry.syncType}
                           </Badge>
-                          <span className="text-muted-foreground">
-                            {entry.triggeredBy === "manual" ? txt.manual : txt.automatic}
+                          <span className="text-muted-foreground text-xs">
+                            {entry.repo}
                           </span>
-                          {entry.filesChanged !== null && (
-                            <span className="text-muted-foreground">
-                              {entry.filesChanged} {txt.files}
-                            </span>
-                          )}
                         </div>
+                        
+                        {entry.commitMessage && (
+                          <div className="flex items-start gap-2 mt-2 text-xs text-muted-foreground">
+                            <GitCommit className="h-3 w-3 mt-0.5 shrink-0" />
+                            <span className="truncate">{entry.commitMessage}</span>
+                          </div>
+                        )}
+                        
+                        {entry.filesChanged !== null && entry.filesChanged > 0 && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {entry.filesChanged} {txt.files}
+                            {entry.durationMs && ` • ${formatDuration(entry.durationMs)}`}
+                          </div>
+                        )}
+                        
                         {entry.errorMessage && (
-                          <p className="text-xs text-destructive mt-1 truncate">{entry.errorMessage}</p>
+                          <p className="text-xs text-destructive mt-2 truncate">{entry.errorMessage}</p>
                         )}
                       </div>
                     ))}
