@@ -99,7 +99,7 @@ export default function GitHubSync() {
   const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
-  const [deployPath, setDeployPath] = useState("/var/www/html");
+  const [deployPath, setDeployPath] = useState("");
 
   const { data: status, isLoading: statusLoading } = useQuery<{ success: boolean } & GitHubStatus>({
     queryKey: ["/api/github/status"],
