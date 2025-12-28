@@ -1072,12 +1072,51 @@ ${JSON.stringify(projectContext?.activeBlueprint || {}, null, 2)}`;
         preferredLanguage: isArabic ? 'ar' : 'en',
       });
       
+      // ========== PERSIST CONVERSATION TO DATABASE ==========
+      try {
+        // Get or create session for this project
+        let currentSession = sessions && sessions.length > 0 ? sessions[0] : null;
+        
+        if (!currentSession) {
+          // Create new session
+          currentSession = await storage.createNovaSession({
+            userId,
+            title: message.substring(0, 100),
+            projectId: currentProjectId,
+            messageCount: 0,
+          });
+        }
+        
+        // Save user message
+        await storage.createNovaMessage({
+          sessionId: currentSession.id,
+          role: 'user',
+          content: message,
+          language: isArabic ? 'ar' : 'en',
+        });
+        
+        // Save assistant response
+        await storage.createNovaMessage({
+          sessionId: currentSession.id,
+          role: 'assistant',
+          content: responseText,
+          language: isArabic ? 'ar' : 'en',
+        });
+        
+        console.log(`[Nova Memory] Saved conversation to session ${currentSession.id}`);
+      } catch (saveError) {
+        console.error('[Nova Memory] Failed to save conversation:', saveError);
+        // Don't fail the request if saving fails
+      }
+      // ========================================================
+      
       res.json({
         response: responseText,
         success: true,
         capabilities: NOVA_CAPABILITIES,
         memoryEnabled: true,
-        projectId: currentProjectId
+        projectId: currentProjectId,
+        sessionId: sessions?.[0]?.id
       });
     } catch (error: any) {
       console.error('Nova chat error:', error);
