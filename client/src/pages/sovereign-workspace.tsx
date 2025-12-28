@@ -613,15 +613,14 @@ export default function SovereignWorkspacePage() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   
-  // Read initial prompt from URL for Nova AI chat
-  const urlInitialPrompt = (() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const promptParam = urlParams.get("prompt");
-    return promptParam ? decodeURIComponent(promptParam) : "";
-  })();
+  // Read initial prompt and confirmed flag from URL for Nova AI chat
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlInitialPrompt = urlParams.get("prompt") ? decodeURIComponent(urlParams.get("prompt")!) : "";
+  const isConfirmedBuild = urlParams.get("confirmed") === "true";
   
   // If there's an initial prompt, auto-switch to Nova AI tab
   const [activeTab, setActiveTab] = useState(urlInitialPrompt ? "nova" : "platforms");
+  const [autoCreateTriggered, setAutoCreateTriggered] = useState(false);
   const [initialPrompt] = useState(urlInitialPrompt);
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
   const [inviteMemberDialogOpen, setInviteMemberDialogOpen] = useState(false);
@@ -732,6 +731,48 @@ export default function SovereignWorkspacePage() {
       });
     },
   });
+
+  // Auto-create project when confirmed from home page conversation
+  useEffect(() => {
+    if (isConfirmedBuild && urlInitialPrompt && workspace && !autoCreateTriggered) {
+      setAutoCreateTriggered(true);
+      
+      // Generate project code from name
+      const projectCode = urlInitialPrompt
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, '')
+        .replace(/\s+/g, '-')
+        .substring(0, 20);
+      
+      // Detect platform type from prompt
+      let platformType: SovereignPlatformType = 'custom';
+      const lowerPrompt = urlInitialPrompt.toLowerCase();
+      if (lowerPrompt.includes('ecommerce') || lowerPrompt.includes('commerce') || lowerPrompt.includes('تجارة')) {
+        platformType = 'ecommerce';
+      } else if (lowerPrompt.includes('health') || lowerPrompt.includes('صح') || lowerPrompt.includes('طب')) {
+        platformType = 'healthcare';
+      } else if (lowerPrompt.includes('financial') || lowerPrompt.includes('bank') || lowerPrompt.includes('مال')) {
+        platformType = 'fintech';
+      } else if (lowerPrompt.includes('government') || lowerPrompt.includes('حكوم')) {
+        platformType = 'government';
+      } else if (lowerPrompt.includes('education') || lowerPrompt.includes('تعليم')) {
+        platformType = 'education';
+      }
+      
+      // Create the project automatically
+      createProjectMutation.mutate({
+        code: projectCode + '-' + Date.now().toString(36),
+        name: urlInitialPrompt,
+        nameAr: urlInitialPrompt,
+        description: `Auto-generated from Nova AI conversation: ${urlInitialPrompt}`,
+        platformType,
+        category: 'commercial',
+      });
+      
+      // Clear URL parameters after creation
+      window.history.replaceState({}, '', '/sovereign-workspace');
+    }
+  }, [isConfirmedBuild, urlInitialPrompt, workspace, autoCreateTriggered, createProjectMutation]);
 
   const deployProjectMutation = useMutation({
     mutationFn: async (projectId: string) => {
