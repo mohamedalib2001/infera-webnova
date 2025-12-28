@@ -125,3 +125,101 @@ export async function updateRepo(owner: string, repo: string, options: {
   });
   return data;
 }
+
+export interface GitHubFile {
+  path: string;
+  content: string;
+}
+
+export async function pushFilesToRepo(
+  owner: string,
+  repo: string,
+  branch: string,
+  files: GitHubFile[],
+  commitMessage: string
+): Promise<{ sha: string; url: string }> {
+  const client = await getUncachableGitHubClient();
+
+  let latestCommitSha: string;
+  let treeSha: string;
+
+  try {
+    const { data: refData } = await client.git.getRef({
+      owner,
+      repo,
+      ref: `heads/${branch}`
+    });
+    latestCommitSha = refData.object.sha;
+
+    const { data: commitData } = await client.git.getCommit({
+      owner,
+      repo,
+      commit_sha: latestCommitSha
+    });
+    treeSha = commitData.tree.sha;
+  } catch (error: any) {
+    if (error.status === 404) {
+      const { data: repoData } = await client.repos.get({ owner, repo });
+      const defaultBranch = repoData.default_branch;
+      const { data: refData } = await client.git.getRef({
+        owner,
+        repo,
+        ref: `heads/${defaultBranch}`
+      });
+      latestCommitSha = refData.object.sha;
+
+      const { data: commitData } = await client.git.getCommit({
+        owner,
+        repo,
+        commit_sha: latestCommitSha
+      });
+      treeSha = commitData.tree.sha;
+    } else {
+      throw error;
+    }
+  }
+
+  const blobs = await Promise.all(
+    files.map(async (file) => {
+      const { data } = await client.git.createBlob({
+        owner,
+        repo,
+        content: Buffer.from(file.content).toString('base64'),
+        encoding: 'base64'
+      });
+      return {
+        path: file.path,
+        mode: '100644' as const,
+        type: 'blob' as const,
+        sha: data.sha
+      };
+    })
+  );
+
+  const { data: newTree } = await client.git.createTree({
+    owner,
+    repo,
+    base_tree: treeSha,
+    tree: blobs
+  });
+
+  const { data: newCommit } = await client.git.createCommit({
+    owner,
+    repo,
+    message: commitMessage,
+    tree: newTree.sha,
+    parents: [latestCommitSha]
+  });
+
+  await client.git.updateRef({
+    owner,
+    repo,
+    ref: `heads/${branch}`,
+    sha: newCommit.sha
+  });
+
+  return {
+    sha: newCommit.sha,
+    url: `https://github.com/${owner}/${repo}/commit/${newCommit.sha}`
+  };
+}

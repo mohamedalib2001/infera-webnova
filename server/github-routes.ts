@@ -1,5 +1,8 @@
 import { Router, Request, Response } from "express";
-import { getAuthenticatedUser, listUserRepos, getRepo, createRepo, getRepoContents, listBranches, listCommits, deleteRepo, updateRepo, getUncachableGitHubClient } from "./github-client";
+import { getAuthenticatedUser, listUserRepos, getRepo, createRepo, getRepoContents, listBranches, listCommits, deleteRepo, updateRepo, getUncachableGitHubClient, pushFilesToRepo, GitHubFile } from "./github-client";
+import { db } from "./db";
+import { projects } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 const router = Router();
 
@@ -149,6 +152,162 @@ router.get("/status", async (req: Request, res: Response) => {
       connected: false,
       error: error.message
     });
+  }
+});
+
+// Sync project to GitHub - Create or update repository
+router.post("/sync-project/:projectId", async (req: Request, res: Response) => {
+  try {
+    const { projectId } = req.params;
+    const { repoName, isPrivate, commitMessage } = req.body;
+
+    const [project] = await db.select().from(projects).where(eq(projects.id, projectId));
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+
+    const user = await getAuthenticatedUser();
+    const owner = user.login;
+    const finalRepoName = repoName || project.name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+
+    let repo;
+    try {
+      repo = await getRepo(owner, finalRepoName);
+    } catch (error: any) {
+      if (error.status === 404) {
+        repo = await createRepo(finalRepoName, {
+          description: project.description || `Platform: ${project.name}`,
+          private: isPrivate ?? true,
+          auto_init: true
+        });
+      } else {
+        throw error;
+      }
+    }
+
+    const generatedFiles = project.generatedFiles as Array<{ path: string; content: string; type: string }> | null;
+    if (!generatedFiles || generatedFiles.length === 0) {
+      return res.status(400).json({ error: "No generated files to sync" });
+    }
+
+    const files: GitHubFile[] = generatedFiles.map(f => ({
+      path: f.path,
+      content: f.content
+    }));
+
+    if (project.dockerCompose) {
+      files.push({ path: 'docker-compose.yml', content: project.dockerCompose });
+    }
+    if (project.kubernetesManifest) {
+      files.push({ path: 'kubernetes/deployment.yaml', content: project.kubernetesManifest });
+    }
+
+    const branch = project.githubBranch || 'main';
+    const message = commitMessage || `Update platform: ${project.name} - ${new Date().toISOString()}`;
+
+    const result = await pushFilesToRepo(owner, finalRepoName, branch, files, message);
+
+    await db.update(projects).set({
+      githubRepo: `${owner}/${finalRepoName}`,
+      githubBranch: branch,
+      githubUrl: `https://github.com/${owner}/${finalRepoName}`,
+      githubLastSync: new Date(),
+      githubCommitSha: result.sha,
+      updatedAt: new Date()
+    }).where(eq(projects.id, projectId));
+
+    res.json({
+      success: true,
+      repo: `${owner}/${finalRepoName}`,
+      url: `https://github.com/${owner}/${finalRepoName}`,
+      commitUrl: result.url,
+      commitSha: result.sha,
+      filesCount: files.length
+    });
+  } catch (error: any) {
+    console.error("[GitHub] Error syncing project:", error.message);
+    res.status(500).json({ error: error.message || "Failed to sync project to GitHub" });
+  }
+});
+
+// Get project sync status
+router.get("/sync-status/:projectId", async (req: Request, res: Response) => {
+  try {
+    const { projectId } = req.params;
+
+    const [project] = await db.select().from(projects).where(eq(projects.id, projectId));
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+
+    if (!project.githubRepo) {
+      return res.json({
+        success: true,
+        synced: false,
+        message: "Project not synced to GitHub"
+      });
+    }
+
+    const [owner, repo] = project.githubRepo.split('/');
+    let repoInfo;
+    try {
+      repoInfo = await getRepo(owner, repo);
+    } catch (error: any) {
+      return res.json({
+        success: true,
+        synced: false,
+        message: "Repository no longer exists"
+      });
+    }
+
+    res.json({
+      success: true,
+      synced: true,
+      repo: project.githubRepo,
+      url: project.githubUrl,
+      branch: project.githubBranch,
+      lastSync: project.githubLastSync,
+      lastCommit: project.githubCommitSha,
+      repoInfo: {
+        name: repoInfo.name,
+        description: repoInfo.description,
+        private: repoInfo.private,
+        defaultBranch: repoInfo.default_branch,
+        updatedAt: repoInfo.updated_at
+      }
+    });
+  } catch (error: any) {
+    console.error("[GitHub] Error fetching sync status:", error.message);
+    res.status(500).json({ error: error.message || "Failed to fetch sync status" });
+  }
+});
+
+// Disconnect project from GitHub (remove link, not delete repo)
+router.delete("/sync-project/:projectId", async (req: Request, res: Response) => {
+  try {
+    const { projectId } = req.params;
+
+    const [project] = await db.select().from(projects).where(eq(projects.id, projectId));
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+
+    await db.update(projects).set({
+      githubRepo: null,
+      githubBranch: null,
+      githubUrl: null,
+      githubLastSync: null,
+      githubCommitSha: null,
+      updatedAt: new Date()
+    }).where(eq(projects.id, projectId));
+
+    res.json({
+      success: true,
+      message: "Project disconnected from GitHub"
+    });
+  } catch (error: any) {
+    console.error("[GitHub] Error disconnecting project:", error.message);
+    res.status(500).json({ error: error.message || "Failed to disconnect project" });
   }
 });
 
