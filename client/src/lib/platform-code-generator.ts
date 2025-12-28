@@ -77,11 +77,15 @@ export function generatePlatformCode(spec: PlatformSpec): GeneratedCode[] {
 function generateDatabaseSchemas(spec: PlatformSpec): GeneratedCode[] {
   const files: GeneratedCode[] = [];
   
-  const usersTable = `
-import { pgTable, text, serial, integer, boolean, timestamp, varchar, jsonb } from "drizzle-orm/pg-core";
+  const unifiedSchema = `
+import { pgTable, text, serial, integer, boolean, timestamp, varchar, jsonb, decimal, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { relations } from "drizzle-orm";
 
+// ============================================
+// USERS & AUTHENTICATION
+// ============================================
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   email: varchar("email", { length: 255 }).unique().notNull(),
@@ -89,86 +93,389 @@ export const users = pgTable("users", {
   firstName: varchar("first_name", { length: 100 }),
   lastName: varchar("last_name", { length: 100 }),
   avatar: text("avatar"),
-  role: varchar("role", { length: 50 }).default("user").notNull(),
+  phone: varchar("phone", { length: 20 }),
+  role: varchar("role", { length: 50 }).default("subscriber").notNull(),
   emailVerified: boolean("email_verified").default(false),
+  phoneVerified: boolean("phone_verified").default(false),
   isActive: boolean("is_active").default(true),
-  metadata: jsonb("metadata"),
+  lastLoginAt: timestamp("last_login_at"),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  emailIdx: index("users_email_idx").on(table.email),
+  roleIdx: index("users_role_idx").on(table.role),
+}));
 
 export const sessions = pgTable("sessions", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
   token: text("token").unique().notNull(),
+  userAgent: text("user_agent"),
+  ipAddress: varchar("ip_address", { length: 45 }),
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  userIdIdx: index("sessions_user_id_idx").on(table.userId),
+  tokenIdx: index("sessions_token_idx").on(table.token),
+}));
 
-export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertSessionSchema = createInsertSchema(sessions).omit({ id: true, createdAt: true });
-
-export type User = typeof users.$inferSelect;
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type Session = typeof sessions.$inferSelect;
-`;
-
-  files.push({
-    fileName: 'schema-users.ts',
-    filePath: 'shared/schema-users.ts',
-    language: 'typescript',
-    content: usersTable,
-    category: 'database'
-  });
-
-  if (spec.hasSubscriptions) {
-    const subscriptionsTable = `
-import { pgTable, text, serial, integer, boolean, timestamp, varchar, numeric } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod";
-import { users } from "./schema-users";
-
+// ============================================
+// SUBSCRIPTION & BILLING
+// ============================================
 export const plans = pgTable("plans", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 100 }).notNull(),
   nameAr: varchar("name_ar", { length: 100 }),
   description: text("description"),
-  price: numeric("price", { precision: 10, scale: 2 }).notNull(),
-  currency: varchar("currency", { length: 3 }).default("USD"),
-  interval: varchar("interval", { length: 20 }).default("monthly"),
-  features: text("features").array(),
+  descriptionAr: text("description_ar"),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).default("USD").notNull(),
+  interval: varchar("interval", { length: 20 }).default("monthly").notNull(),
+  intervalCount: integer("interval_count").default(1).notNull(),
+  trialDays: integer("trial_days").default(0),
+  features: jsonb("features").$type<string[]>().default([]),
+  limits: jsonb("limits").$type<Record<string, number>>(),
+  stripeProductId: text("stripe_product_id"),
+  stripePriceId: text("stripe_price_id"),
   isActive: boolean("is_active").default(true),
-  stripePriceId: varchar("stripe_price_id", { length: 255 }),
+  sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const subscriptions = pgTable("subscriptions", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
   planId: integer("plan_id").references(() => plans.id).notNull(),
-  status: varchar("status", { length: 50 }).default("active").notNull(),
-  stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }),
-  currentPeriodStart: timestamp("current_period_start"),
-  currentPeriodEnd: timestamp("current_period_end"),
+  status: varchar("status", { length: 20 }).default("active").notNull(),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  stripeCustomerId: text("stripe_customer_id"),
+  currentPeriodStart: timestamp("current_period_start").notNull(),
+  currentPeriodEnd: timestamp("current_period_end").notNull(),
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false),
   canceledAt: timestamp("canceled_at"),
+  trialStart: timestamp("trial_start"),
+  trialEnd: timestamp("trial_end"),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index("subscriptions_user_id_idx").on(table.userId),
+  statusIdx: index("subscriptions_status_idx").on(table.status),
+}));
+
+export const payments = pgTable("payments", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  subscriptionId: integer("subscription_id").references(() => subscriptions.id),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).default("USD").notNull(),
+  status: varchar("status", { length: 20 }).default("pending").notNull(),
+  paymentMethod: varchar("payment_method", { length: 50 }),
+  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  stripeInvoiceId: text("stripe_invoice_id"),
+  receiptUrl: text("receipt_url"),
+  failureReason: text("failure_reason"),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  paidAt: timestamp("paid_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index("payments_user_id_idx").on(table.userId),
+  statusIdx: index("payments_status_idx").on(table.status),
+}));
+
+// ============================================
+// CONTENT MANAGEMENT
+// ============================================
+export const content = pgTable("content", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  titleAr: varchar("title_ar", { length: 255 }),
+  slug: varchar("slug", { length: 255 }).unique().notNull(),
+  type: varchar("type", { length: 50 }).default("page").notNull(),
+  body: text("body"),
+  bodyAr: text("body_ar"),
+  excerpt: text("excerpt"),
+  excerptAr: text("excerpt_ar"),
+  featuredImage: text("featured_image"),
+  authorId: integer("author_id").references(() => users.id),
+  status: varchar("status", { length: 20 }).default("draft").notNull(),
+  publishedAt: timestamp("published_at"),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  seo: jsonb("seo").$type<{ title?: string; description?: string; keywords?: string[] }>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  slugIdx: index("content_slug_idx").on(table.slug),
+  typeIdx: index("content_type_idx").on(table.type),
+  statusIdx: index("content_status_idx").on(table.status),
+}));
+
+// ============================================
+// PLATFORM SETTINGS
+// ============================================
+export const settings = pgTable("settings", {
+  id: serial("id").primaryKey(),
+  key: varchar("key", { length: 100 }).unique().notNull(),
+  value: jsonb("value").notNull(),
+  category: varchar("category", { length: 50 }).default("general"),
+  description: text("description"),
+  isPublic: boolean("is_public").default(false),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const insertPlanSchema = createInsertSchema(plans).omit({ id: true, createdAt: true });
-export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({ id: true, createdAt: true });
+// ============================================
+// RELATIONS
+// ============================================
+export const usersRelations = relations(users, ({ many }) => ({
+  sessions: many(sessions),
+  subscriptions: many(subscriptions),
+  payments: many(payments),
+  content: many(content),
+}));
 
+export const sessionsRelations = relations(sessions, ({ one }) => ({
+  user: one(users, { fields: [sessions.userId], references: [users.id] }),
+}));
+
+export const subscriptionsRelations = relations(subscriptions, ({ one, many }) => ({
+  user: one(users, { fields: [subscriptions.userId], references: [users.id] }),
+  plan: one(plans, { fields: [subscriptions.planId], references: [plans.id] }),
+  payments: many(payments),
+}));
+
+export const paymentsRelations = relations(payments, ({ one }) => ({
+  user: one(users, { fields: [payments.userId], references: [users.id] }),
+  subscription: one(subscriptions, { fields: [payments.subscriptionId], references: [subscriptions.id] }),
+}));
+
+export const contentRelations = relations(content, ({ one }) => ({
+  author: one(users, { fields: [content.authorId], references: [users.id] }),
+}));
+
+// ============================================
+// ZOD SCHEMAS & TYPES
+// ============================================
+export const insertUserSchema = createInsertSchema(users).omit({ 
+  id: true, createdAt: true, updatedAt: true, lastLoginAt: true 
+});
+export const insertSessionSchema = createInsertSchema(sessions).omit({ id: true, createdAt: true });
+export const insertPlanSchema = createInsertSchema(plans).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true, createdAt: true });
+export const insertContentSchema = createInsertSchema(content).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSettingSchema = createInsertSchema(settings).omit({ id: true, updatedAt: true });
+
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type Session = typeof sessions.$inferSelect;
 export type Plan = typeof plans.$inferSelect;
+export type InsertPlan = z.infer<typeof insertPlanSchema>;
 export type Subscription = typeof subscriptions.$inferSelect;
+export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
+export type Payment = typeof payments.$inferSelect;
+export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+export type Content = typeof content.$inferSelect;
+export type InsertContent = z.infer<typeof insertContentSchema>;
+export type Setting = typeof settings.$inferSelect;
 `;
 
-    files.push({
-      fileName: 'schema-subscriptions.ts',
-      filePath: 'shared/schema-subscriptions.ts',
-      language: 'typescript',
-      content: subscriptionsTable,
-      category: 'database'
-    });
+  files.push({
+    fileName: 'schema.ts',
+    filePath: 'shared/schema.ts',
+    language: 'typescript',
+    content: unifiedSchema,
+    category: 'database'
+  });
+  
+  const dbConnection = `
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
+import * as schema from "@shared/schema";
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
+});
+
+pool.on("error", (err) => {
+  console.error("Unexpected database pool error:", err);
+});
+
+export const db = drizzle(pool, { schema });
+
+export async function testConnection() {
+  try {
+    const client = await pool.connect();
+    await client.query("SELECT 1");
+    client.release();
+    console.log("Database connected successfully");
+    return true;
+  } catch (error) {
+    console.error("Database connection failed:", error);
+    return false;
   }
+}
+`;
+
+  files.push({
+    fileName: 'db.ts',
+    filePath: 'server/db.ts',
+    language: 'typescript',
+    content: dbConnection,
+    category: 'database'
+  });
+  
+  const migrations = `
+-- Migration: Initial Schema
+-- Generated for: ${spec.name}
+
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  first_name VARCHAR(100),
+  last_name VARCHAR(100),
+  avatar TEXT,
+  phone VARCHAR(20),
+  role VARCHAR(50) DEFAULT 'subscriber' NOT NULL,
+  email_verified BOOLEAN DEFAULT FALSE,
+  phone_verified BOOLEAN DEFAULT FALSE,
+  is_active BOOLEAN DEFAULT TRUE,
+  last_login_at TIMESTAMP,
+  metadata JSONB,
+  created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  token TEXT UNIQUE NOT NULL,
+  user_agent TEXT,
+  ip_address VARCHAR(45),
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS plans (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  name_ar VARCHAR(100),
+  description TEXT,
+  description_ar TEXT,
+  price DECIMAL(10,2) NOT NULL,
+  currency VARCHAR(3) DEFAULT 'USD' NOT NULL,
+  interval VARCHAR(20) DEFAULT 'monthly' NOT NULL,
+  interval_count INTEGER DEFAULT 1 NOT NULL,
+  trial_days INTEGER DEFAULT 0,
+  features JSONB DEFAULT '[]',
+  limits JSONB,
+  stripe_product_id TEXT,
+  stripe_price_id TEXT,
+  is_active BOOLEAN DEFAULT TRUE,
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  plan_id INTEGER REFERENCES plans(id) NOT NULL,
+  status VARCHAR(20) DEFAULT 'active' NOT NULL,
+  stripe_subscription_id TEXT,
+  stripe_customer_id TEXT,
+  current_period_start TIMESTAMP NOT NULL,
+  current_period_end TIMESTAMP NOT NULL,
+  cancel_at_period_end BOOLEAN DEFAULT FALSE,
+  canceled_at TIMESTAMP,
+  trial_start TIMESTAMP,
+  trial_end TIMESTAMP,
+  metadata JSONB,
+  created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS payments (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  subscription_id INTEGER REFERENCES subscriptions(id),
+  amount DECIMAL(10,2) NOT NULL,
+  currency VARCHAR(3) DEFAULT 'USD' NOT NULL,
+  status VARCHAR(20) DEFAULT 'pending' NOT NULL,
+  payment_method VARCHAR(50),
+  stripe_payment_intent_id TEXT,
+  stripe_invoice_id TEXT,
+  receipt_url TEXT,
+  failure_reason TEXT,
+  metadata JSONB,
+  paid_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS content (
+  id SERIAL PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  title_ar VARCHAR(255),
+  slug VARCHAR(255) UNIQUE NOT NULL,
+  type VARCHAR(50) DEFAULT 'page' NOT NULL,
+  body TEXT,
+  body_ar TEXT,
+  excerpt TEXT,
+  excerpt_ar TEXT,
+  featured_image TEXT,
+  author_id INTEGER REFERENCES users(id),
+  status VARCHAR(20) DEFAULT 'draft' NOT NULL,
+  published_at TIMESTAMP,
+  metadata JSONB,
+  seo JSONB,
+  created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS settings (
+  id SERIAL PRIMARY KEY,
+  key VARCHAR(100) UNIQUE NOT NULL,
+  value JSONB NOT NULL,
+  category VARCHAR(50) DEFAULT 'general',
+  description TEXT,
+  is_public BOOLEAN DEFAULT FALSE,
+  updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS users_email_idx ON users(email);
+CREATE INDEX IF NOT EXISTS users_role_idx ON users(role);
+CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS sessions_token_idx ON sessions(token);
+CREATE INDEX IF NOT EXISTS subscriptions_user_id_idx ON subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS subscriptions_status_idx ON subscriptions(status);
+CREATE INDEX IF NOT EXISTS payments_user_id_idx ON payments(user_id);
+CREATE INDEX IF NOT EXISTS payments_status_idx ON payments(status);
+CREATE INDEX IF NOT EXISTS content_slug_idx ON content(slug);
+CREATE INDEX IF NOT EXISTS content_type_idx ON content(type);
+CREATE INDEX IF NOT EXISTS content_status_idx ON content(status);
+
+-- Seed initial plans
+INSERT INTO plans (name, name_ar, description, price, interval, features) VALUES
+  ('Free', 'مجاني', 'Basic features for getting started', 0, 'monthly', '["5 projects", "Basic support", "1GB storage"]'),
+  ('Pro', 'احترافي', 'Advanced features for professionals', 29.99, 'monthly', '["Unlimited projects", "Priority support", "50GB storage", "API access"]'),
+  ('Enterprise', 'مؤسسات', 'Full features for large organizations', 99.99, 'monthly', '["Unlimited everything", "24/7 support", "Unlimited storage", "Custom integrations", "SLA"]')
+ON CONFLICT DO NOTHING;
+`;
+
+  files.push({
+    fileName: '001_initial_schema.sql',
+    filePath: 'migrations/001_initial_schema.sql',
+    language: 'sql',
+    content: migrations,
+    category: 'database'
+  });
+
 
   if (spec.type === 'ecommerce') {
     const ecommerceSchema = `
@@ -339,11 +646,11 @@ function generateAuthSystem(spec: PlatformSpec): GeneratedCode[] {
 
   const loginPage = `
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -363,6 +670,7 @@ export default function LoginPage() {
   const [, setLocation] = useLocation();
   const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -372,9 +680,14 @@ export default function LoginPage() {
   const loginMutation = useMutation({
     mutationFn: async (data: LoginForm) => {
       const res = await apiRequest("POST", "/api/auth/login", data);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Login failed");
+      }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      queryClient.setQueryData(["/api/auth/me"], data.user);
       toast({ title: "Welcome back!", description: "You have been logged in successfully." });
       setLocation("/dashboard");
     },
@@ -384,13 +697,13 @@ export default function LoginPage() {
   });
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-violet-50 to-purple-100 dark:from-zinc-900 dark:to-zinc-800 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-violet-50 to-purple-100 dark:from-zinc-900 dark:to-zinc-800 p-4" data-testid="page-login">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
             <Lock className="w-8 h-8 text-white" />
           </div>
-          <CardTitle className="text-2xl">Welcome Back</CardTitle>
+          <CardTitle className="text-2xl" data-testid="text-login-title">Welcome Back</CardTitle>
           <CardDescription>Sign in to your account to continue</CardDescription>
         </CardHeader>
         <CardContent>
@@ -457,7 +770,7 @@ export default function LoginPage() {
 
   const registerPage = `
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -467,14 +780,16 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
+import { Loader2, Mail, Lock, User, Eye, EyeOff, Check } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 const registerSchema = z.object({
   firstName: z.string().min(2, "First name must be at least 2 characters"),
   lastName: z.string().min(2, "Last name must be at least 2 characters"),
   email: z.string().email("Please enter a valid email"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  password: z.string().min(8, "Password must be at least 8 characters")
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number"),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
@@ -496,6 +811,10 @@ export default function RegisterPage() {
   const registerMutation = useMutation({
     mutationFn: async (data: RegisterForm) => {
       const res = await apiRequest("POST", "/api/auth/register", data);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Registration failed");
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -508,13 +827,13 @@ export default function RegisterPage() {
   });
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-violet-50 to-purple-100 dark:from-zinc-900 dark:to-zinc-800 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-violet-50 to-purple-100 dark:from-zinc-900 dark:to-zinc-800 p-4" data-testid="page-register">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
             <User className="w-8 h-8 text-white" />
           </div>
-          <CardTitle className="text-2xl">Create Account</CardTitle>
+          <CardTitle className="text-2xl" data-testid="text-register-title">Create Account</CardTitle>
           <CardDescription>Join us and start your journey</CardDescription>
         </CardHeader>
         <CardContent>
