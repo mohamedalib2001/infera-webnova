@@ -906,10 +906,15 @@ How can I help you? Describe the platform you want to build.`;
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
     
-    const isPlatformDescription = /منصة|platform|متجر|store|موقع|site|تطبيق|app|نظام|system|مليون|million|users|مستخدم|ecommerce|تعليم|education|فيديو|video|دفع|payment|أنشئ|create|بناء|build/i.test(lowerContent);
-    const hasBuildIntent = /أنشئ|create|بناء|build|صمم|design|اعمل|make/i.test(lowerContent);
+    // Check if this is a question about capabilities (should go to AI chat)
+    const isCapabilityQuestion = /ما هي|ماهي|قدراتك|قدرات|ماذا تستطيع|ماذا يمكنك|what can you|what are your|capabilities|can you do|تقدر|تستطيع|يمكنك/i.test(content);
+    const isQuestion = /\?|؟|كيف|لماذا|ما هو|ما هي|هل|أين|متى|من|how|what|why|where|when|who|which/i.test(content);
     
-    if (!isPlatformDescription && !hasBuildIntent) {
+    const isPlatformDescription = /منصة|platform|متجر|store|موقع|site|تطبيق|app|نظام|system|مليون|million|users|مستخدم|ecommerce|تعليم|education|فيديو|video|دفع|payment/i.test(lowerContent);
+    const hasBuildIntent = /أنشئ|create|بناء|build|صمم|design|اعمل|make|ابني|انشئ/i.test(lowerContent) && !isCapabilityQuestion;
+    
+    // If it's a question about capabilities or a general question, use AI chat
+    if (isCapabilityQuestion || (isQuestion && !hasBuildIntent) || (!isPlatformDescription && !hasBuildIntent)) {
       setIsBuilding(true);
       const thinkingMessage: BuildMessage = {
         id: (Date.now() + 1).toString(),
