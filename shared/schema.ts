@@ -18276,3 +18276,103 @@ export const insertHetznerDeployHistorySchema = createInsertSchema(hetznerDeploy
 });
 export type InsertHetznerDeployHistory = z.infer<typeof insertHetznerDeployHistorySchema>;
 export type HetznerDeployHistory = typeof hetznerDeployHistory.$inferSelect;
+
+// ==================== SERVER CONFIGURATION (Encrypted SSH Credentials) ====================
+
+export const serverConfigs = pgTable("server_configs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  host: text("host").notNull(),
+  port: integer("port").notNull().default(22),
+  username: text("username").notNull(),
+  authType: text("auth_type").notNull().default("password"),
+  encryptedPassword: text("encrypted_password"),
+  encryptedPrivateKey: text("encrypted_private_key"),
+  encryptionIv: text("encryption_iv"),
+  deployPath: text("deploy_path").notNull(),
+  postDeployCommand: text("post_deploy_command"),
+  isActive: boolean("is_active").notNull().default(true),
+  lastDeployAt: timestamp("last_deploy_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_server_configs_user").on(table.userId),
+  index("idx_server_configs_active").on(table.isActive),
+]);
+
+export const insertServerConfigSchema = createInsertSchema(serverConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertServerConfig = z.infer<typeof insertServerConfigSchema>;
+export type ServerConfig = typeof serverConfigs.$inferSelect;
+
+// ==================== SERVER PROFILES (Multi-Server Management) ====================
+
+export const serverProfiles = pgTable("server_profiles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  host: text("host").notNull(),
+  port: integer("port").notNull().default(22),
+  username: text("username").notNull(),
+  authType: text("auth_type").notNull().default("password"),
+  encryptedPassword: text("encrypted_password"),
+  encryptedPrivateKey: text("encrypted_private_key"),
+  encryptionIv: text("encryption_iv"),
+  deployPath: text("deploy_path").notNull(),
+  postDeployCommand: text("post_deploy_command"),
+  isDefault: boolean("is_default").notNull().default(false),
+  lastUsedAt: timestamp("last_used_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_server_profiles_user").on(table.userId),
+  index("idx_server_profiles_default").on(table.isDefault),
+]);
+
+export const insertServerProfileSchema = createInsertSchema(serverProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertServerProfile = z.infer<typeof insertServerProfileSchema>;
+export type ServerProfile = typeof serverProfiles.$inferSelect;
+
+// ==================== SERVER DEPLOYMENT HISTORY ====================
+
+export const serverDeployHistory = pgTable("server_deploy_history", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull(),
+  profileId: uuid("profile_id"),
+  serverName: text("server_name").notNull(),
+  host: text("host").notNull(),
+  deployPath: text("deploy_path").notNull(),
+  sourceRepo: text("source_repo"),
+  sourceBranch: text("source_branch"),
+  commitHash: text("commit_hash"),
+  commitMessage: text("commit_message"),
+  status: text("status").notNull().default("pending"),
+  filesUploaded: integer("files_uploaded").default(0),
+  totalSize: integer("total_size"),
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  durationMs: integer("duration_ms"),
+  errorMessage: text("error_message"),
+  logs: text("logs"),
+}, (table) => [
+  index("idx_server_deploy_user").on(table.userId),
+  index("idx_server_deploy_profile").on(table.profileId),
+  index("idx_server_deploy_status").on(table.status),
+  index("idx_server_deploy_started").on(table.startedAt),
+]);
+
+export const insertServerDeployHistorySchema = createInsertSchema(serverDeployHistory).omit({
+  id: true,
+  startedAt: true,
+});
+export type InsertServerDeployHistory = z.infer<typeof insertServerDeployHistorySchema>;
+export type ServerDeployHistory = typeof serverDeployHistory.$inferSelect;

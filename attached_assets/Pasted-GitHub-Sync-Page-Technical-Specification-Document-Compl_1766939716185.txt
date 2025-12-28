@@ -1,0 +1,703 @@
+GitHub Sync Page - Technical Specification Document
+Complete Technical Blueprint for Replication
+1. Overview / نظرة عامة
+Page Purpose / الغرض من الصفحة:
+صفحة احترافية لمزامنة المشاريع مع GitHub مع دعم النشر على خوادم خارجية عبر SSH.
+
+Route / المسار: /github-sync
+
+Access Level / مستوى الوصول: Owner Only (المالك فقط)
+
+2. Technology Stack / المكدس التقني
+Frontend Technologies:
+- React 18 with TypeScript
+- Wouter (routing)
+- TanStack React Query v5 (data fetching)
+- Tailwind CSS (styling)
+- shadcn/ui components (UI library)
+- Lucide React (icons)
+- date-fns (date formatting)
+Backend Technologies:
+- Node.js with Express
+- TypeScript (ESM modules)
+- Octokit REST API (@octokit/rest)
+- SSH2 library (server deployment)
+- AES-256-GCM encryption (credentials)
+3. TypeScript Interfaces / واجهات TypeScript
+// GitHub User Interface
+interface GitHubUser {
+  login: string;           // GitHub username
+  name: string;            // Display name
+  avatar_url: string;      // Profile image URL
+  html_url: string;        // Profile page URL
+}
+// GitHub Repository Interface
+interface GitHubRepo {
+  id: number;              // Repository ID
+  name: string;            // Repository name
+  full_name: string;       // owner/repo format
+  owner: string;           // Owner username
+  description: string | null;
+  html_url: string;        // Repository URL
+  default_branch: string;  // e.g., "main"
+  private: boolean;        // Visibility
+  size: number;            // Size in KB
+  language: string | null; // Primary language
+  updated_at: string;      // ISO date string
+}
+// Sync Settings Interface
+interface SyncSettings {
+  id: string;
+  owner: string;           // Repository owner
+  repo: string;            // Repository name
+  branch: string;          // Selected branch
+  autoSync: boolean;       // Auto-sync enabled
+  lastSyncAt: string | null;
+}
+// Sync History Entry
+interface SyncHistoryEntry {
+  id: string;
+  owner: string;
+  repo: string;
+  branch: string;
+  syncType: string;        // "manual" | "auto"
+  status: "pending" | "success" | "failed";
+  totalSize: number | null;
+  commitHash: string | null;
+  commitMessage: string | null;
+  commitAuthor: string | null;
+  startedAt: string;
+  completedAt: string | null;
+  durationMs: number | null;
+  errorMessage: string | null;
+}
+// Branch Interface
+interface Branch {
+  name: string;
+  protected: boolean;
+}
+// Deployment Entry
+interface DeploymentEntry {
+  id: string;
+  owner: string;
+  repo: string;
+  branch: string;
+  commitHash: string | null;
+  commitMessage: string | null;
+  status: "pending" | "in_progress" | "success" | "failed";
+  filesDeployed: number;
+  startedAt: string;
+  completedAt: string | null;
+  errorMessage: string | null;
+}
+// Server Configuration
+interface ServerConfig {
+  id: string;
+  name: string;            // Server display name
+  host: string;            // IP or hostname
+  port: number;            // SSH port (default: 22)
+  username: string;        // SSH username
+  authType: "password" | "key";
+  deployPath: string;      // Target deployment path
+  postDeployCommand?: string;
+  isActive: boolean;
+  lastDeployAt: string | null;
+  hasPassword: boolean;    // Password configured (not exposed)
+  hasPrivateKey: boolean;  // Key configured (not exposed)
+}
+// Server Deploy History
+interface ServerDeployHistoryEntry {
+  id: string;
+  serverName: string;
+  status: "pending" | "in_progress" | "success" | "failed";
+  filesUploaded: number;
+  startedAt: string;
+  completedAt: string | null;
+  errorMessage: string | null;
+  commitHash: string | null;
+}
+4. Page Layout Structure / هيكل تخطيط الصفحة
+┌─────────────────────────────────────────────────────────────────┐
+│ HEADER                                                          │
+│ ┌───────────────────────────────┐  ┌─────────────────────────┐ │
+│ │ GitHub Icon + "GitHub Sync"   │  │ User Avatar + Name      │ │
+│ │ Subtitle: Synchronize...      │  │ @username (link)        │ │
+│ └───────────────────────────────┘  └─────────────────────────┘ │
+├─────────────────────────────────────────────────────────────────┤
+│ 2-COLUMN GRID (lg:grid-cols-2)                                  │
+│ ┌─────────────────────────────┐ ┌─────────────────────────────┐ │
+│ │ CARD: Sync Settings         │ │ CARD: Sync History          │ │
+│ │ - Repository Select         │ │ - History entries list      │ │
+│ │ - Branch Select             │ │ - Status badges             │ │
+│ │ - Auto Sync Toggle          │ │ - Commit info               │ │
+│ │ - Save/Sync/Deploy buttons  │ │ - Duration & size           │ │
+│ └─────────────────────────────┘ └─────────────────────────────┘ │
+├─────────────────────────────────────────────────────────────────┤
+│ CARD: Deployment History (full width)                           │
+│ - Deployment entries with status icons                          │
+│ - Files deployed badge                                          │
+│ - Commit hash and message                                       │
+├─────────────────────────────────────────────────────────────────┤
+│ CARD: Connected Repository (conditional - if settings exist)    │
+│ - Repository name with visibility badge (Private/Public)        │
+│ - Branch name                                                   │
+│ - Action buttons: View on GitHub, Browse Code, Toggle Visibility│
+├─────────────────────────────────────────────────────────────────┤
+│ CARD: External Server Deployment (Hetzner)                      │
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │ Header: Server icon + Title    [Manage Server Profiles btn] │ │
+│ ├─────────────────────────────────────────────────────────────┤ │
+│ │ TABS: [Configuration] [Deploy]                              │ │
+│ │                                                             │ │
+│ │ Configuration Tab:                                          │ │
+│ │ - Server Name + Host (2-column grid)                        │ │
+│ │ - SSH Port + Username (2-column grid)                       │ │
+│ │ - Auth Method (radio: Password / SSH Key)                   │ │
+│ │ - Password input OR Private Key textarea                    │ │
+│ │ - Deploy Path input                                         │ │
+│ │ - Post-Deploy Command input                                 │ │
+│ │ - Save Configuration + Test Connection buttons              │ │
+│ │ - Current config display (if configured)                    │ │
+│ │                                                             │ │
+│ │ Deploy Tab:                                                 │ │
+│ │ - Source (GitHub) → Target (Server) display                 │ │
+│ │ - Deploy to Server button                                   │ │
+│ │ - Recent Server Deployments list                            │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+5. UI Components Used / مكونات الواجهة المستخدمة
+shadcn/ui Components:
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+Lucide Icons Used:
+import { 
+  GitBranch,      // Branch indicator
+  RefreshCw,      // Sync action
+  Check,          // Success status
+  X,              // Failed status
+  Clock,          // Pending status
+  ExternalLink,   // External links
+  Github,         // GitHub branding
+  FolderGit2,     // Repository icon
+  History,        // History section
+  Settings,       // Settings/Config
+  Loader2,        // Loading spinner
+  AlertCircle,    // Warning/Error
+  Rocket,         // Deploy action
+  FileCode,       // Files count
+  Lock,           // Private repository
+  Globe,          // Public repository
+  Server,         // Server section
+  Upload,         // Upload/Deploy tab
+  Plug,           // Test connection
+  Terminal        // Command execution
+} from "lucide-react";
+6. State Management / إدارة الحالة
+Local State (useState):
+// Repository selection
+const [selectedRepo, setSelectedRepo] = useState<string>("");
+const [selectedBranch, setSelectedBranch] = useState<string>("main");
+const [autoSync, setAutoSync] = useState(false);
+const [initialized, setInitialized] = useState(false);
+// Server configuration
+const [serverName, setServerName] = useState("");
+const [serverHost, setServerHost] = useState("");
+const [serverPort, setServerPort] = useState("22");
+const [serverUsername, setServerUsername] = useState("");
+const [serverAuthType, setServerAuthType] = useState<"password" | "key">("password");
+const [serverPassword, setServerPassword] = useState("");
+const [serverPrivateKey, setServerPrivateKey] = useState("");
+const [serverDeployPath, setServerDeployPath] = useState("");
+const [serverPostCommand, setServerPostCommand] = useState("");
+Server State (React Query):
+// GitHub status and user info
+const { data: status, isLoading: statusLoading } = useQuery<{
+  isConnected: boolean;
+  user: GitHubUser | null;
+  settings: SyncSettings | null;
+}>({ queryKey: ["/api/github/status"] });
+// User repositories list
+const { data: repos = [], isLoading: reposLoading } = useQuery<GitHubRepo[]>({
+  queryKey: ["/api/github/repos"],
+  enabled: status?.isConnected ?? false,
+});
+// Repository branches
+const { data: branches = [] } = useQuery<Branch[]>({
+  queryKey: ["/api/github/repos", repoOwner, repoName, "branches"],
+  enabled: !!selectedRepo,
+});
+// Sync history
+const { data: history = [], isLoading: historyLoading } = useQuery<SyncHistoryEntry[]>({
+  queryKey: ["/api/github/history"],
+});
+// Deployment history
+const { data: deployments = [], isLoading: deploymentsLoading } = useQuery<DeploymentEntry[]>({
+  queryKey: ["/api/github/deployments"],
+});
+// Server configuration
+const { data: serverConfig } = useQuery<ServerConfig | null>({
+  queryKey: ["/api/github/server/config"],
+});
+// Server deployment history
+const { data: serverHistory = [] } = useQuery<ServerDeployHistoryEntry[]>({
+  queryKey: ["/api/github/server/history"],
+});
+7. API Endpoints / نقاط النهاية
+GitHub Integration Endpoints:
+GET  /api/github/status                    → Connection status + user info
+GET  /api/github/repos                     → List user repositories
+GET  /api/github/repos/:owner/:repo/branches → List branches
+GET  /api/github/history                   → Sync history
+GET  /api/github/deployments               → Deployment history
+PATCH /api/github/settings                 → Save sync settings
+POST /api/github/sync                      → Trigger manual sync
+POST /api/github/deploy                    → Deploy to Replit server
+PATCH /api/github/repos/:owner/:repo/visibility → Toggle visibility
+Server Deployment Endpoints:
+GET  /api/github/server/config             → Get server configuration
+POST /api/github/server/config             → Save server configuration
+POST /api/github/server/test               → Test SSH connection
+POST /api/github/server/deploy             → Deploy to external server
+GET  /api/github/server/history            → Server deployment history
+Multi-Server Profiles Endpoints (Owner Only):
+GET    /api/github/profiles                → List all server profiles
+GET    /api/github/profiles/:id            → Get single profile
+POST   /api/github/profiles                → Create new profile
+PUT    /api/github/profiles/:id            → Update profile
+DELETE /api/github/profiles/:id            → Delete profile
+POST   /api/github/profiles/:id/deploy     → Deploy to specific profile
+POST   /api/github/profiles/:id/test       → Test profile connection
+8. Mutations / العمليات
+// Save sync settings
+const saveSettingsMutation = useMutation({
+  mutationFn: async (data: { owner: string; repo: string; branch: string; autoSync: boolean }) => {
+    const res = await apiRequest("PATCH", "/api/github/settings", data);
+    return res.json();
+  },
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/github/status"] });
+    toast({ title: "Settings saved", description: "GitHub sync settings have been updated" });
+  },
+});
+// Sync repository
+const syncMutation = useMutation({
+  mutationFn: async () => {
+    const res = await apiRequest("POST", "/api/github/sync");
+    return res.json();
+  },
+  onSuccess: (data) => {
+    queryClient.invalidateQueries({ queryKey: ["/api/github/history"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/github/status"] });
+    toast({ title: "Sync completed", description: `Successfully synced (${data.durationMs}ms)` });
+  },
+});
+// Deploy to Replit
+const deployMutation = useMutation({
+  mutationFn: async () => {
+    const res = await apiRequest("POST", "/api/github/deploy");
+    return res.json();
+  },
+  onSuccess: (data) => {
+    queryClient.invalidateQueries({ queryKey: ["/api/github/deployments"] });
+    toast({ title: "Deployment successful", description: `Deployed ${data.filesDeployed} files` });
+  },
+});
+// Toggle repository visibility
+const visibilityMutation = useMutation({
+  mutationFn: async ({ owner, repo, isPrivate }) => {
+    const res = await apiRequest("PATCH", `/api/github/repos/${owner}/${repo}/visibility`, { private: isPrivate });
+    return res.json();
+  },
+  onSuccess: (data) => {
+    queryClient.invalidateQueries({ queryKey: ["/api/github/repos"] });
+    toast({ title: "Visibility updated", description: `Repository is now ${data.private ? "private" : "public"}` });
+  },
+});
+// Save server configuration
+const saveServerConfigMutation = useMutation({
+  mutationFn: async (data) => {
+    const res = await apiRequest("POST", "/api/github/server/config", data);
+    return res.json();
+  },
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/github/server/config"] });
+    toast({ title: "Server configured", description: "Server settings saved successfully" });
+  },
+});
+// Test server connection
+const testServerMutation = useMutation({
+  mutationFn: async () => {
+    const res = await apiRequest("POST", "/api/github/server/test");
+    return res.json();
+  },
+  onSuccess: (data) => {
+    toast({ 
+      title: data.success ? "Connection successful" : "Connection failed", 
+      description: data.message,
+      variant: data.success ? "default" : "destructive"
+    });
+  },
+});
+// Deploy to external server
+const serverDeployMutation = useMutation({
+  mutationFn: async () => {
+    const res = await apiRequest("POST", "/api/github/server/deploy");
+    return res.json();
+  },
+  onSuccess: (data) => {
+    queryClient.invalidateQueries({ queryKey: ["/api/github/server/history"] });
+    toast({ title: "Deployment successful", description: `Deployed ${data.filesUploaded} files` });
+  },
+});
+9. Styling Patterns / أنماط التصميم
+Container Styling:
+/* Main container */
+.container.mx-auto.p-6.space-y-6
+/* Grid layout for cards */
+.grid.gap-6.lg:grid-cols-2
+/* Flex layouts */
+.flex.items-center.justify-between.gap-4.flex-wrap
+.flex.items-start.gap-3
+.flex.gap-2.flex-wrap
+Card Styling:
+<Card>
+  <CardHeader>
+    <CardTitle className="flex items-center gap-2">
+      <Icon className="h-5 w-5" />
+      Title
+    </CardTitle>
+    <CardDescription>Description text</CardDescription>
+  </CardHeader>
+  <CardContent className="space-y-4">
+    {/* Content */}
+  </CardContent>
+</Card>
+Status Indicators:
+// Success status
+<div className="h-6 w-6 rounded-full bg-green-500/20 flex items-center justify-center">
+  <Check className="h-4 w-4 text-green-600" />
+</div>
+// Failed status
+<div className="h-6 w-6 rounded-full bg-red-500/20 flex items-center justify-center">
+  <X className="h-4 w-4 text-red-600" />
+</div>
+// Pending status
+<div className="h-6 w-6 rounded-full bg-yellow-500/20 flex items-center justify-center">
+  <Clock className="h-4 w-4 text-yellow-600" />
+</div>
+// Loading status
+<div className="h-6 w-6 rounded-full bg-blue-500/20 flex items-center justify-center">
+  <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
+</div>
+History Entry Styling:
+<div className="flex items-start gap-3 p-3 rounded-md bg-muted/50">
+  {/* Status icon */}
+  <div className="mt-0.5">{statusIcon}</div>
+  
+  {/* Content */}
+  <div className="flex-1 min-w-0">
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="font-medium text-sm">{title}</span>
+      <Badge variant={statusVariant} className="text-xs">{status}</Badge>
+    </div>
+    <p className="text-xs text-muted-foreground mt-1 truncate">{details}</p>
+    <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+      <span>{timeAgo}</span>
+      <span>•</span>
+      <span>{duration}</span>
+    </div>
+  </div>
+</div>
+Button Variants Used:
+<Button>Primary action</Button>
+<Button variant="outline">Secondary action</Button>
+<Button variant="default" className="bg-green-600 hover:bg-green-700">Deploy</Button>
+<Button size="sm">Small button</Button>
+<Button disabled={isPending}>
+  {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+  Button text
+</Button>
+10. Loading & Empty States / حالات التحميل والفراغ
+Loading State:
+<div className="flex items-center justify-center h-full">
+  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+</div>
+Section Loading:
+<div className="flex justify-center py-8">
+  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+</div>
+Empty State:
+<div className="text-center py-8 text-muted-foreground">
+  <HistoryIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
+  <p>No sync history yet</p>
+  <p className="text-xs">Sync your repository to see activity here</p>
+</div>
+Not Connected State:
+<Card>
+  <CardHeader>
+    <CardTitle className="flex items-center gap-2">
+      <Github className="h-6 w-6" />
+      GitHub Integration
+    </CardTitle>
+    <CardDescription>Connect your GitHub account</CardDescription>
+  </CardHeader>
+  <CardContent>
+    <div className="flex flex-col items-center gap-4 py-8">
+      <AlertCircle className="h-12 w-12 text-muted-foreground" />
+      <div className="text-center">
+        <h3 className="font-semibold mb-2">GitHub Not Connected</h3>
+        <p className="text-muted-foreground mb-4">Instructions...</p>
+        <ol className="text-left text-sm text-muted-foreground space-y-2 mb-6">
+          <li>1. Step one</li>
+          <li>2. Step two</li>
+        </ol>
+      </div>
+    </div>
+  </CardContent>
+</Card>
+11. Form Fields Configuration / تكوين حقول النموذج
+Repository Select:
+<div className="space-y-2">
+  <Label htmlFor="repo-select">Repository</Label>
+  <Select value={selectedRepo} onValueChange={setSelectedRepo}>
+    <SelectTrigger id="repo-select" data-testid="select-repository">
+      <SelectValue placeholder="Select a repository" />
+    </SelectTrigger>
+    <SelectContent>
+      {repos.map((repo) => (
+        <SelectItem key={repo.id} value={repo.full_name}>
+          <div className="flex items-center gap-2">
+            <FolderGit2 className="h-4 w-4" />
+            <span>{repo.full_name}</span>
+            {repo.private && <Badge variant="secondary">Private</Badge>}
+          </div>
+        </SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+  {selectedRepoData && (
+    <p className="text-xs text-muted-foreground">
+      {selectedRepoData.description} • {selectedRepoData.language} • {selectedRepoData.size} KB
+    </p>
+  )}
+</div>
+Switch Toggle:
+<div className="flex items-center justify-between">
+  <div className="space-y-0.5">
+    <Label htmlFor="auto-sync">Auto Sync</Label>
+    <p className="text-xs text-muted-foreground">
+      Automatically sync changes periodically
+    </p>
+  </div>
+  <Switch
+    id="auto-sync"
+    checked={autoSync}
+    onCheckedChange={setAutoSync}
+    data-testid="switch-auto-sync"
+  />
+</div>
+Radio Group (Auth Type):
+<div className="space-y-3">
+  <Label>Authentication Method</Label>
+  <div className="flex gap-4">
+    <label className="flex items-center gap-2 cursor-pointer">
+      <input
+        type="radio"
+        name="authType"
+        value="password"
+        checked={serverAuthType === "password"}
+        onChange={() => setServerAuthType("password")}
+        className="accent-primary"
+      />
+      <span className="text-sm">Password</span>
+    </label>
+    <label className="flex items-center gap-2 cursor-pointer">
+      <input
+        type="radio"
+        name="authType"
+        value="key"
+        checked={serverAuthType === "key"}
+        onChange={() => setServerAuthType("key")}
+        className="accent-primary"
+      />
+      <span className="text-sm">SSH Private Key</span>
+    </label>
+  </div>
+</div>
+SSH Private Key Textarea:
+<div className="space-y-2">
+  <Label htmlFor="server-private-key">Private Key (PEM format)</Label>
+  <Textarea
+    id="server-private-key"
+    placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"
+    value={serverPrivateKey}
+    onChange={(e) => setServerPrivateKey(e.target.value)}
+    className="font-mono text-xs min-h-[120px]"
+    data-testid="input-server-private-key"
+  />
+  <p className="text-xs text-muted-foreground">
+    Paste your private SSH key. Supports OpenSSH and PEM formats.
+  </p>
+</div>
+12. Data Test IDs / معرفات الاختبار
+// Interactive Elements
+data-testid="select-repository"
+data-testid="select-repo-${repo.name}"
+data-testid="select-branch"
+data-testid="select-branch-${branch.name}"
+data-testid="switch-auto-sync"
+data-testid="button-save-settings"
+data-testid="button-sync-now"
+data-testid="button-deploy"
+data-testid="button-view-github"
+data-testid="button-browse-code"
+data-testid="button-toggle-visibility"
+data-testid="button-manage-profiles"
+data-testid="tab-server-config"
+data-testid="tab-server-deploy"
+data-testid="input-server-name"
+data-testid="input-server-host"
+data-testid="input-server-port"
+data-testid="input-server-username"
+data-testid="radio-auth-password"
+data-testid="radio-auth-key"
+data-testid="input-server-password"
+data-testid="input-server-private-key"
+data-testid="input-deploy-path"
+data-testid="input-post-command"
+data-testid="button-save-server"
+data-testid="button-test-server"
+data-testid="button-deploy-to-server"
+// Display Elements
+data-testid="history-entry-${entry.id}"
+data-testid="deployment-entry-${entry.id}"
+data-testid="server-deploy-${entry.id}"
+13. Security Considerations / اعتبارات الأمان
+Credential Protection:
+1. SSH passwords and private keys are NEVER returned in API responses
+2. Only boolean flags (hasPassword, hasPrivateKey) indicate credential presence
+3. All credentials encrypted using AES-256-GCM before storage
+4. Encryption keys derived from platform-wide secret
+Access Control:
+1. All server deployment endpoints require owner authentication
+2. GitHub token accessed via Replit Integrations (not stored locally)
+3. Multi-server profiles are owner-only features
+Data Handling:
+// Server config response (credentials masked)
+{
+  id: string,
+  name: string,
+  host: string,
+  port: number,
+  username: string,
+  authType: "password" | "key",
+  deployPath: string,
+  hasPassword: boolean,      // Only indicates presence
+  hasPrivateKey: boolean,    // Only indicates presence
+  // password: NEVER RETURNED
+  // privateKey: NEVER RETURNED
+}
+14. Responsive Design / التصميم المتجاوب
+/* Mobile First Approach */
+.container.mx-auto.p-6     /* Base padding */
+.space-y-6                  /* Vertical spacing */
+/* Desktop Layout */
+.grid.gap-6.lg:grid-cols-2  /* 2 columns on large screens */
+/* Flexible Elements */
+.flex.items-center.gap-4.flex-wrap    /* Wrap on small screens */
+.flex.gap-2.flex-wrap                  /* Button groups wrap */
+/* Grid Forms */
+.grid.grid-cols-2.gap-4    /* 2-column form fields */
+/* Scrollable Lists */
+.max-h-[400px].overflow-y-auto    /* History list */
+.max-h-[300px].overflow-y-auto    /* Deployment list */
+.max-h-[200px].overflow-y-auto    /* Server deploy history */
+15. Dependencies / التبعيات
+NPM Packages:
+{
+  "@tanstack/react-query": "^5.x",
+  "wouter": "^3.x",
+  "date-fns": "^3.x",
+  "lucide-react": "^0.x",
+  "@octokit/rest": "^20.x",
+  "ssh2": "^1.x"
+}
+shadcn/ui Components:
+- card
+- button
+- badge
+- select
+- switch
+- label
+- separator
+- input
+- textarea
+- tabs
+- toast
+16. File Structure / هيكل الملفات
+client/
+├── src/
+│   ├── pages/
+│   │   ├── github-sync.tsx          # Main page component
+│   │   └── server-profiles.tsx      # Multi-server management
+│   ├── components/
+│   │   └── ui/                       # shadcn components
+│   ├── hooks/
+│   │   └── use-toast.ts              # Toast notifications
+│   └── lib/
+│       └── queryClient.ts            # API request utilities
+server/
+├── github/
+│   ├── github-client.ts              # Octokit wrapper
+│   ├── routes.ts                     # GitHub API routes
+│   ├── server-deploy.ts              # SSH deployment logic
+│   └── server-profiles-service.ts    # Multi-profile management
+└── gateway/
+    └── encryption.ts                 # AES-256-GCM utilities
+shared/
+└── schema.ts                         # Database schemas & types
+17. Color Scheme / نظام الألوان
+/* Status Colors */
+--success: green-500/20 (bg), green-600 (icon)
+--error: red-500/20 (bg), red-600 (icon)
+--warning: yellow-500/20 (bg), yellow-600 (icon)
+--info: blue-500/20 (bg), blue-600 (icon)
+/* Button Variants */
+--primary: default button
+--outline: secondary actions
+--deploy-green: bg-green-600 hover:bg-green-700
+--destructive: error actions
+/* Badge Variants */
+--default: success status
+--destructive: failed status
+--secondary: pending/private
+--outline: public/protected
+18. Implementation Checklist / قائمة التنفيذ
+□ Create TypeScript interfaces for all data types
+□ Set up React Query hooks for data fetching
+□ Implement mutation handlers with cache invalidation
+□ Build Card components for each section
+□ Create Select components for repo/branch selection
+□ Implement Toggle switch for auto-sync
+□ Build history entry components with status indicators
+□ Create server configuration form with auth type toggle
+□ Implement tabbed interface for server section
+□ Add loading and empty state components
+□ Set up toast notifications for all actions
+□ Add data-testid attributes to all interactive elements
+□ Implement responsive grid layouts
+□ Add link to server profiles management page
+□ Test all API integrations
+□ Verify security (credentials not exposed)
+Document Version: 1.0
+Last Updated: December 28, 2025
+Platform: Infera Smart Remote AI
+
