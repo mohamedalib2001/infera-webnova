@@ -860,6 +860,823 @@ export default function Home() {
     category: 'frontend'
   });
 
+  // Login Page
+  const loginPage = `import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Link, useLocation } from "wouter";
+import { useMutation } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+
+export default function Login() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+
+  const loginMutation = useMutation({
+    mutationFn: async (data: { email: string; password: string }) => {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include"
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Login failed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Welcome back!", description: "Login successful" });
+      setLocation("/dashboard");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Login failed", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    loginMutation.mutate({ email, password });
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background to-muted p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl">${spec.name}</CardTitle>
+          <CardDescription>Sign in to your account</CardDescription>
+        </CardHeader>
+        <form onSubmit={handleSubmit}>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                data-testid="input-email"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                data-testid="input-password"
+              />
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col gap-4">
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={loginMutation.isPending}
+              data-testid="button-submit"
+            >
+              {loginMutation.isPending ? "Signing in..." : "Sign In"}
+            </Button>
+            <p className="text-sm text-muted-foreground text-center">
+              Don't have an account?{" "}
+              <Link href="/register" className="text-primary hover:underline">
+                Sign up
+              </Link>
+            </p>
+          </CardFooter>
+        </form>
+      </Card>
+    </div>
+  );
+}
+`;
+
+  files.push({
+    fileName: 'Login.tsx',
+    filePath: 'client/src/pages/Login.tsx',
+    content: loginPage,
+    language: 'typescript',
+    category: 'frontend'
+  });
+
+  // Register Page
+  const registerPage = `import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Link, useLocation } from "wouter";
+import { useMutation } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+
+export default function Register() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+
+  const registerMutation = useMutation({
+    mutationFn: async (data: { email: string; password: string; firstName: string; lastName: string }) => {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Registration failed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Account created!", description: "Please sign in to continue" });
+      setLocation("/login");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Registration failed", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password !== confirmPassword) {
+      toast({ title: "Error", description: "Passwords do not match", variant: "destructive" });
+      return;
+    }
+    if (password.length < 8) {
+      toast({ title: "Error", description: "Password must be at least 8 characters", variant: "destructive" });
+      return;
+    }
+    registerMutation.mutate({ email, password, firstName, lastName });
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background to-muted p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl">Create Account</CardTitle>
+          <CardDescription>Join ${spec.name} today</CardDescription>
+        </CardHeader>
+        <form onSubmit={handleSubmit}>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">First Name</Label>
+                <Input
+                  id="firstName"
+                  placeholder="John"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  data-testid="input-first-name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input
+                  id="lastName"
+                  placeholder="Doe"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  data-testid="input-last-name"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                data-testid="input-email"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                data-testid="input-password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                data-testid="input-confirm-password"
+              />
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col gap-4">
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={registerMutation.isPending}
+              data-testid="button-submit"
+            >
+              {registerMutation.isPending ? "Creating account..." : "Create Account"}
+            </Button>
+            <p className="text-sm text-muted-foreground text-center">
+              Already have an account?{" "}
+              <Link href="/login" className="text-primary hover:underline">
+                Sign in
+              </Link>
+            </p>
+          </CardFooter>
+        </form>
+      </Card>
+    </div>
+  );
+}
+`;
+
+  files.push({
+    fileName: 'Register.tsx',
+    filePath: 'client/src/pages/Register.tsx',
+    content: registerPage,
+    language: 'typescript',
+    category: 'frontend'
+  });
+
+  // Dashboard Page
+  const dashboardPage = `import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useLocation } from "wouter";
+import { useToast } from "@/hooks/use-toast";
+import { User, LogOut, Settings, Activity } from "lucide-react";
+
+interface UserData {
+  id: number;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  role: string;
+}
+
+export default function Dashboard() {
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: user, isLoading, error } = useQuery<UserData>({
+    queryKey: ["/api/auth/me"],
+    retry: false
+  });
+
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include"
+      });
+      if (!res.ok) throw new Error("Logout failed");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.clear();
+      toast({ title: "Goodbye!", description: "You have been logged out" });
+      setLocation("/");
+    }
+  });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (error || !user) {
+    setLocation("/login");
+    return null;
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="border-b">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between gap-4">
+          <h1 className="text-xl font-bold">${spec.name}</h1>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-muted-foreground" data-testid="text-user-email">
+              {user.email}
+            </span>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => logoutMutation.mutate()}
+              disabled={logoutMutation.isPending}
+              data-testid="button-logout"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold mb-2" data-testid="text-welcome">
+            Welcome back, {user.firstName || user.email.split("@")[0]}!
+          </h2>
+          <p className="text-muted-foreground">Here's your dashboard overview</p>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <Card data-testid="card-profile">
+            <CardHeader className="flex flex-row items-center justify-between gap-2">
+              <CardTitle className="text-lg">Profile</CardTitle>
+              <User className="w-5 h-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <CardDescription>
+                <div className="space-y-2">
+                  <p><strong>Email:</strong> {user.email}</p>
+                  <p><strong>Name:</strong> {user.firstName} {user.lastName}</p>
+                  <p><strong>Role:</strong> {user.role}</p>
+                </div>
+              </CardDescription>
+            </CardContent>
+          </Card>
+
+          <Card data-testid="card-activity">
+            <CardHeader className="flex flex-row items-center justify-between gap-2">
+              <CardTitle className="text-lg">Activity</CardTitle>
+              <Activity className="w-5 h-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <CardDescription>
+                <p>Your recent activity will appear here.</p>
+              </CardDescription>
+            </CardContent>
+          </Card>
+
+          <Card data-testid="card-settings">
+            <CardHeader className="flex flex-row items-center justify-between gap-2">
+              <CardTitle className="text-lg">Settings</CardTitle>
+              <Settings className="w-5 h-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <CardDescription>
+                <p>Manage your account settings and preferences.</p>
+              </CardDescription>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+    </div>
+  );
+}
+`;
+
+  files.push({
+    fileName: 'Dashboard.tsx',
+    filePath: 'client/src/pages/Dashboard.tsx',
+    content: dashboardPage,
+    language: 'typescript',
+    category: 'frontend'
+  });
+
+  // Query Client
+  const queryClientTs = `import { QueryClient, QueryFunction } from "@tanstack/react-query";
+
+async function throwIfResNotOk(res: Response) {
+  if (!res.ok) {
+    const text = await res.text();
+    try {
+      const json = JSON.parse(text);
+      throw new Error(json.error || json.message || res.statusText);
+    } catch {
+      throw new Error(text || res.statusText);
+    }
+  }
+}
+
+export async function apiRequest(
+  method: string,
+  url: string,
+  data?: unknown
+): Promise<Response> {
+  const res = await fetch(url, {
+    method,
+    headers: data ? { "Content-Type": "application/json" } : {},
+    body: data ? JSON.stringify(data) : undefined,
+    credentials: "include",
+  });
+  await throwIfResNotOk(res);
+  return res;
+}
+
+const defaultQueryFn: QueryFunction = async ({ queryKey }) => {
+  const res = await fetch(queryKey[0] as string, {
+    credentials: "include",
+  });
+  await throwIfResNotOk(res);
+  return res.json();
+};
+
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      queryFn: defaultQueryFn,
+      refetchOnWindowFocus: false,
+      staleTime: 1000 * 60 * 5,
+      retry: false,
+    },
+  },
+});
+`;
+
+  files.push({
+    fileName: 'queryClient.ts',
+    filePath: 'client/src/lib/queryClient.ts',
+    content: queryClientTs,
+    language: 'typescript',
+    category: 'frontend'
+  });
+
+  // use-toast hook
+  const useToastHook = `import { useState, useCallback } from "react";
+
+interface Toast {
+  id: string;
+  title?: string;
+  description?: string;
+  variant?: "default" | "destructive";
+}
+
+interface ToastState {
+  toasts: Toast[];
+}
+
+let toastId = 0;
+
+export function useToast() {
+  const [state, setState] = useState<ToastState>({ toasts: [] });
+
+  const toast = useCallback(({ title, description, variant = "default" }: Omit<Toast, "id">) => {
+    const id = String(++toastId);
+    setState((prev) => ({
+      toasts: [...prev.toasts, { id, title, description, variant }],
+    }));
+    setTimeout(() => {
+      setState((prev) => ({
+        toasts: prev.toasts.filter((t) => t.id !== id),
+      }));
+    }, 5000);
+  }, []);
+
+  const dismiss = useCallback((id: string) => {
+    setState((prev) => ({
+      toasts: prev.toasts.filter((t) => t.id !== id),
+    }));
+  }, []);
+
+  return { toast, dismiss, toasts: state.toasts };
+}
+`;
+
+  files.push({
+    fileName: 'use-toast.ts',
+    filePath: 'client/src/hooks/use-toast.ts',
+    content: useToastHook,
+    language: 'typescript',
+    category: 'frontend'
+  });
+
+  // Tailwind Config
+  const tailwindConfig = `import type { Config } from "tailwindcss";
+
+export default {
+  darkMode: ["class"],
+  content: ["./client/src/**/*.{ts,tsx}"],
+  theme: {
+    extend: {
+      colors: {
+        border: "hsl(var(--border))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
+        },
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
+        },
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
+      },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+      },
+    },
+  },
+  plugins: [require("tailwindcss-animate")],
+} satisfies Config;
+`;
+
+  files.push({
+    fileName: 'tailwind.config.ts',
+    filePath: 'tailwind.config.ts',
+    content: tailwindConfig,
+    language: 'typescript',
+    category: 'config'
+  });
+
+  // Vite Config
+  const viteConfig = `import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import path from "path";
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./client/src"),
+      "@shared": path.resolve(__dirname, "./shared"),
+    },
+  },
+  server: {
+    proxy: {
+      "/api": "http://localhost:5000",
+    },
+  },
+});
+`;
+
+  files.push({
+    fileName: 'vite.config.ts',
+    filePath: 'vite.config.ts',
+    content: viteConfig,
+    language: 'typescript',
+    category: 'config'
+  });
+
+  // Index CSS
+  const indexCss = `@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+`;
+
+  files.push({
+    fileName: 'index.css',
+    filePath: 'client/src/index.css',
+    content: indexCss,
+    language: 'css',
+    category: 'frontend'
+  });
+
+  // Main entry
+  const mainTsx = `import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import App from "./App";
+import "./index.css";
+
+createRoot(document.getElementById("root")!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>
+);
+`;
+
+  files.push({
+    fileName: 'main.tsx',
+    filePath: 'client/src/main.tsx',
+    content: mainTsx,
+    language: 'typescript',
+    category: 'frontend'
+  });
+
+  // Index HTML
+  const indexHtml = `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${spec.name}</title>
+    <meta name="description" content="${spec.description}" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/client/src/main.tsx"></script>
+  </body>
+</html>
+`;
+
+  files.push({
+    fileName: 'index.html',
+    filePath: 'index.html',
+    content: indexHtml,
+    language: 'html',
+    category: 'frontend'
+  });
+
+  // TypeScript configs
+  const tsconfigJson = `{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./client/src/*"],
+      "@shared/*": ["./shared/*"]
+    }
+  },
+  "include": ["client/src", "shared"],
+  "references": [{ "path": "./tsconfig.server.json" }]
+}
+`;
+
+  files.push({
+    fileName: 'tsconfig.json',
+    filePath: 'tsconfig.json',
+    content: tsconfigJson,
+    language: 'json',
+    category: 'config'
+  });
+
+  const tsconfigServer = `{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "outDir": "./dist/server",
+    "rootDir": "./server",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@shared/*": ["./shared/*"]
+    }
+  },
+  "include": ["server"],
+  "exclude": ["node_modules"]
+}
+`;
+
+  files.push({
+    fileName: 'tsconfig.server.json',
+    filePath: 'tsconfig.server.json',
+    content: tsconfigServer,
+    language: 'json',
+    category: 'config'
+  });
+
+  // Drizzle config
+  const drizzleConfig = `import { defineConfig } from "drizzle-kit";
+
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL must be set");
+}
+
+export default defineConfig({
+  out: "./migrations",
+  schema: "./shared/schema.ts",
+  dialect: "postgresql",
+  dbCredentials: {
+    url: process.env.DATABASE_URL,
+  },
+});
+`;
+
+  files.push({
+    fileName: 'drizzle.config.ts',
+    filePath: 'drizzle.config.ts',
+    content: drizzleConfig,
+    language: 'typescript',
+    category: 'config'
+  });
+
+  // Database connection
+  const dbConnection = `import { drizzle } from "drizzle-orm/node-postgres";
+import pkg from "pg";
+const { Pool } = pkg;
+import * as schema from "@shared/schema";
+
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL must be set");
+}
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+export const db = drizzle(pool, { schema });
+`;
+
+  files.push({
+    fileName: 'db.ts',
+    filePath: 'server/db.ts',
+    content: dbConnection,
+    language: 'typescript',
+    category: 'backend'
+  });
+
   return files;
 }
 
