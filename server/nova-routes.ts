@@ -486,6 +486,91 @@ const createBlueprintSchema = z.object({
 });
 
 export function registerNovaRoutes(app: Express) {
+  // ==================== NOVA CHAT (Simple Conversational Endpoint) ====================
+  
+  app.post("/api/nova/chat", requireAuth, async (req, res) => {
+    try {
+      const { message, context, language, conversationHistory } = req.body;
+      
+      if (!message) {
+        return res.status(400).json({ error: "Message is required" });
+      }
+      
+      const isArabic = language === 'ar' || /[\u0600-\u06FF]/.test(message);
+      
+      const systemPrompt = isArabic 
+        ? `أنت Nova، المساعد الذكي لمنصة INFERA WebNova. أنت خبير في بناء المنصات الرقمية العملاقة.
+
+قدراتك تشمل:
+• بناء منصات تدعم ملايين المستخدمين بتقنية Microservices
+• توليد ملفات Docker و Kubernetes للنشر
+• تصميم قواعد بيانات موزعة (PostgreSQL, MongoDB, Redis)
+• دعم أنظمة الدفع المتعددة (Stripe, PayTabs, STC Pay, Mada, Paymob)
+• بناء واجهات مستخدم حديثة بـ React و Tailwind
+• تأمين المنصات بمعايير عسكرية (FIPS 140-3, PKI, Zero Trust)
+• نشر على Kubernetes في أي مزود سحابي
+
+عندما يسألك المستخدم عن قدراتك، اشرح له بالتفصيل ما يمكنك فعله.
+إذا وصف لك منصة، قدم له تحليلاً للمتطلبات واقترح البنية المناسبة.
+تحدث بالعربية الفصحى بأسلوب ودود ومهني.`
+        : `You are Nova, the intelligent assistant for INFERA WebNova platform. You are an expert in building enterprise-scale digital platforms.
+
+Your capabilities include:
+• Building platforms supporting millions of users with Microservices architecture
+• Generating Docker and Kubernetes manifests for deployment
+• Designing distributed databases (PostgreSQL, MongoDB, Redis)
+• Supporting multiple payment gateways (Stripe, PayTabs, STC Pay, Mada, Paymob)
+• Building modern UIs with React and Tailwind
+• Securing platforms with military-grade standards (FIPS 140-3, PKI, Zero Trust)
+• Deploying to Kubernetes on any cloud provider
+
+When users ask about your capabilities, explain in detail what you can do.
+When they describe a platform, provide a requirements analysis and suggest appropriate architecture.
+Speak in a friendly and professional manner.`;
+
+      const messages: Anthropic.MessageParam[] = [];
+      
+      if (conversationHistory && Array.isArray(conversationHistory)) {
+        for (const msg of conversationHistory.slice(-6)) {
+          if (msg.role === 'user' || msg.role === 'assistant') {
+            messages.push({
+              role: msg.role,
+              content: msg.content
+            });
+          }
+        }
+      }
+      
+      messages.push({
+        role: 'user',
+        content: message
+      });
+      
+      const response = await anthropic.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: messages
+      });
+      
+      const textContent = response.content.find(c => c.type === 'text');
+      const responseText = textContent ? textContent.text : (isArabic ? 'عذراً، لم أتمكن من الرد.' : 'Sorry, I could not respond.');
+      
+      res.json({
+        response: responseText,
+        success: true
+      });
+    } catch (error: any) {
+      console.error('Nova chat error:', error);
+      res.status(500).json({ 
+        error: 'Internal server error',
+        response: req.body?.language === 'ar' 
+          ? 'عذراً، حدث خطأ. حاول مرة أخرى.' 
+          : 'Sorry, an error occurred. Please try again.'
+      });
+    }
+  });
+
   // ==================== NOVA SESSIONS ====================
 
   // Get user's conversation sessions

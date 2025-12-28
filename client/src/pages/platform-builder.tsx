@@ -837,6 +837,58 @@ spec:
     };
   };
 
+  const callNovaAI = async (userContent: string, lang: string): Promise<string> => {
+    try {
+      const response = await fetch('/api/nova/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userContent,
+          context: 'platform_builder',
+          language: lang,
+          conversationHistory: messages.slice(-10).map(m => ({
+            role: m.role === 'user' ? 'user' : 'assistant',
+            content: m.content
+          }))
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Nova API error');
+      }
+      
+      const data = await response.json();
+      return data.response || data.message || (lang === 'ar' 
+        ? 'عذراً، حدث خطأ. حاول مرة أخرى.' 
+        : 'Sorry, an error occurred. Please try again.');
+    } catch (error) {
+      console.error('Nova API error:', error);
+      return lang === 'ar'
+        ? `مرحباً! أنا Nova، مساعدك الذكي لبناء المنصات الرقمية.
+
+قدراتي تشمل:
+• بناء منصات عملاقة تدعم ملايين المستخدمين
+• تصميم بنية Microservices متكاملة
+• توليد ملفات Docker و Kubernetes
+• إنشاء قواعد بيانات موزعة
+• دعم أنظمة الدفع المتعددة
+• بناء واجهات مستخدم حديثة
+
+كيف يمكنني مساعدتك؟ صف لي المنصة التي تريد بناءها.`
+        : `Hello! I'm Nova, your intelligent assistant for building digital platforms.
+
+My capabilities include:
+• Building enterprise platforms supporting millions of users
+• Designing complete Microservices architecture
+• Generating Docker and Kubernetes manifests
+• Creating distributed database systems
+• Supporting multiple payment gateways
+• Building modern user interfaces
+
+How can I help you? Describe the platform you want to build.`;
+    }
+  };
+
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim() || isBuilding) return;
     
@@ -854,22 +906,44 @@ spec:
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
     
-    const greetings = /^(hi|hello|hey|مرحبا|السلام عليكم|اهلا|هلا|صباح الخير|مساء الخير|شكرا|thanks|thank you)[\s!.]*$/i;
-    const questions = /^(ما|ماذا|كيف|لماذا|هل|أين|من|what|how|why|where|who|can you|do you|are you)/i;
-    const helpRequests = /^(ساعدني|help|مساعدة|أحتاج|i need|عاوز|أريد)[\s]*$/i;
+    const isPlatformDescription = /منصة|platform|متجر|store|موقع|site|تطبيق|app|نظام|system|مليون|million|users|مستخدم|ecommerce|تعليم|education|فيديو|video|دفع|payment|أنشئ|create|بناء|build/i.test(lowerContent);
+    const hasBuildIntent = /أنشئ|create|بناء|build|صمم|design|اعمل|make/i.test(lowerContent);
     
-    const isPlatformDescription = /منصة|platform|متجر|store|موقع|site|تطبيق|app|نظام|system|مليون|million|users|مستخدم|ecommerce|تعليم|education|فيديو|video|دفع|payment/i.test(lowerContent);
-    
-    if (greetings.test(lowerContent) || (!isPlatformDescription && (questions.test(lowerContent) || helpRequests.test(lowerContent) || lowerContent.length < 15))) {
-      const responseMessage: BuildMessage = {
+    if (!isPlatformDescription && !hasBuildIntent) {
+      setIsBuilding(true);
+      const thinkingMessage: BuildMessage = {
         id: (Date.now() + 1).toString(),
         role: 'nova',
-        content: lang === 'ar' 
-          ? `مرحباً! أنا Nova، مساعدك لبناء المنصات الرقمية العملاقة.\n\nأخبرني عن المنصة التي تريد بناءها. مثال:\n• "منصة تعليمية لمليون طالب مع فيديوهات ودفع"\n• "متجر إلكتروني متكامل مع نظام دفع وشحن"\n• "منصة اجتماعية مع محادثات وبث مباشر"\n\nما نوع المنصة التي تريد بناءها؟`
-          : `Hello! I'm Nova, your assistant for building enterprise-scale digital platforms.\n\nTell me about the platform you want to build. For example:\n• "Educational platform for 1M students with video and payments"\n• "Complete e-commerce store with payment and shipping"\n• "Social platform with chat and live streaming"\n\nWhat kind of platform would you like to build?`,
+        content: lang === 'ar' ? 'جاري التفكير...' : 'Thinking...',
         timestamp: new Date(),
+        status: 'thinking',
       };
-      setMessages(prev => [...prev, responseMessage]);
+      setMessages(prev => [...prev, thinkingMessage]);
+      
+      try {
+        const aiResponse = await callNovaAI(content, lang);
+        setMessages(prev => prev.filter(m => m.id !== thinkingMessage.id));
+        
+        const responseMessage: BuildMessage = {
+          id: (Date.now() + 2).toString(),
+          role: 'nova',
+          content: aiResponse,
+          timestamp: new Date(),
+          status: 'complete',
+        };
+        setMessages(prev => [...prev, responseMessage]);
+      } catch (error) {
+        setMessages(prev => prev.filter(m => m.id !== thinkingMessage.id));
+        const errorResponse: BuildMessage = {
+          id: (Date.now() + 2).toString(),
+          role: 'nova',
+          content: lang === 'ar' ? 'عذراً، حدث خطأ. كيف يمكنني مساعدتك في بناء منصتك؟' : 'Sorry, an error occurred. How can I help you build your platform?',
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, errorResponse]);
+      } finally {
+        setIsBuilding(false);
+      }
       return;
     }
     
