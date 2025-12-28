@@ -1790,7 +1790,7 @@ How can I help you? Describe the platform you want to build.`;
                 {t('Save Project', 'حفظ المشروع')}
               </Button>
               <GitHubRepoSelector
-                projectId={projectId}
+                projectId={projectId || undefined}
                 projectName={projectName || undefined}
                 language={language}
                 onSyncComplete={(result) => {
