@@ -547,7 +547,7 @@ export default function GitHubSync() {
                   {settings.autoSync && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <RefreshCw className="h-4 w-4" />
-                      {txt.syncInterval}: {settings.syncInterval || 30} {txt.minutes}
+                      {txt.syncInterval}: {Math.round((settings.syncInterval || 3600) / 60)} {txt.minutes}
                     </div>
                   )}
                   
