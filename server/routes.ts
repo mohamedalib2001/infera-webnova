@@ -26644,7 +26644,8 @@ ${contentToAnalyze}`
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
       const { message, context } = req.body;
-      const language = context?.language || "en";
+      const hasArabic = /[\u0600-\u06FF]/.test(message || "");
+      const language = hasArabic ? "ar" : (context?.language || "en");
       
       let intent = "general";
       const lowerMessage = (message || "").toLowerCase();
@@ -26710,7 +26711,8 @@ ${contentToAnalyze}`
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
       const { message, context } = req.body;
-      const language = context?.language || "en";
+      const hasArabic = /[\u0600-\u06FF]/.test(message || "");
+      const language = hasArabic ? "ar" : (context?.language || "en");
       
       let intent = "general";
       const lowerMessage = message.toLowerCase();
