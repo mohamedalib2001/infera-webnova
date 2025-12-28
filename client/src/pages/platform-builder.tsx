@@ -621,7 +621,8 @@ spec:
           const serverFiles: GeneratedCode[] = [];
           
           for (const fileMeta of filesData.files || []) {
-            const fileResponse = await fetch(`/api/platforms/build/${buildResponse.buildId}/file/${fileMeta.filePath}`);
+            const encodedPath = encodeURIComponent(fileMeta.filePath);
+            const fileResponse = await fetch(`/api/platforms/build/${buildResponse.buildId}/file/${encodedPath}`);
             if (fileResponse.ok) {
               const fileData = await fileResponse.json();
               serverFiles.push({

@@ -450,7 +450,8 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Build not found" });
       }
 
-      const file = build.files.find(f => f.filePath === req.params.filePath);
+      const decodedPath = decodeURIComponent(req.params.filePath);
+      const file = build.files.find(f => f.filePath === decodedPath);
       if (!file) {
         return res.status(404).json({ error: "File not found" });
       }
