@@ -3,6 +3,7 @@ import { getAuthenticatedUser, listUserRepos, getRepo, createRepo, getRepoConten
 import { db } from "./db";
 import { projects } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { storage } from "./storage";
 
 const router = Router();
 
@@ -308,6 +309,164 @@ router.delete("/sync-project/:projectId", async (req: Request, res: Response) =>
   } catch (error: any) {
     console.error("[GitHub] Error disconnecting project:", error.message);
     res.status(500).json({ error: error.message || "Failed to disconnect project" });
+  }
+});
+
+// ==================== GITHUB SYNC SETTINGS ====================
+
+// Get user's sync settings
+router.get("/sync-settings", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).session?.userId;
+    const settings = await storage.getGithubSyncSettings(userId);
+    res.json({ success: true, settings: settings || null });
+  } catch (error: any) {
+    console.error("[GitHub] Error fetching sync settings:", error.message);
+    res.status(500).json({ error: error.message || "Failed to fetch sync settings" });
+  }
+});
+
+// Get sync settings by repository
+router.get("/sync-settings/:owner/:repo", async (req: Request, res: Response) => {
+  try {
+    const { owner, repo } = req.params;
+    const settings = await storage.getGithubSyncSettingsByRepo(owner, repo);
+    res.json({ success: true, settings: settings || null });
+  } catch (error: any) {
+    console.error("[GitHub] Error fetching repo sync settings:", error.message);
+    res.status(500).json({ error: error.message || "Failed to fetch sync settings" });
+  }
+});
+
+// Create or update sync settings
+router.post("/sync-settings", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).session?.userId;
+    const { owner, repo, branch, autoSync, syncOnPush, webhookEnabled } = req.body;
+
+    if (!owner || !repo) {
+      return res.status(400).json({ error: "Owner and repo are required" });
+    }
+
+    const existing = await storage.getGithubSyncSettingsByRepo(owner, repo);
+    
+    if (existing) {
+      const updated = await storage.updateGithubSyncSettings(existing.id, {
+        branch: branch || existing.branch,
+        autoSync: autoSync ?? existing.autoSync,
+        syncOnPush: syncOnPush ?? existing.syncOnPush,
+        webhookEnabled: webhookEnabled ?? existing.webhookEnabled
+      });
+      return res.json({ success: true, settings: updated, created: false });
+    }
+
+    const settings = await storage.createGithubSyncSettings({
+      userId: userId || 'system',
+      owner,
+      repo,
+      branch: branch || 'main',
+      autoSync: autoSync ?? false,
+      syncOnPush: syncOnPush ?? false,
+      webhookEnabled: webhookEnabled ?? false
+    });
+
+    res.json({ success: true, settings, created: true });
+  } catch (error: any) {
+    console.error("[GitHub] Error saving sync settings:", error.message);
+    res.status(500).json({ error: error.message || "Failed to save sync settings" });
+  }
+});
+
+// Update sync settings
+router.patch("/sync-settings/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    
+    const settings = await storage.updateGithubSyncSettings(id, updates);
+    if (!settings) {
+      return res.status(404).json({ error: "Sync settings not found" });
+    }
+
+    res.json({ success: true, settings });
+  } catch (error: any) {
+    console.error("[GitHub] Error updating sync settings:", error.message);
+    res.status(500).json({ error: error.message || "Failed to update sync settings" });
+  }
+});
+
+// Delete sync settings
+router.delete("/sync-settings/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    await storage.deleteGithubSyncSettings(id);
+    res.json({ success: true, message: "Sync settings deleted" });
+  } catch (error: any) {
+    console.error("[GitHub] Error deleting sync settings:", error.message);
+    res.status(500).json({ error: error.message || "Failed to delete sync settings" });
+  }
+});
+
+// ==================== GITHUB SYNC HISTORY ====================
+
+// Get sync history
+router.get("/sync-history", async (req: Request, res: Response) => {
+  try {
+    const { settingsId, limit } = req.query;
+    const history = await storage.getGithubSyncHistory(
+      settingsId as string | undefined,
+      limit ? parseInt(limit as string) : 50
+    );
+    res.json({ success: true, history });
+  } catch (error: any) {
+    console.error("[GitHub] Error fetching sync history:", error.message);
+    res.status(500).json({ error: error.message || "Failed to fetch sync history" });
+  }
+});
+
+// Create sync history entry (used when sync starts)
+router.post("/sync-history", async (req: Request, res: Response) => {
+  try {
+    const { settingsId, syncType, triggeredBy, status } = req.body;
+
+    if (!settingsId || !syncType) {
+      return res.status(400).json({ error: "settingsId and syncType are required" });
+    }
+
+    const entry = await storage.createGithubSyncHistory({
+      settingsId,
+      syncType,
+      triggeredBy: triggeredBy || 'manual',
+      status: status || 'running',
+      startedAt: new Date()
+    });
+
+    res.json({ success: true, entry });
+  } catch (error: any) {
+    console.error("[GitHub] Error creating sync history:", error.message);
+    res.status(500).json({ error: error.message || "Failed to create sync history" });
+  }
+});
+
+// Update sync history entry (used when sync completes)
+router.patch("/sync-history/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    const entry = await storage.updateGithubSyncHistory(id, {
+      ...updates,
+      completedAt: updates.status === 'success' || updates.status === 'failed' ? new Date() : undefined
+    });
+
+    if (!entry) {
+      return res.status(404).json({ error: "Sync history entry not found" });
+    }
+
+    res.json({ success: true, entry });
+  } catch (error: any) {
+    console.error("[GitHub] Error updating sync history:", error.message);
+    res.status(500).json({ error: error.message || "Failed to update sync history" });
   }
 });
 
