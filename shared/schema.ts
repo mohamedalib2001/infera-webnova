@@ -18185,3 +18185,62 @@ export const insertSecurityFindingSchema = createInsertSchema(securityFindings).
 });
 export type InsertSecurityFinding = z.infer<typeof insertSecurityFindingSchema>;
 export type SecurityFinding = typeof securityFindings.$inferSelect;
+
+// ==================== GITHUB SYNC SYSTEM ====================
+// نظام مزامنة GitHub للمنصات الفرعية
+
+export const githubSyncSettings = pgTable("github_sync_settings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
+  owner: text("owner").notNull(),
+  repo: text("repo").notNull(),
+  branch: text("branch").default("main"),
+  autoSync: boolean("auto_sync").default(false),
+  syncInterval: integer("sync_interval").default(3600),
+  lastSyncAt: timestamp("last_sync_at"),
+  webhookSecret: text("webhook_secret"),
+  accessToken: text("access_token"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_github_sync_user").on(table.userId),
+  index("idx_github_sync_repo").on(table.owner, table.repo),
+]);
+
+export const insertGithubSyncSettingsSchema = createInsertSchema(githubSyncSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertGithubSyncSettings = z.infer<typeof insertGithubSyncSettingsSchema>;
+export type GithubSyncSettings = typeof githubSyncSettings.$inferSelect;
+
+export const githubSyncHistory = pgTable("github_sync_history", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  settingsId: uuid("settings_id").references(() => githubSyncSettings.id, { onDelete: "cascade" }),
+  owner: text("owner").notNull(),
+  repo: text("repo").notNull(),
+  branch: text("branch"),
+  syncType: text("sync_type").default("manual"),
+  status: text("status").notNull(),
+  totalSize: integer("total_size"),
+  filesChanged: integer("files_changed"),
+  commitHash: text("commit_hash"),
+  commitMessage: text("commit_message"),
+  commitAuthor: text("commit_author"),
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  durationMs: integer("duration_ms"),
+  errorMessage: text("error_message"),
+}, (table) => [
+  index("idx_github_history_settings").on(table.settingsId),
+  index("idx_github_history_status").on(table.status),
+  index("idx_github_history_started").on(table.startedAt),
+]);
+
+export const insertGithubSyncHistorySchema = createInsertSchema(githubSyncHistory).omit({
+  id: true,
+  startedAt: true,
+});
+export type InsertGithubSyncHistory = z.infer<typeof insertGithubSyncHistorySchema>;
+export type GithubSyncHistory = typeof githubSyncHistory.$inferSelect;

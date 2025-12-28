@@ -1,0 +1,155 @@
+سأقدم لك توجيهاً واضحاً لتكرار نفس نظام مزامنة GitHub في المنصات الفرعية الأخرى.
+
+دليل إنشاء نظام مزامنة GitHub للمنصات الفرعية
+1. إعداد قاعدة البيانات (Schema)
+أضف هذه الجداول في shared/schema.ts:
+
+// إعدادات المزامنة
+export const githubSyncSettings = pgTable("github_sync_settings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  owner: text("owner").notNull(),          // اسم المستخدم على GitHub
+  repo: text("repo").notNull(),            // اسم المستودع
+  branch: text("branch").default("main"),  // الفرع
+  autoSync: boolean("auto_sync").default(false),
+  lastSyncAt: timestamp("last_sync_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+// سجل المزامنة
+export const githubSyncHistory = pgTable("github_sync_history", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  owner: text("owner").notNull(),
+  repo: text("repo").notNull(),
+  branch: text("branch"),
+  syncType: text("sync_type").default("manual"),
+  status: text("status").notNull(),        // pending, success, failed
+  totalSize: integer("total_size"),        // بالكيلوبايت
+  commitHash: text("commit_hash"),
+  commitMessage: text("commit_message"),
+  commitAuthor: text("commit_author"),
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  durationMs: integer("duration_ms"),
+  errorMessage: text("error_message"),
+});
+2. ربط GitHub في Replit
+في كل منصة فرعية:
+
+افتح Tools → Integrations
+ابحث عن GitHub
+اضغط Connect واربط حسابك
+3. API Routes المطلوبة
+أنشئ ملف server/github-client.ts:
+
+import { Octokit } from "@octokit/rest";
+export async function getGitHubClient() {
+  const token = process.env.GITHUB_TOKEN; // من Replit Integration
+  return new Octokit({ auth: token });
+}
+export async function getGitHubUser() {
+  const octokit = await getGitHubClient();
+  const { data } = await octokit.users.getAuthenticated();
+  return data;
+}
+export async function listRepositories() {
+  const octokit = await getGitHubClient();
+  const { data } = await octokit.repos.listForAuthenticatedUser({
+    sort: "updated",
+    per_page: 100,
+  });
+  return data;
+}
+export async function getRepository(owner: string, repo: string) {
+  const octokit = await getGitHubClient();
+  const { data } = await octokit.repos.get({ owner, repo });
+  return data;
+}
+export async function getLatestCommits(owner: string, repo: string) {
+  const octokit = await getGitHubClient();
+  const { data } = await octokit.repos.listCommits({
+    owner,
+    repo,
+    per_page: 5,
+  });
+  return data;
+}
+4. Routes في server/routes.ts
+// حالة الاتصال
+app.get("/api/github/status", async (req, res) => {
+  const user = await getGitHubUser();
+  const settings = await storage.getGitHubSyncSettings();
+  res.json({ isConnected: !!user, user, settings });
+});
+// قائمة المستودعات
+app.get("/api/github/repos", async (req, res) => {
+  const repos = await listRepositories();
+  res.json(repos);
+});
+// حفظ الإعدادات
+app.patch("/api/github/settings", async (req, res) => {
+  const updated = await storage.updateGitHubSyncSettings(req.body);
+  res.json(updated);
+});
+// تنفيذ المزامنة
+app.post("/api/github/sync", async (req, res) => {
+  const settings = await storage.getGitHubSyncSettings();
+  const startTime = Date.now();
+  
+  // إنشاء سجل مزامنة
+  const historyEntry = await storage.createGitHubSyncHistory({
+    owner: settings.owner,
+    repo: settings.repo,
+    branch: settings.branch,
+    status: "pending",
+  });
+  
+  try {
+    const repoInfo = await getRepository(settings.owner, settings.repo);
+    const commits = await getLatestCommits(settings.owner, settings.repo);
+    
+    // تحديث السجل بالنجاح
+    await storage.updateGitHubSyncHistory(historyEntry.id, {
+      status: "success",
+      totalSize: repoInfo.size,
+      commitHash: commits[0]?.sha?.slice(0, 7),
+      commitMessage: commits[0]?.commit?.message,
+      commitAuthor: commits[0]?.commit?.author?.name,
+      completedAt: new Date(),
+      durationMs: Date.now() - startTime,
+    });
+    
+    res.json({ success: true, timestamp: new Date() });
+  } catch (error) {
+    await storage.updateGitHubSyncHistory(historyEntry.id, {
+      status: "failed",
+      errorMessage: error.message,
+      completedAt: new Date(),
+      durationMs: Date.now() - startTime,
+    });
+    res.status(500).json({ error: error.message });
+  }
+});
+// سجل المزامنة
+app.get("/api/github/history", async (req, res) => {
+  const history = await storage.getGitHubSyncHistory();
+  res.json(history);
+});
+5. مكون الواجهة الأمامية
+انسخ ملف client/src/pages/github-sync.tsx من هذا المشروع إلى المنصات الأخرى مع التعديلات المطلوبة.
+
+النقاط الرئيسية:
+
+استخدم @tanstack/react-query لجلب البيانات
+استخدم Select لاختيار المستودع (يستخرج المالك تلقائياً)
+اعرض سجل المزامنة مع badges ملونة (أخضر للنجاح، أحمر للفشل)
+أضف أزرار "عرض النسخة المحفوظة" و "تصفح الكود"
+6. الحزم المطلوبة
+npm install @octokit/rest
+ملخص الخطوات لكل منصة:
+الخطوة	الوصف
+1	ربط GitHub من Integrations
+2	إضافة الجداول في schema.ts
+3	إنشاء github-client.ts
+4	إضافة API routes
+5	نسخ صفحة github-sync.tsx
+6	إضافة الصفحة للـ Sidebar
