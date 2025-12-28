@@ -145,7 +145,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     "/owner/ai-sovereignty", "/owner/ai-capability-control", "/owner/assistant-governance",
     "/owner/ai-settings", "/owner/ai-model-registry", "/owner/infera-intelligence",
     "/owner/staff", "/owner/sovereign-permissions", "/owner/content-moderation", "/owner/control-center", "/owner/platform-maps",
-    "/api-keys", "/ssh-vault", "/github", "/sovereign-plans", "/logo-factory"
+    "/api-keys", "/ssh-vault", "/github-sync", "/sovereign-plans", "/logo-factory"
   ];
 
   // Check if current route is in sovereign safe zone
@@ -588,10 +588,10 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                       <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={location === "/github"}>
-                          <Link href="/github" data-testid="nav-github">
+                        <SidebarMenuButton asChild isActive={location === "/github-sync"}>
+                          <Link href="/github-sync" data-testid="nav-github-sync">
                             <Github className="h-4 w-4" />
-                            <span>{language === "ar" ? "إدارة GitHub" : "GitHub Manager"}</span>
+                            <span>{language === "ar" ? "مزامنة GitHub" : "GitHub Sync"}</span>
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
