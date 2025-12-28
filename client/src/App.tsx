@@ -17,9 +17,12 @@ import { Badge } from "@/components/ui/badge";
 import { Bell } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import NotFound from "@/pages/not-found";
-import Home from "@/pages/home";
+import NovaCommand from "@/pages/nova-command";
 import Landing from "@/pages/landing";
 import Auth from "@/pages/auth";
+
+// Legacy home page for fallback
+const LegacyHome = lazy(() => import("@/pages/home"));
 
 // Lazy load secondary pages for better performance
 const Preview = lazy(() => import("@/pages/preview"));
@@ -91,7 +94,8 @@ function GuestRouter() {
 function AuthenticatedRouter() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
+      <Route path="/" component={NovaCommand} />
+      <Route path="/home-legacy" component={LegacyHome} />
       
       {/* Core Pages */}
       <Route path="/auth" component={Auth} />
