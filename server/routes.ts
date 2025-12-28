@@ -28,6 +28,7 @@ import { buildRoutes } from "./build-routes";
 import { buildPlatform, getBuild, createZipBuffer, type PlatformSpec } from "./platform-build-service";
 import { registerEnterpriseServicesRoutes } from "./enterprise-services-routes";
 import militaryPlatformRoutes from "./military-platform-routes";
+import { paymentOrchestratorRoutes } from "./payment";
 import {
   createLoginSession,
   endLoginSession,
@@ -18917,6 +18918,10 @@ ${project.description || ""}
 
   // ==================== MILITARY-GRADE PLATFORM BUILDING ====================
   app.use("/api/military", militaryPlatformRoutes);
+
+  // ==================== UNIFIED PAYMENT ORCHESTRATOR ====================
+  app.use("/api/payment-orchestrator", paymentOrchestratorRoutes);
+  console.log("Payment Orchestrator routes registered | تم تسجيل مسارات منظم الدفع الموحد");
   console.log("Military Platform routes registered | تم تسجيل مسارات المنصة العسكرية");
 
   // ==================== ENTERPRISE SERVICES - WORLD-CLASS CI/CD ====================

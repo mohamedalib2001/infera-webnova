@@ -1,0 +1,175 @@
+🧠 المبادئ الأساسية (غير قابلة للنقاش)
+
+❌ يُمنع على أي منصة التعامل مباشرة مع بوابات الدفع
+
+✅ جميع عمليات الدفع تمر عبر Payment Orchestrator مركزي
+
+✅ اختيار بوابة الدفع يتم ديناميكيًا عبر Config / Rules
+
+✅ إضافة دولة أو بوابة جديدة = Config + Adapter فقط
+
+✅ جميع المنصات تستخدم عقد دفع موحّد (Unified Contract)
+
+🧩 العقد الموحد للدفع (Mandatory)
+{
+  "platform_id": "string",
+  "company_region": "AUTO | EGYPT | UAE | KSA",
+  "payment_type": "PAYMENT | SUBSCRIPTION | PAYOUT",
+  "amount": 0,
+  "currency": "AUTO | EGP | AED | SAR",
+  "customer": {
+    "id": "string",
+    "name": "string",
+    "email": "string",
+    "phone": "string"
+  },
+  "metadata": {
+    "order_id": "string",
+    "notes": "string"
+  },
+  "callback_urls": {
+    "success": "https://...",
+    "failure": "https://..."
+  }
+}
+
+
+📌 أي منصة لا تلتزم بهذا العقد تُعتبر غير متوافقة مع النظام.
+
+⚙️ قواعد التوجيه (Routing Rules)
+
+تُدار من Config فقط (YAML / JSON / DB)
+
+regions:
+
+  EGYPT:
+    currency: EGP
+    gateways:
+      - PAYMOB
+      - FAWRY
+      - PAYSKY
+
+  UAE:
+    currency: AED
+    gateways:
+      - PAYTABS
+      - TELR
+      - AMAZON_PAYMENT_SERVICES
+
+  KSA:
+    currency: SAR
+    gateways:
+      - STC_PAY
+      - MADA
+      - HYPERPAY
+      - PAYTABS
+
+🔌 واجهة موحدة لمزودي الدفع (Adapter Interface)
+PaymentAdapter Interface:
+
+- createPayment()
+- handleCallback()
+- verifySignature()
+- refund()
+- payout()
+
+
+📌 كل بوابة دفع (Paymob / PayTabs / STC Pay …)
+يجب أن تُنفّذ هذه الواجهة بدون استثناء
+
+🔄 الاستجابة الموحدة (Unified Response)
+عند إنشاء الدفع:
+{
+  "status": "PENDING",
+  "transaction_id": "TX_123456",
+  "payment_url": "https://gateway.checkout/...",
+  "gateway": "PAYMOB"
+}
+
+عند الـ Callback:
+{
+  "transaction_id": "TX_123456",
+  "status": "SUCCESS | FAILED",
+  "amount": 250,
+  "currency": "EGP"
+}
+
+🏦 قنوات الدفع المعتمدة حسب الدولة
+🇪🇬 مصر
+
+Paymob
+
+Fawry
+
+Meeza
+
+InstaPay
+
+PaySky
+
+🇦🇪 الإمارات (دبي)
+
+PayTabs
+
+Telr
+
+Amazon Payment Services
+
+Apple Pay / Google Pay (عبر البوابات)
+
+🇸🇦 السعودية
+
+STC Pay
+
+Mada
+
+HyperPay
+
+PayTabs
+
+Apple Pay
+
+🔐 متطلبات الأمان (إلزامية)
+
+Signature Verification لكل Callback
+
+Idempotency Key لكل عملية
+
+Secrets في Vault / Env فقط
+
+المنصات لا تحتوي أي API Keys
+
+🚀 قابلية التوسع المستقبلية
+
+إضافة دولة جديدة =
+
+تعريف Region
+
+تحديد Gateways
+
+إضافة Adapter
+
+❌ لا تعديل منصات
+❌ لا كسر Production
+
+🧠 Prompt جاهز للاستخدام مع AI / Dev Team
+You are a unified payment orchestration system.
+
+Rules:
+- All platforms must use the Unified Payment Contract.
+- Platforms must never communicate directly with payment gateways.
+- Payment routing must be dynamic and config-based.
+- Support Egypt, UAE, and Saudi Arabia.
+- Gateways are accessed only via adapters.
+- Adding a new country or gateway must require zero platform code changes.
+
+Goal:
+Build a scalable, secure, multi-region payment infrastructure.
+
+✅ النتيجة
+
+✔ نظام واحد
+✔ 3 دول
+✔ عدد غير محدود من المنصات
+✔ جاهز للاستثمار والتوسع
+✔ بدون فوضى أكواد
