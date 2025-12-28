@@ -25,6 +25,7 @@ import {
   File, FileJson, FileType2, Save, Upload
 } from "lucide-react";
 import { generatePlatformCode, generatePackageJson, type GeneratedCode, type PlatformSpec } from "@/lib/platform-code-generator";
+import { GitHubRepoSelector } from "@/components/github-repo-selector";
 
 interface BuildMessage {
   id: string;
@@ -1774,17 +1775,25 @@ How can I help you? Describe the platform you want to build.`;
                   {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
                   {t('Save', 'حفظ')}
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="gap-1" 
-                  onClick={handleSyncToGitHub}
-                  disabled={isSyncing || generatedFiles.length === 0 || !githubConnectionStatus?.connected}
-                  data-testid="button-github"
-                >
-                  {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <GitBranch className="w-3 h-3" />}
-                  {githubStatus?.synced ? t('Sync', 'مزامنة') : t('Push to GitHub', 'رفع إلى GitHub')}
-                </Button>
+                <GitHubRepoSelector
+                  projectId={projectId}
+                  projectName={projectName || undefined}
+                  language={language}
+                  onSyncComplete={(result) => {
+                    setGithubStatus({
+                      synced: true,
+                      repo: result.repo,
+                      url: result.url,
+                      lastSync: new Date().toISOString()
+                    });
+                    toast({
+                      title: language === 'ar' ? 'تمت المزامنة' : 'Sync Complete',
+                      description: language === 'ar' 
+                        ? `تمت مزامنة المشروع إلى ${result.repo}` 
+                        : `Project synced to ${result.repo}`
+                    });
+                  }}
+                />
                 {githubStatus?.url && (
                   <Button 
                     variant="ghost" 
