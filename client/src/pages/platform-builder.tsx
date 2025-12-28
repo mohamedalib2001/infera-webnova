@@ -111,6 +111,7 @@ export default function PlatformBuilderPage() {
   const [generatedFiles, setGeneratedFiles] = useState<GeneratedCode[]>([]);
   const [selectedFile, setSelectedFile] = useState<GeneratedCode | null>(null);
   const [platformSpec, setPlatformSpec] = useState<PlatformSpec | null>(null);
+  const [currentBuildId, setCurrentBuildId] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -585,20 +586,79 @@ spec:
     };
     setPlatformSpec(spec);
     
-    const files = generatePlatformCode(spec);
-    files.push({
+    const localFiles = generatePlatformCode(spec);
+    localFiles.push({
       fileName: 'package.json',
       filePath: 'package.json',
       language: 'json',
       content: generatePackageJson(spec),
       category: 'config'
     });
-    setGeneratedFiles(files);
-    if (files.length > 0) {
-      setSelectedFile(files[0]);
-    }
     
-    setGeneratedCode(files[0]?.content || '');
+    try {
+      const apiSpec = {
+        name: spec.name,
+        nameAr: spec.nameAr,
+        description: `${spec.name} Platform`,
+        descriptionAr: `منصة ${spec.nameAr || spec.name}`,
+        sector: spec.type,
+        features: spec.features,
+        hasAuth: spec.hasAuth,
+        hasPayments: spec.hasPayments,
+        hasSubscriptions: spec.hasSubscriptions,
+        hasCMS: false,
+        hasAnalytics: spec.hasDashboard,
+      };
+      
+      const buildResponse = await apiRequest('POST', '/api/platforms/build', apiSpec);
+      
+      if (buildResponse.success && buildResponse.buildId) {
+        setCurrentBuildId(buildResponse.buildId);
+        
+        const filesResponse = await fetch(`/api/platforms/build/${buildResponse.buildId}/files`);
+        if (filesResponse.ok) {
+          const filesData = await filesResponse.json();
+          const serverFiles: GeneratedCode[] = [];
+          
+          for (const fileMeta of filesData.files || []) {
+            const fileResponse = await fetch(`/api/platforms/build/${buildResponse.buildId}/file/${fileMeta.filePath}`);
+            if (fileResponse.ok) {
+              const fileData = await fileResponse.json();
+              serverFiles.push({
+                fileName: fileData.fileName,
+                filePath: fileData.filePath,
+                language: fileData.language,
+                content: fileData.content,
+                category: fileMeta.category || 'generated'
+              });
+            }
+          }
+          
+          if (serverFiles.length > 0) {
+            setGeneratedFiles(serverFiles);
+            setSelectedFile(serverFiles[0]);
+            setGeneratedCode(serverFiles[0].content);
+          } else {
+            setGeneratedFiles(localFiles);
+            setSelectedFile(localFiles[0]);
+            setGeneratedCode(localFiles[0]?.content || '');
+          }
+        }
+      } else {
+        setGeneratedFiles(localFiles);
+        if (localFiles.length > 0) {
+          setSelectedFile(localFiles[0]);
+          setGeneratedCode(localFiles[0].content);
+        }
+      }
+    } catch (error) {
+      console.error('API build error, using local generation:', error);
+      setGeneratedFiles(localFiles);
+      if (localFiles.length > 0) {
+        setSelectedFile(localFiles[0]);
+        setGeneratedCode(localFiles[0].content);
+      }
+    }
     
     setActiveTab('architecture');
     
@@ -1490,6 +1550,36 @@ spec:
                         <Download className="w-3 h-3" />
                         {t('Download All', 'تحميل الكل')} ({generatedFiles.length})
                       </Button>
+                      {currentBuildId && (
+                        <Button 
+                          variant="default" 
+                          size="sm" 
+                          className="gap-1 h-7"
+                          onClick={async () => {
+                            try {
+                              const response = await fetch(`/api/platforms/download/${currentBuildId}`);
+                              if (response.ok) {
+                                const blob = await response.blob();
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `${platformSpec?.name || 'platform'}-complete.zip`;
+                                a.click();
+                                URL.revokeObjectURL(url);
+                                toast({ title: t('Platform downloaded!', 'تم تحميل المنصة!') });
+                              } else {
+                                toast({ title: t('Download failed', 'فشل التحميل'), variant: 'destructive' });
+                              }
+                            } catch (error) {
+                              toast({ title: t('Download failed', 'فشل التحميل'), variant: 'destructive' });
+                            }
+                          }}
+                          data-testid="button-download-platform-zip"
+                        >
+                          <Rocket className="w-3 h-3" />
+                          {t('Download Complete Platform', 'تحميل المنصة الكاملة')}
+                        </Button>
+                      )}
                     </div>
                   </div>
                   <ScrollArea className="h-[calc(100%-2.5rem)]">
