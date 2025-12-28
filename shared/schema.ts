@@ -440,6 +440,17 @@ export const projects = pgTable("projects", {
   contentViolations: jsonb("content_violations").$type<ContentViolation[]>().default([]), // List of violations
   lastContentScan: timestamp("last_content_scan"), // Last AI content scan
   contentScore: integer("content_score").default(100), // Content health score (0-100)
+  // GitHub Integration Fields - حقول تكامل GitHub
+  githubRepo: text("github_repo"), // owner/repo format
+  githubBranch: text("github_branch").default("main"),
+  githubUrl: text("github_url"), // Full repository URL
+  githubLastSync: timestamp("github_last_sync"), // Last sync timestamp
+  githubCommitSha: text("github_commit_sha"), // Last synced commit
+  // Generated Files Storage - ملفات المشروع المولّدة
+  generatedFiles: jsonb("generated_files").$type<Array<{ path: string; content: string; type: string }>>().default([]),
+  platformSpec: jsonb("platform_spec").$type<Record<string, any>>(),
+  dockerCompose: text("docker_compose"),
+  kubernetesManifest: text("kubernetes_manifest"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
