@@ -26637,6 +26637,72 @@ ${contentToAnalyze}`
     }
   });
 
+  // Alias for nova/chat to nova/command/chat
+  app.post("/api/nova/chat", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      
+      const { message, context } = req.body;
+      const language = context?.language || "en";
+      
+      let intent = "general";
+      const lowerMessage = (message || "").toLowerCase();
+      
+      if (lowerMessage.includes("build") || lowerMessage.includes("create") || lowerMessage.includes("بناء") || lowerMessage.includes("إنشاء")) {
+        intent = "build";
+      } else if (lowerMessage.includes("security") || lowerMessage.includes("أمن")) {
+        intent = "security";
+      } else if (lowerMessage.includes("deploy") || lowerMessage.includes("نشر")) {
+        intent = "deploy";
+      } else if (lowerMessage.includes("help") || lowerMessage.includes("مساعدة")) {
+        intent = "help";
+      }
+      
+      let response = "";
+      switch (intent) {
+        case "build":
+          response = language === "ar" 
+            ? "أنا جاهز لمساعدتك في بناء منصة جديدة. ما نوع المنصة التي تريد إنشاءها؟"
+            : "I am ready to help you build a new platform. What type do you want to create?";
+          break;
+        case "security":
+          response = language === "ar"
+            ? "سأقوم بإجراء فحص أمني شامل لمنصاتك."
+            : "I will perform a comprehensive security scan on your platforms.";
+          break;
+        case "deploy":
+          response = language === "ar"
+            ? "جاهز للنشر! ما المنصة التي تريد نشرها؟"
+            : "Ready to deploy! Which platform would you like to deploy?";
+          break;
+        case "help":
+          response = language === "ar"
+            ? "أنا Nova، مساعدك الذكي. يمكنني بناء منصات، فحص الأمان، ونشر المنصات."
+            : "I am Nova, your AI assistant. I can build platforms, run security scans, and deploy.";
+          break;
+        default:
+          response = language === "ar"
+            ? "مرحباً! أنا Nova، كيف يمكنني مساعدتك؟"
+            : "Hello! I am Nova, how can I help you?";
+      }
+      
+      res.json({
+        response,
+        intent,
+        actions: [],
+        buildSteps: intent === "build" ? [
+          { id: "s1", name: "Initialize Project", nameAr: "تهيئة المشروع", status: "pending" },
+          { id: "s2", name: "Setup Database", nameAr: "إعداد قاعدة البيانات", status: "pending" },
+          { id: "s3", name: "Generate Code", nameAr: "توليد الكود", status: "pending" }
+        ] : []
+      });
+    } catch (error) {
+      console.error("Error in nova chat:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Nova Command chat endpoint
   app.post("/api/nova/command/chat", requireAuth, async (req, res) => {
     try {
