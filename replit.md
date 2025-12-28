@@ -10,6 +10,74 @@ I prefer detailed explanations.
 Do not make changes to the folder `Z`.
 Do not make changes to the file `Y`.
 
+## 🔒 MANDATORY Dynamic Architecture Policy (NON-NEGOTIABLE)
+
+**PRINCIPLE: 0% Hardcoded - 100% Dynamic**
+
+This principle is MANDATORY and cannot be bypassed for any reason.
+
+### 1. General Principle
+- **STRICTLY PROHIBITED**: Any hardcoded values in any platform
+- **REQUIRED**: All elements must be fully dynamic and controllable from Owner Account
+- Any non-dynamic element is considered a direct violation of this directive
+
+### 2. Identity & Branding (100% Dynamic)
+All following elements MUST be dynamically loaded from `/api/platform/branding`:
+| Element | Source | Implementation |
+|---------|--------|----------------|
+| Platform Name | Database/API | `usePlatformBranding()` |
+| Logo | Object Storage | Dynamic URL from settings |
+| Colors (Primary/Secondary) | Database | CSS Variables injection |
+| Fonts | Database/CDN | Dynamic font loading |
+| Text/Labels | Database | `useLanguage()` translations |
+| Language | User Settings | Dynamic locale switching |
+| Metadata | Database | Dynamic `<head>` injection |
+
+**Implementation Files:**
+- `client/src/hooks/use-platform-branding.ts` - Branding hook
+- `client/src/hooks/use-language.tsx` - i18n system
+- `client/src/lib/sovereign-registry.ts` - Dynamic menus
+
+### 3. UI/UX Components (100% Dynamic)
+- All screens, components, and text are dynamic
+- NO hardcoded text, titles, or messages in code
+- Support instant updates without platform rebuild
+- All labels from translation system or database
+
+### 4. Loading Page (100% Dynamic)
+Even the loading/splash page MUST be fully dynamic:
+- ❌ NO hardcoded names
+- ❌ NO hardcoded logos
+- ❌ NO hardcoded designs
+- ✅ Load identity from owner's dynamic settings
+
+### 5. Operational Logic (100% Dynamic)
+All operational settings managed dynamically:
+- Features toggles
+- Limits configuration
+- Permissions matrix
+- UI behavior rules
+- NO hardcoded logic forcing unchangeable behavior
+
+### 6. Sovereign Control
+- Owner Account is the ONLY authority to change:
+  - Platform identity
+  - Settings
+  - General platform behavior
+- NO sub-platform or user can override this control
+
+### 7. Compliance Enforcement
+- Any non-dynamic element = Design Error
+- All current and future platforms MUST comply
+- Code review required for dynamic compliance
+
+### Existing Dynamic Systems
+The following systems are already implemented for dynamic control:
+1. **Branding System**: `usePlatformBranding()` - Dynamic branding from API
+2. **Registry System**: `sovereign-registry.ts` - Dynamic menus/capabilities
+3. **Translation System**: `useLanguage()` - Dynamic i18n
+4. **Theme System**: `ThemeProvider` - Dynamic dark/light mode
+
 ## 🔒 MANDATORY Platform Governance Policy (NON-NEGOTIABLE)
 
 **This policy is MANDATORY and cannot be bypassed for any reason.**
