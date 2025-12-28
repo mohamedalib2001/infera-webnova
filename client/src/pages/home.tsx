@@ -164,7 +164,7 @@ export default function Home() {
   }, [messages]);
   
   // Generate smart response for Nova AI conversation
-  const generateSmartResponse = useCallback((userMessage: string, lang: string): { content: string; buildPlan?: BuildPlan } => {
+  const generateSmartResponse = useCallback((userMessage: string, lang: string, messagesCount: number): { content: string; buildPlan?: BuildPlan } => {
     const isAr = lang === 'ar';
     const lowerMessage = userMessage.toLowerCase();
     
@@ -173,31 +173,31 @@ export default function Home() {
     let features: string[] = [];
     let techStack = ['React', 'TypeScript', 'Node.js', 'PostgreSQL'];
     
-    if (lowerMessage.includes('ecommerce') || lowerMessage.includes('متجر') || lowerMessage.includes('تجار')) {
+    if (lowerMessage.includes('ecommerce') || lowerMessage.includes('متجر') || lowerMessage.includes('تجار') || lowerMessage.includes('shop') || lowerMessage.includes('store')) {
       projectType = 'ecommerce';
       features = isAr 
         ? ['إدارة المنتجات', 'سلة التسوق', 'الدفع الإلكتروني', 'إدارة الطلبات', 'تتبع الشحن']
         : ['Product Management', 'Shopping Cart', 'Payment Processing', 'Order Management', 'Shipping Tracking'];
       techStack = ['React', 'TypeScript', 'Node.js', 'PostgreSQL', 'Stripe'];
-    } else if (lowerMessage.includes('healthcare') || lowerMessage.includes('صح') || lowerMessage.includes('طب')) {
+    } else if (lowerMessage.includes('healthcare') || lowerMessage.includes('صح') || lowerMessage.includes('طب') || lowerMessage.includes('health') || lowerMessage.includes('medical')) {
       projectType = 'healthcare';
       features = isAr
         ? ['إدارة المرضى', 'جدولة المواعيد', 'السجلات الطبية', 'التقارير', 'الامتثال HIPAA']
         : ['Patient Management', 'Appointment Scheduling', 'Medical Records', 'Reports', 'HIPAA Compliance'];
       techStack = ['React', 'TypeScript', 'Node.js', 'PostgreSQL', 'HL7 FHIR'];
-    } else if (lowerMessage.includes('financial') || lowerMessage.includes('مال') || lowerMessage.includes('بنك')) {
+    } else if (lowerMessage.includes('financial') || lowerMessage.includes('مال') || lowerMessage.includes('بنك') || lowerMessage.includes('bank') || lowerMessage.includes('finance')) {
       projectType = 'financial';
       features = isAr
         ? ['إدارة الحسابات', 'التحويلات', 'التقارير المالية', 'الامتثال PCI-DSS', 'التحقق من الهوية']
         : ['Account Management', 'Transfers', 'Financial Reports', 'PCI-DSS Compliance', 'Identity Verification'];
       techStack = ['React', 'TypeScript', 'Node.js', 'PostgreSQL', 'Plaid API'];
-    } else if (lowerMessage.includes('government') || lowerMessage.includes('حكوم')) {
+    } else if (lowerMessage.includes('government') || lowerMessage.includes('حكوم') || lowerMessage.includes('gov')) {
       projectType = 'government';
       features = isAr
         ? ['بوابة المواطنين', 'إدارة الخدمات', 'التحقق من الهوية', 'التقارير', 'إمكانية الوصول WCAG']
         : ['Citizen Portal', 'Service Management', 'Identity Verification', 'Reports', 'WCAG Accessibility'];
       techStack = ['React', 'TypeScript', 'Node.js', 'PostgreSQL', 'OAuth 2.0'];
-    } else if (lowerMessage.includes('education') || lowerMessage.includes('تعليم') || lowerMessage.includes('مدرس')) {
+    } else if (lowerMessage.includes('education') || lowerMessage.includes('تعليم') || lowerMessage.includes('مدرس') || lowerMessage.includes('school') || lowerMessage.includes('learn')) {
       projectType = 'education';
       features = isAr
         ? ['إدارة الطلاب', 'الدورات التعليمية', 'الاختبارات', 'التقارير', 'الامتثال FERPA']
@@ -209,12 +209,25 @@ export default function Home() {
         : ['Dashboard', 'User Management', 'Reports', 'Settings', 'Notifications'];
     }
     
-    // First response - ask clarifying questions
-    if (messages.length === 0) {
+    // Get project type name based on language
+    const getProjectTypeName = (type: string, arabic: boolean) => {
+      const names: Record<string, { ar: string; en: string }> = {
+        ecommerce: { ar: 'تجارة إلكترونية', en: 'e-commerce' },
+        healthcare: { ar: 'رعاية صحية', en: 'healthcare' },
+        financial: { ar: 'خدمات مالية', en: 'financial services' },
+        government: { ar: 'خدمات حكومية', en: 'government services' },
+        education: { ar: 'تعليم', en: 'education' },
+        general: { ar: 'رقمية', en: 'digital' }
+      };
+      return arabic ? names[type]?.ar || 'رقمية' : names[type]?.en || 'digital';
+    };
+    
+    // First user message after welcome (messagesCount = 2: welcome + user message being added)
+    if (messagesCount <= 2) {
       const content = isAr
         ? `مرحباً! أنا Nova، مساعدك الذكي لبناء المنصات السيادية. 
 
-فهمت أنك تريد بناء منصة ${projectType === 'ecommerce' ? 'تجارة إلكترونية' : projectType === 'healthcare' ? 'صحية' : projectType === 'financial' ? 'مالية' : projectType === 'government' ? 'حكومية' : projectType === 'education' ? 'تعليمية' : 'رقمية'}.
+فهمت أنك تريد بناء منصة ${getProjectTypeName(projectType, true)}.
 
 لأساعدك بشكل أفضل، أخبرني:
 1. ما هي الميزات الأساسية التي تحتاجها؟
@@ -222,7 +235,7 @@ export default function Home() {
 3. ما هو الجدول الزمني المتوقع للإطلاق؟`
         : `Hello! I'm Nova, your intelligent assistant for building sovereign platforms.
 
-I understand you want to build a ${projectType === 'ecommerce' ? 'e-commerce' : projectType === 'healthcare' ? 'healthcare' : projectType === 'financial' ? 'financial' : projectType === 'government' ? 'government' : projectType === 'education' ? 'education' : 'digital'} platform.
+I understand you want to build a ${getProjectTypeName(projectType, false)} platform.
 
 To help you better, tell me:
 1. What are the core features you need?
@@ -275,7 +288,7 @@ ${techStack.join(' • ')}
 Do you approve this plan? I can start building immediately upon your approval.`;
     
     return { content, buildPlan };
-  }, [messages.length]);
+  }, []);
   
   // Send message in conversation
   const sendMessage = useCallback(async (content: string) => {
@@ -288,13 +301,17 @@ Do you approve this plan? I can start building immediately upon your approval.`;
       timestamp: new Date(),
     };
     
+    // Get current count before updating
+    const currentMessagesCount = messages.length;
+    
     setMessages(prev => [...prev, userMessage]);
     setInputValue("");
     setIsLoading(true);
     
     // Simulate AI response with smart generation
+    // Pass messages count + 1 (for the user message just added)
     setTimeout(() => {
-      const response = generateSmartResponse(content, language);
+      const response = generateSmartResponse(content, language, currentMessagesCount + 1);
       
       const aiMessage: ChatMessage = {
         id: `ai-${Date.now()}`,
@@ -311,7 +328,7 @@ Do you approve this plan? I can start building immediately upon your approval.`;
       setMessages(prev => [...prev, aiMessage]);
       setIsLoading(false);
     }, 1500);
-  }, [isLoading, language, generateSmartResponse]);
+  }, [isLoading, language, generateSmartResponse, messages.length]);
   
   // Handle starting a conversation
   const handleStartConversation = useCallback((initialMessage?: string) => {
