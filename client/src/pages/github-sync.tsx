@@ -91,8 +91,9 @@ export default function GitHubSync() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6" dir={isRtl ? "rtl" : "ltr"}>
-      <header className="flex items-center justify-between gap-4 flex-wrap">
+    <div className="h-full overflow-y-auto" dir={isRtl ? "rtl" : "ltr"}>
+      <div className="container mx-auto p-6 pb-24 space-y-6">
+        <header className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <SiGithub className="h-6 w-6" />
@@ -146,6 +147,7 @@ export default function GitHubSync() {
           branch: currentSettings.branch,
         } : null}
       />
+      </div>
     </div>
   );
 }
