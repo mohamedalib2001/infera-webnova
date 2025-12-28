@@ -108,7 +108,7 @@ export default function GitHubSync() {
 
   const saveSyncSettings = useMutation({
     mutationFn: async (data: { owner: string; repo: string; branch?: string; autoSync?: boolean }) => {
-      return apiRequest("/api/github/sync-settings", { method: "POST", body: JSON.stringify(data) });
+      return apiRequest("POST", "/api/github/sync-settings", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/github/sync-settings"] });
@@ -129,7 +129,7 @@ export default function GitHubSync() {
 
   const updateSyncSettings = useMutation({
     mutationFn: async ({ id, ...data }: { id: string; autoSync?: boolean; syncInterval?: number }) => {
-      return apiRequest(`/api/github/sync-settings/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+      return apiRequest("PATCH", `/api/github/sync-settings/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/github/sync-settings"] });
@@ -142,14 +142,11 @@ export default function GitHubSync() {
 
   const triggerSync = useMutation({
     mutationFn: async (settingsId: string) => {
-      return apiRequest("/api/github/sync-history", { 
-        method: "POST", 
-        body: JSON.stringify({
-          settingsId,
-          syncType: "manual",
-          triggeredBy: "manual",
-          status: "success"
-        })
+      return apiRequest("POST", "/api/github/sync-history", {
+        settingsId,
+        syncType: "manual",
+        triggeredBy: "manual",
+        status: "success"
       });
     },
     onSuccess: () => {
