@@ -112,6 +112,11 @@ function generateAllPlatformCode(spec: PlatformSpec): GeneratedFile[] {
   files.push(...generateDockerFiles(spec));
   files.push(...generateFrontendApp(spec));
   files.push(...generateReadme(spec));
+  files.push(...generateHealthAndMonitoring(spec));
+  files.push(...generateRateLimiter(spec));
+  files.push(...generateRedisCache(spec));
+  files.push(...generateOpenApiSpec(spec));
+  files.push(...generateMicroservicesConfig(spec));
   
   if (spec.hasSubscriptions) {
     files.push(...generateSubscriptionRoutes(spec));
@@ -159,10 +164,12 @@ function generatePackageJson(spec: PlatformSpec): GeneratedFile[] {
     "react-hook-form": "^7.53.0",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7",
+    "redis": "^4.7.0",
     "wouter": "^3.3.5",
     "zod": "^3.23.8"${spec.hasPayments ? ',\n    "stripe": "^14.0.0"' : ''}
   },
   "devDependencies": {
+    "@types/redis": "^4.0.11",
     "@types/bcryptjs": "^2.4.6",
     "@types/cookie-parser": "^1.4.7",
     "@types/express": "^4.17.21",
@@ -465,6 +472,9 @@ function generateMainServer(spec: PlatformSpec): GeneratedFile[] {
 import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import authRoutes from "./routes/auth";
+import healthRoutes from "./routes/health";
+import metricsRoutes from "./routes/metrics";
+import { apiLimiter, authLimiter } from "./middleware/rate-limiter";
 ${spec.hasSubscriptions ? 'import subscriptionRoutes from "./routes/subscriptions";' : ''}
 ${spec.hasPayments ? 'import webhookRoutes from "./routes/webhooks";' : ''}
 
@@ -475,23 +485,33 @@ ${spec.hasPayments ? '// Stripe webhooks need raw body - must be before json par
 app.use(express.json());
 app.use(cookieParser());
 
+// Security headers
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  next();
+});
+
+// Rate limiting
+app.use("/api/auth/login", authLimiter);
+app.use("/api/auth/register", authLimiter);
+app.use("/api", apiLimiter);
+
+// Routes
 app.use("/api/auth", authRoutes);
+app.use("/health", healthRoutes);
+app.use("/metrics", metricsRoutes);
 ${spec.hasSubscriptions ? 'app.use("/api/subscriptions", subscriptionRoutes);' : ''}
 ${spec.hasPayments ? 'app.use("/api/webhooks", webhookRoutes);' : ''}
-
-app.get("/api/health", (req, res) => {
-  res.json({ 
-    status: "healthy", 
-    timestamp: new Date().toISOString(),
-    platform: "${spec.name}"
-  });
-});
 
 const httpServer = createServer(app);
 const PORT = process.env.PORT || 5000;
 
 httpServer.listen(PORT, "0.0.0.0", () => {
   console.log(\`${spec.name} server running on port \${PORT}\`);
+  console.log(\`Health: http://localhost:\${PORT}/health\`);
+  console.log(\`Metrics: http://localhost:\${PORT}/metrics\`);
 });
 
 export default app;
@@ -711,21 +731,25 @@ STRIPE_PUBLISHABLE_KEY=pk_test_...
 
 function generateDockerFiles(spec: PlatformSpec): GeneratedFile[] {
   const files: GeneratedFile[] = [];
+  const appName = spec.name.toLowerCase().replace(/\s+/g, '-');
   
   const dockerfile = `FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+RUN npm ci && npm cache clean --force
 COPY . .
 RUN npm run build
 
 FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 app
+COPY --from=builder --chown=app:nodejs /app/dist ./dist
+COPY --from=builder --chown=app:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=app:nodejs /app/package.json ./
+USER app
 EXPOSE 5000
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 CMD wget --no-verbose --tries=1 --spider http://localhost:5000/health || exit 1
 CMD ["node", "dist/server/index.js"]
 `;
 
@@ -746,30 +770,1154 @@ services:
       - "5000:5000"
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=\${DATABASE_URL}
+      - DATABASE_URL=postgresql://app:\${DB_PASSWORD}@db:5432/${appName}
+      - REDIS_URL=redis://redis:6379
       ${spec.hasPayments ? '- STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}\n      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}' : ''}
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   db:
     image: postgres:15-alpine
     environment:
       - POSTGRES_USER=app
       - POSTGRES_PASSWORD=\${DB_PASSWORD}
-      - POSTGRES_DB=${spec.name.toLowerCase().replace(/\s+/g, '_')}
+      - POSTGRES_DB=${appName}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d ${appName}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - app
     restart: unless-stopped
 
 volumes:
   postgres_data:
+  redis_data:
 `;
 
   files.push({
     fileName: 'docker-compose.yml',
     filePath: 'docker-compose.yml',
     content: dockerCompose,
+    language: 'yaml',
+    category: 'infrastructure'
+  });
+
+  const kubernetesDeployment = `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${appName}
+  labels:
+    app: ${appName}
+    version: v1
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: ${appName}
+  template:
+    metadata:
+      labels:
+        app: ${appName}
+        version: v1
+    spec:
+      serviceAccountName: ${appName}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+      containers:
+      - name: app
+        image: ${appName}:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 5000
+          name: http
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: ${appName}-secrets
+              key: database-url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: ${appName}-secrets
+              key: redis-url
+        - name: SESSION_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: ${appName}-secrets
+              key: session-secret
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${appName}
+  labels:
+    app: ${appName}
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 5000
+    protocol: TCP
+    name: http
+  selector:
+    app: ${appName}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ${appName}-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ${appName}
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 15
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ${appName}-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: ${appName}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ${appName}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ${appName}-network-policy
+spec:
+  podSelector:
+    matchLabels:
+      app: ${appName}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 5000
+  egress:
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 5432
+    - protocol: TCP
+      port: 6379
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+    ports:
+    - protocol: TCP
+      port: 443
+`;
+
+  files.push({
+    fileName: 'kubernetes.yaml',
+    filePath: 'k8s/deployment.yaml',
+    content: kubernetesDeployment,
+    language: 'yaml',
+    category: 'infrastructure'
+  });
+
+  const nginxConf = `events {
+    worker_connections 1024;
+}
+
+http {
+    upstream app {
+        least_conn;
+        server app:5000 weight=1 max_fails=3 fail_timeout=30s;
+    }
+
+    limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
+    limit_conn_zone $binary_remote_addr zone=conn:10m;
+
+    server {
+        listen 80;
+        server_name _;
+        return 301 https://$host$request_uri;
+    }
+
+    server {
+        listen 443 ssl http2;
+        server_name _;
+
+        ssl_certificate /etc/nginx/certs/cert.pem;
+        ssl_certificate_key /etc/nginx/certs/key.pem;
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256;
+        ssl_prefer_server_ciphers off;
+        ssl_session_cache shared:SSL:10m;
+        ssl_session_timeout 1d;
+        ssl_stapling on;
+        ssl_stapling_verify on;
+
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-XSS-Protection "1; mode=block" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';" always;
+
+        location / {
+            proxy_pass http://app;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection 'upgrade';
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_cache_bypass $http_upgrade;
+            proxy_read_timeout 60s;
+            proxy_connect_timeout 60s;
+        }
+
+        location /api/ {
+            limit_req zone=api burst=20 nodelay;
+            limit_conn conn 10;
+            proxy_pass http://app;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location /health {
+            proxy_pass http://app/health;
+            proxy_http_version 1.1;
+            access_log off;
+        }
+    }
+}
+`;
+
+  files.push({
+    fileName: 'nginx.conf',
+    filePath: 'nginx.conf',
+    content: nginxConf,
+    language: 'nginx',
+    category: 'infrastructure'
+  });
+
+  return files;
+}
+
+function generateHealthAndMonitoring(spec: PlatformSpec): GeneratedFile[] {
+  const files: GeneratedFile[] = [];
+  
+  const healthContent = [
+    'import { Router, Request, Response } from "express";',
+    'import { db } from "../db";',
+    'import { sql } from "drizzle-orm";',
+    '',
+    'const router = Router();',
+    '',
+    'interface HealthStatus {',
+    '  status: "healthy" | "degraded" | "unhealthy";',
+    '  timestamp: string;',
+    '  version: string;',
+    '  uptime: number;',
+    '  checks: {',
+    '    database: { status: string; latency?: number };',
+    '    memory: { used: number; total: number; percentage: number };',
+    '  };',
+    '}',
+    '',
+    'const startTime = Date.now();',
+    '',
+    'router.get("/", async (_req: Request, res: Response) => {',
+    '  const health: HealthStatus = {',
+    '    status: "healthy",',
+    '    timestamp: new Date().toISOString(),',
+    '    version: process.env.APP_VERSION || "1.0.0",',
+    '    uptime: Math.floor((Date.now() - startTime) / 1000),',
+    '    checks: {',
+    '      database: { status: "unknown" },',
+    '      memory: { used: 0, total: 0, percentage: 0 },',
+    '    },',
+    '  };',
+    '',
+    '  try {',
+    '    const dbStart = Date.now();',
+    '    await db.execute(sql`SELECT 1`);',
+    '    health.checks.database = { status: "up", latency: Date.now() - dbStart };',
+    '  } catch {',
+    '    health.checks.database = { status: "down" };',
+    '    health.status = "unhealthy";',
+    '  }',
+    '',
+    '  const memUsage = process.memoryUsage();',
+    '  health.checks.memory = {',
+    '    used: Math.round(memUsage.heapUsed / 1024 / 1024),',
+    '    total: Math.round(memUsage.heapTotal / 1024 / 1024),',
+    '    percentage: Math.round((memUsage.heapUsed / memUsage.heapTotal) * 100),',
+    '  };',
+    '',
+    '  if (health.checks.memory.percentage > 90) {',
+    '    health.status = health.status === "unhealthy" ? "unhealthy" : "degraded";',
+    '  }',
+    '',
+    '  res.status(health.status === "unhealthy" ? 503 : 200).json(health);',
+    '});',
+    '',
+    'router.get("/ready", async (_req: Request, res: Response) => {',
+    '  try {',
+    '    await db.execute(sql`SELECT 1`);',
+    '    res.status(200).json({ ready: true });',
+    '  } catch {',
+    '    res.status(503).json({ ready: false });',
+    '  }',
+    '});',
+    '',
+    'router.get("/live", (_req: Request, res: Response) => {',
+    '  res.status(200).json({ alive: true, timestamp: new Date().toISOString() });',
+    '});',
+    '',
+    'export default router;',
+  ].join('\n');
+
+  files.push({
+    fileName: 'health.ts',
+    filePath: 'server/routes/health.ts',
+    content: healthContent,
+    language: 'typescript',
+    category: 'backend'
+  });
+
+  const metricsContent = [
+    'import { Router, Request, Response } from "express";',
+    '',
+    'const router = Router();',
+    'const startTime = Date.now();',
+    '',
+    'router.get("/", (_req: Request, res: Response) => {',
+    '  const memUsage = process.memoryUsage();',
+    '  const metrics = [',
+    '    `# HELP process_uptime_seconds Process uptime`,',
+    '    `# TYPE process_uptime_seconds gauge`,',
+    '    `process_uptime_seconds ${Math.floor((Date.now() - startTime) / 1000)}`,',
+    '    `# HELP nodejs_heap_size_total_bytes Total heap`,',
+    '    `# TYPE nodejs_heap_size_total_bytes gauge`,',
+    '    `nodejs_heap_size_total_bytes ${memUsage.heapTotal}`,',
+    '    `# HELP nodejs_heap_size_used_bytes Used heap`,',
+    '    `# TYPE nodejs_heap_size_used_bytes gauge`,',
+    '    `nodejs_heap_size_used_bytes ${memUsage.heapUsed}`,',
+    '  ].join("\\n");',
+    '  res.set("Content-Type", "text/plain");',
+    '  res.send(metrics);',
+    '});',
+    '',
+    'export default router;',
+  ].join('\n');
+
+  files.push({
+    fileName: 'metrics.ts',
+    filePath: 'server/routes/metrics.ts',
+    content: metricsContent,
+    language: 'typescript',
+    category: 'backend'
+  });
+
+  return files;
+}
+
+function generateRateLimiter(spec: PlatformSpec): GeneratedFile[] {
+  const content = `import { Request, Response, NextFunction } from "express";
+
+interface RateLimitStore {
+  [key: string]: { count: number; resetAt: number };
+}
+
+const store: RateLimitStore = {};
+
+interface RateLimitOptions {
+  windowMs?: number;
+  max?: number;
+  message?: string;
+  keyGenerator?: (req: Request) => string;
+}
+
+export function rateLimiter(options: RateLimitOptions = {}) {
+  const {
+    windowMs = 60 * 1000,
+    max = 100,
+    message = "Too many requests, please try again later.",
+    keyGenerator = (req) => req.ip || req.headers["x-forwarded-for"]?.toString() || "unknown",
+  } = options;
+
+  setInterval(() => {
+    const now = Date.now();
+    for (const key in store) {
+      if (store[key].resetAt < now) {
+        delete store[key];
+      }
+    }
+  }, windowMs);
+
+  return (req: Request, res: Response, next: NextFunction) => {
+    const key = keyGenerator(req);
+    const now = Date.now();
+
+    if (!store[key] || store[key].resetAt < now) {
+      store[key] = { count: 1, resetAt: now + windowMs };
+    } else {
+      store[key].count++;
+    }
+
+    const remaining = Math.max(0, max - store[key].count);
+    const resetAt = store[key].resetAt;
+
+    res.setHeader("X-RateLimit-Limit", max.toString());
+    res.setHeader("X-RateLimit-Remaining", remaining.toString());
+    res.setHeader("X-RateLimit-Reset", Math.ceil(resetAt / 1000).toString());
+
+    if (store[key].count > max) {
+      res.setHeader("Retry-After", Math.ceil((resetAt - now) / 1000).toString());
+      return res.status(429).json({ error: message });
+    }
+
+    next();
+  };
+}
+
+export const apiLimiter = rateLimiter({ windowMs: 60000, max: 100 });
+export const authLimiter = rateLimiter({ windowMs: 900000, max: 5, message: "Too many login attempts" });
+export const strictLimiter = rateLimiter({ windowMs: 60000, max: 10 });
+`;
+
+  return [{
+    fileName: 'rate-limiter.ts',
+    filePath: 'server/middleware/rate-limiter.ts',
+    content,
+    language: 'typescript',
+    category: 'backend'
+  }];
+}
+
+function generateRedisCache(spec: PlatformSpec): GeneratedFile[] {
+  const content = `import { createClient, RedisClientType } from "redis";
+
+let client: RedisClientType | null = null;
+
+export async function getRedisClient(): Promise<RedisClientType | null> {
+  if (!process.env.REDIS_URL) return null;
+  
+  if (!client) {
+    client = createClient({ url: process.env.REDIS_URL });
+    client.on("error", (err) => console.error("Redis error:", err));
+    await client.connect();
+  }
+  return client;
+}
+
+export async function cacheGet<T>(key: string): Promise<T | null> {
+  const redis = await getRedisClient();
+  if (!redis) return null;
+  
+  const data = await redis.get(key);
+  return data ? JSON.parse(data) : null;
+}
+
+export async function cacheSet(key: string, value: unknown, ttlSeconds = 3600): Promise<void> {
+  const redis = await getRedisClient();
+  if (!redis) return;
+  
+  await redis.setEx(key, ttlSeconds, JSON.stringify(value));
+}
+
+export async function cacheDelete(key: string): Promise<void> {
+  const redis = await getRedisClient();
+  if (!redis) return;
+  
+  await redis.del(key);
+}
+
+export async function cacheInvalidatePattern(pattern: string): Promise<void> {
+  const redis = await getRedisClient();
+  if (!redis) return;
+  
+  const keys = await redis.keys(pattern);
+  if (keys.length > 0) {
+    await redis.del(keys);
+  }
+}
+
+export function withCache<T>(key: string, ttl: number, fn: () => Promise<T>): () => Promise<T> {
+  return async () => {
+    const cached = await cacheGet<T>(key);
+    if (cached) return cached;
+    
+    const result = await fn();
+    await cacheSet(key, result, ttl);
+    return result;
+  };
+}
+`;
+
+  return [{
+    fileName: 'cache.ts',
+    filePath: 'server/lib/cache.ts',
+    content,
+    language: 'typescript',
+    category: 'backend'
+  }];
+}
+
+function generateOpenApiSpec(spec: PlatformSpec): GeneratedFile[] {
+  const content = `openapi: 3.0.3
+info:
+  title: ${spec.name} API
+  description: ${spec.description || spec.name + " Platform API"}
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@${spec.name.toLowerCase().replace(/\s+/g, '')}.com
+
+servers:
+  - url: /api
+    description: Production server
+
+security:
+  - bearerAuth: []
+  - cookieAuth: []
+
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user
+      tags: [Authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /auth/login:
+    post:
+      summary: Login user
+      tags: [Authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/logout:
+    post:
+      summary: Logout user
+      tags: [Authentication]
+      responses:
+        '200':
+          description: Logout successful
+
+  /auth/me:
+    get:
+      summary: Get current user
+      tags: [Authentication]
+      responses:
+        '200':
+          description: Current user data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /health:
+    get:
+      summary: Health check
+      tags: [System]
+      security: []
+      responses:
+        '200':
+          description: Service healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: session_token
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        firstName:
+          type: string
+        lastName:
+          type: string
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          type: string
+        avatar:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        uptime:
+          type: integer
+        checks:
+          type: object
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        details:
+          type: object
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+`;
+
+  return [{
+    fileName: 'openapi.yaml',
+    filePath: 'docs/openapi.yaml',
+    content,
+    language: 'yaml',
+    category: 'docs'
+  }];
+}
+
+function generateMicroservicesConfig(spec: PlatformSpec): GeneratedFile[] {
+  const files: GeneratedFile[] = [];
+  const appName = spec.name.toLowerCase().replace(/\s+/g, '-');
+
+  const istioVirtualService = `apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: ${appName}-vs
+spec:
+  hosts:
+  - ${appName}
+  http:
+  - match:
+    - uri:
+        prefix: /api/auth
+    route:
+    - destination:
+        host: ${appName}-auth
+        port:
+          number: 80
+    retries:
+      attempts: 3
+      perTryTimeout: 2s
+  - match:
+    - uri:
+        prefix: /api
+    route:
+    - destination:
+        host: ${appName}-api
+        port:
+          number: 80
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+  - route:
+    - destination:
+        host: ${appName}-web
+        port:
+          number: 80
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: ${appName}-dr
+spec:
+  host: ${appName}-api
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        h2UpgradePolicy: UPGRADE
+        http1MaxPendingRequests: 100
+        http2MaxRequests: 1000
+    loadBalancer:
+      simple: ROUND_ROBIN
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: ${appName}-mtls
+spec:
+  selector:
+    matchLabels:
+      app: ${appName}
+  mtls:
+    mode: STRICT
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: ${appName}-authz
+spec:
+  selector:
+    matchLabels:
+      app: ${appName}
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/default/sa/${appName}"]
+    to:
+    - operation:
+        methods: ["GET", "POST", "PUT", "DELETE"]
+`;
+
+  files.push({
+    fileName: 'istio.yaml',
+    filePath: 'k8s/istio.yaml',
+    content: istioVirtualService,
+    language: 'yaml',
+    category: 'infrastructure'
+  });
+
+  const helmChart = `apiVersion: v2
+name: ${appName}
+description: A Helm chart for ${spec.name}
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+
+dependencies:
+  - name: postgresql
+    version: "12.x.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled
+  - name: redis
+    version: "17.x.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled
+`;
+
+  files.push({
+    fileName: 'Chart.yaml',
+    filePath: 'helm/Chart.yaml',
+    content: helmChart,
+    language: 'yaml',
+    category: 'infrastructure'
+  });
+
+  const helmValues = `replicaCount: 3
+
+image:
+  repository: ${appName}
+  pullPolicy: Always
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: ${appName}.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: ${appName}-tls
+      hosts:
+        - ${appName}.example.com
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: ""
+    username: app
+    password: ""
+    database: ${appName}
+
+redis:
+  enabled: true
+  auth:
+    enabled: false
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  fsGroup: 1001
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /health/ready
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+`;
+
+  files.push({
+    fileName: 'values.yaml',
+    filePath: 'helm/values.yaml',
+    content: helmValues,
+    language: 'yaml',
+    category: 'infrastructure'
+  });
+
+  const cicdPipeline = `name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: \${{ github.repository }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run build
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          ignore-unfixed: true
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  build-and-push:
+    needs: [test, security-scan]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: \${{ env.REGISTRY }}
+          username: \${{ github.actor }}
+          password: \${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: \${{ env.REGISTRY }}/\${{ env.IMAGE_NAME }}:\${{ github.sha }}
+
+  deploy-staging:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to staging
+        run: |
+          helm upgrade --install ${appName}-staging ./helm \\
+            --namespace staging --create-namespace \\
+            --set image.tag=\${{ github.sha }} \\
+            --set ingress.hosts[0].host=${appName}-staging.example.com
+
+  deploy-production:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to production
+        run: |
+          helm upgrade --install ${appName} ./helm \\
+            --namespace production --create-namespace \\
+            --set image.tag=\${{ github.sha }} \\
+            --set replicaCount=5 \\
+            --set autoscaling.minReplicas=3
+`;
+
+  files.push({
+    fileName: 'ci-cd.yml',
+    filePath: '.github/workflows/ci-cd.yml',
+    content: cicdPipeline,
     language: 'yaml',
     category: 'infrastructure'
   });
