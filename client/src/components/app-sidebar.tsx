@@ -153,7 +153,8 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
 
   // Get zone name for display
   const getZoneName = (path: string) => {
-    if (path === "/" || path.startsWith("/home")) return language === "ar" ? "الرئيسية" : "Home";
+    if (path === "/" || path === "/builder") return language === "ar" ? "بناء منصة" : "Build Platform";
+    if (path === "/command") return language === "ar" ? "مركز القيادة" : "Command Center";
     if (path.startsWith("/console")) return language === "ar" ? "وحدة التحكم" : "Console";
     if (path.startsWith("/ide")) return language === "ar" ? "بيئة التطوير" : "Cloud IDE";
     if (path.startsWith("/ai-builder")) return language === "ar" ? "منشئ التطبيقات" : "AI App Builder";
@@ -206,8 +207,8 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
   ];
 
   const buildItems = [
-    { title: language === "ar" ? "الرئيسية" : "Home", url: "/", icon: Home, testId: "nav-home" },
-    { title: language === "ar" ? "بناء منصة" : "Build Platform", url: "/builder", icon: Sparkles, testId: "nav-builder", highlight: true },
+    { title: language === "ar" ? "بناء منصة" : "Build Platform", url: "/", icon: Sparkles, testId: "nav-builder", highlight: true },
+    { title: language === "ar" ? "مركز القيادة" : "Command Center", url: "/command", icon: Home, testId: "nav-command" },
     { title: language === "ar" ? "النشر بنقرة" : "One-Click Deploy", url: "/deploy", icon: Rocket, testId: "nav-deploy" },
     { title: language === "ar" ? "القوالب" : "Templates", url: "/templates", icon: LayoutTemplate, testId: "nav-templates" },
     { title: language === "ar" ? "منشئ الروبوتات" : "Chatbot Builder", url: "/chatbot-builder", icon: Bot, testId: "nav-chatbot" },

@@ -95,7 +95,8 @@ function GuestRouter() {
 function AuthenticatedRouter() {
   return (
     <Switch>
-      <Route path="/" component={NovaCommand} />
+      <Route path="/" component={PlatformBuilder} />
+      <Route path="/command" component={NovaCommand} />
       <Route path="/home-legacy" component={LegacyHome} />
       
       {/* Core Pages */}
