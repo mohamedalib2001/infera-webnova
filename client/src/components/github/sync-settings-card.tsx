@@ -129,6 +129,9 @@ export function SyncSettingsCard({ isConnected, onSettingsChange }: SyncSettings
 
   const deployNow = useMutation({
     mutationFn: async () => {
+      if (!repoOwner || !repoName || !selectedBranch) {
+        throw new Error(isRtl ? "يرجى اختيار مستودع وفرع" : "Please select a repository and branch");
+      }
       return apiRequest("POST", "/api/github/hetzner/deploy", {
         owner: repoOwner,
         repo: repoName,
@@ -140,6 +143,13 @@ export function SyncSettingsCard({ isConnected, onSettingsChange }: SyncSettings
       toast({
         title: isRtl ? "بدأ النشر" : "Deployment Started",
         description: isRtl ? "جاري النشر" : "Deployment in progress",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: isRtl ? "خطأ" : "Error",
+        description: error.message,
+        variant: "destructive",
       });
     },
   });
@@ -248,7 +258,7 @@ export function SyncSettingsCard({ isConnected, onSettingsChange }: SyncSettings
             variant="default" 
             className="bg-green-600 hover:bg-green-700"
             onClick={() => deployNow.mutate()} 
-            disabled={deployNow.isPending || !currentSettings} 
+            disabled={deployNow.isPending || !currentSettings || !repoOwner || !repoName || !selectedBranch} 
             data-testid="button-deploy"
           >
             {deployNow.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Rocket className="h-4 w-4 mr-2" />}
