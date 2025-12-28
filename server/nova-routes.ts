@@ -1004,6 +1004,345 @@ const NOVA_CAPABILITIES = {
 // Project memory now uses database storage via storage.getNovaProjectContext
 // and storage.upsertNovaProjectContext for persistence
 
+// ==================== NOVA INTELLIGENCE ENHANCEMENT SYSTEM ====================
+
+// Intent Classification System - فهم نوايا المستخدم
+const INTENT_PATTERNS = {
+  // Platform Building Intents
+  BUILD_PLATFORM: {
+    patterns: [
+      /(?:build|create|make|develop|generate|أنشئ|ابني|اعمل|صمم)\s*(?:a|an|the)?\s*(?:platform|app|application|website|system|منصة|تطبيق|موقع|نظام)/i,
+      /(?:i want|أريد|عايز|محتاج)\s*(?:to|ان)\s*(?:build|create|make|بناء|إنشاء|عمل)/i,
+    ],
+    intent: 'BUILD_PLATFORM',
+    required_info: ['platform_type', 'target_users', 'main_features', 'scale'],
+    clarifying_questions_ar: [
+      'ما نوع المنصة التي تريد بناءها؟ (e-commerce, healthcare, education, etc.)',
+      'كم عدد المستخدمين المتوقع؟',
+      'ما هي الميزات الأساسية المطلوبة؟',
+      'هل تحتاج دعم متعدد اللغات؟',
+      'ما هي المنطقة الجغرافية المستهدفة؟',
+    ],
+    clarifying_questions_en: [
+      'What type of platform do you want to build? (e-commerce, healthcare, education, etc.)',
+      'How many users do you expect?',
+      'What are the core features needed?',
+      'Do you need multi-language support?',
+      'What geographic region are you targeting?',
+    ],
+  },
+  
+  // Code Generation Intents
+  GENERATE_CODE: {
+    patterns: [
+      /(?:write|generate|create|code|implement|اكتب|ولد|انشئ|برمج)\s*(?:code|function|api|endpoint|كود|دالة|واجهة)/i,
+      /(?:add|implement|إضافة|تنفيذ)\s*(?:feature|functionality|ميزة|وظيفة)/i,
+    ],
+    intent: 'GENERATE_CODE',
+    required_info: ['language', 'functionality', 'integration_points'],
+    clarifying_questions_ar: [
+      'ما هي لغة البرمجة المطلوبة؟',
+      'ما هي الوظيفة المطلوبة بالتحديد؟',
+      'هل هناك نظام موجود يجب التكامل معه؟',
+    ],
+    clarifying_questions_en: [
+      'What programming language should I use?',
+      'What exactly should this code do?',
+      'Is there an existing system to integrate with?',
+    ],
+  },
+  
+  // Architecture Analysis Intents
+  ANALYZE_ARCHITECTURE: {
+    patterns: [
+      /(?:analyze|review|check|evaluate|حلل|راجع|قيم)\s*(?:architecture|code|system|design|بنية|كود|نظام|تصميم)/i,
+      /(?:what|how|ما|كيف)\s*(?:is|should|هو|يجب)\s*(?:the best|optimal|أفضل)/i,
+    ],
+    intent: 'ANALYZE_ARCHITECTURE',
+    required_info: ['system_context', 'analysis_scope'],
+    clarifying_questions_ar: [
+      'ما هو النظام الذي تريد تحليله؟',
+      'هل تريد تحليل الأداء أم الأمان أم قابلية التوسع؟',
+    ],
+    clarifying_questions_en: [
+      'What system would you like me to analyze?',
+      'Should I focus on performance, security, or scalability?',
+    ],
+  },
+  
+  // Query Capabilities Intents
+  QUERY_CAPABILITIES: {
+    patterns: [
+      /(?:what can you|can you|are you able|ماذا تستطيع|هل تستطيع|تقدر)\s*(?:do|build|help|تفعل|تبني|تساعد)/i,
+      /(?:tell me about|explain|show|اشرح|وضح|اعرض)\s*(?:your|capabilities|features|قدراتك|ميزاتك)/i,
+      /(?:قدراتك|امكانياتك|ايش تقدر|وش تقدر)/i,
+    ],
+    intent: 'QUERY_CAPABILITIES',
+    required_info: [],
+    clarifying_questions_ar: [],
+    clarifying_questions_en: [],
+  },
+  
+  // Database Operations
+  DATABASE_OPS: {
+    patterns: [
+      /(?:database|db|schema|table|query|قاعدة بيانات|جدول|استعلام)/i,
+      /(?:create|design|migrate|إنشاء|تصميم|ترحيل)\s*(?:database|schema|tables|قاعدة|جداول)/i,
+    ],
+    intent: 'DATABASE_OPS',
+    required_info: ['database_type', 'entities', 'relationships'],
+    clarifying_questions_ar: [
+      'ما نوع قاعدة البيانات؟ (PostgreSQL, MongoDB, etc.)',
+      'ما هي الكيانات الرئيسية؟',
+      'ما هي العلاقات بين الكيانات؟',
+    ],
+    clarifying_questions_en: [
+      'What database type? (PostgreSQL, MongoDB, etc.)',
+      'What are the main entities?',
+      'What are the relationships between entities?',
+    ],
+  },
+  
+  // Deployment & Infrastructure
+  DEPLOYMENT: {
+    patterns: [
+      /(?:deploy|publish|host|launch|نشر|استضافة|إطلاق)\s*(?:app|application|platform|تطبيق|منصة)/i,
+      /(?:kubernetes|docker|cloud|aws|gcp|azure)/i,
+    ],
+    intent: 'DEPLOYMENT',
+    required_info: ['target_environment', 'scale_requirements', 'budget'],
+    clarifying_questions_ar: [
+      'أين تريد نشر التطبيق؟ (AWS, GCP, Azure, etc.)',
+      'ما هي متطلبات التوسع؟',
+      'هل لديك ميزانية محددة؟',
+    ],
+    clarifying_questions_en: [
+      'Where do you want to deploy? (AWS, GCP, Azure, etc.)',
+      'What are the scaling requirements?',
+      'Do you have a specific budget?',
+    ],
+  },
+  
+  // General Conversation
+  GENERAL_CHAT: {
+    patterns: [
+      /^(?:hi|hello|hey|مرحبا|أهلا|السلام|صباح|مساء)/i,
+      /(?:thanks|thank you|شكرا|ممتاز|رائع)/i,
+    ],
+    intent: 'GENERAL_CHAT',
+    required_info: [],
+    clarifying_questions_ar: [],
+    clarifying_questions_en: [],
+  },
+};
+
+// Conversation State Machine - إدارة حالة المحادثة
+const CONVERSATION_STATES = {
+  DISCOVER: 'discover',      // Understanding user needs
+  PLAN: 'plan',              // Creating execution plan
+  EXECUTE: 'execute',        // Building/generating
+  VALIDATE: 'validate',      // Testing/reviewing
+  HANDOFF: 'handoff',        // Delivering to user
+};
+
+interface ConversationState {
+  phase: string;
+  intent: string | null;
+  collectedInfo: Record<string, any>;
+  pendingQuestions: string[];
+  planSteps: string[];
+  currentStep: number;
+  confidenceScore: number;
+}
+
+// Initialize conversation state
+function initConversationState(): ConversationState {
+  return {
+    phase: CONVERSATION_STATES.DISCOVER,
+    intent: null,
+    collectedInfo: {},
+    pendingQuestions: [],
+    planSteps: [],
+    currentStep: 0,
+    confidenceScore: 0,
+  };
+}
+
+// Classify user intent with confidence scoring
+function classifyIntent(message: string): { intent: string; confidence: number; pattern: string } {
+  let bestMatch = { intent: 'GENERAL_CHAT', confidence: 0, pattern: '' };
+  
+  for (const [intentName, intentConfig] of Object.entries(INTENT_PATTERNS)) {
+    for (const pattern of intentConfig.patterns) {
+      const match = message.match(pattern);
+      if (match) {
+        // Calculate confidence based on match length and specificity
+        const matchLength = match[0].length;
+        const messageLength = message.length;
+        const confidence = Math.min(0.5 + (matchLength / messageLength) * 0.5, 0.95);
+        
+        if (confidence > bestMatch.confidence) {
+          bestMatch = { intent: intentName, confidence, pattern: pattern.toString() };
+        }
+      }
+    }
+  }
+  
+  return bestMatch;
+}
+
+// Extract structured information from message
+function extractStructuredInfo(message: string, intent: string): Record<string, any> {
+  const info: Record<string, any> = {};
+  
+  // Extract numbers (user count, scale)
+  const numbers = message.match(/\d+(?:,\d{3})*(?:\.\d+)?(?:\s*(?:k|m|million|billion|ألف|مليون))?/gi);
+  if (numbers) {
+    info.mentioned_numbers = numbers;
+  }
+  
+  // Extract platform types
+  const platformTypes = message.match(/(?:e-commerce|ecommerce|healthcare|fintech|education|social|crm|erp|saas|تجارة|صحة|تعليم|مالية)/gi);
+  if (platformTypes) {
+    info.platform_type = platformTypes[0];
+  }
+  
+  // Extract technologies
+  const technologies = message.match(/(?:react|vue|angular|node|python|django|postgresql|mongodb|redis|docker|kubernetes)/gi);
+  if (technologies) {
+    info.technologies = technologies;
+  }
+  
+  // Extract regions
+  const regions = message.match(/(?:egypt|saudi|uae|usa|europe|global|مصر|السعودية|الإمارات|أمريكا|أوروبا|عالمي)/gi);
+  if (regions) {
+    info.target_region = regions[0];
+  }
+  
+  // Extract compliance requirements
+  const compliance = message.match(/(?:hipaa|gdpr|pci|sox|iso|fda|هيبا|جي دي بي آر)/gi);
+  if (compliance) {
+    info.compliance = compliance;
+  }
+  
+  return info;
+}
+
+// Generate smart clarifying questions based on missing info
+function generateClarifyingQuestions(intent: string, collectedInfo: Record<string, any>, isArabic: boolean): string[] {
+  const intentConfig = INTENT_PATTERNS[intent as keyof typeof INTENT_PATTERNS];
+  if (!intentConfig) return [];
+  
+  const questions = isArabic ? intentConfig.clarifying_questions_ar : intentConfig.clarifying_questions_en;
+  const requiredInfo = intentConfig.required_info;
+  
+  // Filter out questions for info we already have
+  const missingQuestions: string[] = [];
+  
+  for (let i = 0; i < requiredInfo.length; i++) {
+    const infoKey = requiredInfo[i];
+    if (!collectedInfo[infoKey] && questions[i]) {
+      missingQuestions.push(questions[i]);
+    }
+  }
+  
+  // Return max 2 questions at a time to avoid overwhelming user
+  return missingQuestions.slice(0, 2);
+}
+
+// Build enhanced context prompt with intelligence layer
+function buildIntelligenceContext(
+  intent: string,
+  confidence: number,
+  collectedInfo: Record<string, any>,
+  conversationHistory: string[],
+  isArabic: boolean,
+  phase?: string
+): string {
+  const contextParts: string[] = [];
+  
+  // Phase section
+  if (phase) {
+    const phaseNames: Record<string, { ar: string; en: string }> = {
+      'discover': { ar: 'الاكتشاف - فهم احتياجات المستخدم', en: 'Discovery - Understanding user needs' },
+      'plan': { ar: 'التخطيط - إعداد خطة التنفيذ', en: 'Planning - Creating execution plan' },
+      'execute': { ar: 'التنفيذ - بناء وتوليد الكود', en: 'Execution - Building and generating' },
+      'validate': { ar: 'التحقق - اختبار ومراجعة', en: 'Validation - Testing and reviewing' },
+      'handoff': { ar: 'التسليم - تقديم النتائج', en: 'Handoff - Delivering results' },
+    };
+    
+    if (isArabic) {
+      contextParts.push(`## مرحلة المحادثة الحالية:`);
+      contextParts.push(`🔄 ${phaseNames[phase]?.ar || phase}`);
+    } else {
+      contextParts.push(`## Current Conversation Phase:`);
+      contextParts.push(`🔄 ${phaseNames[phase]?.en || phase}`);
+    }
+    contextParts.push('');
+  }
+  
+  // Intent analysis section
+  if (isArabic) {
+    contextParts.push(`## تحليل النية:`);
+    contextParts.push(`- النية المكتشفة: ${intent}`);
+    contextParts.push(`- درجة الثقة: ${(confidence * 100).toFixed(0)}%`);
+  } else {
+    contextParts.push(`## Intent Analysis:`);
+    contextParts.push(`- Detected Intent: ${intent}`);
+    contextParts.push(`- Confidence Score: ${(confidence * 100).toFixed(0)}%`);
+  }
+  
+  // Collected information section
+  if (Object.keys(collectedInfo).length > 0) {
+    if (isArabic) {
+      contextParts.push(`\n## المعلومات المجمعة:`);
+    } else {
+      contextParts.push(`\n## Collected Information:`);
+    }
+    for (const [key, value] of Object.entries(collectedInfo)) {
+      contextParts.push(`- ${key}: ${JSON.stringify(value)}`);
+    }
+  }
+  
+  // Conversation summary
+  if (conversationHistory.length > 0) {
+    if (isArabic) {
+      contextParts.push(`\n## ملخص المحادثة السابقة:`);
+      contextParts.push(`تم تبادل ${conversationHistory.length} رسائل`);
+    } else {
+      contextParts.push(`\n## Previous Conversation Summary:`);
+      contextParts.push(`${conversationHistory.length} messages exchanged`);
+    }
+  }
+  
+  // Behavioral instructions based on confidence
+  if (confidence < 0.5) {
+    if (isArabic) {
+      contextParts.push(`\n## تعليمات خاصة:`);
+      contextParts.push(`- درجة الثقة منخفضة - اطرح أسئلة توضيحية قبل التنفيذ`);
+      contextParts.push(`- تأكد من فهم احتياجات المستخدم بشكل كامل`);
+    } else {
+      contextParts.push(`\n## Special Instructions:`);
+      contextParts.push(`- Low confidence - ask clarifying questions before executing`);
+      contextParts.push(`- Make sure to fully understand user needs`);
+    }
+  } else if (confidence >= 0.8) {
+    if (isArabic) {
+      contextParts.push(`\n## تعليمات خاصة:`);
+      contextParts.push(`- درجة ثقة عالية - يمكنك البدء بالتنفيذ مباشرة`);
+      contextParts.push(`- قدم خطة واضحة ثم نفذها`);
+    } else {
+      contextParts.push(`\n## Special Instructions:`);
+      contextParts.push(`- High confidence - proceed with execution`);
+      contextParts.push(`- Present a clear plan then execute`);
+    }
+  }
+  
+  return contextParts.join('\n');
+}
+
+// ==================== END NOVA INTELLIGENCE SYSTEM ====================
+
 export function registerNovaRoutes(app: Express) {
   // ==================== NOVA ENHANCED CHAT ====================
   
@@ -1018,14 +1357,86 @@ export function registerNovaRoutes(app: Express) {
       
       const isArabic = language === 'ar' || /[\u0600-\u06FF]/.test(message);
       
+      // ========== NOVA INTELLIGENCE LAYER ==========
+      // Step 1: Classify user intent
+      const intentAnalysis = classifyIntent(message);
+      console.log(`[Nova Intelligence] Intent: ${intentAnalysis.intent}, Confidence: ${(intentAnalysis.confidence * 100).toFixed(0)}%`);
+      
+      // Step 2: Extract structured information from message
+      const extractedInfo = extractStructuredInfo(message, intentAnalysis.intent);
+      console.log(`[Nova Intelligence] Extracted Info:`, extractedInfo);
+      
+      // Step 3: Generate clarifying questions if confidence is low
+      const clarifyingQuestions = intentAnalysis.confidence < 0.7 
+        ? generateClarifyingQuestions(intentAnalysis.intent, extractedInfo, isArabic)
+        : [];
+      
+      // ========== END INTELLIGENCE LAYER ==========
+      
       // Retrieve or create project memory from database
       const currentProjectId = projectId || 'default';
       let projectContext = await storage.getNovaProjectContext(currentProjectId);
       let preferences = await storage.getNovaPreferences(userId);
       
+      // Step 4: Initialize or retrieve conversation state from activeBlueprint._state
+      const storedBlueprint = projectContext?.activeBlueprint || {};
+      let conversationState: ConversationState = (storedBlueprint as any)?._conversationState 
+        || initConversationState();
+      
+      // Step 5: Store previous intent BEFORE updating for transition logic
+      const previousIntent = conversationState.intent;
+      const previousPhase = conversationState.phase;
+      
+      // Step 6: Determine phase transitions (all 5 phases) BEFORE updating state
+      // This ensures we can detect intent changes correctly
+      
+      // HANDOFF → DISCOVER: Reset when starting new topic (check FIRST before updating intent)
+      // Trigger when: in HANDOFF phase AND (new actionable intent detected OR different intent from previous)
+      if (previousPhase === CONVERSATION_STATES.HANDOFF && 
+          intentAnalysis.intent !== 'GENERAL_CHAT') {
+        // If previous intent is null/undefined OR new intent is different, start fresh
+        const isNewTopic = !previousIntent || intentAnalysis.intent !== previousIntent;
+        if (isNewTopic) {
+          conversationState.phase = CONVERSATION_STATES.DISCOVER;
+          conversationState.collectedInfo = {};
+          console.log(`[Nova State] HANDOFF → DISCOVER (new topic: ${previousIntent || 'none'} → ${intentAnalysis.intent})`);
+        }
+      }
+      // DISCOVER → PLAN: When confidence is high enough
+      else if (intentAnalysis.confidence >= 0.8 && conversationState.phase === CONVERSATION_STATES.DISCOVER) {
+        conversationState.phase = CONVERSATION_STATES.PLAN;
+        console.log(`[Nova State] DISCOVER → PLAN`);
+      }
+      // PLAN → EXECUTE: When enough info collected
+      else if (conversationState.phase === CONVERSATION_STATES.PLAN && 
+               Object.keys(conversationState.collectedInfo).length >= 3) {
+        conversationState.phase = CONVERSATION_STATES.EXECUTE;
+        console.log(`[Nova State] PLAN → EXECUTE`);
+      }
+      // EXECUTE → VALIDATE: When user mentions "test", "check", "review", or code was generated
+      else if (conversationState.phase === CONVERSATION_STATES.EXECUTE && 
+               (/(?:test|check|review|verify|validate|اختبار|فحص|مراجعة|تحقق)/i.test(message) ||
+                message.includes('```') || message.toLowerCase().includes('done'))) {
+        conversationState.phase = CONVERSATION_STATES.VALIDATE;
+        console.log(`[Nova State] EXECUTE → VALIDATE`);
+      }
+      // VALIDATE → HANDOFF: When user approves or says "looks good", "perfect", etc.
+      else if (conversationState.phase === CONVERSATION_STATES.VALIDATE && 
+               /(?:looks good|perfect|approved|thanks|done|ship it|deploy|publish|ممتاز|رائع|موافق|شكرا|انشر)/i.test(message)) {
+        conversationState.phase = CONVERSATION_STATES.HANDOFF;
+        console.log(`[Nova State] VALIDATE → HANDOFF`);
+      }
+      
+      // NOW update the state with current intent and info
+      conversationState.intent = intentAnalysis.intent;
+      conversationState.confidenceScore = intentAnalysis.confidence;
+      conversationState.collectedInfo = { ...conversationState.collectedInfo, ...extractedInfo };
+      
+      console.log(`[Nova State] Phase: ${conversationState.phase}, Intent: ${conversationState.intent}, Confidence: ${(conversationState.confidenceScore * 100).toFixed(0)}%`);
+      
       if (!projectContext) {
         projectContext = await storage.upsertNovaProjectContext(currentProjectId, userId, {
-          activeBlueprint: context || {},
+          activeBlueprint: { ...context, _conversationState: conversationState },
           configHistory: [],
         });
       }
@@ -1289,7 +1700,20 @@ export function registerNovaRoutes(app: Express) {
 - تحدث بالعربية الفصحى بأسلوب ودود ومهني
 
 ## سياق المشروع الحالي:
-${JSON.stringify(projectContext?.activeBlueprint || {}, null, 2)}`
+${JSON.stringify(projectContext?.activeBlueprint || {}, null, 2)}
+
+${buildIntelligenceContext(
+  intentAnalysis.intent,
+  intentAnalysis.confidence,
+  conversationState.collectedInfo,
+  recentMessages.map((m: any) => m.content),
+  true,
+  conversationState.phase
+)}
+
+${clarifyingQuestions.length > 0 
+  ? `## أسئلة توضيحية مقترحة:\n${clarifyingQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n\n(إذا كانت درجة الثقة منخفضة، اطرح هذه الأسئلة أولاً قبل التنفيذ)`
+  : ''}`
         : `You are Nova, the advanced AI for INFERA WebNova platform. You are a world-class expert in building enterprise digital platforms.
 You can build platforms serving ${NOVA_CAPABILITIES.scale.max_users} users, with ${NOVA_CAPABILITIES.scale.concurrent_users} concurrent, at ${NOVA_CAPABILITIES.scale.availability} availability.
 
@@ -1540,7 +1964,21 @@ You can build platforms serving ${NOVA_CAPABILITIES.scale.max_users} users, with
 - Speak in a friendly and professional manner
 
 ## Current Project Context:
-${JSON.stringify(projectContext?.activeBlueprint || {}, null, 2)}`;
+${JSON.stringify(projectContext?.activeBlueprint || {}, null, 2)}
+
+${buildIntelligenceContext(
+  intentAnalysis.intent,
+  intentAnalysis.confidence,
+  conversationState.collectedInfo,
+  recentMessages.map((m: any) => m.content),
+  isArabic,
+  conversationState.phase
+)}
+
+${clarifyingQuestions.length > 0 ? (isArabic 
+  ? `## أسئلة توضيحية مقترحة:\n${clarifyingQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n\n(إذا كانت درجة الثقة منخفضة، اطرح هذه الأسئلة أولاً قبل التنفيذ)`
+  : `## Suggested Clarifying Questions:\n${clarifyingQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n\n(If confidence is low, ask these questions first before executing)`) 
+  : ''}`;
 
       // Build conversation with memory from database
       const messages: Anthropic.MessageParam[] = [];
@@ -1625,6 +2063,17 @@ ${JSON.stringify(projectContext?.activeBlueprint || {}, null, 2)}`;
         });
         
         console.log(`[Nova Memory] Saved conversation to session ${currentSession.id}`);
+        
+        // Also persist conversation state in activeBlueprint
+        const updatedBlueprint = {
+          ...(projectContext?.activeBlueprint || {}),
+          _conversationState: conversationState,
+        };
+        await storage.upsertNovaProjectContext(currentProjectId, userId, {
+          activeBlueprint: updatedBlueprint,
+          configHistory: projectContext?.configHistory || [],
+        });
+        console.log(`[Nova State] Saved state: phase=${conversationState.phase}, intent=${conversationState.intent}`);
       } catch (saveError) {
         console.error('[Nova Memory] Failed to save conversation:', saveError);
         // Don't fail the request if saving fails
