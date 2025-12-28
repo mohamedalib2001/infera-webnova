@@ -1,48 +1,10 @@
 import type { Express, Request, Response } from "express";
+import { db } from "./db";
+import { securityScanJobs, securityFindings } from "@shared/schema";
+import { eq, desc } from "drizzle-orm";
 import { randomBytes } from "crypto";
 
-// ==================== Security Scanning Orchestrator ====================
-// Provides security scanning capabilities for code and infrastructure
-// Supports: OWASP ZAP, SonarQube, Trivy, Custom Scanners
-
-interface ScanJob {
-  id: string;
-  type: "sast" | "dast" | "container" | "dependency" | "secrets";
-  status: "pending" | "running" | "completed" | "failed";
-  targetType: "code" | "url" | "container" | "repository";
-  target: string;
-  startedAt?: Date;
-  completedAt?: Date;
-  userId: string;
-  projectId?: string;
-  findings: SecurityFinding[];
-  summary?: ScanSummary;
-}
-
-interface SecurityFinding {
-  id: string;
-  severity: "critical" | "high" | "medium" | "low" | "info";
-  category: string;
-  title: string;
-  titleAr: string;
-  description: string;
-  descriptionAr: string;
-  location?: string;
-  lineNumber?: number;
-  recommendation: string;
-  recommendationAr: string;
-  cweId?: string;
-  owaspCategory?: string;
-}
-
-interface ScanSummary {
-  totalFindings: number;
-  bySeverity: { critical: number; high: number; medium: number; low: number; info: number };
-  scanDuration: number;
-  scannerVersion: string;
-}
-
-// OWASP Top 10 categories
+// OWASP Top 10 categories - فئات OWASP العشر الأوائل
 const OWASP_CATEGORIES = {
   A01: { en: "Broken Access Control", ar: "التحكم في الوصول المعطل" },
   A02: { en: "Cryptographic Failures", ar: "فشل التشفير" },
@@ -56,18 +18,26 @@ const OWASP_CATEGORIES = {
   A10: { en: "SSRF", ar: "تزوير طلب من جانب الخادم" },
 };
 
-// In-memory storage for scan jobs
-const scanJobs = new Map<string, ScanJob>();
+interface FindingData {
+  severity: "critical" | "high" | "medium" | "low" | "info";
+  category: string;
+  title: string;
+  titleAr: string;
+  description: string;
+  descriptionAr: string;
+  recommendation: string;
+  recommendationAr: string;
+  cweId?: string;
+  owaspCategory?: string;
+}
 
-// ==================== Scanner Functions ====================
-
-async function runSASTScan(code: string, language: string): Promise<SecurityFinding[]> {
-  const findings: SecurityFinding[] = [];
+// ==================== SAST Scanner ====================
+async function runSASTScan(code: string, _language: string): Promise<FindingData[]> {
+  const findings: FindingData[] = [];
   
   // SQL Injection detection
   if (/(?:execute|query|raw)\s*\(\s*[`'"].*\$\{|(?:\+\s*\w+\s*\+)/gi.test(code)) {
     findings.push({
-      id: `finding-${randomBytes(4).toString("hex")}`,
       severity: "critical",
       category: "SQL Injection",
       title: "Potential SQL Injection Vulnerability",
@@ -84,7 +54,6 @@ async function runSASTScan(code: string, language: string): Promise<SecurityFind
   // XSS detection
   if (/innerHTML\s*=|document\.write|eval\(/gi.test(code)) {
     findings.push({
-      id: `finding-${randomBytes(4).toString("hex")}`,
       severity: "high",
       category: "Cross-Site Scripting",
       title: "Potential XSS Vulnerability",
@@ -101,7 +70,6 @@ async function runSASTScan(code: string, language: string): Promise<SecurityFind
   // Hardcoded secrets detection
   if (/(?:api[_-]?key|secret|password|token)\s*[:=]\s*['"][a-zA-Z0-9]{16,}/gi.test(code)) {
     findings.push({
-      id: `finding-${randomBytes(4).toString("hex")}`,
       severity: "critical",
       category: "Hardcoded Secrets",
       title: "Hardcoded Secret Detected",
@@ -118,7 +86,6 @@ async function runSASTScan(code: string, language: string): Promise<SecurityFind
   // Insecure random
   if (/Math\.random\(\)/gi.test(code) && /(?:token|session|secret|key)/gi.test(code)) {
     findings.push({
-      id: `finding-${randomBytes(4).toString("hex")}`,
       severity: "medium",
       category: "Weak Cryptography",
       title: "Insecure Random Number Generation",
@@ -135,7 +102,6 @@ async function runSASTScan(code: string, language: string): Promise<SecurityFind
   // Path traversal
   if (/path\.join\([^)]*\.\./gi.test(code) || /readFile\([^)]*\+/gi.test(code)) {
     findings.push({
-      id: `finding-${randomBytes(4).toString("hex")}`,
       severity: "high",
       category: "Path Traversal",
       title: "Potential Path Traversal Vulnerability",
@@ -152,25 +118,24 @@ async function runSASTScan(code: string, language: string): Promise<SecurityFind
   return findings;
 }
 
-async function runDependencyScan(packageJson: string): Promise<SecurityFinding[]> {
-  const findings: SecurityFinding[] = [];
+// ==================== Dependency Scanner ====================
+async function runDependencyScan(packageJson: string): Promise<FindingData[]> {
+  const findings: FindingData[] = [];
   
   try {
     const pkg = JSON.parse(packageJson);
     const deps = { ...pkg.dependencies, ...pkg.devDependencies };
     
-    // Known vulnerable packages (simplified check)
     const knownVulnerable: Record<string, { severity: "critical" | "high" | "medium"; desc: string; descAr: string }> = {
       "lodash": { severity: "high", desc: "Prototype pollution vulnerabilities in older versions", descAr: "ثغرات تلوث النموذج الأولي في الإصدارات القديمة" },
       "moment": { severity: "medium", desc: "ReDoS vulnerabilities and deprecated", descAr: "ثغرات ReDoS ومهجور" },
       "request": { severity: "medium", desc: "Deprecated package with known issues", descAr: "حزمة مهجورة بمشاكل معروفة" },
     };
     
-    for (const [name, _version] of Object.entries(deps)) {
+    for (const name of Object.keys(deps)) {
       if (knownVulnerable[name]) {
         const vuln = knownVulnerable[name];
         findings.push({
-          id: `finding-${randomBytes(4).toString("hex")}`,
           severity: vuln.severity,
           category: "Vulnerable Dependency",
           title: `Potentially Vulnerable Package: ${name}`,
@@ -184,15 +149,14 @@ async function runDependencyScan(packageJson: string): Promise<SecurityFinding[]
         });
       }
     }
-  } catch (e) {
-    // Invalid JSON
+  } catch {
+    // Invalid JSON - will return empty findings
   }
   
   return findings;
 }
 
 // ==================== API Routes ====================
-
 export function registerSecurityScanningRoutes(app: Express) {
   const requireAuth = (req: Request, res: Response, next: any) => {
     if (!req.user) {
@@ -206,7 +170,7 @@ export function registerSecurityScanningRoutes(app: Express) {
   };
 
   // ==================== Get Scanner Status ====================
-  app.get("/api/security/status", async (req: Request, res: Response) => {
+  app.get("/api/security/status", async (_req: Request, res: Response) => {
     res.json({
       success: true,
       status: "operational",
@@ -236,47 +200,74 @@ export function registerSecurityScanningRoutes(app: Express) {
         });
       }
       
-      const jobId = `scan-${Date.now()}-${randomBytes(4).toString("hex")}`;
+      const startTime = Date.now();
       
-      const job: ScanJob = {
-        id: jobId,
-        type: "sast",
-        status: "running",
-        targetType: "code",
-        target: `${(code as string).substring(0, 100)}...`,
-        startedAt: new Date(),
+      // Create scan job in database
+      const [job] = await db.insert(securityScanJobs).values({
         userId,
         projectId,
-        findings: [],
-      };
-      
-      scanJobs.set(jobId, job);
-      
-      // Run scan
-      const startTime = Date.now();
-      const findings = await runSASTScan(code, language || "javascript");
-      
-      job.findings = findings;
-      job.status = "completed";
-      job.completedAt = new Date();
-      job.summary = {
-        totalFindings: findings.length,
-        bySeverity: {
-          critical: findings.filter(f => f.severity === "critical").length,
-          high: findings.filter(f => f.severity === "high").length,
-          medium: findings.filter(f => f.severity === "medium").length,
-          low: findings.filter(f => f.severity === "low").length,
-          info: findings.filter(f => f.severity === "info").length,
-        },
-        scanDuration: Date.now() - startTime,
+        scanType: "sast",
+        targetType: "code",
+        target: (code as string).substring(0, 500),
+        language: language || "javascript",
+        status: "running",
+        startedAt: new Date(),
         scannerVersion: "1.0.0",
+      }).returning();
+      
+      // Run the scan
+      const findingsData = await runSASTScan(code, language || "javascript");
+      const scanDuration = Date.now() - startTime;
+      
+      // Insert findings into database
+      const insertedFindings = [];
+      for (const f of findingsData) {
+        const [inserted] = await db.insert(securityFindings).values({
+          scanJobId: job.id,
+          severity: f.severity,
+          category: f.category,
+          title: f.title,
+          titleAr: f.titleAr,
+          description: f.description,
+          descriptionAr: f.descriptionAr,
+          recommendation: f.recommendation,
+          recommendationAr: f.recommendationAr,
+          cweId: f.cweId,
+          owaspCategory: f.owaspCategory,
+        }).returning();
+        insertedFindings.push(inserted);
+      }
+      
+      // Update job with results
+      const summary = {
+        totalFindings: findingsData.length,
+        bySeverity: {
+          critical: findingsData.filter(f => f.severity === "critical").length,
+          high: findingsData.filter(f => f.severity === "high").length,
+          medium: findingsData.filter(f => f.severity === "medium").length,
+          low: findingsData.filter(f => f.severity === "low").length,
+          info: findingsData.filter(f => f.severity === "info").length,
+        },
       };
+      
+      const [updatedJob] = await db.update(securityScanJobs)
+        .set({
+          status: "completed",
+          completedAt: new Date(),
+          scanDuration,
+          summary,
+        })
+        .where(eq(securityScanJobs.id, job.id))
+        .returning();
       
       res.json({
         success: true,
-        job,
-        message: `Scan completed with ${findings.length} findings`,
-        messageAr: `اكتمل الفحص مع ${findings.length} نتائج`,
+        job: {
+          ...updatedJob,
+          findings: insertedFindings,
+        },
+        message: `Scan completed with ${findingsData.length} findings`,
+        messageAr: `اكتمل الفحص مع ${findingsData.length} نتائج`,
       });
     } catch (error: any) {
       console.error("[Security Scan] SAST error:", error);
@@ -302,46 +293,73 @@ export function registerSecurityScanningRoutes(app: Express) {
         });
       }
       
-      const jobId = `scan-${Date.now()}-${randomBytes(4).toString("hex")}`;
+      const startTime = Date.now();
       
-      const job: ScanJob = {
-        id: jobId,
-        type: "dependency",
-        status: "running",
-        targetType: "repository",
-        target: "package.json",
-        startedAt: new Date(),
+      // Create scan job
+      const [job] = await db.insert(securityScanJobs).values({
         userId,
         projectId,
-        findings: [],
-      };
-      
-      scanJobs.set(jobId, job);
-      
-      const startTime = Date.now();
-      const findings = await runDependencyScan(packageJson);
-      
-      job.findings = findings;
-      job.status = "completed";
-      job.completedAt = new Date();
-      job.summary = {
-        totalFindings: findings.length,
-        bySeverity: {
-          critical: findings.filter(f => f.severity === "critical").length,
-          high: findings.filter(f => f.severity === "high").length,
-          medium: findings.filter(f => f.severity === "medium").length,
-          low: findings.filter(f => f.severity === "low").length,
-          info: findings.filter(f => f.severity === "info").length,
-        },
-        scanDuration: Date.now() - startTime,
+        scanType: "dependency",
+        targetType: "repository",
+        target: "package.json",
+        status: "running",
+        startedAt: new Date(),
         scannerVersion: "1.0.0",
+      }).returning();
+      
+      // Run the scan
+      const findingsData = await runDependencyScan(packageJson);
+      const scanDuration = Date.now() - startTime;
+      
+      // Insert findings
+      const insertedFindings = [];
+      for (const f of findingsData) {
+        const [inserted] = await db.insert(securityFindings).values({
+          scanJobId: job.id,
+          severity: f.severity,
+          category: f.category,
+          title: f.title,
+          titleAr: f.titleAr,
+          description: f.description,
+          descriptionAr: f.descriptionAr,
+          recommendation: f.recommendation,
+          recommendationAr: f.recommendationAr,
+          cweId: f.cweId,
+          owaspCategory: f.owaspCategory,
+        }).returning();
+        insertedFindings.push(inserted);
+      }
+      
+      // Update job
+      const summary = {
+        totalFindings: findingsData.length,
+        bySeverity: {
+          critical: findingsData.filter(f => f.severity === "critical").length,
+          high: findingsData.filter(f => f.severity === "high").length,
+          medium: findingsData.filter(f => f.severity === "medium").length,
+          low: findingsData.filter(f => f.severity === "low").length,
+          info: findingsData.filter(f => f.severity === "info").length,
+        },
       };
+      
+      const [updatedJob] = await db.update(securityScanJobs)
+        .set({
+          status: "completed",
+          completedAt: new Date(),
+          scanDuration,
+          summary,
+        })
+        .where(eq(securityScanJobs.id, job.id))
+        .returning();
       
       res.json({
         success: true,
-        job,
-        message: `Dependency scan completed with ${findings.length} findings`,
-        messageAr: `اكتمل فحص التبعيات مع ${findings.length} نتائج`,
+        job: {
+          ...updatedJob,
+          findings: insertedFindings,
+        },
+        message: `Dependency scan completed with ${findingsData.length} findings`,
+        messageAr: `اكتمل فحص التبعيات مع ${findingsData.length} نتائج`,
       });
     } catch (error: any) {
       console.error("[Security Scan] Dependency error:", error);
@@ -355,53 +373,76 @@ export function registerSecurityScanningRoutes(app: Express) {
 
   // ==================== Get Scan Results ====================
   app.get("/api/security/scan/:jobId", requireAuth, async (req: Request, res: Response) => {
-    const userId = (req.user as any).id;
-    const { jobId } = req.params;
-    
-    const job = scanJobs.get(jobId);
-    
-    if (!job) {
-      return res.status(404).json({
+    try {
+      const userId = (req.user as any).id;
+      const { jobId } = req.params;
+      
+      const [job] = await db.select()
+        .from(securityScanJobs)
+        .where(eq(securityScanJobs.id, jobId));
+      
+      if (!job) {
+        return res.status(404).json({
+          success: false,
+          error: "Scan job not found",
+          errorAr: "مهمة الفحص غير موجودة",
+        });
+      }
+      
+      if (job.userId !== userId) {
+        return res.status(403).json({
+          success: false,
+          error: "Access denied",
+          errorAr: "الوصول مرفوض",
+        });
+      }
+      
+      // Get findings for this job
+      const findings = await db.select()
+        .from(securityFindings)
+        .where(eq(securityFindings.scanJobId, jobId));
+      
+      res.json({
+        success: true,
+        job: {
+          ...job,
+          findings,
+        },
+      });
+    } catch (error: any) {
+      console.error("[Security Scan] Get job error:", error);
+      res.status(500).json({
         success: false,
-        error: "Scan job not found",
-        errorAr: "مهمة الفحص غير موجودة",
+        error: error.message,
+        errorAr: "فشل جلب نتائج الفحص",
       });
     }
-    
-    if (job.userId !== userId) {
-      return res.status(403).json({
-        success: false,
-        error: "Access denied",
-        errorAr: "الوصول مرفوض",
-      });
-    }
-    
-    res.json({
-      success: true,
-      job,
-    });
   });
 
   // ==================== List User's Scans ====================
   app.get("/api/security/scans", requireAuth, async (req: Request, res: Response) => {
-    const userId = (req.user as any).id;
-    
-    const userScans: ScanJob[] = [];
-    const allJobs = Array.from(scanJobs.values());
-    for (const job of allJobs) {
-      if (job.userId === userId) {
-        userScans.push(job);
-      }
+    try {
+      const userId = (req.user as any).id;
+      
+      const scans = await db.select()
+        .from(securityScanJobs)
+        .where(eq(securityScanJobs.userId, userId))
+        .orderBy(desc(securityScanJobs.createdAt))
+        .limit(50);
+      
+      res.json({
+        success: true,
+        scans,
+        total: scans.length,
+      });
+    } catch (error: any) {
+      console.error("[Security Scan] List error:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        errorAr: "فشل جلب قائمة الفحوصات",
+      });
     }
-    
-    // Sort by date, newest first
-    userScans.sort((a, b) => (b.startedAt?.getTime() || 0) - (a.startedAt?.getTime() || 0));
-    
-    res.json({
-      success: true,
-      scans: userScans.slice(0, 50), // Last 50 scans
-      total: userScans.length,
-    });
   });
 
   console.log("[Security Scanning] Routes registered at /api/security/*");
