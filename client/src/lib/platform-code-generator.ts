@@ -623,15 +623,34 @@ export default function RegisterPage() {
 import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import { z } from "zod";
 import { db } from "./db";
-import { users, sessions } from "@shared/schema-users";
+import { users, sessions, insertUserSchema } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 const router = Router();
 
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+});
+
+const registerSchema = insertUserSchema.extend({
+  password: z.string().min(8),
+  confirmPassword: z.string(),
+}).refine(data => data.password === data.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"],
+});
+
 router.post("/register", async (req: Request, res: Response) => {
   try {
-    const { email, password, firstName, lastName } = req.body;
+    const validated = registerSchema.safeParse(req.body);
+    if (!validated.success) {
+      return res.status(400).json({ error: validated.error.errors[0].message });
+    }
+
+    const { email, password, firstName, lastName } = validated.data;
 
     const existingUser = await db.select().from(users).where(eq(users.email, email)).limit(1);
     if (existingUser.length > 0) {
@@ -655,7 +674,12 @@ router.post("/register", async (req: Request, res: Response) => {
 
 router.post("/login", async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
+    const validated = loginSchema.safeParse(req.body);
+    if (!validated.success) {
+      return res.status(400).json({ error: "Invalid email or password format" });
+    }
+
+    const { email, password } = validated.data;
 
     const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
     if (!user) {
