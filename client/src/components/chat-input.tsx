@@ -324,6 +324,7 @@ export function ChatInput({
             placeholder={placeholder}
             className="min-h-[44px] max-h-[150px] resize-none border-0 bg-transparent text-base focus-visible:ring-0 placeholder:text-muted-foreground/60"
             disabled={isLoading && !allowWhileLoading}
+            dir={language === "ar" ? "rtl" : "ltr"}
             data-testid="input-chat-message"
           />
         </div>

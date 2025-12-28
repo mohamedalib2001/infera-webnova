@@ -511,7 +511,7 @@ Do you approve this plan? I can start building immediately upon your approval.`;
               
               {/* Messages */}
               <ScrollArea className="flex-1 p-4">
-                <div className="space-y-4">
+                <div className="space-y-4" dir={language === 'ar' ? 'rtl' : 'ltr'}>
                   {messages.map((message) => (
                     <div 
                       key={message.id}
@@ -522,9 +522,9 @@ Do you approve this plan? I can start building immediately upon your approval.`;
                           {message.role === 'assistant' ? <Sparkles className="h-4 w-4" /> : user?.username?.charAt(0).toUpperCase() || 'U'}
                         </AvatarFallback>
                       </Avatar>
-                      <div className={`max-w-[80%] ${message.role === 'user' ? 'text-right' : ''}`}>
+                      <div className={`max-w-[80%] ${message.role === 'user' ? 'text-end' : 'text-start'}`}>
                         <div className={`rounded-lg p-3 ${message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                          <p className="text-sm whitespace-pre-wrap" dir={language === 'ar' ? 'rtl' : 'ltr'}>{message.content}</p>
                         </div>
                         <span className="text-xs text-muted-foreground mt-1 block">
                           {message.timestamp.toLocaleTimeString(language === 'ar' ? 'ar-SA' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
@@ -570,6 +570,7 @@ Do you approve this plan? I can start building immediately upon your approval.`;
                     placeholder={language === 'ar' ? 'اكتب رسالتك...' : 'Type your message...'}
                     className="flex-1 bg-background border border-border rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     disabled={isLoading}
+                    dir={language === 'ar' ? 'rtl' : 'ltr'}
                     data-testid="input-chat-message"
                   />
                   <Button 
