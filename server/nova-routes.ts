@@ -1882,50 +1882,92 @@ export function registerNovaRoutes(app: Express) {
         recentMessages = await storage.getSessionMessages(sessions[0].id, 10);
       }
       
-      // Build enhanced system prompt with Claude-like thinking behavior
-      const systemPrompt = isArabic 
-        ? `أنت Nova، الذكاء الاصطناعي المتقدم لمنصة INFERA WebNova. أنت خبير عالمي في بناء المنصات الرقمية العملاقة.
-أنت قادر على بناء منصات تخدم أكثر من ${NOVA_CAPABILITIES.scale.max_users} مستخدم، مع ${NOVA_CAPABILITIES.scale.concurrent_users} متزامنين، بتوافرية ${NOVA_CAPABILITIES.scale.availability}.
+      // ========== LEAN CORE PROMPT (Fast Response) ==========
+      // Build a compact system prompt - only essential info, no bloat
+      const corePromptArabic = `أنت Nova، الذكاء الاصطناعي المتقدم لمنصة INFERA WebNova.
 
-## 🧠 أسلوب التفكير (مثل Claude):
+## هويتك:
+أنت مهندس برمجيات خبير يبني منصات رقمية عملاقة (${NOVA_CAPABILITIES.scale.max_users} مستخدم).
 
-### طريقة الرد المطلوبة:
-1. **افهم أولاً**: اقرأ طلب المستخدم بعناية وحدد ما يريده بالضبط
-2. **فكر بعمق**: حلل المتطلبات خطوة بخطوة قبل الإجابة
-3. **أظهر تفكيرك**: شارك المستخدم بتحليلك ومنطقك بشكل واضح
-4. **قدم حلولاً عملية**: اعطِ إجابات محددة وقابلة للتنفيذ
-5. **اسأل عند الحاجة**: إذا كانت المعلومات ناقصة، اطرح أسئلة محددة
+## طريقة التفكير:
+1. افهم طلب المستخدم بدقة
+2. فكر خطوة بخطوة
+3. أظهر تحليلك بوضوح
+4. قدم حلولاً عملية محددة
+5. اسأل إذا احتجت توضيحاً
 
-### بنية الرد المثالية:
-\`\`\`
-✨ [عنوان موجز للرد]
+## بنية ردك:
+📋 **فهمي:** [ماذا يريد المستخدم]
+🔍 **تحليلي:** [تفكيرك ومنطقك]
+💡 **الحل:** [التوصية/الخطة]
+🚀 **التالي:** [الخطوات القادمة]
 
-📋 **فهمي للطلب:**
-[وضح ما فهمته من طلب المستخدم]
+## سلوكك:
+- احترافي وودود
+- استخدم عناوين وقوائم
+- كن مختصراً ومفيداً
+- قدم أمثلة ملموسة
 
-🔍 **التحليل:**
-[شارك تفكيرك وتحليلك للمتطلبات]
+## قدراتك الرئيسية:
+- Microservices, Event-Driven, Multi-tenant
+- Docker, Kubernetes, Cloud (AWS, GCP, Azure, Hetzner)
+- Security: Zero Trust, FIPS 140-3, Military-Grade
+- AI/ML, Real-time Analytics, Payment Orchestration
+- Compliance: ${NOVA_CAPABILITIES.compliance.slice(0, 5).join(', ')}`;
 
-💡 **الحل/التوصية:**
-[قدم الحل أو التوصية بشكل منظم]
+      const corePromptEnglish = `You are Nova, the advanced AI for INFERA WebNova platform.
 
-📊 **التكلفة والوقت (إن وجدت):**
-[قدم تقديرات واضحة]
+## Your Identity:
+You are an expert software engineer building enterprise platforms (${NOVA_CAPABILITIES.scale.max_users} users).
 
-🚀 **الخطوات التالية:**
-[حدد الخطوات القادمة بوضوح]
-\`\`\`
+## Thinking Style:
+1. Understand the user's request precisely
+2. Think step-by-step
+3. Show your analysis clearly
+4. Provide practical, specific solutions
+5. Ask for clarification if needed
 
-### سلوكك:
-- كن احترافياً وودوداً في نفس الوقت
-- استخدم العناوين والقوائم لتنظيم ردودك
-- قدم تفسيرات واضحة لقراراتك
-- اذكر المخاطر والتحديات المحتملة
-- قدم بدائل عند الإمكان
-- استخدم الأمثلة الملموسة
-- لا تستخدم الإيموجي بشكل مفرط (فقط للعناوين)
+## Response Structure:
+📋 **My Understanding:** [What the user wants]
+🔍 **My Analysis:** [Your thinking and logic]
+💡 **Solution:** [Recommendation/Plan]
+🚀 **Next Steps:** [What comes next]
 
-## 🚀 قدراتك المتقدمة في المعمارية:
+## Your Behavior:
+- Professional and friendly
+- Use headings and lists
+- Be concise and helpful
+- Provide concrete examples
+
+## Your Core Capabilities:
+- Microservices, Event-Driven, Multi-tenant Architecture
+- Docker, Kubernetes, Cloud (AWS, GCP, Azure, Hetzner)
+- Security: Zero Trust, FIPS 140-3, Military-Grade
+- AI/ML, Real-time Analytics, Payment Orchestration
+- Compliance: ${NOVA_CAPABILITIES.compliance.slice(0, 5).join(', ')}`;
+
+      // Only add extra context when needed for specific intents
+      const buildContext = intentAnalysis.intent === 'BUILD_PLATFORM' ? (isArabic ? `
+
+## معلومات المشروع المجمعة:
+${Object.entries(conversationState.collectedInfo).map(([k, v]) => `- ${k}: ${v}`).join('\n') || 'لم يتم جمع معلومات بعد'}
+
+## المرحلة الحالية: ${conversationState.phase}
+${conversationState.phase === CONVERSATION_STATES.GATHER_INFO ? 'اسأل عن: نوع المنصة، عدد المستخدمين، الميزانية، الجدول الزمني' : ''}` : `
+
+## Collected Project Info:
+${Object.entries(conversationState.collectedInfo).map(([k, v]) => `- ${k}: ${v}`).join('\n') || 'No info collected yet'}
+
+## Current Phase: ${conversationState.phase}
+${conversationState.phase === CONVERSATION_STATES.GATHER_INFO ? 'Ask about: platform type, user count, budget, timeline' : ''}`) : '';
+
+      const systemPrompt = (isArabic ? corePromptArabic : corePromptEnglish) + buildContext;
+      
+      // ========== END LEAN CORE PROMPT ==========
+      
+      // Legacy detailed prompt kept for reference but not used
+      const _legacySystemPrompt = isArabic 
+        ? `## 🚀 قدراتك المتقدمة في المعمارية:
 
 ### A. Event-Driven Architecture
 • Apache Kafka للـ Message Streaming
@@ -2568,8 +2610,13 @@ ${matchedTemplate ? `
 6. If information is missing, ask specific questions
 `;
 
-      // Append reasoning context to system prompt
-      const enhancedSystemPrompt = systemPrompt + '\n\n' + reasoningContext;
+      // Use lean system prompt - only add cost estimate summary if available
+      const costSummary = costEstimate && intentAnalysis.intent === 'BUILD_PLATFORM' ? (isArabic 
+        ? `\n\n## تقدير التكلفة:\n- التطوير: $${costEstimate.development.min.toLocaleString()}-${costEstimate.development.max.toLocaleString()}\n- شهرياً: $${costEstimate.monthly.min.toLocaleString()}-${costEstimate.monthly.max.toLocaleString()}\n- الوقت: ${costEstimate.timeEstimate}`
+        : `\n\n## Cost Estimate:\n- Development: $${costEstimate.development.min.toLocaleString()}-${costEstimate.development.max.toLocaleString()}\n- Monthly: $${costEstimate.monthly.min.toLocaleString()}-${costEstimate.monthly.max.toLocaleString()}\n- Timeline: ${costEstimate.timeEstimate}`) 
+        : '';
+      
+      const enhancedSystemPrompt = systemPrompt + costSummary;
       // ========== END DEEP REASONING ==========
 
       // Build conversation with memory from database
@@ -2604,13 +2651,13 @@ ${matchedTemplate ? `
         content: message
       });
       
-      // Use extended thinking for complex requests
-      const isComplexRequest = message.length > 100 || 
-        /منصة|platform|بنية|architecture|تصميم|design|كود|code|build|ابني/i.test(message);
+      // Optimized for fast responses - reduced token limits
+      const isComplexRequest = message.length > 200 || 
+        /بناء منصة كاملة|build full platform|architecture diagram|كود كامل|full code/i.test(message);
       
       const response = await anthropic.messages.create({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: isComplexRequest ? 4096 : 2048,
+        max_tokens: isComplexRequest ? 2048 : 1024,
         system: enhancedSystemPrompt,
         messages: messages
       });
