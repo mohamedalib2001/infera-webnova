@@ -625,6 +625,7 @@ ${arch.databases.map(db => `// ${db.type}: ${db.purpose}`).join('\n')}
     
     const hasArabic = /[\u0600-\u06FF]/.test(content);
     const lang = hasArabic ? 'ar' : language;
+    const lowerContent = content.toLowerCase().trim();
     
     const userMessage: BuildMessage = {
       id: Date.now().toString(),
@@ -635,6 +636,26 @@ ${arch.databases.map(db => `// ${db.type}: ${db.purpose}`).join('\n')}
     
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
+    
+    const greetings = /^(hi|hello|hey|مرحبا|السلام عليكم|اهلا|هلا|صباح الخير|مساء الخير|شكرا|thanks|thank you)[\s!.]*$/i;
+    const questions = /^(ما|ماذا|كيف|لماذا|هل|أين|من|what|how|why|where|who|can you|do you|are you)/i;
+    const helpRequests = /^(ساعدني|help|مساعدة|أحتاج|i need|عاوز|أريد)[\s]*$/i;
+    
+    const isPlatformDescription = /منصة|platform|متجر|store|موقع|site|تطبيق|app|نظام|system|مليون|million|users|مستخدم|ecommerce|تعليم|education|فيديو|video|دفع|payment/i.test(lowerContent);
+    
+    if (greetings.test(lowerContent) || (!isPlatformDescription && (questions.test(lowerContent) || helpRequests.test(lowerContent) || lowerContent.length < 15))) {
+      const responseMessage: BuildMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'nova',
+        content: lang === 'ar' 
+          ? `مرحباً! أنا Nova، مساعدك لبناء المنصات الرقمية العملاقة.\n\nأخبرني عن المنصة التي تريد بناءها. مثال:\n• "منصة تعليمية لمليون طالب مع فيديوهات ودفع"\n• "متجر إلكتروني متكامل مع نظام دفع وشحن"\n• "منصة اجتماعية مع محادثات وبث مباشر"\n\nما نوع المنصة التي تريد بناءها؟`
+          : `Hello! I'm Nova, your assistant for building enterprise-scale digital platforms.\n\nTell me about the platform you want to build. For example:\n• "Educational platform for 1M students with video and payments"\n• "Complete e-commerce store with payment and shipping"\n• "Social platform with chat and live streaming"\n\nWhat kind of platform would you like to build?`,
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, responseMessage]);
+      return;
+    }
+    
     setIsBuilding(true);
     
     const thinkingMessage: BuildMessage = {
