@@ -19069,6 +19069,11 @@ ${project.description || ""}
   app.use("/api/deployment", deploymentGatewayRoutes);
   console.log("Deployment Gateway routes registered | تم تسجيل مسارات بوابة النشر");
 
+  // ==================== SMART TEMPLATE BANK - حافظة القوالب الذكية ====================
+  const templateBankRoutes = (await import("./routes/template-bank-routes")).default;
+  app.use("/api/template-bank", templateBankRoutes);
+  console.log("Smart Template Bank routes registered | تم تسجيل مسارات حافظة القوالب الذكية");
+
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
   // Helper: Generate verification token
