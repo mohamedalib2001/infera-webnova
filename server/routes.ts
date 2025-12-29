@@ -19054,6 +19054,11 @@ ${project.description || ""}
   app.use("/api/customization", smartCustomizationRoutes);
   console.log("Smart Customization routes registered | تم تسجيل مسارات محرك التخصيص الذكي");
 
+  // ==================== SMART INTEGRATION HUB - مركز التكامل الذكي ====================
+  const smartIntegrationRoutes = (await import("./routes/smart-integration-routes")).default;
+  app.use("/api/integration-hub", smartIntegrationRoutes);
+  console.log("Smart Integration Hub routes registered | تم تسجيل مسارات مركز التكامل الذكي");
+
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
   // Helper: Generate verification token
