@@ -937,12 +937,9 @@ How can I help you? Describe the platform you want to build.`;
       setMessages(prev => [...prev, thinkingMessage]);
       
       try {
-        // Generate discussion-appropriate prompt if in discussion mode
-        const prompt = intent === 'discussion' 
-          ? generateDiscussionPrompt(content, conversationContext.messages, lang as 'ar' | 'en')
-          : content;
-        
-        const aiResponse = await callNovaAI(prompt, lang);
+        // For discussion mode, send context summary with the user's message
+        // The AI should receive the message content, not instruction prompts
+        const aiResponse = await callNovaAI(content, lang);
         setMessages(prev => prev.filter(m => m.id !== thinkingMessage.id));
         
         // Update context with Nova's response
@@ -983,11 +980,11 @@ How can I help you? Describe the platform you want to build.`;
         status: 'complete',
       };
       setMessages(prev => [...prev, securityResponse]);
+      setConversationContext(prev => addToContext(prev, 'nova', securityResponse.content, intent));
       return;
     }
     
-    // Handle build intent (command or explicit build request)
-    // (Continues with existing build logic...)
+    // Handle build/command intent - both trigger the build workflow
     
     setIsBuilding(true);
     
@@ -1018,6 +1015,9 @@ How can I help you? Describe the platform you want to build.`;
       
       setMessages(prev => [...prev, completionMessage]);
       
+      // Update context with build completion
+      setConversationContext(prev => addToContext(prev, 'nova', completionMessage.content, 'build'));
+      
       toast({
         title: lang === 'ar' ? 'تم البناء بنجاح' : 'Build Complete',
         description: lang === 'ar' ? `تم إنشاء ${arch?.microservices.length} خدمة مصغرة` : `Created ${arch?.microservices.length} microservices`,
@@ -1036,6 +1036,7 @@ How can I help you? Describe the platform you want to build.`;
         status: 'error',
       };
       setMessages(prev => [...prev, errorMessage]);
+      setConversationContext(prev => addToContext(prev, 'nova', errorMessage.content, 'build'));
     } finally {
       setIsBuilding(false);
     }
