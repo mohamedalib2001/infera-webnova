@@ -19101,6 +19101,10 @@ ${project.description || ""}
   app.use("/api/simulation", preBuildSimulationRoutes);
   console.log("Pre-Build Simulation routes registered | تم تسجيل مسارات المحاكاة قبل البناء");
 
+  const aiGovernanceRoutes = (await import("./routes/ai-governance-routes")).default;
+  app.use("/api/ai-governance", aiGovernanceRoutes);
+  console.log("AI Governance routes registered | تم تسجيل مسارات حوكمة الذكاء الاصطناعي");
+
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
   // Helper: Generate verification token
