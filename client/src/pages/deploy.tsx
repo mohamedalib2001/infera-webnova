@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Rocket, Globe, Cloud, Zap, CheckCircle } from "lucide-react";
+import { DocLinkButton } from "@/components/doc-link-button";
 
 export default function Deploy() {
   const { language } = useLanguage();
@@ -58,9 +59,12 @@ export default function Deploy() {
         <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 mb-4">
           <Rocket className="h-8 w-8 text-primary" />
         </div>
-        <h1 className="text-3xl font-bold" data-testid="text-deploy-title">
-          {txt.title}
-        </h1>
+        <div className="flex items-center justify-center gap-2">
+          <h1 className="text-3xl font-bold" data-testid="text-deploy-title">
+            {txt.title}
+          </h1>
+          <DocLinkButton pageId="deploy" />
+        </div>
         <p className="text-muted-foreground mt-2">{txt.subtitle}</p>
       </div>
 

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, Folder, ExternalLink, Calendar } from "lucide-react";
 import { Link } from "wouter";
+import { DocLinkButton } from "@/components/doc-link-button";
 
 interface Project {
   id: string;
@@ -51,18 +52,20 @@ export default function Projects() {
   return (
     <div className="p-6 max-w-6xl mx-auto" dir={isRtl ? "rtl" : "ltr"}>
       <div className="flex items-center justify-between gap-4 mb-8">
-        <div>
+        <div className="flex items-center gap-2">
           <h1 className="text-3xl font-bold" data-testid="text-projects-title">
             {txt.title}
           </h1>
-          <p className="text-muted-foreground mt-1">{txt.subtitle}</p>
+          <DocLinkButton pageId="projects" />
         </div>
-        <Link href="/user-builder">
-          <Button data-testid="button-new-project">
-            <Plus className="h-4 w-4" />
-            <span className={isRtl ? "mr-2" : "ml-2"}>{txt.newProject}</span>
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/user-builder">
+            <Button data-testid="button-new-project">
+              <Plus className="h-4 w-4" />
+              <span className={isRtl ? "mr-2" : "ml-2"}>{txt.newProject}</span>
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {isLoading ? (

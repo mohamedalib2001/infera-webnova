@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileText, Download, Calendar, DollarSign } from "lucide-react";
+import { DocLinkButton } from "@/components/doc-link-button";
 
 interface Invoice {
   id: string;
@@ -77,9 +78,12 @@ export default function Invoices() {
   return (
     <div className="p-6 max-w-4xl mx-auto" dir={isRtl ? "rtl" : "ltr"}>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold" data-testid="text-invoices-title">
-          {txt.title}
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-3xl font-bold" data-testid="text-invoices-title">
+            {txt.title}
+          </h1>
+          <DocLinkButton pageId="invoices" />
+        </div>
         <p className="text-muted-foreground mt-1">{txt.subtitle}</p>
       </div>
 

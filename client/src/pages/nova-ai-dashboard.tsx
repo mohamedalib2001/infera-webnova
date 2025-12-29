@@ -28,6 +28,7 @@ import {
   XCircle,
   Zap
 } from "lucide-react";
+import { DocLinkButton } from "@/components/doc-link-button";
 
 interface MemoryStats {
   totalMemories: number;
@@ -197,6 +198,7 @@ export default function NovaAIDashboard() {
           <h1 className="text-3xl font-bold flex items-center gap-3">
             <Brain className="h-8 w-8 text-primary" />
             لوحة تحكم Nova AI
+            <DocLinkButton pageId="nova-ai-dashboard" />
           </h1>
           <p className="text-muted-foreground mt-1">
             نظام الذاكرة والمراقبة والسياق لـ Nova AI

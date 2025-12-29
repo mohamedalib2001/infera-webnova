@@ -56,6 +56,7 @@ import {
   ArrowLeft,
   Play,
 } from "lucide-react";
+import { DocLinkButton } from "@/components/doc-link-button";
 
 interface ChatMessage {
   id: string;

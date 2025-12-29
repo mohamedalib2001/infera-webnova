@@ -9,6 +9,7 @@ import {
   authProviders, 
   webhookProviders 
 } from "@/lib/integration-providers";
+import { DocLinkButton } from "@/components/doc-link-button";
 
 export default function IntegrationsSettings() {
   const { language } = useLanguage();
@@ -51,8 +52,9 @@ export default function IntegrationsSettings() {
     <div className="h-full overflow-y-auto" dir={isRtl ? "rtl" : "ltr"}>
       <div className="container mx-auto p-6 pb-24 space-y-6">
         <header>
-          <h1 className="text-2xl font-bold" data-testid="text-integrations-title">
+          <h1 className="text-2xl font-bold flex items-center gap-2" data-testid="text-integrations-title">
             {isRtl ? "إعدادات التكاملات" : "Integration Settings"}
+            <DocLinkButton pageId="integrations-settings" />
           </h1>
           <p className="text-muted-foreground" data-testid="text-integrations-description">
             {isRtl 

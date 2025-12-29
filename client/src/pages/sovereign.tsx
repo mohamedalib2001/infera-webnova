@@ -20,6 +20,7 @@ import {
   TrendingUp, Globe, Zap, Database, Server, Cpu
 } from "lucide-react";
 import { Redirect } from "wouter";
+import { DocLinkButton } from "@/components/doc-link-button";
 import type { User, SubscriptionPlan } from "@shared/schema";
 
 type UserWithoutPassword = Omit<User, "password">;
@@ -140,8 +141,9 @@ export default function Sovereign() {
           <Crown className="h-6 w-6 text-white" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold" data-testid="sovereign-title">
+          <h1 className="text-2xl font-bold flex items-center gap-2" data-testid="sovereign-title">
             {tr("لوحة التحكم السيادية", "Sovereign Dashboard")}
+            <DocLinkButton pageId="sovereign" />
           </h1>
           <p className="text-muted-foreground">
             {tr("إدارة كاملة للمنظومة", "Complete System Management")}

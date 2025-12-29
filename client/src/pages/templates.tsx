@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Layout, Search, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
+import { DocLinkButton } from "@/components/doc-link-button";
 
 interface Template {
   id: string;
@@ -62,9 +63,12 @@ export default function Templates() {
   return (
     <div className="p-6 max-w-6xl mx-auto" dir={isRtl ? "rtl" : "ltr"}>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold" data-testid="text-templates-title">
-          {txt.title}
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-3xl font-bold" data-testid="text-templates-title">
+            {txt.title}
+          </h1>
+          <DocLinkButton pageId="templates" />
+        </div>
         <p className="text-muted-foreground mt-1">{txt.subtitle}</p>
       </div>
 

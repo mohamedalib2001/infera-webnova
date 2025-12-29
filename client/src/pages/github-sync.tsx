@@ -9,6 +9,7 @@ import { SyncHistoryCard } from "@/components/github/sync-history-card";
 import { DeploymentHistoryCard } from "@/components/github/deployment-history-card";
 import { ConnectedRepoCard } from "@/components/github/connected-repo-card";
 import { ServerConfigForm } from "@/components/github/server-config-form";
+import { DocLinkButton } from "@/components/doc-link-button";
 
 interface GitHubUser {
   login: string;
@@ -59,6 +60,7 @@ export default function GitHubSync() {
             <CardTitle className="flex items-center gap-2">
               <SiGithub className="h-6 w-6" />
               {isRtl ? "تكامل GitHub" : "GitHub Integration"}
+              <DocLinkButton pageId="github-sync" />
             </CardTitle>
             <CardDescription>
               {isRtl ? "ربط حساب GitHub الخاص بك" : "Connect your GitHub account"}

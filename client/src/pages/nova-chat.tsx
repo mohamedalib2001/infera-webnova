@@ -27,7 +27,9 @@ import {
   Loader2,
   Settings,
   ChevronRight,
+  FileText,
 } from "lucide-react";
+import { DocLinkButton } from "@/components/doc-link-button";
 import {
   Dialog,
   DialogContent,
@@ -267,6 +269,7 @@ export default function NovaChat() {
                 <Sparkles className="w-3 h-3 text-yellow-400 absolute -top-1 -right-1" />
               </div>
               <h1 className="font-bold text-lg">{isArabic ? "محادثة نوفا" : "Nova Chat"}</h1>
+              <DocLinkButton pageId="nova-chat" />
             </div>
             <Dialog open={showPreferences} onOpenChange={setShowPreferences}>
               <DialogTrigger asChild>

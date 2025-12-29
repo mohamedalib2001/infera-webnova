@@ -21,6 +21,7 @@ import {
 import { Star, Crown, Zap, Building2, Shield, Loader2, CreditCard, Calendar, AlertTriangle, ArrowUpCircle, XCircle, LogIn } from "lucide-react";
 import { Link } from "wouter";
 import type { SubscriptionPlan } from "@shared/schema";
+import { DocLinkButton } from "@/components/doc-link-button";
 
 interface UserSubscription {
   id: number;
@@ -174,9 +175,12 @@ export default function Subscription() {
   return (
     <div className="container mx-auto px-4 py-8" dir={isRtl ? "rtl" : "ltr"}>
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8" data-testid="subscription-title">
-          {tr("title")}
-        </h1>
+        <div className="flex items-center gap-2 mb-8">
+          <h1 className="text-3xl font-bold" data-testid="subscription-title">
+            {tr("title")}
+          </h1>
+          <DocLinkButton pageId="subscription" />
+        </div>
 
         <Card className="mb-6">
           <CardHeader>

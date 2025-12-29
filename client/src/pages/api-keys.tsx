@@ -18,6 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import { Key, Plus, Copy, Eye, EyeOff, RefreshCw, Trash2, Shield, Clock, Activity, Webhook, FileText, AlertTriangle, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
+import { DocLinkButton } from "@/components/doc-link-button";
 
 const translations = {
   en: {
@@ -258,6 +259,7 @@ export default function ApiKeysPage() {
           <h1 className="text-2xl font-bold flex items-center gap-2" data-testid="text-title">
             <Key className="h-6 w-6" />
             {t.title}
+            <DocLinkButton pageId="api-keys" />
           </h1>
           <p className="text-muted-foreground">{t.subtitle}</p>
         </div>

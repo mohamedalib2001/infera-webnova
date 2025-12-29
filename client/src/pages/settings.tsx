@@ -37,6 +37,7 @@ import {
   Crown,
   Upload,
 } from "lucide-react";
+import { DocLinkButton } from "@/components/doc-link-button";
 import ownerDefaultAvatar from "@assets/unnamed_1766659248817.jpg";
 
 const translations = {
@@ -420,6 +421,7 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <Settings className="w-6 h-6" />
           {t.title}
+          <DocLinkButton pageId="settings" />
         </h1>
         <p className="text-muted-foreground">{t.subtitle}</p>
       </div>
