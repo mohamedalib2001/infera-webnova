@@ -41,9 +41,10 @@ import {
 
 interface ArchitecturalKnowledgePanelProps {
   language?: "en" | "ar";
+  isOwner?: boolean;
 }
 
-export function ArchitecturalKnowledgePanel({ language = "en" }: ArchitecturalKnowledgePanelProps) {
+export function ArchitecturalKnowledgePanel({ language = "en", isOwner = false }: ArchitecturalKnowledgePanelProps) {
   const { toast } = useToast();
   const isAr = language === "ar";
 
@@ -238,7 +239,7 @@ export function ArchitecturalKnowledgePanel({ language = "en" }: ArchitecturalKn
         <div className="flex gap-2 flex-wrap">
           <Dialog open={showNewDecisionDialog} onOpenChange={setShowNewDecisionDialog}>
             <DialogTrigger asChild>
-              <Button data-testid="button-new-decision">
+              <Button disabled={!isOwner} data-testid="button-new-decision" title={!isOwner ? (isAr ? "صلاحية المالك مطلوبة" : "Owner access required") : ""}>
                 <Plus className="w-4 h-4 me-2" />
                 {isAr ? "قرار جديد" : "New Decision"}
               </Button>
@@ -325,7 +326,7 @@ export function ArchitecturalKnowledgePanel({ language = "en" }: ArchitecturalKn
 
           <Dialog open={showCompareDialog} onOpenChange={setShowCompareDialog}>
             <DialogTrigger asChild>
-              <Button variant="outline" data-testid="button-compare-designs">
+              <Button variant="outline" disabled={!isOwner} data-testid="button-compare-designs" title={!isOwner ? (isAr ? "صلاحية المالك مطلوبة" : "Owner access required") : ""}>
                 <GitCompare className="w-4 h-4 me-2" />
                 {isAr ? "مقارنة تصاميم" : "Compare Designs"}
               </Button>
@@ -386,7 +387,7 @@ export function ArchitecturalKnowledgePanel({ language = "en" }: ArchitecturalKn
 
           <Dialog open={showSuggestDialog} onOpenChange={setShowSuggestDialog}>
             <DialogTrigger asChild>
-              <Button variant="outline" data-testid="button-suggest-alternatives">
+              <Button variant="outline" disabled={!isOwner} data-testid="button-suggest-alternatives" title={!isOwner ? (isAr ? "صلاحية المالك مطلوبة" : "Owner access required") : ""}>
                 <Lightbulb className="w-4 h-4 me-2" />
                 {isAr ? "اقتراح بدائل" : "Suggest Alternatives"}
               </Button>
