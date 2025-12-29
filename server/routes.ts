@@ -19105,6 +19105,11 @@ ${project.description || ""}
   app.use("/api/ai-governance", aiGovernanceRoutes);
   console.log("AI Governance routes registered | تم تسجيل مسارات حوكمة الذكاء الاصطناعي");
 
+
+  // ============ Sensitive Data Management API - نظام إدارة البيانات الحساسة ============
+  const sensitiveDataRoutes = (await import("./routes/sensitive-data-routes")).default;
+  app.use("/api/sensitive-data", sensitiveDataRoutes);
+  console.log("Sensitive Data routes registered | تم تسجيل مسارات البيانات الحساسة");
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
   // Helper: Generate verification token
