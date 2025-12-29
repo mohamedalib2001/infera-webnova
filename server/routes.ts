@@ -19074,6 +19074,11 @@ ${project.description || ""}
   app.use("/api/template-bank", templateBankRoutes);
   console.log("Smart Template Bank routes registered | تم تسجيل مسارات حافظة القوالب الذكية");
 
+  // ==================== QUALITY & SELF-TESTING - نظام الجودة والاختبار الذاتي ====================
+  const qualityTestingRoutes = (await import("./routes/quality-testing-routes")).default;
+  app.use("/api/quality-testing", qualityTestingRoutes);
+  console.log("Quality Testing routes registered | تم تسجيل مسارات الجودة والاختبار");
+
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
   // Helper: Generate verification token

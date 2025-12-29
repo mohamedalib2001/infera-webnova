@@ -1,0 +1,151 @@
+{
+  "tests": {
+    "test_1767045257820_pqxykptig": {
+      "name": "API Health Check",
+      "nameAr": "فحص صحة API",
+      "description": "Verify all API endpoints are responding",
+      "descriptionAr": "التحقق من استجابة جميع نقاط API",
+      "category": "integration",
+      "target": "/api/*",
+      "assertions": [
+        "status === 200 || status === 401",
+        "responseTime < 1000"
+      ],
+      "status": "pending",
+      "id": "test_1767045257820_pqxykptig",
+      "createdAt": "2025-12-29T21:54:17.820Z"
+    },
+    "test_1767045257820_h9aniqf43": {
+      "name": "Database Connection",
+      "nameAr": "اتصال قاعدة البيانات",
+      "description": "Verify database connectivity and query execution",
+      "descriptionAr": "التحقق من اتصال قاعدة البيانات وتنفيذ الاستعلامات",
+      "category": "integration",
+      "target": "database",
+      "assertions": [
+        "connection.isAlive",
+        "queryTime < 100"
+      ],
+      "status": "pending",
+      "id": "test_1767045257820_h9aniqf43",
+      "createdAt": "2025-12-29T21:54:17.820Z"
+    },
+    "test_1767045257820_3bakjmrpl": {
+      "name": "Authentication Flow",
+      "nameAr": "تدفق المصادقة",
+      "description": "Test login, session management, and logout",
+      "descriptionAr": "اختبار تسجيل الدخول وإدارة الجلسة وتسجيل الخروج",
+      "category": "e2e",
+      "target": "/api/auth/*",
+      "assertions": [
+        "login.success",
+        "session.valid",
+        "logout.success"
+      ],
+      "status": "pending",
+      "id": "test_1767045257820_3bakjmrpl",
+      "createdAt": "2025-12-29T21:54:17.820Z"
+    },
+    "test_1767045257820_bo1q8usu2": {
+      "name": "XSS Prevention",
+      "nameAr": "منع XSS",
+      "description": "Test for Cross-Site Scripting vulnerabilities",
+      "descriptionAr": "اختبار ثغرات البرمجة النصية عبر المواقع",
+      "category": "security",
+      "target": "input_fields",
+      "assertions": [
+        "noScriptExecution",
+        "inputSanitized"
+      ],
+      "status": "pending",
+      "id": "test_1767045257820_bo1q8usu2",
+      "createdAt": "2025-12-29T21:54:17.820Z"
+    },
+    "test_1767045257820_jvwxmnkv9": {
+      "name": "SQL Injection Prevention",
+      "nameAr": "منع حقن SQL",
+      "description": "Test for SQL injection vulnerabilities",
+      "descriptionAr": "اختبار ثغرات حقن SQL",
+      "category": "security",
+      "target": "database_queries",
+      "assertions": [
+        "parameterizedQueries",
+        "noDirectInput"
+      ],
+      "status": "pending",
+      "id": "test_1767045257820_jvwxmnkv9",
+      "createdAt": "2025-12-29T21:54:17.820Z"
+    },
+    "test_1767045257820_ii4qkppje": {
+      "name": "Page Load Performance",
+      "nameAr": "أداء تحميل الصفحة",
+      "description": "Measure page load times and resource usage",
+      "descriptionAr": "قياس أوقات تحميل الصفحة واستخدام الموارد",
+      "category": "performance",
+      "target": "/*",
+      "assertions": [
+        "loadTime < 3000",
+        "firstContentfulPaint < 1500"
+      ],
+      "status": "pending",
+      "id": "test_1767045257820_ii4qkppje",
+      "createdAt": "2025-12-29T21:54:17.820Z"
+    },
+    "test_1767045257820_x1bvge5e5": {
+      "name": "WCAG Accessibility",
+      "nameAr": "إمكانية الوصول WCAG",
+      "description": "Check WCAG 2.1 AA compliance",
+      "descriptionAr": "فحص التوافق مع WCAG 2.1 AA",
+      "category": "accessibility",
+      "target": "/*",
+      "assertions": [
+        "altTextPresent",
+        "ariaLabels",
+        "colorContrast"
+      ],
+      "status": "pending",
+      "id": "test_1767045257820_x1bvge5e5",
+      "createdAt": "2025-12-29T21:54:17.820Z"
+    },
+    "test_1767045257820_az92dql74": {
+      "name": "Rate Limiting",
+      "nameAr": "تحديد المعدل",
+      "description": "Verify rate limiting is enforced on API endpoints",
+      "descriptionAr": "التحقق من فرض تحديد المعدل على نقاط API",
+      "category": "security",
+      "target": "/api/*",
+      "assertions": [
+        "rateLimitHeaders",
+        "blockedAfterLimit"
+      ],
+      "status": "pending",
+      "id": "test_1767045257820_az92dql74",
+      "createdAt": "2025-12-29T21:54:17.820Z"
+    }
+  },
+  "suites": {
+    "suite_1767045257820": {
+      "id": "suite_1767045257820",
+      "name": "Platform Readiness Suite",
+      "nameAr": "مجموعة جاهزية المنصة",
+      "description": "Complete platform readiness test suite",
+      "descriptionAr": "مجموعة اختبار جاهزية المنصة الكاملة",
+      "tests": [
+        "test_1767045257820_pqxykptig",
+        "test_1767045257820_h9aniqf43",
+        "test_1767045257820_3bakjmrpl",
+        "test_1767045257820_bo1q8usu2",
+        "test_1767045257820_jvwxmnkv9",
+        "test_1767045257820_ii4qkppje",
+        "test_1767045257820_x1bvge5e5",
+        "test_1767045257820_az92dql74"
+      ],
+      "status": "pending",
+      "passRate": 0,
+      "createdAt": "2025-12-29T21:54:17.820Z"
+    }
+  },
+  "vulnerabilities": {},
+  "reports": {},
+  "scanHistory": []
+}
