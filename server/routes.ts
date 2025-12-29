@@ -19093,6 +19093,10 @@ ${project.description || ""}
   app.use("/api/complexity", complexityEstimationRoutes);
   console.log("Complexity Estimation routes registered | تم تسجيل مسارات تقدير التعقيد");
 
+  const architecturalKnowledgeRoutes = (await import("./routes/architectural-knowledge-routes")).default;
+  app.use("/api/architecture-knowledge", architecturalKnowledgeRoutes);
+  console.log("Architectural Knowledge routes registered | تم تسجيل مسارات المعرفة المعمارية");
+
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
   // Helper: Generate verification token
