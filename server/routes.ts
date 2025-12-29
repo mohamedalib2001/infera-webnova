@@ -19064,6 +19064,11 @@ ${project.description || ""}
   app.use("/api/learning", selfLearningRoutes);
   console.log("Self-Learning routes registered | تم تسجيل مسارات التعلم الذاتي");
 
+  // ==================== AUTO-DEPLOYMENT GATEWAY - بوابة النشر التلقائي ====================
+  const deploymentGatewayRoutes = (await import("./routes/deployment-gateway-routes")).default;
+  app.use("/api/deployment", deploymentGatewayRoutes);
+  console.log("Deployment Gateway routes registered | تم تسجيل مسارات بوابة النشر");
+
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
   // Helper: Generate verification token
