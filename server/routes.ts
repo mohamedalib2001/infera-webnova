@@ -19049,6 +19049,11 @@ ${project.description || ""}
   app.use("/api/preview", instantPreviewRoutes);
   console.log("Instant Preview routes registered | تم تسجيل مسارات المعاينة الفورية");
 
+  // ==================== SMART CUSTOMIZATION - محرك التخصيص الذكي ====================
+  const smartCustomizationRoutes = (await import("./routes/smart-customization-routes")).default;
+  app.use("/api/customization", smartCustomizationRoutes);
+  console.log("Smart Customization routes registered | تم تسجيل مسارات محرك التخصيص الذكي");
+
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
   // Helper: Generate verification token
