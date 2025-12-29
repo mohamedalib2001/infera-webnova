@@ -19079,6 +19079,11 @@ ${project.description || ""}
   app.use("/api/quality-testing", qualityTestingRoutes);
   console.log("Quality Testing routes registered | تم تسجيل مسارات الجودة والاختبار");
 
+  // ==================== AUTO DOCUMENTATION SYSTEM - منصة التوثيق التلقائي ====================
+  const autoDocumentationRoutes = (await import("./routes/auto-documentation-routes")).default;
+  app.use("/api/auto-documentation", autoDocumentationRoutes);
+  console.log("Auto Documentation routes registered | تم تسجيل مسارات التوثيق التلقائي");
+
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
   // Helper: Generate verification token
