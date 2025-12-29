@@ -9,7 +9,8 @@ const RATE_LIMIT = 30;
 const RATE_WINDOW_MS = 60000;
 
 const rateLimitMiddleware = (req: Request, res: Response, next: NextFunction) => {
-  const clientId = (req as any).user?.id || req.ip || "anonymous";
+  const session = req.session as any;
+  const clientId = session?.userId || req.ip || "anonymous";
   const now = Date.now();
   const record = requestCounts.get(clientId);
   
@@ -31,8 +32,8 @@ const rateLimitMiddleware = (req: Request, res: Response, next: NextFunction) =>
 };
 
 const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
-  const user = (req as any).user;
-  if (!user) {
+  const session = req.session as any;
+  if (!session?.userId) {
     return res.status(401).json({
       success: false,
       error: "يجب تسجيل الدخول / Authentication required"
@@ -45,11 +46,13 @@ const logRequest = (endpoint: string, traceId: string, userId?: string) => {
   console.log(`[Nova AI Core] ${new Date().toISOString()} | TraceID: ${traceId} | Endpoint: ${endpoint} | User: ${userId || "anonymous"}`);
 };
 
+router.use(authMiddleware);
 router.use(rateLimitMiddleware);
 
-router.post("/analyze", authMiddleware, async (req: Request, res: Response) => {
+router.post("/analyze", async (req: Request, res: Response) => {
   const traceId = randomUUID();
-  const userId = (req as any).user?.id;
+  const session = req.session as any;
+  const userId = session?.userId;
   logRequest("/analyze", traceId, userId);
   try {
     const { text } = req.body;
@@ -77,9 +80,10 @@ router.post("/analyze", authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
-router.post("/sector-context", authMiddleware, async (req: Request, res: Response) => {
+router.post("/sector-context", async (req: Request, res: Response) => {
   const traceId = randomUUID();
-  const userId = (req as any).user?.id;
+  const session = req.session as any;
+  const userId = session?.userId;
   logRequest("/sector-context", traceId, userId);
   try {
     const { text } = req.body;
@@ -107,9 +111,10 @@ router.post("/sector-context", authMiddleware, async (req: Request, res: Respons
   }
 });
 
-router.post("/generate-specification", authMiddleware, async (req: Request, res: Response) => {
+router.post("/generate-specification", async (req: Request, res: Response) => {
   const traceId = randomUUID();
-  const userId = (req as any).user?.id;
+  const session = req.session as any;
+  const userId = session?.userId;
   logRequest("/generate-specification", traceId, userId);
   try {
     const { text } = req.body;
@@ -143,9 +148,10 @@ router.post("/generate-specification", authMiddleware, async (req: Request, res:
   }
 });
 
-router.post("/full-analysis", authMiddleware, async (req: Request, res: Response) => {
+router.post("/full-analysis", async (req: Request, res: Response) => {
   const traceId = randomUUID();
-  const userId = (req as any).user?.id;
+  const session = req.session as any;
+  const userId = session?.userId;
   logRequest("/full-analysis", traceId, userId);
   try {
     const { text, options } = req.body;

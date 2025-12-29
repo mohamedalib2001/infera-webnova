@@ -20,6 +20,7 @@ import { registerPermissionRoutes } from "./permissions-routes";
 import marketplaceRoutes from "./marketplace-routes";
 import sslRoutes from "./ssl-routes";
 import novaAICoreRoutes from "./routes/nova-ai-core-routes";
+import smartCodeGeneratorRoutes from "./routes/smart-code-generator-routes";
 import sshVaultRoutes from "./ssh-vault-routes";
 import githubRoutes from "./github-routes";
 import integrationRoutes from "./integration-routes";
@@ -19033,6 +19034,10 @@ ${project.description || ""}
   // ==================== NOVA AI CORE - نواة الذكاء الاصطناعي ====================
   app.use("/api/nova/ai-core", novaAICoreRoutes);
   console.log("Nova AI Core routes registered | تم تسجيل مسارات نواة الذكاء الاصطناعي");
+
+  // ==================== SMART CODE GENERATOR - مولد الكود الذكي ====================
+  app.use("/api/code-generator", smartCodeGeneratorRoutes);
+  console.log("Smart Code Generator routes registered | تم تسجيل مسارات مولد الكود الذكي");
 
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
