@@ -17298,10 +17298,10 @@ export const novaComplianceFrameworkTypes = [
 ] as const;
 export type NovaComplianceFrameworkType = typeof novaComplianceFrameworkTypes[number];
 
-export const complianceStatus = [
+export const novaComplianceStatus = [
   'compliant', 'non_compliant', 'partial', 'pending_audit', 'exempted', 'not_applicable'
 ] as const;
-export type ComplianceStatus = typeof complianceStatus[number];
+export type NovaComplianceStatus = typeof novaComplianceStatus[number];
 
 // Nova Compliance Frameworks Registry - سجل أطر الامتثال
 export const novaComplianceFrameworks = pgTable("nova_compliance_frameworks", {
@@ -18376,3 +18376,35 @@ export const insertServerDeployHistorySchema = createInsertSchema(serverDeployHi
 });
 export type InsertServerDeployHistory = z.infer<typeof insertServerDeployHistorySchema>;
 export type ServerDeployHistory = typeof serverDeployHistory.$inferSelect;
+
+// ==================== INTEGRATION SETTINGS (Service Providers with Encrypted Credentials) ====================
+
+export const integrationCategories = ['email', 'sms', 'payments', 'auth', 'webhooks'] as const;
+export type IntegrationCategory = typeof integrationCategories[number];
+
+export const integrationSettings = pgTable("integration_settings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull(),
+  providerKey: text("provider_key").notNull(), // e.g., sendgrid, twilio, stripe
+  category: text("category").notNull(), // email, sms, payments, auth, webhooks
+  isEnabled: boolean("is_enabled").notNull().default(false),
+  encryptedValues: text("encrypted_values"), // AES-256-GCM encrypted JSON
+  encryptionIv: text("encryption_iv"),
+  lastTestedAt: timestamp("last_tested_at"),
+  lastTestStatus: text("last_test_status"), // success, failed
+  lastTestMessage: text("last_test_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_integration_settings_user").on(table.userId),
+  index("idx_integration_settings_provider").on(table.providerKey),
+  index("idx_integration_settings_category").on(table.category),
+]);
+
+export const insertIntegrationSettingsSchema = createInsertSchema(integrationSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertIntegrationSettings = z.infer<typeof insertIntegrationSettingsSchema>;
+export type IntegrationSettings = typeof integrationSettings.$inferSelect;

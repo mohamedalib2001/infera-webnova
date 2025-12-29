@@ -39,6 +39,7 @@ const ApiKeys = lazy(() => import("@/pages/api-keys"));
 const SshVault = lazy(() => import("@/pages/ssh-vault"));
 const PlatformBuilder = lazy(() => import("@/pages/platform-builder"));
 const GitHubSync = lazy(() => import("@/pages/github-sync"));
+const IntegrationsSettings = lazy(() => import("@/pages/integrations-settings"));
 import {
   LazySettings,
   LazySovereignWorkspace,
@@ -112,6 +113,7 @@ function AuthenticatedRouter() {
       <Route path="/api-keys" component={ApiKeys} />
       <Route path="/ssh-vault" component={SshVault} />
       <Route path="/github-sync" component={GitHubSync} />
+      <Route path="/integrations" component={IntegrationsSettings} />
       <Route path="/user-builder" component={LazyUserBuilder} />
       <Route path="/settings" component={LazySettings} />
       <Route path="/subscription" component={LazySubscription} />

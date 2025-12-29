@@ -1,0 +1,157 @@
+📋 وثيقة تنفيذ صفحة إعدادات التكاملات
+1. الهيكل الأساسي (TypeScript Interfaces)
+// واجهة حقول الإعدادات
+interface IntegrationField {
+  key: string;           // مفتاح الحقل (مثل: SENDGRID_API_KEY)
+  label: string;         // التسمية بالإنجليزية
+  labelAr: string;       // التسمية بالعربية
+  type: "text" | "password" | "email";  // نوع الحقل
+  placeholder: string;   // نص توضيحي
+  required: boolean;     // هل مطلوب؟
+}
+// واجهة مزود التكامل
+interface IntegrationProvider {
+  name: string;              // الاسم بالإنجليزية
+  nameAr: string;            // الاسم بالعربية
+  description: string;       // الوصف بالإنجليزية
+  descriptionAr: string;     // الوصف بالعربية
+  icon: any;                 // أيقونة (Lucide أو React Icons)
+  iconColor: string;         // لون الأيقونة (Tailwind)
+  url: string;               // رابط موقع المزود
+  costRating: 1 | 2 | 3 | 4 | 5;    // تقييم التكلفة (5=رخيص، 1=مكلف)
+  qualityRating: 1 | 2 | 3 | 4 | 5; // تقييم الجودة (5=ممتاز، 1=ضعيف)
+  pricingNote?: string;      // ملاحظة الأسعار بالإنجليزية
+  pricingNoteAr?: string;    // ملاحظة الأسعار بالعربية
+  fields: IntegrationField[]; // حقول الإعدادات
+  testEndpoint?: string;     // نقطة نهاية الاختبار
+}
+2. تصنيفات المزودين (5 فئات)
+📧 البريد الإلكتروني (Email) - 6 مزودين
+المزود	الاسم العربي	الأيقونة	اللون	الرابط	التكلفة	الجودة	الأسعار
+SendGrid	SendGrid	Mail	text-blue-500	https://sendgrid.com	⭐⭐⭐⭐	⭐⭐⭐⭐⭐	مجاني: 100/يوم، من $19.95/شهر
+Mailgun	Mailgun	Mail	text-red-600	https://mailgun.com	⭐⭐⭐⭐	⭐⭐⭐⭐⭐	مجاني: 5,000/3 أشهر، من $35/شهر
+SMTP	خادم SMTP	Mail	text-gray-600	-	⭐⭐⭐⭐⭐	⭐⭐⭐⭐	مجاني مع معظم المزودين
+Postmark	Postmark	Mail	text-yellow-500	https://postmarkapp.com	⭐⭐⭐	⭐⭐⭐⭐⭐	مجاني: 100/شهر، من $15/شهر
+Resend	Resend	Mail	text-black dark:text-white	https://resend.com	⭐⭐⭐⭐	⭐⭐⭐⭐⭐	مجاني: 3,000/شهر، من $20/شهر
+Amazon SES	Amazon SES	Mail	text-orange-500	https://aws.amazon.com/ses	⭐⭐⭐⭐⭐	⭐⭐⭐⭐⭐	$0.10 لكل 1,000 بريد
+📱 الرسائل النصية (SMS) - 7 مزودين
+المزود	الاسم العربي	الأيقونة	اللون	الرابط	التكلفة	الجودة	الأسعار
+Twilio	Twilio	SiTwilio	text-red-500	https://www.twilio.com	⭐⭐⭐	⭐⭐⭐⭐⭐	من $0.0079/رسالة
+MessageBird	MessageBird	MessageSquare	text-blue-600	https://messagebird.com	⭐⭐⭐	⭐⭐⭐⭐	من €0.0065/رسالة
+Vonage	Vonage	MessageSquare	text-purple-600	https://www.vonage.com	⭐⭐⭐	⭐⭐⭐⭐⭐	من $0.0068/رسالة
+Plivo	Plivo	MessageSquare	text-green-500	https://www.plivo.com	⭐⭐⭐⭐	⭐⭐⭐⭐	من $0.0050/رسالة
+ClickSend	ClickSend	MessageSquare	text-cyan-500	https://www.clicksend.com	⭐⭐⭐⭐	⭐⭐⭐⭐	من $0.0255/رسالة
+Unifonic	يونيفونك	MessageSquare	text-green-600	https://www.unifonic.com	⭐⭐⭐	⭐⭐⭐⭐	تسعير مخصص للشرق الأوسط
+Mobily	موبايلي	MessageSquare	text-purple-500	https://www.mobily.com.sa	⭐⭐⭐⭐	⭐⭐⭐⭐	أسعار سعودية تنافسية
+💳 المدفوعات (Payments) - 7 مزودين
+المزود	الاسم العربي	الأيقونة	اللون	الرابط	التكلفة	الجودة	الأسعار
+Stripe	Stripe	SiStripe	text-purple-500	https://stripe.com	⭐⭐⭐	⭐⭐⭐⭐⭐	2.9% + $0.30
+PayPal	PayPal	SiPaypal	text-blue-600	https://www.paypal.com	⭐⭐⭐	⭐⭐⭐⭐⭐	2.9% + $0.30
+Tap	تاب للمدفوعات	CreditCard	text-cyan-500	https://www.tap.company	⭐⭐⭐	⭐⭐⭐⭐⭐	2.5% + 1 ريال
+Moyasar	مُيسّر	CreditCard	text-green-600	https://moyasar.com	⭐⭐⭐⭐	⭐⭐⭐⭐⭐	2%، مدى 1.5%
+Paymob	باي موب	CreditCard	text-orange-500	https://paymob.com	⭐⭐⭐⭐	⭐⭐⭐⭐	2.5%
+HyperPay	هايبر باي	CreditCard	text-indigo-500	https://www.hyperpay.com	⭐⭐⭐	⭐⭐⭐⭐⭐	تسعير مخصص
+Razorpay	رازورباي	CreditCard	text-blue-700	https://razorpay.com	⭐⭐⭐⭐	⭐⭐⭐⭐⭐	2%
+🔐 المصادقة (Auth) - 7 مزودين
+المزود	الاسم العربي	الأيقونة	اللون	الرابط	التكلفة	الجودة
+Google OAuth	مصادقة Google	SiGoogle	text-red-500	https://console.cloud.google.com	⭐⭐⭐⭐⭐	⭐⭐⭐⭐⭐
+Microsoft Azure AD	مصادقة Microsoft	Shield	text-blue-600	https://portal.azure.com	⭐⭐⭐⭐	⭐⭐⭐⭐⭐
+Apple Sign In	تسجيل الدخول بـ Apple	Shield	text-gray-800	https://developer.apple.com	⭐⭐⭐⭐	⭐⭐⭐⭐⭐
+GitHub OAuth	مصادقة GitHub	Shield	text-gray-900	https://github.com	⭐⭐⭐⭐⭐	⭐⭐⭐⭐⭐
+LinkedIn OAuth	مصادقة LinkedIn	Shield	text-blue-700	https://www.linkedin.com/developers	⭐⭐⭐⭐⭐	⭐⭐⭐⭐
+SAML SSO	SAML SSO	Shield	text-indigo-600	https://www.okta.com	⭐⭐	⭐⭐⭐⭐⭐
+LDAP / AD	LDAP / Active Directory	Shield	text-green-700	Microsoft docs	⭐⭐⭐⭐	⭐⭐⭐⭐⭐
+🔗 Webhooks والإشعارات - 9 مزودين
+المزود	الاسم العربي	الأيقونة	اللون	الرابط	التكلفة	الجودة
+Custom Webhooks	Webhooks مخصصة	Webhook	text-green-500	https://webhook.site	⭐⭐⭐⭐⭐	⭐⭐⭐⭐
+Zapier	Zapier	Webhook	text-orange-500	https://zapier.com	⭐⭐	⭐⭐⭐⭐⭐
+Make	Make	Webhook	text-purple-500	https://www.make.com	⭐⭐⭐	⭐⭐⭐⭐⭐
+n8n	n8n	Webhook	text-red-500	https://n8n.io	⭐⭐⭐⭐⭐	⭐⭐⭐⭐
+Slack	Slack	MessageSquare	text-purple-600	https://slack.com	⭐⭐⭐⭐	⭐⭐⭐⭐⭐
+Microsoft Teams	Microsoft Teams	MessageSquare	text-blue-600	https://teams.microsoft.com	⭐⭐⭐⭐	⭐⭐⭐⭐⭐
+Discord	Discord	MessageSquare	text-indigo-500	https://discord.com	⭐⭐⭐⭐⭐	⭐⭐⭐⭐
+Telegram	بوت Telegram	MessageSquare	text-blue-400	https://telegram.org	⭐⭐⭐⭐⭐	⭐⭐⭐⭐⭐
+WhatsApp Business	WhatsApp Business	MessageSquare	text-green-500	https://business.whatsapp.com	⭐⭐	⭐⭐⭐⭐⭐
+3. مكون بطاقة التكامل (IntegrationCard)
+هيكل البطاقة:
+┌─────────────────────────────────────────────────┐
+│ [أيقونة] اسم المزود [🔗]          [مفعل/معطل] │
+│ وصف المزود                                      │
+├─────────────────────────────────────────────────┤
+│ 💰 التكلفة: ⭐⭐⭐⭐⭐  ⭐ الجودة: ⭐⭐⭐⭐⭐     │
+│ معلومات الأسعار...                              │
+├─────────────────────────────────────────────────┤
+│ حقل 1: [────────────────────] 👁                │
+│ حقل 2: [────────────────────] 👁                │
+│ حقل 3: [────────────────────]                   │
+├─────────────────────────────────────────────────┤
+│ [حفظ]                              [اختبار]    │
+└─────────────────────────────────────────────────┘
+نظام التقييم بالنجوم:
+const renderStars = (rating: number, type: "cost" | "quality") => {
+  const stars = [];
+  for (let i = 1; i <= 5; i++) {
+    stars.push(
+      <Star
+        key={i}
+        className={`h-3 w-3 ${
+          i <= rating 
+            ? (type === "cost" 
+                ? "text-green-500 fill-green-500"   // نجوم خضراء للتكلفة
+                : "text-yellow-500 fill-yellow-500") // نجوم صفراء للجودة
+            : "text-muted-foreground/30"             // نجوم فارغة
+        }`}
+      />
+    );
+  }
+  return stars;
+};
+4. هيكل التبويبات (Tabs)
+<Tabs defaultValue="email">
+  <TabsList className="grid w-full grid-cols-5">
+    <TabsTrigger value="email">📧 البريد</TabsTrigger>
+    <TabsTrigger value="sms">📱 SMS</TabsTrigger>
+    <TabsTrigger value="payments">💳 المدفوعات</TabsTrigger>
+    <TabsTrigger value="auth">🔐 المصادقة</TabsTrigger>
+    <TabsTrigger value="webhooks">🔗 Webhooks</TabsTrigger>
+  </TabsList>
+  
+  {/* محتوى كل تبويب */}
+  <TabsContent value="email">
+    <div className="grid gap-4 md:grid-cols-2">
+      <IntegrationCard integrationKey="sendgrid" isRTL={isRTL} />
+      {/* ... */}
+    </div>
+  </TabsContent>
+</Tabs>
+5. دعم RTL والعربية
+// استخدام سياق اللغة
+const { isRTL } = useLanguage();
+// تطبيق RTL على الصفحة
+<div className={`p-6 ${isRTL ? "rtl" : ""}`} dir={isRTL ? "rtl" : "ltr"}>
+// عرض النص حسب اللغة
+{isRTL ? integration.nameAr : integration.name}
+{isRTL ? integration.descriptionAr : integration.description}
+{isRTL ? integration.pricingNoteAr : integration.pricingNote}
+// ترتيب الأزرار حسب الاتجاه
+className={`absolute top-0 ${isRTL ? "left-0" : "right-0"}`}
+6. نقاط API المطلوبة
+// جلب إعدادات مزود معين
+GET /api/integrations/:providerKey
+Response: { values: Record<string, string>, isEnabled: boolean }
+// حفظ إعدادات مزود
+POST /api/integrations/:providerKey
+Body: { values: Record<string, string>, isEnabled: boolean }
+// اختبار اتصال مزود
+POST /api/integrations/test/:providerKey
+Response: { success: boolean, message?: string }
+7. المكتبات المطلوبة
+{
+  "dependencies": {
+    "lucide-react": "أيقونات (Mail, Shield, CreditCard, Webhook, Star, DollarSign...)",
+    "react-icons": "أيقونات الشركات (SiGoogle, SiStripe, SiTwilio, SiPaypal)",
+    "@tanstack/react-query": "إدارة الحالة والتخزين المؤقت",
+    "@radix-ui/react-tabs": "التبويبات",
+    "@radix-ui/react-switch": "مفتاح التفعيل/التعطيل"
+  }
+}

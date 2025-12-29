@@ -21,6 +21,7 @@ import marketplaceRoutes from "./marketplace-routes";
 import sslRoutes from "./ssl-routes";
 import sshVaultRoutes from "./ssh-vault-routes";
 import githubRoutes from "./github-routes";
+import integrationRoutes from "./integration-routes";
 import sovereignPlansRoutes from "./sovereign-plans-routes";
 import sovereignWorkspaceRoutes from "./sovereign-workspace-routes";
 import { registerAppBuilderRoutes } from "./app-builder-routes";
@@ -18920,6 +18921,7 @@ ${project.description || ""}
   // ==================== SSH VAULT - SOVEREIGN ENCRYPTED KEY MANAGEMENT ====================
   app.use("/api/vault/ssh", sshVaultRoutes);
   app.use("/api/github", githubRoutes);
+  app.use("/api/integrations", integrationRoutes);
   app.use(sovereignPlansRoutes);
   app.use("/api/sovereign-workspace", sovereignWorkspaceRoutes);
   console.log("SSH Vault routes registered | تم تسجيل مسارات خزنة SSH");
