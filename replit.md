@@ -92,3 +92,37 @@ Supports importing requirements from `.txt`, `.md`, and `.doc` files. The system
 - Session-based authentication required
 - Rate limiting: 15 requests/minute
 - All outputs include security recommendations and warnings
+
+## Instant Preview System (نظام المعاينة الفورية)
+
+### Overview
+Live preview system with real-time rendering, responsive viewport controls, and AI-powered improvement suggestions.
+
+### API Endpoints
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/preview/generate` | POST | Generate live preview from architecture spec |
+| `/api/preview/analyze` | POST | Analyze code and get improvement suggestions |
+| `/api/preview/component` | POST | Generate individual component preview |
+| `/api/preview/preview/:id` | GET | Get existing preview by ID |
+| `/api/preview/preview/:id` | PATCH | Update existing preview |
+| `/api/preview/templates` | GET | Get available component templates |
+
+### Features
+- Live HTML/CSS/JS preview in iframe sandbox
+- Responsive viewport controls (mobile, tablet, desktop)
+- AI-powered code analysis with metrics
+- Automatic improvement suggestions with priority levels
+- Performance, security, accessibility, and code quality metrics
+
+### Metrics
+- **Performance**: Load time and optimization score
+- **Security**: XSS/CSRF protection level
+- **Accessibility**: WCAG compliance score
+- **Complexity**: Code maintainability index
+
+### Security
+- Session-based authentication required
+- Owner-only access (mohamed.ali.b2001@gmail.com)
+- Rate limiting: 30 requests/minute
+- Sandboxed iframe execution

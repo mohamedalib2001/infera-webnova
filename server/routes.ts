@@ -22,6 +22,7 @@ import sslRoutes from "./ssl-routes";
 import novaAICoreRoutes from "./routes/nova-ai-core-routes";
 import smartCodeGeneratorRoutes from "./routes/smart-code-generator-routes";
 import descriptiveArchitectureRoutes from "./routes/descriptive-architecture-routes";
+import instantPreviewRoutes from "./routes/instant-preview-routes";
 import sshVaultRoutes from "./ssh-vault-routes";
 import githubRoutes from "./github-routes";
 import integrationRoutes from "./integration-routes";
@@ -19043,6 +19044,10 @@ ${project.description || ""}
   // ==================== DESCRIPTIVE ARCHITECTURE - منصة الوصف البنائي ====================
   app.use("/api/architecture", descriptiveArchitectureRoutes);
   console.log("Descriptive Architecture routes registered | تم تسجيل مسارات منصة الوصف البنائي");
+
+  // ==================== INSTANT PREVIEW - نظام المعاينة الفورية ====================
+  app.use("/api/preview", instantPreviewRoutes);
+  console.log("Instant Preview routes registered | تم تسجيل مسارات المعاينة الفورية");
 
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
