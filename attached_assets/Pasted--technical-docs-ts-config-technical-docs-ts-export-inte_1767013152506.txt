@@ -1,0 +1,488 @@
+📁 الملف الأول: بيانات التوثيق (technical-docs.ts)
+// config/technical-docs.ts
+export interface PageDoc {
+  id: string;
+  name: string;           // اسم الصفحة بالإنجليزية
+  nameAr: string;         // اسم الصفحة بالعربية
+  filePath: string;       // مسار الملف
+  description: string;    // وصف بالإنجليزية
+  descriptionAr: string;  // وصف بالعربية
+  category: string;       // التصنيف (core, analytics, admin...)
+  icon: string;           // أيقونة من lucide-react
+  features: string[];     // قائمة المميزات
+  featuresAr: string[];   // المميزات بالعربية
+  apiEndpoints: ApiEndpoint[];  // نقاط API المرتبطة
+  dataModels: string[];   // نماذج البيانات المستخدمة
+  dependencies: string[]; // المكتبات المستخدمة
+  accessLevel: string;    // مستوى الوصول (all, admin, owner)
+}
+export interface ApiEndpoint {
+  method: "GET" | "POST" | "PATCH" | "DELETE";
+  path: string;
+  description: string;
+  descriptionAr: string;
+}
+export const technicalDocs: PageDoc[] = [
+  {
+    id: "dashboard",
+    name: "Dashboard",
+    nameAr: "لوحة التحكم",
+    filePath: "client/src/pages/dashboard.tsx",
+    description: "Main analytics dashboard with KPIs and metrics",
+    descriptionAr: "لوحة التحليلات الرئيسية مع مؤشرات الأداء",
+    category: "core",
+    icon: "LayoutDashboard",
+    features: [
+      "Real-time employee statistics",
+      "Attendance overview cards",
+      "Department breakdown chart",
+      "Recent activities feed"
+    ],
+    featuresAr: [
+      "إحصائيات الموظفين الفورية",
+      "بطاقات نظرة عامة على الحضور",
+      "مخطط توزيع الأقسام",
+      "آخر الأنشطة"
+    ],
+    apiEndpoints: [
+      {
+        method: "GET",
+        path: "/api/dashboard/stats",
+        description: "Get dashboard statistics",
+        descriptionAr: "الحصول على إحصائيات لوحة التحكم"
+      }
+    ],
+    dataModels: ["Employee", "Attendance", "Department"],
+    dependencies: ["recharts", "@tanstack/react-query", "lucide-react"],
+    accessLevel: "all"
+  },
+  // ... باقي الصفحات
+];
+📤 الملف الثاني: وظائف التصدير (docs-export.ts)
+// lib/docs-export.ts
+import { PageDoc } from "@/config/technical-docs";
+// توليد محتوى Markdown
+export function generateMarkdownDoc(doc: PageDoc, isRTL: boolean): string {
+  const title = isRTL ? doc.nameAr : doc.name;
+  const desc = isRTL ? doc.descriptionAr : doc.description;
+  const features = isRTL ? doc.featuresAr : doc.features;
+  
+  let content = `# ${title}\n\n`;
+  content += `## ${isRTL ? "الوصف" : "Description"}\n${desc}\n\n`;
+  content += `## ${isRTL ? "مسار الملف" : "File Path"}\n\`${doc.filePath}\`\n\n`;
+  
+  // المميزات
+  content += `## ${isRTL ? "المميزات" : "Features"}\n`;
+  features.forEach(f => content += `- ${f}\n`);
+  content += "\n";
+  
+  // نقاط API
+  if (doc.apiEndpoints.length > 0) {
+    content += `## ${isRTL ? "نقاط API" : "API Endpoints"}\n`;
+    doc.apiEndpoints.forEach(ep => {
+      const epDesc = isRTL ? ep.descriptionAr : ep.description;
+      content += `- \`${ep.method} ${ep.path}\` - ${epDesc}\n`;
+    });
+    content += "\n";
+  }
+  
+  // نماذج البيانات
+  if (doc.dataModels.length > 0) {
+    content += `## ${isRTL ? "نماذج البيانات" : "Data Models"}\n`;
+    content += doc.dataModels.map(m => `\`${m}\``).join(", ") + "\n\n";
+  }
+  
+  // المكتبات
+  if (doc.dependencies.length > 0) {
+    content += `## ${isRTL ? "المكتبات" : "Dependencies"}\n`;
+    content += doc.dependencies.map(d => `\`${d}\``).join(", ") + "\n";
+  }
+  
+  return content;
+}
+// نسخ للحافظة
+export async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    // fallback للمتصفحات القديمة
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    document.body.removeChild(textarea);
+    return true;
+  }
+}
+// تحميل كملف Markdown
+export function downloadAsMarkdown(doc: PageDoc, isRTL: boolean): void {
+  const content = generateMarkdownDoc(doc, isRTL);
+  const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${doc.id}-documentation.md`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+// طباعة كـ PDF
+export function printAsPDF(doc: PageDoc, isRTL: boolean): void {
+  const content = generateMarkdownDoc(doc, isRTL);
+  const printWindow = window.open("", "_blank");
+  if (printWindow) {
+    printWindow.document.write(`
+      <html dir="${isRTL ? "rtl" : "ltr"}">
+      <head>
+        <title>${isRTL ? doc.nameAr : doc.name}</title>
+        <style>
+          body { font-family: system-ui; padding: 40px; max-width: 800px; margin: 0 auto; }
+          h1 { color: #1a1a1a; border-bottom: 2px solid #3b82f6; padding-bottom: 10px; }
+          h2 { color: #374151; margin-top: 30px; }
+          code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; }
+          pre { background: #1f2937; color: #f9fafb; padding: 16px; border-radius: 8px; }
+          ul { padding-${isRTL ? "right" : "left"}: 20px; }
+        </style>
+      </head>
+      <body>
+        <pre style="white-space: pre-wrap; background: white; color: black;">${content}</pre>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+  }
+}
+// تحميل جميع الملفات كـ ZIP
+export async function downloadAllDocs(docs: PageDoc[], isRTL: boolean): Promise<void> {
+  // يحتاج مكتبة jszip
+  const JSZip = (await import("jszip")).default;
+  const zip = new JSZip();
+  
+  docs.forEach(doc => {
+    const content = generateMarkdownDoc(doc, isRTL);
+    zip.file(`${doc.id}.md`, content);
+  });
+  
+  const blob = await zip.generateAsync({ type: "blob" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "technical-documentation.zip";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+📄 الملف الثالث: صفحة التوثيق الرئيسية
+// pages/technical-documentation.tsx
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useAuth } from "@/contexts/auth-context";
+import { technicalDocs, type PageDoc } from "@/config/technical-docs";
+import { generateMarkdownDoc, copyToClipboard, downloadAsMarkdown, downloadAllDocs } from "@/lib/docs-export";
+import { FileText, Search, Copy, Download, FileDown } from "lucide-react";
+export default function TechnicalDocumentationPage() {
+  const { user } = useAuth();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedDoc, setSelectedDoc] = useState<PageDoc | null>(null);
+  
+  // التحقق من صلاحية المالك
+  const isOwner = user?.role === "owner" || user?.role === "sovereign";
+  
+  if (!isOwner) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardContent className="pt-6 text-center">
+            <h2>Access Denied</h2>
+            <p>This page is only available to platform owners.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  // تصفية حسب البحث
+  const filteredDocs = technicalDocs.filter(doc =>
+    doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    doc.nameAr.includes(searchQuery)
+  );
+  // تجميع حسب التصنيف
+  const groupedDocs = filteredDocs.reduce((acc, doc) => {
+    if (!acc[doc.category]) acc[doc.category] = [];
+    acc[doc.category].push(doc);
+    return acc;
+  }, {} as Record<string, PageDoc[]>);
+  return (
+    <div className="p-6 space-y-6">
+      {/* العنوان والأدوات */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Technical Documentation</h1>
+          <p className="text-muted-foreground">
+            {technicalDocs.length} pages documented
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={() => downloadAllDocs(technicalDocs, false)}>
+            <FileDown className="mr-2 h-4 w-4" />
+            Export All
+          </Button>
+        </div>
+      </div>
+      {/* البحث */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" />
+        <Input
+          placeholder="Search documentation..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+      {/* قائمة التوثيقات */}
+      <div className="grid gap-6">
+        {Object.entries(groupedDocs).map(([category, docs]) => (
+          <Card key={category}>
+            <CardHeader>
+              <CardTitle className="capitalize">{category}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {docs.map(doc => (
+                  <Card 
+                    key={doc.id} 
+                    className="cursor-pointer hover-elevate"
+                    onClick={() => setSelectedDoc(doc)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <FileText className="h-5 w-5 text-primary mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium truncate">{doc.name}</h3>
+                          <p className="text-sm text-muted-foreground truncate">
+                            {doc.filePath}
+                          </p>
+                          <div className="flex gap-1 mt-2 flex-wrap">
+                            <Badge variant="secondary" className="text-xs">
+                              {doc.apiEndpoints.length} APIs
+                            </Badge>
+                            <Badge variant="outline" className="text-xs">
+                              {doc.accessLevel}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      {/* نافذة المعاينة */}
+      <Dialog open={!!selectedDoc} onOpenChange={() => setSelectedDoc(null)}>
+        <DialogContent className="max-w-3xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>{selectedDoc?.name}</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="h-[60vh]">
+            <pre className="text-sm whitespace-pre-wrap p-4 bg-muted rounded-lg">
+              {selectedDoc && generateMarkdownDoc(selectedDoc, false)}
+            </pre>
+          </ScrollArea>
+          <div className="flex justify-end gap-2">
+            <Button 
+              variant="outline"
+              onClick={() => selectedDoc && copyToClipboard(generateMarkdownDoc(selectedDoc, false))}
+            >
+              <Copy className="mr-2 h-4 w-4" />
+              Copy
+            </Button>
+            <Button 
+              onClick={() => selectedDoc && downloadAsMarkdown(selectedDoc, false)}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Download
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+🔘 الملف الرابع: زر التوثيق في كل صفحة
+// components/technical-documentation.tsx
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useAuth } from "@/contexts/auth-context";
+import { FileText, Copy, Download } from "lucide-react";
+interface TechnicalDocumentationProps {
+  pageName: string;
+  pageNameAr: string;
+  filePath: string;
+  description: string;
+  descriptionAr: string;
+  apiEndpoints?: Array<{
+    method: string;
+    path: string;
+    description: string;
+  }>;
+  dataModels?: string;
+  sections?: Array<{ title: string; content: string }>;
+  features?: string[];
+  libraries?: string[];
+}
+export function TechnicalDocumentation({
+  pageName,
+  pageNameAr,
+  filePath,
+  description,
+  apiEndpoints = [],
+  dataModels = "",
+  sections = [],
+  features = [],
+  libraries = [],
+}: TechnicalDocumentationProps) {
+  const { user } = useAuth();
+  const [isOpen, setIsOpen] = useState(false);
+  // فقط للمالك
+  const isOwner = user?.role === "owner" || user?.role === "sovereign";
+  if (!isOwner) return null;
+  const generateDocumentation = () => {
+    let doc = `# ${pageName} Implementation Documentation\n\n`;
+    doc += `## Overview\n${description}\n\n`;
+    doc += `## File Location\n\`${filePath}\`\n\n`;
+    
+    if (features.length > 0) {
+      doc += `## Features\n`;
+      features.forEach(f => doc += `- ${f}\n`);
+      doc += "\n";
+    }
+    
+    if (apiEndpoints.length > 0) {
+      doc += `## API Endpoints\n`;
+      apiEndpoints.forEach(ep => {
+        doc += `### ${ep.method} ${ep.path}\n${ep.description}\n\n`;
+      });
+    }
+    
+    if (dataModels) {
+      doc += `## Data Models\n\`\`\`typescript\n${dataModels}\n\`\`\`\n\n`;
+    }
+    
+    if (libraries.length > 0) {
+      doc += `## Dependencies\n`;
+      doc += libraries.map(l => `\`${l}\``).join(", ") + "\n";
+    }
+    
+    return doc;
+  };
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setIsOpen(true)}
+        title="View Technical Documentation"
+      >
+        <FileText className="h-4 w-4" />
+      </Button>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>{pageName} - Technical Documentation</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="h-[60vh]">
+            <pre className="text-sm whitespace-pre-wrap p-4 bg-muted rounded-lg font-mono">
+              {generateDocumentation()}
+            </pre>
+          </ScrollArea>
+          <div className="flex justify-end gap-2">
+            <Button 
+              variant="outline"
+              onClick={() => navigator.clipboard.writeText(generateDocumentation())}
+            >
+              <Copy className="mr-2 h-4 w-4" />
+              Copy
+            </Button>
+            <Button 
+              onClick={() => {
+                const blob = new Blob([generateDocumentation()], { type: "text/markdown" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `${pageName.toLowerCase().replace(/\s+/g, "-")}-docs.md`;
+                a.click();
+              }}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Download
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+🚀 كيفية الاستخدام في كل صفحة
+// في أي صفحة تريد إضافة التوثيق لها
+import { TechnicalDocumentation } from "@/components/technical-documentation";
+export default function EmployeesPage() {
+  return (
+    <div className="p-6">
+      <div className="flex items-center justify-between">
+        <h1>Employees</h1>
+        <TechnicalDocumentation
+          pageName="Employees"
+          pageNameAr="الموظفين"
+          filePath="client/src/pages/employees.tsx"
+          description="Complete employee management with CRUD operations"
+          features={[
+            "Employee list with search and filters",
+            "Add/Edit employee forms",
+            "Status management",
+            "Department assignment"
+          ]}
+          apiEndpoints={[
+            { method: "GET", path: "/api/employees", description: "List all employees" },
+            { method: "POST", path: "/api/employees", description: "Create new employee" },
+            { method: "PATCH", path: "/api/employees/:id", description: "Update employee" },
+            { method: "DELETE", path: "/api/employees/:id", description: "Delete employee" }
+          ]}
+          dataModels={`interface Employee {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  departmentId: number;
+  status: "active" | "inactive" | "on_leave";
+}`}
+          libraries={["@tanstack/react-query", "react-hook-form", "zod"]}
+        />
+      </div>
+      {/* باقي محتوى الصفحة */}
+    </div>
+  );
+}
+✅ خلاصة المميزات
+الميزة	الوصف
+🔐 التحكم بالوصول	متاحة فقط لمالك المنصة
+🌍 دعم اللغتين	عربي وإنجليزي مع RTL
+📋 نسخ للحافظة	نسخ سريع بضغطة واحدة
+📥 تحميل Markdown	تصدير كملف .md
+🖨️ طباعة PDF	طباعة مباشرة
+📦 تصدير الكل	تحميل جميع الملفات كـ ZIP
+🔍 بحث متقدم	البحث في الاسم والمسار
+📊 تصنيف تلقائي	تجميع حسب الفئة
