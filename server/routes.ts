@@ -19089,6 +19089,10 @@ ${project.description || ""}
   app.use("/api/governance", governanceCoreRoutes);
   console.log("Governance Core routes registered | تم تسجيل مسارات نواة الحوكمة");
 
+  const complexityEstimationRoutes = (await import("./routes/complexity-estimation-routes")).default;
+  app.use("/api/complexity", complexityEstimationRoutes);
+  console.log("Complexity Estimation routes registered | تم تسجيل مسارات تقدير التعقيد");
+
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
   // Helper: Generate verification token
