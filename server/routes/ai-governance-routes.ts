@@ -76,7 +76,7 @@ router.get("/guardrails", requireAuth, rateLimit, (req: Request, res: Response) 
 router.post("/guardrails", requireAuth, requireOwner, rateLimit, (req: Request, res: Response) => {
   try {
     const user = req.user as any;
-    const { name, nameAr, category, description, descriptionAr, condition, conditionAr, severity, enabled } = req.body;
+    const { name, nameAr, category, description, descriptionAr, condition, conditionAr, severity, enabled, predicate } = req.body;
 
     if (!name || !category || !severity) {
       return res.status(400).json({
@@ -93,6 +93,7 @@ router.post("/guardrails", requireAuth, requireOwner, rateLimit, (req: Request, 
       descriptionAr: descriptionAr || description || '',
       condition: condition || '',
       conditionAr: conditionAr || condition || '',
+      predicate: predicate || undefined,
       severity,
       enabled: enabled !== false,
       createdBy: user.email
