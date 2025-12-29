@@ -26,6 +26,15 @@ import {
 } from "lucide-react";
 import { generatePlatformCode, generatePackageJson, type GeneratedCode, type PlatformSpec } from "@/lib/platform-code-generator";
 import { GitHubRepoSelector } from "@/components/github-repo-selector";
+import { 
+  detectIntent, 
+  generateDiscussionPrompt, 
+  isInputMeaningless,
+  createContextMemory,
+  addToContext,
+  type ContextMemory,
+  type ConversationalIntent 
+} from "@/lib/conversational-context-layer";
 
 interface BuildMessage {
   id: string;
@@ -118,6 +127,7 @@ export default function PlatformBuilderPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [githubStatus, setGithubStatus] = useState<{ synced: boolean; repo?: string; url?: string; lastSync?: string } | null>(null);
+  const [conversationContext, setConversationContext] = useState<ContextMemory>(() => createContextMemory(language === 'ar' ? 'ar' : 'en'));
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -890,9 +900,19 @@ How can I help you? Describe the platform you want to build.`;
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim() || isBuilding) return;
     
+    // Check for meaningless input
+    if (isInputMeaningless(content)) {
+      return;
+    }
+    
     const hasArabic = /[\u0600-\u06FF]/.test(content);
     const lang = hasArabic ? 'ar' : language;
-    const lowerContent = content.toLowerCase().trim();
+    
+    // Detect intent using Conversational Context Layer
+    const intent = detectIntent(content, conversationContext.messages);
+    
+    // Update context memory with user message
+    setConversationContext(prev => addToContext(prev, 'user', content, intent));
     
     const userMessage: BuildMessage = {
       id: Date.now().toString(),
@@ -904,28 +924,29 @@ How can I help you? Describe the platform you want to build.`;
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
     
-    // Check if this is a question about capabilities (should go to AI chat)
-    const isCapabilityQuestion = /ما هي|ماهي|قدراتك|قدرات|ماذا تستطيع|ماذا يمكنك|what can you|what are your|capabilities|can you do|تقدر|تستطيع|يمكنك/i.test(content);
-    const isQuestion = /\?|؟|كيف|لماذا|ما هو|ما هي|هل|أين|متى|من|how|what|why|where|when|who|which/i.test(content);
-    
-    const isPlatformDescription = /منصة|platform|متجر|store|موقع|site|تطبيق|app|نظام|system|مليون|million|users|مستخدم|ecommerce|تعليم|education|فيديو|video|دفع|payment/i.test(lowerContent);
-    const hasBuildIntent = /أنشئ|create|بناء|build|صمم|design|اعمل|make|ابني|انشئ/i.test(lowerContent) && !isCapabilityQuestion;
-    
-    // If it's a question about capabilities or a general question, use AI chat
-    if (isCapabilityQuestion || (isQuestion && !hasBuildIntent) || (!isPlatformDescription && !hasBuildIntent)) {
+    // Handle based on detected intent
+    if (intent === 'discussion' || intent === 'inquiry') {
       setIsBuilding(true);
       const thinkingMessage: BuildMessage = {
         id: (Date.now() + 1).toString(),
         role: 'nova',
-        content: lang === 'ar' ? 'جاري التفكير...' : 'Thinking...',
+        content: lang === 'ar' ? 'جاري التحليل...' : 'Analyzing...',
         timestamp: new Date(),
         status: 'thinking',
       };
       setMessages(prev => [...prev, thinkingMessage]);
       
       try {
-        const aiResponse = await callNovaAI(content, lang);
+        // Generate discussion-appropriate prompt if in discussion mode
+        const prompt = intent === 'discussion' 
+          ? generateDiscussionPrompt(content, conversationContext.messages, lang as 'ar' | 'en')
+          : content;
+        
+        const aiResponse = await callNovaAI(prompt, lang);
         setMessages(prev => prev.filter(m => m.id !== thinkingMessage.id));
+        
+        // Update context with Nova's response
+        setConversationContext(prev => addToContext(prev, 'nova', aiResponse, intent));
         
         const responseMessage: BuildMessage = {
           id: (Date.now() + 2).toString(),
@@ -949,6 +970,24 @@ How can I help you? Describe the platform you want to build.`;
       }
       return;
     }
+    
+    // Handle security intent
+    if (intent === 'security') {
+      const securityResponse: BuildMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'nova',
+        content: lang === 'ar' 
+          ? 'للوصول إلى لوحة الأمان والتدقيق، توجه إلى قسم المالك. هناك ستجد:\n\n- إدارة الصلاحيات\n- سجلات التدقيق\n- إعدادات الأمان\n- مراقبة التهديدات'
+          : 'For security and audit panel access, navigate to the Owner section. There you will find:\n\n- Permission Management\n- Audit Logs\n- Security Settings\n- Threat Monitoring',
+        timestamp: new Date(),
+        status: 'complete',
+      };
+      setMessages(prev => [...prev, securityResponse]);
+      return;
+    }
+    
+    // Handle build intent (command or explicit build request)
+    // (Continues with existing build logic...)
     
     setIsBuilding(true);
     
@@ -1000,7 +1039,7 @@ How can I help you? Describe the platform you want to build.`;
     } finally {
       setIsBuilding(false);
     }
-  }, [isBuilding, language, toast]);
+  }, [isBuilding, language, toast, conversationContext]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
