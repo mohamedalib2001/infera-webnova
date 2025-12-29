@@ -19059,6 +19059,11 @@ ${project.description || ""}
   app.use("/api/integration-hub", smartIntegrationRoutes);
   console.log("Smart Integration Hub routes registered | تم تسجيل مسارات مركز التكامل الذكي");
 
+  // ==================== SELF-LEARNING ENGINE - نظام التعلم الذاتي ====================
+  const selfLearningRoutes = (await import("./routes/self-learning-routes")).default;
+  app.use("/api/learning", selfLearningRoutes);
+  console.log("Self-Learning routes registered | تم تسجيل مسارات التعلم الذاتي");
+
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
   // Helper: Generate verification token
