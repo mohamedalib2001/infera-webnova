@@ -19,6 +19,7 @@ import { registerNovaDecisionRoutes } from "./nova-decision-routes";
 import { registerPermissionRoutes } from "./permissions-routes";
 import marketplaceRoutes from "./marketplace-routes";
 import sslRoutes from "./ssl-routes";
+import novaAICoreRoutes from "./routes/nova-ai-core-routes";
 import sshVaultRoutes from "./ssh-vault-routes";
 import githubRoutes from "./github-routes";
 import integrationRoutes from "./integration-routes";
@@ -19028,6 +19029,10 @@ ${project.description || ""}
   // ==================== GOVERNANCE COMPLIANCE - MANDATORY POLICY ====================
   app.use("/api/governance", governanceRoutes);
   console.log("Governance Compliance routes registered | تم تسجيل مسارات الامتثال للحوكمة");
+
+  // ==================== NOVA AI CORE - نواة الذكاء الاصطناعي ====================
+  app.use("/api/nova/ai-core", novaAICoreRoutes);
+  console.log("Nova AI Core routes registered | تم تسجيل مسارات نواة الذكاء الاصطناعي");
 
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
