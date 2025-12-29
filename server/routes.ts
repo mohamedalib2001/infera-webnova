@@ -19097,6 +19097,10 @@ ${project.description || ""}
   app.use("/api/architecture-knowledge", architecturalKnowledgeRoutes);
   console.log("Architectural Knowledge routes registered | تم تسجيل مسارات المعرفة المعمارية");
 
+  const preBuildSimulationRoutes = (await import("./routes/pre-build-simulation-routes")).default;
+  app.use("/api/simulation", preBuildSimulationRoutes);
+  console.log("Pre-Build Simulation routes registered | تم تسجيل مسارات المحاكاة قبل البناء");
+
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
   // Helper: Generate verification token
