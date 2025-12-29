@@ -1,0 +1,180 @@
+أنشئ نظام المساعد السيادي (Sovereign Assistant System) مع مؤشرات المراقبة في الشريط العلوي للمنصة. هذا النظام يظهر فقط لمالك المنصة.
+
+═══════════════════════════════════════════════════════════════════
+الجزء الأول: مؤشرات الشريط العلوي (Platform Status Indicators)
+═══════════════════════════════════════════════════════════════════
+
+أنشئ ثلاثة مؤشرات في الشريط العلوي من اليسار إلى اليمين:
+
+【1】 مؤشر الصحة (Health Indicator)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• نص "HEALTH" بخط عريض + أيقونة Activity
+• إضاءة متوهجة قوية جداً:
+  - text-shadow: 0 0 10px, 0 0 20px, 0 0 30px
+  - drop-shadow: 0 0 16px, 0 0 24px (طبقتين)
+• الألوان:
+  - optimal: أبيض #ffffff
+  - good: أخضر ليموني #a3e635
+  - warning: أصفر #fbbf24
+  - danger: برتقالي #f97316
+  - critical: أحمر #ef4444
+• حركة holoPulse مستمرة، holoFlicker عند الحالة الحرجة
+• HoverCard يعرض المشاكل المكتشفة مع زر نسخ التقرير
+
+【2】 مؤشر السرعة - القلب (Heart - Speed)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• أيقونة Heart من lucide-react
+• حركة heartbeat واقعية
+• الألوان: أخضر زمردي (excellent) → أخضر → أصفر → برتقالي → أحمر (critical)
+• HoverCard يعرض: السرعة%، الطلبات، وقت الاستجابة، زر نسخ
+
+【3】 مؤشر الذكاء - الدماغ (Brain - Intelligence)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• أيقونة Brain من lucide-react
+• حركة brainPulse هادئة
+• الألوان: بنفسجي (genius) → أزرق → سماوي → تركوازي → رمادي (minimal)
+• HoverCard يعرض: الذكاء%، النماذج، CPU، الذاكرة، زر نسخ
+
+═══════════════════════════════════════════════════════════════════
+الجزء الثاني: المساعد السيادي (Sovereign Assistant)
+═══════════════════════════════════════════════════════════════════
+
+مساعد ذكي يظهر كنافذة منبثقة في الزاوية السفلية اليمنى:
+
+【التصميم】
+• زر دائري مع صورة المالك للفتح/الإغلاق
+• نافذة 400×500 بكسل مع رأس يحتوي:
+  - شارة "Sovereign Control" خضراء متوهجة
+  - عدد النماذج النشطة والكيانات
+  - زر EXECUTE للتنفيذ وزر إغلاق
+• منطقة عرض السياق الحالي (Context)
+• منطقة الرسائل (محادثة المالك والنظام)
+• حقل إدخال مع دعم:
+  - الأوامر النصية
+  - لصق/رفع الصور للتحليل بالذكاء الاصطناعي
+  - لصق/رفع PDF للتحليل
+
+【الأوامر المدعومة】
+• "show models" / "أظهر النماذج" - عرض قائمة النماذج
+• "activate [model]" / "شغل [نموذج]" - تفعيل نموذج
+• "deactivate [model]" / "أوقف [نموذج]" - إيقاف نموذج
+• "status" / "الحالة" - عرض حالة المنصة
+• "help" / "مساعدة" - عرض الأوامر المتاحة
+• "sync github" / "مزامنة" - مزامنة مع GitHub
+• "kill switch [model]" / "إيقاف طوارئ" - إيقاف طوارئ
+
+【تحليل الوسائط】
+• الصور: تحليل المحتوى باستخدام Gemini Vision API
+• PDF: استخراج النص وتحليله
+
+【النبرة والهوية】
+• لهجة سيادية رسمية وحازمة
+• مخاطبة المالك بـ "سيدي المالك" أو "Owner"
+• دعم كامل للعربية والإنجليزية مع RTL
+
+═══════════════════════════════════════════════════════════════════
+الجزء الثالث: Platform Metrics Context
+═══════════════════════════════════════════════════════════════════
+
+أنشئ ملف client/src/lib/platform-metrics-context.tsx:
+
+interface PlatformMetrics {
+  speedScore: number;        // 0-100
+  intelligenceScore: number; // 0-100
+  activeModels: number;
+  totalRequests: number;
+  avgResponseTime: number;   // ms
+  uptime: number;           // percentage
+  cpuUsage: number;         // percentage
+  memoryUsage: number;      // percentage
+  queueDepth: number;       // 0-100
+}
+
+interface PlatformHealth {
+  status: "optimal" | "good" | "warning" | "danger" | "critical";
+  severity: 0 | 1 | 2 | 3 | 4;
+  issues: PlatformIssue[];
+  isHealthy: boolean;
+}
+
+حدود الكشف عن المشاكل:
+• CPU: تحذير >80%، حرج >90%
+• Memory: تحذير >75%، حرج >90%
+• Queue: تحذير >50، حرج >80
+• Speed: تحذير <50، حرج <30
+• Response: تحذير >100ms، حرج >150ms
+
+تحديث البيانات كل 3 ثواني مع تذبذب واقعي.
+
+═══════════════════════════════════════════════════════════════════
+الجزء الرابع: CSS Animations (داخل المكون)
+═══════════════════════════════════════════════════════════════════
+
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  15% { transform: scale(1.15); opacity: 0.9; }
+  30% { transform: scale(1); opacity: 1; }
+  45% { transform: scale(1.1); opacity: 0.95; }
+  60% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes brainPulse {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+
+@keyframes holoPulse {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.1); opacity: 1; }
+}
+
+@keyframes holoGlow {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.1); }
+}
+
+@keyframes holoFlicker {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  25% { opacity: 0.4; transform: scale(0.95); }
+  50% { opacity: 0.9; transform: scale(1.02); }
+  75% { opacity: 0.5; transform: scale(0.98); }
+}
+
+═══════════════════════════════════════════════════════════════════
+الجزء الخامس: التحكم في الوصول
+═══════════════════════════════════════════════════════════════════
+
+• البريد الإلكتروني للمالك: mohamed.ali.b2001@gmail.com
+• إخفاء كامل للنظام عن جميع المستخدمين الآخرين
+• التحقق من الجلسة عند تحميل المكون
+
+═══════════════════════════════════════════════════════════════════
+المتطلبات التقنية
+═══════════════════════════════════════════════════════════════════
+
+• React + TypeScript
+• Shadcn UI: HoverCard, Button, ScrollArea, Card, Badge, Input
+• Lucide React: Heart, Brain, Activity, AlertTriangle, Copy, Check
+• TanStack React Query للبيانات
+• دعم RTL للعربية
+• الوضع الداكن والفاتح
+• Gemini AI للتحليل (صور وPDF)
+
+═══════════════════════════════════════════════════════════════════
+هيكل الملفات
+═══════════════════════════════════════════════════════════════════
+
+client/src/
+├── lib/
+│   ├── platform-metrics-context.tsx
+│   └── i18n.tsx (دعم اللغات)
+├── components/
+│   ├── platform-status-indicators.tsx
+│   └── sovereign-assistant.tsx
+└── pages/
+    └── (إضافة المكونات في الهيدر والتطبيق)
+
+server/
+└── replit_integrations/analyze/routes.ts (API للتحليل)
+
+نفذ هذا النظام بالكامل مع الحفاظ على نفس التصميم والإضاءة والحركات.
