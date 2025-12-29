@@ -19084,6 +19084,11 @@ ${project.description || ""}
   app.use("/api/auto-documentation", autoDocumentationRoutes);
   console.log("Auto Documentation routes registered | تم تسجيل مسارات التوثيق التلقائي");
 
+  // ==================== GOVERNANCE CORE ENGINE - نواة الحوكمة واتخاذ القرار ====================
+  const governanceCoreRoutes = (await import("./routes/governance-core-routes")).default;
+  app.use("/api/governance", governanceCoreRoutes);
+  console.log("Governance Core routes registered | تم تسجيل مسارات نواة الحوكمة");
+
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
   // Helper: Generate verification token

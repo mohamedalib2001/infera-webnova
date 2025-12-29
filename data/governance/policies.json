@@ -1,0 +1,201 @@
+[
+  {
+    "id": "policy-root-owner-full-access",
+    "name": "Root Owner Full Access",
+    "nameAr": "وصول كامل للمالك الرئيسي",
+    "description": "Root owner has unrestricted access to all resources",
+    "descriptionAr": "المالك الرئيسي لديه وصول غير مقيد لجميع الموارد",
+    "sector": "all",
+    "targetRoles": [
+      "root_owner"
+    ],
+    "actions": [
+      "build",
+      "deploy",
+      "modify",
+      "delete",
+      "access",
+      "configure",
+      "export",
+      "import"
+    ],
+    "effect": "allow",
+    "conditions": [],
+    "priority": 1000,
+    "enabled": true,
+    "createdAt": "2025-12-29T22:16:26.244Z",
+    "updatedAt": "2025-12-29T22:16:26.244Z"
+  },
+  {
+    "id": "policy-financial-strict",
+    "name": "Financial Sector Strict Controls",
+    "nameAr": "ضوابط صارمة للقطاع المالي",
+    "description": "Financial sector requires approval for critical operations",
+    "descriptionAr": "القطاع المالي يتطلب موافقة للعمليات الحساسة",
+    "sector": "financial",
+    "targetRoles": [
+      "developer",
+      "operator"
+    ],
+    "actions": [
+      "deploy",
+      "delete",
+      "configure"
+    ],
+    "effect": "require_approval",
+    "conditions": [],
+    "priority": 900,
+    "enabled": true,
+    "createdAt": "2025-12-29T22:16:26.244Z",
+    "updatedAt": "2025-12-29T22:16:26.244Z"
+  },
+  {
+    "id": "policy-healthcare-hipaa",
+    "name": "Healthcare HIPAA Compliance",
+    "nameAr": "امتثال HIPAA للرعاية الصحية",
+    "description": "Healthcare sector enforces HIPAA data protection",
+    "descriptionAr": "قطاع الرعاية الصحية يفرض حماية بيانات HIPAA",
+    "sector": "healthcare",
+    "targetRoles": [
+      "developer",
+      "operator",
+      "user"
+    ],
+    "actions": [
+      "export",
+      "access"
+    ],
+    "effect": "restrict",
+    "conditions": [],
+    "restrictions": [
+      "audit_required",
+      "encryption_mandatory",
+      "access_logging"
+    ],
+    "priority": 950,
+    "enabled": true,
+    "createdAt": "2025-12-29T22:16:26.244Z",
+    "updatedAt": "2025-12-29T22:16:26.244Z"
+  },
+  {
+    "id": "policy-government-security",
+    "name": "Government Security Protocol",
+    "nameAr": "بروتوكول أمن حكومي",
+    "description": "Government sector requires enhanced security measures",
+    "descriptionAr": "القطاع الحكومي يتطلب إجراءات أمنية معززة",
+    "sector": "government",
+    "targetRoles": [
+      "developer",
+      "operator"
+    ],
+    "actions": [
+      "build",
+      "deploy",
+      "modify"
+    ],
+    "effect": "require_approval",
+    "conditions": [],
+    "requiredApprovals": [
+      "security_officer",
+      "owner"
+    ],
+    "priority": 980,
+    "enabled": true,
+    "createdAt": "2025-12-29T22:16:26.244Z",
+    "updatedAt": "2025-12-29T22:16:26.244Z"
+  },
+  {
+    "id": "policy-user-readonly",
+    "name": "End User Read-Only",
+    "nameAr": "المستخدم النهائي للقراءة فقط",
+    "description": "End users can only access and view resources",
+    "descriptionAr": "المستخدمون النهائيون يمكنهم فقط الوصول والعرض",
+    "sector": "all",
+    "targetRoles": [
+      "user"
+    ],
+    "actions": [
+      "build",
+      "deploy",
+      "modify",
+      "delete",
+      "configure"
+    ],
+    "effect": "deny",
+    "conditions": [],
+    "priority": 100,
+    "enabled": true,
+    "createdAt": "2025-12-29T22:16:26.244Z",
+    "updatedAt": "2025-12-29T22:16:26.244Z"
+  },
+  {
+    "id": "policy-guest-restricted",
+    "name": "Guest Restricted Access",
+    "nameAr": "وصول محدود للضيوف",
+    "description": "Guests have minimal access rights",
+    "descriptionAr": "الضيوف لديهم حقوق وصول محدودة",
+    "sector": "all",
+    "targetRoles": [
+      "guest"
+    ],
+    "actions": [
+      "build",
+      "deploy",
+      "modify",
+      "delete",
+      "configure",
+      "export",
+      "import"
+    ],
+    "effect": "deny",
+    "conditions": [],
+    "priority": 50,
+    "enabled": true,
+    "createdAt": "2025-12-29T22:16:26.244Z",
+    "updatedAt": "2025-12-29T22:16:26.244Z"
+  },
+  {
+    "id": "policy-developer-build",
+    "name": "Developer Build Access",
+    "nameAr": "صلاحية بناء المطور",
+    "description": "Developers can build and modify within their scope",
+    "descriptionAr": "المطورون يمكنهم البناء والتعديل ضمن نطاقهم",
+    "sector": "all",
+    "targetRoles": [
+      "developer"
+    ],
+    "actions": [
+      "build",
+      "modify",
+      "access"
+    ],
+    "effect": "allow",
+    "conditions": [],
+    "priority": 500,
+    "enabled": true,
+    "createdAt": "2025-12-29T22:16:26.244Z",
+    "updatedAt": "2025-12-29T22:16:26.244Z"
+  },
+  {
+    "id": "policy-operator-deploy",
+    "name": "Operator Deploy Access",
+    "nameAr": "صلاحية نشر المشغل",
+    "description": "Operators can deploy and configure systems",
+    "descriptionAr": "المشغلون يمكنهم نشر وتهيئة الأنظمة",
+    "sector": "all",
+    "targetRoles": [
+      "operator"
+    ],
+    "actions": [
+      "deploy",
+      "configure",
+      "access"
+    ],
+    "effect": "allow",
+    "conditions": [],
+    "priority": 600,
+    "enabled": true,
+    "createdAt": "2025-12-29T22:16:26.244Z",
+    "updatedAt": "2025-12-29T22:16:26.244Z"
+  }
+]
