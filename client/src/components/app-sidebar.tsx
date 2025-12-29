@@ -628,6 +628,14 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                       <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={location === "/technical-docs"}>
+                          <Link href="/technical-docs" data-testid="nav-technical-docs">
+                            <FileText className="h-4 w-4 text-indigo-500" />
+                            <span>{language === "ar" ? "التوثيق التقني" : "Technical Docs"}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
                         <SidebarMenuButton asChild isActive={location === "/owner/infrastructure"}>
                           <Link href="/owner/infrastructure" data-testid="nav-owner-infrastructure">
                             <Server className="h-4 w-4 text-blue-500" />
