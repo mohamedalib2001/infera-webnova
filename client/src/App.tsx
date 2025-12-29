@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/lib/theme";
 import { WorkspaceProvider } from "@/lib/workspace-context";
+import { PlatformMetricsProvider } from "@/lib/platform-metrics-context";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LanguageToggle } from "@/components/language-toggle";
 import { LanguageProvider, useLanguage } from "@/hooks/use-language";
@@ -69,6 +70,8 @@ const InspectorToggle = lazy(() => import("@/components/owner-inspector").then(m
 const SovereignViewProvider = lazy(() => import("@/components/sovereign-view").then(m => ({ default: m.SovereignViewProvider })));
 const SovereignViewToggle = lazy(() => import("@/components/sovereign-view").then(m => ({ default: m.SovereignViewToggle })));
 const SovereignAccessSummary = lazy(() => import("@/components/sovereign-view").then(m => ({ default: m.SovereignAccessSummary })));
+const PlatformStatusIndicators = lazy(() => import("@/components/platform-status-indicators").then(m => ({ default: m.PlatformStatusIndicators })));
+const SovereignAssistant = lazy(() => import("@/components/sovereign-assistant").then(m => ({ default: m.SovereignAssistant })));
 
 function RedirectToAuth() {
   const [, setLocation] = useLocation();
@@ -198,9 +201,17 @@ function NotificationBell() {
   );
 }
 
+const OWNER_EMAIL = "mohamed.ali.b2001@gmail.com";
+
+function useIsOwner() {
+  const { user } = useAuth();
+  return user?.email === OWNER_EMAIL;
+}
+
 function DeferredComponents() {
   const { isAuthenticated } = useAuth();
   const { isRtl } = useLanguage();
+  const isOwner = useIsOwner();
   
   if (!isAuthenticated) return null;
   
@@ -209,6 +220,7 @@ function DeferredComponents() {
       <SovereignAccessSummaryWrapper />
       <NovaFloatingButton />
       <PerformanceTracker />
+      {isOwner && <SovereignAssistant />}
     </Suspense>
   );
 }
@@ -216,10 +228,12 @@ function DeferredComponents() {
 function HeaderControls() {
   const { isAuthenticated } = useAuth();
   const { isRtl } = useLanguage();
+  const isOwner = useIsOwner();
   
   return (
     <>
       <Suspense fallback={null}>
+        {isAuthenticated && isOwner && <PlatformStatusIndicators />}
         {isAuthenticated && (
           <>
             <AIProviderTopbar />
@@ -339,7 +353,9 @@ function App() {
       <ThemeProvider>
         <LanguageProvider>
           <TooltipProvider>
-            <AppContent />
+            <PlatformMetricsProvider>
+              <AppContent />
+            </PlatformMetricsProvider>
             <Toaster />
           </TooltipProvider>
         </LanguageProvider>
