@@ -21,6 +21,7 @@ import marketplaceRoutes from "./marketplace-routes";
 import sslRoutes from "./ssl-routes";
 import novaAICoreRoutes from "./routes/nova-ai-core-routes";
 import smartCodeGeneratorRoutes from "./routes/smart-code-generator-routes";
+import descriptiveArchitectureRoutes from "./routes/descriptive-architecture-routes";
 import sshVaultRoutes from "./ssh-vault-routes";
 import githubRoutes from "./github-routes";
 import integrationRoutes from "./integration-routes";
@@ -19038,6 +19039,10 @@ ${project.description || ""}
   // ==================== SMART CODE GENERATOR - مولد الكود الذكي ====================
   app.use("/api/code-generator", smartCodeGeneratorRoutes);
   console.log("Smart Code Generator routes registered | تم تسجيل مسارات مولد الكود الذكي");
+
+  // ==================== DESCRIPTIVE ARCHITECTURE - منصة الوصف البنائي ====================
+  app.use("/api/architecture", descriptiveArchitectureRoutes);
+  console.log("Descriptive Architecture routes registered | تم تسجيل مسارات منصة الوصف البنائي");
 
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 

@@ -1,12 +1,44 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { smartCodeGenerator } from "../lib/smart-code-generator";
 import { randomUUID } from "crypto";
+import { storage } from "../storage";
 
 const router = Router();
 
+const ROOT_OWNER_EMAIL = "mohamed.ali.b2001@gmail.com";
 const requestCounts = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT = 20;
 const RATE_WINDOW_MS = 60000;
+
+const ownerOnlyMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+  const session = req.session as any;
+  const userId = session?.userId;
+  
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      error: "يجب تسجيل الدخول / Authentication required"
+    });
+  }
+
+  try {
+    const user = await storage.getUser(userId);
+    if (!user || user.email !== ROOT_OWNER_EMAIL) {
+      console.log(`[Smart Code Generator] Access denied for user: ${user?.email || userId}`);
+      return res.status(403).json({
+        success: false,
+        error: "صلاحيات المالك مطلوبة / Owner access required"
+      });
+    }
+    next();
+  } catch (error) {
+    console.error("[Smart Code Generator] Owner validation error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "فشل التحقق من الصلاحيات / Permission validation failed"
+    });
+  }
+};
 
 const rateLimitMiddleware = (req: Request, res: Response, next: NextFunction) => {
   const session = req.session as any;
@@ -47,6 +79,7 @@ const logRequest = (endpoint: string, traceId: string, userId?: string) => {
 };
 
 router.use(authMiddleware);
+router.use(ownerOnlyMiddleware);
 router.use(rateLimitMiddleware);
 
 router.post("/generate-backend", async (req: Request, res: Response) => {

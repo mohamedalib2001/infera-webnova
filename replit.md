@@ -63,3 +63,32 @@ The system is centered around a Blueprint System (Single Source of Truth), an AI
 *   **IaC**: Terraform, Ansible
 *   **AI Integration**: OpenAI, Google AI
 *   **Storage**: GCS, S3, Azure Blob
+## Descriptive Architecture Platform (منصة الوصف البنائي)
+
+### Overview
+A wizard-based platform for describing system architecture using natural language, with AI-powered analysis and code generation.
+
+### API Endpoints
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/architecture/process-overview` | POST | Analyze project overview from natural language |
+| `/api/architecture/process-data-model` | POST | Design data model from requirements |
+| `/api/architecture/process-permissions` | POST | Design permission system from requirements |
+| `/api/architecture/process-operations` | POST | Design workflows and APIs from requirements |
+| `/api/architecture/import-document` | POST | Parse and extract requirements from text documents |
+| `/api/architecture/generate-code` | POST | Generate full-stack code from architecture spec |
+| `/api/architecture/wizard-config` | GET | Get wizard configuration (steps, sectors) |
+
+### Wizard Steps
+1. **Overview (الوصف العام)**: Describe the project in natural language
+2. **Data Model (نمذجة البيانات)**: Define entities and relationships
+3. **Permissions (الصلاحيات)**: Define roles and access control
+4. **Operations (العمليات)**: Define workflows and APIs
+
+### Document Import
+Supports importing requirements from `.txt`, `.md`, and `.doc` files. The system automatically categorizes content into appropriate wizard steps.
+
+### Security
+- Session-based authentication required
+- Rate limiting: 15 requests/minute
+- All outputs include security recommendations and warnings
