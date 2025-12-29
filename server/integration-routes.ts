@@ -29,6 +29,7 @@ router.get('/:providerKey', async (req: Request, res: Response) => {
     }
 
     let values: Record<string, string> = {};
+    let maskedFields: string[] = [];
     if (setting.encryptedValues) {
       try {
         const decrypted = decryptCredential(setting.encryptedValues);
@@ -38,6 +39,7 @@ router.get('/:providerKey', async (req: Request, res: Response) => {
               key.toLowerCase().includes('secret') || 
               key.toLowerCase().includes('password') ||
               key.toLowerCase().includes('token')) {
+            maskedFields.push(key);
             values[key] = '••••••••';
           }
         });
@@ -50,6 +52,7 @@ router.get('/:providerKey', async (req: Request, res: Response) => {
       success: true,
       data: {
         values,
+        maskedFields,
         isEnabled: setting.isEnabled,
         hasValues: !!setting.encryptedValues,
         lastTestedAt: setting.lastTestedAt,
@@ -70,10 +73,8 @@ router.post('/:providerKey', async (req: Request, res: Response) => {
     const { values, isEnabled, category } = req.body;
     const userId = (req as any).user?.id || 'system';
 
-    const encryptedValues = values && Object.keys(values).length > 0
-      ? encryptCredential(JSON.stringify(values))
-      : null;
-
+    const MASK_PLACEHOLDER = '••••••••';
+    
     const [existing] = await db
       .select()
       .from(integrationSettings)
@@ -82,6 +83,25 @@ router.post('/:providerKey', async (req: Request, res: Response) => {
         eq(integrationSettings.providerKey, providerKey)
       ))
       .limit(1);
+
+    let finalValues = values ? { ...values } : {};
+    
+    if (existing?.encryptedValues && values) {
+      try {
+        const existingDecrypted = JSON.parse(decryptCredential(existing.encryptedValues));
+        Object.keys(finalValues).forEach(key => {
+          if (finalValues[key] === MASK_PLACEHOLDER && existingDecrypted[key]) {
+            finalValues[key] = existingDecrypted[key];
+          }
+        });
+      } catch (e) {
+        console.error('[Integration] Failed to merge with existing values:', e);
+      }
+    }
+
+    const encryptedValues = finalValues && Object.keys(finalValues).length > 0
+      ? encryptCredential(JSON.stringify(finalValues))
+      : null;
 
     if (existing) {
       await db
