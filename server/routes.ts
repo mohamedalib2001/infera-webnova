@@ -19110,6 +19110,11 @@ ${project.description || ""}
   const sensitiveDataRoutes = (await import("./routes/sensitive-data-routes")).default;
   app.use("/api/sensitive-data", sensitiveDataRoutes);
   console.log("Sensitive Data routes registered | تم تسجيل مسارات البيانات الحساسة");
+
+  // ============ Sovereign Legal Compliance API - محرك التوافق القانوني السيادي ============
+  const sovereignComplianceRoutes = (await import("./routes/sovereign-compliance-routes")).default;
+  app.use("/api/sovereign-compliance", sovereignComplianceRoutes);
+  console.log("Sovereign Compliance routes registered | تم تسجيل مسارات التوافق السيادي");
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
   // Helper: Generate verification token
