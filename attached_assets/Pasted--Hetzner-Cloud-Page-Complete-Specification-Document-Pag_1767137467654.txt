@@ -1,0 +1,118 @@
+# Hetzner Cloud Page - Complete Specification Document
+
+## Page Name: Hetzner Cloud
+## Access: Owner Only (معزولة عن المستخدمين)
+
+---
+
+## 6 TABS
+
+### Tab 1: Configuration (التكوين)
+- Input: API Key (password + show/hide)
+- Button: Save Configuration
+- Button: Test Connection
+- Account Info display
+- Select: Default Location
+- Select: Default Server Type
+- Switch: Auto Scaling
+- Input: Max Servers
+- Input: Budget Limit EUR
+
+### Tab 2: Servers (الخوادم)
+- Button: Sync Servers
+- Button: Create Server (dialog)
+- Server Cards with: Name, Type, Status, IPs, Location, vCPUs, Memory, Disk, Price
+- Actions: Power On/Off, Reboot, Upgrade, Delete (4-step confirmation)
+
+### Tab 3: Deploy (النشر)
+**Settings Form (9 fields):**
+1. serverHost (91.96.168.125)
+2. sshPort (22)
+3. sshUser (root)
+4. repoPath (GitHub URL)
+5. deployPath (/var/www/app)
+6. privateKey (SSH key)
+7. postDeployCommand
+8. restartService (switch)
+9. serviceName
+
+**12 Action Buttons:**
+1. Quick Deploy - POST /api/hetzner/quick-deploy
+2. Direct Deploy - POST /api/hetzner/direct-deploy
+3. Git Deploy - POST /api/hetzner/deploy
+4. Setup Server - POST /api/hetzner/setup-server
+5. Run Migrations - POST /api/hetzner/run-migrations
+6. Sync Env - POST /api/hetzner/sync-env
+7. Reset MFA - POST /api/hetzner/reset-mfa
+8. Restart App - POST /api/hetzner/restart-app
+9. Health Check - GET /api/hetzner/health-check
+10. Backup DB - POST /api/hetzner/backup-db
+11. Clear Cache - POST /api/hetzner/clear-cache
+12. System Usage - GET /api/hetzner/system-usage
+
+**SSH Deploy Key Card + Deploy History**
+
+### Tab 4: Monitoring (المراقبة)
+- Budget Overview (progress bar, EUR/SAR)
+- Server Metrics (Disk, Memory, CPU)
+- Cost Breakdown Table
+
+### Tab 5: Server Types (أنواع الخوادم)
+- Grid cards: Name, vCPUs, Memory, Disk, Price
+
+### Tab 6: Actions (العمليات)
+- Actions list with status and progress
+
+---
+
+## API ENDPOINTS (40+)
+
+/api/hetzner-cloud/config
+/api/hetzner-cloud/servers
+/api/hetzner-cloud/server-types
+/api/hetzner-cloud/locations
+/api/hetzner-cloud/billing
+/api/hetzner/settings
+/api/hetzner/deploy
+/api/hetzner/direct-deploy
+/api/hetzner/quick-deploy
+/api/hetzner/setup-server
+/api/hetzner/run-migrations
+/api/hetzner/sync-env
+/api/hetzner/reset-mfa
+/api/hetzner/restart-app
+/api/hetzner/health-check
+/api/hetzner/backup-db
+/api/hetzner/clear-cache
+/api/hetzner/system-usage
+/api/hetzner/deploy-history
+/api/hetzner/deploy-key
+
+---
+
+## TypeScript Interfaces
+
+interface HetznerCloudServer {
+  id, name, serverType, location, status,
+  publicIpv4, publicIpv6, vcpus, memory, disk,
+  priceMonthly, createdAt
+}
+
+interface DeploySettings {
+  serverHost, sshPort, sshUser, deployPath,
+  repoPath, postDeployCommand, serviceName,
+  restartService, privateKey
+}
+
+---
+
+## Icons (lucide-react)
+Cloud, Server, Settings, Power, Trash2, Plus, RefreshCw,
+Rocket, Upload, Play, Database, Shield, RotateCw, Heart,
+Archive, Trash, BarChart3, Terminal, Key, Copy
+
+---
+
+## Bilingual Support
+const isRtl = language === "ar";
+const t = { title: isRtl ? "سحابة Hetzner" : "Hetzner Cloud" }

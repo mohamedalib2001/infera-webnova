@@ -43,6 +43,7 @@ const PlatformBuilder = lazy(() => import("@/pages/platform-builder"));
 const SmartPlatformBuilder = lazy(() => import("@/pages/smart-platform-builder"));
 const GitHubSync = lazy(() => import("@/pages/github-sync"));
 const IntegrationsSettings = lazy(() => import("@/pages/integrations-settings"));
+const HetznerCloud = lazy(() => import("@/pages/hetzner-cloud"));
 const TechnicalDocumentation = lazy(() => import("@/pages/technical-documentation"));
 const NovaPermissions = lazy(() => import("@/pages/nova-permissions"));
 import {
@@ -122,6 +123,7 @@ function AuthenticatedRouter() {
       <Route path="/ssh-vault" component={SshVault} />
       <Route path="/github-sync" component={GitHubSync} />
       <Route path="/integrations" component={IntegrationsSettings} />
+      <Route path="/hetzner-cloud" component={HetznerCloud} />
       <Route path="/technical-docs" component={TechnicalDocumentation} />
       <Route path="/user-builder" component={LazyUserBuilder} />
       <Route path="/settings" component={LazySettings} />
