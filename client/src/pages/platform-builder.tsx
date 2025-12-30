@@ -1581,16 +1581,48 @@ How can I help you? Describe the platform you want to build.`;
                       </p>
                     </div>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="gap-2 border-amber-500/50 text-amber-600 dark:text-amber-400"
-                    onClick={() => setActiveTab('code')}
-                    data-testid="button-go-to-code"
-                  >
-                    <FileCode className="w-4 h-4" />
-                    {t('View Real Code', 'عرض الكود الحقيقي')}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="gap-2 border-amber-500/50 text-amber-600 dark:text-amber-400"
+                      onClick={() => setActiveTab('code')}
+                      data-testid="button-go-to-code"
+                    >
+                      <FileCode className="w-4 h-4" />
+                      {t('View Real Code', 'عرض الكود الحقيقي')}
+                    </Button>
+                    {currentBuildId && (
+                      <Button 
+                        variant="default" 
+                        size="sm" 
+                        className="gap-2 bg-green-600 hover:bg-green-700"
+                        onClick={async () => {
+                          try {
+                            const response = await fetch(`/api/platforms/ai-build/${currentBuildId}/download`);
+                            if (response.ok) {
+                              const blob = await response.blob();
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `${platformSpec?.name || 'platform'}-complete.zip`;
+                              a.click();
+                              URL.revokeObjectURL(url);
+                              toast({ title: t('Platform downloaded!', 'تم تحميل المنصة!') });
+                            } else {
+                              toast({ title: t('Download failed', 'فشل التحميل'), variant: 'destructive' });
+                            }
+                          } catch (error) {
+                            toast({ title: t('Download failed', 'فشل التحميل'), variant: 'destructive' });
+                          }
+                        }}
+                        data-testid="button-download-from-preview"
+                      >
+                        <Download className="w-4 h-4" />
+                        {t('Download for Deployment', 'تحميل للنشر')}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )}
               <div className="flex-1 flex items-center justify-center">
@@ -2018,7 +2050,7 @@ How can I help you? Describe the platform you want to build.`;
                           className="gap-1 h-7"
                           onClick={async () => {
                             try {
-                              const response = await fetch(`/api/platforms/download/${currentBuildId}`);
+                              const response = await fetch(`/api/platforms/ai-build/${currentBuildId}/download`);
                               if (response.ok) {
                                 const blob = await response.blob();
                                 const url = URL.createObjectURL(blob);
