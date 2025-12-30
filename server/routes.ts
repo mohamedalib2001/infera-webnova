@@ -19145,6 +19145,11 @@ ${project.description || ""}
   const sovereignGitRoutes = (await import("./routes/sovereign-git-routes")).default;
   app.use("/api/git", sovereignGitRoutes);
   console.log("Sovereign Git routes registered | تم تسجيل مسارات Git السيادي");
+
+  // ============ Replit Import API - واجهة استيراد Replit ============
+  const replitImportRoutes = (await import("./routes/replit-import-routes")).default;
+  app.use("/api/replit", replitImportRoutes);
+  console.log("Replit Import routes registered | تم تسجيل مسارات استيراد Replit");
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
   // Helper: Generate verification token

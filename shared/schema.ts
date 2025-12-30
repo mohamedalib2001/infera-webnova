@@ -18830,3 +18830,28 @@ export const insertSovereignSyncLogSchema = createInsertSchema(sovereignSyncLog)
 });
 export type InsertSovereignSyncLog = z.infer<typeof insertSovereignSyncLogSchema>;
 export type SovereignSyncLog = typeof sovereignSyncLog.$inferSelect;
+
+// Replit Connections - اتصالات Replit
+export const replitConnections = pgTable("replit_connections", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull().unique(),
+  tenantId: text("tenant_id").notNull().default('default'),
+  replitUserId: text("replit_user_id").notNull(),
+  replitUsername: text("replit_username").notNull(),
+  accessToken: text("access_token").notNull(),
+  refreshToken: text("refresh_token"),
+  expiresAt: timestamp("expires_at"),
+  isActive: boolean("is_active").notNull().default(true),
+  connectedAt: timestamp("connected_at").defaultNow(),
+  lastUsedAt: timestamp("last_used_at"),
+}, (table) => [
+  index("idx_replit_conn_user").on(table.userId),
+  index("idx_replit_conn_replit_user").on(table.replitUserId),
+]);
+
+export const insertReplitConnectionSchema = createInsertSchema(replitConnections).omit({
+  id: true,
+  connectedAt: true,
+});
+export type InsertReplitConnection = z.infer<typeof insertReplitConnectionSchema>;
+export type ReplitConnection = typeof replitConnections.$inferSelect;
