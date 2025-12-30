@@ -9,6 +9,7 @@ import { WorkspaceProvider } from "@/lib/workspace-context";
 import { PlatformMetricsProvider } from "@/lib/platform-metrics-context";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LanguageToggle } from "@/components/language-toggle";
+import { HolographicRefresh } from "@/components/holographic-refresh";
 import { LanguageProvider, useLanguage } from "@/hooks/use-language";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -246,6 +247,7 @@ function HeaderControls() {
           </>
         )}
       </Suspense>
+      <HolographicRefresh />
       <NotificationBell />
       <LanguageToggle />
       <ThemeToggle />
