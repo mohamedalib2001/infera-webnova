@@ -51,17 +51,97 @@ export interface ImportResult {
   success: boolean;
   repositoryId?: string;
   internalId?: string;
+  sovereignId?: string;        // Internal Project ID - معرف المشروع الداخلي
   filesImported: number;
   errors: string[];
   message: string;
   messageAr: string;
   breakdown?: {
-    sourceCode: number;      // ملفات الكود المصدري
-    configs: number;         // ملفات الإعداد
-    envTemplates: number;    // قوالب البيئة
-    buildScripts: number;    // ملفات البناء والتشغيل
-    assets: number;          // ملفات الأصول
+    sourceCode: number;
+    configs: number;
+    envTemplates: number;
+    buildScripts: number;
+    assets: number;
   };
+  analysis?: ProjectAnalysis;   // تحليل المشروع
+  sovereignty?: SovereigntyStatus; // حالة الاستقلال
+}
+
+// Project Analysis - تحليل المشروع
+export interface ProjectAnalysis {
+  // Language & Tech Stack - اللغة والتقنيات
+  languages: { name: string; percentage: number; files: number }[];
+  frameworks: string[];
+  technologies: string[];
+  
+  // Dependencies - الاعتماديات
+  dependencies: {
+    total: number;
+    production: DependencyInfo[];
+    development: DependencyInfo[];
+    outdated: number;
+    vulnerable: number;
+  };
+  
+  // Vulnerabilities & Cost - نقاط الضعف والتكلفة
+  security: {
+    score: number;           // 0-100
+    issues: SecurityIssue[];
+    replitSpecific: string[]; // Replit-specific code that needs changes
+  };
+  
+  // Portability - قابلية النقل
+  portability: {
+    score: number;           // 0-100
+    replitDependencies: string[];
+    requiredChanges: PortabilityChange[];
+    estimatedEffort: 'low' | 'medium' | 'high';
+  };
+  
+  // Cost Estimation - تقدير التكلفة
+  cost: {
+    computeEstimate: string;
+    storageEstimate: string;
+    monthlyEstimate: string;
+  };
+}
+
+export interface DependencyInfo {
+  name: string;
+  version: string;
+  latest?: string;
+  isOutdated: boolean;
+  hasVulnerability: boolean;
+  license?: string;
+}
+
+export interface SecurityIssue {
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  type: string;
+  description: string;
+  file?: string;
+  line?: number;
+  recommendation: string;
+}
+
+export interface PortabilityChange {
+  type: 'required' | 'recommended';
+  file: string;
+  description: string;
+  descriptionAr: string;
+  effort: 'trivial' | 'easy' | 'moderate' | 'complex';
+}
+
+// Sovereignty Status - حالة السيادة
+export interface SovereigntyStatus {
+  isDecoupled: boolean;          // هل تم فك الارتباط
+  originalSource: 'replit';       // المصدر الأصلي
+  sourceRole: 'initial-import';   // دور المصدر: استيراد أولي فقط
+  internalProjectId: string;      // معرف المشروع الداخلي
+  importedAt: string;
+  lastSyncAt?: string;
+  syncEnabled: boolean;
+  independenceLevel: 'full' | 'partial' | 'linked';
 }
 
 // File categories for comprehensive import
@@ -209,6 +289,429 @@ class ReplitImportService {
     };
   }
 
+  // ============ Project Analysis Engine | محرك تحليل المشروع ============
+
+  /**
+   * Analyze imported project comprehensively
+   * تحليل المشروع المستورد بشكل شامل
+   */
+  private analyzeProject(files: ReplFile[], repl: ReplInfo): ProjectAnalysis {
+    const analysis: ProjectAnalysis = {
+      languages: [],
+      frameworks: [],
+      technologies: [],
+      dependencies: {
+        total: 0,
+        production: [],
+        development: [],
+        outdated: 0,
+        vulnerable: 0
+      },
+      security: {
+        score: 100,
+        issues: [],
+        replitSpecific: []
+      },
+      portability: {
+        score: 100,
+        replitDependencies: [],
+        requiredChanges: [],
+        estimatedEffort: 'low'
+      },
+      cost: {
+        computeEstimate: '$0',
+        storageEstimate: '$0',
+        monthlyEstimate: '$0'
+      }
+    };
+
+    // 1. Analyze languages and technologies
+    const langStats = this.analyzeLanguages(files);
+    analysis.languages = langStats.languages;
+    analysis.frameworks = langStats.frameworks;
+    analysis.technologies = langStats.technologies;
+
+    // 2. Analyze dependencies
+    analysis.dependencies = this.analyzeDependencies(files);
+
+    // 3. Security analysis
+    analysis.security = this.analyzeSecurityIssues(files);
+
+    // 4. Portability analysis
+    analysis.portability = this.analyzePortability(files, repl);
+
+    // 5. Cost estimation
+    analysis.cost = this.estimateCost(files, analysis);
+
+    return analysis;
+  }
+
+  /**
+   * Analyze languages and technologies
+   */
+  private analyzeLanguages(files: ReplFile[]): {
+    languages: { name: string; percentage: number; files: number }[];
+    frameworks: string[];
+    technologies: string[];
+  } {
+    const langMap: Record<string, number> = {};
+    const frameworks = new Set<string>();
+    const technologies = new Set<string>();
+    
+    const langExtensions: Record<string, string> = {
+      '.js': 'JavaScript', '.jsx': 'JavaScript', '.mjs': 'JavaScript',
+      '.ts': 'TypeScript', '.tsx': 'TypeScript',
+      '.py': 'Python', '.pyw': 'Python',
+      '.go': 'Go', '.rs': 'Rust', '.rb': 'Ruby',
+      '.java': 'Java', '.kt': 'Kotlin', '.scala': 'Scala',
+      '.php': 'PHP', '.cs': 'C#', '.cpp': 'C++', '.c': 'C',
+      '.swift': 'Swift', '.dart': 'Dart',
+      '.html': 'HTML', '.css': 'CSS', '.scss': 'SCSS', '.less': 'LESS',
+      '.sql': 'SQL', '.graphql': 'GraphQL',
+      '.sh': 'Shell', '.bash': 'Shell', '.zsh': 'Shell',
+      '.yaml': 'YAML', '.yml': 'YAML', '.json': 'JSON', '.xml': 'XML',
+      '.md': 'Markdown', '.mdx': 'MDX'
+    };
+
+    for (const file of files) {
+      if (file.type !== 'file') continue;
+      
+      const ext = '.' + (file.path.split('.').pop() || '').toLowerCase();
+      const lang = langExtensions[ext];
+      if (lang) {
+        langMap[lang] = (langMap[lang] || 0) + 1;
+      }
+
+      // Detect frameworks from file content and names
+      const content = file.content?.toLowerCase() || '';
+      const path = file.path.toLowerCase();
+      
+      // JavaScript/TypeScript frameworks
+      if (content.includes('react') || path.includes('react')) frameworks.add('React');
+      if (content.includes('next') || path.includes('next.config')) frameworks.add('Next.js');
+      if (content.includes('vue') || path.includes('vue')) frameworks.add('Vue.js');
+      if (content.includes('angular') || path.includes('angular')) frameworks.add('Angular');
+      if (content.includes('svelte') || path.includes('svelte')) frameworks.add('Svelte');
+      if (content.includes('express') || content.includes('app.listen')) frameworks.add('Express.js');
+      if (content.includes('fastify')) frameworks.add('Fastify');
+      if (content.includes('hono')) frameworks.add('Hono');
+      
+      // Python frameworks
+      if (content.includes('django')) frameworks.add('Django');
+      if (content.includes('flask')) frameworks.add('Flask');
+      if (content.includes('fastapi')) frameworks.add('FastAPI');
+      
+      // Technologies
+      if (content.includes('postgresql') || content.includes('pg')) technologies.add('PostgreSQL');
+      if (content.includes('mongodb') || content.includes('mongoose')) technologies.add('MongoDB');
+      if (content.includes('redis')) technologies.add('Redis');
+      if (content.includes('docker')) technologies.add('Docker');
+      if (content.includes('tailwind')) technologies.add('Tailwind CSS');
+      if (content.includes('prisma')) technologies.add('Prisma');
+      if (content.includes('drizzle')) technologies.add('Drizzle ORM');
+      if (content.includes('stripe')) technologies.add('Stripe');
+      if (content.includes('openai')) technologies.add('OpenAI');
+      if (content.includes('websocket') || content.includes('socket.io')) technologies.add('WebSocket');
+    }
+
+    const totalFiles = Object.values(langMap).reduce((a, b) => a + b, 0);
+    const languages = Object.entries(langMap)
+      .map(([name, files]) => ({
+        name,
+        files,
+        percentage: Math.round((files / totalFiles) * 100) || 0
+      }))
+      .sort((a, b) => b.files - a.files);
+
+    return {
+      languages,
+      frameworks: Array.from(frameworks),
+      technologies: Array.from(technologies)
+    };
+  }
+
+  /**
+   * Analyze dependencies from package files
+   */
+  private analyzeDependencies(files: ReplFile[]): ProjectAnalysis['dependencies'] {
+    const result: ProjectAnalysis['dependencies'] = {
+      total: 0,
+      production: [],
+      development: [],
+      outdated: 0,
+      vulnerable: 0
+    };
+
+    // Find package.json
+    const packageJson = files.find(f => f.path === 'package.json' || f.path.endsWith('/package.json'));
+    if (packageJson?.content) {
+      try {
+        const pkg = JSON.parse(packageJson.content);
+        
+        // Production dependencies
+        if (pkg.dependencies) {
+          for (const [name, version] of Object.entries(pkg.dependencies)) {
+            result.production.push({
+              name,
+              version: String(version),
+              isOutdated: false, // Would need npm registry check
+              hasVulnerability: this.checkKnownVulnerability(name, String(version))
+            });
+          }
+        }
+        
+        // Dev dependencies
+        if (pkg.devDependencies) {
+          for (const [name, version] of Object.entries(pkg.devDependencies)) {
+            result.development.push({
+              name,
+              version: String(version),
+              isOutdated: false,
+              hasVulnerability: this.checkKnownVulnerability(name, String(version))
+            });
+          }
+        }
+        
+        result.total = result.production.length + result.development.length;
+        result.vulnerable = [...result.production, ...result.development].filter(d => d.hasVulnerability).length;
+      } catch (e) {
+        console.error('[ReplitImport] Failed to parse package.json');
+      }
+    }
+
+    // Find requirements.txt for Python
+    const requirements = files.find(f => f.path === 'requirements.txt');
+    if (requirements?.content) {
+      const lines = requirements.content.split('\n').filter(l => l.trim() && !l.startsWith('#'));
+      for (const line of lines) {
+        const match = line.match(/^([a-zA-Z0-9_-]+)([=<>]+)?(.+)?$/);
+        if (match) {
+          result.production.push({
+            name: match[1],
+            version: match[3] || 'latest',
+            isOutdated: false,
+            hasVulnerability: false
+          });
+        }
+      }
+      result.total = result.production.length;
+    }
+
+    return result;
+  }
+
+  /**
+   * Check for known vulnerabilities (simplified)
+   */
+  private checkKnownVulnerability(name: string, version: string): boolean {
+    // Known vulnerable packages (simplified list)
+    const vulnerablePackages: Record<string, string[]> = {
+      'lodash': ['<4.17.21'],
+      'axios': ['<0.21.1'],
+      'node-fetch': ['<2.6.7'],
+      'minimist': ['<1.2.6'],
+      'glob-parent': ['<5.1.2']
+    };
+    
+    return vulnerablePackages[name]?.some(v => {
+      // Simplified version check
+      return version.includes(v.replace('<', '').split('.')[0]);
+    }) || false;
+  }
+
+  /**
+   * Analyze security issues
+   */
+  private analyzeSecurityIssues(files: ReplFile[]): ProjectAnalysis['security'] {
+    const result: ProjectAnalysis['security'] = {
+      score: 100,
+      issues: [],
+      replitSpecific: []
+    };
+
+    for (const file of files) {
+      if (file.type !== 'file' || !file.content) continue;
+      const content = file.content;
+      const path = file.path;
+
+      // Check for hardcoded secrets
+      if (/['"]sk_live_[a-zA-Z0-9]+['"]/.test(content)) {
+        result.issues.push({
+          severity: 'critical',
+          type: 'hardcoded-secret',
+          description: 'Hardcoded Stripe live key detected',
+          file: path,
+          recommendation: 'Move to environment variables'
+        });
+        result.score -= 25;
+      }
+
+      if (/['"][a-zA-Z0-9]{32,}['"]/.test(content) && /api.?key|secret|token/i.test(content)) {
+        result.issues.push({
+          severity: 'high',
+          type: 'potential-secret',
+          description: 'Potential API key or secret in code',
+          file: path,
+          recommendation: 'Review and move sensitive data to environment variables'
+        });
+        result.score -= 10;
+      }
+
+      // Check for SQL injection risks
+      if (/\$\{.*\}.*(?:SELECT|INSERT|UPDATE|DELETE)/i.test(content)) {
+        result.issues.push({
+          severity: 'high',
+          type: 'sql-injection',
+          description: 'Potential SQL injection vulnerability',
+          file: path,
+          recommendation: 'Use parameterized queries'
+        });
+        result.score -= 15;
+      }
+
+      // Check for Replit-specific code
+      if (content.includes('process.env.REPL_') || content.includes('REPLIT_')) {
+        result.replitSpecific.push(`${path}: Uses Replit environment variables`);
+      }
+      if (content.includes('replit.com') || content.includes('@replit/')) {
+        result.replitSpecific.push(`${path}: References Replit services`);
+      }
+    }
+
+    result.score = Math.max(0, result.score);
+    return result;
+  }
+
+  /**
+   * Analyze portability outside Replit
+   */
+  private analyzePortability(files: ReplFile[], repl: ReplInfo): ProjectAnalysis['portability'] {
+    const result: ProjectAnalysis['portability'] = {
+      score: 100,
+      replitDependencies: [],
+      requiredChanges: [],
+      estimatedEffort: 'low'
+    };
+
+    let changesNeeded = 0;
+
+    for (const file of files) {
+      if (file.type !== 'file' || !file.content) continue;
+      const content = file.content;
+      const path = file.path;
+
+      // Check for .replit file
+      if (path === '.replit') {
+        result.requiredChanges.push({
+          type: 'recommended',
+          file: path,
+          description: 'Convert .replit run configuration to standard scripts',
+          descriptionAr: 'تحويل إعدادات التشغيل من .replit إلى سكربتات قياسية',
+          effort: 'easy'
+        });
+        changesNeeded++;
+      }
+
+      // Check for replit.nix
+      if (path === 'replit.nix') {
+        result.requiredChanges.push({
+          type: 'recommended',
+          file: path,
+          description: 'Convert Nix dependencies to Dockerfile or standard package manager',
+          descriptionAr: 'تحويل اعتماديات Nix إلى Dockerfile أو مدير حزم قياسي',
+          effort: 'moderate'
+        });
+        changesNeeded++;
+      }
+
+      // Check for Replit-specific imports
+      if (content.includes('@replit/')) {
+        result.replitDependencies.push(path);
+        result.requiredChanges.push({
+          type: 'required',
+          file: path,
+          description: 'Replace @replit/* packages with alternatives',
+          descriptionAr: 'استبدال حزم @replit/* ببدائل',
+          effort: 'moderate'
+        });
+        changesNeeded++;
+        result.score -= 15;
+      }
+
+      // Check for Replit DB usage
+      if (content.includes('replit/database') || content.includes('REPLIT_DB')) {
+        result.requiredChanges.push({
+          type: 'required',
+          file: path,
+          description: 'Migrate from Replit Database to PostgreSQL/Redis',
+          descriptionAr: 'ترحيل من قاعدة بيانات Replit إلى PostgreSQL/Redis',
+          effort: 'complex'
+        });
+        changesNeeded++;
+        result.score -= 20;
+      }
+
+      // Check for Replit Auth
+      if (content.includes('replit/auth') || content.includes('REPL_OWNER')) {
+        result.requiredChanges.push({
+          type: 'required',
+          file: path,
+          description: 'Replace Replit Auth with standard authentication',
+          descriptionAr: 'استبدال مصادقة Replit بمصادقة قياسية',
+          effort: 'complex'
+        });
+        changesNeeded++;
+        result.score -= 20;
+      }
+    }
+
+    result.score = Math.max(0, result.score);
+    result.estimatedEffort = changesNeeded > 5 ? 'high' : changesNeeded > 2 ? 'medium' : 'low';
+
+    return result;
+  }
+
+  /**
+   * Estimate hosting costs
+   */
+  private estimateCost(files: ReplFile[], analysis: ProjectAnalysis): ProjectAnalysis['cost'] {
+    let totalSize = 0;
+    for (const file of files) {
+      totalSize += file.size || 0;
+    }
+
+    const sizeMB = totalSize / (1024 * 1024);
+    const hasDatabase = analysis.technologies.some(t => 
+      ['PostgreSQL', 'MongoDB', 'Redis'].includes(t)
+    );
+
+    // Simplified cost estimation
+    let computeBase = 5; // Base $5/month for small compute
+    let storageBase = sizeMB > 100 ? 5 : 1;
+    let databaseCost = hasDatabase ? 15 : 0;
+
+    return {
+      computeEstimate: `$${computeBase}-$${computeBase * 4}/month`,
+      storageEstimate: `$${storageBase}/month`,
+      monthlyEstimate: `$${computeBase + storageBase + databaseCost}-$${(computeBase * 4) + storageBase + databaseCost}/month`
+    };
+  }
+
+  /**
+   * Generate unique sovereign project ID
+   * إنشاء معرف مشروع سيادي فريد
+   */
+  private generateSovereignId(repl: ReplInfo): string {
+    const timestamp = Date.now().toString(36);
+    const random = randomBytes(4).toString('hex');
+    const hash = createHash('sha256')
+      .update(`${repl.id}-${repl.slug}-${timestamp}`)
+      .digest('hex')
+      .substring(0, 8);
+    
+    return `INF-${hash.toUpperCase()}-${timestamp.toUpperCase()}-${random.toUpperCase()}`;
+  }
+
   /**
    * Generate import manifest documentation
    * إنشاء توثيق الاستيراد
@@ -287,6 +790,150 @@ ${repl.files?.filter(f => this.categorizeFile(f.path) === 'buildScripts').map(f 
 
 *This manifest was auto-generated by INFERA WebNova Replit Import System*
 *تم إنشاء هذا التوثيق تلقائياً بواسطة نظام استيراد Replit في INFERA WebNova*
+`;
+  }
+
+  /**
+   * Generate comprehensive analysis report
+   * إنشاء تقرير التحليل الشامل
+   */
+  private generateAnalysisReport(
+    repl: ReplInfo,
+    analysis: ProjectAnalysis,
+    sovereignty: SovereigntyStatus,
+    breakdown: { sourceCode: number; configs: number; envTemplates: number; buildScripts: number; assets: number }
+  ): string {
+    const now = new Date().toISOString();
+    
+    return `# Project Analysis Report | تقرير تحليل المشروع
+
+## Sovereign Identity | الهوية السيادية
+
+| Property | Value |
+|----------|-------|
+| **Sovereign ID** | \`${sovereignty.internalProjectId}\` |
+| **Independence Level** | ${sovereignty.independenceLevel === 'full' ? 'Full (كامل)' : sovereignty.independenceLevel} |
+| **Is Decoupled** | ${sovereignty.isDecoupled ? 'Yes - Replit is initial source only' : 'No'} |
+| **Original Source** | Replit (مصدر أولي فقط) |
+| **Source Role** | Initial Import Only (استيراد أولي فقط) |
+| **Import Date** | ${sovereignty.importedAt} |
+| **Sync Enabled** | ${sovereignty.syncEnabled ? 'Yes' : 'No (recommended)'} |
+
+> **Important**: This project is now **fully sovereign**. Replit is considered only as the initial source, not the primary source. All future development should happen in the internal repository.
+>
+> **هام**: هذا المشروع الآن **سيادي بالكامل**. Replit يعتبر فقط كمصدر أولي وليس المصدر الأساسي. جميع التطوير المستقبلي يجب أن يتم في المستودع الداخلي.
+
+---
+
+## Language & Technology Analysis | تحليل اللغات والتقنيات
+
+### Languages | اللغات
+${analysis.languages.length > 0 
+  ? analysis.languages.map(l => `| ${l.name} | ${l.percentage}% | ${l.files} files |`).join('\n') 
+  : '| No languages detected | - | - |'}
+
+### Frameworks | أطر العمل
+${analysis.frameworks.length > 0 ? analysis.frameworks.map(f => `- ${f}`).join('\n') : '- None detected'}
+
+### Technologies | التقنيات
+${analysis.technologies.length > 0 ? analysis.technologies.map(t => `- ${t}`).join('\n') : '- None detected'}
+
+---
+
+## Dependencies Analysis | تحليل الاعتماديات
+
+| Metric | Value |
+|--------|-------|
+| **Total Dependencies** | ${analysis.dependencies.total} |
+| **Production** | ${analysis.dependencies.production.length} |
+| **Development** | ${analysis.dependencies.development.length} |
+| **Vulnerable** | ${analysis.dependencies.vulnerable} ${analysis.dependencies.vulnerable > 0 ? '⚠️' : '✅'} |
+
+${analysis.dependencies.vulnerable > 0 ? `
+### Vulnerable Dependencies | الاعتماديات المعرضة للخطر
+${[...analysis.dependencies.production, ...analysis.dependencies.development]
+  .filter(d => d.hasVulnerability)
+  .map(d => `- \`${d.name}@${d.version}\` - Update recommended`)
+  .join('\n')}
+` : ''}
+
+---
+
+## Security Analysis | تحليل الأمان
+
+| Metric | Score |
+|--------|-------|
+| **Security Score** | ${analysis.security.score}/100 ${analysis.security.score >= 80 ? '✅' : analysis.security.score >= 50 ? '⚠️' : '❌'} |
+| **Issues Found** | ${analysis.security.issues.length} |
+| **Replit-Specific Code** | ${analysis.security.replitSpecific.length} items |
+
+${analysis.security.issues.length > 0 ? `
+### Security Issues | مشاكل الأمان
+| Severity | Type | File | Recommendation |
+|----------|------|------|----------------|
+${analysis.security.issues.map(i => `| ${i.severity.toUpperCase()} | ${i.type} | ${i.file || 'N/A'} | ${i.recommendation} |`).join('\n')}
+` : ''}
+
+${analysis.security.replitSpecific.length > 0 ? `
+### Replit-Specific Code | كود خاص بـ Replit
+${analysis.security.replitSpecific.map(s => `- ${s}`).join('\n')}
+` : ''}
+
+---
+
+## Portability Analysis | تحليل قابلية النقل
+
+| Metric | Value |
+|--------|-------|
+| **Portability Score** | ${analysis.portability.score}/100 ${analysis.portability.score >= 80 ? '✅' : analysis.portability.score >= 50 ? '⚠️' : '❌'} |
+| **Estimated Effort** | ${analysis.portability.estimatedEffort === 'low' ? 'Low (منخفض)' : analysis.portability.estimatedEffort === 'medium' ? 'Medium (متوسط)' : 'High (عالي)'} |
+| **Required Changes** | ${analysis.portability.requiredChanges.filter(c => c.type === 'required').length} |
+| **Recommended Changes** | ${analysis.portability.requiredChanges.filter(c => c.type === 'recommended').length} |
+
+${analysis.portability.requiredChanges.length > 0 ? `
+### Required Changes for Independence | التغييرات المطلوبة للاستقلال
+| Priority | File | Description | Effort |
+|----------|------|-------------|--------|
+${analysis.portability.requiredChanges.map(c => `| ${c.type === 'required' ? '🔴 Required' : '🟡 Recommended'} | ${c.file} | ${c.description} | ${c.effort} |`).join('\n')}
+` : ''}
+
+${analysis.portability.replitDependencies.length > 0 ? `
+### Replit Dependencies to Replace | اعتماديات Replit للاستبدال
+${analysis.portability.replitDependencies.map(d => `- ${d}`).join('\n')}
+` : ''}
+
+---
+
+## Cost Estimation | تقدير التكلفة
+
+| Category | Estimate |
+|----------|----------|
+| **Compute** | ${analysis.cost.computeEstimate} |
+| **Storage** | ${analysis.cost.storageEstimate} |
+| **Total Monthly** | ${analysis.cost.monthlyEstimate} |
+
+> Note: These are rough estimates based on project size and technologies. Actual costs may vary based on usage.
+
+---
+
+## Recommendations | التوصيات
+
+### Immediate Actions | إجراءات فورية
+1. ${analysis.security.score < 100 ? 'Address security issues in the report above' : 'No security issues found'}
+2. ${analysis.portability.requiredChanges.filter(c => c.type === 'required').length > 0 ? 'Complete required portability changes' : 'No required changes'}
+3. Configure environment variables from \`.env.template\`
+4. Test application locally before deployment
+
+### Long-term Actions | إجراءات طويلة المدى
+1. Set up CI/CD pipeline for automated testing
+2. Configure monitoring and alerting
+3. Implement backup strategy
+4. Consider containerization with Docker
+
+---
+
+*Generated by INFERA WebNova Analysis Engine*
+*Report Date: ${now}*
 `;
   }
 
@@ -838,17 +1485,39 @@ ${repl.files?.filter(f => this.categorizeFile(f.path) === 'buildScripts').map(f 
         });
       }
 
-      // 6. Create initial tag for import point
+      // 6. Generate Sovereign Project ID | إنشاء معرف المشروع السيادي
+      const sovereignId = this.generateSovereignId(repl);
+      console.log(`[ReplitImport] Generated Sovereign ID: ${sovereignId}`);
+
+      // 7. Analyze project | تحليل المشروع
+      const analysis = this.analyzeProject(repl.files || [], repl);
+      console.log(`[ReplitImport] Analysis: ${analysis.languages.length} languages, ${analysis.frameworks.length} frameworks, Security=${analysis.security.score}, Portability=${analysis.portability.score}`);
+
+      // 8. Create sovereignty status | إنشاء حالة السيادة
+      const sovereignty: SovereigntyStatus = {
+        isDecoupled: true,                    // مفصول عن Replit
+        originalSource: 'replit',             // المصدر الأصلي
+        sourceRole: 'initial-import',         // Replit مجرد مصدر أولي
+        internalProjectId: sovereignId,
+        importedAt: new Date().toISOString(),
+        syncEnabled: false,
+        independenceLevel: 'full'             // استقلال كامل
+      };
+
+      // 9. Create initial tag for import point
       const mainBranch = await sovereignGitEngine.getBranch(repo.id, 'main');
       if (mainBranch?.headCommitId) {
         await sovereignGitEngine.createTag({
           repositoryId: repo.id,
           name: 'v0.0.0-replit-import',
           message: `Initial import from Replit: ${repl.title}\n\n` +
+            `Sovereign ID: ${sovereignId}\n` +
             `Total files: ${filesImported}\n` +
             `Source code: ${breakdown.sourceCode}\n` +
             `Configs: ${breakdown.configs}\n` +
-            `Build scripts: ${breakdown.buildScripts}`,
+            `Build scripts: ${breakdown.buildScripts}\n\n` +
+            `Security Score: ${analysis.security.score}/100\n` +
+            `Portability Score: ${analysis.portability.score}/100`,
           targetSha: mainBranch.headCommitId,
           taggerId: userId,
           taggerName: 'Replit Import',
@@ -857,18 +1526,39 @@ ${repl.files?.filter(f => this.categorizeFile(f.path) === 'buildScripts').map(f 
         });
       }
 
+      // 10. Create ANALYSIS_REPORT.md | إنشاء تقرير التحليل
+      const analysisReport = this.generateAnalysisReport(repl, analysis, sovereignty, breakdown);
+      await sovereignGitEngine.createCommit({
+        repositoryId: repo.id,
+        branchName: 'main',
+        message: 'Add project analysis report',
+        description: `Automated analysis: Security ${analysis.security.score}/100, Portability ${analysis.portability.score}/100`,
+        authorId: userId,
+        authorName: 'INFERA Analysis Engine',
+        authorEmail: userEmail,
+        files: [{
+          path: 'ANALYSIS_REPORT.md',
+          content: analysisReport,
+          action: 'add'
+        }]
+      });
+
       console.log(`[ReplitImport] Successfully imported ${filesImported} files from "${repl.title}"`);
+      console.log(`[ReplitImport] Sovereign ID: ${sovereignId}`);
       console.log(`[ReplitImport] Breakdown: Code=${breakdown.sourceCode}, Configs=${breakdown.configs}, Env=${breakdown.envTemplates}, Build=${breakdown.buildScripts}, Assets=${breakdown.assets}`);
 
       return {
         success: true,
         repositoryId: repo.id,
         internalId: repo.internalId,
+        sovereignId,
         filesImported,
         errors,
         breakdown,
-        message: `Successfully imported "${repl.title}" with ${filesImported} files (${breakdown.sourceCode} source, ${breakdown.configs} configs, ${breakdown.buildScripts} build scripts)`,
-        messageAr: `تم استيراد "${repl.title}" بنجاح: ${filesImported} ملف (${breakdown.sourceCode} كود مصدري، ${breakdown.configs} إعدادات، ${breakdown.buildScripts} سكربتات بناء)`
+        analysis,
+        sovereignty,
+        message: `Successfully imported "${repl.title}" with ${filesImported} files. Sovereign ID: ${sovereignId}. Security: ${analysis.security.score}/100, Portability: ${analysis.portability.score}/100`,
+        messageAr: `تم استيراد "${repl.title}" بنجاح: ${filesImported} ملف. معرف السيادة: ${sovereignId}. الأمان: ${analysis.security.score}/100، قابلية النقل: ${analysis.portability.score}/100`
       };
 
     } catch (error: any) {
