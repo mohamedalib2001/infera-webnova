@@ -19157,6 +19157,11 @@ ${project.description || ""}
   app.use("/api/dev", internalDevRoutes);
   console.log("Internal Development routes registered | تم تسجيل مسارات التطوير الداخلي");
 
+  // ============ Version Control API - واجهة إدارة التغييرات ============
+  const versionControlRoutes = (await import("./routes/version-control-routes")).default;
+  app.use("/api/versions", versionControlRoutes);
+  console.log("Version Control routes registered | تم تسجيل مسارات إدارة التغييرات");
+
   // Helper: Generate verification token
   const generateVerificationToken = (): string => {
     return `infera-verify-${randomBytes(16).toString('hex')}`;
