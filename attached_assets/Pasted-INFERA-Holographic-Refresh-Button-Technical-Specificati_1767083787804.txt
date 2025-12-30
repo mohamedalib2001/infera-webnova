@@ -1,0 +1,250 @@
+INFERA Holographic Refresh Button - Technical Specification
+وثيقة تقنية شاملة لزر التحديث الهولوغرافي
+1. Overview | نظرة عامة
+This document provides complete technical specifications for implementing the Holographic Refresh Button across all INFERA platforms with identical design, performance, and positioning.
+
+2. Visual Design Specifications | مواصفات التصميم المرئي
+2.1 Button Dimensions | أبعاد الزر
+Width: 36px (h-9 in Tailwind)
+Height: 36px (w-9 in Tailwind)
+Border Radius: 6px (rounded-md)
+Icon Size: 16px (h-4 w-4)
+2.2 Color Palette | لوحة الألوان
+const HOLOGRAPHIC_COLORS = [
+  "#00D4FF", // Cyan - سماوي
+  "#7B2FFF", // Purple - بنفسجي
+  "#FF2F7B", // Pink - وردي
+  "#00FF88", // Green - أخضر
+  "#FFD700", // Gold - ذهبي
+  "#FF6B35", // Orange - برتقالي
+  "#00FFFF", // Aqua - مائي
+  "#FF00FF", // Magenta - أرجواني
+];
+2.3 Conic Gradient (Holographic Ring)
+background: conic-gradient(
+  from 0deg, 
+  #00D4FF, #7B2FFF, #FF2F7B, #00FF88, #FFD700, #00D4FF
+);
+3. Animation Specifications | مواصفات الحركات
+3.1 Particle Burst Animation | حركة انفجار الحبيبات
+@keyframes particleBurst {
+  0% {
+    transform: translate(-50%, -50%) translate(0, 0);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) translate(var(--end-x, 50px), var(--end-y, 50px));
+    opacity: 0;
+  }
+}
+Particle Properties:
+
+Count per burst: 16 particles
+Burst interval: 200ms
+Particle lifetime: 800ms
+Size range: 2px - 6px
+Distance range: 30px - 80px
+Distribution: 360° circular
+Trajectory Calculation:
+
+const angle = (Math.PI * 2 * i) / particleCount + Math.random() * 0.5;
+const distance = Math.random() * 50 + 30;
+const endX = Math.cos(angle) * distance;
+const endY = Math.sin(angle) * distance;
+3.2 Holographic Pulse Animation
+@keyframes holographic-pulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: blur(4px) hue-rotate(0deg);
+  }
+  50% {
+    transform: scale(1.15);
+    filter: blur(6px) hue-rotate(180deg);
+  }
+}
+3.3 Light Flash Animation
+@keyframes light-flash {
+  0%, 100% { opacity: 0; }
+  5%, 15%, 25%, 35%, 45%, 55%, 65%, 75%, 85%, 95% { opacity: 0.5; }
+  10%, 20%, 30%, 40%, 50%, 60%, 70%, 80%, 90% { opacity: 0.1; }
+}
+3.4 Holographic Glow Animation
+@keyframes holographic-glow {
+  0%   { box-shadow: 0 0 5px #00D4FF, 0 0 10px #7B2FFF, 0 0 15px #FF2F7B; }
+  33%  { box-shadow: 0 0 5px #7B2FFF, 0 0 10px #FF2F7B, 0 0 15px #00FF88; }
+  66%  { box-shadow: 0 0 5px #FF2F7B, 0 0 10px #00FF88, 0 0 15px #00D4FF; }
+  100% { box-shadow: 0 0 5px #00D4FF, 0 0 10px #7B2FFF, 0 0 15px #FF2F7B; }
+}
+4. Cache Clearing Logic | منطق مسح الكاش
+const clearAllCache = useCallback(async () => {
+  // 1. Clear React Query cache
+  queryClient.clear();
+  
+  // 2. Clear browser caches
+  if ('caches' in window) {
+    const cacheNames = await caches.keys();
+    await Promise.all(cacheNames.map(name => caches.delete(name)));
+  }
+  // 3. Clear localStorage (preserve auth/theme/language)
+  const keysToKeep = ['theme', 'language', 'sidebar_state'];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && !keysToKeep.includes(key) && !key.includes('auth')) {
+      localStorage.removeItem(key);
+    }
+  }
+  // 4. Clear sessionStorage (preserve auth)
+  for (let i = 0; i < sessionStorage.length; i++) {
+    const key = sessionStorage.key(i);
+    if (key && !key.includes('auth')) {
+      sessionStorage.removeItem(key);
+    }
+  }
+  // 5. Refetch all active queries
+  await queryClient.refetchQueries({ type: 'active' });
+}, []);
+5. Complete Component Code | كود المكون الكامل
+import { useState, useRef, useCallback } from "react";
+import { RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+interface Particle {
+  id: number;
+  color: string;
+  size: number;
+  endX: number;
+  endY: number;
+}
+export function HolographicRefresh() {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [particles, setParticles] = useState<Particle[]>([]);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const { toast } = useToast();
+  const particleIdRef = useRef(0);
+  const colors = [
+    "#00D4FF", "#7B2FFF", "#FF2F7B", "#00FF88",
+    "#FFD700", "#FF6B35", "#00FFFF", "#FF00FF",
+  ];
+  const createParticles = useCallback(() => {
+    const newParticles: Particle[] = [];
+    const particleCount = 16;
+    for (let i = 0; i < particleCount; i++) {
+      const angle = (Math.PI * 2 * i) / particleCount + Math.random() * 0.5;
+      const distance = Math.random() * 50 + 30;
+      newParticles.push({
+        id: particleIdRef.current++,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        size: Math.random() * 4 + 2,
+        endX: Math.cos(angle) * distance,
+        endY: Math.sin(angle) * distance,
+      });
+    }
+    setParticles(prev => [...prev, ...newParticles]);
+    setTimeout(() => {
+      setParticles(prev => prev.filter(p => !newParticles.some(np => np.id === p.id)));
+    }, 800);
+  }, []);
+  // ... clearAllCache function (see Section 4)
+  const handleRefresh = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    createParticles();
+    const burstInterval = setInterval(() => createParticles(), 200);
+    try {
+      await clearAllCache();
+      await new Promise(resolve => setTimeout(resolve, 800));
+      toast({ title: "Refresh Complete", description: "Cache cleared successfully" });
+    } finally {
+      clearInterval(burstInterval);
+      setIsRefreshing(false);
+    }
+  };
+  return (
+    <div className="relative">
+      {/* Particle container */}
+      <div className="absolute inset-0 pointer-events-none overflow-visible z-50">
+        {particles.map(particle => (
+          <div
+            key={particle.id}
+            className="absolute rounded-full"
+            style={{
+              width: particle.size,
+              height: particle.size,
+              backgroundColor: particle.color,
+              boxShadow: `0 0 ${particle.size * 2}px ${particle.color}`,
+              left: '50%',
+              top: '50%',
+              animation: 'particleBurst 0.8s ease-out forwards',
+              '--end-x': `${particle.endX}px`,
+              '--end-y': `${particle.endY}px`,
+            } as React.CSSProperties}
+          />
+        ))}
+      </div>
+      <Button
+        ref={buttonRef}
+        variant="ghost"
+        size="icon"
+        onClick={handleRefresh}
+        disabled={isRefreshing}
+        className={cn(
+          "relative overflow-visible",
+          "before:absolute before:inset-0 before:rounded-md",
+          "before:bg-gradient-to-r before:from-cyan-500/20 before:via-purple-500/20 before:to-pink-500/20",
+          "before:opacity-0 before:transition-opacity before:duration-300",
+          "hover:before:opacity-100",
+          isRefreshing && "before:opacity-100 before:animate-pulse"
+        )}
+      >
+        {/* Holographic glow ring */}
+        <div 
+          className={cn("absolute inset-0 rounded-md", isRefreshing && "animate-holographic-pulse")}
+          style={{
+            background: isRefreshing 
+              ? 'conic-gradient(from 0deg, #00D4FF, #7B2FFF, #FF2F7B, #00FF88, #FFD700, #00D4FF)'
+              : 'transparent',
+            opacity: isRefreshing ? 0.6 : 0,
+            filter: isRefreshing ? 'blur(4px)' : 'none',
+          }}
+        />
+        {/* Light flash */}
+        {isRefreshing && <div className="absolute inset-0 rounded-md animate-light-flash bg-white/30" />}
+        {/* Icon */}
+        <RefreshCw className={cn("h-4 w-4 relative z-10", isRefreshing && "animate-spin text-cyan-400")} />
+        {/* Pulsing rings */}
+        {isRefreshing && (
+          <>
+            <div className="absolute inset-[-4px] rounded-full border-2 border-cyan-400/50 animate-ping" />
+            <div className="absolute inset-[-8px] rounded-full border border-purple-400/30 animate-ping" style={{ animationDelay: '0.2s' }} />
+          </>
+        )}
+      </Button>
+    </div>
+  );
+}
+6. Header Integration | التكامل في الشريط العلوي
+<header className="flex items-center justify-between gap-2 p-2 border-b">
+  <SidebarTrigger />
+  
+  <div className="flex items-center gap-2">
+    <HolographicRefresh />  {/* ← الموقع المحدد */}
+    <IntrusionAlertsButton />
+    <NotificationsButton />
+    <ThemeToggle />
+  </div>
+</header>
+7. Required Dependencies
+{
+  "lucide-react": "^0.x.x",
+  "@tanstack/react-query": "^5.x.x",
+  "tailwind-merge": "^2.x.x",
+  "clsx": "^2.x.x"
+}
+8. Performance Specs
+Metric	Value
+Particles/Burst	16
+Burst Interval	200ms
+Particle Life	800ms
+Total Duration	~1000ms

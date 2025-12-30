@@ -778,54 +778,109 @@ spec:
     });
     
     try {
-      const apiSpec = {
-        name: spec.name,
-        nameAr: spec.nameAr,
-        description: `${spec.name} Platform`,
-        descriptionAr: `منصة ${spec.nameAr || spec.name}`,
+      // Use AI-powered build orchestrator for real platform generation
+      const aiBuildRequest = {
+        requirements: description,
         sector: spec.type,
-        features: spec.features,
-        hasAuth: spec.hasAuth,
-        hasPayments: spec.hasPayments,
-        hasSubscriptions: spec.hasSubscriptions,
-        hasCMS: false,
-        hasAnalytics: spec.hasDashboard,
+        locale: lang,
       };
       
-      const buildResponse = await apiRequest('POST', '/api/platforms/build', apiSpec);
+      // Try AI-powered build first
+      let useAIBuild = true;
+      let buildResponse: any = null;
       
-      if (buildResponse.success && buildResponse.buildId) {
-        setCurrentBuildId(buildResponse.buildId);
-        setPreviewUrl(`/api/platforms/preview/${buildResponse.buildId}`);
+      try {
+        buildResponse = await apiRequest('POST', '/api/platforms/ai-build', aiBuildRequest);
+        console.log('[AI-Build] Response:', buildResponse);
+      } catch (aiError) {
+        console.warn('[AI-Build] Falling back to template build:', aiError);
+        useAIBuild = false;
+      }
+      
+      // If AI build failed, fall back to template-based build
+      if (!useAIBuild || !buildResponse?.success) {
+        const apiSpec = {
+          name: spec.name,
+          nameAr: spec.nameAr,
+          description: `${spec.name} Platform`,
+          descriptionAr: `منصة ${spec.nameAr || spec.name}`,
+          sector: spec.type,
+          features: spec.features,
+          hasAuth: spec.hasAuth,
+          hasPayments: spec.hasPayments,
+          hasSubscriptions: spec.hasSubscriptions,
+          hasCMS: false,
+          hasAnalytics: spec.hasDashboard,
+        };
+        buildResponse = await apiRequest('POST', '/api/platforms/build', apiSpec);
+      }
+      
+      // Handle both AI build (blueprintId) and template build (buildId) responses
+      const buildId = buildResponse.buildId || buildResponse.blueprintId;
+      
+      if (buildResponse.success && buildId) {
+        setCurrentBuildId(buildId);
+        setPreviewUrl(`/api/platforms/preview/${buildId}`);
         
-        const filesResponse = await fetch(`/api/platforms/build/${buildResponse.buildId}/files`);
-        if (filesResponse.ok) {
-          const filesData = await filesResponse.json();
-          const serverFiles: GeneratedCode[] = [];
-          
-          for (const fileMeta of filesData.files || []) {
-            const encodedPath = encodeURIComponent(fileMeta.filePath);
-            const fileResponse = await fetch(`/api/platforms/build/${buildResponse.buildId}/file/${encodedPath}`);
-            if (fileResponse.ok) {
-              const fileData = await fileResponse.json();
-              serverFiles.push({
-                fileName: fileData.fileName,
-                filePath: fileData.filePath,
-                language: fileData.language,
-                content: fileData.content,
-                category: fileMeta.category || 'generated'
-              });
+        // Check for AI-build artifacts first
+        if (buildResponse.blueprintId) {
+          const artifactsResponse = await fetch(`/api/platforms/ai-build/${buildResponse.blueprintId}/artifacts`);
+          if (artifactsResponse.ok) {
+            const artifactsData = await artifactsResponse.json();
+            const aiFiles: GeneratedCode[] = (artifactsData.files || []).map((f: any) => ({
+              fileName: f.path.split('/').pop() || f.path,
+              filePath: f.path,
+              language: f.language || f.path.split('.').pop() || 'typescript',
+              content: f.content,
+              category: f.category || 'generated'
+            }));
+            
+            if (aiFiles.length > 0) {
+              console.log('[AI-Build] Got', aiFiles.length, 'AI-generated files');
+              setGeneratedFiles(aiFiles);
+              setSelectedFile(aiFiles[0]);
+              setGeneratedCode(aiFiles[0].content);
+            } else {
+              setGeneratedFiles(localFiles);
+              setSelectedFile(localFiles[0]);
+              setGeneratedCode(localFiles[0]?.content || '');
             }
-          }
-          
-          if (serverFiles.length > 0) {
-            setGeneratedFiles(serverFiles);
-            setSelectedFile(serverFiles[0]);
-            setGeneratedCode(serverFiles[0].content);
           } else {
             setGeneratedFiles(localFiles);
             setSelectedFile(localFiles[0]);
             setGeneratedCode(localFiles[0]?.content || '');
+          }
+        } else {
+          // Template-based build files
+          const filesResponse = await fetch(`/api/platforms/build/${buildId}/files`);
+          if (filesResponse.ok) {
+            const filesData = await filesResponse.json();
+            const serverFiles: GeneratedCode[] = [];
+            
+            for (const fileMeta of filesData.files || []) {
+              const encodedPath = encodeURIComponent(fileMeta.filePath);
+              const fileResponse = await fetch(`/api/platforms/build/${buildId}/file/${encodedPath}`);
+              if (fileResponse.ok) {
+                const fileData = await fileResponse.json();
+                serverFiles.push({
+                  fileName: fileData.fileName,
+                  filePath: fileData.filePath,
+                  language: fileData.language,
+                  content: fileData.content,
+                  category: fileMeta.category || 'generated'
+                });
+              }
+            }
+            
+            if (serverFiles.length > 0) {
+              setGeneratedFiles(serverFiles);
+              setSelectedFile(serverFiles[0]);
+              setGeneratedCode(serverFiles[0].content);
+            } else {
+              setGeneratedFiles(localFiles);
+              setSelectedFile(localFiles[0]);
+              setGeneratedCode(localFiles[0]?.content || '');
+            }
           }
         }
       } else {

@@ -29,8 +29,10 @@ import integrationRoutes from "./integration-routes";
 import sovereignPlansRoutes from "./sovereign-plans-routes";
 import sovereignWorkspaceRoutes from "./sovereign-workspace-routes";
 import { registerAppBuilderRoutes } from "./app-builder-routes";
+import { registerAIPlatformBuildRoutes } from "./ai-platform-build-routes";
 import { buildRoutes } from "./build-routes";
 import { buildPlatform, getBuild, createZipBuffer, type PlatformSpec } from "./platform-build-service";
+import { buildOrchestrator } from "./services/blueprint-compiler/build-orchestrator";
 import { registerEnterpriseServicesRoutes } from "./enterprise-services-routes";
 import militaryPlatformRoutes from "./military-platform-routes";
 import { paymentOrchestratorRoutes } from "./payment";
@@ -18936,6 +18938,7 @@ ${project.description || ""}
   // Must be registered BEFORE Custom Domains API to avoid route conflicts
   registerDomainRoutes(app);
 
+  registerAIPlatformBuildRoutes(app, requireAuth);
   // ==================== ISDS - SOVEREIGN DEV STUDIO ====================
   registerISDSRoutes(app);
   console.log("ISDS routes registered | تم تسجيل مسارات ISDS");
