@@ -19162,6 +19162,11 @@ ${project.description || ""}
   app.use("/api/versions", versionControlRoutes);
   console.log("Version Control routes registered | تم تسجيل مسارات إدارة التغييرات");
 
+  // ============ Detach Mode API - واجهة وضع الاستقلال ============
+  const detachModeRoutes = (await import("./routes/detach-mode-routes")).default;
+  app.use("/api/detach", detachModeRoutes);
+  console.log("Detach Mode routes registered | تم تسجيل مسارات وضع الاستقلال");
+
   // Helper: Generate verification token
   const generateVerificationToken = (): string => {
     return `infera-verify-${randomBytes(16).toString('hex')}`;
