@@ -18553,3 +18553,280 @@ export const insertDecisionVersionSchema = createInsertSchema(decisionVersions).
 });
 export type InsertDecisionVersion = z.infer<typeof insertDecisionVersionSchema>;
 export type DecisionVersion = typeof decisionVersions.$inferSelect;
+
+// ==================== SOVEREIGN CORE - نواة الاستقلال ====================
+
+// Internal Repositories - المستودعات الداخلية
+export const internalRepositories = pgTable("internal_repositories", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: text("tenant_id").notNull().default('default'),
+  internalId: text("internal_id").notNull().unique(), // Internal unique identifier
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  visibility: text("visibility").notNull().default('private'), // private, internal, public
+  defaultBranch: text("default_branch").notNull().default('main'),
+  ownerId: text("owner_id").notNull(),
+  ownerEmail: text("owner_email"),
+  // External provider links (optional)
+  githubUrl: text("github_url"),
+  githubRepoId: text("github_repo_id"),
+  replitUrl: text("replit_url"),
+  replitReplId: text("replit_repl_id"),
+  gitlabUrl: text("gitlab_url"),
+  bitbucketUrl: text("bitbucket_url"),
+  // Sync settings
+  syncEnabled: boolean("sync_enabled").notNull().default(false),
+  syncDirection: text("sync_direction").default('bidirectional'), // push, pull, bidirectional
+  lastSyncAt: timestamp("last_sync_at"),
+  lastSyncStatus: text("last_sync_status"),
+  // Metadata
+  language: text("language"),
+  topics: jsonb("topics").$type<string[]>().default([]),
+  stats: jsonb("stats").$type<{files: number; commits: number; branches: number; size: number}>(),
+  settings: jsonb("settings").$type<Record<string, any>>().default({}),
+  isArchived: boolean("is_archived").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_internal_repo_tenant").on(table.tenantId),
+  index("idx_internal_repo_internal_id").on(table.internalId),
+  index("idx_internal_repo_owner").on(table.ownerId),
+]);
+
+export const insertInternalRepositorySchema = createInsertSchema(internalRepositories).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertInternalRepository = z.infer<typeof insertInternalRepositorySchema>;
+export type InternalRepository = typeof internalRepositories.$inferSelect;
+
+// Internal Branches - الفروع الداخلية
+export const internalBranches = pgTable("internal_branches", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  repositoryId: uuid("repository_id").notNull().references(() => internalRepositories.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  isDefault: boolean("is_default").notNull().default(false),
+  isProtected: boolean("is_protected").notNull().default(false),
+  headCommitId: text("head_commit_id"),
+  aheadBy: integer("ahead_by").default(0),
+  behindBy: integer("behind_by").default(0),
+  createdBy: text("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_internal_branch_repo").on(table.repositoryId),
+  index("idx_internal_branch_name").on(table.name),
+]);
+
+export const insertInternalBranchSchema = createInsertSchema(internalBranches).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertInternalBranch = z.infer<typeof insertInternalBranchSchema>;
+export type InternalBranch = typeof internalBranches.$inferSelect;
+
+// Internal Commits - الالتزامات الداخلية
+export const internalCommits = pgTable("internal_commits", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  repositoryId: uuid("repository_id").notNull().references(() => internalRepositories.id, { onDelete: "cascade" }),
+  branchId: uuid("branch_id").references(() => internalBranches.id),
+  sha: text("sha").notNull(),
+  shortSha: text("short_sha").notNull(),
+  message: text("message").notNull(),
+  description: text("description"),
+  authorId: text("author_id").notNull(),
+  authorName: text("author_name").notNull(),
+  authorEmail: text("author_email").notNull(),
+  committerId: text("committer_id"),
+  committerName: text("committer_name"),
+  committerEmail: text("committer_email"),
+  parentSha: text("parent_sha"),
+  treeHash: text("tree_hash"),
+  filesChanged: integer("files_changed").default(0),
+  additions: integer("additions").default(0),
+  deletions: integer("deletions").default(0),
+  verified: boolean("verified").notNull().default(false),
+  signatureType: text("signature_type"), // gpg, ssh, none
+  diff: jsonb("diff").$type<{file: string; additions: number; deletions: number; patch?: string}[]>(),
+  committedAt: timestamp("committed_at").defaultNow(),
+}, (table) => [
+  index("idx_internal_commit_repo").on(table.repositoryId),
+  index("idx_internal_commit_branch").on(table.branchId),
+  index("idx_internal_commit_sha").on(table.sha),
+  index("idx_internal_commit_author").on(table.authorId),
+]);
+
+export const insertInternalCommitSchema = createInsertSchema(internalCommits).omit({
+  id: true,
+});
+export type InsertInternalCommit = z.infer<typeof insertInternalCommitSchema>;
+export type InternalCommit = typeof internalCommits.$inferSelect;
+
+// Internal Tags - العلامات الداخلية
+export const internalTags = pgTable("internal_tags", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  repositoryId: uuid("repository_id").notNull().references(() => internalRepositories.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  message: text("message"),
+  targetSha: text("target_sha").notNull(),
+  targetType: text("target_type").notNull().default('commit'), // commit, tree, blob
+  taggerId: text("tagger_id").notNull(),
+  taggerName: text("tagger_name").notNull(),
+  taggerEmail: text("tagger_email").notNull(),
+  isRelease: boolean("is_release").notNull().default(false),
+  releaseNotes: text("release_notes"),
+  prerelease: boolean("prerelease").notNull().default(false),
+  verified: boolean("verified").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_internal_tag_repo").on(table.repositoryId),
+  index("idx_internal_tag_name").on(table.name),
+]);
+
+export const insertInternalTagSchema = createInsertSchema(internalTags).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertInternalTag = z.infer<typeof insertInternalTagSchema>;
+export type InternalTag = typeof internalTags.$inferSelect;
+
+// Internal Pull Requests - طلبات السحب الداخلية
+export const internalPullRequests = pgTable("internal_pull_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  repositoryId: uuid("repository_id").notNull().references(() => internalRepositories.id, { onDelete: "cascade" }),
+  number: integer("number").notNull(),
+  title: text("title").notNull(),
+  titleAr: text("title_ar"),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  state: text("state").notNull().default('open'), // open, closed, merged, draft
+  sourceBranchId: uuid("source_branch_id").references(() => internalBranches.id),
+  sourceBranch: text("source_branch").notNull(),
+  targetBranchId: uuid("target_branch_id").references(() => internalBranches.id),
+  targetBranch: text("target_branch").notNull(),
+  authorId: text("author_id").notNull(),
+  authorName: text("author_name").notNull(),
+  authorEmail: text("author_email"),
+  reviewers: jsonb("reviewers").$type<{userId: string; name: string; status: string}[]>().default([]),
+  labels: jsonb("labels").$type<string[]>().default([]),
+  milestone: text("milestone"),
+  isDraft: boolean("is_draft").notNull().default(false),
+  isMergeable: boolean("is_mergeable").default(true),
+  mergeConflicts: boolean("merge_conflicts").notNull().default(false),
+  checksStatus: text("checks_status").default('pending'), // pending, passing, failing
+  mergedAt: timestamp("merged_at"),
+  mergedBy: text("merged_by"),
+  closedAt: timestamp("closed_at"),
+  closedBy: text("closed_by"),
+  comments: integer("comments").default(0),
+  commits: integer("commits").default(0),
+  additions: integer("additions").default(0),
+  deletions: integer("deletions").default(0),
+  changedFiles: integer("changed_files").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_internal_pr_repo").on(table.repositoryId),
+  index("idx_internal_pr_state").on(table.state),
+  index("idx_internal_pr_author").on(table.authorId),
+  index("idx_internal_pr_number").on(table.number),
+]);
+
+export const insertInternalPullRequestSchema = createInsertSchema(internalPullRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertInternalPullRequest = z.infer<typeof insertInternalPullRequestSchema>;
+export type InternalPullRequest = typeof internalPullRequests.$inferSelect;
+
+// PR Comments - تعليقات طلبات السحب
+export const prComments = pgTable("pr_comments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  pullRequestId: uuid("pull_request_id").notNull().references(() => internalPullRequests.id, { onDelete: "cascade" }),
+  authorId: text("author_id").notNull(),
+  authorName: text("author_name").notNull(),
+  body: text("body").notNull(),
+  path: text("path"), // file path for inline comments
+  line: integer("line"), // line number for inline comments
+  side: text("side"), // LEFT, RIGHT
+  isResolved: boolean("is_resolved").notNull().default(false),
+  resolvedBy: text("resolved_by"),
+  resolvedAt: timestamp("resolved_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_pr_comment_pr").on(table.pullRequestId),
+  index("idx_pr_comment_author").on(table.authorId),
+]);
+
+export const insertPrCommentSchema = createInsertSchema(prComments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertPrComment = z.infer<typeof insertPrCommentSchema>;
+export type PrComment = typeof prComments.$inferSelect;
+
+// Repository Files (Virtual File System) - نظام الملفات الافتراضي
+export const repositoryFiles = pgTable("repository_files", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  repositoryId: uuid("repository_id").notNull().references(() => internalRepositories.id, { onDelete: "cascade" }),
+  branchId: uuid("branch_id").references(() => internalBranches.id),
+  path: text("path").notNull(),
+  name: text("name").notNull(),
+  type: text("type").notNull().default('file'), // file, directory
+  content: text("content"), // For files only
+  blobHash: text("blob_hash"),
+  size: integer("size").default(0),
+  mode: text("mode").default('100644'), // Unix file mode
+  encoding: text("encoding").default('utf-8'),
+  isBinary: boolean("is_binary").notNull().default(false),
+  lastCommitId: uuid("last_commit_id").references(() => internalCommits.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_repo_file_repo").on(table.repositoryId),
+  index("idx_repo_file_branch").on(table.branchId),
+  index("idx_repo_file_path").on(table.path),
+]);
+
+export const insertRepositoryFileSchema = createInsertSchema(repositoryFiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertRepositoryFile = z.infer<typeof insertRepositoryFileSchema>;
+export type RepositoryFile = typeof repositoryFiles.$inferSelect;
+
+// Sovereign Sync Log - سجل المزامنة السيادية
+export const sovereignSyncLog = pgTable("sovereign_sync_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  repositoryId: uuid("repository_id").notNull().references(() => internalRepositories.id, { onDelete: "cascade" }),
+  provider: text("provider").notNull(), // github, replit, gitlab, bitbucket
+  direction: text("direction").notNull(), // push, pull
+  status: text("status").notNull(), // pending, in_progress, completed, failed
+  commitsSync: integer("commits_sync").default(0),
+  filesSync: integer("files_sync").default(0),
+  branchesSync: integer("branches_sync").default(0),
+  tagsSync: integer("tags_sync").default(0),
+  errorMessage: text("error_message"),
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  triggeredBy: text("triggered_by").notNull(),
+}, (table) => [
+  index("idx_sync_log_repo").on(table.repositoryId),
+  index("idx_sync_log_provider").on(table.provider),
+  index("idx_sync_log_status").on(table.status),
+]);
+
+export const insertSovereignSyncLogSchema = createInsertSchema(sovereignSyncLog).omit({
+  id: true,
+  startedAt: true,
+});
+export type InsertSovereignSyncLog = z.infer<typeof insertSovereignSyncLogSchema>;
+export type SovereignSyncLog = typeof sovereignSyncLog.$inferSelect;

@@ -19140,6 +19140,11 @@ ${project.description || ""}
   const futureEvolutionRoutes = (await import("./routes/future-evolution-routes")).default;
   app.use("/api/evolution", futureEvolutionRoutes);
   console.log("Future Evolution routes registered | تم تسجيل مسارات التطور المستقبلي");
+
+  // ============ Sovereign Git API - واجهة Git السيادي ============
+  const sovereignGitRoutes = (await import("./routes/sovereign-git-routes")).default;
+  app.use("/api/git", sovereignGitRoutes);
+  console.log("Sovereign Git routes registered | تم تسجيل مسارات Git السيادي");
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
   // Helper: Generate verification token
