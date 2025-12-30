@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -95,6 +96,7 @@ export default function PlatformBuilderPage() {
   const { language } = useLanguage();
   const { user } = useAuth();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const isRTL = language === 'ar';
   
   const [messages, setMessages] = useState<BuildMessage[]>([
@@ -1115,7 +1117,7 @@ How can I help you? Describe the platform you want to build.`;
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8"
-                onClick={() => window.location.href = '/nova/permissions'}
+                onClick={() => setLocation('/nova/permissions')}
                 title={t('Nova Permissions', 'صلاحيات نوفا')}
                 data-testid="button-nova-permissions"
               >
