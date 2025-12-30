@@ -5,6 +5,7 @@
 
 import type { Express, Request, Response } from "express";
 import { buildOrchestrator } from "./services/blueprint-compiler/build-orchestrator";
+import { generatePreviewBundle, clearPreviewCache } from "./services/blueprint-compiler/preview-runtime";
 import { z } from "zod";
 import archiver from "archiver";
 
@@ -324,6 +325,86 @@ volumes:
       if (!res.headersSent) {
         res.status(500).json({ error: "Failed to create download" });
       }
+    }
+  });
+
+  // Serve live preview HTML
+  app.get("/api/platforms/ai-build/:blueprintId/preview", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { blueprintId } = req.params;
+      const blueprint = buildOrchestrator.getBlueprint(blueprintId);
+      const artifacts = buildOrchestrator.getArtifacts(blueprintId);
+      
+      if (!blueprint || !artifacts) {
+        return res.status(404).send(`
+          <!DOCTYPE html>
+          <html dir="rtl" lang="ar">
+          <head>
+            <meta charset="UTF-8">
+            <title>البناء غير موجود</title>
+            <style>
+              body { font-family: 'Cairo', sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #09090b; color: #fafafa; margin: 0; }
+              .message { text-align: center; }
+              h1 { font-size: 1.5rem; margin-bottom: 8px; }
+              p { color: #71717a; }
+            </style>
+          </head>
+          <body>
+            <div class="message">
+              <h1>المنصة غير موجودة</h1>
+              <p>الرجاء بناء المنصة أولاً</p>
+            </div>
+          </body>
+          </html>
+        `);
+      }
+
+      // Generate the live preview bundle
+      console.log(`[AI-Build] Generating live preview for ${blueprintId}`);
+      const bundle = await generatePreviewBundle(blueprint, artifacts);
+      
+      // Send the HTML
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(bundle.html);
+      
+      console.log(`[AI-Build] Live preview served for ${blueprintId}`);
+    } catch (error) {
+      console.error("[AI-Build] Preview error:", error);
+      res.status(500).send(`
+        <!DOCTYPE html>
+        <html dir="rtl" lang="ar">
+        <head>
+          <meta charset="UTF-8">
+          <title>خطأ في المعاينة</title>
+          <style>
+            body { font-family: 'Cairo', sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #09090b; color: #fafafa; margin: 0; }
+            .error { text-align: center; padding: 40px; }
+            h1 { font-size: 1.5rem; color: #ef4444; margin-bottom: 8px; }
+            p { color: #71717a; }
+            pre { background: #18181b; padding: 12px; border-radius: 8px; margin-top: 16px; text-align: left; direction: ltr; font-size: 0.875rem; overflow: auto; }
+          </style>
+        </head>
+        <body>
+          <div class="error">
+            <h1>خطأ في إنشاء المعاينة</h1>
+            <p>حدث خطأ أثناء تجميع المعاينة</p>
+            <pre>${error instanceof Error ? error.message : 'Unknown error'}</pre>
+          </div>
+        </body>
+        </html>
+      `);
+    }
+  });
+
+  // Clear preview cache (useful after rebuilds)
+  app.delete("/api/platforms/ai-build/:blueprintId/preview/cache", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { blueprintId } = req.params;
+      clearPreviewCache(blueprintId);
+      res.json({ success: true, message: 'Preview cache cleared' });
+    } catch (error) {
+      console.error("[AI-Build] Cache clear error:", error);
+      res.status(500).json({ error: "Failed to clear preview cache" });
     }
   });
 

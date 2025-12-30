@@ -851,8 +851,9 @@ spec:
         setCurrentBuildId(buildId);
         
         // Set appropriate preview URL based on build type
+        // Use the new live preview endpoint that runs actual React code
         if (buildResponse.blueprintId) {
-          setPreviewUrl(`/api/platforms/ai-preview/${buildResponse.blueprintId}`);
+          setPreviewUrl(`/api/platforms/ai-build/${buildResponse.blueprintId}/preview`);
         } else {
           setPreviewUrl(`/api/platforms/preview/${buildId}`);
         }
@@ -1567,17 +1568,17 @@ How can I help you? Describe the platform you want to build.`;
           {activeTab === 'preview' && (
             <div className="h-full flex flex-col">
               {previewUrl && generatedFiles.length > 0 && (
-                <div className="bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border border-amber-500/30 rounded-lg p-3 mb-3 flex items-center justify-between gap-4">
+                <div className="bg-gradient-to-r from-green-500/10 via-emerald-500/10 to-green-500/10 border border-green-500/30 rounded-lg p-3 mb-3 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
-                      <Eye className="w-4 h-4 text-amber-500" />
+                    <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+                      <Eye className="w-4 h-4 text-green-500" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
-                        {t('Visual Preview Only', 'معاينة بصرية فقط')}
+                      <p className="text-sm font-medium text-green-600 dark:text-green-400">
+                        {t('Live Interactive Preview', 'معاينة تفاعلية حية')}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {t('This is a UI mockup. Real deployable code is in the "Code" tab', 'هذه محاكاة للواجهة. الكود الحقيقي القابل للنشر موجود في تبويب "الكود"')} ({generatedFiles.length} {t('files', 'ملف')})
+                        {t('This is a fully functional preview with sample data. Download the complete platform from "Code" tab', 'هذه معاينة تفاعلية كاملة مع بيانات تجريبية. يمكنك تحميل المنصة الكاملة من تبويب "الكود"')} ({generatedFiles.length} {t('files', 'ملف')})
                       </p>
                     </div>
                   </div>
@@ -1585,12 +1586,12 @@ How can I help you? Describe the platform you want to build.`;
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      className="gap-2 border-amber-500/50 text-amber-600 dark:text-amber-400"
+                      className="gap-2 border-green-500/50 text-green-600 dark:text-green-400"
                       onClick={() => setActiveTab('code')}
                       data-testid="button-go-to-code"
                     >
                       <FileCode className="w-4 h-4" />
-                      {t('View Real Code', 'عرض الكود الحقيقي')}
+                      {t('View Generated Code', 'عرض الكود المُولّد')}
                     </Button>
                     {currentBuildId && (
                       <Button 
