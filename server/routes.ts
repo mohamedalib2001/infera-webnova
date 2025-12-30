@@ -19125,6 +19125,11 @@ ${project.description || ""}
   const failureRecoveryRoutes = (await import("./routes/failure-recovery-routes")).default;
   app.use("/api/failure-recovery", failureRecoveryRoutes);
   console.log("Failure Recovery routes registered | تم تسجيل مسارات إدارة الفشل والتعافي");
+
+  // ============ Command & Control API - واجهة القيادة والتحكم ============
+  const commandControlRoutes = (await import("./routes/command-control-routes")).default;
+  app.use("/api/command-control", commandControlRoutes);
+  console.log("Command Control routes registered | تم تسجيل مسارات القيادة والتحكم");
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
   // Helper: Generate verification token
