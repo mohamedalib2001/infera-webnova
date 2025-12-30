@@ -491,7 +491,7 @@ export async function registerRoutes(
       }
 
       const zipBuffer = await createZipBuffer(build);
-      const fileName = `${build.platform.name.toLowerCase().replace(/\s+/g, '-')}-platform.zip`;
+      const fileName = `${build.platform.name.toLowerCase().replace(/s+/g, '-')}-platform.zip`;
 
       res.setHeader("Content-Type", "application/zip");
       res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
@@ -504,29 +504,159 @@ export async function registerRoutes(
   });
 
 
-  // Platform Preview endpoint
+  // Platform Preview endpoint - supports both template builds and AI-powered builds
   app.get("/api/platforms/preview/:buildId", async (req, res) => {
     try {
-      const build = getBuild(req.params.buildId);
-      if (!build) {
-        return res.status(404).send("<h1>Build not found</h1>");
+      const buildId = req.params.buildId;
+      
+      // First try template-based build
+      const build = getBuild(buildId);
+      if (build) {
+        if (build.status !== "complete") {
+          return res.status(400).send("<h1>Build not complete</h1>");
+        }
+        if (build.previewHtml) {
+          res.setHeader("Content-Type", "text/html");
+          return res.send(build.previewHtml);
+        }
       }
-
-      if (build.status !== "complete") {
-        return res.status(400).send("<h1>Build not complete</h1>");
+      
+      // Try AI-powered build (blueprintId starts with 'bp-')
+      if (buildId.startsWith('bp-')) {
+        const blueprint = buildOrchestrator.getBlueprint(buildId);
+        const buildState = buildOrchestrator.getBuildState(buildId);
+        
+        if (!blueprint || !buildState) {
+          return res.status(404).send("<h1>Build not found</h1>");
+        }
+        
+        if (buildState.stage !== 'completed') {
+          return res.send(`
+            <html>
+              <head>
+                <title>Building Platform...</title>
+                <meta http-equiv="refresh" content="2">
+                <style>
+                  body { font-family: system-ui; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #0a0a0f; color: #fff; }
+                  .container { text-align: center; }
+                  .loader { width: 50px; height: 50px; border: 3px solid #333; border-top: 3px solid #7c3aed; border-radius: 50%; animation: spin 1s linear infinite; margin: 20px auto; }
+                  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                  .progress { color: #9ca3af; margin-top: 10px; }
+                </style>
+              </head>
+              <body>
+                <div class="container">
+                  <div class="loader"></div>
+                  <h2>Building ${blueprint.name || 'Platform'}...</h2>
+                  <p class="progress">Stage: ${buildState.stage} | Progress: ${buildState.progress}%</p>
+                </div>
+              </body>
+            </html>
+          `);
+        }
+        
+        // Generate live preview from AI artifacts
+        const artifacts = buildOrchestrator.getArtifacts(buildId);
+        if (artifacts) {
+          const previewHtml = `
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${blueprint.name || 'Platform'} - AI Generated Preview</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%); color: #e5e5e5; }
+    .gradient-text { background: linear-gradient(90deg, #7c3aed, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .card { background: rgba(30, 30, 50, 0.8); backdrop-filter: blur(10px); border: 1px solid rgba(124, 58, 237, 0.2); }
+    .feature-icon { background: linear-gradient(135deg, #7c3aed 0%, #ec4899 100%); }
+  </style>
+</head>
+<body class="min-h-screen">
+  <header class="border-b border-purple-500/20 p-4">
+    <div class="container mx-auto flex items-center justify-between">
+      <h1 class="text-2xl font-bold gradient-text">${blueprint.name || 'منصة جديدة'}</h1>
+      <div class="flex gap-2">
+        <span class="px-3 py-1 rounded-full text-xs bg-green-500/20 text-green-400">AI Generated</span>
+        <span class="px-3 py-1 rounded-full text-xs bg-purple-500/20 text-purple-400">${blueprint.sector || 'enterprise'}</span>
+      </div>
+    </div>
+  </header>
+  
+  <main class="container mx-auto py-8 px-4">
+    <section class="mb-8">
+      <h2 class="text-xl font-semibold mb-4 text-purple-300">وصف المنصة</h2>
+      <p class="text-gray-400">${blueprint.description || 'منصة مُنشأة بالذكاء الاصطناعي'}</p>
+    </section>
+    
+    <section class="mb-8">
+      <h2 class="text-xl font-semibold mb-4 text-purple-300">الميزات المُنشأة</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        ${(blueprint.features || []).map((f: any) => `
+          <div class="card rounded-lg p-4">
+            <div class="flex items-center gap-3 mb-2">
+              <div class="feature-icon w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm">✓</div>
+              <h3 class="font-medium text-white">${f.name || f}</h3>
+            </div>
+            <p class="text-sm text-gray-400">${f.description || 'ميزة مُنشأة بالكامل'}</p>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+    
+    <section class="mb-8">
+      <h2 class="text-xl font-semibold mb-4 text-purple-300">الكيانات / الجداول</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        ${(blueprint.entities || []).map((e: any) => `
+          <div class="card rounded-lg p-4">
+            <h3 class="font-medium text-white mb-2">${e.name || e}</h3>
+            <p class="text-xs text-gray-500">${(e.fields || []).length} حقل</p>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+    
+    <section class="mb-8">
+      <h2 class="text-xl font-semibold mb-4 text-purple-300">الملفات المُنشأة (${artifacts.schema.length + artifacts.backend.length + artifacts.frontend.length} ملف)</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="card rounded-lg p-4">
+          <h3 class="text-sm text-gray-400 mb-2">Schema</h3>
+          <p class="text-2xl font-bold text-white">${artifacts.schema.length}</p>
+        </div>
+        <div class="card rounded-lg p-4">
+          <h3 class="text-sm text-gray-400 mb-2">Backend</h3>
+          <p class="text-2xl font-bold text-white">${artifacts.backend.length}</p>
+        </div>
+        <div class="card rounded-lg p-4">
+          <h3 class="text-sm text-gray-400 mb-2">Frontend</h3>
+          <p class="text-2xl font-bold text-white">${artifacts.frontend.length}</p>
+        </div>
+      </div>
+    </section>
+  </main>
+  
+  <footer class="border-t border-purple-500/20 p-4 mt-8">
+    <div class="container mx-auto text-center text-gray-500 text-sm">
+      تم إنشاء هذه المنصة بواسطة INFERA WebNova AI Blueprint Compiler
+    </div>
+  </footer>
+</body>
+</html>
+          `;
+          
+          res.setHeader("Content-Type", "text/html");
+          return res.send(previewHtml);
+        }
       }
-
-      if (!build.previewHtml) {
-        return res.status(404).send("<h1>Preview not available</h1>");
-      }
-
-      res.setHeader("Content-Type", "text/html");
-      res.send(build.previewHtml);
+      
+      return res.status(404).send("<h1>Build not found</h1>");
     } catch (error) {
       console.error("Preview error:", error);
       res.status(500).send("<h1>Preview failed</h1>");
     }
   });
+
   
   app.get("/api/pages/analysis", async (req, res) => {
     try {
@@ -3335,8 +3465,8 @@ export async function registerRoutes(
       let slug = req.body.slug;
       if (!slug && req.body.displayName) {
         slug = req.body.displayName.toLowerCase()
-          .replace(/[^a-z0-9\s-]/g, '')
-          .replace(/\s+/g, '-')
+          .replace(/[^a-z0-9s-]/g, '')
+          .replace(/s+/g, '-')
           .replace(/-+/g, '-');
       }
       
@@ -4152,7 +4282,7 @@ export async function registerRoutes(
       
       // Combine system prompts
       const userSystemMessage = messages.find((m: any) => m.role === 'system')?.content || '';
-      const finalSystemPrompt = [systemPrompt, userSystemMessage].filter(Boolean).join('\n\n');
+      const finalSystemPrompt = [systemPrompt, userSystemMessage].filter(Boolean).join('nn');
       
       // Call Anthropic API
       const anthropic = new Anthropic();
@@ -4194,7 +4324,7 @@ export async function registerRoutes(
                   finish_reason: null
                 }]
               };
-              res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+              res.write(`data: ${JSON.stringify(chunk)}nn`);
             }
           } else if (event.type === 'message_start') {
             inputTokens = (event.message as any)?.usage?.input_tokens || 0;
@@ -4215,8 +4345,8 @@ export async function registerRoutes(
             finish_reason: 'stop'
           }]
         };
-        res.write(`data: ${JSON.stringify(finalChunk)}\n\n`);
-        res.write('data: [DONE]\n\n');
+        res.write(`data: ${JSON.stringify(finalChunk)}nn`);
+        res.write('data: [DONE]nn');
         res.end();
         
       } else {
@@ -4803,7 +4933,7 @@ export async function registerRoutes(
       const fs = await import("fs");
       const pathModule = await import("path");
       const projectRoot = process.cwd();
-      const normalizedInput = pathModule.normalize(dirPath || ".").replace(/^(\.\.(\/|\\|$))+/, "");
+      const normalizedInput = pathModule.normalize(dirPath || ".").replace(/^(..(/||$))+/, "");
       const targetPath = pathModule.resolve(projectRoot, normalizedInput);
       
       if (!targetPath.startsWith(projectRoot)) {
@@ -6124,10 +6254,10 @@ USER SIMULATION PARAMETERS:
 - Timeframe: ${parameters.timeframe || '3 months'}
 
 RISK DETAILS:
-${risksData.slice(0, 5).map(r => `- ${r.title}: ${r.severity} severity, ${r.status} status`).join('\n')}
+${risksData.slice(0, 5).map(r => `- ${r.title}: ${r.severity} severity, ${r.status} status`).join('n')}
 
 COMPLIANCE FRAMEWORKS:
-${complianceData.map(f => `- ${f.name}: ${f.complianceScore}% compliant`).join('\n')}
+${complianceData.map(f => `- ${f.name}: ${f.complianceScore}% compliant`).join('n')}
 
 Based on this REAL data, provide a strategic forecast in the following JSON format:
 {
@@ -6200,7 +6330,7 @@ Provide realistic, data-driven predictions based on the actual platform state.`;
         const aiText = response.content[0].type === 'text' ? response.content[0].text : '';
         
         // Extract JSON from response
-        const jsonMatch = aiText.match(/\{[\s\S]*\}/);
+        const jsonMatch = aiText.match(/{[sS]*}/);
         if (jsonMatch) {
           aiAnalysis = JSON.parse(jsonMatch[0]);
           predictions = aiAnalysis.predictions || [];
@@ -8510,7 +8640,7 @@ Provide realistic, data-driven predictions based on the actual platform state.`;
       
       // Generate package.json
       const packageJson = {
-        name: project.name.toLowerCase().replace(/\s+/g, "-"),
+        name: project.name.toLowerCase().replace(/s+/g, "-"),
         version: "1.0.0",
         description: project.description || "",
         scripts: {
@@ -8548,25 +8678,25 @@ ${project.description || ""}
 ## Getting Started
 
 1. Install dependencies:
-   \`\`\`bash
+   ```bash
    npm install
-   \`\`\`
+   ```
 
 2. Set up environment variables:
-   \`\`\`bash
+   ```bash
    cp .env.example .env
    # Edit .env with your database credentials
-   \`\`\`
+   ```
 
 3. Push database schema:
-   \`\`\`bash
+   ```bash
    npm run db:push
-   \`\`\`
+   ```
 
 4. Start development server:
-   \`\`\`bash
+   ```bash
    npm run dev
-   \`\`\`
+   ```
 
 ## Generated by INFERA WebNova
 `;
@@ -9244,9 +9374,9 @@ ${project.description || ""}
       let result;
       if (context) {
         // Parse context to extract current code
-        const htmlMatch = context.match(/Current HTML: ([\s\S]*?)(?=\nCurrent CSS:|$)/);
-        const cssMatch = context.match(/Current CSS: ([\s\S]*?)(?=\nCurrent JS:|$)/);
-        const jsMatch = context.match(/Current JS: ([\s\S]*?)$/);
+        const htmlMatch = context.match(/Current HTML: ([sS]*?)(?=nCurrent CSS:|$)/);
+        const cssMatch = context.match(/Current CSS: ([sS]*?)(?=nCurrent JS:|$)/);
+        const jsMatch = context.match(/Current JS: ([sS]*?)$/);
         
         const currentHtml = htmlMatch?.[1]?.trim() || "";
         const currentCss = cssMatch?.[1]?.trim() || "";
@@ -9612,15 +9742,15 @@ ${project.description || ""}
       const { content } = req.body;
       
       // Simple HTML analysis
-      const hasTitle = /<title[^>]*>([^<]+)<\/title>/i.test(content);
+      const hasTitle = /<title[^>]*>([^<]+)</title>/i.test(content);
       const hasDescription = /<meta[^>]*name=["']description["'][^>]*>/i.test(content);
       const h1Count = (content.match(/<h1[^>]*>/gi) || []).length;
       const h2Count = (content.match(/<h2[^>]*>/gi) || []).length;
       const h3Count = (content.match(/<h3[^>]*>/gi) || []).length;
       const imgTags = content.match(/<img[^>]*>/gi) || [];
       const imgsWithAlt = imgTags.filter((img: string) => /alt=["'][^"']+["']/i.test(img));
-      const internalLinks = (content.match(/<a[^>]*href=["']\/[^"']*["'][^>]*>/gi) || []).length;
-      const externalLinks = (content.match(/<a[^>]*href=["']https?:\/\/[^"']+["'][^>]*>/gi) || []).length;
+      const internalLinks = (content.match(/<a[^>]*href=["']/[^"']*["'][^>]*>/gi) || []).length;
+      const externalLinks = (content.match(/<a[^>]*href=["']https?://[^"']+["'][^>]*>/gi) || []).length;
 
       // Calculate score
       let score = 50;
@@ -9713,7 +9843,7 @@ ${project.description || ""}
         model: "claude-sonnet-4-5",
         max_tokens: 500,
         messages: [
-          { role: "user", content: `${prompt}\n\nHTML Content:\n${content.substring(0, 3000)}` }
+          { role: "user", content: `${prompt}nnHTML Content:n${content.substring(0, 3000)}` }
         ],
       });
 
@@ -9989,7 +10119,7 @@ ${project.description || ""}
         instructionId: id,
         assistantId: instruction.assistantId,
         userId: req.session.userId!,
-        prompt: `Execute this instruction:\n\nTitle: ${instruction.title}\n\nDetails:\n${instruction.instruction}\n\nProvide a detailed response with any code, recommendations, or actions taken.`,
+        prompt: `Execute this instruction:nnTitle: ${instruction.title}nnDetails:n${instruction.instruction}nnProvide a detailed response with any code, recommendations, or actions taken.`,
         executionMode: executionMode || 'AUTO',
         preferredModel,
         preferredProvider,
@@ -16991,7 +17121,7 @@ ${project.description || ""}
       const project = await storage.createDevProject({
         workspaceId: userId || "default",
         name: name || "New Project",
-        slug: (name || "new-project").toLowerCase().replace(/\s+/g, "-"),
+        slug: (name || "new-project").toLowerCase().replace(/s+/g, "-"),
         description,
         language: language || "ar",
       });
@@ -17362,20 +17492,20 @@ ${project.description || ""}
       }
 
       // Combine CSS
-      const combinedCss = cssFiles.map(f => f.content).join("\n");
+      const combinedCss = cssFiles.map(f => f.content).join("n");
       
       // Combine JS
-      const combinedJs = jsFiles.map(f => f.content).join("\n");
+      const combinedJs = jsFiles.map(f => f.content).join("n");
       
       // Inject CSS and JS into HTML
       let html = htmlFile.content;
       
       if (combinedCss && !html.includes("<style>")) {
-        html = html.replace("</head>", `<style>\n${combinedCss}\n</style>\n</head>`);
+        html = html.replace("</head>", `<style>n${combinedCss}n</style>n</head>`);
       }
       
       if (combinedJs && !html.includes("<script>")) {
-        html = html.replace("</body>", `<script>\n${combinedJs}\n</script>\n</body>`);
+        html = html.replace("</body>", `<script>n${combinedJs}n</script>n</body>`);
       }
 
       res.setHeader("Content-Type", "text/html");
@@ -17511,7 +17641,7 @@ ${project.description || ""}
       }
       
       // Validate package name (alphanumeric, hyphens, underscores, @scope)
-      const validPackage = /^(@[a-zA-Z0-9_-]+\/)?[a-zA-Z0-9_-]+(@[a-zA-Z0-9._-]+)?$/.test(packageName);
+      const validPackage = /^(@[a-zA-Z0-9_-]+/)?[a-zA-Z0-9_-]+(@[a-zA-Z0-9._-]+)?$/.test(packageName);
       if (!validPackage) {
         return res.status(400).json({ error: "Invalid package name" });
       }
@@ -17713,7 +17843,7 @@ ${project.description || ""}
       }
       
       const files = statusOutput
-        .split("\n")
+        .split("n")
         .filter(line => line.trim())
         .map(line => {
           const status = line.substring(0, 2).trim();
@@ -17765,7 +17895,7 @@ ${project.description || ""}
       }
       
       // Sanitize commit message
-      const sanitizedMessage = message.replace(/[`$\\]/g, "").substring(0, 500);
+      const sanitizedMessage = message.replace(/[`$]/g, "").substring(0, 500);
 
       const projectPath = path.join(os.tmpdir(), "infera-projects", req.params.projectId);
       
@@ -17840,7 +17970,7 @@ ${project.description || ""}
       }
       
       const commits = logOutput
-        .split("\n")
+        .split("n")
         .filter(line => line.trim())
         .map(line => {
           const [hash, shortHash, message, author, email, date] = line.split("|");
@@ -17874,7 +18004,7 @@ ${project.description || ""}
       }
       
       // Validate URL format (GitHub, GitLab, Bitbucket, etc.)
-      const validRemotePattern = /^https:\/\/(github\.com|gitlab\.com|bitbucket\.org)\/[\w-]+\/[\w.-]+\.git$/;
+      const validRemotePattern = /^https://(github.com|gitlab.com|bitbucket.org)/[w-]+/[w.-]+.git$/;
       if (!validRemotePattern.test(url)) {
         return res.status(400).json({ 
           error: "Invalid remote URL format. Use: https://github.com/username/repo.git" 
@@ -17941,8 +18071,8 @@ ${project.description || ""}
       const remotes: Array<{name: string, url: string, type: string}> = [];
       const seen = new Set<string>();
       
-      remotesOutput.split("\n").filter(line => line.trim()).forEach(line => {
-        const match = line.match(/^(\S+)\s+(\S+)\s+\((\w+)\)$/);
+      remotesOutput.split("n").filter(line => line.trim()).forEach(line => {
+        const match = line.match(/^(S+)s+(S+)s+((w+))$/);
         if (match) {
           const key = `${match[1]}-${match[3]}`;
           if (!seen.has(key)) {
@@ -18779,19 +18909,19 @@ ${project.description || ""}
       const relationships = await storage.getDevDatabaseRelationships(req.params.projectId);
       
       // Generate Drizzle schema code
-      let schemaCode = `// Auto-generated schema by INFERA WebNova\n`;
-      schemaCode += `import { pgTable, varchar, text, integer, boolean, timestamp, jsonb, decimal, date, time, serial, uuid } from 'drizzle-orm/pg-core';\n`;
-      schemaCode += `import { sql } from 'drizzle-orm';\n\n`;
+      let schemaCode = `// Auto-generated schema by INFERA WebNovan`;
+      schemaCode += `import { pgTable, varchar, text, integer, boolean, timestamp, jsonb, decimal, date, time, serial, uuid } from 'drizzle-orm/pg-core';n`;
+      schemaCode += `import { sql } from 'drizzle-orm';nn`;
       
       for (const table of tablesWithColumns) {
-        schemaCode += `export const ${table.tableName} = pgTable("${table.tableName}", {\n`;
+        schemaCode += `export const ${table.tableName} = pgTable("${table.tableName}", {n`;
         
         // Add primary key
         if (table.hasPrimaryKey) {
           if (table.primaryKeyType === 'serial') {
-            schemaCode += `  id: serial("id").primaryKey(),\n`;
+            schemaCode += `  id: serial("id").primaryKey(),n`;
           } else {
-            schemaCode += `  id: varchar("id").primaryKey().default(sql\`gen_random_uuid()\`),\n`;
+            schemaCode += `  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),n`;
           }
         }
         
@@ -18841,69 +18971,69 @@ ${project.description || ""}
             colDef += `.default(${col.defaultValue})`;
           }
           
-          schemaCode += colDef + `,\n`;
+          schemaCode += colDef + `,n`;
         }
         
         // Add timestamps if enabled
         if (table.hasTimestamps) {
-          schemaCode += `  createdAt: timestamp("created_at").defaultNow(),\n`;
-          schemaCode += `  updatedAt: timestamp("updated_at").defaultNow(),\n`;
+          schemaCode += `  createdAt: timestamp("created_at").defaultNow(),n`;
+          schemaCode += `  updatedAt: timestamp("updated_at").defaultNow(),n`;
         }
         
-        schemaCode += `});\n\n`;
+        schemaCode += `});nn`;
       }
       
       // Generate Express routes
-      let routesCode = `// Auto-generated CRUD API by INFERA WebNova\n`;
-      routesCode += `import express from 'express';\n`;
-      routesCode += `import { db } from './db';\n`;
-      routesCode += `import { eq } from 'drizzle-orm';\n`;
+      let routesCode = `// Auto-generated CRUD API by INFERA WebNovan`;
+      routesCode += `import express from 'express';n`;
+      routesCode += `import { db } from './db';n`;
+      routesCode += `import { eq } from 'drizzle-orm';n`;
       
       for (const table of tablesWithColumns) {
-        routesCode += `import { ${table.tableName} } from './schema';\n`;
+        routesCode += `import { ${table.tableName} } from './schema';n`;
       }
       
-      routesCode += `\nconst router = express.Router();\n\n`;
+      routesCode += `nconst router = express.Router();nn`;
       
       for (const table of tablesWithColumns) {
         const apiPath = table.apiPrefix || '/api';
         const endpoint = `${apiPath}/${table.tableName}`;
         
         // GET all
-        routesCode += `// ${table.tableNameDisplay || table.tableName} CRUD\n`;
-        routesCode += `router.get('${endpoint}', async (req, res) => {\n`;
-        routesCode += `  const items = await db.select().from(${table.tableName});\n`;
-        routesCode += `  res.json(items);\n`;
-        routesCode += `});\n\n`;
+        routesCode += `// ${table.tableNameDisplay || table.tableName} CRUDn`;
+        routesCode += `router.get('${endpoint}', async (req, res) => {n`;
+        routesCode += `  const items = await db.select().from(${table.tableName});n`;
+        routesCode += `  res.json(items);n`;
+        routesCode += `});nn`;
         
         // GET one
-        routesCode += `router.get('${endpoint}/:id', async (req, res) => {\n`;
-        routesCode += `  const [item] = await db.select().from(${table.tableName}).where(eq(${table.tableName}.id, req.params.id));\n`;
-        routesCode += `  if (!item) return res.status(404).json({ error: 'Not found' });\n`;
-        routesCode += `  res.json(item);\n`;
-        routesCode += `});\n\n`;
+        routesCode += `router.get('${endpoint}/:id', async (req, res) => {n`;
+        routesCode += `  const [item] = await db.select().from(${table.tableName}).where(eq(${table.tableName}.id, req.params.id));n`;
+        routesCode += `  if (!item) return res.status(404).json({ error: 'Not found' });n`;
+        routesCode += `  res.json(item);n`;
+        routesCode += `});nn`;
         
         // POST
-        routesCode += `router.post('${endpoint}', async (req, res) => {\n`;
-        routesCode += `  const [created] = await db.insert(${table.tableName}).values(req.body).returning();\n`;
-        routesCode += `  res.status(201).json(created);\n`;
-        routesCode += `});\n\n`;
+        routesCode += `router.post('${endpoint}', async (req, res) => {n`;
+        routesCode += `  const [created] = await db.insert(${table.tableName}).values(req.body).returning();n`;
+        routesCode += `  res.status(201).json(created);n`;
+        routesCode += `});nn`;
         
         // PATCH
-        routesCode += `router.patch('${endpoint}/:id', async (req, res) => {\n`;
-        routesCode += `  const [updated] = await db.update(${table.tableName}).set(req.body).where(eq(${table.tableName}.id, req.params.id)).returning();\n`;
-        routesCode += `  if (!updated) return res.status(404).json({ error: 'Not found' });\n`;
-        routesCode += `  res.json(updated);\n`;
-        routesCode += `});\n\n`;
+        routesCode += `router.patch('${endpoint}/:id', async (req, res) => {n`;
+        routesCode += `  const [updated] = await db.update(${table.tableName}).set(req.body).where(eq(${table.tableName}.id, req.params.id)).returning();n`;
+        routesCode += `  if (!updated) return res.status(404).json({ error: 'Not found' });n`;
+        routesCode += `  res.json(updated);n`;
+        routesCode += `});nn`;
         
         // DELETE
-        routesCode += `router.delete('${endpoint}/:id', async (req, res) => {\n`;
-        routesCode += `  await db.delete(${table.tableName}).where(eq(${table.tableName}.id, req.params.id));\n`;
-        routesCode += `  res.json({ success: true });\n`;
-        routesCode += `});\n\n`;
+        routesCode += `router.delete('${endpoint}/:id', async (req, res) => {n`;
+        routesCode += `  await db.delete(${table.tableName}).where(eq(${table.tableName}.id, req.params.id));n`;
+        routesCode += `  res.json({ success: true });n`;
+        routesCode += `});nn`;
       }
       
-      routesCode += `export default router;\n`;
+      routesCode += `export default router;n`;
       
       res.json({
         schemaCode,
@@ -21384,7 +21514,7 @@ ${project.description || ""}
       }
       
       const deploymentId = `deploy_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const deployedUrl = customDomain || `https://${project.name?.toLowerCase().replace(/\s+/g, "-") || "app"}-${deploymentId.slice(-6)}.infera.app`;
+      const deployedUrl = customDomain || `https://${project.name?.toLowerCase().replace(/s+/g, "-") || "app"}-${deploymentId.slice(-6)}.infera.app`;
       
       const deployment = await storage.createDeploymentRun({
         projectId,
@@ -21396,7 +21526,7 @@ ${project.description || ""}
         targetPlatform: targetPlatform || "web",
         environment: environment || "production",
         deployedUrl,
-        buildLogs: "Starting build...\n",
+        buildLogs: "Starting build...n",
         deployLogs: "",
         deploymentMode: autoScale ? "auto" : "manual_approve",
         healthCheckUrl: deployedUrl,
@@ -21410,15 +21540,15 @@ ${project.description || ""}
         try {
           await storage.updateDeploymentRun(deployment.id, {
             status: "deploying",
-            buildLogs: "Build completed successfully.\n",
-            deployLogs: "Starting deployment...\n",
+            buildLogs: "Build completed successfully.n",
+            deployLogs: "Starting deployment...n",
           });
           
           setTimeout(async () => {
             try {
               await storage.updateDeploymentRun(deployment.id, {
                 status: "running",
-                deployLogs: "Deployment completed successfully.\nApplication is now live.\n",
+                deployLogs: "Deployment completed successfully.nApplication is now live.n",
               });
             } catch (e) {
               console.error("Deployment update error:", e);
@@ -21447,7 +21577,7 @@ ${project.description || ""}
       
       const updated = await storage.updateDeploymentRun(id, {
         status: "stopped",
-        deployLogs: (deployment.deployLogs || "") + "\nDeployment stopped by user.\n",
+        deployLogs: (deployment.deployLogs || "") + "nDeployment stopped by user.n",
       });
       
       res.json({ success: true, deployment: updated });
@@ -21476,8 +21606,8 @@ ${project.description || ""}
         targetPlatform: deployment.targetPlatform,
         environment: deployment.environment,
         deployedUrl: deployment.deployedUrl,
-        buildLogs: "Rollback from deployment " + id + "\n",
-        deployLogs: "Rollback completed successfully.\n",
+        buildLogs: "Rollback from deployment " + id + "n",
+        deployLogs: "Rollback completed successfully.n",
         deploymentMode: deployment.deploymentMode,
         healthCheckUrl: deployment.healthCheckUrl,
         enableAutoRollback: deployment.enableAutoRollback,
@@ -21769,7 +21899,7 @@ ${project.description || ""}
       }
 
       const changesSummary = Array.isArray(changes) 
-        ? changes.map((c: any) => `${c.status}: ${c.path}`).join("\n")
+        ? changes.map((c: any) => `${c.status}: ${c.path}`).join("n")
         : "Changes detected";
 
       const Anthropic = (await import("@anthropic-ai/sdk")).default;
@@ -21850,7 +21980,7 @@ Code to fix:
 
 Code to optimize:
 `,
-        chat: "Answer this coding question:\n"
+        chat: "Answer this coding question:n"
       };
       
       const prompt = (actionPrompts[action] || actionPrompts.chat) + input.slice(0, 10000);
@@ -21869,7 +21999,7 @@ Code to optimize:
       
       let parsedResult: any = { result, confidence: 85 };
       try {
-        const jsonMatch = result.match(/\{[\s\S]*\}/);
+        const jsonMatch = result.match(/{[sS]*}/);
         if (jsonMatch) {
           parsedResult = JSON.parse(jsonMatch[0]);
         }
@@ -21957,7 +22087,7 @@ Keep responses concise but informative. If providing code, ensure it's productio
       const textContent = response.content.find(c => c.type === "text");
       const responseText = textContent && textContent.type === "text" ? textContent.text : "";
       
-      const codeMatch = responseText.match(/```[\w]*\n([\s\S]*?)```/);
+      const codeMatch = responseText.match(/```[w]*n([sS]*?)```/);
       const code = codeMatch ? codeMatch[1].trim() : undefined;
 
       res.json({ success: true, response: responseText, code });
@@ -24635,27 +24765,27 @@ function getDefaultProjectFiles(projectType: string, projectId: string) {
   
   if (projectType === 'nodejs') {
     files.push(
-      { projectId, fileName: 'index.js', filePath: '/index.js', fileType: 'javascript', content: `// INFERA WebNova - Node.js Project\nconsole.log('Hello from INFERA WebNova!');\n\nconst http = require('http');\n\nconst server = http.createServer((req, res) => {\n  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });\n  res.end('<h1>مرحباً من INFERA WebNova!</h1>');\n});\n\nserver.listen(3000, () => {\n  console.log('Server running on port 3000');\n});`, isDirectory: false },
-      { projectId, fileName: 'package.json', filePath: '/package.json', fileType: 'json', content: `{\n  "name": "my-project",\n  "version": "1.0.0",\n  "main": "index.js",\n  "scripts": {\n    "start": "node index.js"\n  }\n}`, isDirectory: false },
+      { projectId, fileName: 'index.js', filePath: '/index.js', fileType: 'javascript', content: `// INFERA WebNova - Node.js Projectnconsole.log('Hello from INFERA WebNova!');nnconst http = require('http');nnconst server = http.createServer((req, res) => {n  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });n  res.end('<h1>مرحباً من INFERA WebNova!</h1>');n});nnserver.listen(3000, () => {n  console.log('Server running on port 3000');n});`, isDirectory: false },
+      { projectId, fileName: 'package.json', filePath: '/package.json', fileType: 'json', content: `{n  "name": "my-project",n  "version": "1.0.0",n  "main": "index.js",n  "scripts": {n    "start": "node index.js"n  }n}`, isDirectory: false },
     );
   } else if (projectType === 'html') {
     files.push(
-      { projectId, fileName: 'index.html', filePath: '/index.html', fileType: 'html', content: `<!DOCTYPE html>\n<html lang="ar" dir="rtl">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>INFERA WebNova</title>\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n  <h1>مرحباً بك في INFERA WebNova</h1>\n  <p>ابدأ بناء موقعك الآن!</p>\n  <script src="script.js"></script>\n</body>\n</html>`, isDirectory: false },
-      { projectId, fileName: 'style.css', filePath: '/style.css', fileType: 'css', content: `* {\n  margin: 0;\n  padding: 0;\n  box-sizing: border-box;\n}\n\nbody {\n  font-family: 'Segoe UI', Tahoma, sans-serif;\n  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\n  min-height: 100vh;\n  display: flex;\n  flex-direction: column;\n  align-items: center;\n  justify-content: center;\n  color: white;\n}\n\nh1 {\n  font-size: 3rem;\n  margin-bottom: 1rem;\n}`, isDirectory: false },
-      { projectId, fileName: 'script.js', filePath: '/script.js', fileType: 'javascript', content: `// INFERA WebNova - JavaScript\nconsole.log('مرحباً من INFERA WebNova!');`, isDirectory: false },
+      { projectId, fileName: 'index.html', filePath: '/index.html', fileType: 'html', content: `<!DOCTYPE html>n<html lang="ar" dir="rtl">n<head>n  <meta charset="UTF-8">n  <meta name="viewport" content="width=device-width, initial-scale=1.0">n  <title>INFERA WebNova</title>n  <link rel="stylesheet" href="style.css">n</head>n<body>n  <h1>مرحباً بك في INFERA WebNova</h1>n  <p>ابدأ بناء موقعك الآن!</p>n  <script src="script.js"></script>n</body>n</html>`, isDirectory: false },
+      { projectId, fileName: 'style.css', filePath: '/style.css', fileType: 'css', content: `* {n  margin: 0;n  padding: 0;n  box-sizing: border-box;n}nnbody {n  font-family: 'Segoe UI', Tahoma, sans-serif;n  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);n  min-height: 100vh;n  display: flex;n  flex-direction: column;n  align-items: center;n  justify-content: center;n  color: white;n}nnh1 {n  font-size: 3rem;n  margin-bottom: 1rem;n}`, isDirectory: false },
+      { projectId, fileName: 'script.js', filePath: '/script.js', fileType: 'javascript', content: `// INFERA WebNova - JavaScriptnconsole.log('مرحباً من INFERA WebNova!');`, isDirectory: false },
     );
   } else if (projectType === 'python') {
     files.push(
-      { projectId, fileName: 'main.py', filePath: '/main.py', fileType: 'python', content: `# INFERA WebNova - Python Project\nprint("مرحباً من INFERA WebNova!")\n\nfrom http.server import HTTPServer, SimpleHTTPRequestHandler\n\nclass Handler(SimpleHTTPRequestHandler):\n    def do_GET(self):\n        self.send_response(200)\n        self.send_header('Content-type', 'text/html; charset=utf-8')\n        self.end_headers()\n        self.wfile.write('<h1>مرحباً من INFERA WebNova!</h1>'.encode())\n\nif __name__ == '__main__':\n    server = HTTPServer(('0.0.0.0', 3000), Handler)\n    print('Server running on port 3000')\n    server.serve_forever()`, isDirectory: false },
+      { projectId, fileName: 'main.py', filePath: '/main.py', fileType: 'python', content: `# INFERA WebNova - Python Projectnprint("مرحباً من INFERA WebNova!")nnfrom http.server import HTTPServer, SimpleHTTPRequestHandlernnclass Handler(SimpleHTTPRequestHandler):n    def do_GET(self):n        self.send_response(200)n        self.send_header('Content-type', 'text/html; charset=utf-8')n        self.end_headers()n        self.wfile.write('<h1>مرحباً من INFERA WebNova!</h1>'.encode())nnif __name__ == '__main__':n    server = HTTPServer(('0.0.0.0', 3000), Handler)n    print('Server running on port 3000')n    server.serve_forever()`, isDirectory: false },
       { projectId, fileName: 'requirements.txt', filePath: '/requirements.txt', fileType: 'text', content: `# Python dependencies`, isDirectory: false },
     );
   } else if (projectType === 'react') {
     files.push(
       { projectId, fileName: 'src', filePath: '/src', fileType: 'folder', content: '', isDirectory: true },
-      { projectId, fileName: 'App.jsx', filePath: '/src/App.jsx', fileType: 'javascript', content: `import { useState } from 'react';\n\nfunction App() {\n  const [count, setCount] = useState(0);\n\n  return (\n    <div className="app">\n      <h1>مرحباً بك في INFERA WebNova</h1>\n      <p>عداد: {count}</p>\n      <button onClick={() => setCount(c => c + 1)}>زيادة</button>\n    </div>\n  );\n}\n\nexport default App;`, isDirectory: false },
-      { projectId, fileName: 'main.jsx', filePath: '/src/main.jsx', fileType: 'javascript', content: `import React from 'react';\nimport ReactDOM from 'react-dom/client';\nimport App from './App';\nimport './index.css';\n\nReactDOM.createRoot(document.getElementById('root')).render(\n  <React.StrictMode>\n    <App />\n  </React.StrictMode>\n);`, isDirectory: false },
-      { projectId, fileName: 'index.css', filePath: '/src/index.css', fileType: 'css', content: `* {\n  margin: 0;\n  padding: 0;\n  box-sizing: border-box;\n}\n\n.app {\n  font-family: 'Segoe UI', sans-serif;\n  text-align: center;\n  padding: 2rem;\n}\n\nbutton {\n  padding: 0.5rem 1rem;\n  font-size: 1rem;\n  cursor: pointer;\n}`, isDirectory: false },
-      { projectId, fileName: 'package.json', filePath: '/package.json', fileType: 'json', content: `{\n  "name": "react-app",\n  "version": "1.0.0",\n  "scripts": {\n    "dev": "vite",\n    "build": "vite build"\n  },\n  "dependencies": {\n    "react": "^18.2.0",\n    "react-dom": "^18.2.0"\n  },\n  "devDependencies": {\n    "vite": "^4.0.0",\n    "@vitejs/plugin-react": "^4.0.0"\n  }\n}`, isDirectory: false },
+      { projectId, fileName: 'App.jsx', filePath: '/src/App.jsx', fileType: 'javascript', content: `import { useState } from 'react';nnfunction App() {n  const [count, setCount] = useState(0);nn  return (n    <div className="app">n      <h1>مرحباً بك في INFERA WebNova</h1>n      <p>عداد: {count}</p>n      <button onClick={() => setCount(c => c + 1)}>زيادة</button>n    </div>n  );n}nnexport default App;`, isDirectory: false },
+      { projectId, fileName: 'main.jsx', filePath: '/src/main.jsx', fileType: 'javascript', content: `import React from 'react';nimport ReactDOM from 'react-dom/client';nimport App from './App';nimport './index.css';nnReactDOM.createRoot(document.getElementById('root')).render(n  <React.StrictMode>n    <App />n  </React.StrictMode>n);`, isDirectory: false },
+      { projectId, fileName: 'index.css', filePath: '/src/index.css', fileType: 'css', content: `* {n  margin: 0;n  padding: 0;n  box-sizing: border-box;n}nn.app {n  font-family: 'Segoe UI', sans-serif;n  text-align: center;n  padding: 2rem;n}nnbutton {n  padding: 0.5rem 1rem;n  font-size: 1rem;n  cursor: pointer;n}`, isDirectory: false },
+      { projectId, fileName: 'package.json', filePath: '/package.json', fileType: 'json', content: `{n  "name": "react-app",n  "version": "1.0.0",n  "scripts": {n    "dev": "vite",n    "build": "vite build"n  },n  "dependencies": {n    "react": "^18.2.0",n    "react-dom": "^18.2.0"n  },n  "devDependencies": {n    "vite": "^4.0.0",n    "@vitejs/plugin-react": "^4.0.0"n  }n}`, isDirectory: false },
     );
   }
   
@@ -24839,14 +24969,14 @@ export function registerConversationRoutes(app: Express, requireAuth: any) {
       }
       
       // Use first few messages to generate title
-      const context = messages.map(m => `${m.role}: ${m.content.substring(0, 200)}`).join("\n");
+      const context = messages.map(m => `${m.role}: ${m.content.substring(0, 200)}`).join("n");
       
       const response = await anthropic.messages.create({
         model: "claude-sonnet-4-20250514",
         max_tokens: 100,
         messages: [{
           role: "user",
-          content: `Based on this conversation, generate a short, descriptive title (max 50 chars) in both English and Arabic. Format: "English Title | العنوان بالعربية"\n\nConversation:\n${context}`
+          content: `Based on this conversation, generate a short, descriptive title (max 50 chars) in both English and Arabic. Format: "English Title | العنوان بالعربية"nnConversation:n${context}`
         }]
       });
       
@@ -26832,7 +26962,7 @@ ${contentToAnalyze}`
       try {
         const textContent = response.content[0];
         if (textContent.type === 'text') {
-          const jsonMatch = textContent.text.match(/\{[\s\S]*\}/);
+          const jsonMatch = textContent.text.match(/{[sS]*}/);
           if (jsonMatch) {
             scanResult = JSON.parse(jsonMatch[0]);
           }
@@ -27029,7 +27159,7 @@ ${contentToAnalyze}`
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
       const { message, context } = req.body;
-      const hasArabic = /[\u0600-\u06FF]/.test(message || "");
+      const hasArabic = /[u0600-u06FF]/.test(message || "");
       const language = hasArabic ? "ar" : (context?.language || "en");
       
       let intent = "general";
@@ -27096,7 +27226,7 @@ ${contentToAnalyze}`
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       
       const { message, context } = req.body;
-      const hasArabic = /[\u0600-\u06FF]/.test(message || "");
+      const hasArabic = /[u0600-u06FF]/.test(message || "");
       const language = hasArabic ? "ar" : (context?.language || "en");
       
       let intent = "general";

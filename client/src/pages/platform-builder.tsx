@@ -792,6 +792,35 @@ spec:
       try {
         buildResponse = await apiRequest('POST', '/api/platforms/ai-build', aiBuildRequest);
         console.log('[AI-Build] Response:', buildResponse);
+        
+        // Poll for build completion (AI build is async)
+        if (buildResponse?.success && buildResponse.blueprintId) {
+          let attempts = 0;
+          const maxAttempts = 60; // Wait up to 60 seconds
+          let buildComplete = false;
+          
+          while (attempts < maxAttempts && !buildComplete) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            const statusResponse = await fetch(`/api/platforms/ai-build/${buildResponse.blueprintId}`);
+            if (statusResponse.ok) {
+              const statusData = await statusResponse.json();
+              console.log('[AI-Build] Status:', statusData.buildState?.stage, 'Progress:', statusData.buildState?.progress);
+              if (statusData.buildState?.stage === 'completed') {
+                buildComplete = true;
+              } else if (statusData.buildState?.stage === 'failed') {
+                console.warn('[AI-Build] Build failed, falling back to template');
+                useAIBuild = false;
+                break;
+              }
+            }
+            attempts++;
+          }
+          
+          if (!buildComplete && useAIBuild) {
+            console.warn('[AI-Build] Timeout waiting for build, falling back to template');
+            useAIBuild = false;
+          }
+        }
       } catch (aiError) {
         console.warn('[AI-Build] Falling back to template build:', aiError);
         useAIBuild = false;
