@@ -348,10 +348,22 @@ function createVirtualEntry(
     } else if (isListPage && entity) {
       return `
   function ${page.name}() {
-    const [data, setData] = React.useState(mockData['${entity.tableName}'] || []);
+    const [data, setData] = React.useState(window.dataManager?.getAll('${entity.tableName}') || []);
     const [showForm, setShowForm] = React.useState(false);
     const [editingItem, setEditingItem] = React.useState<any>(null);
     const [searchTerm, setSearchTerm] = React.useState('');
+    
+    // Subscribe to DataManager updates
+    React.useEffect(() => {
+      if (window.dataManager) {
+        const unsubscribe = window.dataManager.subscribe('${entity.tableName}', (newData) => {
+          setData(newData);
+        });
+        // Load initial data from DataManager
+        setData(window.dataManager.getAll('${entity.tableName}'));
+        return unsubscribe;
+      }
+    }, []);
     
     const filteredData = data.filter((item: any) => {
       if (!searchTerm) return true;
@@ -372,19 +384,31 @@ function createVirtualEntry(
     
     const handleDelete = (id: number) => {
       if (confirm('هل أنت متأكد من الحذف؟')) {
-        setData((prev: any[]) => prev.filter(item => item.id !== id));
+        if (window.dataManager) {
+          window.dataManager.delete('${entity.tableName}', id);
+        } else {
+          setData((prev: any[]) => prev.filter(item => item.id !== id));
+        }
         showToast('تم الحذف بنجاح');
       }
     };
     
     const handleSubmit = (formData: any) => {
-      if (editingItem) {
-        setData((prev: any[]) => prev.map(item => 
-          item.id === editingItem.id ? { ...item, ...formData } : item
-        ));
+      if (window.dataManager) {
+        if (editingItem) {
+          window.dataManager.update('${entity.tableName}', editingItem.id, formData);
+        } else {
+          window.dataManager.create('${entity.tableName}', formData);
+        }
       } else {
-        const newId = Math.max(0, ...data.map((d: any) => d.id)) + 1;
-        setData((prev: any[]) => [...prev, { ...formData, id: newId }]);
+        if (editingItem) {
+          setData((prev: any[]) => prev.map(item => 
+            item.id === editingItem.id ? { ...item, ...formData } : item
+          ));
+        } else {
+          const newId = Math.max(0, ...data.map((d: any) => d.id)) + 1;
+          setData((prev: any[]) => [...prev, { ...formData, id: newId }]);
+        }
       }
       setShowForm(false);
     };
@@ -1800,7 +1824,7 @@ function adjustColor(hex: string, percent: number): string {
 }
 
 /**
- * Generate preview HTML shell
+ * Generate preview HTML shell with DevTools
  */
 function generatePreviewHTML(
   blueprint: Blueprint,
@@ -1808,6 +1832,432 @@ function generatePreviewHTML(
   css: string,
   mockData: Record<string, any[]>
 ): string {
+  const devToolsScript = `
+// ========== INFERA DevTools ==========
+const BLUEPRINT_ID = '${blueprint.id}';
+const STORAGE_KEY = 'infera_preview_data_' + BLUEPRINT_ID;
+
+// Console Logger
+class InferaConsole {
+  constructor() {
+    this.logs = [];
+    this.listeners = [];
+  }
+  
+  log(type, message, data = null) {
+    const entry = { 
+      id: Date.now(), 
+      type, 
+      message, 
+      data,
+      timestamp: new Date().toLocaleTimeString('ar-EG')
+    };
+    this.logs.push(entry);
+    this.listeners.forEach(fn => fn(entry));
+    
+    // Keep last 100 logs
+    if (this.logs.length > 100) this.logs = this.logs.slice(-100);
+  }
+  
+  info(msg, data) { this.log('info', msg, data); }
+  success(msg, data) { this.log('success', msg, data); }
+  warn(msg, data) { this.log('warn', msg, data); }
+  error(msg, data) { this.log('error', msg, data); }
+  api(method, url, data) { this.log('api', method + ' ' + url, data); }
+  
+  subscribe(fn) { this.listeners.push(fn); }
+  getLogs() { return this.logs; }
+  clear() { this.logs = []; }
+}
+
+window.inferaConsole = new InferaConsole();
+
+// Data Manager with localStorage persistence
+class DataManager {
+  constructor(initialData) {
+    this.data = this.loadFromStorage() || initialData;
+    this.listeners = {};
+    window.inferaConsole.info('تم تحميل البيانات', { tables: Object.keys(this.data).length });
+  }
+  
+  loadFromStorage() {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        window.inferaConsole.success('تم استرجاع البيانات من التخزين المحلي');
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      window.inferaConsole.warn('فشل تحميل البيانات المحفوظة');
+    }
+    return null;
+  }
+  
+  saveToStorage() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
+      window.inferaConsole.info('تم حفظ البيانات');
+    } catch (e) {
+      window.inferaConsole.error('فشل حفظ البيانات');
+    }
+  }
+  
+  getAll(table) {
+    window.inferaConsole.api('GET', '/api/' + table);
+    return this.data[table] || [];
+  }
+  
+  getById(table, id) {
+    window.inferaConsole.api('GET', '/api/' + table + '/' + id);
+    return (this.data[table] || []).find(item => item.id === id);
+  }
+  
+  create(table, item) {
+    if (!this.data[table]) this.data[table] = [];
+    const newId = Math.max(0, ...this.data[table].map(i => i.id || 0)) + 1;
+    const newItem = { ...item, id: newId, createdAt: new Date().toISOString() };
+    this.data[table].push(newItem);
+    this.saveToStorage();
+    this.notify(table);
+    window.inferaConsole.api('POST', '/api/' + table, newItem);
+    window.inferaConsole.success('تم إنشاء سجل جديد', { table, id: newId });
+    return newItem;
+  }
+  
+  update(table, id, updates) {
+    const idx = (this.data[table] || []).findIndex(i => i.id === id);
+    if (idx !== -1) {
+      this.data[table][idx] = { ...this.data[table][idx], ...updates, updatedAt: new Date().toISOString() };
+      this.saveToStorage();
+      this.notify(table);
+      window.inferaConsole.api('PUT', '/api/' + table + '/' + id, updates);
+      window.inferaConsole.success('تم تحديث السجل', { table, id });
+      return this.data[table][idx];
+    }
+    window.inferaConsole.error('السجل غير موجود', { table, id });
+    return null;
+  }
+  
+  delete(table, id) {
+    const idx = (this.data[table] || []).findIndex(i => i.id === id);
+    if (idx !== -1) {
+      this.data[table].splice(idx, 1);
+      this.saveToStorage();
+      this.notify(table);
+      window.inferaConsole.api('DELETE', '/api/' + table + '/' + id);
+      window.inferaConsole.success('تم حذف السجل', { table, id });
+      return true;
+    }
+    return false;
+  }
+  
+  subscribe(table, fn) {
+    if (!this.listeners[table]) this.listeners[table] = [];
+    this.listeners[table].push(fn);
+    return () => {
+      this.listeners[table] = this.listeners[table].filter(f => f !== fn);
+    };
+  }
+  
+  notify(table) {
+    (this.listeners[table] || []).forEach(fn => fn(this.data[table]));
+  }
+  
+  exportData() {
+    const json = JSON.stringify(this.data, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'platform-data-' + BLUEPRINT_ID + '.json';
+    a.click();
+    window.inferaConsole.success('تم تصدير البيانات');
+  }
+  
+  importData(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        this.data = JSON.parse(e.target.result);
+        this.saveToStorage();
+        Object.keys(this.data).forEach(t => this.notify(t));
+        window.inferaConsole.success('تم استيراد البيانات', { tables: Object.keys(this.data).length });
+      } catch (err) {
+        window.inferaConsole.error('فشل استيراد البيانات: تنسيق غير صالح');
+      }
+    };
+    reader.readAsText(file);
+  }
+  
+  resetData(initialData) {
+    this.data = JSON.parse(JSON.stringify(initialData));
+    this.saveToStorage();
+    Object.keys(this.data).forEach(t => this.notify(t));
+    window.inferaConsole.info('تم إعادة تعيين البيانات');
+  }
+  
+  getStats() {
+    return Object.entries(this.data).map(([table, records]) => ({
+      table,
+      count: records.length
+    }));
+  }
+}
+
+// Initialize with mock data
+window.dataManager = new DataManager(${JSON.stringify(mockData)});
+window.mockData = window.dataManager.data;
+
+// DevTools Panel Component
+window.DevToolsPanel = function() {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [activeTab, setActiveTab] = React.useState('console');
+  const [logs, setLogs] = React.useState([]);
+  const [stats, setStats] = React.useState(window.dataManager.getStats());
+  const fileInputRef = React.useRef(null);
+  
+  React.useEffect(() => {
+    window.inferaConsole.subscribe(log => {
+      setLogs(prev => [...prev.slice(-99), log]);
+    });
+    setLogs(window.inferaConsole.getLogs());
+    
+    // Update stats periodically
+    const interval = setInterval(() => {
+      setStats(window.dataManager.getStats());
+    }, 2000);
+    
+    return () => clearInterval(interval);
+  }, []);
+  
+  const getLogColor = (type) => ({
+    info: '#3b82f6',
+    success: '#22c55e',
+    warn: '#f59e0b',
+    error: '#ef4444',
+    api: '#8b5cf6'
+  }[type] || '#71717a');
+  
+  const getLogIcon = (type) => ({
+    info: 'ℹ',
+    success: '✓',
+    warn: '⚠',
+    error: '✕',
+    api: '↔'
+  }[type] || '•');
+  
+  if (!isOpen) {
+    return React.createElement('button', {
+      onClick: () => setIsOpen(true),
+      style: {
+        position: 'fixed',
+        bottom: '16px',
+        left: '16px',
+        zIndex: 9999,
+        background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+        color: 'white',
+        border: 'none',
+        borderRadius: '12px',
+        padding: '12px 20px',
+        cursor: 'pointer',
+        fontSize: '14px',
+        fontWeight: '600',
+        boxShadow: '0 4px 20px rgba(99, 102, 241, 0.4)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        fontFamily: 'Cairo, sans-serif'
+      }
+    }, '🛠 DevTools');
+  }
+  
+  return React.createElement('div', {
+    style: {
+      position: 'fixed',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      height: '320px',
+      background: '#0a0a0b',
+      borderTop: '1px solid #27272a',
+      zIndex: 9999,
+      display: 'flex',
+      flexDirection: 'column',
+      fontFamily: 'Cairo, sans-serif',
+      direction: 'rtl'
+    }
+  }, [
+    // Header
+    React.createElement('div', {
+      key: 'header',
+      style: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '8px 16px',
+        borderBottom: '1px solid #27272a',
+        background: '#18181b'
+      }
+    }, [
+      React.createElement('div', { key: 'tabs', style: { display: 'flex', gap: '4px' } }, 
+        [['console', '📋 Console'], ['data', '💾 Data']].map(function(item) {
+          const id = item[0];
+          const label = item[1];
+          return React.createElement('button', {
+            key: id,
+            onClick: function() { setActiveTab(id); },
+            style: {
+              padding: '6px 12px',
+              background: activeTab === id ? '#27272a' : 'transparent',
+              border: 'none',
+              borderRadius: '6px',
+              color: activeTab === id ? 'white' : '#71717a',
+              cursor: 'pointer',
+              fontSize: '12px'
+            }
+          }, label);
+        })
+      ),
+      React.createElement('button', {
+        key: 'close',
+        onClick: () => setIsOpen(false),
+        style: {
+          background: 'transparent',
+          border: 'none',
+          color: '#71717a',
+          cursor: 'pointer',
+          fontSize: '18px'
+        }
+      }, '✕')
+    ]),
+    
+    // Content
+    React.createElement('div', {
+      key: 'content',
+      style: { flex: 1, overflow: 'auto', padding: '8px' }
+    }, 
+      activeTab === 'console' 
+        ? React.createElement('div', { style: { fontSize: '12px', fontFamily: 'monospace' } },
+            logs.length === 0 
+              ? React.createElement('div', { style: { color: '#71717a', padding: '20px', textAlign: 'center' } }, 'لا توجد سجلات')
+              : logs.map(log => 
+                  React.createElement('div', {
+                    key: log.id,
+                    style: {
+                      display: 'flex',
+                      gap: '8px',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      marginBottom: '2px',
+                      background: '#18181b'
+                    }
+                  }, [
+                    React.createElement('span', { key: 'time', style: { color: '#52525b' } }, log.timestamp),
+                    React.createElement('span', { key: 'icon', style: { color: getLogColor(log.type) } }, getLogIcon(log.type)),
+                    React.createElement('span', { key: 'msg', style: { color: '#fafafa' } }, log.message),
+                    log.data && React.createElement('span', { key: 'data', style: { color: '#71717a' } }, JSON.stringify(log.data))
+                  ])
+                )
+          )
+        : React.createElement('div', { style: { padding: '8px' } }, [
+            // Data Actions
+            React.createElement('div', {
+              key: 'actions',
+              style: { display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }
+            }, [
+              React.createElement('button', {
+                key: 'export',
+                onClick: () => window.dataManager.exportData(),
+                style: {
+                  padding: '8px 16px',
+                  background: '#22c55e',
+                  border: 'none',
+                  borderRadius: '6px',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }
+              }, '📤 تصدير JSON'),
+              React.createElement('button', {
+                key: 'import',
+                onClick: () => fileInputRef.current?.click(),
+                style: {
+                  padding: '8px 16px',
+                  background: '#3b82f6',
+                  border: 'none',
+                  borderRadius: '6px',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }
+              }, '📥 استيراد JSON'),
+              React.createElement('input', {
+                key: 'file-input',
+                ref: fileInputRef,
+                type: 'file',
+                accept: '.json',
+                style: { display: 'none' },
+                onChange: (e) => e.target.files[0] && window.dataManager.importData(e.target.files[0])
+              }),
+              React.createElement('button', {
+                key: 'reset',
+                onClick: () => {
+                  if (confirm('هل أنت متأكد من إعادة تعيين جميع البيانات؟')) {
+                    window.dataManager.resetData(${JSON.stringify(mockData)});
+                  }
+                },
+                style: {
+                  padding: '8px 16px',
+                  background: '#ef4444',
+                  border: 'none',
+                  borderRadius: '6px',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }
+              }, '🔄 إعادة تعيين'),
+              React.createElement('button', {
+                key: 'clear-storage',
+                onClick: () => {
+                  localStorage.removeItem(STORAGE_KEY);
+                  window.inferaConsole.info('تم مسح التخزين المحلي');
+                },
+                style: {
+                  padding: '8px 16px',
+                  background: '#71717a',
+                  border: 'none',
+                  borderRadius: '6px',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }
+              }, '🗑 مسح التخزين')
+            ]),
+            // Stats
+            React.createElement('div', {
+              key: 'stats',
+              style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '8px' }
+            }, stats.map(s =>
+              React.createElement('div', {
+                key: s.table,
+                style: {
+                  background: '#18181b',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '1px solid #27272a'
+                }
+              }, [
+                React.createElement('div', { key: 'name', style: { color: '#fafafa', fontWeight: '600', marginBottom: '4px' } }, s.table),
+                React.createElement('div', { key: 'count', style: { color: '#6366f1', fontSize: '24px', fontWeight: '700' } }, s.count),
+                React.createElement('div', { key: 'label', style: { color: '#71717a', fontSize: '12px' } }, 'سجلات')
+              ])
+            ))
+          ])
+    )
+  ]);
+};
+`;
+
   return `<!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
@@ -1823,7 +2273,17 @@ function generatePreviewHTML(
 </head>
 <body>
   <div id="root"></div>
+  <div id="devtools-root"></div>
+  <script>${devToolsScript}</script>
   <script>${jsCode}</script>
+  <script>
+    // Render DevTools Panel
+    const devRoot = document.getElementById('devtools-root');
+    if (devRoot && window.DevToolsPanel) {
+      const devToolsRoot = ReactDOM.createRoot(devRoot);
+      devToolsRoot.render(React.createElement(window.DevToolsPanel));
+    }
+  </script>
 </body>
 </html>`;
 }
