@@ -1111,6 +1111,16 @@ How can I help you? Describe the platform you want to build.`;
                   {githubStatus.repo?.split('/')[1]}
                 </Badge>
               )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => window.location.href = '/nova/permissions'}
+                title={t('Nova Permissions', 'صلاحيات نوفا')}
+                data-testid="button-nova-permissions"
+              >
+                <Shield className="w-4 h-4 text-amber-500" />
+              </Button>
             </div>
           </div>
         </div>
