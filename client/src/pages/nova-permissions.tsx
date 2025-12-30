@@ -8,20 +8,20 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useLanguage } from '@/hooks/use-language';
 import { 
   Search, 
   Shield, 
   ShieldCheck, 
   ShieldAlert, 
   ShieldX,
-  Filter,
   ChevronLeft,
   ChevronRight,
   Check,
@@ -42,16 +42,10 @@ import {
   Users,
   Key,
   Cpu,
-  HardDrive,
-  Wifi,
-  Bell,
-  RefreshCw,
   Package,
   Globe,
   CreditCard,
-  Mail,
   Eye,
-  EyeOff,
   AlertTriangle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -75,6 +69,69 @@ interface PermissionsResponse {
   grouped: Record<string, Permission[]>;
   categories: string[];
 }
+
+const translations = {
+  ar: {
+    title: 'صلاحيات وقدرات Nova',
+    subtitle: 'إدارة كافة صلاحيات وقدرات الذكاء الاصطناعي',
+    enableAll: 'تفعيل الكل',
+    disableAll: 'تقييد الكل',
+    totalPermissions: 'إجمالي الصلاحيات',
+    enabled: 'مفعلة',
+    disabled: 'معطلة',
+    categories: 'الفئات',
+    searchPlaceholder: 'البحث في الصلاحيات...',
+    allLevels: 'كل المستويات',
+    highSecurity: 'عالي الأمان',
+    mediumSecurity: 'متوسط الأمان',
+    lowSecurity: 'منخفض الأمان',
+    danger: 'خطير',
+    all: 'الكل',
+    enabledOnly: 'مفعلة فقط',
+    disabledOnly: 'معطلة فقط',
+    showing: 'عرض',
+    of: 'من',
+    noResults: 'لا توجد صلاحيات مطابقة للبحث',
+    permissionUpdated: 'تم تحديث الصلاحية',
+    permissionUpdatedDesc: 'تم تحديث حالة الصلاحية بنجاح',
+    allEnabled: 'تم تفعيل كافة الصلاحيات',
+    allEnabledDesc: 'تم تفعيل جميع الصلاحيات',
+    allRestricted: 'تم تقييد الصلاحيات',
+    allRestrictedDesc: 'تم ضبط الصلاحيات على الوضع المقيد',
+    error: 'خطأ',
+    failedToLoad: 'فشل في تحميل الصلاحيات',
+  },
+  en: {
+    title: 'Nova Permissions & Capabilities',
+    subtitle: 'Manage all AI permissions and capabilities',
+    enableAll: 'Enable All',
+    disableAll: 'Restrict All',
+    totalPermissions: 'Total Permissions',
+    enabled: 'Enabled',
+    disabled: 'Disabled',
+    categories: 'Categories',
+    searchPlaceholder: 'Search permissions...',
+    allLevels: 'All Levels',
+    highSecurity: 'High Security',
+    mediumSecurity: 'Medium Security',
+    lowSecurity: 'Low Security',
+    danger: 'Danger',
+    all: 'All',
+    enabledOnly: 'Enabled Only',
+    disabledOnly: 'Disabled Only',
+    showing: 'Showing',
+    of: 'of',
+    noResults: 'No permissions match your search',
+    permissionUpdated: 'Permission Updated',
+    permissionUpdatedDesc: 'Permission status has been updated successfully',
+    allEnabled: 'All Permissions Enabled',
+    allEnabledDesc: 'All permissions have been activated',
+    allRestricted: 'Permissions Restricted',
+    allRestrictedDesc: 'Permissions have been set to restrictive mode',
+    error: 'Error',
+    failedToLoad: 'Failed to load permissions',
+  },
+};
 
 const CATEGORY_INFO: Record<string, { icon: any; labelEn: string; labelAr: string; color: string }> = {
   code_execution: { icon: Code, labelEn: 'Code Execution', labelAr: 'تنفيذ الكود', color: 'bg-blue-500' },
@@ -102,28 +159,30 @@ const CATEGORY_INFO: Record<string, { icon: any; labelEn: string; labelAr: strin
 };
 
 const SECURITY_LEVELS = {
-  high: { icon: ShieldCheck, color: 'text-green-500 bg-green-500/10', label: 'High', labelAr: 'عالي' },
-  medium: { icon: Shield, color: 'text-blue-500 bg-blue-500/10', label: 'Medium', labelAr: 'متوسط' },
-  low: { icon: ShieldAlert, color: 'text-yellow-500 bg-yellow-500/10', label: 'Low', labelAr: 'منخفض' },
-  danger: { icon: ShieldX, color: 'text-red-500 bg-red-500/10', label: 'Danger', labelAr: 'خطير' },
+  high: { icon: ShieldCheck, color: 'text-green-500 bg-green-500/10', labelEn: 'High', labelAr: 'عالي' },
+  medium: { icon: Shield, color: 'text-blue-500 bg-blue-500/10', labelEn: 'Medium', labelAr: 'متوسط' },
+  low: { icon: ShieldAlert, color: 'text-yellow-500 bg-yellow-500/10', labelEn: 'Low', labelAr: 'منخفض' },
+  danger: { icon: ShieldX, color: 'text-red-500 bg-red-500/10', labelEn: 'Danger', labelAr: 'خطير' },
 };
 
 const ITEMS_PER_PAGE = 20;
 
 export default function NovaPermissions() {
   const { toast } = useToast();
+  const { language } = useLanguage();
+  const t = translations[language];
+  const isRtl = language === 'ar';
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [securityFilter, setSecurityFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [showEnabled, setShowEnabled] = useState<'all' | 'enabled' | 'disabled'>('all');
 
-  // Fetch permissions
   const { data: permissionsData, isLoading, error } = useQuery<PermissionsResponse>({
     queryKey: ['/api/nova/permissions'],
   });
 
-  // Toggle permission mutation
   const toggleMutation = useMutation({
     mutationFn: async ({ code, enabled }: { code: string; enabled: boolean }) => {
       const endpoint = enabled 
@@ -137,48 +196,44 @@ export default function NovaPermissions() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/nova/permissions'] });
       toast({
-        title: 'Permission Updated',
-        description: 'Permission status has been updated successfully.',
+        title: t.permissionUpdated,
+        description: t.permissionUpdatedDesc,
       });
     },
     onError: (error: any) => {
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to update permission',
+        title: t.error,
+        description: error.message || t.failedToLoad,
         variant: 'destructive',
       });
     },
   });
 
-  // Enable all permissions
   const enableAllMutation = useMutation({
     mutationFn: async () => {
       return apiRequest('/api/nova/permissions/preset/full_access', { method: 'POST' });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/nova/permissions'] });
-      toast({ title: 'All Permissions Enabled', description: 'All permissions have been activated.' });
+      toast({ title: t.allEnabled, description: t.allEnabledDesc });
     },
   });
 
-  // Disable all permissions
   const disableAllMutation = useMutation({
     mutationFn: async () => {
       return apiRequest('/api/nova/permissions/preset/restrictive', { method: 'POST' });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/nova/permissions'] });
-      toast({ title: 'Permissions Restricted', description: 'Permissions have been set to restrictive mode.' });
+      toast({ title: t.allRestricted, description: t.allRestrictedDesc });
     },
   });
 
-  // Filter and search permissions
   const filteredPermissions = useMemo(() => {
     if (!permissionsData?.permissions) return [];
 
     let result = [...permissionsData.permissions];
 
-    // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(p => 
@@ -190,17 +245,14 @@ export default function NovaPermissions() {
       );
     }
 
-    // Category filter
     if (selectedCategory !== 'all') {
       result = result.filter(p => p.category === selectedCategory);
     }
 
-    // Security level filter
     if (securityFilter !== 'all') {
       result = result.filter(p => p.securityLevel === securityFilter);
     }
 
-    // Enabled/Disabled filter
     if (showEnabled === 'enabled') {
       result = result.filter(p => p.defaultEnabled || p.isGranted);
     } else if (showEnabled === 'disabled') {
@@ -210,14 +262,12 @@ export default function NovaPermissions() {
     return result;
   }, [permissionsData, searchQuery, selectedCategory, securityFilter, showEnabled]);
 
-  // Pagination
   const totalPages = Math.ceil(filteredPermissions.length / ITEMS_PER_PAGE);
   const paginatedPermissions = filteredPermissions.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
 
-  // Stats
   const stats = useMemo(() => {
     if (!permissionsData?.permissions) return { total: 0, enabled: 0, disabled: 0, categories: 0 };
     const perms = permissionsData.permissions;
@@ -233,7 +283,7 @@ export default function NovaPermissions() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center h-full" data-testid="loading-spinner">
         <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
       </div>
     );
@@ -241,30 +291,29 @@ export default function NovaPermissions() {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center h-full" data-testid="error-state">
         <Card className="p-6">
           <AlertTriangle className="w-12 h-12 text-destructive mx-auto mb-4" />
-          <p className="text-center text-muted-foreground">Failed to load permissions</p>
+          <p className="text-center text-muted-foreground" data-testid="text-error-message">{t.failedToLoad}</p>
         </Card>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col p-4 gap-4" dir="rtl">
+    <div className="h-full flex flex-col p-4 gap-4" dir={isRtl ? 'rtl' : 'ltr'} data-testid="nova-permissions-page">
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
+          <h1 className="text-2xl font-bold flex items-center gap-2" data-testid="text-page-title">
             <Shield className="w-6 h-6" />
-            صلاحيات وقدرات Nova
+            {t.title}
           </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            إدارة كافة صلاحيات وقدرات الذكاء الاصطناعي
+          <p className="text-muted-foreground text-sm mt-1" data-testid="text-page-subtitle">
+            {t.subtitle}
           </p>
         </div>
 
-        {/* Quick Actions */}
         <div className="flex gap-2 flex-wrap">
           <Button 
             variant="outline" 
@@ -273,8 +322,8 @@ export default function NovaPermissions() {
             disabled={enableAllMutation.isPending}
             data-testid="button-enable-all"
           >
-            <Check className="w-4 h-4 ml-1" />
-            تفعيل الكل
+            <Check className={`w-4 h-4 ${isRtl ? 'ml-1' : 'mr-1'}`} />
+            {t.enableAll}
           </Button>
           <Button 
             variant="outline" 
@@ -283,54 +332,54 @@ export default function NovaPermissions() {
             disabled={disableAllMutation.isPending}
             data-testid="button-disable-all"
           >
-            <X className="w-4 h-4 ml-1" />
-            تقييد الكل
+            <X className={`w-4 h-4 ${isRtl ? 'ml-1' : 'mr-1'}`} />
+            {t.disableAll}
           </Button>
         </div>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card className="p-3">
+        <Card className="p-3" data-testid="card-stat-total">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-md bg-primary/10">
               <Key className="w-4 h-4 text-primary" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">إجمالي الصلاحيات</p>
+              <p className="text-xs text-muted-foreground">{t.totalPermissions}</p>
               <p className="text-xl font-bold" data-testid="text-total-permissions">{stats.total}</p>
             </div>
           </div>
         </Card>
-        <Card className="p-3">
+        <Card className="p-3" data-testid="card-stat-enabled">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-md bg-green-500/10">
               <Unlock className="w-4 h-4 text-green-500" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">مفعلة</p>
+              <p className="text-xs text-muted-foreground">{t.enabled}</p>
               <p className="text-xl font-bold text-green-500" data-testid="text-enabled-permissions">{stats.enabled}</p>
             </div>
           </div>
         </Card>
-        <Card className="p-3">
+        <Card className="p-3" data-testid="card-stat-disabled">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-md bg-red-500/10">
               <Lock className="w-4 h-4 text-red-500" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">معطلة</p>
+              <p className="text-xs text-muted-foreground">{t.disabled}</p>
               <p className="text-xl font-bold text-red-500" data-testid="text-disabled-permissions">{stats.disabled}</p>
             </div>
           </div>
         </Card>
-        <Card className="p-3">
+        <Card className="p-3" data-testid="card-stat-categories">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-md bg-blue-500/10">
               <Package className="w-4 h-4 text-blue-500" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">الفئات</p>
+              <p className="text-xs text-muted-foreground">{t.categories}</p>
               <p className="text-xl font-bold text-blue-500" data-testid="text-categories-count">{stats.categories}</p>
             </div>
           </div>
@@ -338,24 +387,22 @@ export default function NovaPermissions() {
       </div>
 
       {/* Search and Filters */}
-      <Card className="p-4">
+      <Card className="p-4" data-testid="card-filters">
         <div className="flex flex-col gap-3 md:flex-row md:items-center">
-          {/* Search */}
           <div className="relative flex-1">
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Search className={`absolute ${isRtl ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground`} />
             <Input
-              placeholder="البحث في الصلاحيات..."
+              placeholder={t.searchPlaceholder}
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
                 setCurrentPage(1);
               }}
-              className="pr-10"
+              className={isRtl ? 'pr-10' : 'pl-10'}
               data-testid="input-search-permissions"
             />
           </div>
 
-          {/* Security Filter */}
           <select
             value={securityFilter}
             onChange={(e) => {
@@ -365,14 +412,13 @@ export default function NovaPermissions() {
             className="h-9 rounded-md border bg-background px-3 text-sm"
             data-testid="select-security-filter"
           >
-            <option value="all">كل المستويات</option>
-            <option value="high">عالي الأمان</option>
-            <option value="medium">متوسط الأمان</option>
-            <option value="low">منخفض الأمان</option>
-            <option value="danger">خطير</option>
+            <option value="all">{t.allLevels}</option>
+            <option value="high">{t.highSecurity}</option>
+            <option value="medium">{t.mediumSecurity}</option>
+            <option value="low">{t.lowSecurity}</option>
+            <option value="danger">{t.danger}</option>
           </select>
 
-          {/* Status Filter */}
           <select
             value={showEnabled}
             onChange={(e) => {
@@ -382,9 +428,9 @@ export default function NovaPermissions() {
             className="h-9 rounded-md border bg-background px-3 text-sm"
             data-testid="select-status-filter"
           >
-            <option value="all">الكل</option>
-            <option value="enabled">مفعلة فقط</option>
-            <option value="disabled">معطلة فقط</option>
+            <option value="all">{t.all}</option>
+            <option value="enabled">{t.enabledOnly}</option>
+            <option value="disabled">{t.disabledOnly}</option>
           </select>
         </div>
       </Card>
@@ -398,15 +444,15 @@ export default function NovaPermissions() {
             setCurrentPage(1);
           }}
           className="h-full flex flex-col"
+          data-testid="tabs-categories"
         >
-          {/* Category Tabs */}
           <ScrollArea className="w-full" orientation="horizontal">
-            <TabsList className="w-max h-auto p-1 flex-wrap gap-1">
+            <TabsList className="w-max h-auto p-1 flex-wrap gap-1" data-testid="tablist-categories">
               <TabsTrigger value="all" className="text-xs" data-testid="tab-all">
-                الكل ({permissionsData?.permissions?.length || 0})
+                {t.all} ({permissionsData?.permissions?.length || 0})
               </TabsTrigger>
               {categories.map((cat) => {
-                const info = CATEGORY_INFO[cat] || { icon: Settings, labelAr: cat, color: 'bg-gray-500' };
+                const info = CATEGORY_INFO[cat] || { icon: Settings, labelAr: cat, labelEn: cat, color: 'bg-gray-500' };
                 const Icon = info.icon;
                 const count = permissionsData?.grouped?.[cat]?.length || 0;
                 return (
@@ -414,22 +460,21 @@ export default function NovaPermissions() {
                     key={cat} 
                     value={cat} 
                     className="text-xs gap-1"
-                    data-testid={`tab-${cat}`}
+                    data-testid={`tab-category-${cat}`}
                   >
                     <Icon className="w-3 h-3" />
-                    {info.labelAr} ({count})
+                    {isRtl ? info.labelAr : info.labelEn} ({count})
                   </TabsTrigger>
                 );
               })}
             </TabsList>
           </ScrollArea>
 
-          {/* Permissions List */}
-          <TabsContent value={selectedCategory} className="flex-1 mt-4">
+          <TabsContent value={selectedCategory} className="flex-1 mt-4" data-testid="tabcontent-permissions">
             <ScrollArea className="h-[calc(100vh-450px)]">
-              <div className="grid gap-2">
+              <div className="grid gap-2" data-testid="permissions-list">
                 {paginatedPermissions.map((permission) => {
-                  const catInfo = CATEGORY_INFO[permission.category] || { icon: Settings, labelAr: permission.category, color: 'bg-gray-500' };
+                  const catInfo = CATEGORY_INFO[permission.category] || { icon: Settings, labelAr: permission.category, labelEn: permission.category, color: 'bg-gray-500' };
                   const secInfo = SECURITY_LEVELS[permission.securityLevel];
                   const SecIcon = secInfo.icon;
                   const isEnabled = permission.defaultEnabled || permission.isGranted;
@@ -441,35 +486,34 @@ export default function NovaPermissions() {
                       data-testid={`card-permission-${permission.code}`}
                     >
                       <div className="flex items-center gap-3">
-                        {/* Toggle */}
                         <Switch
                           checked={isEnabled}
                           onCheckedChange={(checked) => {
                             toggleMutation.mutate({ code: permission.code, enabled: checked });
                           }}
                           disabled={toggleMutation.isPending}
-                          data-testid={`switch-${permission.code}`}
+                          data-testid={`switch-permission-${permission.code}`}
                         />
 
-                        {/* Info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="font-medium text-sm">{permission.nameAr}</h3>
-                            <Badge variant="outline" className="text-xs">
+                            <h3 className="font-medium text-sm" data-testid={`text-name-${permission.code}`}>
+                              {isRtl ? permission.nameAr : permission.nameEn}
+                            </h3>
+                            <Badge variant="outline" className="text-xs" data-testid={`badge-code-${permission.code}`}>
                               {permission.code}
                             </Badge>
-                            <Badge className={`text-xs ${secInfo.color}`}>
-                              <SecIcon className="w-3 h-3 ml-1" />
-                              {secInfo.labelAr}
+                            <Badge className={`text-xs ${secInfo.color}`} data-testid={`badge-security-${permission.code}`}>
+                              <SecIcon className={`w-3 h-3 ${isRtl ? 'ml-1' : 'mr-1'}`} />
+                              {isRtl ? secInfo.labelAr : secInfo.labelEn}
                             </Badge>
                           </div>
-                          <p className="text-xs text-muted-foreground mt-1 truncate">
-                            {permission.descriptionAr}
+                          <p className="text-xs text-muted-foreground mt-1 truncate" data-testid={`text-description-${permission.code}`}>
+                            {isRtl ? permission.descriptionAr : permission.descriptionEn}
                           </p>
                         </div>
 
-                        {/* Status Icon */}
-                        <div className={`p-2 rounded-full ${isEnabled ? 'bg-green-500/10' : 'bg-muted'}`}>
+                        <div className={`p-2 rounded-full ${isEnabled ? 'bg-green-500/10' : 'bg-muted'}`} data-testid={`status-icon-${permission.code}`}>
                           {isEnabled ? (
                             <Unlock className="w-4 h-4 text-green-500" />
                           ) : (
@@ -482,9 +526,9 @@ export default function NovaPermissions() {
                 })}
 
                 {paginatedPermissions.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
+                  <div className="text-center py-8 text-muted-foreground" data-testid="empty-state">
                     <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p>لا توجد صلاحيات مطابقة للبحث</p>
+                    <p data-testid="text-no-results">{t.noResults}</p>
                   </div>
                 )}
               </div>
@@ -495,10 +539,10 @@ export default function NovaPermissions() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <Card className="p-3">
+        <Card className="p-3" data-testid="card-pagination">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              عرض {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredPermissions.length)} من {filteredPermissions.length}
+            <p className="text-sm text-muted-foreground" data-testid="text-pagination-info">
+              {t.showing} {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredPermissions.length)} {t.of} {filteredPermissions.length}
             </p>
             <div className="flex gap-1">
               <Button
@@ -508,7 +552,7 @@ export default function NovaPermissions() {
                 disabled={currentPage === 1}
                 data-testid="button-prev-page"
               >
-                <ChevronRight className="w-4 h-4" />
+                {isRtl ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
               </Button>
               
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -542,7 +586,7 @@ export default function NovaPermissions() {
                 disabled={currentPage === totalPages}
                 data-testid="button-next-page"
               >
-                <ChevronLeft className="w-4 h-4" />
+                {isRtl ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
               </Button>
             </div>
           </div>
