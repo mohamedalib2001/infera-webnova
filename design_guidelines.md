@@ -1,121 +1,128 @@
-# INFERA WebNova Design Guidelines
+# INFERA WebNova Enterprise AI Platform - Design Guidelines
 
 ## Design Approach
-**Premium Developer Tool Reference** - Drawing from Linear (interactions), VS Code (editor ergonomics), Vercel (dashboard polish), and Awwwards-level visual sophistication. Professional dark mode as primary interface with glassmorphism accents and subtle gradient overlays.
+**Premium AI-First Developer Tool** - Inspired by Linear's polish, VS Code's ergonomics, ChatGPT's conversational UI, and Vercel's dashboard sophistication. Professional dark theme with deep blues, purples, and cyan AI accents. Glassmorphism with gradient overlays for premium enterprise feel.
 
 ## Typography System
-- **Primary**: Inter (UI), JetBrains Mono (code)
-- **Hero/Marketing**: text-6xl to text-7xl, font-bold, tracking-tight
-- **Dashboard Headers**: text-4xl, font-semibold
-- **Section Titles**: text-2xl, font-semibold
-- **Body/Labels**: text-sm to text-base, font-medium
-- **Code**: text-sm, font-mono, line-height-relaxed
+- **Primary**: Inter (400, 500, 600, 700)
+- **Code**: JetBrains Mono (400, 500)
+- **Hero Headlines**: text-6xl/text-7xl, font-bold, tracking-tight, gradient text effect
+- **Section Headers**: text-4xl, font-semibold
+- **Panel Titles**: text-xl, font-semibold
+- **Body**: text-sm/text-base, font-medium
+- **Code/Terminal**: text-sm, font-mono, leading-relaxed
+
+## Color Architecture
+**Foundation**: Deep navy/slate backgrounds (#0A0E1A, #0F1419)
+**AI Accents**: Cyan (#00D9FF), Electric Blue (#4F46E5), Purple (#8B5CF6)
+**Gradients**: Subtle blue-to-purple overlays, cyan glow effects on AI elements
+**Glass Effects**: backdrop-blur-xl with border opacity, rgba overlays
 
 ## Layout & Spacing
-**Tailwind Units**: 1, 2, 4, 6, 8, 12, 16, 20, 24
-- Tight spacing: gap-1, p-2 (toolbar groups)
-- Standard: p-4, gap-4 (panels, cards)
-- Generous: p-8, gap-8 (sections)
+**Tailwind Units**: 2, 4, 6, 8, 12, 16, 20, 24
+- Compact: gap-2, p-4 (chat messages, toolbar)
+- Standard: p-6, gap-6 (panels, cards)
+- Generous: p-8, gap-8 (hero sections)
 - Container: max-w-screen-2xl
 
 ## Core Application Structure
 
-### IDE Layout (Multi-Panel Workspace)
-**Four-region split**:
-1. **Left Sidebar** (w-56): File explorer tree, nested folders with expand/collapse
-2. **Main Editor** (flex-1): Monaco editor with tabs, breadcrumbs, minimap toggle
-3. **Right Panel** (w-96, resizable): Live preview with device frames (desktop/tablet/mobile toggles)
-4. **Bottom Panel** (h-64, collapsible): Terminal with tabs, output logs, problems view
+### Three-Panel AI Workspace
+1. **Left: Nova AI Chat** (w-96, fixed): Chat interface with gradient header, message stream, input field with AI suggestions
+2. **Center: Code/Content Editor** (flex-1): Monaco editor with tabs, breadcrumbs, syntax highlighting
+3. **Right: Live Preview** (w-[600px], resizable): Device frame previews with responsive toggles
 
-### Dashboard/Projects View
-**Hero Section**: Full-width gradient background with floating glassmorphic cards showcasing platform features, large hero image of the IDE interface in action (aspect-video, rounded-2xl, with subtle shadow and glow), CTA buttons with backdrop-blur-lg
+**Top Navigation Bar** (h-16, sticky): Logo, project selector, view mode toggles, export/deploy buttons, user menu
 
-**Project Grid**: grid-cols-1 md:grid-cols-2 xl:grid-cols-3, gap-6
-- Project cards with code preview thumbnails
-- Tech stack badges
-- Last edited timestamp
-- Quick action menu (3-dot)
+**Bottom Status Bar** (h-10, fixed): File info, AI status indicator (pulsing when active), cursor position, language mode
+
+### Marketing/Landing Page Structure
+**Hero Section**: Full-width (min-h-screen), large hero image showing the AI platform in action (split-screen IDE with chat + code + preview), centered headline with gradient text, dual CTAs with backdrop-blur-lg backgrounds positioned over image
+
+**Features Grid**: grid-cols-1 md:grid-cols-2 lg:grid-cols-3, gap-8
+- Feature cards with icon, title, description, subtle glow on hover
+- AI capability highlights with cyan accent borders
+
+**Social Proof**: Centered testimonials, trust badges, enterprise client logos
+**Pricing Table**: 3-column comparison with highlighted recommended tier
+**Footer**: Multi-column (Company, Product, Resources, Legal), newsletter signup, social links
 
 ## Component Library
 
-### Editor Interface
-- **Tab Bar**: Horizontal tabs with close buttons, overflow scroll, active tab indicator
-- **Breadcrumbs**: File path navigation (text-xs, separated by chevrons)
-- **Line Numbers**: Gutter with text-xs, monospace
-- **Minimap**: Collapsible code overview (w-20)
-- **Status Bar**: Fixed bottom, file info, cursor position, language mode
+### Nova AI Chat Panel
+- **Header**: Gradient background (blue-to-purple), "Nova AI" title, minimize/expand controls
+- **Message Stream**: Scrollable (overflow-y-auto), alternating user/AI messages
+  - User messages: rounded-2xl, px-4 py-3, max-w-[85%], self-end alignment
+  - AI messages: rounded-2xl, px-5 py-4, max-w-[90%], self-start, subtle cyan glow
+- **Suggested Actions**: Horizontal chip array below messages (rounded-full, px-4 py-2, gap-2, glass effect)
+- **Input Field**: Textarea with auto-grow, rounded-xl, backdrop-blur, with send button (cyan gradient on hover)
+- **Typing Indicator**: Animated dots when AI is processing
 
-### File Explorer
-- **Tree View**: Indent-4 per level, folder icons with expand carets
-- **Context Menu**: Right-click actions (New File, Rename, Delete)
-- **Search Bar**: Sticky top with filter input (rounded-lg, px-3 py-2)
+### Code Editor Panel
+- **Tab Bar**: Horizontal file tabs, close buttons, active indicator (cyan underline glow)
+- **Breadcrumbs**: Path navigation (text-xs, chevron separators)
+- **Editor Area**: Monaco integration with minimap toggle (w-20, collapsible)
+- **AI Inline Suggestions**: Ghost text with subtle cyan tint, tab-to-accept
 
-### Terminal Component
-- **Tab System**: Multiple terminal instances, draggable tabs
-- **Command Input**: Monospace, with prompt indicator
-- **Output Area**: Scrollable, ANSI color support
-- **Split View**: Horizontal/vertical terminal splits
+### Preview Panel
+- **Device Frame Toggle**: Button group (Desktop/Tablet/Mobile), rounded-full segmented control
+- **Browser Chrome**: Simulated address bar with navigation controls
+- **Viewport Container**: Scrollable iframe with responsive sizing
+- **Refresh/Sync Controls**: Circular icon buttons with loading states
 
-### Live Preview Pane
-- **Device Frame**: Browser chrome simulation with URL bar, navigation controls
-- **Viewport Toggle**: Button group for responsive sizes (inline-flex, rounded-full group)
-- **Refresh Controls**: Circular icon button with loading spinner
-- **Split Modes**: Side-by-side code/preview or fullscreen preview
+### Dashboard/Projects View
+- **Project Cards**: Grid layout, glassmorphic containers (p-6, rounded-2xl, backdrop-blur-xl)
+  - Code preview thumbnail with gradient border
+  - Tech stack badges (rounded-full, small)
+  - Last modified timestamp
+  - Quick actions menu (3-dot dropdown)
+- **Empty State**: Centered illustration, large create button with gradient
 
-### AI Assistant Panel
-- **Chat Interface**: Fixed height with scroll (h-96)
-- **Message Bubbles**: User (max-w-md, rounded-2xl, px-4 py-3, self-end), AI (max-w-lg, rounded-2xl, px-5 py-4, self-start)
-- **Suggested Actions**: Chip array below input (rounded-full, px-4 py-2, gap-2)
-- **Input Field**: Textarea with grow behavior, backdrop-blur, rounded-xl
-
-### Navigation & Controls
-- **Top Bar**: Sticky (h-14), logo, project name, breadcrumb trail, user menu, export/deploy buttons
-- **Toolbar Groups**: Segmented controls for view modes, separated by dividers
-- **Action Buttons**: Primary (px-6 py-2.5, rounded-lg, font-semibold), Icon-only (w-9 h-9, rounded-lg)
-
-### Modals & Overlays
-- **Command Palette**: Centered (max-w-2xl), rounded-2xl, backdrop-blur-2xl, search input with results list
-- **Settings Panel**: Slide-in from right (w-96), tabs for categories
-- **Template Gallery**: Grid modal with filterable cards
+### Navigation Components
+- **Top Bar**: Logo + project selector (dropdown), view mode toggles, primary action buttons (gradient fills for Deploy)
+- **Command Palette**: Centered modal (max-w-2xl), rounded-2xl, backdrop-blur-2xl, fuzzy search with keyboard shortcuts
+- **Settings Panel**: Slide-in drawer from right (w-96), tabbed categories
 
 ### Cards & Containers
-- **Glassmorphic Panels**: backdrop-blur-xl, rounded-2xl, border with opacity
-- **Feature Cards**: p-6 to p-8, hover lift effect (transform transition-transform duration-300)
-- **Stats Cards**: Grid of metrics (grid-cols-2 lg:grid-cols-4), icon + number + label
+- **Glass Panels**: backdrop-blur-xl, rounded-2xl, border with subtle opacity, gradient overlays on hover
+- **Feature Cards**: p-8, icon with cyan glow, hover lift (transform scale-105)
+- **Stats Cards**: Grid of metrics (icon + large number + label), gradient accent borders
 
-## RTL Support Architecture
-- **Layout Mirroring**: File explorer stays left, preview right (consistent across locales)
-- **Text Flow**: dir="rtl" on Arabic content blocks
-- **Icon Placement**: Chevrons and arrows flip direction
-- **Padding**: Use logical properties (ps-4 instead of pl-4)
+## RTL Support
+- **Mirror Layouts**: Chat stays left, preview right (consistent regardless of language)
+- **Text Direction**: dir="rtl" on Arabic content
+- **Icon Flipping**: Chevrons, arrows reverse direction
+- **Logical Properties**: Use ps-/pe- instead of pl-/pr-
 
 ## Animations (Framer Motion)
-- **Panel Transitions**: Slide with spring physics (stiffness: 300, damping: 30)
-- **Modal Entry**: Scale from 0.95 with fade (duration: 0.3s)
+- **Panel Slides**: Spring physics (stiffness: 300, damping: 30)
+- **Message Entry**: Slide-up with fade for new chat messages
+- **AI Thinking**: Pulsing glow effect on Nova avatar
+- **Modal Appearance**: Scale from 0.96 with backdrop fade
+- **Hover States**: Subtle lift (scale-102) on cards, glow intensity increase
 - **Tab Switching**: Crossfade content (duration: 0.2s)
-- **File Tree**: Expand/collapse with height animation
-- **Hover States**: Scale-105 for cards, opacity transitions for buttons
-- **Loading States**: Skeleton screens with shimmer effect
 
 ## Icons
-**Heroicons** (outline: navigation, solid: active states) + **VS Code Icons** for file types
-- UI: 20px, Toolbar: 18px, Tree: 16px
+**Heroicons** via CDN (outline for navigation, solid for active states)
+- Standard: 20px, Toolbar: 18px, Small: 16px
+- AI elements: Custom glowing container around icons
 
 ## Images
-**Hero Image**: Large IDE screenshot showing split-panel layout with code and preview (aspect-video, prominent placement, rounded-2xl, subtle glow effect)
-**Dashboard**: Empty state illustration (developer at work), project thumbnails (website previews)
-**Marketing Sections**: Feature demonstrations (code completion, AI assistance, deployment flow)
-**Buttons on Images**: All CTAs over hero use backdrop-blur-lg background
+**Hero Image**: Large, prominent split-screen IDE screenshot showing AI chat + code editor + live preview in action (aspect-video, rounded-2xl, with cyan/purple glow effect). Position: Top of landing page with gradient overlay and CTAs using backdrop-blur-lg backgrounds.
+
+**Dashboard**: Project preview thumbnails (website screenshots), AI assistant illustration for empty states
+
+**Marketing**: Feature demonstrations (AI code completion, chat assistance, deployment workflow), customer testimonials with headshots
 
 ## Accessibility
-- Focus visible on all interactive elements (ring-2 with offset)
-- ARIA labels for icon buttons and dynamic panels
-- Keyboard shortcuts for panel navigation (Cmd+B toggle sidebar, Cmd+J toggle terminal)
+- Focus visible ring-2 with cyan accent color
+- ARIA labels for all icon buttons and dynamic panels
+- Keyboard shortcuts (Cmd+K command palette, Cmd+/ toggle chat)
 - Screen reader announcements for AI responses
-- High contrast mode support
+- High contrast mode with increased glow intensity
 
 ## Responsive Breakpoints
-- **Mobile** (< 768px): Single panel, bottom sheet for secondary views, hamburger menu
-- **Tablet** (768px-1024px): Two-panel (editor + preview OR editor + files)
-- **Desktop** (1024px+): Full four-panel workspace with resizable dividers
-- **Ultrawide** (1920px+): Optional fifth panel for docs/references
+- **Mobile** (< 768px): Single panel view, bottom sheet for chat, hamburger menu
+- **Tablet** (768-1024px): Two-panel (chat + editor OR editor + preview)
+- **Desktop** (1024px+): Full three-panel workspace with resizable dividers
+- **Ultrawide** (1920px+): Optional fourth panel for documentation

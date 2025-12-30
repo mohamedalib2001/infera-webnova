@@ -40,6 +40,7 @@ const Invoices = lazy(() => import("@/pages/invoices"));
 const ApiKeys = lazy(() => import("@/pages/api-keys"));
 const SshVault = lazy(() => import("@/pages/ssh-vault"));
 const PlatformBuilder = lazy(() => import("@/pages/platform-builder"));
+const SmartPlatformBuilder = lazy(() => import("@/pages/smart-platform-builder"));
 const GitHubSync = lazy(() => import("@/pages/github-sync"));
 const IntegrationsSettings = lazy(() => import("@/pages/integrations-settings"));
 const TechnicalDocumentation = lazy(() => import("@/pages/technical-documentation"));
@@ -104,6 +105,7 @@ function AuthenticatedRouter() {
   return (
     <Switch>
       <Route path="/" component={PlatformBuilder} />
+      <Route path="/visual-builder" component={SmartPlatformBuilder} />
       <Route path="/command" component={NovaCommand} />
       <Route path="/home-legacy" component={LegacyHome} />
       
