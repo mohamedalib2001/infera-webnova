@@ -19152,6 +19152,11 @@ ${project.description || ""}
   console.log("Replit Import routes registered | تم تسجيل مسارات استيراد Replit");
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
+  // ============ Internal Development API - واجهة التطوير الداخلي ============
+  const internalDevRoutes = (await import("./routes/internal-development-routes")).default;
+  app.use("/api/dev", internalDevRoutes);
+  console.log("Internal Development routes registered | تم تسجيل مسارات التطوير الداخلي");
+
   // Helper: Generate verification token
   const generateVerificationToken = (): string => {
     return `infera-verify-${randomBytes(16).toString('hex')}`;
