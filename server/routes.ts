@@ -19120,6 +19120,11 @@ ${project.description || ""}
   const smartVersioningRoutes = (await import("./routes/smart-versioning-routes")).default;
   app.use("/api/smart-versioning", smartVersioningRoutes);
   console.log("Smart Versioning routes registered | تم تسجيل مسارات الإصدارات الذكية");
+
+  // ============ Failure Recovery System API - نظام إدارة الفشل والتعافي ============
+  const failureRecoveryRoutes = (await import("./routes/failure-recovery-routes")).default;
+  app.use("/api/failure-recovery", failureRecoveryRoutes);
+  console.log("Failure Recovery routes registered | تم تسجيل مسارات إدارة الفشل والتعافي");
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
   // Helper: Generate verification token
