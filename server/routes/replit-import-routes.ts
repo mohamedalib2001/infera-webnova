@@ -308,7 +308,11 @@ router.post('/import', requireAuth, rateLimit, async (req: Request, res: Respons
       data: {
         repositoryId: result.repositoryId,
         internalId: result.internalId,
-        filesImported: result.filesImported
+        sovereignId: result.sovereignId,
+        filesImported: result.filesImported,
+        breakdown: result.breakdown,
+        analysis: result.analysis,
+        sovereignty: result.sovereignty
       }
     });
   } catch (error: any) {
@@ -359,6 +363,110 @@ router.get('/history', requireAuth, rateLimit, async (req: Request, res: Respons
     res.json({
       success: true,
       data: history
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// ============ Independence Engine Endpoints ============
+
+/**
+ * POST /api/replit/independence/:repositoryId
+ * Apply independent runtime configuration to repository
+ * تطبيق إعدادات التشغيل المستقل على المستودع
+ */
+router.post('/independence/:repositoryId', requireAuth, rateLimit, async (req: Request, res: Response) => {
+  try {
+    const userId = req.session?.user?.id;
+    const userEmail = req.session?.user?.email || 'independence@infera.io';
+    const { repositoryId } = req.params;
+
+    if (!repositoryId) {
+      return res.status(400).json({
+        success: false,
+        message: "Repository ID required | معرف المستودع مطلوب"
+      });
+    }
+
+    const result = await replitImportService.applyIndependentRuntime(userId, userEmail, repositoryId);
+
+    res.json({
+      success: result.success,
+      message: result.message,
+      messageAr: result.messageAr,
+      data: {
+        filesCreated: result.filesCreated,
+        replacements: result.replacements
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/replit/independence/preview/:repositoryId
+ * Preview independent runtime configuration without applying
+ * معاينة إعدادات التشغيل المستقل بدون تطبيق
+ */
+router.get('/independence/preview/:repositoryId', requireAuth, rateLimit, async (req: Request, res: Response) => {
+  try {
+    const { repositoryId } = req.params;
+
+    // Import sovereign git engine
+    const { sovereignGitEngine } = await import('../lib/sovereign-git-engine');
+
+    const repo = await sovereignGitEngine.getRepository(repositoryId);
+    if (!repo) {
+      return res.status(404).json({
+        success: false,
+        message: "Repository not found | المستودع غير موجود"
+      });
+    }
+
+    // Get files and analyze
+    const repoFiles = await sovereignGitEngine.getRepositoryFiles(repositoryId, 'main');
+    const files = repoFiles.map((f: any) => ({
+      path: f.path,
+      content: f.content || '',
+      type: f.type === 'tree' ? 'directory' as const : 'file' as const,
+      size: f.size
+    }));
+
+    // Use the service's analyzeProject method indirectly through preview
+    const runtimeConfig = replitImportService.generateIndependentRuntime(files, {
+      languages: [],
+      frameworks: [],
+      technologies: [],
+      dependencies: { total: 0, production: [], development: [], outdated: 0, vulnerable: 0 },
+      security: { score: 100, issues: [], replitSpecific: [] },
+      portability: { score: 100, replitDependencies: [], requiredChanges: [], estimatedEffort: 'low' },
+      cost: { computeEstimate: '$0', storageEstimate: '$0', monthlyEstimate: '$0' }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        runtimeType: runtimeConfig.runtimeType,
+        portConfig: runtimeConfig.portConfig,
+        filesToCreate: [
+          'Dockerfile',
+          'docker-compose.yml',
+          'start.sh',
+          '.env.template',
+          '.dockerignore',
+          'INDEPENDENCE_GUIDE.md'
+        ],
+        envVariables: runtimeConfig.envConfig.variables,
+        replacementsNeeded: runtimeConfig.replacements
+      }
     });
   } catch (error: any) {
     res.status(500).json({
