@@ -1165,7 +1165,7 @@ How can I help you? Describe the platform you want to build.`;
   return (
     <div className="h-screen bg-background flex flex-col" dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Top Control Bar */}
-      <div className="h-12 border-b border-border bg-card/80 backdrop-blur-sm flex items-center justify-between px-4 shrink-0 z-50">
+      <div className="h-10 border-b border-border bg-card/80 backdrop-blur-sm flex items-center justify-between px-3 shrink-0 z-50">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
             <Brain className="w-4 h-4 text-white" />
@@ -1254,10 +1254,10 @@ How can I help you? Describe the platform you want to build.`;
           className="flex flex-col h-full overflow-hidden bg-card/50"
           data-testid="panel-chat"
         >
-          <div className="flex-shrink-0 p-3 border-b border-border flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-violet-500" />
-              <span className="text-sm font-medium">{t('AI Chat', 'محادثة الذكاء الاصطناعي')}</span>
+          <div className="flex-shrink-0 px-2 py-1.5 border-b border-border flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-violet-500" />
+              <span className="text-xs font-medium">{t('AI Chat', 'محادثة الذكاء الاصطناعي')}</span>
             </div>
             <div className="flex items-center gap-1">
               <Tooltip>
@@ -1265,11 +1265,11 @@ How can I help you? Describe the platform you want to build.`;
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7"
+                    className="h-6 w-6"
                     onClick={toggleChatMaximize}
                     data-testid="button-maximize-chat"
                   >
-                    {chatPanelMaximized ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                    {chatPanelMaximized ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>{chatPanelMaximized ? t('Restore', 'استعادة') : t('Maximize', 'تكبير')}</TooltipContent>
@@ -1277,8 +1277,8 @@ How can I help you? Describe the platform you want to build.`;
             </div>
           </div>
 
-        <ScrollArea className="flex-1 p-4">
-          <div className="space-y-4">
+        <ScrollArea className="flex-1 p-2">
+          <div className="space-y-2">
             <AnimatePresence mode="popLayout">
               {messages.map((message) => (
                 <motion.div
@@ -1330,8 +1330,8 @@ How can I help you? Describe the platform you want to build.`;
           </div>
         </ScrollArea>
 
-        <div className="flex-shrink-0 p-4 border-t border-border bg-card/80">
-          <div className="flex gap-2 mb-3 flex-wrap">
+        <div className="flex-shrink-0 p-2 border-t border-border bg-card/80">
+          <div className="flex gap-1.5 mb-2 flex-wrap">
             {[
               { icon: Layers, label: t('Enterprise E-commerce', 'متجر عملاق'), prompt: t('Create an enterprise e-commerce platform with 1M concurrent users, global CDN, multi-currency payments, real-time inventory, recommendation engine, and analytics dashboard', 'أنشئ منصة تجارة إلكترونية عملاقة تدعم مليون مستخدم متزامن مع CDN عالمي ودفع متعدد العملات ومخزون حي ومحرك توصيات ولوحة تحليلات') },
               { icon: Video, label: t('Learning Platform', 'منصة تعليم'), prompt: t('Create an educational platform with video streaming, virtual classrooms, smart testing system, progress tracking, and payment integration for 500K users', 'أنشئ منصة تعليمية مع بث فيديو وفصول افتراضية ونظام اختبارات ذكي وتتبع التقدم ونظام دفع لـ 500 ألف مستخدم') },
@@ -1358,7 +1358,7 @@ How can I help you? Describe the platform you want to build.`;
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={t('Describe your enterprise platform requirements...', 'صف متطلبات منصتك العملاقة...')}
-              className="resize-none pr-12 min-h-[80px]"
+              className="resize-none pr-10 min-h-[56px] text-sm"
               disabled={isBuilding}
               data-testid="input-chat"
             />
@@ -1393,63 +1393,63 @@ How can I help you? Describe the platform you want to build.`;
             className="flex flex-col h-full overflow-hidden bg-muted/30"
             data-testid="panel-preview"
           >
-            <div className="flex-shrink-0 p-3 border-b border-border bg-card/50 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
+            <div className="flex-shrink-0 px-2 py-1.5 border-b border-border bg-card/50 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
-                  <TabsList className="grid w-[400px] grid-cols-4">
-                    <TabsTrigger value="preview" className="gap-1" data-testid="tab-preview">
-                      <Eye className="w-4 h-4" />
+                  <TabsList className="grid w-[320px] grid-cols-4 h-7">
+                    <TabsTrigger value="preview" className="gap-1 text-xs h-6" data-testid="tab-preview">
+                      <Eye className="w-3 h-3" />
                       {t('Preview', 'معاينة')}
                     </TabsTrigger>
-                    <TabsTrigger value="architecture" className="gap-1" data-testid="tab-architecture">
-                      <Network className="w-4 h-4" />
+                    <TabsTrigger value="architecture" className="gap-1 text-xs h-6" data-testid="tab-architecture">
+                      <Network className="w-3 h-3" />
                       {t('Architecture', 'البنية')}
                     </TabsTrigger>
-                    <TabsTrigger value="code" className="gap-1" data-testid="tab-code">
-                      <Code className="w-4 h-4" />
+                    <TabsTrigger value="code" className="gap-1 text-xs h-6" data-testid="tab-code">
+                      <Code className="w-3 h-3" />
                       {t('Code', 'الكود')}
                     </TabsTrigger>
-                    <TabsTrigger value="build" className="gap-1" data-testid="tab-build">
-                      <Activity className="w-4 h-4" />
+                    <TabsTrigger value="build" className="gap-1 text-xs h-6" data-testid="tab-build">
+                      <Activity className="w-3 h-3" />
                       {t('Build', 'البناء')}
                     </TabsTrigger>
                   </TabsList>
                 </Tabs>
               </div>
               
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+              <div className="flex items-center gap-1">
+                <div className="flex items-center gap-0.5 bg-muted rounded-md p-0.5">
                   <Button
                     variant={previewDevice === 'desktop' ? 'secondary' : 'ghost'}
                     size="icon"
-                    className="h-7 w-7"
+                    className="h-6 w-6"
                     onClick={() => setPreviewDevice('desktop')}
                     data-testid="button-device-desktop"
                   >
-                    <Monitor className="w-4 h-4" />
+                    <Monitor className="w-3 h-3" />
                   </Button>
                   <Button
                     variant={previewDevice === 'tablet' ? 'secondary' : 'ghost'}
                     size="icon"
-                    className="h-7 w-7"
+                    className="h-6 w-6"
                     onClick={() => setPreviewDevice('tablet')}
                     data-testid="button-device-tablet"
                   >
-                    <Tablet className="w-4 h-4" />
+                    <Tablet className="w-3 h-3" />
                   </Button>
                   <Button
                     variant={previewDevice === 'mobile' ? 'secondary' : 'ghost'}
                     size="icon"
-                    className="h-7 w-7"
+                    className="h-6 w-6"
                     onClick={() => setPreviewDevice('mobile')}
                     data-testid="button-device-mobile"
                   >
-                    <Smartphone className="w-4 h-4" />
+                    <Smartphone className="w-3 h-3" />
                   </Button>
                 </div>
                 
                 {previewUrl && (
-                  <Button variant="outline" size="sm" className="gap-1" data-testid="button-open-preview">
+                  <Button variant="outline" size="sm" className="gap-1 h-6 text-xs" data-testid="button-open-preview">
                     <ExternalLink className="w-3 h-3" />
                     {t('Open', 'فتح')}
                   </Button>
@@ -1460,11 +1460,11 @@ How can I help you? Describe the platform you want to build.`;
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7"
+                      className="h-6 w-6"
                       onClick={togglePreviewMaximize}
                       data-testid="button-maximize-preview"
                     >
-                      {previewPanelMaximized ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                      {previewPanelMaximized ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>{previewPanelMaximized ? t('Restore', 'استعادة') : t('Maximize', 'تكبير')}</TooltipContent>
@@ -1472,7 +1472,7 @@ How can I help you? Describe the platform you want to build.`;
               </div>
             </div>
 
-            <div className="flex-1 p-4 overflow-auto">
+            <div className="flex-1 p-2 overflow-auto">
           {activeTab === 'preview' && (
             <div className="h-full flex items-center justify-center">
               {previewUrl ? (
@@ -1989,21 +1989,21 @@ How can I help you? Describe the platform you want to build.`;
           )}
         </div>
 
-        <div className="flex-shrink-0 p-3 border-t border-border bg-gradient-to-r from-card via-card/80 to-card">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3">
+        <div className="flex-shrink-0 px-2 py-1.5 border-t border-border bg-gradient-to-r from-card via-card/80 to-card">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
               {previewUrl && (
                 <>
-                  <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30 gap-1">
-                    <CheckCircle className="w-3 h-3" />
+                  <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30 gap-1 text-xs">
+                    <CheckCircle className="w-2.5 h-2.5" />
                     {t('Deployed', 'تم النشر')}
                   </Badge>
-                  <span className="text-sm text-muted-foreground truncate max-w-[200px]">{previewUrl}</span>
+                  <span className="text-xs text-muted-foreground truncate max-w-[150px]">{previewUrl}</span>
                 </>
               )}
               {generatedFiles.length > 0 && (
-                <Badge variant="outline" className="bg-violet-500/10 text-violet-600 border-violet-500/30 gap-1">
-                  <FileCode className="w-3 h-3" />
+                <Badge variant="outline" className="bg-violet-500/10 text-violet-600 border-violet-500/30 gap-1 text-xs">
+                  <FileCode className="w-2.5 h-2.5" />
                   {generatedFiles.length} {t('files', 'ملفات')}
                 </Badge>
               )}
@@ -2013,16 +2013,16 @@ How can I help you? Describe the platform you want to build.`;
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="gap-1.5" 
+                className="gap-1 h-6 text-xs" 
                 onClick={handleSaveProject}
                 disabled={isSaving || generatedFiles.length === 0}
                 data-testid="button-save"
               >
-                {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
                 {t('Save Project', 'حفظ المشروع')}
               </Button>
               <GitHubRepoSelector
@@ -2048,19 +2048,20 @@ How can I help you? Describe the platform you want to build.`;
                 <Button 
                   variant="ghost" 
                   size="icon"
+                  className="h-6 w-6"
                   onClick={() => window.open(githubStatus.url, '_blank')}
                   data-testid="button-open-github"
                 >
-                  <ExternalLink className="w-4 h-4" />
+                  <ExternalLink className="w-3 h-3" />
                 </Button>
               )}
               <Button 
                 size="sm" 
-                className="gap-1.5 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700" 
+                className="gap-1 h-6 text-xs bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700" 
                 disabled={generatedFiles.length === 0}
                 data-testid="button-publish"
               >
-                <Rocket className="w-3.5 h-3.5" />
+                <Rocket className="w-3 h-3" />
                 {t('Publish', 'نشر')}
               </Button>
             </div>
