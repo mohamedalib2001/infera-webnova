@@ -2,7 +2,8 @@ import { useState, useCallback, useEffect } from 'react';
 import { Node, Edge } from '@xyflow/react';
 import { 
   Bot, Menu, Moon, Sun, Download, Upload, Play, Settings,
-  Rocket, GitBranch, Globe, Zap, ArrowLeft
+  Rocket, GitBranch, Globe, Zap, ArrowLeft, Brain, Activity,
+  Layers, Target
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +13,10 @@ import { BuilderSidebar } from '@/components/nova-builder/BuilderSidebar';
 import { ArchitectureCanvas } from '@/components/nova-builder/ArchitectureCanvas';
 import { AISmartPanel } from '@/components/nova-builder/AISmartPanel';
 import { BottomConsole } from '@/components/nova-builder/BottomConsole';
+import { AIOrchestrator } from '@/components/nova-builder/AIOrchestrator';
+import { SmartDashboard } from '@/components/nova-builder/SmartDashboard';
+import { ProactiveIntelligence } from '@/components/nova-builder/ProactiveIntelligence';
+import { ProjectTypeSelector, projectTypes, ProjectType } from '@/components/nova-builder/ProjectTypeSelector';
 import { Link } from 'wouter';
 
 interface AISuggestion {
@@ -58,6 +63,10 @@ export default function SmartPlatformBuilder() {
   const [dockerCompose, setDockerCompose] = useState('');
   const [kubernetesYaml, setKubernetesYaml] = useState('');
   const [terraformCode, setTerraformCode] = useState('');
+  const [showOrchestrator, setShowOrchestrator] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(true);
+  const [showProjectSelector, setShowProjectSelector] = useState(false);
+  const [projectType, setProjectType] = useState<string>('general');
   const { toast } = useToast();
 
   const t = (en: string, ar: string) => language === 'ar' ? ar : en;
@@ -214,6 +223,51 @@ export default function SmartPlatformBuilder() {
     });
   }, [dockerCompose, kubernetesYaml, terraformCode, nodes, addLog, toast, t]);
 
+  const handleProjectTypeSelect = useCallback((type: ProjectType) => {
+    setProjectType(type.id);
+    addLog('info', `Project type set to: ${type.name.en}`);
+    toast({
+      title: t('Project Type Selected', 'تم اختيار نوع المشروع'),
+      description: type.name[language]
+    });
+  }, [addLog, toast, t, language]);
+
+  const handleProactiveSuggestionApply = useCallback((nodeType: string, nodeData: any) => {
+    addLog('success', `Applied proactive suggestion: ${nodeType}`);
+    toast({
+      title: t('Component Added', 'تمت إضافة المكون'),
+      description: nodeData.label
+    });
+  }, [addLog, toast, t]);
+
+  const handleDashboardAction = useCallback((action: string) => {
+    switch (action) {
+      case 'optimize-build':
+        setShowOrchestrator(true);
+        break;
+      case 'auto-fix-security':
+        handleAIAction('security-check');
+        break;
+      case 'show-alternatives':
+        handleAIAction('optimize-cost');
+        break;
+      case 'optimize-performance':
+        handleAIAction('analyze');
+        break;
+      default:
+        addLog('info', `Dashboard action: ${action}`);
+    }
+  }, [handleAIAction, addLog]);
+
+  const handleOrchestratorRecommendation = useCallback((recommendation: any) => {
+    addLog('success', `Applied recommendation: ${recommendation.title}`);
+    toast({
+      title: t('Recommendation Applied', 'تم تطبيق التوصية'),
+      description: recommendation.title
+    });
+    setShowOrchestrator(false);
+  }, [addLog, toast, t]);
+
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
       <header className="h-14 border-b border-border/50 bg-card/50 backdrop-blur-xl flex items-center justify-between px-4 shrink-0">
@@ -235,10 +289,43 @@ export default function SmartPlatformBuilder() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="gap-2"
+            onClick={() => setShowProjectSelector(true)}
+            data-testid="button-project-type"
+          >
+            <Target className="w-4 h-4" />
+            {projectType === 'general' ? t('Select Type', 'اختر النوع') : projectType}
+          </Button>
+
           <Badge variant="outline" className="gap-1">
             <Zap className="w-3 h-3 text-cyan-400" />
             {nodes.length} {t('components', 'مكونات')}
           </Badge>
+          
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="gap-2"
+            onClick={() => setShowOrchestrator(true)}
+            disabled={nodes.length === 0}
+            data-testid="button-ai-orchestrator"
+          >
+            <Brain className="w-4 h-4 text-purple-400" />
+            {t('AI Architect', 'المهندس الذكي')}
+          </Button>
+          
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-9 w-9"
+            onClick={() => setShowDashboard(!showDashboard)}
+            data-testid="button-toggle-dashboard"
+          >
+            <Activity className="w-4 h-4" />
+          </Button>
           
           <Button 
             variant="ghost" 
@@ -320,6 +407,41 @@ export default function SmartPlatformBuilder() {
           onAskAI={handleAskAI}
         />
       </div>
+
+      <ProactiveIntelligence
+        language={language}
+        nodes={nodes}
+        projectType={projectType}
+        onSuggestionApply={handleProactiveSuggestionApply}
+        onDismiss={(id) => addLog('info', `Dismissed suggestion: ${id}`)}
+      />
+
+      <SmartDashboard
+        language={language}
+        nodes={nodes}
+        edges={edges}
+        isVisible={showDashboard && nodes.length > 0}
+        onClose={() => setShowDashboard(false)}
+        onActionClick={handleDashboardAction}
+      />
+
+      <AIOrchestrator
+        language={language}
+        nodes={nodes}
+        edges={edges}
+        projectType={projectType}
+        isVisible={showOrchestrator}
+        onClose={() => setShowOrchestrator(false)}
+        onApplyRecommendation={handleOrchestratorRecommendation}
+      />
+
+      <ProjectTypeSelector
+        language={language}
+        isOpen={showProjectSelector}
+        onClose={() => setShowProjectSelector(false)}
+        onSelect={handleProjectTypeSelect}
+        currentType={projectType}
+      />
     </div>
   );
 }
