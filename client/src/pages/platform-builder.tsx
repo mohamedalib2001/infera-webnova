@@ -849,7 +849,13 @@ spec:
       
       if (buildResponse.success && buildId) {
         setCurrentBuildId(buildId);
-        setPreviewUrl(`/api/platforms/preview/${buildId}`);
+        
+        // Set appropriate preview URL based on build type
+        if (buildResponse.blueprintId) {
+          setPreviewUrl(`/api/platforms/ai-preview/${buildResponse.blueprintId}`);
+        } else {
+          setPreviewUrl(`/api/platforms/preview/${buildId}`);
+        }
         
         // Check for AI-build artifacts first
         if (buildResponse.blueprintId) {
