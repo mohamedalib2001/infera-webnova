@@ -1568,26 +1568,80 @@ How can I help you? Describe the platform you want to build.`;
             ))}
           </div>
           
-          <div className="relative">
-            <Textarea
-              ref={inputRef}
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={t('Describe your enterprise platform requirements...', 'صف متطلبات منصتك العملاقة...')}
-              className="resize-none pr-10 min-h-[56px] text-sm"
-              disabled={isBuilding}
-              data-testid="input-chat"
-            />
-            <Button
-              size="icon"
-              onClick={() => sendMessage(inputValue)}
-              disabled={!inputValue.trim() || isBuilding}
-              className={`absolute ${isRTL ? 'left-2' : 'right-2'} bottom-2`}
-              data-testid="button-send"
-            >
-              {isBuilding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            </Button>
+          <div className="flex items-end gap-2">
+            <div className="relative flex-1">
+              <Textarea
+                ref={inputRef}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={t('Describe your enterprise platform requirements...', 'صف متطلبات منصتك العملاقة...')}
+                className="resize-none pr-10 min-h-[56px] text-sm"
+                disabled={isBuilding}
+                data-testid="input-chat"
+              />
+              <Button
+                size="icon"
+                onClick={() => sendMessage(inputValue)}
+                disabled={!inputValue.trim() || isBuilding}
+                className={`absolute ${isRTL ? 'left-2' : 'right-2'} bottom-2`}
+                data-testid="button-send"
+              >
+                {isBuilding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              </Button>
+            </div>
+            
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="gap-1 h-9 text-xs" 
+                onClick={clearSavedState}
+                data-testid="button-new-project-chat"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                {t('New Project', 'مشروع جديد')}
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-1 h-9 text-xs" 
+                onClick={handleSaveProject}
+                disabled={isSaving || generatedFiles.length === 0}
+                data-testid="button-save-chat"
+              >
+                {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                {t('Save Project', 'حفظ المشروع')}
+              </Button>
+              <GitHubRepoSelector
+                projectId={projectId || undefined}
+                projectName={projectName || undefined}
+                language={language}
+                onSyncComplete={(result) => {
+                  setGithubStatus({
+                    synced: true,
+                    repo: result.repo,
+                    url: result.url,
+                    lastSync: new Date().toISOString()
+                  });
+                  toast({
+                    title: language === 'ar' ? 'تمت المزامنة' : 'Sync Complete',
+                    description: language === 'ar' 
+                      ? `تمت مزامنة المشروع إلى ${result.repo}` 
+                      : `Project synced to ${result.repo}`
+                  });
+                }}
+              />
+              <Button 
+                size="sm" 
+                className="gap-1 h-9 text-xs bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700" 
+                disabled={generatedFiles.length === 0}
+                data-testid="button-publish-chat"
+              >
+                <Rocket className="w-3.5 h-3.5" />
+                {t('Publish', 'نشر')}
+              </Button>
+            </div>
           </div>
         </div>
       </ResizablePanel>
@@ -2265,95 +2319,6 @@ How can I help you? Describe the platform you want to build.`;
               </CardContent>
             </Card>
           )}
-        </div>
-
-        <div className="flex-shrink-0 px-2 py-1.5 border-t border-border bg-gradient-to-r from-card via-card/80 to-card">
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <div className="flex items-center gap-2">
-              {previewUrl && (
-                <>
-                  <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30 gap-1 text-xs">
-                    <CheckCircle className="w-2.5 h-2.5" />
-                    {t('Deployed', 'تم النشر')}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground truncate max-w-[150px]">{previewUrl}</span>
-                </>
-              )}
-              {generatedFiles.length > 0 && (
-                <Badge variant="outline" className="bg-violet-500/10 text-violet-600 border-violet-500/30 gap-1 text-xs">
-                  <FileCode className="w-2.5 h-2.5" />
-                  {generatedFiles.length} {t('files', 'ملفات')}
-                </Badge>
-              )}
-              {!previewUrl && generatedFiles.length === 0 && (
-                <span className="text-xs text-muted-foreground">
-                  {t('Build a platform to enable actions', 'قم ببناء منصة لتفعيل الإجراءات')}
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="gap-1 h-6 text-xs" 
-                onClick={clearSavedState}
-                data-testid="button-new-project"
-              >
-                <RefreshCw className="w-3 h-3" />
-                {t('New Project', 'مشروع جديد')}
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="gap-1 h-6 text-xs" 
-                onClick={handleSaveProject}
-                disabled={isSaving || generatedFiles.length === 0}
-                data-testid="button-save"
-              >
-                {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-                {t('Save Project', 'حفظ المشروع')}
-              </Button>
-              <GitHubRepoSelector
-                projectId={projectId || undefined}
-                projectName={projectName || undefined}
-                language={language}
-                onSyncComplete={(result) => {
-                  setGithubStatus({
-                    synced: true,
-                    repo: result.repo,
-                    url: result.url,
-                    lastSync: new Date().toISOString()
-                  });
-                  toast({
-                    title: language === 'ar' ? 'تمت المزامنة' : 'Sync Complete',
-                    description: language === 'ar' 
-                      ? `تمت مزامنة المشروع إلى ${result.repo}` 
-                      : `Project synced to ${result.repo}`
-                  });
-                }}
-              />
-              {githubStatus?.url && (
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={() => window.open(githubStatus.url, '_blank')}
-                  data-testid="button-open-github"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                </Button>
-              )}
-              <Button 
-                size="sm" 
-                className="gap-1 h-6 text-xs bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700" 
-                disabled={generatedFiles.length === 0}
-                data-testid="button-publish"
-              >
-                <Rocket className="w-3 h-3" />
-                {t('Publish', 'نشر')}
-              </Button>
-            </div>
-          </div>
         </div>
       </ResizablePanel>
         )}
