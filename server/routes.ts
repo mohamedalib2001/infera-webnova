@@ -19135,6 +19135,11 @@ ${project.description || ""}
   const portabilityRoutes = (await import("./routes/portability-routes")).default;
   app.use("/api/portability", portabilityRoutes);
   console.log("Portability routes registered | تم تسجيل مسارات قابلية النقل والاستقلال");
+
+  // ============ Future Evolution API - واجهة التطور المستقبلي ============
+  const futureEvolutionRoutes = (await import("./routes/future-evolution-routes")).default;
+  app.use("/api/evolution", futureEvolutionRoutes);
+  console.log("Future Evolution routes registered | تم تسجيل مسارات التطور المستقبلي");
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
   // Helper: Generate verification token
