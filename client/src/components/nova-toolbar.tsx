@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { 
   Monitor, 
   Smartphone, 
@@ -11,7 +12,8 @@ import {
   RotateCcw,
   ExternalLink,
   RefreshCw,
-  ChevronDown
+  ChevronDown,
+  Shield
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -50,6 +52,7 @@ const t = {
     preview: "المعاينة",
     terminal: "الطرفية",
     browser: "المتصفح",
+    permissions: "الصلاحيات",
     fullscreen: "ملء الشاشة",
     exitFullscreen: "الخروج من ملء الشاشة",
     refresh: "تحديث",
@@ -65,6 +68,7 @@ const t = {
     preview: "Preview",
     terminal: "Terminal",
     browser: "Browser",
+    permissions: "Permissions",
     fullscreen: "Fullscreen",
     exitFullscreen: "Exit Fullscreen",
     refresh: "Refresh",
@@ -88,6 +92,7 @@ export function NovaToolbar({
 }: NovaToolbarProps) {
   const txt = t[language];
   const [isMobile, setIsMobile] = useState(false);
+  const [, setLocation] = useLocation();
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -201,6 +206,24 @@ export function NovaToolbar({
             </Tooltip>
           ))}
         </div>
+
+        <div className="h-6 w-px bg-border mx-1" />
+
+        {/* Permissions Button */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setLocation('/nova/permissions')}
+              data-testid="button-nova-permissions"
+            >
+              <Shield className="h-4 w-4 text-amber-500" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">{txt.permissions}</TooltipContent>
+        </Tooltip>
       </div>
 
       <div className="flex items-center gap-1">

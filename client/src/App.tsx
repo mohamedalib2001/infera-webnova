@@ -42,6 +42,7 @@ const PlatformBuilder = lazy(() => import("@/pages/platform-builder"));
 const GitHubSync = lazy(() => import("@/pages/github-sync"));
 const IntegrationsSettings = lazy(() => import("@/pages/integrations-settings"));
 const TechnicalDocumentation = lazy(() => import("@/pages/technical-documentation"));
+const NovaPermissions = lazy(() => import("@/pages/nova-permissions"));
 import {
   LazySettings,
   LazySovereignWorkspace,
@@ -136,6 +137,7 @@ function AuthenticatedRouter() {
       {/* Nova AI */}
       <Route path="/nova" component={LazyNovaChat} />
       <Route path="/nova/dashboard" component={LazyNovaAIDashboard} />
+      <Route path="/nova/permissions" component={NovaPermissions} />
       
       {/* Payments */}
       <Route path="/payment/success" component={PaymentSuccess} />
