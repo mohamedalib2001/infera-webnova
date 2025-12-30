@@ -117,16 +117,35 @@ const SECURITY_PATTERNS = [
   /security/i, /audit/i, /permissions/i, /access control/i, /encryption/i,
 ];
 
-// Build intent patterns
+// Build intent patterns - includes platform types and domain-specific terms
 const BUILD_PATTERNS = [
-  // Arabic
-  /منصة/i, /متجر/i, /موقع/i, /تطبيق/i, /نظام/i, /مليون/i, /مستخدم/i, /تجارة/i, /تعليم/i,
-  // English
-  /platform/i, /store/i, /site/i, /app/i, /system/i, /million/i, /users/i, /ecommerce/i, /education/i,
+  // Arabic platform types
+  /منصة/i, /متجر/i, /موقع/i, /تطبيق/i, /نظام/i, 
+  // Arabic domain terms (HR, Finance, Healthcare, etc.)
+  /موارد بشرية/i, /الموارد البشرية/i, /hr/i, /إدارة الموظفين/i, /الرواتب/i, /التوظيف/i,
+  /محاسبة/i, /مالية/i, /فواتير/i, /مخزون/i, /مبيعات/i,
+  /مستشفى/i, /طبي/i, /صحي/i, /عيادة/i, /مرضى/i,
+  /تعليم/i, /مدرسة/i, /جامعة/i, /طلاب/i, /كورسات/i,
+  /تجارة/i, /إلكترونية/i, /منتجات/i, /سلة/i,
+  // Arabic scale indicators
+  /مليون/i, /ألف/i, /مستخدم/i, /موظف/i, /شركة/i, /مؤسسة/i,
+  // Arabic action-like phrases that imply building
+  /أريد/i, /أحتاج/i, /عايز/i, /محتاج/i,
+  // English platform types
+  /platform/i, /store/i, /site/i, /website/i, /app/i, /application/i, /system/i, /portal/i, /dashboard/i,
+  // English domain terms
+  /human resources/i, /employee/i, /payroll/i, /recruitment/i, /onboarding/i,
+  /accounting/i, /finance/i, /invoice/i, /inventory/i, /sales/i,
+  /hospital/i, /medical/i, /healthcare/i, /clinic/i, /patient/i,
+  /education/i, /school/i, /university/i, /student/i, /course/i,
+  /ecommerce/i, /e-commerce/i, /shopping/i, /cart/i, /product/i,
+  // English scale indicators  
+  /million/i, /thousand/i, /users/i, /employees/i, /company/i, /enterprise/i,
 ];
 
 /**
  * Detects the conversational intent of user input
+ * Priority: security > build (with indicators) > command > discussion > inquiry
  */
 export function detectIntent(
   content: string, 
@@ -139,11 +158,22 @@ export function detectIntent(
     return 'security';
   }
   
-  // Check for explicit commands
+  // Check for explicit commands and build patterns
   const hasCommand = COMMAND_PATTERNS.some(p => p.test(trimmed));
   const hasBuild = BUILD_PATTERNS.some(p => p.test(trimmed));
   
+  // Count how many build patterns match - more matches = stronger build signal
+  const buildMatchCount = BUILD_PATTERNS.filter(p => p.test(trimmed)).length;
+  
+  // PRIORITY: If we have build patterns, lean towards build intent
+  // This ensures Arabic requests like "منصة موارد بشرية" trigger builds
   if (hasCommand && hasBuild) {
+    return 'build';
+  }
+  
+  // If content has multiple build patterns OR is descriptive enough, treat as build
+  // This catches requests like "منصة موارد بشرية للموظفين والإدارات" without command verbs
+  if (hasBuild && (buildMatchCount >= 2 || trimmed.length >= 30)) {
     return 'build';
   }
   
@@ -151,14 +181,16 @@ export function detectIntent(
     return 'command';
   }
   
-  // Check for discussion patterns
-  const isDiscussion = [
-    ...ARABIC_DISCUSSION_PATTERNS,
-    ...ENGLISH_DISCUSSION_PATTERNS
-  ].some(p => p.test(trimmed));
-  
-  if (isDiscussion) {
-    return 'discussion';
+  // Check for discussion patterns ONLY if no build patterns detected
+  if (!hasBuild) {
+    const isDiscussion = [
+      ...ARABIC_DISCUSSION_PATTERNS,
+      ...ENGLISH_DISCUSSION_PATTERNS
+    ].some(p => p.test(trimmed));
+    
+    if (isDiscussion) {
+      return 'discussion';
+    }
   }
   
   // Check if it's a question (inquiry)
@@ -168,15 +200,15 @@ export function detectIntent(
     return 'inquiry';
   }
   
-  // If previous context was discussion and this seems like continuation
-  if (previousMessages.length > 0) {
+  // If previous context was discussion and this is short continuation
+  if (previousMessages.length > 0 && !hasBuild) {
     const lastIntent = previousMessages[previousMessages.length - 1]?.intent;
     if (lastIntent === 'discussion' && trimmed.length < 100) {
       return 'discussion';
     }
   }
   
-  // Default based on content length and pattern
+  // Any remaining build pattern match should trigger build
   if (hasBuild) {
     return 'build';
   }
