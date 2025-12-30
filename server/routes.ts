@@ -19130,6 +19130,11 @@ ${project.description || ""}
   const commandControlRoutes = (await import("./routes/command-control-routes")).default;
   app.use("/api/command-control", commandControlRoutes);
   console.log("Command Control routes registered | تم تسجيل مسارات القيادة والتحكم");
+
+  // ============ Portability & Independence API - واجهة قابلية النقل والاستقلال ============
+  const portabilityRoutes = (await import("./routes/portability-routes")).default;
+  app.use("/api/portability", portabilityRoutes);
+  console.log("Portability routes registered | تم تسجيل مسارات قابلية النقل والاستقلال");
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
   // Helper: Generate verification token
