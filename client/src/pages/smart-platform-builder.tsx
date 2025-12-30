@@ -49,6 +49,15 @@ interface LogEntry {
   message: string;
 }
 
+interface BuildState {
+  blueprintId: string | null;
+  status: 'idle' | 'building' | 'complete' | 'error';
+  progress: number;
+  currentPhase: string;
+  generatedFiles: any[];
+  error?: string;
+}
+
 export default function SmartPlatformBuilder() {
   const [language, setLanguage] = useState<'en' | 'ar'>('ar');
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
@@ -67,6 +76,13 @@ export default function SmartPlatformBuilder() {
   const [showDashboard, setShowDashboard] = useState(true);
   const [showProjectSelector, setShowProjectSelector] = useState(false);
   const [projectType, setProjectType] = useState<string>('general');
+  const [buildState, setBuildState] = useState<BuildState>({
+    blueprintId: null,
+    status: 'idle',
+    progress: 0,
+    currentPhase: '',
+    generatedFiles: []
+  });
   const { toast } = useToast();
 
   const t = (en: string, ar: string) => language === 'ar' ? ar : en;
@@ -268,6 +284,150 @@ export default function SmartPlatformBuilder() {
     setShowOrchestrator(false);
   }, [addLog, toast, t]);
 
+  // Convert nodes to platform requirements for AI build
+  const nodesToRequirements = useCallback(() => {
+    const projectTypeInfo = projectTypes.find(p => p.id === projectType);
+    const nodeTypes = nodes.map(n => (n.data as any)?.label || n.type);
+    
+    const hasAuth = nodes.some(n => n.type === 'auth' || (n.data as any)?.label?.toLowerCase().includes('auth'));
+    const hasPayment = nodes.some(n => n.type === 'payment' || (n.data as any)?.label?.toLowerCase().includes('payment'));
+    const hasDatabase = nodes.some(n => n.type === 'database' || (n.data as any)?.label?.toLowerCase().includes('database'));
+    const hasAPI = nodes.some(n => n.type === 'api' || (n.data as any)?.label?.toLowerCase().includes('api'));
+    const hasStorage = nodes.some(n => n.type === 'storage' || (n.data as any)?.label?.toLowerCase().includes('storage'));
+    
+    let requirements = `أريد بناء منصة ${projectTypeInfo?.name.ar || 'رقمية'} تتضمن:\n`;
+    
+    if (hasAuth) requirements += '- نظام مصادقة وتسجيل دخول آمن\n';
+    if (hasPayment) requirements += '- نظام مدفوعات واشتراكات\n';
+    if (hasDatabase) requirements += '- قاعدة بيانات PostgreSQL\n';
+    if (hasAPI) requirements += '- API RESTful مع توثيق OpenAPI\n';
+    if (hasStorage) requirements += '- تخزين ملفات سحابي\n';
+    
+    requirements += `\nالمكونات المطلوبة: ${nodeTypes.join(', ')}\n`;
+    requirements += `\nالقطاع: ${projectTypeInfo?.name.ar || projectType}`;
+    
+    return requirements;
+  }, [nodes, projectType]);
+
+  // Build platform using real AI API
+  const handleBuildPlatform = useCallback(async () => {
+    if (nodes.length === 0) {
+      toast({
+        title: t('No Components', 'لا توجد مكونات'),
+        description: t('Add components to the canvas first', 'أضف مكونات للكانفاس أولاً'),
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setBuildState(prev => ({
+      ...prev,
+      status: 'building',
+      progress: 0,
+      currentPhase: t('Starting build...', 'جاري بدء البناء...')
+    }));
+    addLog('info', t('Starting platform build with AI...', 'جاري بدء بناء المنصة بالذكاء الاصطناعي...'));
+
+    try {
+      const requirements = nodesToRequirements();
+      
+      // Phase 1: Start AI build
+      setBuildState(prev => ({ ...prev, progress: 10, currentPhase: t('Analyzing requirements...', 'تحليل المتطلبات...') }));
+      
+      const buildResponse = await apiRequest('POST', '/api/platforms/ai-build', {
+        requirements,
+        sector: projectType,
+        locale: language
+      });
+
+      if (!buildResponse.success) {
+        throw new Error(buildResponse.message || 'Build failed');
+      }
+
+      const { blueprintId } = buildResponse;
+      setBuildState(prev => ({ ...prev, blueprintId, progress: 30, currentPhase: t('Generating code...', 'توليد الكود...') }));
+      addLog('success', `Blueprint ID: ${blueprintId}`);
+
+      // Phase 2: Poll for build status
+      let attempts = 0;
+      const maxAttempts = 30;
+      
+      while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        const statusResponse = await apiRequest('GET', `/api/platforms/ai-build/${blueprintId}`);
+        const { buildState: serverBuildState } = statusResponse;
+        
+        if (serverBuildState?.status === 'complete') {
+          setBuildState(prev => ({ ...prev, progress: 80, currentPhase: t('Fetching artifacts...', 'جلب الملفات المولدة...') }));
+          
+          // Phase 3: Get generated artifacts
+          const artifactsResponse = await apiRequest('GET', `/api/platforms/ai-build/${blueprintId}/artifacts`);
+          
+          setBuildState(prev => ({
+            ...prev,
+            status: 'complete',
+            progress: 100,
+            currentPhase: t('Build complete!', 'اكتمل البناء!'),
+            generatedFiles: artifactsResponse.files || []
+          }));
+          
+          addLog('success', t(`Platform built successfully! ${artifactsResponse.counts?.total || 0} files generated.`, `تم بناء المنصة بنجاح! ${artifactsResponse.counts?.total || 0} ملف تم توليده.`));
+          
+          toast({
+            title: t('Platform Built!', 'تم بناء المنصة!'),
+            description: t(`${artifactsResponse.counts?.total || 0} files generated`, `${artifactsResponse.counts?.total || 0} ملف تم توليده`)
+          });
+          
+          break;
+        } else if (serverBuildState?.status === 'error') {
+          throw new Error(serverBuildState.error || 'Build failed');
+        }
+        
+        // Update progress based on phase
+        const progress = Math.min(30 + (attempts * 2), 75);
+        setBuildState(prev => ({ 
+          ...prev, 
+          progress, 
+          currentPhase: serverBuildState?.currentPhase || t('Building...', 'جاري البناء...') 
+        }));
+        
+        attempts++;
+      }
+      
+      if (attempts >= maxAttempts) {
+        throw new Error(t('Build timeout', 'انتهت مهلة البناء'));
+      }
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setBuildState(prev => ({
+        ...prev,
+        status: 'error',
+        currentPhase: t('Build failed', 'فشل البناء'),
+        error: errorMessage
+      }));
+      addLog('error', `Build error: ${errorMessage}`);
+      toast({
+        title: t('Build Failed', 'فشل البناء'),
+        description: errorMessage,
+        variant: 'destructive'
+      });
+    }
+  }, [nodes, projectType, language, nodesToRequirements, addLog, toast, t]);
+
+  // Download generated platform
+  const handleDownloadPlatform = useCallback(async () => {
+    if (!buildState.blueprintId) return;
+    
+    try {
+      window.open(`/api/platforms/ai-build/${buildState.blueprintId}/download`, '_blank');
+      addLog('success', t('Download started', 'بدأ التحميل'));
+    } catch (error) {
+      addLog('error', 'Download failed');
+    }
+  }, [buildState.blueprintId, addLog, t]);
+
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
       <header className="h-14 border-b border-border/50 bg-card/50 backdrop-blur-xl flex items-center justify-between px-4 shrink-0">
@@ -359,15 +519,38 @@ export default function SmartPlatformBuilder() {
             {t('Export', 'تصدير')}
           </Button>
 
-          <Button 
-            size="sm" 
-            className="gap-2 bg-gradient-to-r from-cyan-500 to-blue-600"
-            disabled={nodes.length === 0}
-            data-testid="button-deploy"
-          >
-            <Rocket className="w-4 h-4" />
-            {t('Deploy', 'نشر')}
-          </Button>
+          {buildState.status === 'building' ? (
+            <Button 
+              size="sm" 
+              className="gap-2 bg-gradient-to-r from-yellow-500 to-orange-600"
+              disabled
+              data-testid="button-building"
+            >
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              {buildState.progress}% - {buildState.currentPhase}
+            </Button>
+          ) : buildState.status === 'complete' ? (
+            <Button 
+              size="sm" 
+              className="gap-2 bg-gradient-to-r from-green-500 to-emerald-600"
+              onClick={handleDownloadPlatform}
+              data-testid="button-download"
+            >
+              <Download className="w-4 h-4" />
+              {t('Download', 'تحميل')} ({buildState.generatedFiles.length} {t('files', 'ملفات')})
+            </Button>
+          ) : (
+            <Button 
+              size="sm" 
+              className="gap-2 bg-gradient-to-r from-cyan-500 to-blue-600"
+              disabled={nodes.length === 0}
+              onClick={handleBuildPlatform}
+              data-testid="button-build"
+            >
+              <Rocket className="w-4 h-4" />
+              {t('Build Platform', 'بناء المنصة')}
+            </Button>
+          )}
         </div>
       </header>
 
