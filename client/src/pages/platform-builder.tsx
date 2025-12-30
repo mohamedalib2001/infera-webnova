@@ -1241,7 +1241,7 @@ How can I help you? Describe the platform you want to build.`;
       {/* Main Content with Resizable Panels */}
       <ResizablePanelGroup 
         direction="horizontal" 
-        className="flex-1"
+        className="flex-1 overflow-hidden"
         data-testid="resizable-panel-group"
         key={layoutMode}
       >
@@ -1251,7 +1251,7 @@ How can I help you? Describe the platform you want to build.`;
           defaultSize={layoutMode === 'chat-only' ? 100 : 35} 
           minSize={layoutMode === 'chat-only' ? 100 : 20}
           maxSize={layoutMode === 'chat-only' ? 100 : 60}
-          className="flex flex-col bg-card/50"
+          className="flex flex-col h-full overflow-hidden bg-card/50"
           data-testid="panel-chat"
         >
           <div className="flex-shrink-0 p-3 border-b border-border flex items-center justify-between gap-2">
@@ -1390,7 +1390,7 @@ How can I help you? Describe the platform you want to build.`;
           <ResizablePanel 
             defaultSize={layoutMode === 'preview-only' ? 100 : 65} 
             minSize={layoutMode === 'preview-only' ? 100 : 30}
-            className="flex flex-col bg-muted/30"
+            className="flex flex-col h-full overflow-hidden bg-muted/30"
             data-testid="panel-preview"
           >
             <div className="flex-shrink-0 p-3 border-b border-border bg-card/50 flex items-center justify-between gap-4">
