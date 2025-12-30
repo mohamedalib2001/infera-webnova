@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -23,7 +25,8 @@ import {
   Video, MessageSquare, BarChart3, Settings, Download,
   AlertTriangle, HardDrive, Cpu, Gauge, ShoppingCart,
   Search, User, GraduationCap, Bell, Heart, FolderTree,
-  File, FileJson, FileType2, Save, Upload
+  File, FileJson, FileType2, Save, Upload,
+  Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, GripVertical
 } from "lucide-react";
 import { generatePlatformCode, generatePackageJson, type GeneratedCode, type PlatformSpec } from "@/lib/platform-code-generator";
 import { GitHubRepoSelector } from "@/components/github-repo-selector";
@@ -130,6 +133,12 @@ export default function PlatformBuilderPage() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [githubStatus, setGithubStatus] = useState<{ synced: boolean; repo?: string; url?: string; lastSync?: string } | null>(null);
   const [conversationContext, setConversationContext] = useState<ContextMemory>(() => createContextMemory(language === 'ar' ? 'ar' : 'en'));
+  
+  // Panel control states
+  const [chatPanelVisible, setChatPanelVisible] = useState(true);
+  const [previewPanelVisible, setPreviewPanelVisible] = useState(true);
+  const [chatPanelMaximized, setChatPanelMaximized] = useState(false);
+  const [previewPanelMaximized, setPreviewPanelMaximized] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -1083,49 +1092,190 @@ How can I help you? Describe the platform you want to build.`;
     }
   };
 
+  // Layout mode: 'split' (both visible), 'chat-only', or 'preview-only'
+  const layoutMode = chatPanelMaximized ? 'chat-only' : 
+                     previewPanelMaximized ? 'preview-only' : 
+                     (!chatPanelVisible && previewPanelVisible) ? 'preview-only' :
+                     (chatPanelVisible && !previewPanelVisible) ? 'chat-only' :
+                     'split';
+
+  // Handle panel maximize toggle - sync visibility with maximize state
+  const toggleChatMaximize = () => {
+    if (chatPanelMaximized) {
+      // Restore: show both panels
+      setChatPanelMaximized(false);
+      setChatPanelVisible(true);
+      setPreviewPanelVisible(true);
+    } else {
+      // Maximize chat: hide preview
+      setChatPanelMaximized(true);
+      setPreviewPanelMaximized(false);
+      setChatPanelVisible(true);
+      setPreviewPanelVisible(false);
+    }
+  };
+
+  const togglePreviewMaximize = () => {
+    if (previewPanelMaximized) {
+      // Restore: show both panels
+      setPreviewPanelMaximized(false);
+      setChatPanelVisible(true);
+      setPreviewPanelVisible(true);
+    } else {
+      // Maximize preview: hide chat
+      setPreviewPanelMaximized(true);
+      setChatPanelMaximized(false);
+      setPreviewPanelVisible(true);
+      setChatPanelVisible(false);
+    }
+  };
+
+  const toggleChatPanel = () => {
+    if (chatPanelVisible) {
+      // Hide chat panel
+      setChatPanelVisible(false);
+      setChatPanelMaximized(false);
+      // Ensure preview is visible
+      setPreviewPanelVisible(true);
+    } else {
+      // Show chat panel - restore split view
+      setChatPanelVisible(true);
+      setChatPanelMaximized(false);
+      setPreviewPanelMaximized(false);
+      setPreviewPanelVisible(true);
+    }
+  };
+
+  const togglePreviewPanel = () => {
+    if (previewPanelVisible) {
+      // Hide preview panel
+      setPreviewPanelVisible(false);
+      setPreviewPanelMaximized(false);
+      // Ensure chat is visible
+      setChatPanelVisible(true);
+    } else {
+      // Show preview panel - restore split view
+      setPreviewPanelVisible(true);
+      setChatPanelMaximized(false);
+      setPreviewPanelMaximized(false);
+      setChatPanelVisible(true);
+    }
+  };
+
   return (
-    <div className={`flex h-screen bg-background ${isRTL ? 'flex-row-reverse' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
-      <div className={`w-[450px] flex flex-col border-${isRTL ? 'l' : 'r'} border-border bg-card/50`}>
-        <div className="p-4 border-b border-border bg-gradient-to-r from-primary/10 to-transparent">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-                  <Brain className="w-5 h-5 text-white" />
-                </div>
-                <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-card" />
-              </div>
-              <div>
-                <h2 className="font-semibold text-foreground">Nova Enterprise Builder</h2>
-                <p className="text-xs text-muted-foreground">{t('Build scalable platforms', 'بناء منصات عملاقة')}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {projectId && (
-                <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30 gap-1 text-xs">
-                  <Save className="w-3 h-3" />
-                  {t('Saved', 'محفوظ')}
-                </Badge>
-              )}
-              {githubStatus?.synced && (
-                <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/30 gap-1 text-xs">
-                  <GitBranch className="w-3 h-3" />
-                  {githubStatus.repo?.split('/')[1]}
-                </Badge>
-              )}
+    <div className="h-screen bg-background flex flex-col" dir={isRTL ? 'rtl' : 'ltr'}>
+      {/* Top Control Bar */}
+      <div className="h-12 border-b border-border bg-card/80 backdrop-blur-sm flex items-center justify-between px-4 shrink-0 z-50">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+            <Brain className="w-4 h-4 text-white" />
+          </div>
+          <h1 className="font-semibold text-foreground">Nova Enterprise Builder</h1>
+          {projectId && (
+            <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30 gap-1 text-xs">
+              <Save className="w-3 h-3" />
+              {t('Saved', 'محفوظ')}
+            </Badge>
+          )}
+          {githubStatus?.synced && (
+            <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/30 gap-1 text-xs">
+              <GitBranch className="w-3 h-3" />
+              {githubStatus.repo?.split('/')[1]}
+            </Badge>
+          )}
+        </div>
+        
+        <div className="flex items-center gap-2">
+          {/* Panel Toggle Controls */}
+          <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={chatPanelVisible ? 'secondary' : 'ghost'}
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={toggleChatPanel}
+                  data-testid="button-toggle-chat"
+                >
+                  {chatPanelVisible ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t('Toggle Chat Panel', 'إظهار/إخفاء صندوق الحوار')}</TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={previewPanelVisible ? 'secondary' : 'ghost'}
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={togglePreviewPanel}
+                  data-testid="button-toggle-preview"
+                >
+                  {previewPanelVisible ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t('Toggle Preview Panel', 'إظهار/إخفاء لوحة المعاينة')}</TooltipContent>
+            </Tooltip>
+          </div>
+          
+          <div className="h-6 w-px bg-border" />
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8"
                 onClick={() => setLocation('/nova/permissions')}
-                title={t('Nova Permissions', 'صلاحيات نوفا')}
                 data-testid="button-nova-permissions"
               >
                 <Shield className="w-4 h-4 text-amber-500" />
               </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t('Nova Permissions', 'صلاحيات نوفا')}</TooltipContent>
+          </Tooltip>
+        </div>
+      </div>
+      
+      {/* Main Content with Resizable Panels */}
+      <ResizablePanelGroup 
+        direction="horizontal" 
+        className="flex-1"
+        data-testid="resizable-panel-group"
+        key={layoutMode}
+      >
+        {/* Chat Panel - only render when needed */}
+        {(layoutMode === 'split' || layoutMode === 'chat-only') && (
+        <ResizablePanel 
+          defaultSize={layoutMode === 'chat-only' ? 100 : 35} 
+          minSize={layoutMode === 'chat-only' ? 100 : 20}
+          maxSize={layoutMode === 'chat-only' ? 100 : 60}
+          className="flex flex-col bg-card/50"
+          data-testid="panel-chat"
+        >
+          <div className="flex-shrink-0 p-3 border-b border-border flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-violet-500" />
+              <span className="text-sm font-medium">{t('AI Chat', 'محادثة الذكاء الاصطناعي')}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={toggleChatMaximize}
+                    data-testid="button-maximize-chat"
+                  >
+                    {chatPanelMaximized ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{chatPanelMaximized ? t('Restore', 'استعادة') : t('Maximize', 'تكبير')}</TooltipContent>
+              </Tooltip>
             </div>
           </div>
-        </div>
 
         <ScrollArea className="flex-1 p-4">
           <div className="space-y-4">
@@ -1180,7 +1330,7 @@ How can I help you? Describe the platform you want to build.`;
           </div>
         </ScrollArea>
 
-        <div className="p-4 border-t border-border bg-card/80">
+        <div className="flex-shrink-0 p-4 border-t border-border bg-card/80">
           <div className="flex gap-2 mb-3 flex-wrap">
             {[
               { icon: Layers, label: t('Enterprise E-commerce', 'متجر عملاق'), prompt: t('Create an enterprise e-commerce platform with 1M concurrent users, global CDN, multi-currency payments, real-time inventory, recommendation engine, and analytics dashboard', 'أنشئ منصة تجارة إلكترونية عملاقة تدعم مليون مستخدم متزامن مع CDN عالمي ودفع متعدد العملات ومخزون حي ومحرك توصيات ولوحة تحليلات') },
@@ -1223,69 +1373,106 @@ How can I help you? Describe the platform you want to build.`;
             </Button>
           </div>
         </div>
-      </div>
+      </ResizablePanel>
+        )}
+      
+        {/* Resize Handle - only shown in split mode */}
+        {layoutMode === 'split' && (
+          <ResizableHandle 
+            withHandle 
+            className="bg-border hover:bg-primary/20 transition-colors" 
+            data-testid="resize-handle-main" 
+          />
+        )}
 
-      <div className="flex-1 flex flex-col bg-muted/30">
-        <div className="p-3 border-b border-border bg-card/50 flex items-center justify-between gap-4">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
-            <TabsList className="grid w-[400px] grid-cols-4">
-              <TabsTrigger value="preview" className="gap-1" data-testid="tab-preview">
-                <Eye className="w-4 h-4" />
-                {t('Preview', 'معاينة')}
-              </TabsTrigger>
-              <TabsTrigger value="architecture" className="gap-1" data-testid="tab-architecture">
-                <Network className="w-4 h-4" />
-                {t('Architecture', 'البنية')}
-              </TabsTrigger>
-              <TabsTrigger value="code" className="gap-1" data-testid="tab-code">
-                <Code className="w-4 h-4" />
-                {t('Code', 'الكود')}
-              </TabsTrigger>
-              <TabsTrigger value="build" className="gap-1" data-testid="tab-build">
-                <Activity className="w-4 h-4" />
-                {t('Build', 'البناء')}
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-          
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
-              <Button
-                variant={previewDevice === 'desktop' ? 'secondary' : 'ghost'}
-                size="icon"
-                onClick={() => setPreviewDevice('desktop')}
-                data-testid="button-device-desktop"
-              >
-                <Monitor className="w-4 h-4" />
-              </Button>
-              <Button
-                variant={previewDevice === 'tablet' ? 'secondary' : 'ghost'}
-                size="icon"
-                onClick={() => setPreviewDevice('tablet')}
-                data-testid="button-device-tablet"
-              >
-                <Tablet className="w-4 h-4" />
-              </Button>
-              <Button
-                variant={previewDevice === 'mobile' ? 'secondary' : 'ghost'}
-                size="icon"
-                onClick={() => setPreviewDevice('mobile')}
-                data-testid="button-device-mobile"
-              >
-                <Smartphone className="w-4 h-4" />
-              </Button>
+        {/* Preview Panel - only render when needed */}
+        {(layoutMode === 'split' || layoutMode === 'preview-only') && (
+          <ResizablePanel 
+            defaultSize={layoutMode === 'preview-only' ? 100 : 65} 
+            minSize={layoutMode === 'preview-only' ? 100 : 30}
+            className="flex flex-col bg-muted/30"
+            data-testid="panel-preview"
+          >
+            <div className="flex-shrink-0 p-3 border-b border-border bg-card/50 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
+                  <TabsList className="grid w-[400px] grid-cols-4">
+                    <TabsTrigger value="preview" className="gap-1" data-testid="tab-preview">
+                      <Eye className="w-4 h-4" />
+                      {t('Preview', 'معاينة')}
+                    </TabsTrigger>
+                    <TabsTrigger value="architecture" className="gap-1" data-testid="tab-architecture">
+                      <Network className="w-4 h-4" />
+                      {t('Architecture', 'البنية')}
+                    </TabsTrigger>
+                    <TabsTrigger value="code" className="gap-1" data-testid="tab-code">
+                      <Code className="w-4 h-4" />
+                      {t('Code', 'الكود')}
+                    </TabsTrigger>
+                    <TabsTrigger value="build" className="gap-1" data-testid="tab-build">
+                      <Activity className="w-4 h-4" />
+                      {t('Build', 'البناء')}
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+                  <Button
+                    variant={previewDevice === 'desktop' ? 'secondary' : 'ghost'}
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => setPreviewDevice('desktop')}
+                    data-testid="button-device-desktop"
+                  >
+                    <Monitor className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant={previewDevice === 'tablet' ? 'secondary' : 'ghost'}
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => setPreviewDevice('tablet')}
+                    data-testid="button-device-tablet"
+                  >
+                    <Tablet className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant={previewDevice === 'mobile' ? 'secondary' : 'ghost'}
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => setPreviewDevice('mobile')}
+                    data-testid="button-device-mobile"
+                  >
+                    <Smartphone className="w-4 h-4" />
+                  </Button>
+                </div>
+                
+                {previewUrl && (
+                  <Button variant="outline" size="sm" className="gap-1" data-testid="button-open-preview">
+                    <ExternalLink className="w-3 h-3" />
+                    {t('Open', 'فتح')}
+                  </Button>
+                )}
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={togglePreviewMaximize}
+                      data-testid="button-maximize-preview"
+                    >
+                      {previewPanelMaximized ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{previewPanelMaximized ? t('Restore', 'استعادة') : t('Maximize', 'تكبير')}</TooltipContent>
+                </Tooltip>
+              </div>
             </div>
-            
-            {previewUrl && (
-              <Button variant="outline" size="sm" className="gap-1" data-testid="button-open-preview">
-                <ExternalLink className="w-3 h-3" />
-                {t('Open', 'فتح')}
-              </Button>
-            )}
-          </div>
-        </div>
 
-        <div className="flex-1 p-4 overflow-auto">
+            <div className="flex-1 p-4 overflow-auto">
           {activeTab === 'preview' && (
             <div className="h-full flex items-center justify-center">
               {previewUrl ? (
@@ -1802,8 +1989,8 @@ How can I help you? Describe the platform you want to build.`;
           )}
         </div>
 
-        <div className="p-3 border-t border-border bg-gradient-to-r from-card via-card/80 to-card">
-          <div className="flex items-center justify-between gap-4">
+        <div className="flex-shrink-0 p-3 border-t border-border bg-gradient-to-r from-card via-card/80 to-card">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3">
               {previewUrl && (
                 <>
@@ -1879,7 +2066,9 @@ How can I help you? Describe the platform you want to build.`;
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  );
+      </ResizablePanel>
+        )}
+    </ResizablePanelGroup>
+  </div>
+);
 }
