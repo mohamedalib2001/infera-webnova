@@ -1547,36 +1547,36 @@ How can I help you? Describe the platform you want to build.`;
           </div>
         </ScrollArea>
 
-        <div className="flex-shrink-0 p-2 border-t border-border bg-card/80">
-          <div className="flex gap-1.5 mb-2 flex-wrap">
-            {[
-              { icon: Layers, label: t('Enterprise E-commerce', 'متجر عملاق'), prompt: t('Create an enterprise e-commerce platform with 1M concurrent users, global CDN, multi-currency payments, real-time inventory, recommendation engine, and analytics dashboard', 'أنشئ منصة تجارة إلكترونية عملاقة تدعم مليون مستخدم متزامن مع CDN عالمي ودفع متعدد العملات ومخزون حي ومحرك توصيات ولوحة تحليلات') },
-              { icon: Video, label: t('Learning Platform', 'منصة تعليم'), prompt: t('Create an educational platform with video streaming, virtual classrooms, smart testing system, progress tracking, and payment integration for 500K users', 'أنشئ منصة تعليمية مع بث فيديو وفصول افتراضية ونظام اختبارات ذكي وتتبع التقدم ونظام دفع لـ 500 ألف مستخدم') },
-              { icon: Users, label: t('Social Platform', 'منصة اجتماعية'), prompt: t('Create a social platform with real-time messaging, content feed, live streaming, notifications, and moderation system', 'أنشئ منصة اجتماعية مع رسائل حية وتايملاين وبث مباشر وإشعارات ونظام إشراف') },
-            ].map((example, idx) => (
-              <Button
-                key={idx}
-                variant="outline"
-                size="sm"
-                onClick={() => sendMessage(example.prompt)}
-                className="text-xs gap-1"
-                data-testid={`button-example-${idx}`}
-              >
-                <example.icon className="w-3 h-3" />
-                {example.label}
-              </Button>
-            ))}
-          </div>
-          
-          <div className="flex items-end gap-2">
-            <div className="relative flex-1">
+        <div className="flex-shrink-0 border-t border-border bg-card/95 backdrop-blur-sm">
+          <div className="p-3 space-y-3">
+            <div className="flex gap-2 flex-wrap">
+              {[
+                { icon: Layers, label: t('E-commerce', 'متجر'), prompt: t('Create an enterprise e-commerce platform with 1M concurrent users, global CDN, multi-currency payments, real-time inventory, recommendation engine, and analytics dashboard', 'أنشئ منصة تجارة إلكترونية عملاقة تدعم مليون مستخدم متزامن مع CDN عالمي ودفع متعدد العملات ومخزون حي ومحرك توصيات ولوحة تحليلات') },
+                { icon: Video, label: t('Learning', 'تعليم'), prompt: t('Create an educational platform with video streaming, virtual classrooms, smart testing system, progress tracking, and payment integration for 500K users', 'أنشئ منصة تعليمية مع بث فيديو وفصول افتراضية ونظام اختبارات ذكي وتتبع التقدم ونظام دفع لـ 500 ألف مستخدم') },
+                { icon: Users, label: t('Social', 'اجتماعية'), prompt: t('Create a social platform with real-time messaging, content feed, live streaming, notifications, and moderation system', 'أنشئ منصة اجتماعية مع رسائل حية وتايملاين وبث مباشر وإشعارات ونظام إشراف') },
+              ].map((example, idx) => (
+                <Button
+                  key={idx}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => sendMessage(example.prompt)}
+                  className="text-xs gap-1.5 h-7"
+                  data-testid={`button-example-${idx}`}
+                >
+                  <example.icon className="w-3 h-3" />
+                  {example.label}
+                </Button>
+              ))}
+            </div>
+            
+            <div className="relative">
               <Textarea
                 ref={inputRef}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder={t('Describe your enterprise platform requirements...', 'صف متطلبات منصتك العملاقة...')}
-                className="resize-none pr-10 min-h-[56px] text-sm"
+                className="resize-none min-h-[80px] text-sm pr-12"
                 disabled={isBuilding}
                 data-testid="input-chat"
               />
@@ -1590,28 +1590,45 @@ How can I help you? Describe the platform you want to build.`;
                 {isBuilding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </Button>
             </div>
+          </div>
+          
+          <div className="px-3 py-2 border-t border-border/50 bg-muted/30 flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              {previewUrl && (
+                <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30 gap-1 text-xs">
+                  <CheckCircle className="w-2.5 h-2.5" />
+                  {t('Deployed', 'تم النشر')}
+                </Badge>
+              )}
+              {generatedFiles.length > 0 && (
+                <Badge variant="outline" className="bg-violet-500/10 text-violet-600 border-violet-500/30 gap-1 text-xs">
+                  <FileCode className="w-2.5 h-2.5" />
+                  {generatedFiles.length} {t('files', 'ملفات')}
+                </Badge>
+              )}
+            </div>
             
-            <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex items-center gap-2 flex-wrap">
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="gap-1 h-9 text-xs" 
+                className="gap-1.5 h-8 text-xs" 
                 onClick={clearSavedState}
                 data-testid="button-new-project-chat"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
-                {t('New Project', 'مشروع جديد')}
+                {t('New', 'جديد')}
               </Button>
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="gap-1 h-9 text-xs" 
+                className="gap-1.5 h-8 text-xs" 
                 onClick={handleSaveProject}
                 disabled={isSaving || generatedFiles.length === 0}
                 data-testid="button-save-chat"
               >
                 {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                {t('Save Project', 'حفظ المشروع')}
+                {t('Save', 'حفظ')}
               </Button>
               <GitHubRepoSelector
                 projectId={projectId || undefined}
@@ -1632,9 +1649,20 @@ How can I help you? Describe the platform you want to build.`;
                   });
                 }}
               />
+              {githubStatus?.url && (
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => window.open(githubStatus.url, '_blank')}
+                  data-testid="button-open-github"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </Button>
+              )}
               <Button 
                 size="sm" 
-                className="gap-1 h-9 text-xs bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700" 
+                className="gap-1.5 h-8 text-xs bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700" 
                 disabled={generatedFiles.length === 0}
                 data-testid="button-publish-chat"
               >
