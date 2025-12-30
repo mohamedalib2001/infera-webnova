@@ -1565,7 +1565,35 @@ How can I help you? Describe the platform you want to build.`;
 
             <div className="flex-1 p-2 overflow-auto">
           {activeTab === 'preview' && (
-            <div className="h-full flex items-center justify-center">
+            <div className="h-full flex flex-col">
+              {previewUrl && generatedFiles.length > 0 && (
+                <div className="bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border border-amber-500/30 rounded-lg p-3 mb-3 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                      <Eye className="w-4 h-4 text-amber-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                        {t('Visual Preview Only', 'معاينة بصرية فقط')}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {t('This is a UI mockup. Real deployable code is in the "Code" tab', 'هذه محاكاة للواجهة. الكود الحقيقي القابل للنشر موجود في تبويب "الكود"')} ({generatedFiles.length} {t('files', 'ملف')})
+                      </p>
+                    </div>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="gap-2 border-amber-500/50 text-amber-600 dark:text-amber-400"
+                    onClick={() => setActiveTab('code')}
+                    data-testid="button-go-to-code"
+                  >
+                    <FileCode className="w-4 h-4" />
+                    {t('View Real Code', 'عرض الكود الحقيقي')}
+                  </Button>
+                </div>
+              )}
+              <div className="flex-1 flex items-center justify-center">
               {previewUrl ? (
                 <div className={`${getDeviceWidth()} h-full bg-white dark:bg-zinc-900 rounded-lg border border-border shadow-lg overflow-hidden transition-all duration-300`}>
                   <div className="h-8 bg-muted/50 border-b border-border flex items-center gap-2 px-3">
@@ -1619,6 +1647,7 @@ How can I help you? Describe the platform you want to build.`;
                   </div>
                 </div>
               )}
+              </div>
             </div>
           )}
 
