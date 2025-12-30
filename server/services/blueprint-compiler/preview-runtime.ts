@@ -71,10 +71,13 @@ async function buildWithESBuild(
   const virtualEntry = createVirtualEntry(blueprint, artifacts, mockData);
   
   try {
-    // Use ESBuild to transform JSX
+    // Use ESBuild to transform JSX with classic React.createElement
+    // This works with React loaded from CDN onto window.React
     const jsxResult = await esbuild.transform(virtualEntry, {
       loader: 'tsx',
-      jsx: 'automatic',
+      jsx: 'transform',
+      jsxFactory: 'React.createElement',
+      jsxFragment: 'React.Fragment',
       target: 'es2020',
       minify: false,
     });
