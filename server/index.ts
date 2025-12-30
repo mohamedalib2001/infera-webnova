@@ -9,6 +9,7 @@ import { setupAuth } from "./replitAuth";
 import { initStripeSystem } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
 import { paymentRoutes } from "./payment-routes";
+import deployRoutes from "./deploy-routes";
 // Start INFERA Agent on separate port (5001) - truly independent
 import("./infera-agent/index").catch(err => {
   console.error("[INFERA Agent] Failed to start standalone agent:", err.message);
@@ -99,6 +100,7 @@ app.use(
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
 app.use('/api/payments', paymentRoutes);
+app.use('/api/deploy', deployRoutes);
 
 // Note: INFERA Agent now runs as truly standalone server on port 5001
 // It is NOT mounted here - it operates completely independently
