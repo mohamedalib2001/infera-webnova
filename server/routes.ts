@@ -4933,7 +4933,7 @@ export async function registerRoutes(
       const fs = await import("fs");
       const pathModule = await import("path");
       const projectRoot = process.cwd();
-      const normalizedInput = pathModule.normalize(dirPath || ".").replace(/^(..(/||$))+/, "");
+      const normalizedInput = pathModule.normalize(dirPath || ".").replace(/^(\.\.[\\|\/])+/, "");
       const targetPath = pathModule.resolve(projectRoot, normalizedInput);
       
       if (!targetPath.startsWith(projectRoot)) {
