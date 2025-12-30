@@ -1011,6 +1011,7 @@ How can I help you? Describe the platform you want to build.`;
     
     // Detect intent using Conversational Context Layer
     const intent = detectIntent(content, conversationContext.messages);
+    console.log('[sendMessage] Content:', content.substring(0, 100), '| Intent:', intent);
     
     // Update context memory with user message
     setConversationContext(prev => addToContext(prev, 'user', content, intent));
@@ -1431,7 +1432,7 @@ How can I help you? Describe the platform you want to build.`;
                 key={idx}
                 variant="outline"
                 size="sm"
-                onClick={() => setInputValue(example.prompt)}
+                onClick={() => sendMessage(example.prompt)}
                 className="text-xs gap-1"
                 data-testid={`button-example-${idx}`}
               >

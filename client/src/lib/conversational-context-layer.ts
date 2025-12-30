@@ -155,6 +155,7 @@ export function detectIntent(
   
   // Check for security/audit first (highest priority)
   if (SECURITY_PATTERNS.some(p => p.test(trimmed))) {
+    console.log('[detectIntent] Detected: security', { content: trimmed.substring(0, 50) });
     return 'security';
   }
   
@@ -164,6 +165,14 @@ export function detectIntent(
   
   // Count how many build patterns match - more matches = stronger build signal
   const buildMatchCount = BUILD_PATTERNS.filter(p => p.test(trimmed)).length;
+  
+  console.log('[detectIntent] Analysis:', { 
+    content: trimmed.substring(0, 50), 
+    hasCommand, 
+    hasBuild, 
+    buildMatchCount,
+    length: trimmed.length 
+  });
   
   // PRIORITY: If we have build patterns, lean towards build intent
   // This ensures Arabic requests like "منصة موارد بشرية" trigger builds
@@ -215,9 +224,11 @@ export function detectIntent(
   
   // Short inputs without clear intent are likely discussion
   if (trimmed.length < 50 && !hasCommand) {
+    console.log('[detectIntent] Result: discussion (short input)');
     return 'discussion';
   }
   
+  console.log('[detectIntent] Result: inquiry (default)');
   return 'inquiry';
 }
 
