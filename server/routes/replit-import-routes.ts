@@ -431,7 +431,7 @@ router.get('/independence/preview/:repositoryId', requireAuth, rateLimit, async 
       });
     }
 
-    // Get files and analyze
+    // Get files and analyze with real analysis
     const repoFiles = await sovereignGitEngine.getRepositoryFiles(repositoryId, 'main');
     const files = repoFiles.map((f: any) => ({
       path: f.path,
@@ -440,16 +440,20 @@ router.get('/independence/preview/:repositoryId', requireAuth, rateLimit, async 
       size: f.size
     }));
 
-    // Use the service's analyzeProject method indirectly through preview
-    const runtimeConfig = replitImportService.generateIndependentRuntime(files, {
-      languages: [],
-      frameworks: [],
-      technologies: [],
-      dependencies: { total: 0, production: [], development: [], outdated: 0, vulnerable: 0 },
-      security: { score: 100, issues: [], replitSpecific: [] },
-      portability: { score: 100, replitDependencies: [], requiredChanges: [], estimatedEffort: 'low' },
-      cost: { computeEstimate: '$0', storageEstimate: '$0', monthlyEstimate: '$0' }
+    // Perform full project analysis
+    const analysis = replitImportService.analyzeProject(files, {
+      id: repo.id,
+      slug: repo.name,
+      title: repo.name,
+      language: repo.language || 'javascript',
+      isPrivate: repo.visibility === 'private',
+      url: '',
+      createdAt: repo.createdAt?.toISOString() || '',
+      updatedAt: repo.updatedAt?.toISOString() || ''
     });
+
+    // Generate runtime config with real analysis
+    const runtimeConfig = replitImportService.generateIndependentRuntime(files, analysis);
 
     res.json({
       success: true,
@@ -465,7 +469,14 @@ router.get('/independence/preview/:repositoryId', requireAuth, rateLimit, async 
           'INDEPENDENCE_GUIDE.md'
         ],
         envVariables: runtimeConfig.envConfig.variables,
-        replacementsNeeded: runtimeConfig.replacements
+        replacementsNeeded: runtimeConfig.replacements,
+        analysis: {
+          languages: analysis.languages,
+          frameworks: analysis.frameworks,
+          technologies: analysis.technologies,
+          securityScore: analysis.security.score,
+          portabilityScore: analysis.portability.score
+        }
       }
     });
   } catch (error: any) {

@@ -332,7 +332,7 @@ class ReplitImportService {
    * Analyze imported project comprehensively
    * تحليل المشروع المستورد بشكل شامل
    */
-  private analyzeProject(files: ReplFile[], repl: ReplInfo): ProjectAnalysis {
+  public analyzeProject(files: ReplFile[], repl: ReplInfo): ProjectAnalysis {
     const analysis: ProjectAnalysis = {
       languages: [],
       frameworks: [],
@@ -980,7 +980,7 @@ ${analysis.portability.replitDependencies.map(d => `- ${d}`).join('\n')}
    * Generate independent runtime configuration
    * توليد تكوين بيئة التشغيل المستقلة
    */
-  generateIndependentRuntime(
+  public generateIndependentRuntime(
     files: ReplFile[],
     analysis: ProjectAnalysis
   ): IndependentRuntimeConfig {
