@@ -18408,3 +18408,148 @@ export const insertIntegrationSettingsSchema = createInsertSchema(integrationSet
 });
 export type InsertIntegrationSettings = z.infer<typeof insertIntegrationSettingsSchema>;
 export type IntegrationSettings = typeof integrationSettings.$inferSelect;
+
+// ==================== SMART VERSIONING SYSTEM (نظام الإصدارات الذكية) ====================
+
+export const versionTypes = ['decision', 'architecture', 'data', 'logic', 'code', 'config', 'policy'] as const;
+export type VersionType = typeof versionTypes[number];
+
+export const versionStatuses = ['active', 'archived', 'rolled_back', 'superseded'] as const;
+export type VersionStatus = typeof versionStatuses[number];
+
+// Main versions table - tracks all system versions
+export const systemVersions = pgTable("system_versions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: text("tenant_id").notNull().default('default'),
+  versionNumber: integer("version_number").notNull(),
+  versionType: text("version_type").notNull(), // decision, architecture, data, logic, code, config, policy
+  title: text("title").notNull(),
+  titleAr: text("title_ar"),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  status: text("status").notNull().default('active'), // active, archived, rolled_back, superseded
+  parentVersionId: uuid("parent_version_id"),
+  snapshot: jsonb("snapshot").$type<Record<string, any>>().notNull(), // Full state snapshot
+  changes: jsonb("changes").$type<{field: string; oldValue: any; newValue: any}[]>().default([]),
+  metadata: jsonb("metadata").$type<Record<string, any>>().default({}),
+  tags: text("tags").array().default([]),
+  createdBy: text("created_by").notNull(),
+  createdByEmail: text("created_by_email"),
+  createdAt: timestamp("created_at").defaultNow(),
+  rolledBackAt: timestamp("rolled_back_at"),
+  rolledBackBy: text("rolled_back_by"),
+}, (table) => [
+  index("idx_system_versions_tenant").on(table.tenantId),
+  index("idx_system_versions_type").on(table.versionType),
+  index("idx_system_versions_status").on(table.status),
+  index("idx_system_versions_created").on(table.createdAt),
+  index("idx_system_versions_number").on(table.versionNumber),
+]);
+
+export const insertSystemVersionSchema = createInsertSchema(systemVersions).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertSystemVersion = z.infer<typeof insertSystemVersionSchema>;
+export type SystemVersion = typeof systemVersions.$inferSelect;
+
+// Version comparisons - stores comparison results
+export const versionComparisons = pgTable("version_comparisons", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: text("tenant_id").notNull().default('default'),
+  sourceVersionId: uuid("source_version_id").notNull(),
+  targetVersionId: uuid("target_version_id").notNull(),
+  comparisonType: text("comparison_type").notNull(), // diff, merge, conflict
+  differences: jsonb("differences").$type<{
+    path: string;
+    pathAr: string;
+    oldValue: any;
+    newValue: any;
+    changeType: 'added' | 'removed' | 'modified';
+    severity: 'low' | 'medium' | 'high' | 'critical';
+  }[]>().default([]),
+  summary: text("summary"),
+  summaryAr: text("summary_ar"),
+  stats: jsonb("stats").$type<{
+    added: number;
+    removed: number;
+    modified: number;
+    unchanged: number;
+  }>().default({ added: 0, removed: 0, modified: 0, unchanged: 0 }),
+  createdBy: text("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_version_comparisons_tenant").on(table.tenantId),
+  index("idx_version_comparisons_source").on(table.sourceVersionId),
+  index("idx_version_comparisons_target").on(table.targetVersionId),
+]);
+
+export const insertVersionComparisonSchema = createInsertSchema(versionComparisons).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertVersionComparison = z.infer<typeof insertVersionComparisonSchema>;
+export type VersionComparison = typeof versionComparisons.$inferSelect;
+
+// Rollback history - tracks all rollback operations
+export const rollbackHistory = pgTable("rollback_history", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: text("tenant_id").notNull().default('default'),
+  fromVersionId: uuid("from_version_id").notNull(),
+  toVersionId: uuid("to_version_id").notNull(),
+  rollbackType: text("rollback_type").notNull(), // full, partial, selective
+  affectedComponents: text("affected_components").array().default([]),
+  reason: text("reason"),
+  reasonAr: text("reason_ar"),
+  status: text("status").notNull().default('completed'), // pending, in_progress, completed, failed
+  errorMessage: text("error_message"),
+  executedBy: text("executed_by").notNull(),
+  executedByEmail: text("executed_by_email"),
+  executedAt: timestamp("executed_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+}, (table) => [
+  index("idx_rollback_history_tenant").on(table.tenantId),
+  index("idx_rollback_history_from").on(table.fromVersionId),
+  index("idx_rollback_history_to").on(table.toVersionId),
+  index("idx_rollback_history_status").on(table.status),
+]);
+
+export const insertRollbackHistorySchema = createInsertSchema(rollbackHistory).omit({
+  id: true,
+  executedAt: true,
+});
+export type InsertRollbackHistory = z.infer<typeof insertRollbackHistorySchema>;
+export type RollbackHistory = typeof rollbackHistory.$inferSelect;
+
+// Decision versions - specific table for AI/governance decisions
+export const decisionVersions = pgTable("decision_versions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: text("tenant_id").notNull().default('default'),
+  decisionId: text("decision_id").notNull(),
+  versionNumber: integer("version_number").notNull(),
+  decisionType: text("decision_type").notNull(), // ai_governance, security, compliance, workflow
+  title: text("title").notNull(),
+  titleAr: text("title_ar"),
+  input: jsonb("input").$type<Record<string, any>>().default({}),
+  output: jsonb("output").$type<Record<string, any>>().default({}),
+  reasoning: text("reasoning"),
+  reasoningAr: text("reasoning_ar"),
+  confidence: real("confidence").default(0),
+  approvedBy: text("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  status: text("status").notNull().default('pending'), // pending, approved, rejected, superseded
+  createdBy: text("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_decision_versions_tenant").on(table.tenantId),
+  index("idx_decision_versions_decision").on(table.decisionId),
+  index("idx_decision_versions_type").on(table.decisionType),
+  index("idx_decision_versions_status").on(table.status),
+]);
+
+export const insertDecisionVersionSchema = createInsertSchema(decisionVersions).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertDecisionVersion = z.infer<typeof insertDecisionVersionSchema>;
+export type DecisionVersion = typeof decisionVersions.$inferSelect;

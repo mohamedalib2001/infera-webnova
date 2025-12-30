@@ -19115,6 +19115,11 @@ ${project.description || ""}
   const sovereignComplianceRoutes = (await import("./routes/sovereign-compliance-routes")).default;
   app.use("/api/sovereign-compliance", sovereignComplianceRoutes);
   console.log("Sovereign Compliance routes registered | تم تسجيل مسارات التوافق السيادي");
+
+  // ============ Smart Versioning System API - نظام الإصدارات الذكية ============
+  const smartVersioningRoutes = (await import("./routes/smart-versioning-routes")).default;
+  app.use("/api/smart-versioning", smartVersioningRoutes);
+  console.log("Smart Versioning routes registered | تم تسجيل مسارات الإصدارات الذكية");
   // ============ Custom Domains API - نظام النطاقات المخصصة ============
 
   // Helper: Generate verification token
