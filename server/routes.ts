@@ -19173,6 +19173,11 @@ ${project.description || ""}
   console.log("Reverse Sync routes registered | تم تسجيل مسارات المزامنة العكسية");
 
   // ============ External Deployment API - واجهة النشر الخارجي ============
+
+  // ============ Blueprint Compiler API - واجهة مترجم المخططات البنائية ============
+  const blueprintCompilerRoutes = (await import("./routes/blueprint-compiler-routes")).default;
+  app.use("/api/blueprint", blueprintCompilerRoutes);
+  console.log("Blueprint Compiler routes registered | تم تسجيل مسارات مترجم المخططات البنائية");
   const deploymentRoutes = (await import("./routes/deployment-routes")).default;
   app.use("/api/deployment", deploymentRoutes);
   console.log("External Deployment routes registered | تم تسجيل مسارات النشر الخارجي");
