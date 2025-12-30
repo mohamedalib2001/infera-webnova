@@ -19172,6 +19172,11 @@ ${project.description || ""}
   app.use("/api/sync", reverseSyncRoutes);
   console.log("Reverse Sync routes registered | تم تسجيل مسارات المزامنة العكسية");
 
+  // ============ External Deployment API - واجهة النشر الخارجي ============
+  const deploymentRoutes = (await import("./routes/deployment-routes")).default;
+  app.use("/api/deployment", deploymentRoutes);
+  console.log("External Deployment routes registered | تم تسجيل مسارات النشر الخارجي");
+
   // Helper: Generate verification token
   const generateVerificationToken = (): string => {
     return `infera-verify-${randomBytes(16).toString('hex')}`;
