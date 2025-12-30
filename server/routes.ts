@@ -19167,6 +19167,11 @@ ${project.description || ""}
   app.use("/api/detach", detachModeRoutes);
   console.log("Detach Mode routes registered | تم تسجيل مسارات وضع الاستقلال");
 
+  // ============ Reverse Sync API - واجهة المزامنة العكسية ============
+  const reverseSyncRoutes = (await import("./routes/reverse-sync-routes")).default;
+  app.use("/api/sync", reverseSyncRoutes);
+  console.log("Reverse Sync routes registered | تم تسجيل مسارات المزامنة العكسية");
+
   // Helper: Generate verification token
   const generateVerificationToken = (): string => {
     return `infera-verify-${randomBytes(16).toString('hex')}`;
