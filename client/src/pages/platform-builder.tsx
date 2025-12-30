@@ -140,8 +140,133 @@ export default function PlatformBuilderPage() {
   const [chatPanelMaximized, setChatPanelMaximized] = useState(false);
   const [previewPanelMaximized, setPreviewPanelMaximized] = useState(false);
   
+  // State restoration flag to prevent double initialization
+  const [isRestored, setIsRestored] = useState(false);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Storage key for persisting builder state
+  const STORAGE_KEY = 'infera_platform_builder_state';
+  
+  // Restore state from localStorage on mount
+  useEffect(() => {
+    if (isRestored) return;
+    
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const state = JSON.parse(saved);
+        
+        // Restore messages with proper Date objects
+        if (state.messages && Array.isArray(state.messages) && state.messages.length > 1) {
+          const restoredMessages = state.messages.map((m: any) => ({
+            ...m,
+            timestamp: new Date(m.timestamp)
+          }));
+          setMessages(restoredMessages);
+        }
+        
+        // Restore build identifiers
+        if (state.currentBuildId) setCurrentBuildId(state.currentBuildId);
+        if (state.projectId) setProjectId(state.projectId);
+        if (state.projectName) setProjectName(state.projectName);
+        if (state.previewUrl) setPreviewUrl(state.previewUrl);
+        
+        // Restore architecture
+        if (state.architecture) setArchitecture(state.architecture);
+        if (state.platformSpec) setPlatformSpec(state.platformSpec);
+        
+        // Restore generated files
+        if (state.generatedFiles && state.generatedFiles.length > 0) {
+          setGeneratedFiles(state.generatedFiles);
+          setSelectedFile(state.generatedFiles[0]);
+          setGeneratedCode(state.generatedFiles[0]?.content || '');
+        }
+        
+        // Restore other state
+        if (state.dockerCompose) setDockerCompose(state.dockerCompose);
+        if (state.kubernetesManifest) setKubernetesManifest(state.kubernetesManifest);
+        if (state.activeTab) setActiveTab(state.activeTab);
+        if (state.buildSteps) setBuildSteps(state.buildSteps);
+        if (state.githubStatus) setGithubStatus(state.githubStatus);
+        
+        // Restore conversation context for Nova's memory
+        if (state.conversationContext) {
+          setConversationContext(state.conversationContext);
+        }
+        
+        console.log('[PlatformBuilder] State restored from localStorage');
+      }
+    } catch (error) {
+      console.error('[PlatformBuilder] Failed to restore state:', error);
+    }
+    
+    setIsRestored(true);
+  }, [isRestored]);
+  
+  // Save state to localStorage when it changes
+  useEffect(() => {
+    if (!isRestored) return; // Don't save during initial restoration
+    
+    const stateToSave = {
+      messages: messages.map(m => ({ ...m, timestamp: m.timestamp.toISOString() })),
+      currentBuildId,
+      projectId,
+      projectName,
+      previewUrl,
+      architecture,
+      platformSpec,
+      generatedFiles,
+      dockerCompose,
+      kubernetesManifest,
+      activeTab,
+      buildSteps,
+      githubStatus,
+      conversationContext, // Save Nova's conversation memory
+      savedAt: new Date().toISOString()
+    };
+    
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+    } catch (error) {
+      console.error('[PlatformBuilder] Failed to save state:', error);
+    }
+  }, [
+    isRestored, messages, currentBuildId, projectId, projectName, previewUrl,
+    architecture, platformSpec, generatedFiles, dockerCompose, kubernetesManifest,
+    activeTab, buildSteps, githubStatus, conversationContext
+  ]);
+  
+  // Function to clear saved state (for "New Project" functionality)
+  const clearSavedState = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY);
+    // Reset to initial state
+    setMessages([{
+      id: 'welcome',
+      role: 'nova',
+      content: language === 'ar' 
+        ? 'مرحباً! أنا Nova. صف لي المنصة التي تريد بناءها وسأقوم بتحليل المتطلبات واقتراح البنية المثلى.\n\nيمكنني بناء منصات عملاقة تدعم ملايين المستخدمين مع:\n• بنية Microservices\n• Docker + Kubernetes\n• قواعد بيانات موزعة\n• موازنة التحميل\n\nمثال: "أنشئ منصة تعليمية تضم مليون مستخدم متزامن مع فيديو ستريمينج ونظام دفع"'
+        : 'Hello! I am Nova. Describe the platform you want to build and I will analyze requirements and suggest optimal architecture.\n\nI can build enterprise platforms supporting millions of users with:\n• Microservices Architecture\n• Docker + Kubernetes\n• Distributed Databases\n• Load Balancing\n\nExample: "Create an educational platform with 1M concurrent users, video streaming, and payment system"',
+      timestamp: new Date(),
+      status: 'complete'
+    }]);
+    setCurrentBuildId(null);
+    setProjectId(null);
+    setProjectName('');
+    setPreviewUrl(null);
+    setArchitecture(null);
+    setPlatformSpec(null);
+    setGeneratedFiles([]);
+    setSelectedFile(null);
+    setGeneratedCode('');
+    setDockerCompose('');
+    setKubernetesManifest('');
+    setBuildSteps([]);
+    setGithubStatus(null);
+    setActiveTab('preview');
+    setConversationContext(createContextMemory(language === 'ar' ? 'ar' : 'en'));
+  }, [language]);
 
   const { data: githubConnectionStatus } = useQuery<{ connected: boolean; username?: string }>({
     queryKey: ['/api/github/status'],
@@ -2167,6 +2292,16 @@ How can I help you? Describe the platform you want to build.`;
               )}
             </div>
             <div className="flex items-center gap-1.5">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="gap-1 h-6 text-xs" 
+                onClick={clearSavedState}
+                data-testid="button-new-project"
+              >
+                <RefreshCw className="w-3 h-3" />
+                {t('New Project', 'مشروع جديد')}
+              </Button>
               <Button 
                 variant="outline" 
                 size="sm" 
