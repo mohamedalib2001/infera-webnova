@@ -104,18 +104,25 @@ const DEFAULT_DEPLOY_SETTINGS: DeploySettings = {
 
 const DEFAULT_CONFIG: HetznerConfig = {
   apiKey: "",
-  defaultLocation: "fsn1",
-  defaultServerType: "cx11",
+  defaultLocation: "nbg1",
+  defaultServerType: "cax31",
   autoScaling: false,
-  maxServers: 5,
-  budgetLimit: 100,
+  maxServers: 10,
+  budgetLimit: 150,
 };
 
 const LOCATIONS = [
-  { value: "fsn1", label: "Falkenstein, DE" },
-  { value: "nbg1", label: "Nuremberg, DE" },
-  { value: "hel1", label: "Helsinki, FI" },
-  { value: "ash", label: "Ashburn, US" },
+  { value: "nbg1", label: "Nuremberg (nbg1)" },
+  { value: "fsn1", label: "Falkenstein (fsn1)" },
+  { value: "hel1", label: "Helsinki (hel1)" },
+];
+
+const SERVER_TYPES = [
+  { value: "cx11", label: "CX11 - 1 vCPU, 2GB RAM" },
+  { value: "cx21", label: "CX21 - 2 vCPU, 4GB RAM" },
+  { value: "cax11", label: "CAX11 - 2 vCPU, 4GB RAM (ARM)" },
+  { value: "cax21", label: "CAX21 - 4 vCPU, 8GB RAM (ARM)" },
+  { value: "cax31", label: "CAX31 - 8 vCPU, 16GB RAM (ARM)" },
 ];
 
 export default function HetznerCloud() {
@@ -518,6 +525,7 @@ export default function HetznerCloud() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label>{t('API Key', 'مفتاح API')}</Label>
+                  <p className="text-xs text-muted-foreground">{t('Encrypted with AES-256', 'مشفر بـ AES-256')}</p>
                   <div className="flex gap-2">
                     <div className="relative flex-1">
                       <Input
@@ -541,9 +549,9 @@ export default function HetznerCloud() {
                 </div>
 
                 <div className="flex gap-2">
-                  <Button onClick={handleSaveConfig} disabled={isLoading} data-testid="button-save-config">
+                  <Button onClick={handleSaveConfig} disabled={isLoading} data-testid="button-save-api-key">
                     {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-                    {t('Save Configuration', 'حفظ الإعدادات')}
+                    {t('Save API Key', 'حفظ مفتاح API')}
                   </Button>
                   <Button variant="outline" onClick={handleTestConnection} disabled={isTesting || !config.apiKey} data-testid="button-test-connection">
                     {isTesting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
@@ -577,13 +585,16 @@ export default function HetznerCloud() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="cx11">CX11 (1 vCPU, 2GB)</SelectItem>
-                        <SelectItem value="cx21">CX21 (2 vCPU, 4GB)</SelectItem>
-                        <SelectItem value="cx31">CX31 (2 vCPU, 8GB)</SelectItem>
-                        <SelectItem value="cx41">CX41 (4 vCPU, 16GB)</SelectItem>
-                        <SelectItem value="cx51">CX51 (8 vCPU, 32GB)</SelectItem>
+                        {SERVER_TYPES.map(type => (
+                          <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
+                    {config.defaultServerType === 'cax31' && (
+                      <p className="text-xs text-muted-foreground">
+                        {t('Target: INFERA-Engine (91.98.166.125)', 'الهدف: INFERA-Engine (91.98.166.125)')}
+                      </p>
+                    )}
                   </div>
                 </div>
 
