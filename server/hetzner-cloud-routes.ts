@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import { db } from './db';
-import { hetznerCloudConfig } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { hetznerCloudConfig, sshVault, users } from '@shared/schema';
+import { eq, and } from 'drizzle-orm';
 
 const router = Router();
 
@@ -894,5 +894,133 @@ router.get('/billing', async (req: Request, res: Response) => {
     res.status(500).json({ success: false, error: 'Failed to get billing info' });
   }
 });
+
+// SSH Vault Integration - List available vault keys for deployment
+router.get('/vault-keys', async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+    
+    // Check user role
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (!user || !["sovereign", "owner"].includes(user.role || "")) {
+      return res.status(403).json({ success: false, error: 'Sovereign access required' });
+    }
+    
+    // Get active, non-revoked keys from vault (without private key data)
+    const keys = await db.select({
+      id: sshVault.id,
+      name: sshVault.name,
+      description: sshVault.description,
+      serverHost: sshVault.serverHost,
+      serverPort: sshVault.serverPort,
+      serverUsername: sshVault.serverUsername,
+      keyType: sshVault.keyType,
+      keyFingerprint: sshVault.keyFingerprint,
+      lastUsedAt: sshVault.lastUsedAt,
+      isActive: sshVault.isActive,
+      createdAt: sshVault.createdAt,
+    })
+    .from(sshVault)
+    .where(and(
+      eq(sshVault.userId, userId),
+      eq(sshVault.isActive, true),
+      eq(sshVault.isRevoked, false)
+    ))
+    .orderBy(sshVault.createdAt);
+    
+    res.json({ success: true, keys });
+  } catch (error) {
+    console.error('[Hetzner] Vault keys error:', error);
+    res.status(500).json({ success: false, error: 'Failed to get vault keys' });
+  }
+});
+
+// Get decrypted private key from vault for deployment (requires vault session)
+router.post('/vault-key-decrypt', async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId;
+    const { keyId, masterPassword } = req.body;
+    
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+    
+    if (!keyId || !masterPassword) {
+      return res.status(400).json({ success: false, error: 'Key ID and master password required' });
+    }
+    
+    // Check user role
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (!user || !["sovereign", "owner"].includes(user.role || "")) {
+      return res.status(403).json({ success: false, error: 'Sovereign access required' });
+    }
+    
+    // Get the key from vault
+    const [key] = await db.select().from(sshVault)
+      .where(and(
+        eq(sshVault.id, keyId),
+        eq(sshVault.userId, userId),
+        eq(sshVault.isActive, true),
+        eq(sshVault.isRevoked, false)
+      ))
+      .limit(1);
+    
+    if (!key) {
+      return res.status(404).json({ success: false, error: 'Key not found or inactive' });
+    }
+    
+    // Decrypt the private key
+    try {
+      const decryptedKey = decryptVaultKey(
+        key.encryptedPrivateKey,
+        key.encryptionSalt,
+        key.encryptionIV,
+        masterPassword
+      );
+      
+      // Update usage stats
+      await db.update(sshVault)
+        .set({ 
+          lastUsedAt: new Date(),
+          usageCount: (key.usageCount || 0) + 1
+        })
+        .where(eq(sshVault.id, keyId));
+      
+      res.json({ 
+        success: true, 
+        privateKey: decryptedKey,
+        serverHost: key.serverHost,
+        serverPort: key.serverPort,
+        serverUsername: key.serverUsername,
+      });
+    } catch (e) {
+      console.error('[Hetzner] Key decryption failed:', e);
+      return res.status(401).json({ success: false, error: 'Invalid master password' });
+    }
+  } catch (error) {
+    console.error('[Hetzner] Vault key decrypt error:', error);
+    res.status(500).json({ success: false, error: 'Failed to decrypt vault key' });
+  }
+});
+
+// Vault key decryption helper (same algorithm as SSH Vault)
+function decryptVaultKey(encryptedData: string, salt: string, iv: string, masterPassword: string): string {
+  const [encrypted, authTagBase64] = encryptedData.split(":");
+  const saltBuffer = Buffer.from(salt, "base64");
+  const ivBuffer = Buffer.from(iv, "base64");
+  const key = crypto.pbkdf2Sync(masterPassword, saltBuffer, 100000, 32, "sha512");
+  const authTag = Buffer.from(authTagBase64, "base64");
+  
+  const decipher = crypto.createDecipheriv("aes-256-gcm", key, ivBuffer);
+  decipher.setAuthTag(authTag);
+  let decrypted = decipher.update(encrypted, "base64", "utf8");
+  decrypted += decipher.final("utf8");
+  
+  return decrypted;
+}
 
 export default router;

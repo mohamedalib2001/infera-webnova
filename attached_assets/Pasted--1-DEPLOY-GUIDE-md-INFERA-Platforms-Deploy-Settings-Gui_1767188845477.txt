@@ -1,0 +1,467 @@
+"1: DEPLOY_GUIDE.md
+# دليل إعدادات النشر - INFERA Platforms
+# Deploy Settings Guide - INFERA Platforms
+---
+## 1. إعدادات الاتصال بالسيرفر (Deploy Settings)
+| الحقل | القيمة المطلوبة | الوصف |
+|-------|-----------------|-------|
+| **Server Host** | `91.98.166.125` | عنوان IP للسيرفر |
+| **SSH Port** | `22` | منفذ SSH |
+| **SSH User** | `root` | اسم المستخدم |
+| **Repository Path** | `https://github.com/username/repo.git` | رابط مستودع GitHub |
+| **Deploy Path** | `/var/www/platform-name` | مسار النشر على السيرفر |
+| **Private Key** | `-----BEGIN OPENSSH PRIVATE KEY-----...` | مفتاح SSH الخاص |
+| **Post-Deploy Command** | `npm install && npm run build` | أوامر ما بعد النشر |
+| **Restart Service** | `ON` | إعادة تشغيل الخدمة تلقائياً |
+| **Service Name** | `platform-name` | اسم خدمة systemd |
+---
+## 2. القيم الموحدة لجميع منصات INFERA
+Server Host: 91.98.166.125
+SSH Port: 22
+SSH User: root
+
+---
+## 3. مسارات النشر لكل منصة
+| المنصة | Deploy Path | Service Name | GitHub Repo |
+|--------|-------------|--------------|-------------|
+| INFERA Engine Control | `/var/www/infera-engine` | `infera-engine` | `github.com/INFERA/engine-control` |
+| INFERA WebNova | `/var/www/webnova` | `webnova` | `github.com/INFERA/webnova` |
+| INFERA Platform | `/var/www/infera-platform` | `infera-platform` | `github.com/INFERA/platform` |
+| INFERA API | `/var/www/infera-api` | `infera-api` | `github.com/INFERA/api` |
+| INFERA Admin | `/var/www/infera-admin` | `infera-admin` | `github.com/INFERA/admin` |
+| INFERA Store | `/var/www/infera-store` | `infera-store` | `github.com/INFERA/store` |
+| INFERA Docs | `/var/www/infera-docs` | `infera-docs` | `github.com/INFERA/docs` |
+---
+## 4. أمر ما بعد النشر (Post-Deploy Command)
+### للتطبيقات الكاملة (Full-Stack):
+```bash
+npm install && npm run build && pm2 restart ecosystem.config.js
+للتطبيقات البسيطة:
+npm install && npm run build
+مع إعادة تشغيل الخدمة:
+npm install && npm run build && systemctl restart platform-name
+5. خطوات النشر
+الخطوة 1: إعداد SSH Key
+افتح تبويب Deploy في صفحة Hetzner Cloud
+اضغط Generate SSH Key لإنشاء مفتاح جديد
+انسخ المفتاح العام (Public Key)
+الخطوة 2: ربط GitHub
+اذهب إلى GitHub → Repository → Settings → Deploy Keys
+اضغط Add deploy key
+الصق المفتاح العام
+اختر Allow write access (اختياري)
+اضغط Add key
+الخطوة 3: إدخال الإعدادات
+أدخل Server Host: 91.98.166.125
+أدخل SSH Port: 22
+أدخل SSH User: root
+أدخل Repository Path: رابط GitHub
+أدخل Deploy Path: مسار النشر
+الصق Private Key: المفتاح الخاص
+أدخل Post-Deploy Command: أوامر البناء
+الخطوة 4: الحفظ والاختبار
+اضغط Save Deploy Settings
+اضغط Test SSH للتحقق من الاتصال
+إذا نجح الاختبار، اضغط Quick Deploy
+6. أنواع النشر
+Quick Deploy (نشر سريع)
+يسحب الكود من GitHub
+ينفذ أوامر ما بعد النشر
+يعيد تشغيل الخدمة
+Direct Deploy (نشر مباشر)
+يرفع الكود مباشرة من Replit
+لا يحتاج GitHub
+أسرع للتحديثات الصغيرة
+GitHub Deploy (نشر GitHub)
+يستخدم git pull
+يحافظ على تاريخ الإصدارات
+الأفضل للإنتاج
+7. إعداد Systemd Service
+إنشاء ملف الخدمة:
+sudo nano /etc/systemd/system/platform-name.service
+محتوى الملف:
+[Unit]
+Description=INFERA Platform Name
+After=network.target
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/platform-name
+ExecStart=/usr/bin/node dist/index.js
+Restart=on-failure
+RestartSec=10
+Environment=NODE_ENV=production
+Environment=PORT=3000
+[Install]
+WantedBy=multi-user.target
+تفعيل الخدمة:
+sudo systemctl daemon-reload
+sudo systemctl enable platform-name
+sudo systemctl start platform-name
+8. إعداد Nginx Reverse Proxy
+إنشاء ملف التكوين:
+sudo nano /etc/nginx/sites-available/platform-name
+محتوى الملف:
+server {
+    listen 80;
+    server_name platform.infera.com;
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+تفعيل الموقع:
+sudo ln -s /etc/nginx/sites-available/platform-name /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+9. SSL Certificate (Let's Encrypt)
+sudo certbot --nginx -d platform.infera.com
+10. PM2 Ecosystem Config
+إنشاء ملف ecosystem.config.js:
+module.exports = {
+  apps: [{
+    name: 'platform-name',
+    script: 'dist/index.js',
+    cwd: '/var/www/platform-name',
+    instances: 'max',
+    exec_mode: 'cluster',
+    env: {
+      NODE_ENV: 'production',
+      PORT: 3000
+    }
+  }]
+};
+تشغيل PM2:
+pm2 start ecosystem.config.js
+pm2 save
+pm2 startup
+ملاحظات هامة
+السيرفر الموحد: جميع المنصات تنشر على 91.98.166.125
+المنافذ: كل منصة تعمل على منفذ مختلف داخلياً
+Nginx: يوزع الطلبات بناءً على الدومين
+SSL: مطلوب لجميع المنصات في الإنتاج
+Backup: احتفظ بنسخة من المفاتيح والإعدادات
+آخر تحديث: 31 ديسمبر 2024
+
+---
+# ملف 2: HETZNER_CLOUD_PAGE_SPEC.md
+```markdown
+# Hetzner Cloud Page - Complete Specification
+# صفحة Hetzner Cloud - المواصفات الكاملة
+---
+## نظرة عامة (Overview)
+صفحة Hetzner Cloud هي لوحة تحكم شاملة لإدارة البنية التحتية السحابية عبر Hetzner Cloud API. تتضمن 6 تبويبات رئيسية مع ميزات أمان متقدمة.
+---
+## التبويبات (Tabs)
+### 1. Configuration (الإعدادات)
+**الغرض**: إعداد الاتصال بـ Hetzner Cloud API والتكوينات الأساسية.
+| الحقل | النوع | الوصف | القيمة الافتراضية |
+|-------|------|-------|------------------|
+| **API Key** | نص مشفر | مفتاح Hetzner Cloud API (مشفر AES-256-GCM) | - |
+| **Default Location** | قائمة منسدلة | الموقع الافتراضي للخوادم الجديدة | `nbg1` |
+| **Budget Limit (EUR)** | رقم | الحد الأقصى للميزانية الشهرية باليورو | `150` |
+| **Auto Scaling** | تبديل | تفعيل/تعطيل التوسع التلقائي | `OFF` |
+| **Max Servers** | رقم | الحد الأقصى لعدد الخوادم | `10` |
+**الأزرار:**
+- `Save API Key` - حفظ مفتاح API
+- `Test Connection` - اختبار الاتصال بالـ API
+- `Sync Servers` - مزامنة الخوادم من Hetzner
+**مؤشرات الحالة:**
+- حالة الاتصال (Connected/Not Connected)
+- آخر مزامنة ناجحة
+- ملاحظة أمان: ""API key is encrypted using AES-256""
+---
+### 2. Servers (الخوادم)
+**الغرض**: عرض وإدارة الخوادم السحابية.
+**عرض قائمة الخوادم:**
+| العمود | الوصف |
+|--------|-------|
+| **Name** | اسم الخادم |
+| **Status** | حالة الخادم (running, off, starting, stopping) |
+| **Server Type** | نوع الخادم (cax31, cx22, etc.) |
+| **Location** | موقع مركز البيانات |
+| **IP Address** | عنوان IPv4 العام |
+| **Resources** | vCPUs, RAM, Disk |
+| **Pricing** | التكلفة الشهرية باليورو |
+**أزرار التحكم لكل خادم:**
+| الزر | الإجراء | خطوات الحماية |
+|------|---------|---------------|
+| **Power On** | تشغيل الخادم | - |
+| **Power Off** | إيقاف الخادم | خطوتان (تحذير مزدوج) |
+| **Reboot** | إعادة تشغيل | خطوتان (تحذير مزدوج) |
+| **Upgrade** | ترقية المواصفات | 3 خطوات |
+| **Delete** | حذف الخادم | 4 خطوات + كلمة مرور |
+**إنشاء خادم جديد:**
+- اسم الخادم
+- نوع الخادم (من القائمة المتاحة)
+- الموقع
+---
+### 3. Deploy (النشر)
+**الغرض**: نشر الكود من Replit/GitHub إلى الخادم.
+#### قسم Deploy Settings (إعدادات النشر):
+| الحقل | النوع | الوصف | المثال |
+|-------|------|-------|--------|
+| **Server Host** | نص | عنوان IP للخادم | `91.98.166.125` |
+| **SSH Port** | رقم | منفذ SSH | `22` |
+| **SSH User** | نص | اسم مستخدم SSH | `root` |
+| **Repository Path** | نص | رابط مستودع GitHub | `https://github.com/user/repo.git` |
+| **Deploy Path** | نص | مسار النشر على الخادم | `/var/www/infera-engine` |
+| **Private Key** | نص متعدد الأسطر | مفتاح SSH الخاص | `-----BEGIN OPENSSH PRIVATE KEY-----` |
+| **Post-Deploy Command** | نص متعدد الأسطر | أوامر ما بعد النشر | `npm install && npm run build` |
+| **Restart Service** | تبديل | إعادة تشغيل الخدمة بعد النشر | `ON` |
+| **Service Name** | نص (مشروط) | اسم خدمة systemd | `infera-engine` |
+**الأزرار:**
+- `Save Deploy Settings` - حفظ الإعدادات
+- `Test SSH Connection` - اختبار اتصال SSH
+#### قسم Deploy Actions (إجراءات النشر):
+| الزر | الوصف | اللون |
+|------|-------|-------|
+| **Quick Deploy** | نشر سريع بضغطة واحدة | أخضر |
+| **Direct Deploy** | رفع الكود مباشرة (بدون GitHub) | رمادي |
+| **GitHub Deploy** | نشر من GitHub | أزرق |
+| **Setup Server** | تثبيت Node.js, PM2, PostgreSQL | بنفسجي |
+| **Run Database** | تشغيل Migrations | أصفر |
+| **Sync Settings** | مزامنة SMTP والبريد | أزرق فاتح |
+#### قسم SSH Deploy Key:
+- `Generate SSH Key` - إنشاء مفتاح SSH جديد
+- `Copy Key` - نسخ المفتاح العام
+- تعليمات إضافة المفتاح لـ GitHub
+#### قسم Deploy History (سجل النشر):
+جدول يعرض:
+- نوع النشر
+- الحالة (نجاح/فشل)
+- وقت البدء والانتهاء
+- رسالة الخطأ (إن وجدت)
+- من قام بالنشر
+---
+### 4. Monitoring (المراقبة)
+**الغرض**: مراقبة الموارد والتكاليف.
+#### قسم Budget Overview (نظرة على الميزانية):
+| المقياس | الوصف |
+|---------|-------|
+| **Budget Limit** | الحد الأقصى للميزانية |
+| **Budget Used** | المستخدم من الميزانية |
+| **Usage Percent** | نسبة الاستخدام (شريط تقدم) |
+| **Remaining** | المتبقي من الميزانية |
+| **Status** | Within Budget / Over Budget |
+#### قسم Billing Period (فترة الفوترة):
+| المقياس | الوصف |
+|---------|-------|
+| **Current Month** | الشهر الحالي |
+| **Days Elapsed** | الأيام المنقضية |
+| **Days Remaining** | الأيام المتبقية |
+| **Projected Cost** | التكلفة المتوقعة |
+#### قسم Server Metrics (قياسات الخادم):
+- اختيار الخادم من القائمة المنسدلة
+- **Disk Usage**: المساحة المستخدمة/المتبقية/الكلية + نسبة
+- **Memory Usage**: الذاكرة المستخدمة + نسبة
+- **CPU Usage**: استخدام المعالج + نسبة
+**تحذيرات:**
+- `Warning: Low disk space!` - عند استخدام > 80%
+- `Critical: Disk almost full!` - عند استخدام > 95%
+- `Upgrade Needed` - عند الحاجة لترقية
+---
+### 5. Server Types (أنواع الخوادم)
+**الغرض**: عرض أنواع الخوادم المتاحة وأسعارها.
+**جدول أنواع الخوادم:**
+| العمود | الوصف |
+|--------|-------|
+| **Name** | اسم النوع (cax31, cx22, etc.) |
+| **Description** | وصف النوع |
+| **vCPUs** | عدد وحدات المعالجة |
+| **Memory** | حجم الذاكرة (GB) |
+| **Disk** | حجم القرص (GB) |
+| **Disk Type** | نوع القرص (local/network) |
+| **Architecture** | بنية المعالج (ARM/x86) |
+| **Price/Hour** | السعر بالساعة (EUR) |
+| **Price/Month** | السعر الشهري (EUR) |
+| **Locations** | المواقع المتاحة |
+**الأزرار:**
+- `Refresh Types` - تحديث قائمة الأنواع من Hetzner API
+---
+### 6. Action Log (سجل العمليات)
+**الغرض**: عرض سجل جميع العمليات المنفذة.
+**جدول السجل:**
+| العمود | الوصف |
+|--------|-------|
+| **Action Type** | نوع العملية (create, delete, power_on, etc.) |
+| **Resource Type** | نوع المورد (server, image, etc.) |
+| **Resource Name** | اسم المورد |
+| **Status** | حالة العملية (success, error, pending) |
+| **Progress** | نسبة التقدم (0-100%) |
+| **Started At** | وقت البدء |
+| **Completed At** | وقت الانتهاء |
+| **Error Message** | رسالة الخطأ (إن وجدت) |
+| **Triggered By** | من قام بالعملية |
+---
+## ميزات الأمان (Security Features)
+### 1. تشفير مفتاح API
+- **الخوارزمية**: AES-256-GCM
+- **التخزين**: مشفر في قاعدة البيانات
+- **العرض**: مخفي افتراضياً مع زر إظهار/إخفاء
+### 2. حماية الحذف (4 خطوات)
+| الخطوة | العنوان | المحتوى |
+|--------|---------|---------|
+| 1 | تحذير شديد الخطورة | تنبيه أولي عن خطورة الحذف |
+| 2 | تأكيد فقدان البيانات | تحذير من فقدان جميع البيانات |
+| 3 | نقطة اللاعودة | قائمة بكل ما سيتم حذفه |
+| 4 | التحقق من الهوية | إدخال كلمة مرور الحساب السيادي |
+### 3. حماية إيقاف/إعادة التشغيل (خطوتان)
+| الخطوة | المحتوى |
+|--------|---------|
+| 1 | تحذير عن توقف الخدمات وانقطاع الاتصالات |
+| 2 | تأكيد نهائي مع تحذير حفظ البيانات |
+### 4. حماية الترقية (3 خطوات)
+| الخطوة | المحتوى |
+|--------|---------|
+| 1 | تحذير عن متطلبات الترقية |
+| 2 | اختيار النوع الجديد + خيار ترقية القرص |
+| 3 | تأكيد التغيير المالي |
+---
+## واجهات البيانات (Data Interfaces)
+### HetznerCloudConfig
+```typescript
+interface HetznerCloudConfig {
+  id?: string;
+  hasApiKey: boolean;
+  accountEmail?: string;
+  accountName?: string;
+  defaultLocation: string;        // nbg1, fsn1, hel1
+  defaultServerType: string;      // cax31, cx22, etc.
+  autoScalingEnabled: boolean;
+  maxServers: number;
+  budgetLimitEur: number;
+  lastSyncAt?: string;
+  lastSyncStatus?: string;
+  lastSyncError?: string;
+}
+HetznerCloudServer
+interface HetznerCloudServer {
+  id: string;
+  hetznerServerId: string;
+  name: string;
+  serverType: string;
+  location: string;
+  datacenter?: string;
+  status: string;                 // running, off, starting, stopping
+  publicIpv4?: string;
+  publicIpv6?: string;
+  privateIp?: string;
+  vcpus: number;
+  memory: number;
+  disk: number;
+  imageId?: string;
+  imageName?: string;
+  priceHourly?: number;
+  priceMonthly?: number;
+  labels?: Record<string, string>;
+  createdAt: string;
+  provisionedAt?: string;
+}
+HetznerServerType
+interface HetznerServerType {
+  id: string;
+  hetznerTypeId: string;
+  name: string;
+  description?: string;
+  vcpus: number;
+  memory: number;
+  disk: number;
+  diskType?: string;
+  cpuType?: string;
+  architecture?: string;          // arm, x86
+  priceHourlyGross?: number;
+  priceMonthlyGross?: number;
+  availableLocations?: string[];
+  deprecated: boolean;
+}
+HetznerCloudAction
+interface HetznerCloudAction {
+  id: string;
+  hetznerActionId?: string;
+  actionType: string;
+  resourceType: string;
+  resourceId?: string;
+  resourceName?: string;
+  status: string;                 // success, error, pending
+  progress: number;               // 0-100
+  errorCode?: string;
+  errorMessage?: string;
+  startedAt: string;
+  completedAt?: string;
+  triggeredBy?: string;
+}
+DeploySettings
+interface DeploySettings {
+  serverHost: string;
+  sshPort: string;
+  sshUser: string;
+  deployPath: string;
+  repoPath: string;
+  postDeployCommand: string;
+  serviceName: string;
+  restartService: boolean;
+  privateKey: string;
+}
+نقاط API (API Endpoints)
+Configuration
+الطريقة        المسار        الوصف
+GET        /api/hetzner-cloud/config        جلب الإعدادات
+POST        /api/hetzner-cloud/config        حفظ الإعدادات
+POST        /api/hetzner-cloud/test-connection        اختبار الاتصال
+Servers
+الطريقة        المسار        الوصف
+GET        /api/hetzner-cloud/servers        جلب الخوادم
+POST        /api/hetzner-cloud/servers        إنشاء خادم
+DELETE        /api/hetzner-cloud/servers/:id        حذف خادم
+POST        /api/hetzner-cloud/servers/:id/power-on        تشغيل
+POST        /api/hetzner-cloud/servers/:id/power-off        إيقاف
+POST        /api/hetzner-cloud/servers/:id/reboot        إعادة تشغيل
+POST        /api/hetzner-cloud/servers/:id/resize        تغيير الحجم
+POST        /api/hetzner-cloud/sync        مزامنة الخوادم
+Server Types & Locations
+الطريقة        المسار        الوصف
+GET        /api/hetzner-cloud/server-types        أنواع الخوادم
+GET        /api/hetzner-cloud/locations        المواقع المتاحة
+POST        /api/hetzner-cloud/refresh-types        تحديث الأنواع
+Monitoring & Billing
+الطريقة        المسار        الوصف
+GET        /api/hetzner-cloud/billing        بيانات الفوترة
+GET        /api/hetzner-cloud/servers/:id/metrics        قياسات الخادم
+Deploy
+الطريقة        المسار        الوصف
+GET        /api/hetzner/settings        جلب إعدادات النشر
+POST        /api/hetzner/settings        حفظ إعدادات النشر
+POST        /api/hetzner/deploy        نشر من GitHub
+POST        /api/hetzner/direct-deploy        نشر مباشر
+POST        /api/hetzner/quick-deploy        نشر سريع
+GET        /api/hetzner/deploy-history        سجل النشر
+POST        /api/hetzner/test-ssh        اختبار SSH
+POST        /api/hetzner/generate-ssh-key        إنشاء مفتاح SSH
+POST        /api/hetzner/setup-server        إعداد السيرفر
+POST        /api/hetzner/run-migrations        تشغيل Migrations
+POST        /api/hetzner/sync-env        مزامنة الإعدادات
+Actions
+الطريقة        المسار        الوصف
+GET        /api/hetzner-cloud/actions        سجل العمليات
+القيم الموحدة لجميع منصات INFERA
+Default Location:     nbg1 (Nuremberg, Germany)
+Default Server Type:  cax31 (8 vCPU, 16GB RAM, 160GB Disk)
+Auto Scaling:         OFF
+Max Servers:          10
+Budget Limit:         150 EUR
+Server IP:            91.98.166.125
+SSH Port:             22
+SSH User:             root
+دعم اللغات (Localization)
+الصفحة تدعم:
+
+الإنجليزية (LTR): الاتجاه من اليسار لليمين
+العربية (RTL): الاتجاه من اليمين لليسار
+جميع النصوص والتسميات متوفرة بلغتين مع تبديل تلقائي حسب إعدادات اللغة."

@@ -179,6 +179,26 @@ export default function HetznerCloud() {
   const [budgetUsed, setBudgetUsed] = useState(0);
   const [metrics, setMetrics] = useState({ cpu: 0, memory: 0, disk: 0 });
 
+  // SSH Vault integration state
+  interface VaultKey {
+    id: string;
+    name: string;
+    description?: string;
+    serverHost?: string;
+    serverPort?: number;
+    serverUsername?: string;
+    keyType: string;
+    keyFingerprint?: string;
+    lastUsedAt?: string;
+    isActive: boolean;
+    createdAt: string;
+  }
+  const [vaultKeys, setVaultKeys] = useState<VaultKey[]>([]);
+  const [selectedVaultKeyId, setSelectedVaultKeyId] = useState<string>("");
+  const [vaultPasswordDialog, setVaultPasswordDialog] = useState(false);
+  const [vaultMasterPassword, setVaultMasterPassword] = useState("");
+  const [isLoadingVaultKey, setIsLoadingVaultKey] = useState(false);
+
   // Track if initial data has been loaded and modified
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -272,6 +292,89 @@ export default function HetznerCloud() {
   const updateDeploySettings = (key: keyof DeploySettings, value: string | boolean) => {
     setDeploySettings(prev => ({ ...prev, [key]: value }));
     if (initialLoadComplete) setHasChanges(true);
+  };
+
+  // Load vault keys when Deploy tab is active
+  const loadVaultKeys = async () => {
+    try {
+      const response = await fetch('/api/hetzner-cloud/vault-keys', {
+        credentials: 'include',
+      });
+      const result = await response.json();
+      if (result.success && result.keys) {
+        setVaultKeys(result.keys);
+      } else if (result.error === 'Unauthorized' || result.error === 'Sovereign access required') {
+        // User doesn't have vault access - this is expected for non-sovereign users
+        console.log('[Hetzner] Vault access not available for this user');
+        setVaultKeys([]);
+      }
+    } catch (error) {
+      console.error('Failed to load vault keys:', error);
+      setVaultKeys([]);
+    }
+  };
+
+  // Load vault keys when Deploy tab is selected
+  useEffect(() => {
+    if (activeTab === 'deploy') {
+      loadVaultKeys();
+    }
+  }, [activeTab]);
+
+  // Decrypt vault key and load into deploy settings
+  const handleLoadVaultKey = async () => {
+    if (!selectedVaultKeyId || !vaultMasterPassword) {
+      toast({
+        title: t('Error', 'خطأ'),
+        description: t('Please select a key and enter master password', 'يرجى اختيار مفتاح وإدخال كلمة المرور الرئيسية'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsLoadingVaultKey(true);
+    try {
+      const response = await fetch('/api/hetzner-cloud/vault-key-decrypt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          keyId: selectedVaultKeyId,
+          masterPassword: vaultMasterPassword,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success && result.privateKey) {
+        // Update deploy settings with vault key data
+        setDeploySettings(prev => ({
+          ...prev,
+          privateKey: result.privateKey,
+          ...(result.serverHost && { serverHost: result.serverHost }),
+          ...(result.serverPort && { sshPort: result.serverPort.toString() }),
+          ...(result.serverUsername && { sshUser: result.serverUsername }),
+        }));
+
+        setVaultPasswordDialog(false);
+        setVaultMasterPassword('');
+
+        toast({
+          title: t('Key Loaded', 'تم تحميل المفتاح'),
+          description: t('SSH key loaded from vault successfully', 'تم تحميل مفتاح SSH من الخزنة بنجاح'),
+        });
+      } else {
+        throw new Error(result.error || 'Failed to decrypt key');
+      }
+    } catch (error) {
+      toast({
+        title: t('Error', 'خطأ'),
+        description: error instanceof Error ? error.message : t('Failed to load vault key', 'فشل في تحميل المفتاح من الخزنة'),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoadingVaultKey(false);
+    }
   };
 
   const handleSaveConfig = async () => {
@@ -1070,17 +1173,110 @@ export default function HetznerCloud() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>{t('Private Key (SSH)', 'المفتاح الخاص (SSH)')}</Label>
-                    <Textarea
-                      value={deploySettings.privateKey}
-                      onChange={(e) => updateDeploySettings('privateKey', e.target.value)}
-                      placeholder={t('Paste your SSH private key here...', 'الصق مفتاحك الخاص SSH هنا...')}
-                      className="font-mono text-xs h-24"
-                      data-testid="textarea-deploy-private-key"
-                    />
+                    <div className="flex items-center justify-between">
+                      <Label>{t('Private Key (SSH)', 'المفتاح الخاص (SSH)')}</Label>
+                      {vaultKeys.length > 0 && (
+                        <Dialog open={vaultPasswordDialog} onOpenChange={setVaultPasswordDialog}>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="sm" data-testid="button-load-from-vault">
+                              <Key className="w-4 h-4 mr-2" />
+                              {t('Load from Vault', 'تحميل من الخزنة')}
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>{t('Load SSH Key from Vault', 'تحميل مفتاح SSH من الخزنة')}</DialogTitle>
+                              <DialogDescription>
+                                {t('Select a key and enter your master password to decrypt', 'اختر مفتاحاً وأدخل كلمة المرور الرئيسية لفك التشفير')}
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <div className="space-y-2">
+                                <Label>{t('Select Key', 'اختر المفتاح')}</Label>
+                                <Select value={selectedVaultKeyId} onValueChange={setSelectedVaultKeyId}>
+                                  <SelectTrigger data-testid="select-vault-key">
+                                    <SelectValue placeholder={t('Choose a key...', 'اختر مفتاحاً...')} />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {vaultKeys.map((key) => (
+                                      <SelectItem key={key.id} value={key.id}>
+                                        <div className="flex items-center gap-2">
+                                          <Key className="w-4 h-4" />
+                                          <span>{key.name}</span>
+                                          {key.serverHost && (
+                                            <Badge variant="secondary" className="text-xs">
+                                              {key.serverHost}
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>{t('Master Password', 'كلمة المرور الرئيسية')}</Label>
+                                <Input
+                                  type="password"
+                                  value={vaultMasterPassword}
+                                  onChange={(e) => setVaultMasterPassword(e.target.value)}
+                                  placeholder={t('Enter vault master password...', 'أدخل كلمة المرور الرئيسية للخزنة...')}
+                                  data-testid="input-vault-master-password"
+                                />
+                              </div>
+                            </div>
+                            <DialogFooter>
+                              <Button variant="outline" onClick={() => setVaultPasswordDialog(false)}>
+                                {t('Cancel', 'إلغاء')}
+                              </Button>
+                              <Button 
+                                onClick={handleLoadVaultKey} 
+                                disabled={isLoadingVaultKey || !selectedVaultKeyId || !vaultMasterPassword}
+                                data-testid="button-decrypt-vault-key"
+                              >
+                                {isLoadingVaultKey ? (
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                ) : (
+                                  <Shield className="w-4 h-4 mr-2" />
+                                )}
+                                {t('Load Key', 'تحميل المفتاح')}
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      )}
+                    </div>
+                    {deploySettings.privateKey ? (
+                      <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                        <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4" />
+                          {t('SSH Key Loaded', 'تم تحميل مفتاح SSH')}
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => updateDeploySettings('privateKey', '')}
+                            className="ml-auto"
+                            data-testid="button-clear-private-key"
+                          >
+                            {t('Clear', 'مسح')}
+                          </Button>
+                        </p>
+                      </div>
+                    ) : (
+                      <Textarea
+                        value={deploySettings.privateKey}
+                        onChange={(e) => updateDeploySettings('privateKey', e.target.value)}
+                        placeholder={t('Paste your SSH private key here or load from vault...', 'الصق مفتاحك الخاص SSH هنا أو حمّله من الخزنة...')}
+                        className="font-mono text-xs h-24"
+                        data-testid="textarea-deploy-private-key"
+                      />
+                    )}
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <Shield className="w-3 h-3" />
-                      {t('Private key is not stored and must be entered each session', 'لا يتم تخزين المفتاح الخاص ويجب إدخاله في كل جلسة')}
+                      {vaultKeys.length > 0 
+                        ? t('Use "Load from Vault" for secure key management', 'استخدم "تحميل من الخزنة" لإدارة المفاتيح بشكل آمن')
+                        : t('Private key is not stored and must be entered each session', 'لا يتم تخزين المفتاح الخاص ويجب إدخاله في كل جلسة')
+                      }
                     </p>
                   </div>
 
