@@ -532,6 +532,36 @@ router.get('/locations', async (req: Request, res: Response) => {
   }
 });
 
+// Convert OpenSSH format key to PEM format for ssh2 compatibility
+function convertKeyToPEM(privateKey: string): string {
+  // Check if already in PEM format
+  if (privateKey.includes('-----BEGIN RSA PRIVATE KEY-----') ||
+      privateKey.includes('-----BEGIN EC PRIVATE KEY-----') ||
+      privateKey.includes('-----BEGIN DSA PRIVATE KEY-----')) {
+    console.log('[SSH Deploy] Key is already in PEM format');
+    return privateKey;
+  }
+  
+  // Check if in OpenSSH format and convert
+  if (privateKey.includes('-----BEGIN OPENSSH PRIVATE KEY-----')) {
+    console.log('[SSH Deploy] Converting OpenSSH key to PEM format...');
+    try {
+      const sshpk = require('sshpk');
+      const parsed = sshpk.parsePrivateKey(privateKey, 'ssh');
+      const pemKey = parsed.toString('pem');
+      console.log('[SSH Deploy] Key converted successfully');
+      return pemKey;
+    } catch (error) {
+      console.log('[SSH Deploy] Key conversion failed:', error instanceof Error ? error.message : 'Unknown error');
+      throw new Error('Failed to convert OpenSSH key: ' + (error instanceof Error ? error.message : 'Unknown format'));
+    }
+  }
+  
+  // Try to parse as-is (might be other formats)
+  console.log('[SSH Deploy] Unknown key format, attempting to use as-is');
+  return privateKey;
+}
+
 async function executeSSHDeploy(settings: SSHDeploySettings, commands: string[]): Promise<{ success: boolean; output: string; error?: string }> {
   console.log('[SSH Deploy] Validating settings...');
   
@@ -548,6 +578,14 @@ async function executeSSHDeploy(settings: SSHDeploySettings, commands: string[])
   if (!validatePath(settings.deployPath)) {
     console.log('[SSH Deploy] Invalid path format:', settings.deployPath);
     return { success: false, output: '', error: 'Invalid deploy path format' };
+  }
+  
+  // Convert key to PEM format if needed
+  let pemKey: string;
+  try {
+    pemKey = convertKeyToPEM(settings.privateKey);
+  } catch (error) {
+    return { success: false, output: '', error: error instanceof Error ? error.message : 'Key conversion failed' };
   }
   
   console.log('[SSH Deploy] Connecting to', settings.serverHost, 'port', settings.sshPort || 22, 'user', settings.sshUser || 'root');
@@ -611,7 +649,7 @@ async function executeSSHDeploy(settings: SSHDeploySettings, commands: string[])
         host: settings.serverHost,
         port: settings.sshPort || 22,
         username: settings.sshUser || 'root',
-        privateKey: settings.privateKey,
+        privateKey: pemKey,
         readyTimeout: 20000,
         keepaliveInterval: 10000,
       });
