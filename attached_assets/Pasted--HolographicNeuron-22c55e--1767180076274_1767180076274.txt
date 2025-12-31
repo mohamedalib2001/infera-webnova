@@ -1,0 +1,53 @@
+// HolographicNeuron - خلية عصبية نابضة تُظهر حالة الاتصال
+// اللون الأخضر (#22c55e) = متصل | اللون الأحمر (#ef4444) = غير متصل
+function HolographicNeuron({ isConnected }: { isConnected: boolean }) {
+  const color = isConnected ? "#22c55e" : "#ef4444";
+  const glowColor = isConnected ? "rgba(34, 197, 94, 0.6)" : "rgba(239, 68, 68, 0.6)";
+  
+  // الحجم: 48x48 بكسل (w-12 h-12)
+  // SVG viewBox: 0 0 100 100
+  
+  // العناصر:
+  // 1. نواة مركزية (Core): دائرة في المركز (cx=50, cy=50, r=8)
+  //    - تنبض بـ scale [1, 1.1, 1] مدة 1.5 ثانية
+  
+  // 2. هالة متوهجة (Glow Halo): دائرة أكبر (r=12→15→12)
+  //    - gradient radial من اللون الكامل إلى شفاف
+  //    - تنبض بتغيير نصف القطر مدة 1.5 ثانية
+  
+  // 3. محاور عصبية (Axons): 8 خطوط تخرج من المركز
+  //    - الزوايا: [0, 45, 90, 135, 180, 225, 270, 315] درجة
+  //    - من النقطة (50 + 15*cos, 50 + 15*sin) إلى (50 + 35*cos, 50 + 35*sin)
+  //    - تنبض pathLength [0→1→0] مع opacity [0.3→1→0.3]
+  //    - مدة 2 ثانية، تأخير متتابع 0.15 ثانية لكل خط
+  
+  // 4. نقاط تشابك (Synapses): 8 دوائر صغيرة في الأطراف
+  //    - الزوايا: [22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5]
+  //    - على مسافة 40 من المركز
+  //    - تنبض r [2→4→2] مع opacity [0.4→1→0.4]
+  //    - مدة 1.5 ثانية، تأخير 0.1 ثانية لكل نقطة
+  
+  // 5. توهج خارجي (Outer Glow): div مطلق فوق SVG
+  //    - radial-gradient من glowColor إلى شفاف
+  //    - ينبض opacity [0.3→0.6→0.3] و scale [0.8→1.2→0.8]
+  
+  // فلتر التوهج SVG:
+  // <filter id="neuronGlow">
+  //   <feGaussianBlur stdDeviation="3"/>
+  //   <feMerge> coloredBlur + SourceGraphic </feMerge>
+  // </filter>
+  
+  // النص المرافق:
+  // - العنوان: "Connected" أو "Disconnected" بلون الحالة
+  // - الوصف: "Hetzner API Active" أو "No Connection" باللون الثانوي
+}
+Animation Keyframes (Framer Motion):
+العنصر	الخاصية	القيم	المدة	التكرار
+Core	scale	[1, 1.1, 1]	1.5s	∞
+Halo	r	[12, 15, 12]	1.5s	∞
+Axons	pathLength	[0, 1, 0]	2s	∞
+Synapses	r	[2, 4, 2]	1.5s	∞
+Glow	scale	[0.8, 1.2, 0.8]	2s	∞
+الألوان:
+متصل: #22c55e (أخضر) + توهج rgba(34, 197, 94, 0.6)
+غير متصل: #ef4444 (أحمر) + توهج rgba(239, 68, 68, 0.6)
