@@ -22,7 +22,7 @@ import {
   Archive, BarChart3, Terminal, Key, Copy, Eye, EyeOff,
   Loader2, CheckCircle2, XCircle, AlertTriangle, Activity,
   HardDrive, Cpu, MemoryStick, Globe, DollarSign, Clock,
-  GitBranch, FolderOpen, Save, Zap, PowerOff
+  GitBranch, FolderOpen, Save, Zap, PowerOff, Hexagon
 } from "lucide-react";
 
 interface HetznerCloudServer {
@@ -557,7 +557,12 @@ export default function HetznerCloud() {
                     {isTesting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
                     {t('Test Connection', 'اختبار الاتصال')}
                   </Button>
-                  {connectionStatus === 'success' && <CheckCircle2 className="w-5 h-5 text-green-500 self-center" />}
+                  {connectionStatus === 'success' && (
+                    <div className="relative self-center">
+                      <Hexagon className="w-6 h-6 text-green-500 fill-green-500/20 animate-pulse" />
+                      <div className="absolute inset-0 w-6 h-6 bg-green-500/30 rounded-full blur-md animate-pulse" />
+                    </div>
+                  )}
                   {connectionStatus === 'error' && <XCircle className="w-5 h-5 text-red-500 self-center" />}
                 </div>
 
