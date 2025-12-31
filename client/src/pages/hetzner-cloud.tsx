@@ -91,7 +91,7 @@ interface HetznerConfig {
 }
 
 const DEFAULT_DEPLOY_SETTINGS: DeploySettings = {
-  serverHost: "",
+  serverHost: "91.96.168.125",
   sshPort: "22",
   sshUser: "root",
   repoPath: "",
