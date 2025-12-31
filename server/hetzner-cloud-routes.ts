@@ -1,5 +1,8 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
+import { db } from './db';
+import { hetznerCloudConfig } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 
 const router = Router();
 
@@ -123,15 +126,6 @@ function validatePath(path: string): boolean {
   return validPathPattern.test(path) && !path.includes('..');
 }
 
-let storedConfig: {
-  apiKey: string;
-  defaultLocation: string;
-  defaultServerType: string;
-  autoScaling: boolean;
-  maxServers: number;
-  budgetLimit: number;
-} | null = null;
-
 interface SSHDeploySettings {
   serverHost: string;
   sshPort: number;
@@ -144,6 +138,13 @@ interface SSHDeploySettings {
   serviceName: string;
 }
 
+// Get stored config from database
+async function getStoredConfig(userId: string) {
+  const configs = await db.select().from(hetznerCloudConfig).where(eq(hetznerCloudConfig.userId, userId));
+  return configs[0] || null;
+}
+
+// Save config - uses database for non-sensitive data, env for API key
 router.post('/config', async (req: Request, res: Response) => {
   try {
     const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
@@ -151,21 +152,157 @@ router.post('/config', async (req: Request, res: Response) => {
       return res.status(429).json({ success: false, error: 'Rate limit exceeded' });
     }
 
-    const { apiKey, defaultLocation, defaultServerType, autoScaling, maxServers, budgetLimit } = req.body;
-    
-    storedConfig = {
-      apiKey: encrypt(apiKey),
-      defaultLocation,
-      defaultServerType,
-      autoScaling,
-      maxServers,
+    const { 
+      userId = 'default-user',
+      defaultLocation, 
+      defaultServerType, 
+      maxServers, 
       budgetLimit,
-    };
+      defaultDeployIp,
+      defaultDeployUser,
+      defaultDeployPath,
+      sshPort,
+      repoPath,
+      postDeployCommand,
+      restartService,
+      serviceName
+    } = req.body;
     
+    // Check if config exists
+    const existingConfig = await getStoredConfig(userId);
+    
+    if (existingConfig) {
+      // Update existing config
+      await db.update(hetznerCloudConfig)
+        .set({
+          location: defaultLocation ?? existingConfig.location,
+          serverType: defaultServerType ?? existingConfig.serverType,
+          maxServers: maxServers ?? existingConfig.maxServers,
+          budgetLimit: budgetLimit ?? existingConfig.budgetLimit,
+          defaultDeployIp: defaultDeployIp ?? existingConfig.defaultDeployIp,
+          defaultDeployUser: defaultDeployUser ?? existingConfig.defaultDeployUser,
+          defaultDeployPath: defaultDeployPath ?? existingConfig.defaultDeployPath,
+          sshPort: sshPort ?? existingConfig.sshPort,
+          repoPath: repoPath ?? existingConfig.repoPath,
+          postDeployCommand: postDeployCommand ?? existingConfig.postDeployCommand,
+          restartService: restartService ?? existingConfig.restartService,
+          serviceName: serviceName ?? existingConfig.serviceName,
+          updatedAt: new Date(),
+        })
+        .where(eq(hetznerCloudConfig.userId, userId));
+    } else {
+      // Create new config
+      await db.insert(hetznerCloudConfig).values({
+        userId,
+        location: defaultLocation || 'nbg1',
+        serverType: defaultServerType || 'cax31',
+        maxServers: maxServers ?? 10,
+        budgetLimit: budgetLimit ?? 150,
+        defaultDeployIp: defaultDeployIp || '91.96.168.125',
+        defaultDeployUser: defaultDeployUser || 'root',
+        defaultDeployPath: defaultDeployPath || '/var/www/infera',
+        sshPort: sshPort || '22',
+        repoPath: repoPath || '',
+        postDeployCommand: postDeployCommand || '',
+        restartService: restartService ?? false,
+        serviceName: serviceName || '',
+      });
+    }
+    
+    console.log('[Hetzner] Configuration saved to database for user:', userId);
     res.json({ success: true, message: 'Configuration saved' });
   } catch (error) {
     console.error('[Hetzner] Config save failed:', error);
     res.status(500).json({ success: false, error: 'Failed to save configuration' });
+  }
+});
+
+// Get config - returns all config from database
+router.get('/config', async (req: Request, res: Response) => {
+  try {
+    const userId = (req.query.userId as string) || 'default-user';
+    const config = await getStoredConfig(userId);
+    
+    // Check if HETZNER_API_TOKEN is configured
+    const hasApiKey = !!process.env.HETZNER_API_TOKEN;
+    
+    if (config) {
+      res.json({
+        success: true,
+        config: {
+          location: config.location,
+          serverType: config.serverType,
+          maxServers: config.maxServers,
+          budgetLimit: config.budgetLimit,
+          defaultDeployIp: config.defaultDeployIp,
+          defaultDeployUser: config.defaultDeployUser,
+          defaultDeployPath: config.defaultDeployPath,
+          sshPort: config.sshPort,
+          repoPath: config.repoPath,
+          postDeployCommand: config.postDeployCommand,
+          restartService: config.restartService,
+          serviceName: config.serviceName,
+          isConnected: config.isConnected,
+          hasApiKey,
+        },
+      });
+    } else {
+      // Return defaults
+      res.json({
+        success: true,
+        config: {
+          location: 'nbg1',
+          serverType: 'cax31',
+          maxServers: 10,
+          budgetLimit: 150,
+          defaultDeployIp: '91.96.168.125',
+          defaultDeployUser: 'root',
+          defaultDeployPath: '/var/www/infera',
+          sshPort: '22',
+          repoPath: '',
+          postDeployCommand: '',
+          restartService: false,
+          serviceName: '',
+          isConnected: false,
+          hasApiKey,
+        },
+      });
+    }
+  } catch (error) {
+    console.error('[Hetzner] Get config failed:', error);
+    res.status(500).json({ success: false, error: 'Failed to get configuration' });
+  }
+});
+
+// Update connection status in database
+router.post('/update-connection-status', async (req: Request, res: Response) => {
+  try {
+    const { userId = 'default-user', isConnected, status } = req.body;
+    
+    const existingConfig = await getStoredConfig(userId);
+    
+    if (existingConfig) {
+      await db.update(hetznerCloudConfig)
+        .set({
+          isConnected,
+          lastConnectionTest: new Date(),
+          lastConnectionStatus: status,
+          updatedAt: new Date(),
+        })
+        .where(eq(hetznerCloudConfig.userId, userId));
+    } else {
+      await db.insert(hetznerCloudConfig).values({
+        userId,
+        isConnected,
+        lastConnectionTest: new Date(),
+        lastConnectionStatus: status,
+      });
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[Hetzner] Update connection status failed:', error);
+    res.status(500).json({ success: false, error: 'Failed to update connection status' });
   }
 });
 
@@ -204,7 +341,7 @@ router.post('/test-connection', async (req: Request, res: Response) => {
 
 router.get('/servers', async (req: Request, res: Response) => {
   try {
-    const hetznerToken = process.env.HETZNER_API_TOKEN || (storedConfig ? decrypt(storedConfig.apiKey) : '');
+    const hetznerToken = process.env.HETZNER_API_TOKEN || '';
     
     if (!hetznerToken) {
       return res.status(400).json({ success: false, error: 'No API key configured' });
@@ -251,7 +388,7 @@ router.post('/servers', async (req: Request, res: Response) => {
     }
 
     const { name, serverType, location } = req.body;
-    const hetznerToken = process.env.HETZNER_API_TOKEN || (storedConfig ? decrypt(storedConfig.apiKey) : '');
+    const hetznerToken = process.env.HETZNER_API_TOKEN || '';
     
     if (!hetznerToken) {
       return res.status(400).json({ success: false, error: 'No API key configured' });
@@ -293,7 +430,7 @@ router.post('/servers/:id/action', async (req: Request, res: Response) => {
 
     const { id } = req.params;
     const { action } = req.body;
-    const hetznerToken = process.env.HETZNER_API_TOKEN || (storedConfig ? decrypt(storedConfig.apiKey) : '');
+    const hetznerToken = process.env.HETZNER_API_TOKEN || '';
     
     if (!hetznerToken) {
       return res.status(400).json({ success: false, error: 'No API key configured' });
@@ -328,7 +465,7 @@ router.delete('/servers/:id', async (req: Request, res: Response) => {
     }
 
     const { id } = req.params;
-    const hetznerToken = process.env.HETZNER_API_TOKEN || (storedConfig ? decrypt(storedConfig.apiKey) : '');
+    const hetznerToken = process.env.HETZNER_API_TOKEN || '';
     
     if (!hetznerToken) {
       return res.status(400).json({ success: false, error: 'No API key configured' });
@@ -355,7 +492,7 @@ router.delete('/servers/:id', async (req: Request, res: Response) => {
 
 router.get('/server-types', async (req: Request, res: Response) => {
   try {
-    const hetznerToken = process.env.HETZNER_API_TOKEN || (storedConfig ? decrypt(storedConfig.apiKey) : '');
+    const hetznerToken = process.env.HETZNER_API_TOKEN || '';
     
     const response = await fetch('https://api.hetzner.cloud/v1/server_types', {
       headers: {
@@ -376,7 +513,7 @@ router.get('/server-types', async (req: Request, res: Response) => {
 
 router.get('/locations', async (req: Request, res: Response) => {
   try {
-    const hetznerToken = process.env.HETZNER_API_TOKEN || (storedConfig ? decrypt(storedConfig.apiKey) : '');
+    const hetznerToken = process.env.HETZNER_API_TOKEN || '';
     
     const response = await fetch('https://api.hetzner.cloud/v1/locations', {
       headers: {
@@ -742,13 +879,14 @@ router.get('/deploy-key', async (req: Request, res: Response) => {
 
 router.get('/billing', async (req: Request, res: Response) => {
   try {
-    const hetznerToken = process.env.HETZNER_API_TOKEN || (storedConfig ? decrypt(storedConfig.apiKey) : '');
+    const userId = (req.query.userId as string) || 'default-user';
+    const config = await getStoredConfig(userId);
     
     res.json({
       success: true,
       billing: {
         used: 0,
-        limit: storedConfig?.budgetLimit || 100,
+        limit: config?.budgetLimit || 150,
         currency: 'EUR',
       },
     });

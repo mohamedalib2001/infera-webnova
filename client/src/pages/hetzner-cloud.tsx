@@ -139,28 +139,16 @@ export default function HetznerCloud() {
   const [isTesting, setIsTesting] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
   
-  const [config, setConfig] = useState<HetznerConfig>(() => {
-    const saved = localStorage.getItem('hetzner_config_safe');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return { ...parsed, apiKey: '' };
-    }
-    return DEFAULT_CONFIG;
-  });
+  const [config, setConfig] = useState<HetznerConfig>(DEFAULT_CONFIG);
+  const [configLoaded, setConfigLoaded] = useState(false);
   
   const [servers, setServers] = useState<HetznerCloudServer[]>([]);
   const [serverTypes, setServerTypes] = useState<ServerType[]>([]);
-  const [deploySettings, setDeploySettings] = useState<DeploySettings>(() => {
-    const saved = localStorage.getItem('hetzner_deploy_settings_safe');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return { ...parsed, privateKey: '' };
-    }
-    return DEFAULT_DEPLOY_SETTINGS;
-  });
+  const [deploySettings, setDeploySettings] = useState<DeploySettings>(DEFAULT_DEPLOY_SETTINGS);
   const [deployHistory, setDeployHistory] = useState<DeployHistoryEntry[]>([]);
   const [actions, setActions] = useState<ActionEntry[]>([]);
   const [deployKey, setDeployKey] = useState<string>("");
+  const [hasEnvApiKey, setHasEnvApiKey] = useState(false);
   
   const [createServerDialog, setCreateServerDialog] = useState(false);
   const [newServerName, setNewServerName] = useState("");
@@ -173,22 +161,99 @@ export default function HetznerCloud() {
   const [budgetUsed, setBudgetUsed] = useState(0);
   const [metrics, setMetrics] = useState({ cpu: 0, memory: 0, disk: 0 });
 
+  // Track if initial data has been loaded and modified
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  
+  // Load config from backend on mount
   useEffect(() => {
-    const safeConfig = { ...config, apiKey: '' };
-    localStorage.setItem('hetzner_config_safe', JSON.stringify(safeConfig));
-  }, [config]);
+    const loadConfig = async () => {
+      try {
+        const response = await fetch('/api/hetzner-cloud/config');
+        const result = await response.json();
+        
+        if (result.success && result.config) {
+          setConfig(prev => ({
+            ...prev,
+            defaultLocation: result.config.location || prev.defaultLocation,
+            defaultServerType: result.config.serverType || prev.defaultServerType,
+            maxServers: result.config.maxServers ?? prev.maxServers,
+            budgetLimit: result.config.budgetLimit ?? prev.budgetLimit,
+          }));
+          setDeploySettings(prev => ({
+            ...prev,
+            serverHost: result.config.defaultDeployIp || prev.serverHost,
+            sshPort: result.config.sshPort || prev.sshPort,
+            sshUser: result.config.defaultDeployUser || prev.sshUser,
+            repoPath: result.config.repoPath ?? prev.repoPath,
+            deployPath: result.config.defaultDeployPath || prev.deployPath,
+            postDeployCommand: result.config.postDeployCommand ?? prev.postDeployCommand,
+            restartService: result.config.restartService ?? prev.restartService,
+            serviceName: result.config.serviceName ?? prev.serviceName,
+          }));
+          setHasEnvApiKey(result.config.hasApiKey || false);
+          if (result.config.isConnected) {
+            setConnectionStatus('success');
+          }
+        }
+        setConfigLoaded(true);
+        // Small delay to ensure state is updated before allowing saves
+        setTimeout(() => setInitialLoadComplete(true), 100);
+      } catch (error) {
+        console.error('Failed to load config:', error);
+        setConfigLoaded(true);
+        setInitialLoadComplete(true);
+      }
+    };
+    
+    loadConfig();
+  }, []);
 
+  // Auto-save config to backend when changed (debounced)
   useEffect(() => {
-    const safeSettings = { ...deploySettings, privateKey: '' };
-    localStorage.setItem('hetzner_deploy_settings_safe', JSON.stringify(safeSettings));
-  }, [deploySettings]);
+    // Don't save until initial load is complete and there are actual changes
+    if (!initialLoadComplete || !hasChanges) return;
+    
+    const saveTimeout = setTimeout(async () => {
+      try {
+        await fetch('/api/hetzner-cloud/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            defaultLocation: config.defaultLocation,
+            defaultServerType: config.defaultServerType,
+            maxServers: config.maxServers,
+            budgetLimit: config.budgetLimit,
+            defaultDeployIp: deploySettings.serverHost,
+            defaultDeployUser: deploySettings.sshUser,
+            defaultDeployPath: deploySettings.deployPath,
+            sshPort: deploySettings.sshPort,
+            repoPath: deploySettings.repoPath,
+            postDeployCommand: deploySettings.postDeployCommand,
+            restartService: deploySettings.restartService,
+            serviceName: deploySettings.serviceName,
+          }),
+        });
+        console.log('[Hetzner] Config auto-saved');
+      } catch (error) {
+        console.error('Failed to auto-save config:', error);
+      }
+    }, 1000);
+    
+    return () => clearTimeout(saveTimeout);
+  }, [config.defaultLocation, config.defaultServerType, config.maxServers, config.budgetLimit, 
+      deploySettings.serverHost, deploySettings.sshUser, deploySettings.deployPath,
+      deploySettings.sshPort, deploySettings.repoPath, deploySettings.postDeployCommand,
+      deploySettings.restartService, deploySettings.serviceName, initialLoadComplete, hasChanges]);
 
   const updateConfig = (key: keyof HetznerConfig, value: string | boolean | number) => {
     setConfig(prev => ({ ...prev, [key]: value }));
+    if (initialLoadComplete) setHasChanges(true);
   };
 
   const updateDeploySettings = (key: keyof DeploySettings, value: string | boolean) => {
     setDeploySettings(prev => ({ ...prev, [key]: value }));
+    if (initialLoadComplete) setHasChanges(true);
   };
 
   const handleSaveConfig = async () => {
@@ -233,12 +298,24 @@ export default function HetznerCloud() {
       
       if (result.success) {
         setConnectionStatus('success');
+        // Update connection status in database
+        await fetch('/api/hetzner-cloud/update-connection-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isConnected: true, status: 'success' }),
+        });
         toast({
           title: t('Connection Successful', 'الاتصال ناجح'),
           description: t('Successfully connected to Hetzner Cloud', 'تم الاتصال بنجاح بـ Hetzner Cloud'),
         });
       } else {
         setConnectionStatus('error');
+        // Update connection status in database
+        await fetch('/api/hetzner-cloud/update-connection-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isConnected: false, status: 'error' }),
+        });
         throw new Error(result.error || 'Connection failed');
       }
     } catch (error) {
@@ -526,35 +603,53 @@ export default function HetznerCloud() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label>{t('API Key', 'مفتاح API')}</Label>
-                  <p className="text-xs text-muted-foreground">{t('Encrypted with AES-256', 'مشفر بـ AES-256')}</p>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Input
-                        type={showApiKey ? "text" : "password"}
-                        value={config.apiKey}
-                        onChange={(e) => updateConfig('apiKey', e.target.value)}
-                        placeholder={t('Enter your Hetzner API key', 'أدخل مفتاح Hetzner API')}
-                        data-testid="input-api-key"
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-2 top-1/2 -translate-y-1/2"
-                        onClick={() => setShowApiKey(!showApiKey)}
-                        data-testid="button-toggle-api-key"
-                      >
-                        {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </Button>
+                  {hasEnvApiKey ? (
+                    <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/20 rounded-md">
+                      <CheckCircle2 className="w-5 h-5 text-green-500" />
+                      <div>
+                        <p className="text-sm font-medium text-green-600 dark:text-green-400">
+                          {t('API Key Configured via Environment', 'مفتاح API مُعدّ عبر البيئة')}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {t('Using HETZNER_API_TOKEN secret (secure)', 'يستخدم سر HETZNER_API_TOKEN (آمن)')}
+                        </p>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <>
+                      <p className="text-xs text-muted-foreground">{t('Enter your API key or set HETZNER_API_TOKEN in secrets', 'أدخل مفتاح API أو أضف HETZNER_API_TOKEN في الأسرار')}</p>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Input
+                            type={showApiKey ? "text" : "password"}
+                            value={config.apiKey}
+                            onChange={(e) => updateConfig('apiKey', e.target.value)}
+                            placeholder={t('Enter your Hetzner API key', 'أدخل مفتاح Hetzner API')}
+                            data-testid="input-api-key"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-2 top-1/2 -translate-y-1/2"
+                            onClick={() => setShowApiKey(!showApiKey)}
+                            data-testid="button-toggle-api-key"
+                          >
+                            {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
 
-                <div className="flex gap-2">
-                  <Button onClick={handleSaveConfig} disabled={isLoading} data-testid="button-save-api-key">
-                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-                    {t('Save API Key', 'حفظ مفتاح API')}
-                  </Button>
-                  <Button variant="outline" onClick={handleTestConnection} disabled={isTesting || !config.apiKey} data-testid="button-test-connection">
+                <div className="flex gap-2 items-center">
+                  {!hasEnvApiKey && (
+                    <Button onClick={handleSaveConfig} disabled={isLoading || !config.apiKey} data-testid="button-save-api-key">
+                      {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                      {t('Save Config', 'حفظ الإعدادات')}
+                    </Button>
+                  )}
+                  <Button variant="outline" onClick={handleTestConnection} disabled={isTesting || (!config.apiKey && !hasEnvApiKey)} data-testid="button-test-connection">
                     {isTesting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
                     {t('Test Connection', 'اختبار الاتصال')}
                   </Button>

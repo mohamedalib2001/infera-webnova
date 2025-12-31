@@ -18873,6 +18873,12 @@ export const hetznerCloudConfig = pgTable("hetzner_cloud_config", {
   defaultDeployIp: text("default_deploy_ip").default('91.96.168.125'),
   defaultDeployUser: text("default_deploy_user").default('root'),
   defaultDeployPath: text("default_deploy_path").default('/var/www/infera'),
+  // Additional deploy settings
+  sshPort: text("ssh_port").default('22'),
+  repoPath: text("repo_path").default(''),
+  postDeployCommand: text("post_deploy_command").default(''),
+  restartService: boolean("restart_service").default(false),
+  serviceName: text("service_name").default(''),
   // Connection status
   isConnected: boolean("is_connected").notNull().default(false),
   lastConnectionTest: timestamp("last_connection_test"),
