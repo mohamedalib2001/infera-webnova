@@ -11,6 +11,11 @@ import { WebhookHandlers } from "./webhookHandlers";
 import { paymentRoutes } from "./payment-routes";
 import deployRoutes from "./deploy-routes";
 import hetznerCloudRoutes from "./hetzner-cloud-routes";
+// Scalability services for 5 million users
+import { globalRateLimit, authRateLimit, aiRateLimit, httpRateLimiter } from "./http-rate-limiter";
+import { cache, CacheTTL } from "./cache-service";
+import { SCALABILITY_CONFIG, resourceEstimates } from "./scalability-config";
+import { checkPoolHealth } from "./db";
 // Start INFERA Agent on separate port (5001) - truly independent
 import("./infera-agent/index").catch(err => {
   console.error("[INFERA Agent] Failed to start standalone agent:", err.message);
@@ -99,6 +104,32 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
+
+// Global rate limiting for all requests (scalability for 5M users)
+app.use(globalRateLimit);
+
+// System health and monitoring endpoint
+app.get('/api/system/health', async (_req, res) => {
+  try {
+    const poolHealth = await checkPoolHealth();
+    const cacheStats = cache.getStats();
+    const rateLimiterStats = httpRateLimiter.getStats();
+    
+    res.json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      scalability: {
+        targetUsers: SCALABILITY_CONFIG.targetUsers,
+        estimatedRPS: resourceEstimates.requestsPerSecond,
+      },
+      database: poolHealth,
+      cache: cacheStats,
+      rateLimiter: rateLimiterStats,
+    });
+  } catch (error: any) {
+    res.status(500).json({ status: 'unhealthy', error: error.message });
+  }
+});
 
 app.use('/api/payments', paymentRoutes);
 app.use('/api/deploy', deployRoutes);
