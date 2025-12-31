@@ -315,11 +315,12 @@ router.post('/test-connection', async (req: Request, res: Response) => {
 
     const { apiKey } = req.body;
     
-    if (!apiKey) {
-      return res.status(400).json({ success: false, error: 'API key is required' });
-    }
-
+    // Use environment variable first, then fall back to provided apiKey
     const hetznerToken = process.env.HETZNER_API_TOKEN || apiKey;
+    
+    if (!hetznerToken) {
+      return res.status(400).json({ success: false, error: 'API key is required. Please configure HETZNER_API_TOKEN | مفتاح API مطلوب' });
+    }
     
     const response = await fetch('https://api.hetzner.cloud/v1/servers', {
       headers: {

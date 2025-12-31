@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,16 +21,53 @@ import {
   Command,
   Zap,
   Shield,
-  Target,
+  X,
+  Eye,
 } from "lucide-react";
+
+const STORAGE_KEY = 'nova-floating-button-visible';
 
 export function NovaFloatingButton() {
   const { isRtl } = useLanguage();
   const { isAuthenticated, user } = useAuth();
   const [, setLocation] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
+  const [showCloseButton, setShowCloseButton] = useState(false);
+
+  // Load visibility state from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved !== null) {
+      setIsVisible(saved === 'true');
+    }
+  }, []);
+
+  // Save visibility state to localStorage
+  const toggleVisibility = (visible: boolean) => {
+    setIsVisible(visible);
+    localStorage.setItem(STORAGE_KEY, String(visible));
+  };
 
   if (!isAuthenticated) return null;
+  
+  // Show small indicator when hidden
+  if (!isVisible) {
+    return (
+      <div className="fixed bottom-6 right-6 z-[9998]" dir={isRtl ? "rtl" : "ltr"}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => toggleVisibility(true)}
+          className="h-8 w-8 rounded-full bg-slate-900/80 border-violet-500/30 hover:border-violet-400/50"
+          data-testid="button-nova-show"
+          title={isRtl ? "إظهار العقل السيادي" : "Show Sovereign Brain"}
+        >
+          <Eye className="h-4 w-4 text-violet-400" />
+        </Button>
+      </div>
+    );
+  }
 
   const isOwner = user?.role === "owner" || user?.role === "admin";
 
@@ -60,7 +97,27 @@ export function NovaFloatingButton() {
   const text = isRtl ? t.ar : t.en;
 
   return (
-    <div className="fixed bottom-6 right-6 z-[9998]" dir={isRtl ? "rtl" : "ltr"}>
+    <div 
+      className="fixed bottom-6 right-6 z-[9998] group" 
+      dir={isRtl ? "rtl" : "ltr"}
+      onMouseEnter={() => setShowCloseButton(true)}
+      onMouseLeave={() => setShowCloseButton(false)}
+    >
+      {/* Close button - appears on hover */}
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={(e) => {
+          e.stopPropagation();
+          toggleVisibility(false);
+        }}
+        className={`absolute -top-2 -right-2 h-6 w-6 rounded-full bg-slate-800 border border-slate-600 hover:bg-red-600 hover:border-red-500 transition-all duration-200 z-10 ${showCloseButton ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}`}
+        data-testid="button-nova-close"
+        title={isRtl ? "إخفاء العقل السيادي" : "Hide Sovereign Brain"}
+      >
+        <X className="h-3 w-3 text-white" />
+      </Button>
+
       <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
         <DropdownMenuTrigger asChild>
           <Button
