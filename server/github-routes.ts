@@ -1,10 +1,16 @@
 import { Router, Request, Response } from "express";
 import { getAuthenticatedUser, listUserRepos, getRepo, createRepo, getRepoContents, listBranches, listCommits, deleteRepo, updateRepo, getUncachableGitHubClient, pushFilesToRepo, GitHubFile } from "./github-client";
 import { db } from "./db";
-import { projects } from "@shared/schema";
+import { projects, hetznerCloudConfig } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { storage } from "./storage";
 import { encryptCredential, decryptCredential } from "./crypto-utils";
+
+// Helper to get stored Hetzner config from database
+async function getStoredHetznerConfig(userId: string = 'default-user') {
+  const configs = await db.select().from(hetznerCloudConfig).where(eq(hetznerCloudConfig.userId, userId));
+  return configs[0] || null;
+}
 
 const router = Router();
 
@@ -496,19 +502,25 @@ router.patch("/sync-history/:id", async (req: Request, res: Response) => {
 // Check Hetzner credentials status
 router.get("/hetzner/status", async (req: Request, res: Response) => {
   try {
-    const host = process.env.HETZNER_HOST;
-    const user = process.env.HETZNER_USER;
-    const password = process.env.HETZNER_PASSWORD;
+    const userId = (req.query.userId as string) || 'default-user';
+    
+    // Check stored config from database
+    const storedConfig = await getStoredHetznerConfig(userId);
+    
+    // Fall back to environment variables
+    const host = storedConfig?.defaultDeployIp || process.env.HETZNER_HOST;
+    const user = storedConfig?.defaultDeployUser || process.env.HETZNER_USER;
     const apiToken = process.env.HETZNER_API_TOKEN;
 
     res.json({
       success: true,
-      configured: !!(host && user && (password || apiToken)),
+      configured: !!(host && user),
       hasHost: !!host,
       hasUser: !!user,
-      hasAuth: !!(password || apiToken),
+      hasAuth: !!apiToken,
       hostMasked: host ? `${host.substring(0, 4)}...` : null,
-      userMasked: user ? `${user.substring(0, 2)}...` : null
+      userMasked: user ? `${user.substring(0, 2)}...` : null,
+      configSource: storedConfig ? 'database' : 'environment'
     });
   } catch (error: any) {
     console.error("[Hetzner] Error checking status:", error.message);
@@ -534,21 +546,20 @@ router.get("/hetzner/deploy-history", async (req: Request, res: Response) => {
 // Trigger Hetzner deployment via SSH/SFTP
 router.post("/hetzner/deploy", async (req: Request, res: Response) => {
   try {
-    const { sourceRepo, sourceBranch, targetPath } = req.body;
+    const { sourceRepo, sourceBranch, targetPath, userId = 'default-user' } = req.body;
 
-    // Validate Hetzner credentials
-    const host = process.env.HETZNER_HOST;
-    const user = process.env.HETZNER_USER;
-    const password = process.env.HETZNER_PASSWORD;
+    // Get Hetzner config from database (saved from Hetzner Cloud page)
+    const storedConfig = await getStoredHetznerConfig(userId);
+    
+    // Use stored config or fall back to environment variables
+    const host = storedConfig?.defaultDeployIp || process.env.HETZNER_HOST;
+    const user = storedConfig?.defaultDeployUser || process.env.HETZNER_USER || 'root';
+    const deployPath = targetPath || storedConfig?.defaultDeployPath || '/var/www/webnova';
 
-    if (!host || !user || !password) {
+    if (!host) {
       return res.status(400).json({ 
-        error: "Hetzner credentials not configured. Please add HETZNER_HOST, HETZNER_USER, and HETZNER_PASSWORD to secrets." 
+        error: "عنوان الخادم غير محدد. يرجى إعداد الخادم من صفحة Hetzner Cloud أولاً | Server host not configured. Please configure server from Hetzner Cloud page first." 
       });
-    }
-
-    if (!targetPath) {
-      return res.status(400).json({ error: "targetPath is required" });
     }
 
     // Create deployment history entry
@@ -557,7 +568,7 @@ router.post("/hetzner/deploy", async (req: Request, res: Response) => {
       sourceRepo: sourceRepo || 'current',
       sourceBranch: sourceBranch || 'main',
       targetHost: host,
-      targetPath,
+      targetPath: deployPath,
       targetUser: user,
       status: 'running',
       startedAt: new Date()
@@ -576,7 +587,7 @@ router.post("/hetzner/deploy", async (req: Request, res: Response) => {
           completedAt: new Date(),
           durationMs,
           filesDeployed: 1,
-          logs: `Deployed to ${host}:${targetPath} successfully`
+          logs: `Deployed to ${host}:${deployPath} successfully`
         });
       } catch (e) {
         console.error("[Hetzner] Error updating deploy status:", e);
@@ -586,7 +597,7 @@ router.post("/hetzner/deploy", async (req: Request, res: Response) => {
     res.json({ 
       success: true, 
       entry,
-      message: "Deployment started. Check history for status."
+      message: "تم بدء النشر. تحقق من السجل للحالة | Deployment started. Check history for status."
     });
   } catch (error: any) {
     console.error("[Hetzner] Error triggering deployment:", error.message);
