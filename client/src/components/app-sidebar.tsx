@@ -145,7 +145,7 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
     "/owner/ai-sovereignty", "/owner/ai-capability-control", "/owner/assistant-governance",
     "/owner/ai-settings", "/owner/ai-model-registry", "/owner/infera-intelligence",
     "/owner/staff", "/owner/sovereign-permissions", "/owner/content-moderation", "/owner/control-center", "/owner/platform-maps",
-    "/api-keys", "/ssh-vault", "/github-sync", "/sovereign-plans", "/logo-factory"
+    "/api-keys", "/ssh-vault", "/github-sync", "/sovereign-plans", "/logo-factory", "/hetzner-cloud"
   ];
 
   // Check if current route is in sovereign safe zone
@@ -636,10 +636,10 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                       <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={location === "/owner/infrastructure"}>
-                          <Link href="/owner/infrastructure" data-testid="nav-owner-infrastructure">
+                        <SidebarMenuButton asChild isActive={location === "/hetzner-cloud"}>
+                          <Link href="/hetzner-cloud" data-testid="nav-hetzner-cloud">
                             <Server className="h-4 w-4 text-blue-500" />
-                            <span>{language === "ar" ? "البنية التحتية" : "Infrastructure"}</span>
+                            <span>{language === "ar" ? "سحابة Hetzner" : "Hetzner Cloud"}</span>
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
