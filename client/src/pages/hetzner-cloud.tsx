@@ -92,16 +92,34 @@ interface HetznerConfig {
 }
 
 const DEFAULT_DEPLOY_SETTINGS: DeploySettings = {
-  serverHost: "91.96.168.125",
+  serverHost: "91.98.166.125",
   sshPort: "22",
   sshUser: "root",
   repoPath: "",
   deployPath: "/var/www/app",
   privateKey: "",
-  postDeployCommand: "",
-  restartService: false,
+  postDeployCommand: "npm install && npm run build",
+  restartService: true,
   serviceName: "",
 };
+
+// INFERA Platform Presets
+const INFERA_PLATFORMS = [
+  { id: "engine", name: "INFERA Engine Control", deployPath: "/var/www/infera-engine", serviceName: "infera-engine" },
+  { id: "webnova", name: "INFERA WebNova", deployPath: "/var/www/webnova", serviceName: "webnova" },
+  { id: "platform", name: "INFERA Platform", deployPath: "/var/www/infera-platform", serviceName: "infera-platform" },
+  { id: "api", name: "INFERA API", deployPath: "/var/www/infera-api", serviceName: "infera-api" },
+  { id: "admin", name: "INFERA Admin", deployPath: "/var/www/infera-admin", serviceName: "infera-admin" },
+  { id: "store", name: "INFERA Store", deployPath: "/var/www/infera-store", serviceName: "infera-store" },
+  { id: "docs", name: "INFERA Docs", deployPath: "/var/www/infera-docs", serviceName: "infera-docs" },
+];
+
+const POST_DEPLOY_TEMPLATES = [
+  { id: "basic", name: "Basic (npm)", command: "npm install && npm run build" },
+  { id: "pm2", name: "PM2 (Production)", command: "npm install && npm run build && pm2 restart ecosystem.config.js" },
+  { id: "systemd", name: "Systemd Restart", command: "npm install && npm run build && systemctl restart ${SERVICE_NAME}" },
+  { id: "docker", name: "Docker", command: "docker-compose pull && docker-compose up -d" },
+];
 
 const DEFAULT_CONFIG: HetznerConfig = {
   apiKey: "",
@@ -906,6 +924,82 @@ export default function HetznerCloud() {
 
           {/* Tab 3: Deploy */}
           <TabsContent value="deploy" className="space-y-4">
+            {/* INFERA Platform Quick Select */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-primary" />
+                  {t('INFERA Platform Presets', 'قوالب منصات INFERA')}
+                </CardTitle>
+                <CardDescription>
+                  {t('Quick select a platform to auto-fill deploy path and service name', 'اختر منصة لتعبئة مسار النشر واسم الخدمة تلقائياً')}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>{t('Select Platform', 'اختر المنصة')}</Label>
+                    <Select
+                      onValueChange={(platformId) => {
+                        const platform = INFERA_PLATFORMS.find(p => p.id === platformId);
+                        if (platform) {
+                          updateDeploySettings('deployPath', platform.deployPath);
+                          updateDeploySettings('serviceName', platform.serviceName);
+                          toast({
+                            title: t('Platform Selected', 'تم اختيار المنصة'),
+                            description: `${platform.name}: ${platform.deployPath}`,
+                          });
+                        }
+                      }}
+                    >
+                      <SelectTrigger data-testid="select-platform-preset">
+                        <SelectValue placeholder={t('Choose INFERA Platform...', 'اختر منصة INFERA...')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {INFERA_PLATFORMS.map((platform) => (
+                          <SelectItem key={platform.id} value={platform.id}>
+                            {platform.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t('Post-Deploy Template', 'قالب أمر النشر')}</Label>
+                    <Select
+                      onValueChange={(templateId) => {
+                        const template = POST_DEPLOY_TEMPLATES.find(t => t.id === templateId);
+                        if (template) {
+                          const command = template.command.replace('${SERVICE_NAME}', deploySettings.serviceName || 'myapp');
+                          updateDeploySettings('postDeployCommand', command);
+                          toast({
+                            title: t('Template Applied', 'تم تطبيق القالب'),
+                            description: template.name,
+                          });
+                        }
+                      }}
+                    >
+                      <SelectTrigger data-testid="select-deploy-template">
+                        <SelectValue placeholder={t('Choose Template...', 'اختر قالب...')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {POST_DEPLOY_TEMPLATES.map((template) => (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                  <p className="text-xs text-muted-foreground">
+                    {t('All INFERA platforms use:', 'جميع منصات INFERA تستخدم:')} <strong>91.98.166.125:22</strong> | {t('User:', 'المستخدم:')} <strong>root</strong>
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
             <div className="grid gap-4 lg:grid-cols-3">
               {/* Deploy Settings */}
               <Card className="lg:col-span-2">
@@ -922,7 +1016,7 @@ export default function HetznerCloud() {
                       <Input
                         value={deploySettings.serverHost}
                         onChange={(e) => updateDeploySettings('serverHost', e.target.value)}
-                        placeholder="91.96.168.125"
+                        placeholder="91.98.166.125"
                         data-testid="input-deploy-server-host"
                       />
                     </div>
