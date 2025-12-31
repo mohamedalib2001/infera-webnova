@@ -533,17 +533,24 @@ router.get('/locations', async (req: Request, res: Response) => {
 });
 
 async function executeSSHDeploy(settings: SSHDeploySettings, commands: string[]): Promise<{ success: boolean; output: string; error?: string }> {
+  console.log('[SSH Deploy] Validating settings...');
+  
   if (!settings.serverHost || !settings.privateKey) {
+    console.log('[SSH Deploy] Missing required fields - host:', !!settings.serverHost, 'key:', !!settings.privateKey);
     return { success: false, output: '', error: 'Server host and private key are required' };
   }
   
   if (!validateHost(settings.serverHost)) {
+    console.log('[SSH Deploy] Invalid host format:', settings.serverHost);
     return { success: false, output: '', error: 'Invalid server host format' };
   }
   
   if (!validatePath(settings.deployPath)) {
+    console.log('[SSH Deploy] Invalid path format:', settings.deployPath);
     return { success: false, output: '', error: 'Invalid deploy path format' };
   }
+  
+  console.log('[SSH Deploy] Connecting to', settings.serverHost, 'port', settings.sshPort || 22, 'user', settings.sshUser || 'root');
   
   try {
     const { Client } = await import('ssh2');
@@ -553,17 +560,29 @@ async function executeSSHDeploy(settings: SSHDeploySettings, commands: string[])
       let output = '';
       let errorOutput = '';
       
+      // Set a connection timeout
+      const timeout = setTimeout(() => {
+        console.log('[SSH Deploy] Connection timeout after 30s');
+        conn.end();
+        resolve({ success: false, output: '', error: 'Connection timeout after 30 seconds' });
+      }, 30000);
+      
       conn.on('ready', () => {
+        clearTimeout(timeout);
+        console.log('[SSH Deploy] Connection established successfully');
         const fullCommand = commands.map(c => sanitizeCommand(c)).join(' && ');
+        console.log('[SSH Deploy] Executing commands:', fullCommand.substring(0, 100) + '...');
         
         conn.exec(fullCommand, (err, stream) => {
           if (err) {
+            console.log('[SSH Deploy] Exec error:', err.message);
             conn.end();
             resolve({ success: false, output: '', error: err.message });
             return;
           }
           
           stream.on('close', (code: number) => {
+            console.log('[SSH Deploy] Command completed with exit code:', code);
             conn.end();
             resolve({
               success: code === 0,
@@ -583,6 +602,8 @@ async function executeSSHDeploy(settings: SSHDeploySettings, commands: string[])
       });
       
       conn.on('error', (err) => {
+        clearTimeout(timeout);
+        console.log('[SSH Deploy] Connection error:', err.message);
         resolve({ success: false, output: '', error: err.message });
       });
       
@@ -591,9 +612,12 @@ async function executeSSHDeploy(settings: SSHDeploySettings, commands: string[])
         port: settings.sshPort || 22,
         username: settings.sshUser || 'root',
         privateKey: settings.privateKey,
+        readyTimeout: 20000,
+        keepaliveInterval: 10000,
       });
     });
   } catch (error) {
+    console.log('[SSH Deploy] Exception:', error);
     return { success: false, output: '', error: error instanceof Error ? error.message : 'SSH connection failed' };
   }
 }
@@ -606,6 +630,9 @@ router.post('/quick-deploy', async (req: Request, res: Response) => {
     }
 
     const settings: SSHDeploySettings = req.body;
+    console.log('[Quick Deploy] Starting deployment to:', settings.serverHost);
+    console.log('[Quick Deploy] Deploy path:', settings.deployPath);
+    console.log('[Quick Deploy] Has private key:', !!settings.privateKey);
     
     const commands = [
       `cd ${settings.deployPath}`,
@@ -622,9 +649,11 @@ router.post('/quick-deploy', async (req: Request, res: Response) => {
     }
     
     const result = await executeSSHDeploy(settings, commands);
+    console.log('[Quick Deploy] Result:', result.success ? 'SUCCESS' : 'FAILED', result.error || '');
     res.json({ success: result.success, message: result.success ? 'Quick deploy completed' : result.error, output: result.output });
   } catch (error) {
-    res.status(500).json({ success: false, error: 'Quick deploy failed' });
+    console.error('[Quick Deploy] Exception:', error);
+    res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Quick deploy failed' });
   }
 });
 
@@ -636,6 +665,9 @@ router.post('/direct-deploy', async (req: Request, res: Response) => {
     }
 
     const settings: SSHDeploySettings = req.body;
+    console.log('[Direct Deploy] Starting deployment to:', settings.serverHost);
+    console.log('[Direct Deploy] Deploy path:', settings.deployPath);
+    console.log('[Direct Deploy] Has private key:', !!settings.privateKey);
     
     const commands = [`cd ${settings.deployPath} && echo "Deploy path verified"`];
     
@@ -648,9 +680,11 @@ router.post('/direct-deploy', async (req: Request, res: Response) => {
     }
     
     const result = await executeSSHDeploy(settings, commands);
+    console.log('[Direct Deploy] Result:', result.success ? 'SUCCESS' : 'FAILED', result.error || '');
     res.json({ success: result.success, message: result.success ? 'Direct deploy completed' : result.error, output: result.output });
   } catch (error) {
-    res.status(500).json({ success: false, error: 'Direct deploy failed' });
+    console.error('[Direct Deploy] Exception:', error);
+    res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Direct deploy failed' });
   }
 });
 
@@ -662,6 +696,10 @@ router.post('/deploy', async (req: Request, res: Response) => {
     }
 
     const settings: SSHDeploySettings = req.body;
+    console.log('[Git Deploy] Starting deployment to:', settings.serverHost);
+    console.log('[Git Deploy] Deploy path:', settings.deployPath);
+    console.log('[Git Deploy] Repo:', settings.repoPath);
+    console.log('[Git Deploy] Has private key:', !!settings.privateKey);
     
     const commands = [
       `cd ${settings.deployPath}`,
@@ -677,9 +715,11 @@ router.post('/deploy', async (req: Request, res: Response) => {
     }
     
     const result = await executeSSHDeploy(settings, commands);
+    console.log('[Git Deploy] Result:', result.success ? 'SUCCESS' : 'FAILED', result.error || '');
     res.json({ success: result.success, message: result.success ? 'Git deploy completed' : result.error, output: result.output });
   } catch (error) {
-    res.status(500).json({ success: false, error: 'Git deploy failed' });
+    console.error('[Git Deploy] Exception:', error);
+    res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Git deploy failed' });
   }
 });
 
