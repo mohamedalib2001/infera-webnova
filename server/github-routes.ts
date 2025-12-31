@@ -1096,4 +1096,186 @@ router.post("/profiles/:id/test", async (req: Request, res: Response) => {
   }
 });
 
+// ==================== GITHUB IMPORT PROJECT ====================
+
+// Import a GitHub repository as a local project (Owner only)
+router.post("/import-project", async (req: Request, res: Response) => {
+  try {
+    const session = (req as any).session;
+    const user = session?.user;
+    
+    // Owner-only check
+    if (!user || (user.role !== 'owner' && user.role !== 'admin' && user.email !== 'mohamed.ali.b2001@gmail.com')) {
+      return res.status(403).json({ 
+        error: "هذه الميزة متاحة للمالك فقط | This feature is owner-only" 
+      });
+    }
+
+    const { owner, repo, branch = 'main', projectName } = req.body;
+
+    if (!owner || !repo) {
+      return res.status(400).json({ error: "Owner and repo are required | اسم المالك والمستودع مطلوبان" });
+    }
+
+    // Get repository info
+    const repoInfo = await getRepo(owner, repo);
+    
+    // Get all files from repository recursively
+    const files: Array<{ path: string; content: string; type: string }> = [];
+    
+    async function fetchContents(path: string = '') {
+      try {
+        const contents = await getRepoContents(owner, repo, path);
+        
+        if (Array.isArray(contents)) {
+          for (const item of contents) {
+            if (item.type === 'file') {
+              // Fetch file content
+              try {
+                const client = await getUncachableGitHubClient();
+                const { data } = await client.repos.getContent({
+                  owner,
+                  repo,
+                  path: item.path,
+                  ref: branch
+                });
+                
+                if ('content' in data && data.content) {
+                  const content = Buffer.from(data.content, 'base64').toString('utf-8');
+                  files.push({
+                    path: item.path,
+                    content,
+                    type: item.name.split('.').pop() || 'txt'
+                  });
+                }
+              } catch (e) {
+                console.log(`[GitHub Import] Skipped file: ${item.path}`);
+              }
+            } else if (item.type === 'dir') {
+              // Skip node_modules, .git, etc.
+              if (!['node_modules', '.git', 'dist', 'build', '.next', '__pycache__'].includes(item.name)) {
+                await fetchContents(item.path);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error(`[GitHub Import] Error fetching ${path}:`, e);
+      }
+    }
+
+    await fetchContents();
+
+    // Create project in database
+    const projectId = crypto.randomUUID();
+    const finalName = projectName || repoInfo.name;
+    
+    await db.insert(projects).values({
+      id: projectId,
+      name: finalName,
+      description: repoInfo.description || `Imported from ${owner}/${repo}`,
+      sector: 'enterprise',
+      status: 'draft',
+      ownerId: user.id || 'owner',
+      generatedFiles: files,
+      githubRepo: `${owner}/${repo}`,
+      githubBranch: branch,
+      githubUrl: repoInfo.html_url,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    res.json({
+      success: true,
+      project: {
+        id: projectId,
+        name: finalName,
+        filesCount: files.length,
+        source: `${owner}/${repo}`,
+        branch
+      },
+      message: `تم استيراد ${files.length} ملف بنجاح | Successfully imported ${files.length} files`
+    });
+  } catch (error: any) {
+    console.error("[GitHub Import] Error:", error.message);
+    res.status(500).json({ error: error.message || "Failed to import project" });
+  }
+});
+
+// Get repository tree (all files) for preview before import
+router.get("/repos/:owner/:repo/tree", async (req: Request, res: Response) => {
+  try {
+    const { owner, repo } = req.params;
+    const { ref } = req.query;
+    
+    const client = await getUncachableGitHubClient();
+    
+    // Get default branch if not specified
+    let branch = ref as string;
+    if (!branch) {
+      const { data: repoData } = await client.repos.get({ owner, repo });
+      branch = repoData.default_branch;
+    }
+    
+    // Get tree recursively
+    const { data: tree } = await client.git.getTree({
+      owner,
+      repo,
+      tree_sha: branch,
+      recursive: 'true'
+    });
+    
+    // Filter and format
+    const files = tree.tree
+      .filter(item => item.type === 'blob')
+      .filter(item => !item.path?.includes('node_modules/'))
+      .filter(item => !item.path?.startsWith('.git/'))
+      .map(item => ({
+        path: item.path,
+        size: item.size,
+        sha: item.sha
+      }));
+    
+    res.json({ 
+      success: true, 
+      branch,
+      filesCount: files.length,
+      files 
+    });
+  } catch (error: any) {
+    console.error("[GitHub Tree] Error:", error.message);
+    res.status(500).json({ error: error.message || "Failed to fetch repository tree" });
+  }
+});
+
+// Get file content by path
+router.get("/repos/:owner/:repo/file", async (req: Request, res: Response) => {
+  try {
+    const { owner, repo } = req.params;
+    const { path, ref } = req.query;
+    
+    if (!path) {
+      return res.status(400).json({ error: "Path is required" });
+    }
+    
+    const client = await getUncachableGitHubClient();
+    const { data } = await client.repos.getContent({
+      owner,
+      repo,
+      path: path as string,
+      ref: ref as string
+    });
+    
+    if ('content' in data && data.content) {
+      const content = Buffer.from(data.content, 'base64').toString('utf-8');
+      res.json({ success: true, content, path, encoding: data.encoding });
+    } else {
+      res.status(400).json({ error: "Not a file" });
+    }
+  } catch (error: any) {
+    console.error("[GitHub File] Error:", error.message);
+    res.status(500).json({ error: error.message || "Failed to fetch file" });
+  }
+});
+
 export default router;
