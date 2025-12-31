@@ -18855,3 +18855,40 @@ export const insertReplitConnectionSchema = createInsertSchema(replitConnections
 });
 export type InsertReplitConnection = z.infer<typeof insertReplitConnectionSchema>;
 export type ReplitConnection = typeof replitConnections.$inferSelect;
+
+// ==================== HETZNER CLOUD CONFIGURATION ====================
+
+// Hetzner Cloud Configuration - إعدادات Hetzner Cloud
+// Note: API keys are stored in environment secrets (HETZNER_API_TOKEN), not in database
+export const hetznerCloudConfig = pgTable("hetzner_cloud_config", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull().unique(),
+  tenantId: text("tenant_id").notNull().default('default'),
+  // Non-sensitive configuration
+  location: text("location").notNull().default('nbg1'), // Nuremberg
+  serverType: text("server_type").notNull().default('cax31'), // ARM, 8 vCPU, 16GB RAM
+  budgetLimit: integer("budget_limit").notNull().default(150), // EUR
+  maxServers: integer("max_servers").notNull().default(10),
+  // Deploy defaults
+  defaultDeployIp: text("default_deploy_ip").default('91.96.168.125'),
+  defaultDeployUser: text("default_deploy_user").default('root'),
+  defaultDeployPath: text("default_deploy_path").default('/var/www/infera'),
+  // Connection status
+  isConnected: boolean("is_connected").notNull().default(false),
+  lastConnectionTest: timestamp("last_connection_test"),
+  lastConnectionStatus: text("last_connection_status"), // success, error
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_hetzner_config_user").on(table.userId),
+  index("idx_hetzner_config_tenant").on(table.tenantId),
+]);
+
+export const insertHetznerCloudConfigSchema = createInsertSchema(hetznerCloudConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertHetznerCloudConfig = z.infer<typeof insertHetznerCloudConfigSchema>;
+export type HetznerCloudConfig = typeof hetznerCloudConfig.$inferSelect;
