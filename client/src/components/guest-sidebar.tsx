@@ -88,7 +88,7 @@ export function GuestSidebar({ side = "left" }: GuestSidebarProps) {
   return (
     <Sidebar side={side}>
       <SidebarHeader className="p-4">
-        <Link href="/" className="flex items-center gap-2">
+        <a href="/" className="flex items-center gap-2">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center">
             <Cpu className="w-5 h-5 text-white" />
           </div>
@@ -96,18 +96,18 @@ export function GuestSidebar({ side = "left" }: GuestSidebarProps) {
             <span className="font-bold text-lg leading-tight">INFERA</span>
             <span className="text-xs text-muted-foreground leading-tight">WebNova</span>
           </div>
-        </Link>
+        </a>
       </SidebarHeader>
       
       <SidebarContent>
         <SidebarGroup>
           <div className="px-4 mb-4">
-            <Link href="/auth">
+            <a href="/auth">
               <Button className="w-full gap-2" data-testid="button-guest-login">
                 <LogIn className="h-4 w-4" />
                 {language === "ar" ? "تسجيل الدخول" : "Sign In"}
               </Button>
-            </Link>
+            </a>
           </div>
         </SidebarGroup>
 
