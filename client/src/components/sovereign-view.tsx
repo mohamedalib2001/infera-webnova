@@ -1,0 +1,1334 @@
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import { useLanguage } from "@/hooks/use-language";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { 
+  Eye, EyeOff, Crown, Shield, User, Users, Zap, Lock, Unlock,
+  ChevronRight, X, Layers, Route, Settings, Code, Power, AlertTriangle
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
+
+// Page visibility toggle storage - حفظ حالة تفعيل الصفحات
+const PAGE_VISIBILITY_KEY = "infera_page_visibility";
+const PAGE_ALLOWED_USERS_KEY = "infera_page_allowed_users";
+
+interface PageAccessConfig {
+  enabled: boolean;
+  allowedUsers: string[]; // usernames allowed access
+  allowedRoles: string[]; // additional roles beyond default
+}
+
+function getPageAccessConfig(): Record<string, PageAccessConfig> {
+  try {
+    const stored = localStorage.getItem(PAGE_VISIBILITY_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+}
+
+function setPageAccessConfig(route: string, config: Partial<PageAccessConfig>): void {
+  const current = getPageAccessConfig();
+  current[route] = {
+    enabled: config.enabled ?? current[route]?.enabled ?? true,
+    allowedUsers: config.allowedUsers ?? current[route]?.allowedUsers ?? [],
+    allowedRoles: config.allowedRoles ?? current[route]?.allowedRoles ?? []
+  };
+  localStorage.setItem(PAGE_VISIBILITY_KEY, JSON.stringify(current));
+}
+
+export function isPageEnabled(route: string): boolean {
+  const config = getPageAccessConfig()[route];
+  return config?.enabled !== false;
+}
+
+export function isUserAllowedAccess(route: string, username: string): boolean {
+  const config = getPageAccessConfig()[route];
+  if (!config) return true; // No config = default access
+  if (config.enabled === false) return false; // Page disabled
+  if (config.allowedUsers?.length > 0) {
+    return config.allowedUsers.includes(username);
+  }
+  return true; // No specific users = allow based on roles
+}
+
+export function getPageAllowedUsers(route: string): string[] {
+  const config = getPageAccessConfig()[route];
+  return config?.allowedUsers || [];
+}
+
+export function addAllowedUser(route: string, username: string): void {
+  const config = getPageAccessConfig()[route] || { enabled: true, allowedUsers: [], allowedRoles: [] };
+  if (!config.allowedUsers.includes(username)) {
+    config.allowedUsers.push(username);
+    setPageAccessConfig(route, config);
+  }
+}
+
+export function removeAllowedUser(route: string, username: string): void {
+  const config = getPageAccessConfig()[route];
+  if (config?.allowedUsers) {
+    config.allowedUsers = config.allowedUsers.filter(u => u !== username);
+    setPageAccessConfig(route, config);
+  }
+}
+
+export function togglePageEnabled(route: string): boolean {
+  const config = getPageAccessConfig()[route] || { enabled: true, allowedUsers: [], allowedRoles: [] };
+  config.enabled = !config.enabled;
+  setPageAccessConfig(route, config);
+  return config.enabled;
+}
+
+// Role-based access control functions
+export function getPageAllowedRoles(route: string): string[] {
+  const config = getPageAccessConfig()[route];
+  return config?.allowedRoles || [];
+}
+
+export function toggleRoleAccess(route: string, role: string): boolean {
+  const config = getPageAccessConfig()[route] || { enabled: true, allowedUsers: [], allowedRoles: [] };
+  const index = config.allowedRoles.indexOf(role);
+  if (index > -1) {
+    config.allowedRoles.splice(index, 1);
+    setPageAccessConfig(route, config);
+    return false;
+  } else {
+    config.allowedRoles.push(role);
+    setPageAccessConfig(route, config);
+    return true;
+  }
+}
+
+export function isRoleAllowed(route: string, role: string): boolean {
+  const config = getPageAccessConfig()[route];
+  return config?.allowedRoles?.includes(role) || false;
+}
+
+type RoleType = "owner" | "sovereign" | "manager" | "employee" | "subscriber" | "free" | "pro" | "enterprise" | "public";
+type CapabilityType = string;
+
+interface VisibilityRule {
+  roles: RoleType[];
+  plans?: string[];
+  capabilities?: CapabilityType[];
+  workspaces?: string[];
+}
+
+interface ElementPermissions {
+  componentName: string;
+  route?: string;
+  visibility: VisibilityRule;
+  description?: string;
+}
+
+interface SovereignViewContextType {
+  isEnabled: boolean;
+  toggleView: () => void;
+  registerElement: (id: string, permissions: ElementPermissions) => void;
+  unregisterElement: (id: string) => void;
+  inspectedElement: { id: string; permissions: ElementPermissions } | null;
+  setInspectedElement: (el: { id: string; permissions: ElementPermissions } | null) => void;
+  getElementPermissions: (id: string) => ElementPermissions | undefined;
+}
+
+const SovereignViewContext = createContext<SovereignViewContextType | null>(null);
+
+export function useSovereignView() {
+  const context = useContext(SovereignViewContext);
+  if (!context) {
+    return {
+      isEnabled: false,
+      toggleView: () => {},
+      registerElement: () => {},
+      unregisterElement: () => {},
+      inspectedElement: null,
+      setInspectedElement: () => {},
+      getElementPermissions: () => undefined,
+    };
+  }
+  return context;
+}
+
+const roleConfig: Record<RoleType, { icon: typeof Crown; color: string; label: string; labelAr: string }> = {
+  owner: { icon: Crown, color: "text-purple-500", label: "Owner", labelAr: "المالك" },
+  sovereign: { icon: Shield, color: "text-violet-500", label: "Sovereign", labelAr: "سيادي" },
+  manager: { icon: Users, color: "text-blue-500", label: "Manager", labelAr: "مدير" },
+  employee: { icon: User, color: "text-cyan-500", label: "Employee", labelAr: "موظف" },
+  subscriber: { icon: Zap, color: "text-amber-500", label: "Subscriber", labelAr: "مشترك" },
+  free: { icon: User, color: "text-green-500", label: "Free", labelAr: "مجاني" },
+  pro: { icon: Zap, color: "text-blue-500", label: "Pro", labelAr: "برو" },
+  enterprise: { icon: Shield, color: "text-purple-500", label: "Enterprise", labelAr: "مؤسسي" },
+  public: { icon: User, color: "text-gray-500", label: "Public", labelAr: "عام" },
+};
+
+export function SovereignViewProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  const [isEnabled, setIsEnabled] = useState(false);
+  const [inspectedElement, setInspectedElement] = useState<{ id: string; permissions: ElementPermissions } | null>(null);
+  const elementsRegistry = useRef<Map<string, ElementPermissions>>(new Map());
+  
+  const isOwner = user?.role === "owner" || user?.role === "sovereign" || user?.username === "mohamedalib2001";
+  
+  const toggleView = useCallback(() => {
+    if (!isOwner) return;
+    setIsEnabled(prev => !prev);
+  }, [isOwner]);
+  
+  const registerElement = useCallback((id: string, permissions: ElementPermissions) => {
+    elementsRegistry.current.set(id, permissions);
+  }, []);
+  
+  const unregisterElement = useCallback((id: string) => {
+    elementsRegistry.current.delete(id);
+  }, []);
+  
+  const getElementPermissions = useCallback((id: string) => {
+    return elementsRegistry.current.get(id);
+  }, []);
+  
+  useEffect(() => {
+    if (!isOwner) return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === "S") {
+        e.preventDefault();
+        toggleView();
+      }
+    };
+    
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOwner, toggleView]);
+  
+  return (
+    <SovereignViewContext.Provider value={{
+      isEnabled: isOwner ? isEnabled : false,
+      toggleView,
+      registerElement,
+      unregisterElement,
+      inspectedElement,
+      setInspectedElement,
+      getElementPermissions,
+    }}>
+      {children}
+      {isOwner && isEnabled && <SovereignOverlay />}
+      {isOwner && <PermissionInspectorPanel />}
+    </SovereignViewContext.Provider>
+  );
+}
+
+export function SovereignViewToggle() {
+  const { user } = useAuth();
+  const { language } = useLanguage();
+  const context = useContext(SovereignViewContext);
+  
+  const isOwner = user?.role === "owner" || user?.role === "sovereign" || user?.username === "mohamedalib2001";
+  if (!isOwner || !context) return null;
+  
+  const { isEnabled, toggleView } = context;
+  
+  return (
+    <Button
+      variant={isEnabled ? "default" : "outline"}
+      size="sm"
+      onClick={toggleView}
+      className={cn(
+        "gap-2 transition-all",
+        isEnabled && "bg-gradient-to-r from-violet-600 to-purple-600 text-white border-0"
+      )}
+      title={language === "ar" ? "العرض السيادي (Ctrl+Shift+S)" : "Sovereign View (Ctrl+Shift+S)"}
+      data-testid="button-sovereign-view-toggle"
+    >
+      <Settings className="h-4 w-4" />
+      <span className="hidden sm:inline">
+        {language === "ar" ? "العرض السيادي" : "Sovereign View"}
+      </span>
+      <Badge 
+        variant={isEnabled ? "secondary" : "outline"} 
+        className={cn(
+          "text-xs px-1.5",
+          isEnabled ? "bg-white/20 text-white border-0" : ""
+        )}
+      >
+        {isEnabled ? "ON" : "OFF"}
+      </Badge>
+    </Button>
+  );
+}
+
+function SovereignOverlay() {
+  const { language } = useLanguage();
+  
+  return (
+    <div className="fixed bottom-4 left-4 z-[9998] pointer-events-none">
+      <div className="bg-gradient-to-r from-violet-600/90 to-purple-600/90 text-white px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm flex items-center gap-2 shadow-lg">
+        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+        {language === "ar" ? "وضع السيادي نشط" : "Sovereign View Active"}
+      </div>
+    </div>
+  );
+}
+
+interface MicroBadgeProps {
+  roles: RoleType[];
+  size?: "xs" | "sm";
+  className?: string;
+}
+
+export function MicroBadge({ roles, size = "xs", className }: MicroBadgeProps) {
+  const { isEnabled } = useSovereignView();
+  const { language } = useLanguage();
+  
+  if (!isEnabled || roles.length === 0) return null;
+  
+  const primaryRole = roles[0];
+  const config = roleConfig[primaryRole];
+  const Icon = config.icon;
+  
+  return (
+    <span 
+      className={cn(
+        "inline-flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity",
+        size === "xs" ? "text-[10px]" : "text-xs",
+        className
+      )}
+      title={roles.map(r => language === "ar" ? roleConfig[r].labelAr : roleConfig[r].label).join(", ")}
+    >
+      <Icon className={cn("h-3 w-3", config.color)} />
+      {roles.length > 1 && (
+        <span className="text-muted-foreground">+{roles.length - 1}</span>
+      )}
+    </span>
+  );
+}
+
+interface VisibilityBadgeProps {
+  visibility: VisibilityRule;
+  showOnHover?: boolean;
+  className?: string;
+}
+
+export function VisibilityBadge({ visibility, showOnHover = true, className }: VisibilityBadgeProps) {
+  const { isEnabled } = useSovereignView();
+  const { language } = useLanguage();
+  const [isHovered, setIsHovered] = useState(false);
+  
+  if (!isEnabled) return null;
+  
+  const { roles, plans, capabilities } = visibility;
+  
+  if (showOnHover && !isHovered) {
+    return (
+      <span
+        className={cn(
+          "inline-block w-2 h-2 rounded-full cursor-pointer transition-all",
+          roles.includes("owner") ? "bg-purple-500" :
+          roles.includes("pro") || roles.includes("enterprise") ? "bg-blue-500" :
+          roles.includes("free") ? "bg-green-500" : "bg-gray-400",
+          className
+        )}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      />
+    );
+  }
+  
+  return (
+    <div 
+      className={cn(
+        "absolute z-[9999] bg-popover border rounded-lg shadow-xl p-3 min-w-[200px]",
+        "animate-in fade-in-0 zoom-in-95 duration-200",
+        className
+      )}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div className="text-xs font-medium mb-2 text-muted-foreground">
+        {language === "ar" ? "مرئي لـ:" : "Visible to:"}
+      </div>
+      <div className="space-y-1">
+        {Object.keys(roleConfig).map((role) => {
+          const r = role as RoleType;
+          const config = roleConfig[r];
+          const Icon = config.icon;
+          const isVisible = roles.includes(r);
+          
+          return (
+            <div 
+              key={role}
+              className={cn(
+                "flex items-center gap-2 text-xs",
+                isVisible ? "text-foreground" : "text-muted-foreground/50"
+              )}
+            >
+              {isVisible ? (
+                <Unlock className="h-3 w-3 text-green-500" />
+              ) : (
+                <Lock className="h-3 w-3 text-red-500/50" />
+              )}
+              <Icon className={cn("h-3 w-3", config.color)} />
+              <span>{language === "ar" ? config.labelAr : config.label}</span>
+            </div>
+          );
+        })}
+      </div>
+      
+      {capabilities && capabilities.length > 0 && (
+        <>
+          <Separator className="my-2" />
+          <div className="text-xs">
+            <span className="text-muted-foreground">
+              {language === "ar" ? "الصلاحية: " : "Capability: "}
+            </span>
+            <code className="text-violet-500">{capabilities.join(", ")}</code>
+          </div>
+        </>
+      )}
+      
+      {plans && plans.length > 0 && (
+        <div className="text-xs mt-1">
+          <span className="text-muted-foreground">
+            {language === "ar" ? "الباقات: " : "Plans: "}
+          </span>
+          <span className="text-blue-500">{plans.join(", ")}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface DevOverlayWrapperProps {
+  children: React.ReactNode;
+  id: string;
+  permissions: ElementPermissions;
+  className?: string;
+}
+
+export function DevOverlayWrapper({ children, id, permissions, className }: DevOverlayWrapperProps) {
+  const { isEnabled, registerElement, unregisterElement, setInspectedElement } = useSovereignView();
+  const [isHovered, setIsHovered] = useState(false);
+  
+  useEffect(() => {
+    registerElement(id, permissions);
+    return () => unregisterElement(id);
+  }, [id, permissions, registerElement, unregisterElement]);
+  
+  if (!isEnabled) return <>{children}</>;
+  
+  const primaryRole = permissions.visibility.roles[0];
+  const borderColor = primaryRole === "owner" || primaryRole === "sovereign" 
+    ? "border-purple-500/30" 
+    : primaryRole === "pro" || primaryRole === "enterprise"
+    ? "border-blue-500/30"
+    : primaryRole === "free"
+    ? "border-green-500/30"
+    : "border-gray-500/30";
+  
+  return (
+    <div 
+      className={cn(
+        "relative transition-all duration-200",
+        isHovered && `border border-dashed ${borderColor} rounded-md`,
+        className
+      )}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onClick={(e) => {
+        if (e.altKey) {
+          e.preventDefault();
+          e.stopPropagation();
+          setInspectedElement({ id, permissions });
+        }
+      }}
+    >
+      {children}
+      
+      {isHovered && (
+        <div className="absolute top-0 right-0 transform translate-x-1 -translate-y-1 z-50">
+          <MicroBadge roles={permissions.visibility.roles} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PermissionInspectorPanel() {
+  const { inspectedElement, setInspectedElement, isEnabled } = useSovereignView();
+  const { language } = useLanguage();
+  
+  if (!isEnabled || !inspectedElement) return null;
+  
+  const { permissions } = inspectedElement;
+  const { visibility } = permissions;
+  
+  const t = {
+    title: language === "ar" ? "فحص الصلاحيات" : "Permission Inspector",
+    component: language === "ar" ? "المكون" : "Component",
+    route: language === "ar" ? "المسار" : "Route",
+    visibleTo: language === "ar" ? "مرئي لـ" : "Visible To",
+    hiddenFrom: language === "ar" ? "مخفي عن" : "Hidden From",
+    capabilities: language === "ar" ? "الصلاحيات" : "Capabilities",
+    plans: language === "ar" ? "الباقات" : "Plans",
+    close: language === "ar" ? "إغلاق" : "Close",
+  };
+  
+  const visibleRoles = visibility.roles;
+  const hiddenRoles = (Object.keys(roleConfig) as RoleType[]).filter(r => !visibleRoles.includes(r));
+  
+  return (
+    <div className="fixed top-20 right-4 z-[10000] w-80 animate-in slide-in-from-right-5 duration-300">
+      <Card className="border-violet-500/50 shadow-xl bg-background/95 backdrop-blur-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Shield className="h-4 w-4 text-violet-500" />
+              {t.title}
+            </CardTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={() => setInspectedElement(null)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-xs">
+              <Layers className="h-3 w-3 text-muted-foreground" />
+              <span className="text-muted-foreground">{t.component}:</span>
+              <code className="text-violet-500 font-medium">{permissions.componentName}</code>
+            </div>
+            
+            {permissions.route && (
+              <div className="flex items-center gap-2 text-xs">
+                <Route className="h-3 w-3 text-muted-foreground" />
+                <span className="text-muted-foreground">{t.route}:</span>
+                <code className="text-blue-500">{permissions.route}</code>
+              </div>
+            )}
+          </div>
+          
+          <Separator />
+          
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-green-600 flex items-center gap-1">
+              <Unlock className="h-3 w-3" />
+              {t.visibleTo}:
+            </div>
+            <ScrollArea className="h-20">
+              <div className="space-y-1">
+                {visibleRoles.map(role => {
+                  const config = roleConfig[role];
+                  const Icon = config.icon;
+                  return (
+                    <div key={role} className="flex items-center gap-2 text-xs">
+                      <Icon className={cn("h-3 w-3", config.color)} />
+                      <span>{language === "ar" ? config.labelAr : config.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          </div>
+          
+          {hiddenRoles.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-red-500/70 flex items-center gap-1">
+                <Lock className="h-3 w-3" />
+                {t.hiddenFrom}:
+              </div>
+              <ScrollArea className="h-16">
+                <div className="space-y-1 opacity-60">
+                  {hiddenRoles.map(role => {
+                    const config = roleConfig[role];
+                    const Icon = config.icon;
+                    return (
+                      <div key={role} className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Icon className={cn("h-3 w-3", config.color)} />
+                        <span>{language === "ar" ? config.labelAr : config.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            </div>
+          )}
+          
+          {visibility.capabilities && visibility.capabilities.length > 0 && (
+            <>
+              <Separator />
+              <div className="space-y-1">
+                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Code className="h-3 w-3" />
+                  {t.capabilities}:
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {visibility.capabilities.map(cap => (
+                    <Badge key={cap} variant="secondary" className="text-xs">
+                      {cap}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+          
+          {visibility.plans && visibility.plans.length > 0 && (
+            <div className="space-y-1">
+              <div className="text-xs text-muted-foreground flex items-center gap-1">
+                <Zap className="h-3 w-3" />
+                {t.plans}:
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {visibility.plans.map(plan => (
+                  <Badge key={plan} variant="outline" className="text-xs">
+                    {plan}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {permissions.description && (
+            <>
+              <Separator />
+              <p className="text-xs text-muted-foreground">{permissions.description}</p>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export function SidebarItemBadge({ roles }: { roles: RoleType[] }) {
+  const { isEnabled } = useSovereignView();
+  
+  if (!isEnabled || roles.length === 0) return null;
+  
+  const primaryRole = roles[0];
+  const config = roleConfig[primaryRole];
+  const Icon = config.icon;
+  
+  return (
+    <span className="ml-auto opacity-50">
+      <Icon className={cn("h-3 w-3", config.color)} />
+    </span>
+  );
+}
+
+export function PageTitleBadge({ visibility }: { visibility: VisibilityRule }) {
+  const { isEnabled } = useSovereignView();
+  const { language } = useLanguage();
+  
+  if (!isEnabled) return null;
+  
+  const primaryRole = visibility.roles[0];
+  const config = roleConfig[primaryRole];
+  const Icon = config.icon;
+  
+  return (
+    <Badge 
+      variant="outline" 
+      className={cn(
+        "opacity-70 text-xs gap-1",
+        config.color
+      )}
+    >
+      <Icon className="h-3 w-3" />
+      <span>{language === "ar" ? config.labelAr : config.label}</span>
+      {visibility.roles.length > 1 && (
+        <span className="text-muted-foreground">+{visibility.roles.length - 1}</span>
+      )}
+    </Badge>
+  );
+}
+
+// Page permissions registry for route-based access control
+const pagePermissionsRegistry: Record<string, { allowedRoles: RoleType[]; description: string; descriptionAr: string }> = {
+  "/": { 
+    allowedRoles: ["owner", "sovereign", "manager", "employee", "subscriber", "free", "pro", "enterprise", "public"],
+    description: "Home page - accessible to everyone",
+    descriptionAr: "الصفحة الرئيسية - متاحة للجميع"
+  },
+  "/home": { 
+    allowedRoles: ["owner", "sovereign", "manager", "employee", "subscriber", "free", "pro", "enterprise", "public"],
+    description: "Home page - accessible to everyone",
+    descriptionAr: "الصفحة الرئيسية - متاحة للجميع"
+  },
+  "/owner": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Owner Dashboard - exclusive owner access",
+    descriptionAr: "لوحة تحكم المالك - حصري للمالك"
+  },
+  "/owner/content-moderation": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Content Moderation - owner governance tool",
+    descriptionAr: "مراقبة المحتوى - أداة حوكمة المالك"
+  },
+  "/api-keys": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "API Keys Management - owner only",
+    descriptionAr: "إدارة مفاتيح API - المالك فقط"
+  },
+  "/users": { 
+    allowedRoles: ["owner", "sovereign", "manager"],
+    description: "User Management - owner and managers",
+    descriptionAr: "إدارة المستخدمين - المالك والمديرين"
+  },
+  "/console": { 
+    allowedRoles: ["owner", "sovereign", "manager", "employee", "pro", "enterprise"],
+    description: "Console - authenticated users with permissions",
+    descriptionAr: "وحدة التحكم - المستخدمين المصرح لهم"
+  },
+  "/cloud-ide": { 
+    allowedRoles: ["owner", "sovereign", "manager", "employee", "subscriber", "free", "pro", "enterprise"],
+    description: "Cloud IDE - all authenticated users",
+    descriptionAr: "بيئة التطوير السحابية - جميع المستخدمين المسجلين"
+  },
+  "/ai-app-builder": { 
+    allowedRoles: ["owner", "sovereign", "manager", "employee", "subscriber", "free", "pro", "enterprise"],
+    description: "AI App Builder - all authenticated users",
+    descriptionAr: "منشئ التطبيقات بالذكاء الاصطناعي - جميع المستخدمين"
+  },
+  "/ssl-certificates": { 
+    allowedRoles: ["owner", "sovereign", "manager"],
+    description: "SSL Certificates - administrative access",
+    descriptionAr: "شهادات SSL - الوصول الإداري"
+  },
+  "/deploy": { 
+    allowedRoles: ["owner", "sovereign", "manager", "pro", "enterprise"],
+    description: "One-Click Deploy - admin and paid plans",
+    descriptionAr: "النشر بنقرة واحدة - المسؤولين والباقات المدفوعة"
+  },
+  "/backend-generator": { 
+    allowedRoles: ["owner", "sovereign", "manager", "employee", "pro", "enterprise"],
+    description: "Backend Generator - development teams",
+    descriptionAr: "مولد الواجهة الخلفية - فرق التطوير"
+  },
+  "/version-control": { 
+    allowedRoles: ["owner", "sovereign", "manager", "employee", "subscriber", "free", "pro", "enterprise"],
+    description: "Version Control - all authenticated users",
+    descriptionAr: "التحكم بالإصدارات - جميع المستخدمين"
+  },
+    "/testing-generator": { 
+    allowedRoles: ["owner", "sovereign", "manager", "employee", "pro", "enterprise"],
+    description: "Testing Generator - development teams",
+    descriptionAr: "مولد الاختبارات - فرق التطوير"
+  },
+  "/ci-cd": { 
+    allowedRoles: ["owner", "sovereign", "manager", "pro", "enterprise"],
+    description: "CI/CD Pipeline - admin and paid plans",
+    descriptionAr: "خطوط CI/CD - المسؤولين والباقات المدفوعة"
+  },
+  // SOVEREIGN ZONE - المنطقة السيادية (المالك فقط)
+  "/sovereign": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Sovereign Control Center - ROOT_OWNER exclusive",
+    descriptionAr: "مركز التحكم السيادي - حصري للمالك الجذري"
+  },
+  "/sovereign-workspace": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Sovereign Workspace - ROOT_OWNER exclusive",
+    descriptionAr: "مساحة العمل السيادية - حصري للمالك الجذري"
+  },
+  "/logo-factory": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "INFERA Logo Factory - Sovereign Visual Identity Generator - ROOT_OWNER exclusive",
+    descriptionAr: "مصنع شعارات إنفيرا - مولد الهوية البصرية السيادية - حصري للمالك الجذري"
+  },
+  "/sovereign-plans": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Sovereign Plans - ROOT_OWNER exclusive",
+    descriptionAr: "الخطط السيادية - حصري للمالك الجذري"
+  },
+  "/sovereign-chat": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Sovereign AI Chat - ROOT_OWNER exclusive",
+    descriptionAr: "محادثة الذكاء السيادي - حصري للمالك الجذري"
+  },
+  "/sovereign/command-center": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Sovereign Command Center - ROOT_OWNER exclusive",
+    descriptionAr: "مركز القيادة السيادي - حصري للمالك الجذري"
+  },
+  "/sovereign/ai-governance": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "AI Governance Engine - ROOT_OWNER exclusive",
+    descriptionAr: "محرك حوكمة الذكاء الاصطناعي - حصري للمالك الجذري"
+  },
+  "/sovereign/digital-borders": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Digital Borders - ROOT_OWNER exclusive",
+    descriptionAr: "الحدود الرقمية - حصري للمالك الجذري"
+  },
+  "/sovereign/policy-engine": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Policy Engine - ROOT_OWNER exclusive",
+    descriptionAr: "محرك السياسات - حصري للمالك الجذري"
+  },
+  "/sovereign/trust-compliance": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Trust & Compliance - ROOT_OWNER exclusive",
+    descriptionAr: "الثقة والامتثال - حصري للمالك الجذري"
+  },
+  "/sovereign/strategic-forecast": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Strategic Forecast - ROOT_OWNER exclusive",
+    descriptionAr: "التنبؤ الاستراتيجي - حصري للمالك الجذري"
+  },
+  "/owner/isds": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "ISDS - ROOT_OWNER exclusive",
+    descriptionAr: "استوديو التطوير السيادي - حصري للمالك الجذري"
+  },
+  "/owner/spom": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "SPOM Operations - ROOT_OWNER exclusive",
+    descriptionAr: "عمليات SPOM - حصري للمالك الجذري"
+  },
+  "/owner/quality": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Quality Dashboard - ROOT_OWNER exclusive",
+    descriptionAr: "لوحة الجودة - حصري للمالك الجذري"
+  },
+  "/owner/sidebar-manager": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Sidebar Manager - ROOT_OWNER exclusive",
+    descriptionAr: "مدير الشريط الجانبي - حصري للمالك الجذري"
+  },
+  "/owner/ai-sovereignty": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "AI Sovereignty - ROOT_OWNER exclusive",
+    descriptionAr: "سيادة الذكاء الاصطناعي - حصري للمالك الجذري"
+  },
+  "/owner/infrastructure": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Infrastructure - ROOT_OWNER exclusive",
+    descriptionAr: "البنية التحتية - حصري للمالك الجذري"
+  },
+  "/owner/integrations": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Integration Gateway - ROOT_OWNER exclusive",
+    descriptionAr: "بوابة التكامل - حصري للمالك الجذري"
+  },
+  "/owner/notifications": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Owner Notifications - ROOT_OWNER exclusive",
+    descriptionAr: "إشعارات المالك - حصري للمالك الجذري"
+  },
+  "/owner/policies": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Owner Policies - ROOT_OWNER exclusive",
+    descriptionAr: "سياسات المالك - حصري للمالك الجذري"
+  },
+  "/government-compliance": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Government Compliance - ROOT_OWNER exclusive",
+    descriptionAr: "الجاهزية الحكومية - حصري للمالك الجذري"
+  },
+  "/content-moderation": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Content Moderation - ROOT_OWNER exclusive",
+    descriptionAr: "مراقبة المحتوى - حصري للمالك الجذري"
+  },
+  "/staff-management": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Staff Management - ROOT_OWNER exclusive",
+    descriptionAr: "إدارة الموظفين - حصري للمالك الجذري"
+  },
+  "/domains": { 
+    allowedRoles: ["owner", "sovereign"],
+    description: "Sovereign Domains - ROOT_OWNER exclusive",
+    descriptionAr: "النطاقات السيادية - حصري للمالك الجذري"
+  },
+};
+
+// Dynamic role registry - add new roles here and they auto-appear
+const roleRegistry: { role: RoleType; labelEn: string; labelAr: string; locked?: boolean }[] = [
+  { role: "owner", labelEn: "Owner", labelAr: "المالك", locked: true },
+  { role: "sovereign", labelEn: "Sovereign", labelAr: "سيادي", locked: true },
+  { role: "manager", labelEn: "Manager", labelAr: "مدير" },
+  { role: "employee", labelEn: "Employee", labelAr: "موظف" },
+  { role: "free", labelEn: "Free Subscriber", labelAr: "مشترك مجاني" },
+  { role: "pro", labelEn: "Paid Subscriber", labelAr: "مشترك مدفوع" },
+  { role: "enterprise", labelEn: "Enterprise", labelAr: "مؤسسة" },
+  { role: "public", labelEn: "Visitor", labelAr: "زائر" },
+];
+
+// Page name mapping for display
+const pageNameRegistry: Record<string, { en: string; ar: string }> = {
+  "/": { en: "Home", ar: "الرئيسية" },
+  "/sovereign-workspace": { en: "Sovereign Workspace", ar: "مساحة العمل السيادية" },
+  "/logo-factory": { en: "Logo Factory", ar: "مصنع الشعارات" },
+  "/settings": { en: "Settings", ar: "الإعدادات" },
+  "/audit-log": { en: "Audit Log", ar: "سجل المراجعة" },
+  "/team": { en: "Team", ar: "الفريق" },
+  "/landing-pages": { en: "Landing Pages", ar: "صفحات الهبوط" },
+  "/platforms": { en: "Platforms", ar: "المنصات" },
+  "/desktop-apps": { en: "Desktop Apps", ar: "تطبيقات سطح المكتب" },
+  "/maps": { en: "Maps", ar: "الخرائط" },
+  "/management": { en: "Management", ar: "الإدارة" },
+  "/projects": { en: "Projects", ar: "المشاريع" },
+  "/my-tasks": { en: "My Tasks", ar: "مهامي" },
+  "/sovereign-core": { en: "Sovereign Core", ar: "النواة السيادية" },
+  "/service-providers": { en: "Service Providers", ar: "مزودي الخدمات" },
+  "/infrastructure": { en: "Infrastructure", ar: "البنية التحتية" },
+  "/owner/policies": { en: "Owner Policies", ar: "سياسات المالك" },
+  "/government-compliance": { en: "Government Compliance", ar: "الجاهزية الحكومية" },
+  "/content-moderation": { en: "Content Moderation", ar: "مراقبة المحتوى" },
+  "/staff-management": { en: "Staff Management", ar: "إدارة الموظفين" },
+  "/domains": { en: "Sovereign Domains", ar: "النطاقات السيادية" },
+};
+
+interface SovereignAccessSummaryProps {
+  currentRoute: string;
+}
+
+export function SovereignAccessSummary({ currentRoute }: SovereignAccessSummaryProps) {
+  const { user } = useAuth();
+  const { isEnabled } = useSovereignView();
+  const { language } = useLanguage();
+  const { toast } = useToast();
+  
+  const [pageEnabled, setPageEnabled] = useState(() => isPageEnabled(currentRoute));
+  const [allowedUsers, setAllowedUsers] = useState<string[]>(() => getPageAllowedUsers(currentRoute));
+  const [customAllowedRoles, setCustomAllowedRoles] = useState<string[]>(() => getPageAllowedRoles(currentRoute));
+  const [newUsername, setNewUsername] = useState("");
+  const [showUserPanel, setShowUserPanel] = useState(false);
+  
+  // Emergency confirmation states for sovereign pages
+  const [showEmergencyDialog, setShowEmergencyDialog] = useState(false);
+  const [pendingRoleChange, setPendingRoleChange] = useState<{ role: string; label: string } | null>(null);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState(false);
+  
+  const isOwner = user?.role === "owner" || user?.role === "sovereign" || user?.username === "mohamedalib2001";
+  
+  // Refresh state when route changes
+  useEffect(() => {
+    setPageEnabled(isPageEnabled(currentRoute));
+    setAllowedUsers(getPageAllowedUsers(currentRoute));
+    setCustomAllowedRoles(getPageAllowedRoles(currentRoute));
+  }, [currentRoute]);
+  
+  if (!isOwner || !isEnabled) return null;
+  
+  // Find matching page permissions
+  const pagePerms = pagePermissionsRegistry[currentRoute] || pagePermissionsRegistry["/"];
+  const allowedRoles = pagePerms?.allowedRoles || [];
+  
+  // Check if this is a sovereign-only page (can be controlled)
+  const isSovereignPage = allowedRoles.length <= 2 && 
+    allowedRoles.every(r => r === "owner" || r === "sovereign");
+  
+  // Get page display name
+  const pageName = pageNameRegistry[currentRoute] || { en: currentRoute, ar: currentRoute };
+  const pageDisplayName = language === "ar" ? pageName.ar : pageName.en;
+  
+  const t = {
+    title: language === "ar" ? "صلاحيات الوصول للصفحة الحالية" : "Current Page Access Permissions",
+    allowed: language === "ar" ? "مسموح" : "Allowed",
+    blocked: language === "ar" ? "ممنوع" : "Blocked",
+    description: language === "ar" ? pagePerms?.descriptionAr : pagePerms?.description,
+    pageControl: language === "ar" ? "تحكم الصفحة" : "Page Control",
+    enablePage: language === "ar" ? "تفعيل الصفحة" : "Enable Page",
+    disablePage: language === "ar" ? "إلغاء تفعيل الصفحة" : "Disable Page",
+    pageActive: language === "ar" ? "الصفحة مفعلة" : "Page Active",
+    pageDisabled: language === "ar" ? "الصفحة معطلة" : "Page Disabled",
+    allowedUsers: language === "ar" ? "مستخدمين مسموح لهم" : "Allowed Users",
+    addUser: language === "ar" ? "إضافة مستخدم" : "Add User",
+    noUsers: language === "ar" ? "لم يتم إضافة مستخدمين" : "No users added",
+    userAdded: language === "ar" ? "تم إضافة المستخدم" : "User added",
+    userRemoved: language === "ar" ? "تم إزالة المستخدم" : "User removed",
+    enterUsername: language === "ar" ? "أدخل اسم المستخدم..." : "Enter username...",
+    manageUsers: language === "ar" ? "إدارة المستخدمين" : "Manage Users",
+    roleEnabled: language === "ar" ? "تم تفعيل الدور" : "Role enabled",
+    roleDisabled: language === "ar" ? "تم إلغاء تفعيل الدور" : "Role disabled",
+    clickToToggle: language === "ar" ? "انقر للتبديل" : "Click to toggle",
+    emergencyWarning: language === "ar" ? "تحذير طوارئ سيادي!" : "SOVEREIGN EMERGENCY WARNING!",
+    emergencyMessage: language === "ar" 
+      ? "أنت على وشك تغيير صلاحيات صفحة سيادية. هذا الإجراء قد يعرض أمان النظام للخطر."
+      : "You are about to change permissions on a SOVEREIGN page. This action may compromise system security.",
+    enterPassword: language === "ar" ? "أدخل كلمة المرور للتأكيد:" : "Enter password to confirm:",
+    confirmChange: language === "ar" ? "تأكيد التغيير" : "Confirm Change",
+    cancel: language === "ar" ? "إلغاء" : "Cancel",
+    wrongPassword: language === "ar" ? "كلمة المرور غير صحيحة" : "Incorrect password",
+    pageName: language === "ar" ? "الصفحة:" : "Page:",
+  };
+  
+  const handleTogglePage = () => {
+    const newState = togglePageEnabled(currentRoute);
+    setPageEnabled(newState);
+    toast({
+      title: newState ? t.pageActive : t.pageDisabled,
+      description: currentRoute,
+    });
+  };
+  
+  const handleAddUser = () => {
+    if (newUsername.trim()) {
+      addAllowedUser(currentRoute, newUsername.trim());
+      setAllowedUsers(getPageAllowedUsers(currentRoute));
+      setNewUsername("");
+      toast({
+        title: t.userAdded,
+        description: newUsername.trim(),
+      });
+    }
+  };
+  
+  const handleRemoveUser = (username: string) => {
+    removeAllowedUser(currentRoute, username);
+    setAllowedUsers(getPageAllowedUsers(currentRoute));
+    toast({
+      title: t.userRemoved,
+      description: username,
+    });
+  };
+  
+  const handleToggleRole = (role: string, roleLabel: string) => {
+    // Owner/sovereign roles cannot be toggled
+    const roleInfo = roleRegistry.find(r => r.role === role);
+    if (roleInfo?.locked) return;
+    
+    // For sovereign pages, show emergency warning dialog
+    if (isSovereignPage) {
+      setPendingRoleChange({ role, label: roleLabel });
+      setPasswordInput("");
+      setPasswordError(false);
+      setShowEmergencyDialog(true);
+      return;
+    }
+    
+    // For non-sovereign pages, apply directly
+    applyRoleChange(role, roleLabel);
+  };
+  
+  const applyRoleChange = (role: string, roleLabel: string) => {
+    const newState = toggleRoleAccess(currentRoute, role);
+    setCustomAllowedRoles(getPageAllowedRoles(currentRoute));
+    toast({
+      title: newState ? t.roleEnabled : t.roleDisabled,
+      description: roleLabel,
+    });
+  };
+  
+  const handleEmergencyConfirm = () => {
+    // Simple password check (in production, use proper authentication)
+    const OWNER_PASSWORD = "INFERA2025";
+    
+    if (passwordInput === OWNER_PASSWORD && pendingRoleChange) {
+      applyRoleChange(pendingRoleChange.role, pendingRoleChange.label);
+      setShowEmergencyDialog(false);
+      setPendingRoleChange(null);
+      setPasswordInput("");
+    } else {
+      setPasswordError(true);
+    }
+  };
+  
+  const handleEmergencyCancel = () => {
+    setShowEmergencyDialog(false);
+    setPendingRoleChange(null);
+    setPasswordInput("");
+    setPasswordError(false);
+  };
+  
+  return (
+    <>
+      {/* Emergency Warning Dialog */}
+      {showEmergencyDialog && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <Card className="w-96 border-2 border-red-500 bg-background shadow-2xl animate-pulse-border">
+            <CardHeader className="pb-2 bg-red-500/10 border-b border-red-500/30">
+              <CardTitle className="text-red-500 flex items-center gap-2 text-lg">
+                <AlertTriangle className="h-6 w-6 animate-pulse" />
+                {t.emergencyWarning}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-4">
+              <div className="p-3 rounded-md bg-red-500/10 border border-red-500/30">
+                <p className="text-sm text-red-400">{t.emergencyMessage}</p>
+              </div>
+              
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">{t.pageName}</p>
+                <Badge variant="outline" className="border-amber-500/50 text-amber-500">
+                  {pageDisplayName}
+                </Badge>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-xs font-medium">{t.enterPassword}</label>
+                <input
+                  type="password"
+                  value={passwordInput}
+                  onChange={(e) => {
+                    setPasswordInput(e.target.value);
+                    setPasswordError(false);
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && handleEmergencyConfirm()}
+                  className={cn(
+                    "w-full px-3 py-2 rounded-md border bg-background focus:outline-none focus:ring-2",
+                    passwordError 
+                      ? "border-red-500 focus:ring-red-500" 
+                      : "border-border focus:ring-violet-500"
+                  )}
+                  placeholder="••••••••"
+                  data-testid="input-emergency-password"
+                  autoFocus
+                />
+                {passwordError && (
+                  <p className="text-xs text-red-500">{t.wrongPassword}</p>
+                )}
+              </div>
+              
+              <div className="flex gap-2 pt-2">
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={handleEmergencyCancel}
+                  data-testid="button-cancel-emergency"
+                >
+                  {t.cancel}
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  className="flex-1"
+                  onClick={handleEmergencyConfirm}
+                  data-testid="button-confirm-emergency"
+                >
+                  {t.confirmChange}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+      
+      <Card className="fixed bottom-20 left-4 z-[9997] w-80 shadow-xl border-violet-500/30 bg-background/95 backdrop-blur-sm">
+      <CardHeader className="py-2 px-3 border-b border-violet-500/20">
+        <CardTitle className="text-xs font-medium flex items-center gap-2 text-violet-500">
+          <Eye className="h-3 w-3" />
+          {t.title}
+        </CardTitle>
+        {/* Page name display */}
+        <div className="flex items-center gap-2 mt-1.5">
+          <Badge 
+            variant="outline" 
+            className={cn(
+              "text-[10px] px-2",
+              isSovereignPage 
+                ? "border-red-500/50 text-red-400 bg-red-500/10" 
+                : "border-violet-500/50 text-violet-400"
+            )}
+          >
+            {pageDisplayName}
+          </Badge>
+          {isSovereignPage && (
+            <Badge variant="destructive" className="text-[9px] px-1">
+              {language === "ar" ? "سيادي" : "SOVEREIGN"}
+            </Badge>
+          )}
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-1">{t.description}</p>
+      </CardHeader>
+      <CardContent className="p-3 space-y-3">
+        {/* Page Enable/Disable Control - Only for sovereign pages */}
+        {isSovereignPage && (
+          <div className="p-2 rounded-lg border border-amber-500/30 bg-amber-500/5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Power className={cn("h-4 w-4", pageEnabled ? "text-green-500" : "text-red-500")} />
+                <div>
+                  <p className="text-xs font-medium">{t.pageControl}</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {pageEnabled ? t.pageActive : t.pageDisabled}
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={pageEnabled}
+                onCheckedChange={handleTogglePage}
+                data-testid="switch-page-enabled"
+              />
+            </div>
+          </div>
+        )}
+        
+        {/* Role-based access list - Clickable to toggle (Dynamic) */}
+        <div className="grid gap-1.5">
+          {roleRegistry.map(({ role, labelEn, labelAr, locked }) => {
+            // Check both default permissions and custom overrides
+            const defaultAllowed = (() => {
+              if (role === "owner") return allowedRoles.includes("owner") || allowedRoles.includes("sovereign");
+              if (role === "sovereign") return allowedRoles.includes("sovereign");
+              if (role === "manager") return allowedRoles.includes("manager");
+              if (role === "employee") return allowedRoles.includes("employee");
+              if (role === "free") return allowedRoles.includes("free") || allowedRoles.includes("subscriber");
+              if (role === "pro") return allowedRoles.includes("pro");
+              if (role === "enterprise") return allowedRoles.includes("enterprise");
+              if (role === "public") return allowedRoles.includes("public");
+              return false;
+            })();
+            
+            // Check if this role has been custom-enabled for this page
+            const customEnabled = customAllowedRoles.includes(role);
+            const isAllowed = defaultAllowed || customEnabled;
+            
+            // Owner/sovereign roles are always locked (cannot be toggled)
+            const isLocked = locked === true;
+            // Only sovereign pages can have toggleable roles
+            const canToggle = isSovereignPage && !isLocked;
+            
+            const config = roleConfig[role];
+            const Icon = config.icon;
+            const roleLabel = language === "ar" ? labelAr : labelEn;
+            
+            return (
+              <button 
+                key={role}
+                onClick={() => canToggle && handleToggleRole(role, roleLabel)}
+                disabled={isLocked}
+                className={cn(
+                  "flex items-center justify-between px-2 py-1.5 rounded-md text-xs w-full transition-all",
+                  isAllowed 
+                    ? "bg-green-500/10 border border-green-500/20" 
+                    : "bg-red-500/10 border border-red-500/20",
+                  canToggle && "cursor-pointer hover:opacity-80 active:scale-[0.98]",
+                  isLocked && "cursor-not-allowed"
+                )}
+                title={canToggle ? t.clickToToggle : undefined}
+                data-testid={`button-toggle-role-${role}`}
+              >
+                <div className="flex items-center gap-2">
+                  <Icon className={cn("h-3.5 w-3.5", config.color)} />
+                  <span className={isAllowed ? "text-foreground" : "text-muted-foreground"}>
+                    {roleLabel}
+                  </span>
+                  {customEnabled && !defaultAllowed && (
+                    <Badge variant="secondary" className="text-[8px] px-1 py-0">
+                      {language === "ar" ? "مخصص" : "Custom"}
+                    </Badge>
+                  )}
+                </div>
+                <Badge 
+                  variant="outline" 
+                  className={cn(
+                    "text-[10px] px-1.5 transition-colors",
+                    isAllowed 
+                      ? "border-green-500/50 text-green-600 bg-green-500/10" 
+                      : "border-red-500/50 text-red-500 bg-red-500/10"
+                  )}
+                >
+                  {isAllowed ? (
+                    <><Unlock className="h-2.5 w-2.5 mr-0.5" />{t.allowed}</>
+                  ) : (
+                    <><Lock className="h-2.5 w-2.5 mr-0.5" />{t.blocked}</>
+                  )}
+                </Badge>
+              </button>
+            );
+          })}
+        </div>
+        
+        {/* Specific Users Access Control - Only for sovereign pages */}
+        {isSovereignPage && (
+          <div className="pt-2 border-t border-border/50">
+            <button
+              onClick={() => setShowUserPanel(!showUserPanel)}
+              className="flex items-center justify-between w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
+              data-testid="button-toggle-user-panel"
+            >
+              <span className="flex items-center gap-1">
+                <Users className="h-3 w-3" />
+                {t.manageUsers}
+                {allowedUsers.length > 0 && (
+                  <Badge variant="secondary" className="text-[9px] px-1 py-0 ml-1">
+                    {allowedUsers.length}
+                  </Badge>
+                )}
+              </span>
+              <ChevronRight className={cn("h-3 w-3 transition-transform", showUserPanel && "rotate-90")} />
+            </button>
+            
+            {showUserPanel && (
+              <div className="mt-2 space-y-2">
+                {/* Add user input */}
+                <div className="flex gap-1">
+                  <input
+                    type="text"
+                    value={newUsername}
+                    onChange={(e) => setNewUsername(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddUser()}
+                    placeholder={t.enterUsername}
+                    className="flex-1 px-2 py-1 text-xs rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    data-testid="input-add-username"
+                  />
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={handleAddUser}
+                    className="h-7 px-2 text-xs"
+                    data-testid="button-add-user"
+                  >
+                    {t.addUser}
+                  </Button>
+                </div>
+                
+                {/* Allowed users list */}
+                <div className="max-h-24 overflow-y-auto space-y-1">
+                  {allowedUsers.length === 0 ? (
+                    <p className="text-[10px] text-muted-foreground text-center py-1">{t.noUsers}</p>
+                  ) : (
+                    allowedUsers.map((username) => (
+                      <div 
+                        key={username} 
+                        className="flex items-center justify-between px-2 py-1 rounded bg-blue-500/10 border border-blue-500/20"
+                      >
+                        <span className="text-xs flex items-center gap-1">
+                          <User className="h-3 w-3 text-blue-500" />
+                          {username}
+                        </span>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-5 w-5"
+                          onClick={() => handleRemoveUser(username)}
+                          data-testid={`button-remove-user-${username}`}
+                        >
+                          <X className="h-3 w-3 text-red-500" />
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Route display */}
+        <div className="pt-1 border-t border-border/50">
+          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            <Route className="h-3 w-3" />
+            <code className="bg-muted px-1 py-0.5 rounded text-[9px]">{currentRoute}</code>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+    </>
+  );
+}

@@ -1,0 +1,12 @@
+export { DashboardHeader } from './DashboardHeader';
+export { QuickStatsCards } from './QuickStatsCards';
+export { EmergencyControlsSection } from './EmergencyControlsSection';
+export { SovereignAssistantsSection } from './SovereignAssistantsSection';
+export { RecentActivitySection } from './RecentActivitySection';
+export { CommandQueueSection } from './CommandQueueSection';
+export { GovernanceSection } from './GovernanceSection';
+export { UsageAnalyticsSection } from './UsageAnalyticsSection';
+export { PaymentsSection } from './PaymentsSection';
+export { AuthMethodsSection } from './AuthMethodsSection';
+export { UsersSection } from './UsersSection';
+export { dashboardTranslations, type DashboardTranslations } from './dashboard-translations';

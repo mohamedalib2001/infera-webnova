@@ -1,0 +1,305 @@
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Monitor, Tablet, Smartphone, RefreshCw, Maximize2, Copy, Check, Download, Sparkles, Code2, Palette, Zap, CheckCircle2, Brain, Cpu, Lightbulb, Search, MessageSquare } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/hooks/use-language";
+
+interface CodePreviewProps {
+  html: string;
+  css: string;
+  js: string;
+  onRefresh?: () => void;
+  isGenerating?: boolean;
+  isThinking?: boolean;
+}
+
+type ViewportSize = "desktop" | "tablet" | "mobile";
+
+const viewportSizes: Record<ViewportSize, { width: string; icon: React.ReactNode }> = {
+  desktop: { width: "100%", icon: <Monitor className="h-4 w-4" /> },
+  tablet: { width: "768px", icon: <Tablet className="h-4 w-4" /> },
+  mobile: { width: "375px", icon: <Smartphone className="h-4 w-4" /> },
+};
+
+const generationStages = [
+  { id: "planning", icon: Sparkles, labelEn: "Analyzing platform requirements...", labelAr: "جاري تحليل متطلبات المنصة..." },
+  { id: "designing", icon: Palette, labelEn: "Designing sovereign architecture...", labelAr: "جاري تصميم البنية السيادية..." },
+  { id: "coding", icon: Code2, labelEn: "Generating sovereign code...", labelAr: "جاري توليد الكود السيادي..." },
+  { id: "optimizing", icon: Zap, labelEn: "Configuring compliance & governance...", labelAr: "جاري إعداد الامتثال والحوكمة..." },
+  { id: "finishing", icon: CheckCircle2, labelEn: "Initializing autonomous operations...", labelAr: "جاري تهيئة التشغيل الذاتي..." },
+];
+
+const thinkingStages = [
+  { id: "understanding", icon: MessageSquare, labelEn: "Understanding your request...", labelAr: "جاري فهم طلبك..." },
+  { id: "analyzing", icon: Search, labelEn: "Analyzing context...", labelAr: "جاري تحليل السياق..." },
+  { id: "thinking", icon: Brain, labelEn: "AI thinking deeply...", labelAr: "الذكاء الاصطناعي يفكر بعمق..." },
+  { id: "processing", icon: Cpu, labelEn: "Processing information...", labelAr: "جاري معالجة المعلومات..." },
+  { id: "formulating", icon: Lightbulb, labelEn: "Formulating response...", labelAr: "جاري صياغة الرد..." },
+];
+
+export function CodePreview({ html, css, js, onRefresh, isGenerating = false, isThinking = false }: CodePreviewProps) {
+  const [viewport, setViewport] = useState<ViewportSize>("desktop");
+  const [activeTab, setActiveTab] = useState<"preview" | "html" | "css" | "js">("preview");
+  const [copied, setCopied] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [currentStage, setCurrentStage] = useState(0);
+  const [thinkingStage, setThinkingStage] = useState(0);
+  const { toast } = useToast();
+  const { isRtl } = useLanguage();
+  
+  useEffect(() => {
+    if (isGenerating) {
+      setCurrentStage(0);
+      const interval = setInterval(() => {
+        setCurrentStage(prev => (prev + 1) % generationStages.length);
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [isGenerating]);
+  
+  useEffect(() => {
+    if (isThinking) {
+      setThinkingStage(0);
+      const interval = setInterval(() => {
+        setThinkingStage(prev => (prev + 1) % thinkingStages.length);
+      }, 2000);
+      return () => clearInterval(interval);
+    }
+  }, [isThinking]);
+  
+  console.log("CodePreview render - html:", html?.length || 0, "css:", css?.length || 0, "js:", js?.length || 0);
+
+  const generatePreviewContent = () => {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>${css}</style>
+        </head>
+        <body>
+          ${html}
+          <script>${js}</script>
+        </body>
+      </html>
+    `;
+  };
+
+  const copyToClipboard = async (code: string) => {
+    await navigator.clipboard.writeText(code);
+    setCopied(true);
+    toast({ title: "Copied to clipboard!" });
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const downloadCode = () => {
+    const fullCode = generatePreviewContent();
+    const blob = new Blob([fullCode], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "platform.html";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast({ title: "Downloaded successfully!" });
+  };
+
+  const CodeBlock = ({ code, language }: { code: string; language: string }) => (
+    <div className="relative h-full">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute top-2 right-2 z-10"
+        onClick={() => copyToClipboard(code)}
+        data-testid={`button-copy-${language}`}
+      >
+        {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+      </Button>
+      <pre className="h-full overflow-auto bg-muted/50 rounded-lg p-4 text-sm font-mono">
+        <code>{code || `// No ${language.toUpperCase()} code yet`}</code>
+      </pre>
+    </div>
+  );
+
+  return (
+    <div className={`flex flex-col h-full bg-card rounded-lg border ${isFullscreen ? "fixed inset-0 z-50" : ""}`}>
+      {/* Toolbar */}
+      <div className="flex items-center justify-between p-3 border-b gap-2 flex-wrap">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
+          <TabsList>
+            <TabsTrigger value="preview" data-testid="tab-preview">Preview</TabsTrigger>
+            <TabsTrigger value="html" data-testid="tab-html">HTML</TabsTrigger>
+            <TabsTrigger value="css" data-testid="tab-css">CSS</TabsTrigger>
+            <TabsTrigger value="js" data-testid="tab-js">JS</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        
+        <div className="flex items-center gap-1">
+          {activeTab === "preview" && (
+            <>
+              {(Object.keys(viewportSizes) as ViewportSize[]).map((size) => (
+                <Button
+                  key={size}
+                  variant={viewport === size ? "secondary" : "ghost"}
+                  size="icon"
+                  onClick={() => setViewport(size)}
+                  data-testid={`button-viewport-${size}`}
+                >
+                  {viewportSizes[size].icon}
+                </Button>
+              ))}
+              <div className="w-px h-6 bg-border mx-1" />
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onRefresh}
+                data-testid="button-refresh-preview"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            data-testid="button-fullscreen"
+          >
+            <Maximize2 className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={downloadCode}
+            data-testid="button-download"
+          >
+            <Download className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      
+      {/* Content */}
+      <div className="flex-1 overflow-hidden p-4">
+        {activeTab === "preview" ? (
+          <div
+            className="h-full flex items-start justify-center overflow-auto bg-white dark:bg-gray-900 rounded-lg"
+            style={{ padding: viewport !== "desktop" ? "1rem" : 0 }}
+          >
+            <div
+              className="h-full bg-white rounded-lg shadow-lg overflow-hidden transition-all duration-300"
+              style={{ width: viewportSizes[viewport].width, maxWidth: "100%" }}
+            >
+              {isThinking ? (
+                <div className="h-full flex flex-col items-center justify-center gap-8 p-8">
+                  <div className="relative">
+                    <div className="w-28 h-28 rounded-full bg-gradient-to-tr from-blue-500/20 via-purple-500/20 to-cyan-500/20 animate-pulse" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-600 via-purple-600 to-cyan-600 flex items-center justify-center" style={{ animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }}>
+                        {(() => {
+                          const ThinkIcon = thinkingStages[thinkingStage].icon;
+                          return <ThinkIcon className="w-10 h-10 text-white" />;
+                        })()}
+                      </div>
+                    </div>
+                    <div className="absolute -inset-6 rounded-full border-2 border-purple-400/40 animate-ping" style={{ animationDuration: "1.5s" }} />
+                    <div className="absolute -inset-3 rounded-full border border-blue-400/30 animate-ping" style={{ animationDuration: "2s", animationDelay: "0.5s" }} />
+                  </div>
+                  
+                  <div className="text-center space-y-4">
+                    <div className="flex items-center justify-center gap-2">
+                      <Brain className="w-5 h-5 text-purple-500 animate-bounce" />
+                      <p className="text-xl font-semibold bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 bg-clip-text text-transparent">
+                        {isRtl ? "جاري التفكير" : "AI Thinking"}
+                      </p>
+                      <Cpu className="w-5 h-5 text-cyan-500 animate-bounce" style={{ animationDelay: "0.2s" }} />
+                    </div>
+                    <p className="text-base text-foreground/80 animate-pulse">
+                      {isRtl ? thinkingStages[thinkingStage].labelAr : thinkingStages[thinkingStage].labelEn}
+                    </p>
+                    <div className="flex items-center justify-center gap-1.5">
+                      {thinkingStages.map((stage, idx) => (
+                        <div
+                          key={stage.id}
+                          className={`h-1.5 rounded-full transition-all duration-500 ${
+                            idx === thinkingStage 
+                              ? "bg-gradient-to-r from-blue-500 to-purple-500 w-8" 
+                              : idx < thinkingStage 
+                                ? "bg-purple-400/60 w-2" 
+                                : "bg-muted-foreground/30 w-2"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {isRtl ? "الذكاء الاصطناعي يحلل سؤالك بعمق..." : "AI is analyzing your question deeply..."}
+                    </p>
+                  </div>
+                </div>
+              ) : isGenerating ? (
+                <div className="h-full flex flex-col items-center justify-center gap-8 p-8">
+                  <div className="relative">
+                    <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-primary/20 to-primary/40 animate-pulse" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center animate-spin" style={{ animationDuration: "3s" }}>
+                        {(() => {
+                          const StageIcon = generationStages[currentStage].icon;
+                          return <StageIcon className="w-8 h-8 text-primary-foreground" />;
+                        })()}
+                      </div>
+                    </div>
+                    <div className="absolute -inset-4 rounded-full border-2 border-primary/30 animate-ping" style={{ animationDuration: "2s" }} />
+                  </div>
+                  
+                  <div className="text-center space-y-3">
+                    <p className="text-lg font-medium text-foreground animate-pulse">
+                      {isRtl ? generationStages[currentStage].labelAr : generationStages[currentStage].labelEn}
+                    </p>
+                    <div className="flex items-center justify-center gap-2">
+                      {generationStages.map((stage, idx) => (
+                        <div
+                          key={stage.id}
+                          className={`w-2 h-2 rounded-full transition-all duration-500 ${
+                            idx === currentStage 
+                              ? "bg-primary w-6" 
+                              : idx < currentStage 
+                                ? "bg-primary/60" 
+                                : "bg-muted-foreground/30"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {isRtl ? "يرجى الانتظار بينما نقوم ببناء منصتك السيادية" : "Please wait while we build your sovereign platform"}
+                    </p>
+                  </div>
+                </div>
+              ) : html || css || js ? (
+                <iframe
+                  srcDoc={generatePreviewContent()}
+                  className="w-full h-full border-0"
+                  title="Preview"
+                  sandbox="allow-scripts"
+                  data-testid="iframe-preview"
+                />
+              ) : (
+                <div className="h-full flex items-center justify-center text-muted-foreground">
+                  <p>{isRtl ? "ستظهر معاينة منصتك السيادية هنا" : "Your sovereign platform preview will appear here"}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : activeTab === "html" ? (
+          <CodeBlock code={html} language="html" />
+        ) : activeTab === "css" ? (
+          <CodeBlock code={css} language="css" />
+        ) : (
+          <CodeBlock code={js} language="js" />
+        )}
+      </div>
+    </div>
+  );
+}
