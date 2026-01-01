@@ -21,6 +21,10 @@ const EXCLUDE_PATTERNS = [
   'backup',
 ];
 
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 function shouldExclude(filePath: string): boolean {
   const parts = filePath.split('/');
   for (const pattern of EXCLUDE_PATTERNS) {
@@ -63,6 +67,34 @@ function getAllFiles(dir: string, baseDir: string = dir): { path: string; conten
   return files;
 }
 
+async function createBlobWithRetry(
+  octokit: Octokit,
+  owner: string,
+  content: string,
+  maxRetries: number = 3
+): Promise<string | null> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const { data: blob } = await octokit.git.createBlob({
+        owner,
+        repo: REPO_NAME,
+        content,
+        encoding: "base64",
+      });
+      return blob.sha;
+    } catch (e: any) {
+      if (e.status === 403 && e.message.includes("secondary rate limit")) {
+        const waitTime = Math.pow(2, attempt + 1) * 1000;
+        console.log(`Rate limited, waiting ${waitTime}ms before retry...`);
+        await delay(waitTime);
+      } else {
+        throw e;
+      }
+    }
+  }
+  return null;
+}
+
 async function main() {
   if (!GITHUB_TOKEN) {
     console.error("GITHUB_PERSONAL_ACCESS_TOKEN not set");
@@ -94,24 +126,36 @@ async function main() {
     console.log("No existing main branch, will create");
   }
 
-  const blobs = [];
+  const blobs: { path: string; sha: string; mode: "100644"; type: "blob" }[] = [];
+  const BATCH_SIZE = 20;
+  const BATCH_DELAY = 2000;
+
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     if (i % 50 === 0) console.log(`Creating blobs: ${i}/${files.length}`);
+    
     try {
-      const { data: blob } = await octokit.git.createBlob({
-        owner,
-        repo: REPO_NAME,
-        content: file.content,
-        encoding: "base64",
-      });
-      blobs.push({ path: `app/${file.path}`, sha: blob.sha, mode: "100644" as const, type: "blob" as const });
+      const sha = await createBlobWithRetry(octokit, owner, file.content);
+      if (sha) {
+        blobs.push({ path: `app/${file.path}`, sha, mode: "100644" as const, type: "blob" as const });
+      } else {
+        console.log(`Failed to create blob for ${file.path} after retries`);
+      }
     } catch (e: any) {
       console.log(`Failed to create blob for ${file.path}: ${e.message}`);
+    }
+
+    if ((i + 1) % BATCH_SIZE === 0) {
+      await delay(BATCH_DELAY);
     }
   }
 
   console.log(`Created ${blobs.length} blobs`);
+
+  if (blobs.length === 0) {
+    console.error("No blobs created, cannot continue");
+    process.exit(1);
+  }
 
   const { data: tree } = await octokit.git.createTree({
     owner,
@@ -124,7 +168,7 @@ async function main() {
   const { data: commit } = await octokit.git.createCommit({
     owner,
     repo: REPO_NAME,
-    message: `Sync INFERA WebNova Platform - ${new Date().toISOString()}`,
+    message: `Sync INFERA WebNova Platform (app/) - ${new Date().toISOString()}`,
     tree: tree.sha,
     parents: currentSha ? [currentSha] : [],
   });
