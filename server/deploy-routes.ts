@@ -1,8 +1,26 @@
 import { Router, Request, Response } from 'express';
 import { Client, ClientChannel } from 'ssh2';
 import crypto from 'crypto';
+import sshpk from 'sshpk';
 
 const router = Router();
+
+// Convert PKCS8 Ed25519 key to OpenSSH format for ssh2 compatibility
+function normalizePrivateKey(keyData: string): string {
+  try {
+    if (keyData.includes('BEGIN OPENSSH PRIVATE KEY')) {
+      return keyData;
+    }
+    if (keyData.includes('BEGIN PRIVATE KEY') || keyData.includes('BEGIN RSA PRIVATE KEY')) {
+      const key = sshpk.parsePrivateKey(keyData, 'pem');
+      return key.toString('ssh-private');
+    }
+    return keyData;
+  } catch (error) {
+    console.error('[Deploy] Key conversion error:', error);
+    return keyData;
+  }
+}
 
 const ENCRYPTION_KEY = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
 const IV_LENGTH = 16;
@@ -144,7 +162,7 @@ function executeSSHCommand(config: SSHConnectionConfig, command: string): Promis
       host: config.host,
       port: config.port,
       username: config.username,
-      privateKey: config.privateKey,
+      privateKey: normalizePrivateKey(config.privateKey),
     });
   });
 }

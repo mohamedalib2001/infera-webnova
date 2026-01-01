@@ -61,6 +61,13 @@ import {
   LazyTerms,
   LazyPrivacy,
   LazyRefund,
+  LazyOwnerSPOM,
+  LazyOwnerDynamicControl,
+  LazyOwnerNovaPermissions,
+  LazyOwnerAICapabilityControl,
+  LazyOwnerAssistantGovernance,
+  LazyOwnerGitHubImport,
+  LazyISDSDashboard,
 } from "@/lib/lazy-routes";
 import { usePlatformBranding } from "@/hooks/use-platform-branding";
 
@@ -98,6 +105,12 @@ function GuestRouter() {
       <Route path="/pricing" component={Pricing} />
       <Route path="/support" component={LazySupport} />
       <Route path="/preview/:shareCode" component={Preview} />
+      {/* Public Legal/Info Pages */}
+      <Route path="/about" component={LazyAbout} />
+      <Route path="/contact" component={LazyContact} />
+      <Route path="/terms" component={LazyTerms} />
+      <Route path="/privacy" component={LazyPrivacy} />
+      <Route path="/refund" component={LazyRefund} />
       <Route component={RedirectToAuth} />
     </Switch>
   );
@@ -117,9 +130,16 @@ function AuthenticatedRouter() {
       <Route path="/sovereign" component={Sovereign} />
       <Route path="/sovereign-workspace" component={LazySovereignWorkspace} />
       
-      {/* Owner Pages - Sovereign Access */}
+      {/* Owner Pages - Sovereign Access (Specific Routes) */}
       <Route path="/owner" component={Sovereign} />
-      <Route path="/owner/:page*" component={Sovereign} />
+      <Route path="/owner/spom" component={LazyOwnerSPOM} />
+      <Route path="/owner/dynamic-control" component={LazyOwnerDynamicControl} />
+      <Route path="/owner/nova-permissions" component={LazyOwnerNovaPermissions} />
+      <Route path="/owner/ai-capability-control" component={LazyOwnerAICapabilityControl} />
+      <Route path="/owner/assistant-governance" component={LazyOwnerAssistantGovernance} />
+      <Route path="/owner/github-import" component={LazyOwnerGitHubImport} />
+      
+      {/* Admin Tools */}
       <Route path="/api-keys" component={ApiKeys} />
       <Route path="/ssh-vault" component={SshVault} />
       <Route path="/github-sync" component={GitHubSync} />
@@ -145,6 +165,9 @@ function AuthenticatedRouter() {
       <Route path="/nova" component={LazyNovaChat} />
       <Route path="/nova/dashboard" component={LazyNovaAIDashboard} />
       <Route path="/nova/permissions" component={NovaPermissions} />
+      
+      {/* ISDS - Infrastructure Security */}
+      <Route path="/isds" component={LazyISDSDashboard} />
       
       {/* Payments */}
       <Route path="/payment/success" component={PaymentSuccess} />

@@ -42,3 +42,14 @@ export const LazyContact = lazyPage(() => import('@/pages/contact'));
 export const LazyTerms = lazyPage(() => import('@/pages/terms'));
 export const LazyPrivacy = lazyPage(() => import('@/pages/privacy'));
 export const LazyRefund = lazyPage(() => import('@/pages/refund'));
+
+// Owner Pages - Sovereign Access Only
+export const LazyOwnerSPOM = lazyPage(() => import('@/pages/owner/spom'));
+export const LazyOwnerDynamicControl = lazyPage(() => import('@/pages/owner/dynamic-control'));
+export const LazyOwnerNovaPermissions = lazyPage(() => import('@/pages/owner/nova-permissions'));
+export const LazyOwnerAICapabilityControl = lazyPage(() => import('@/pages/owner/ai-capability-control'));
+export const LazyOwnerAssistantGovernance = lazyPage(() => import('@/pages/owner/assistant-governance'));
+export const LazyOwnerGitHubImport = lazyPage(() => import('@/pages/owner/github-import'));
+
+// ISDS Pages
+export const LazyISDSDashboard = lazyPage(() => import('@/pages/isds/index'));
