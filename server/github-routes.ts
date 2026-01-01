@@ -43,8 +43,18 @@ function shouldExclude(filePath: string): boolean {
 }
 
 // Recursively read all files from directory
-async function readAllFiles(dir: string, baseDir: string = dir): Promise<GitHubFile[]> {
+async function readAllFiles(dir: string, baseDir: string = dir, exclusions: string[] = EXCLUDE_PATTERNS): Promise<GitHubFile[]> {
   const files: GitHubFile[] = [];
+  
+  const shouldExcludeFile = (filePath: string): boolean => {
+    const parts = filePath.split('/');
+    return parts.some(part => exclusions.some(pattern => {
+      if (pattern.startsWith('*')) {
+        return part.endsWith(pattern.slice(1));
+      }
+      return part === pattern;
+    }));
+  };
   
   try {
     const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -53,10 +63,10 @@ async function readAllFiles(dir: string, baseDir: string = dir): Promise<GitHubF
       const fullPath = path.join(dir, entry.name);
       const relativePath = path.relative(baseDir, fullPath);
       
-      if (shouldExclude(relativePath)) continue;
+      if (shouldExcludeFile(relativePath)) continue;
       
       if (entry.isDirectory()) {
-        const subFiles = await readAllFiles(fullPath, baseDir);
+        const subFiles = await readAllFiles(fullPath, baseDir, exclusions);
         files.push(...subFiles);
       } else if (entry.isFile()) {
         try {
@@ -1184,11 +1194,15 @@ router.post("/sync-platform", async (req: Request, res: Response) => {
       });
     }
 
-    const { repoName, isPrivate = true, commitMessage, branch = 'main' } = req.body;
+    const { repoName, isPrivate = true, commitMessage, branch = 'main', includeAll = false } = req.body;
 
     if (!repoName) {
       return res.status(400).json({ error: "Repository name is required | اسم المستودع مطلوب" });
     }
+
+    // If includeAll is true, only exclude .git (to avoid conflicts) and .env files (security)
+    const minimalExclusions = ['.git', '.env', '.env.local'];
+    const activeExclusions = includeAll ? minimalExclusions : EXCLUDE_PATTERNS;
 
     const githubUser = await getAuthenticatedUser();
     const owner = githubUser.login;
@@ -1213,9 +1227,9 @@ router.post("/sync-platform", async (req: Request, res: Response) => {
 
     // Read all files from platform root
     const projectRoot = process.cwd();
-    console.log(`[GitHub Sync] Reading files from: ${projectRoot}`);
+    console.log(`[GitHub Sync] Reading files from: ${projectRoot}, includeAll: ${includeAll}`);
     
-    const files = await readAllFiles(projectRoot);
+    const files = await readAllFiles(projectRoot, projectRoot, activeExclusions);
     
     if (files.length === 0) {
       return res.status(400).json({ error: "No files to sync | لا توجد ملفات للمزامنة" });

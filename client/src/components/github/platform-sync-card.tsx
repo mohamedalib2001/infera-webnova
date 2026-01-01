@@ -44,6 +44,7 @@ export function PlatformSyncCard() {
   const [repoName, setRepoName] = useState("infera-webnova");
   const [isPrivate, setIsPrivate] = useState(true);
   const [commitMessage, setCommitMessage] = useState("");
+  const [includeAll, setIncludeAll] = useState(true);
   
   const isOwner = user?.role === "owner" || user?.role === "admin" || user?.email === "mohamed.ali.b2001@gmail.com";
 
@@ -66,7 +67,9 @@ export function PlatformSyncCard() {
       success: "تمت المزامنة بنجاح!",
       error: "فشلت المزامنة",
       excluded: "الملفات المستثناة",
-      loading: "جاري التحميل..."
+      loading: "جاري التحميل...",
+      includeAll: "مزامنة كاملة (بما فيها node_modules)",
+      includeAllDesc: "رفع جميع الملفات (فقط .git و .env مستثناة للأمان)"
     },
     en: {
       title: "Full Platform Sync",
@@ -86,7 +89,9 @@ export function PlatformSyncCard() {
       success: "Sync successful!",
       error: "Sync failed",
       excluded: "Excluded Files",
-      loading: "Loading..."
+      loading: "Loading...",
+      includeAll: "Full Sync (including node_modules)",
+      includeAllDesc: "Upload all files (only .git and .env excluded for security)"
     }
   };
 
@@ -98,7 +103,7 @@ export function PlatformSyncCard() {
   });
 
   const syncMutation = useMutation({
-    mutationFn: async (data: { repoName: string; isPrivate: boolean; commitMessage?: string }) => {
+    mutationFn: async (data: { repoName: string; isPrivate: boolean; commitMessage?: string; includeAll?: boolean }) => {
       const res = await apiRequest("POST", "/api/github/sync-platform", data);
       return res.json();
     },
@@ -122,7 +127,8 @@ export function PlatformSyncCard() {
     syncMutation.mutate({
       repoName,
       isPrivate,
-      commitMessage: commitMessage || undefined
+      commitMessage: commitMessage || undefined,
+      includeAll
     });
   };
 
@@ -185,6 +191,21 @@ export function PlatformSyncCard() {
                   onCheckedChange={setIsPrivate}
                   data-testid="switch-private"
                 />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2">
+                    <Package className="h-4 w-4" />
+                    {text.includeAll}
+                  </Label>
+                  <Switch
+                    checked={includeAll}
+                    onCheckedChange={setIncludeAll}
+                    data-testid="switch-include-all"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">{text.includeAllDesc}</p>
               </div>
 
               <div className="space-y-2">
