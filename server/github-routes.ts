@@ -1200,9 +1200,8 @@ router.post("/sync-platform", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Repository name is required | اسم المستودع مطلوب" });
     }
 
-    // If includeAll is true, only exclude .git (to avoid conflicts) and .env files (security)
-    const minimalExclusions = ['.git', '.env', '.env.local'];
-    const activeExclusions = includeAll ? minimalExclusions : EXCLUDE_PATTERNS;
+    // If includeAll is true, only exclude .env files (contain secrets/API keys)
+    const activeExclusions = includeAll ? ['.env', '.env.local', '.env.production'] : EXCLUDE_PATTERNS;
 
     const githubUser = await getAuthenticatedUser();
     const owner = githubUser.login;

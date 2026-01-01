@@ -68,8 +68,8 @@ export function PlatformSyncCard() {
       error: "فشلت المزامنة",
       excluded: "الملفات المستثناة",
       loading: "جاري التحميل...",
-      includeAll: "مزامنة كاملة (بما فيها node_modules)",
-      includeAllDesc: "رفع جميع الملفات (فقط .git و .env مستثناة للأمان)"
+      includeAll: "مزامنة كاملة (كل الملفات)",
+      includeAllDesc: "رفع جميع الملفات بدون أي استثناء"
     },
     en: {
       title: "Full Platform Sync",
@@ -90,8 +90,8 @@ export function PlatformSyncCard() {
       error: "Sync failed",
       excluded: "Excluded Files",
       loading: "Loading...",
-      includeAll: "Full Sync (including node_modules)",
-      includeAllDesc: "Upload all files (only .git and .env excluded for security)"
+      includeAll: "Full Sync (all files)",
+      includeAllDesc: "Upload all files without any exclusions"
     }
   };
 
