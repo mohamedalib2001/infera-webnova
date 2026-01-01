@@ -42,6 +42,7 @@ const SshVault = lazy(() => import("@/pages/ssh-vault"));
 const PlatformBuilder = lazy(() => import("@/pages/platform-builder"));
 const SmartPlatformBuilder = lazy(() => import("@/pages/smart-platform-builder"));
 const GitHubSync = lazy(() => import("@/pages/github-sync"));
+const GitHubImport = lazy(() => import("@/pages/owner/github-import"));
 const IntegrationsSettings = lazy(() => import("@/pages/integrations-settings"));
 const HetznerCloud = lazy(() => import("@/pages/hetzner-cloud"));
 const TechnicalDocumentation = lazy(() => import("@/pages/technical-documentation"));
@@ -122,6 +123,7 @@ function AuthenticatedRouter() {
       <Route path="/api-keys" component={ApiKeys} />
       <Route path="/ssh-vault" component={SshVault} />
       <Route path="/github-sync" component={GitHubSync} />
+      <Route path="/github-import" component={GitHubImport} />
       <Route path="/integrations" component={IntegrationsSettings} />
       <Route path="/hetzner-cloud" component={HetznerCloud} />
       <Route path="/technical-docs" component={TechnicalDocumentation} />

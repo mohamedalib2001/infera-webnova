@@ -5,6 +5,79 @@ import { projects, hetznerCloudConfig } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { storage } from "./storage";
 import { encryptCredential, decryptCredential } from "./crypto-utils";
+import { promises as fs } from "fs";
+import path from "path";
+
+// Directories and files to exclude from full platform sync
+const EXCLUDE_PATTERNS = [
+  'node_modules',
+  '.git',
+  '.replit',
+  '.cache',
+  '.upm',
+  'dist',
+  '.next',
+  '__pycache__',
+  '.env',
+  '.env.local',
+  'package-lock.json',
+  'yarn.lock',
+  'pnpm-lock.yaml',
+  '.DS_Store',
+  'thumbs.db',
+  '*.log',
+  '.nix-*',
+  'replit.nix',
+  '.breakpoints'
+];
+
+// Helper to check if path should be excluded
+function shouldExclude(filePath: string): boolean {
+  const parts = filePath.split('/');
+  return parts.some(part => EXCLUDE_PATTERNS.some(pattern => {
+    if (pattern.startsWith('*')) {
+      return part.endsWith(pattern.slice(1));
+    }
+    return part === pattern;
+  }));
+}
+
+// Recursively read all files from directory
+async function readAllFiles(dir: string, baseDir: string = dir): Promise<GitHubFile[]> {
+  const files: GitHubFile[] = [];
+  
+  try {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      const relativePath = path.relative(baseDir, fullPath);
+      
+      if (shouldExclude(relativePath)) continue;
+      
+      if (entry.isDirectory()) {
+        const subFiles = await readAllFiles(fullPath, baseDir);
+        files.push(...subFiles);
+      } else if (entry.isFile()) {
+        try {
+          const stat = await fs.stat(fullPath);
+          // Skip files larger than 1MB
+          if (stat.size > 1024 * 1024) continue;
+          
+          const content = await fs.readFile(fullPath, 'utf-8');
+          files.push({ path: relativePath, content });
+        } catch (e) {
+          // Skip binary or unreadable files
+          console.log(`[GitHub Sync] Skipped: ${relativePath}`);
+        }
+      }
+    }
+  } catch (e) {
+    console.error(`[GitHub Sync] Error reading ${dir}:`, e);
+  }
+  
+  return files;
+}
 
 // Helper to get stored Hetzner config from database
 async function getStoredHetznerConfig(userId: string = 'default-user') {
@@ -1093,6 +1166,106 @@ router.post("/profiles/:id/test", async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error("[Profile Test] Error:", error.message);
     res.status(500).json({ success: false, message: error.message || "Connection test failed" });
+  }
+});
+
+// ==================== SYNC FULL PLATFORM TO GITHUB ====================
+
+// Sync entire platform codebase to GitHub (Owner only)
+router.post("/sync-platform", async (req: Request, res: Response) => {
+  try {
+    const session = (req as any).session;
+    const user = session?.user;
+    
+    // Owner-only check
+    if (!user || (user.role !== 'owner' && user.role !== 'admin' && user.email !== 'mohamed.ali.b2001@gmail.com')) {
+      return res.status(403).json({ 
+        error: "هذه الميزة متاحة للمالك فقط | This feature is owner-only" 
+      });
+    }
+
+    const { repoName, isPrivate = true, commitMessage, branch = 'main' } = req.body;
+
+    if (!repoName) {
+      return res.status(400).json({ error: "Repository name is required | اسم المستودع مطلوب" });
+    }
+
+    const githubUser = await getAuthenticatedUser();
+    const owner = githubUser.login;
+
+    // Create or get repository
+    let repo;
+    try {
+      repo = await getRepo(owner, repoName);
+      console.log(`[GitHub Sync] Using existing repo: ${owner}/${repoName}`);
+    } catch (error: any) {
+      if (error.status === 404) {
+        repo = await createRepo(repoName, {
+          description: 'INFERA WebNova Platform - Sovereign Digital Platform Factory',
+          private: isPrivate,
+          auto_init: true
+        });
+        console.log(`[GitHub Sync] Created new repo: ${owner}/${repoName}`);
+      } else {
+        throw error;
+      }
+    }
+
+    // Read all files from platform root
+    const projectRoot = process.cwd();
+    console.log(`[GitHub Sync] Reading files from: ${projectRoot}`);
+    
+    const files = await readAllFiles(projectRoot);
+    
+    if (files.length === 0) {
+      return res.status(400).json({ error: "No files to sync | لا توجد ملفات للمزامنة" });
+    }
+
+    console.log(`[GitHub Sync] Found ${files.length} files to sync`);
+
+    // Push all files to GitHub
+    const message = commitMessage || `Sync INFERA WebNova Platform - ${new Date().toISOString()}`;
+    
+    const result = await pushFilesToRepo(owner, repoName, branch, files, message);
+
+    res.json({
+      success: true,
+      repo: `${owner}/${repoName}`,
+      url: `https://github.com/${owner}/${repoName}`,
+      branch,
+      filesCount: files.length,
+      commitSha: result.sha,
+      commitUrl: result.url,
+      message: `تم رفع ${files.length} ملف بنجاح | Successfully synced ${files.length} files`
+    });
+  } catch (error: any) {
+    console.error("[GitHub Sync Platform] Error:", error.message);
+    res.status(500).json({ error: error.message || "Failed to sync platform" });
+  }
+});
+
+// Get platform files count (preview before sync)
+router.get("/platform-files-count", async (req: Request, res: Response) => {
+  try {
+    const projectRoot = process.cwd();
+    const files = await readAllFiles(projectRoot);
+    
+    // Group by directory
+    const byDirectory: Record<string, number> = {};
+    for (const file of files) {
+      const dir = path.dirname(file.path).split('/')[0] || 'root';
+      byDirectory[dir] = (byDirectory[dir] || 0) + 1;
+    }
+    
+    res.json({
+      success: true,
+      totalFiles: files.length,
+      byDirectory,
+      excludedPatterns: EXCLUDE_PATTERNS
+    });
+  } catch (error: any) {
+    console.error("[GitHub] Error counting files:", error.message);
+    res.status(500).json({ error: error.message || "Failed to count files" });
   }
 });
 

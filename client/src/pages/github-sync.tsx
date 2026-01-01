@@ -9,6 +9,7 @@ import { SyncHistoryCard } from "@/components/github/sync-history-card";
 import { DeploymentHistoryCard } from "@/components/github/deployment-history-card";
 import { ConnectedRepoCard } from "@/components/github/connected-repo-card";
 import { ServerConfigForm } from "@/components/github/server-config-form";
+import { PlatformSyncCard } from "@/components/github/platform-sync-card";
 import { DocLinkButton } from "@/components/doc-link-button";
 
 interface GitHubUser {
@@ -135,10 +136,13 @@ export default function GitHubSync() {
           isConnected={status.connected} 
           onSettingsChange={setCurrentSettings}
         />
-        <SyncHistoryCard />
+        <PlatformSyncCard />
       </div>
 
-      <DeploymentHistoryCard />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <SyncHistoryCard />
+        <DeploymentHistoryCard />
+      </div>
 
       <ConnectedRepoCard />
 
