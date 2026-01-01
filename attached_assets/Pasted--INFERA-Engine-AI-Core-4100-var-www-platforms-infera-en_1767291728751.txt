@@ -1,0 +1,22 @@
+المنصة	البورت	المسار	الخدمة	الدومين
+INFERA Engine AI Core	4100	/var/www/platforms/infera-engine-ai-core	infera-infera-engine-ai-core.service	www.inferaaicore.com
+INFERA Engine Control	4101	/var/www/platforms/infera-engine-control	infera-infera-engine-control.service	inferaenginecontrol.com
+INFERA Engine	4102	/var/www/platforms/infera-engine	infera-infera-engine.service	www.inferaengine.com
+SmartMemoryAI	4103	/var/www/platforms/smartmemoryai	infera-smartmemoryai.service	www.smartmemoryai.com
+INFERA HumanIQ	4104	/var/www/platforms/infera-humaniq	infera-infera-humaniq.service	www.inferahumaniqai.com
+INFERA Legal AI	4105	/var/www/platforms/infera-legal-ai	infera-infera-legal-ai.service	www.inferalegal.com
+INFERA AppForge AI	4106	/var/www/platforms/infera-appforge-ai	infera-infera-appforge-ai.service	www.inferaappforge.com
+INFERA Marketing AI	4107	/var/www/platforms/infera-marketing-ai	infera-infera-marketing-ai.service	www.inferamarketing.com
+INFERA Marketplace AI	4108	/var/www/platforms/infera-marketplace-ai	infera-infera-marketplace-ai.service	www.inferamarketplace.com
+INFERA AI Education Hub	4109	/var/www/platforms/infera-ai-education-hub	infera-infera-ai-education-hub.service	www.inferaeducation.com
+INFERA Attend AI	4110	/var/www/platforms/infera-attend-ai	infera-infera-attend-ai.service	www.inferaattend.com
+INFERA Smart Docs	4111	/var/www/platforms/infera-smart-docs	infera-infera-smart-docs.service	www.inferasmartdocs.com
+INFERA Hospitality AI	4112	/var/www/platforms/infera-hospitality-ai	infera-infera-hospitality-ai.service	www.inferahospitality.com
+INFERA VisionFeasibility	4114	/var/www/platforms/infera-visionfeasibility	infera-infera-visionfeasibility.service	www.inferavisionfeasibility.com
+INFERA CV Builder	4115	/var/www/platforms/infera-cv-builder	infera-infera-cv-builder.service	www.inferacvBuilder.com
+INFERA Jobs AI	4116	/var/www/platforms/infera-jobs-ai	infera-infera-jobs-ai.service	www.inferajobs.com
+INFERA TrainAI	4117	/var/www/platforms/infera-trainai	infera-infera-trainai.service	www.inferatrain.com
+INFERA Sovereign Finance AI	4118	/var/www/platforms/infera-sovereign-finance-ai	infera-infera-sovereign-finance-ai.service	www.inferafinance.com
+INFERA Finance AI Global	4119	/var/www/platforms/infera-finance-ai-global	infera-infera-finance-ai-global.service	www.InferaFinanceGlobal.com
+INFERA ShieldGrid	4120	/var/www/platforms/infera-shieldgrid	infera-infera-shieldgrid.service	www.inferashieldgrid.com
+INFERA Smart Remote AI	4121	/var/www/platforms/infera-smart-remote-ai	infera-infera-smart-remote-ai.service	www.inferasmartremoteai.com
