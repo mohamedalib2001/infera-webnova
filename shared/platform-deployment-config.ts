@@ -155,6 +155,13 @@ export const INFERA_PLATFORMS: PlatformDeploymentConfig[] = [
     service: "infera-infera-smart-remote-ai.service",
     domain: "www.inferasmartremoteai.com",
   },
+  {
+    name: "INFERA WebNova",
+    port: 4113,
+    path: "/var/www/platforms/infera-webnova",
+    service: "infera-infera-webnova.service",
+    domain: "www.inferawebnova.com",
+  },
 ];
 
 export function getPlatformByName(name: string): PlatformDeploymentConfig | undefined {
