@@ -105,7 +105,7 @@ async function main() {
         content: file.content,
         encoding: "base64",
       });
-      blobs.push({ path: file.path, sha: blob.sha, mode: "100644" as const, type: "blob" as const });
+      blobs.push({ path: `app/${file.path}`, sha: blob.sha, mode: "100644" as const, type: "blob" as const });
     } catch (e: any) {
       console.log(`Failed to create blob for ${file.path}: ${e.message}`);
     }
