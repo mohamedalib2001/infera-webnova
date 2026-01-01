@@ -1,0 +1,234 @@
+/**
+ * Sovereign Pulse Indicator Styles
+ * GPU-friendly CSS animations
+ * No canvas, no heavy SVG filters
+ */
+
+.sovereign-pulse-container {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
+
+/* Core - النواة الداخلية */
+.sovereign-pulse-core {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(circle, 
+    rgba(167, 139, 250, 0.9) 0%, 
+    rgba(139, 92, 246, 0.7) 50%, 
+    rgba(109, 40, 217, 0.4) 100%
+  );
+  box-shadow: 0 0 6px rgba(139, 92, 246, 0.5);
+  z-index: 3;
+}
+
+/* Aura - الهالة الخارجية */
+.sovereign-pulse-aura {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(circle, 
+    rgba(167, 139, 250, 0.3) 0%, 
+    rgba(139, 92, 246, 0.1) 60%, 
+    transparent 100%
+  );
+  z-index: 2;
+}
+
+/* Ring - الحلقة الخارجية */
+.sovereign-pulse-ring {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  z-index: 1;
+}
+
+/* ========================================
+   Pulse Animations - النبض
+   ======================================== */
+
+/* Slow pulse (0-40) - نبض بطيء */
+.pulse-slow .sovereign-pulse-core {
+  animation: pulse-slow-core 3s ease-in-out infinite;
+  background: radial-gradient(circle, 
+    rgba(251, 191, 36, 0.8) 0%, 
+    rgba(245, 158, 11, 0.6) 50%, 
+    rgba(217, 119, 6, 0.3) 100%
+  );
+  box-shadow: 0 0 4px rgba(245, 158, 11, 0.3);
+}
+
+.pulse-slow .sovereign-pulse-aura {
+  animation: pulse-slow-aura 3s ease-in-out infinite;
+  background: radial-gradient(circle, 
+    rgba(251, 191, 36, 0.2) 0%, 
+    rgba(245, 158, 11, 0.05) 60%, 
+    transparent 100%
+  );
+}
+
+.pulse-slow .sovereign-pulse-ring {
+  border-color: rgba(245, 158, 11, 0.15);
+  animation: pulse-slow-ring 3s ease-in-out infinite;
+}
+
+@keyframes pulse-slow-core {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.1); opacity: 0.9; }
+}
+
+@keyframes pulse-slow-aura {
+  0%, 100% { transform: scale(1); opacity: 0.4; }
+  50% { transform: scale(1.15); opacity: 0.6; }
+}
+
+@keyframes pulse-slow-ring {
+  0%, 100% { transform: scale(1); opacity: 0.3; }
+  50% { transform: scale(1.1); opacity: 0.5; }
+}
+
+/* Moderate pulse (41-70) - نبض منتظم */
+.pulse-moderate .sovereign-pulse-core {
+  animation: pulse-moderate-core 2s ease-in-out infinite;
+  background: radial-gradient(circle, 
+    rgba(34, 211, 238, 0.9) 0%, 
+    rgba(6, 182, 212, 0.7) 50%, 
+    rgba(8, 145, 178, 0.4) 100%
+  );
+  box-shadow: 0 0 5px rgba(6, 182, 212, 0.4);
+}
+
+.pulse-moderate .sovereign-pulse-aura {
+  animation: pulse-moderate-aura 2s ease-in-out infinite;
+  background: radial-gradient(circle, 
+    rgba(34, 211, 238, 0.25) 0%, 
+    rgba(6, 182, 212, 0.1) 60%, 
+    transparent 100%
+  );
+}
+
+.pulse-moderate .sovereign-pulse-ring {
+  border-color: rgba(6, 182, 212, 0.2);
+  animation: pulse-moderate-ring 2s ease-in-out infinite;
+}
+
+@keyframes pulse-moderate-core {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+
+@keyframes pulse-moderate-aura {
+  0%, 100% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.2); opacity: 0.7; }
+}
+
+@keyframes pulse-moderate-ring {
+  0%, 100% { transform: scale(1); opacity: 0.4; }
+  50% { transform: scale(1.15); opacity: 0.6; }
+}
+
+/* Fast pulse (71-90) - نبض سريع */
+.pulse-fast .sovereign-pulse-core {
+  animation: pulse-fast-core 1.5s ease-in-out infinite;
+  background: radial-gradient(circle, 
+    rgba(167, 139, 250, 0.95) 0%, 
+    rgba(139, 92, 246, 0.8) 50%, 
+    rgba(109, 40, 217, 0.5) 100%
+  );
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.5);
+}
+
+.pulse-fast .sovereign-pulse-aura {
+  animation: pulse-fast-aura 1.5s ease-in-out infinite;
+  background: radial-gradient(circle, 
+    rgba(167, 139, 250, 0.35) 0%, 
+    rgba(139, 92, 246, 0.15) 60%, 
+    transparent 100%
+  );
+}
+
+.pulse-fast .sovereign-pulse-ring {
+  border-color: rgba(139, 92, 246, 0.25);
+  animation: pulse-fast-ring 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-fast-core {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.2); opacity: 1; }
+}
+
+@keyframes pulse-fast-aura {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.25); opacity: 0.85; }
+}
+
+@keyframes pulse-fast-ring {
+  0%, 100% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.2); opacity: 0.7; }
+}
+
+/* Excellent pulse (91-100) - نبض ممتاز */
+.pulse-excellent .sovereign-pulse-core {
+  animation: pulse-excellent-core 1.2s ease-in-out infinite;
+  background: radial-gradient(circle, 
+    rgba(192, 132, 252, 1) 0%, 
+    rgba(168, 85, 247, 0.9) 50%, 
+    rgba(139, 92, 246, 0.6) 100%
+  );
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.6);
+}
+
+.pulse-excellent .sovereign-pulse-aura {
+  animation: pulse-excellent-aura 1.2s ease-in-out infinite;
+  background: radial-gradient(circle, 
+    rgba(192, 132, 252, 0.4) 0%, 
+    rgba(168, 85, 247, 0.2) 60%, 
+    transparent 100%
+  );
+}
+
+.pulse-excellent .sovereign-pulse-ring {
+  border-color: rgba(168, 85, 247, 0.3);
+  animation: pulse-excellent-ring 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse-excellent-core {
+  0%, 100% { transform: scale(1); opacity: 0.95; }
+  50% { transform: scale(1.25); opacity: 1; }
+}
+
+@keyframes pulse-excellent-aura {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.3); opacity: 0.9; }
+}
+
+@keyframes pulse-excellent-ring {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.25); opacity: 0.8; }
+}
+
+/* Tooltip Styles */
+.sovereign-pulse-tooltip {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  backdrop-filter: blur(8px);
+}
+
+/* Dark mode adjustments */
+.dark .sovereign-pulse-core {
+  filter: brightness(1.1);
+}
+
+.dark .sovereign-pulse-aura {
+  filter: brightness(1.2);
+}

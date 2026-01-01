@@ -1,0 +1,3064 @@
+import { promises as fs } from 'fs';
+import path from 'path';
+import archiver from 'archiver';
+import { Writable } from 'stream';
+
+export interface PlatformSpec {
+  name: string;
+  nameAr?: string;
+  description: string;
+  descriptionAr?: string;
+  sector: string;
+  features: string[];
+  hasAuth?: boolean;
+  hasPayments?: boolean;
+  hasSubscriptions?: boolean;
+  hasCMS?: boolean;
+  hasAnalytics?: boolean;
+  primaryColor?: string;
+  secondaryColor?: string;
+}
+
+export interface GeneratedFile {
+  fileName: string;
+  filePath: string;
+  content: string;
+  language: string;
+  category: string;
+}
+
+export interface BuildResult {
+  id: string;
+  status: 'building' | 'complete' | 'error';
+  platform: PlatformSpec;
+  files: GeneratedFile[];
+  downloadUrl?: string;
+  previewHtml?: string;
+  error?: string;
+  createdAt: Date;
+}
+
+const builds = new Map<string, BuildResult>();
+
+export async function buildPlatform(spec: PlatformSpec): Promise<BuildResult> {
+  const buildId = `build_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+  
+  const result: BuildResult = {
+    id: buildId,
+    status: 'building',
+    platform: spec,
+    files: [],
+    createdAt: new Date()
+  };
+  
+  builds.set(buildId, result);
+  
+  try {
+    const files = generateAllPlatformCode(spec);
+    result.files = files;
+    result.status = 'complete';
+    result.downloadUrl = `/api/platforms/download/${buildId}`;
+    result.previewHtml = generatePreviewHtml(spec, files);
+    builds.set(buildId, result);
+    
+    return result;
+  } catch (error) {
+    result.status = 'error';
+    result.error = error instanceof Error ? error.message : 'Unknown error';
+    builds.set(buildId, result);
+    return result;
+  }
+}
+
+export function getBuild(buildId: string): BuildResult | undefined {
+  return builds.get(buildId);
+}
+
+export async function createZipBuffer(build: BuildResult): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    
+    const writableStream = new Writable({
+      write(chunk, encoding, callback) {
+        chunks.push(Buffer.from(chunk));
+        callback();
+      }
+    });
+    
+    writableStream.on('finish', () => {
+      resolve(Buffer.concat(chunks));
+    });
+    
+    archive.on('error', reject);
+    archive.pipe(writableStream);
+    
+    for (const file of build.files) {
+      archive.append(file.content, { name: file.filePath });
+    }
+    
+    archive.finalize();
+  });
+}
+
+function generateAllPlatformCode(spec: PlatformSpec): GeneratedFile[] {
+  const files: GeneratedFile[] = [];
+  
+  files.push(...generatePackageJson(spec));
+  files.push(...generateSchema(spec));
+  files.push(...generateAuthRoutes(spec));
+  files.push(...generateMainServer(spec));
+  files.push(...generateEnvTemplate(spec));
+  files.push(...generateDockerFiles(spec));
+  files.push(...generateFrontendApp(spec));
+  files.push(...generateReadme(spec));
+  files.push(...generateHealthAndMonitoring(spec));
+  files.push(...generateRateLimiter(spec));
+  files.push(...generateRedisCache(spec));
+  files.push(...generateOpenApiSpec(spec));
+  files.push(...generateMicroservicesConfig(spec));
+  
+  if (spec.hasSubscriptions) {
+    files.push(...generateSubscriptionRoutes(spec));
+  }
+  
+  if (spec.hasPayments) {
+    files.push(...generatePaymentWebhooks(spec));
+  }
+  
+  return files;
+}
+
+function generatePackageJson(spec: PlatformSpec): GeneratedFile[] {
+  const content = `{
+  "name": "${spec.name.toLowerCase().replace(/\s+/g, '-')}",
+  "version": "1.0.0",
+  "description": "${spec.description}",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch server/index.ts",
+    "build": "vite build && tsc -p tsconfig.server.json",
+    "start": "node dist/server/index.js",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^3.9.0",
+    "@radix-ui/react-dialog": "^1.1.2",
+    "@radix-ui/react-label": "^2.1.0",
+    "@radix-ui/react-select": "^2.1.2",
+    "@radix-ui/react-slot": "^1.1.0",
+    "@radix-ui/react-toast": "^1.2.2",
+    "@tanstack/react-query": "^5.56.2",
+    "bcryptjs": "^2.4.3",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
+    "cookie-parser": "^1.4.6",
+    "drizzle-orm": "^0.33.0",
+    "drizzle-zod": "^0.5.1",
+    "express": "^4.21.0",
+    "lucide-react": "^0.441.0",
+    "pg": "^8.13.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-hook-form": "^7.53.0",
+    "tailwind-merge": "^2.5.2",
+    "tailwindcss-animate": "^1.0.7",
+    "redis": "^4.7.0",
+    "wouter": "^3.3.5",
+    "zod": "^3.23.8"${spec.hasPayments ? ',\n    "stripe": "^14.0.0"' : ''}
+  },
+  "devDependencies": {
+    "@types/redis": "^4.0.11",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cookie-parser": "^1.4.7",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.5.5",
+    "@types/pg": "^8.11.10",
+    "@types/react": "^18.3.8",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.20",
+    "drizzle-kit": "^0.24.2",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.12",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2",
+    "vite": "^5.4.6"
+  }
+}`;
+
+  return [{
+    fileName: 'package.json',
+    filePath: 'package.json',
+    content,
+    language: 'json',
+    category: 'config'
+  }];
+}
+
+function generateSchema(spec: PlatformSpec): GeneratedFile[] {
+  const content = `import { pgTable, text, serial, integer, boolean, timestamp, decimal, varchar, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
+import { relations } from "drizzle-orm";
+
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  password: text("password").notNull(),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  role: text("role").default("user").notNull(),
+  avatar: text("avatar"),
+  emailVerified: boolean("email_verified").default(false),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  emailIdx: uniqueIndex("users_email_idx").on(table.email),
+}));
+
+export const sessions = pgTable("sessions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  tokenIdx: uniqueIndex("sessions_token_idx").on(table.token),
+  userIdx: index("sessions_user_idx").on(table.userId),
+}));
+
+${spec.hasSubscriptions ? `
+export const plans = pgTable("plans", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  nameAr: text("name_ar"),
+  description: text("description"),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).default("USD"),
+  interval: text("interval").default("month"),
+  features: text("features").array(),
+  stripePriceId: text("stripe_price_id"),
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0),
+});
+
+export const subscriptions = pgTable("subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  planId: integer("plan_id").references(() => plans.id).notNull(),
+  status: text("status").default("active").notNull(),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  stripeCustomerId: text("stripe_customer_id"),
+  currentPeriodStart: timestamp("current_period_start"),
+  currentPeriodEnd: timestamp("current_period_end"),
+  canceledAt: timestamp("canceled_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdx: index("subscriptions_user_idx").on(table.userId),
+  stripeIdx: index("subscriptions_stripe_idx").on(table.stripeSubscriptionId),
+}));
+` : ''}
+
+${spec.hasPayments ? `
+export const payments = pgTable("payments", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  subscriptionId: integer("subscription_id"),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).default("USD"),
+  status: text("status").default("pending").notNull(),
+  stripeInvoiceId: text("stripe_invoice_id"),
+  receiptUrl: text("receipt_url"),
+  paidAt: timestamp("paid_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdx: index("payments_user_idx").on(table.userId),
+}));
+` : ''}
+
+export const settings = pgTable("settings", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  value: text("value"),
+  category: text("category").default("general"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const usersRelations = relations(users, ({ many }) => ({
+  sessions: many(sessions),
+  ${spec.hasSubscriptions ? 'subscriptions: many(subscriptions),' : ''}
+  ${spec.hasPayments ? 'payments: many(payments),' : ''}
+}));
+
+export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
+export const insertSessionSchema = createInsertSchema(sessions).omit({ id: true, createdAt: true });
+${spec.hasSubscriptions ? 'export const insertPlanSchema = createInsertSchema(plans).omit({ id: true });' : ''}
+${spec.hasSubscriptions ? 'export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({ id: true, createdAt: true });' : ''}
+${spec.hasPayments ? 'export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true, createdAt: true });' : ''}
+
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type Session = typeof sessions.$inferSelect;
+${spec.hasSubscriptions ? 'export type Plan = typeof plans.$inferSelect;' : ''}
+${spec.hasSubscriptions ? 'export type Subscription = typeof subscriptions.$inferSelect;' : ''}
+${spec.hasPayments ? 'export type Payment = typeof payments.$inferSelect;' : ''}
+`;
+
+  return [{
+    fileName: 'schema.ts',
+    filePath: 'shared/schema.ts',
+    content,
+    language: 'typescript',
+    category: 'shared'
+  }];
+}
+
+function generateAuthRoutes(spec: PlatformSpec): GeneratedFile[] {
+  const content = `import { Router, Request, Response } from "express";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import { db } from "../db";
+import { users, sessions } from "@shared/schema";
+import { eq } from "drizzle-orm";
+import { z } from "zod";
+
+const router = Router();
+
+const registerSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+});
+
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string(),
+});
+
+router.post("/register", async (req: Request, res: Response) => {
+  try {
+    const validated = registerSchema.safeParse(req.body);
+    if (!validated.success) {
+      return res.status(400).json({ error: "Invalid input data" });
+    }
+
+    const { email, password, firstName, lastName } = validated.data;
+
+    const existingUser = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    if (existingUser.length > 0) {
+      return res.status(400).json({ error: "Email already registered" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+    const [newUser] = await db.insert(users).values({
+      email,
+      password: hashedPassword,
+      firstName,
+      lastName,
+    }).returning();
+
+    res.status(201).json({ message: "Account created successfully", userId: newUser.id });
+  } catch (error) {
+    console.error("Registration error:", error);
+    res.status(500).json({ error: "Failed to create account" });
+  }
+});
+
+router.post("/login", async (req: Request, res: Response) => {
+  try {
+    const validated = loginSchema.safeParse(req.body);
+    if (!validated.success) {
+      return res.status(400).json({ error: "Invalid email or password format" });
+    }
+
+    const { email, password } = validated.data;
+
+    const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    if (!user) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    await db.insert(sessions).values({
+      userId: user.id,
+      token,
+      expiresAt,
+    });
+
+    res.cookie("session_token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      expires: expiresAt,
+    });
+
+    res.json({
+      message: "Login successful",
+      user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role },
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ error: "Failed to login" });
+  }
+});
+
+router.post("/logout", async (req: Request, res: Response) => {
+  try {
+    const token = req.cookies.session_token;
+    if (token) {
+      await db.delete(sessions).where(eq(sessions.token, token));
+    }
+    res.clearCookie("session_token");
+    res.json({ message: "Logged out successfully" });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to logout" });
+  }
+});
+
+router.get("/me", async (req: Request, res: Response) => {
+  try {
+    const token = req.cookies.session_token;
+    if (!token) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    const [session] = await db.select().from(sessions).where(eq(sessions.token, token)).limit(1);
+    if (!session || new Date(session.expiresAt) < new Date()) {
+      return res.status(401).json({ error: "Session expired" });
+    }
+
+    const [user] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
+    if (!user) {
+      return res.status(401).json({ error: "User not found" });
+    }
+
+    res.json({
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      avatar: user.avatar,
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to get user" });
+  }
+});
+
+export default router;
+`;
+
+  return [{
+    fileName: 'auth.ts',
+    filePath: 'server/routes/auth.ts',
+    content,
+    language: 'typescript',
+    category: 'backend'
+  }];
+}
+
+function generateMainServer(spec: PlatformSpec): GeneratedFile[] {
+  const content = `import express from "express";
+import cookieParser from "cookie-parser";
+import { createServer } from "http";
+import authRoutes from "./routes/auth";
+import healthRoutes from "./routes/health";
+import metricsRoutes from "./routes/metrics";
+import { apiLimiter, authLimiter } from "./middleware/rate-limiter";
+${spec.hasSubscriptions ? 'import subscriptionRoutes from "./routes/subscriptions";' : ''}
+${spec.hasPayments ? 'import webhookRoutes from "./routes/webhooks";' : ''}
+
+const app = express();
+
+${spec.hasPayments ? '// Stripe webhooks need raw body - must be before json parser\napp.use("/api/webhooks/stripe", express.raw({ type: "application/json" }));' : ''}
+
+app.use(express.json());
+app.use(cookieParser());
+
+// Security headers
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  next();
+});
+
+// Rate limiting
+app.use("/api/auth/login", authLimiter);
+app.use("/api/auth/register", authLimiter);
+app.use("/api", apiLimiter);
+
+// Routes
+app.use("/api/auth", authRoutes);
+app.use("/health", healthRoutes);
+app.use("/metrics", metricsRoutes);
+${spec.hasSubscriptions ? 'app.use("/api/subscriptions", subscriptionRoutes);' : ''}
+${spec.hasPayments ? 'app.use("/api/webhooks", webhookRoutes);' : ''}
+
+const httpServer = createServer(app);
+const PORT = process.env.PORT || 5000;
+
+httpServer.listen(PORT, "0.0.0.0", () => {
+  console.log(\`${spec.name} server running on port \${PORT}\`);
+  console.log(\`Health: http://localhost:\${PORT}/health\`);
+  console.log(\`Metrics: http://localhost:\${PORT}/metrics\`);
+});
+
+export default app;
+`;
+
+  return [{
+    fileName: 'index.ts',
+    filePath: 'server/index.ts',
+    content,
+    language: 'typescript',
+    category: 'backend'
+  }];
+}
+
+function generateSubscriptionRoutes(spec: PlatformSpec): GeneratedFile[] {
+  const content = `import { Router, Request, Response } from "express";
+import { db } from "../db";
+import { plans, subscriptions } from "@shared/schema";
+import { eq } from "drizzle-orm";
+import Stripe from "stripe";
+
+const router = Router();
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", { apiVersion: "2024-12-18.acacia" });
+
+router.get("/plans", async (req: Request, res: Response) => {
+  try {
+    const allPlans = await db.select().from(plans).where(eq(plans.isActive, true));
+    res.json(allPlans);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch plans" });
+  }
+});
+
+router.post("/create-checkout", async (req: Request, res: Response) => {
+  try {
+    const { planId, userId } = req.body;
+    
+    const [plan] = await db.select().from(plans).where(eq(plans.id, planId));
+    if (!plan || !plan.stripePriceId) {
+      return res.status(404).json({ error: "Plan not found" });
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      line_items: [{ price: plan.stripePriceId, quantity: 1 }],
+      mode: "subscription",
+      success_url: \`\${process.env.APP_URL}/subscription/success?session_id={CHECKOUT_SESSION_ID}\`,
+      cancel_url: \`\${process.env.APP_URL}/pricing\`,
+      metadata: { userId: String(userId), planId: String(planId) },
+    });
+
+    res.json({ url: session.url });
+  } catch (error) {
+    console.error("Checkout error:", error);
+    res.status(500).json({ error: "Failed to create checkout session" });
+  }
+});
+
+router.get("/my-subscription", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ error: "Not authenticated" });
+
+    const [subscription] = await db.select().from(subscriptions)
+      .where(eq(subscriptions.userId, userId));
+    
+    res.json(subscription || null);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch subscription" });
+  }
+});
+
+export default router;
+`;
+
+  return [{
+    fileName: 'subscriptions.ts',
+    filePath: 'server/routes/subscriptions.ts',
+    content,
+    language: 'typescript',
+    category: 'backend'
+  }];
+}
+
+function generatePaymentWebhooks(spec: PlatformSpec): GeneratedFile[] {
+  const content = `import { Router } from "express";
+import Stripe from "stripe";
+import { db } from "../db";
+import { payments, subscriptions } from "@shared/schema";
+import { eq } from "drizzle-orm";
+
+const router = Router();
+
+if (!process.env.STRIPE_SECRET_KEY) {
+  console.warn("STRIPE_SECRET_KEY not set - webhooks will not work");
+}
+if (!process.env.STRIPE_WEBHOOK_SECRET) {
+  console.warn("STRIPE_WEBHOOK_SECRET not set - webhooks will not work");
+}
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", { apiVersion: "2024-12-18.acacia" });
+const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
+
+router.post("/stripe", async (req, res) => {
+  const sig = req.headers["stripe-signature"] as string;
+  
+  if (!sig) {
+    return res.status(400).send("Missing stripe-signature header");
+  }
+  
+  let event: Stripe.Event;
+
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("Webhook signature verification failed:", message);
+    return res.status(400).send(\`Webhook Error: \${message}\`);
+  }
+
+  try {
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const userId = parseInt(session.metadata?.userId || "0");
+        const planId = parseInt(session.metadata?.planId || "0");
+        
+        if (userId && planId) {
+          await db.insert(subscriptions).values({
+            userId,
+            planId,
+            status: "active",
+            stripeSubscriptionId: session.subscription as string,
+            stripeCustomerId: session.customer as string,
+            currentPeriodStart: new Date(),
+            currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          });
+        }
+        break;
+      }
+
+      case "invoice.paid": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const customerId = invoice.customer as string;
+        
+        const [subscription] = await db.select().from(subscriptions)
+          .where(eq(subscriptions.stripeCustomerId, customerId));
+        
+        if (subscription) {
+          await db.insert(payments).values({
+            userId: subscription.userId,
+            subscriptionId: subscription.id,
+            amount: (invoice.amount_paid / 100).toFixed(2),
+            currency: invoice.currency.toUpperCase(),
+            status: "completed",
+            stripeInvoiceId: invoice.id,
+            receiptUrl: invoice.hosted_invoice_url || undefined,
+            paidAt: new Date(),
+          });
+        }
+        break;
+      }
+
+      case "customer.subscription.deleted": {
+        const sub = event.data.object as Stripe.Subscription;
+        await db.update(subscriptions)
+          .set({ status: "cancelled", canceledAt: new Date() })
+          .where(eq(subscriptions.stripeSubscriptionId, sub.id));
+        break;
+      }
+    }
+
+    res.json({ received: true });
+  } catch (error) {
+    console.error("Webhook processing error:", error);
+    res.status(500).json({ error: "Webhook processing failed" });
+  }
+});
+
+export default router;
+`;
+
+  return [{
+    fileName: 'webhooks.ts',
+    filePath: 'server/routes/webhooks.ts',
+    content,
+    language: 'typescript',
+    category: 'backend'
+  }];
+}
+
+function generateEnvTemplate(spec: PlatformSpec): GeneratedFile[] {
+  const content = `# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/${spec.name.toLowerCase().replace(/\s+/g, '_')}
+
+# Application
+NODE_ENV=development
+PORT=5000
+APP_URL=http://localhost:5000
+SESSION_SECRET=your-session-secret-here
+
+${spec.hasPayments ? `# Stripe
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PUBLISHABLE_KEY=pk_test_...
+` : ''}
+`;
+
+  return [{
+    fileName: '.env.example',
+    filePath: '.env.example',
+    content,
+    language: 'plaintext',
+    category: 'config'
+  }];
+}
+
+function generateDockerFiles(spec: PlatformSpec): GeneratedFile[] {
+  const files: GeneratedFile[] = [];
+  const appName = spec.name.toLowerCase().replace(/\s+/g, '-');
+  
+  const dockerfile = `FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci && npm cache clean --force
+COPY . .
+RUN npm run build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 app
+COPY --from=builder --chown=app:nodejs /app/dist ./dist
+COPY --from=builder --chown=app:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=app:nodejs /app/package.json ./
+USER app
+EXPOSE 5000
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 CMD wget --no-verbose --tries=1 --spider http://localhost:5000/health || exit 1
+CMD ["node", "dist/server/index.js"]
+`;
+
+  files.push({
+    fileName: 'Dockerfile',
+    filePath: 'Dockerfile',
+    content: dockerfile,
+    language: 'dockerfile',
+    category: 'infrastructure'
+  });
+
+  const dockerCompose = `version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://app:\${DB_PASSWORD}@db:5432/${appName}
+      - REDIS_URL=redis://redis:6379
+      ${spec.hasPayments ? '- STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}\n      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}' : ''}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=app
+      - POSTGRES_PASSWORD=\${DB_PASSWORD}
+      - POSTGRES_DB=${appName}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d ${appName}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+`;
+
+  files.push({
+    fileName: 'docker-compose.yml',
+    filePath: 'docker-compose.yml',
+    content: dockerCompose,
+    language: 'yaml',
+    category: 'infrastructure'
+  });
+
+  const kubernetesDeployment = `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${appName}
+  labels:
+    app: ${appName}
+    version: v1
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: ${appName}
+  template:
+    metadata:
+      labels:
+        app: ${appName}
+        version: v1
+    spec:
+      serviceAccountName: ${appName}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+      containers:
+      - name: app
+        image: ${appName}:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 5000
+          name: http
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: ${appName}-secrets
+              key: database-url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: ${appName}-secrets
+              key: redis-url
+        - name: SESSION_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: ${appName}-secrets
+              key: session-secret
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${appName}
+  labels:
+    app: ${appName}
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 5000
+    protocol: TCP
+    name: http
+  selector:
+    app: ${appName}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ${appName}-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ${appName}
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 15
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ${appName}-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: ${appName}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ${appName}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ${appName}-network-policy
+spec:
+  podSelector:
+    matchLabels:
+      app: ${appName}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 5000
+  egress:
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 5432
+    - protocol: TCP
+      port: 6379
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+    ports:
+    - protocol: TCP
+      port: 443
+`;
+
+  files.push({
+    fileName: 'kubernetes.yaml',
+    filePath: 'k8s/deployment.yaml',
+    content: kubernetesDeployment,
+    language: 'yaml',
+    category: 'infrastructure'
+  });
+
+  const nginxConf = `events {
+    worker_connections 1024;
+}
+
+http {
+    upstream app {
+        least_conn;
+        server app:5000 weight=1 max_fails=3 fail_timeout=30s;
+    }
+
+    limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
+    limit_conn_zone $binary_remote_addr zone=conn:10m;
+
+    server {
+        listen 80;
+        server_name _;
+        return 301 https://$host$request_uri;
+    }
+
+    server {
+        listen 443 ssl http2;
+        server_name _;
+
+        ssl_certificate /etc/nginx/certs/cert.pem;
+        ssl_certificate_key /etc/nginx/certs/key.pem;
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256;
+        ssl_prefer_server_ciphers off;
+        ssl_session_cache shared:SSL:10m;
+        ssl_session_timeout 1d;
+        ssl_stapling on;
+        ssl_stapling_verify on;
+
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-XSS-Protection "1; mode=block" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';" always;
+
+        location / {
+            proxy_pass http://app;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection 'upgrade';
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_cache_bypass $http_upgrade;
+            proxy_read_timeout 60s;
+            proxy_connect_timeout 60s;
+        }
+
+        location /api/ {
+            limit_req zone=api burst=20 nodelay;
+            limit_conn conn 10;
+            proxy_pass http://app;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location /health {
+            proxy_pass http://app/health;
+            proxy_http_version 1.1;
+            access_log off;
+        }
+    }
+}
+`;
+
+  files.push({
+    fileName: 'nginx.conf',
+    filePath: 'nginx.conf',
+    content: nginxConf,
+    language: 'nginx',
+    category: 'infrastructure'
+  });
+
+  return files;
+}
+
+function generateHealthAndMonitoring(spec: PlatformSpec): GeneratedFile[] {
+  const files: GeneratedFile[] = [];
+  
+  const healthContent = [
+    'import { Router, Request, Response } from "express";',
+    'import { db } from "../db";',
+    'import { sql } from "drizzle-orm";',
+    '',
+    'const router = Router();',
+    '',
+    'interface HealthStatus {',
+    '  status: "healthy" | "degraded" | "unhealthy";',
+    '  timestamp: string;',
+    '  version: string;',
+    '  uptime: number;',
+    '  checks: {',
+    '    database: { status: string; latency?: number };',
+    '    memory: { used: number; total: number; percentage: number };',
+    '  };',
+    '}',
+    '',
+    'const startTime = Date.now();',
+    '',
+    'router.get("/", async (_req: Request, res: Response) => {',
+    '  const health: HealthStatus = {',
+    '    status: "healthy",',
+    '    timestamp: new Date().toISOString(),',
+    '    version: process.env.APP_VERSION || "1.0.0",',
+    '    uptime: Math.floor((Date.now() - startTime) / 1000),',
+    '    checks: {',
+    '      database: { status: "unknown" },',
+    '      memory: { used: 0, total: 0, percentage: 0 },',
+    '    },',
+    '  };',
+    '',
+    '  try {',
+    '    const dbStart = Date.now();',
+    '    await db.execute(sql`SELECT 1`);',
+    '    health.checks.database = { status: "up", latency: Date.now() - dbStart };',
+    '  } catch {',
+    '    health.checks.database = { status: "down" };',
+    '    health.status = "unhealthy";',
+    '  }',
+    '',
+    '  const memUsage = process.memoryUsage();',
+    '  health.checks.memory = {',
+    '    used: Math.round(memUsage.heapUsed / 1024 / 1024),',
+    '    total: Math.round(memUsage.heapTotal / 1024 / 1024),',
+    '    percentage: Math.round((memUsage.heapUsed / memUsage.heapTotal) * 100),',
+    '  };',
+    '',
+    '  if (health.checks.memory.percentage > 90) {',
+    '    health.status = health.status === "unhealthy" ? "unhealthy" : "degraded";',
+    '  }',
+    '',
+    '  res.status(health.status === "unhealthy" ? 503 : 200).json(health);',
+    '});',
+    '',
+    'router.get("/ready", async (_req: Request, res: Response) => {',
+    '  try {',
+    '    await db.execute(sql`SELECT 1`);',
+    '    res.status(200).json({ ready: true });',
+    '  } catch {',
+    '    res.status(503).json({ ready: false });',
+    '  }',
+    '});',
+    '',
+    'router.get("/live", (_req: Request, res: Response) => {',
+    '  res.status(200).json({ alive: true, timestamp: new Date().toISOString() });',
+    '});',
+    '',
+    'export default router;',
+  ].join('\n');
+
+  files.push({
+    fileName: 'health.ts',
+    filePath: 'server/routes/health.ts',
+    content: healthContent,
+    language: 'typescript',
+    category: 'backend'
+  });
+
+  const metricsContent = [
+    'import { Router, Request, Response } from "express";',
+    '',
+    'const router = Router();',
+    'const startTime = Date.now();',
+    '',
+    'router.get("/", (_req: Request, res: Response) => {',
+    '  const memUsage = process.memoryUsage();',
+    '  const metrics = [',
+    '    `# HELP process_uptime_seconds Process uptime`,',
+    '    `# TYPE process_uptime_seconds gauge`,',
+    '    `process_uptime_seconds ${Math.floor((Date.now() - startTime) / 1000)}`,',
+    '    `# HELP nodejs_heap_size_total_bytes Total heap`,',
+    '    `# TYPE nodejs_heap_size_total_bytes gauge`,',
+    '    `nodejs_heap_size_total_bytes ${memUsage.heapTotal}`,',
+    '    `# HELP nodejs_heap_size_used_bytes Used heap`,',
+    '    `# TYPE nodejs_heap_size_used_bytes gauge`,',
+    '    `nodejs_heap_size_used_bytes ${memUsage.heapUsed}`,',
+    '  ].join("\\n");',
+    '  res.set("Content-Type", "text/plain");',
+    '  res.send(metrics);',
+    '});',
+    '',
+    'export default router;',
+  ].join('\n');
+
+  files.push({
+    fileName: 'metrics.ts',
+    filePath: 'server/routes/metrics.ts',
+    content: metricsContent,
+    language: 'typescript',
+    category: 'backend'
+  });
+
+  return files;
+}
+
+function generateRateLimiter(spec: PlatformSpec): GeneratedFile[] {
+  const content = `import { Request, Response, NextFunction } from "express";
+
+interface RateLimitStore {
+  [key: string]: { count: number; resetAt: number };
+}
+
+const store: RateLimitStore = {};
+
+interface RateLimitOptions {
+  windowMs?: number;
+  max?: number;
+  message?: string;
+  keyGenerator?: (req: Request) => string;
+}
+
+export function rateLimiter(options: RateLimitOptions = {}) {
+  const {
+    windowMs = 60 * 1000,
+    max = 100,
+    message = "Too many requests, please try again later.",
+    keyGenerator = (req) => req.ip || req.headers["x-forwarded-for"]?.toString() || "unknown",
+  } = options;
+
+  setInterval(() => {
+    const now = Date.now();
+    for (const key in store) {
+      if (store[key].resetAt < now) {
+        delete store[key];
+      }
+    }
+  }, windowMs);
+
+  return (req: Request, res: Response, next: NextFunction) => {
+    const key = keyGenerator(req);
+    const now = Date.now();
+
+    if (!store[key] || store[key].resetAt < now) {
+      store[key] = { count: 1, resetAt: now + windowMs };
+    } else {
+      store[key].count++;
+    }
+
+    const remaining = Math.max(0, max - store[key].count);
+    const resetAt = store[key].resetAt;
+
+    res.setHeader("X-RateLimit-Limit", max.toString());
+    res.setHeader("X-RateLimit-Remaining", remaining.toString());
+    res.setHeader("X-RateLimit-Reset", Math.ceil(resetAt / 1000).toString());
+
+    if (store[key].count > max) {
+      res.setHeader("Retry-After", Math.ceil((resetAt - now) / 1000).toString());
+      return res.status(429).json({ error: message });
+    }
+
+    next();
+  };
+}
+
+export const apiLimiter = rateLimiter({ windowMs: 60000, max: 100 });
+export const authLimiter = rateLimiter({ windowMs: 900000, max: 5, message: "Too many login attempts" });
+export const strictLimiter = rateLimiter({ windowMs: 60000, max: 10 });
+`;
+
+  return [{
+    fileName: 'rate-limiter.ts',
+    filePath: 'server/middleware/rate-limiter.ts',
+    content,
+    language: 'typescript',
+    category: 'backend'
+  }];
+}
+
+function generateRedisCache(spec: PlatformSpec): GeneratedFile[] {
+  const content = `import { createClient, RedisClientType } from "redis";
+
+let client: RedisClientType | null = null;
+
+export async function getRedisClient(): Promise<RedisClientType | null> {
+  if (!process.env.REDIS_URL) return null;
+  
+  if (!client) {
+    client = createClient({ url: process.env.REDIS_URL });
+    client.on("error", (err) => console.error("Redis error:", err));
+    await client.connect();
+  }
+  return client;
+}
+
+export async function cacheGet<T>(key: string): Promise<T | null> {
+  const redis = await getRedisClient();
+  if (!redis) return null;
+  
+  const data = await redis.get(key);
+  return data ? JSON.parse(data) : null;
+}
+
+export async function cacheSet(key: string, value: unknown, ttlSeconds = 3600): Promise<void> {
+  const redis = await getRedisClient();
+  if (!redis) return;
+  
+  await redis.setEx(key, ttlSeconds, JSON.stringify(value));
+}
+
+export async function cacheDelete(key: string): Promise<void> {
+  const redis = await getRedisClient();
+  if (!redis) return;
+  
+  await redis.del(key);
+}
+
+export async function cacheInvalidatePattern(pattern: string): Promise<void> {
+  const redis = await getRedisClient();
+  if (!redis) return;
+  
+  const keys = await redis.keys(pattern);
+  if (keys.length > 0) {
+    await redis.del(keys);
+  }
+}
+
+export function withCache<T>(key: string, ttl: number, fn: () => Promise<T>): () => Promise<T> {
+  return async () => {
+    const cached = await cacheGet<T>(key);
+    if (cached) return cached;
+    
+    const result = await fn();
+    await cacheSet(key, result, ttl);
+    return result;
+  };
+}
+`;
+
+  return [{
+    fileName: 'cache.ts',
+    filePath: 'server/lib/cache.ts',
+    content,
+    language: 'typescript',
+    category: 'backend'
+  }];
+}
+
+function generateOpenApiSpec(spec: PlatformSpec): GeneratedFile[] {
+  const content = `openapi: 3.0.3
+info:
+  title: ${spec.name} API
+  description: ${spec.description || spec.name + " Platform API"}
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@${spec.name.toLowerCase().replace(/\s+/g, '')}.com
+
+servers:
+  - url: /api
+    description: Production server
+
+security:
+  - bearerAuth: []
+  - cookieAuth: []
+
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user
+      tags: [Authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /auth/login:
+    post:
+      summary: Login user
+      tags: [Authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/logout:
+    post:
+      summary: Logout user
+      tags: [Authentication]
+      responses:
+        '200':
+          description: Logout successful
+
+  /auth/me:
+    get:
+      summary: Get current user
+      tags: [Authentication]
+      responses:
+        '200':
+          description: Current user data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /health:
+    get:
+      summary: Health check
+      tags: [System]
+      security: []
+      responses:
+        '200':
+          description: Service healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: session_token
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        firstName:
+          type: string
+        lastName:
+          type: string
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          type: string
+        avatar:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        uptime:
+          type: integer
+        checks:
+          type: object
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        details:
+          type: object
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+`;
+
+  return [{
+    fileName: 'openapi.yaml',
+    filePath: 'docs/openapi.yaml',
+    content,
+    language: 'yaml',
+    category: 'docs'
+  }];
+}
+
+function generateMicroservicesConfig(spec: PlatformSpec): GeneratedFile[] {
+  const files: GeneratedFile[] = [];
+  const appName = spec.name.toLowerCase().replace(/\s+/g, '-');
+
+  const istioVirtualService = `apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: ${appName}-vs
+spec:
+  hosts:
+  - ${appName}
+  http:
+  - match:
+    - uri:
+        prefix: /api/auth
+    route:
+    - destination:
+        host: ${appName}-auth
+        port:
+          number: 80
+    retries:
+      attempts: 3
+      perTryTimeout: 2s
+  - match:
+    - uri:
+        prefix: /api
+    route:
+    - destination:
+        host: ${appName}-api
+        port:
+          number: 80
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+  - route:
+    - destination:
+        host: ${appName}-web
+        port:
+          number: 80
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: ${appName}-dr
+spec:
+  host: ${appName}-api
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        h2UpgradePolicy: UPGRADE
+        http1MaxPendingRequests: 100
+        http2MaxRequests: 1000
+    loadBalancer:
+      simple: ROUND_ROBIN
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: ${appName}-mtls
+spec:
+  selector:
+    matchLabels:
+      app: ${appName}
+  mtls:
+    mode: STRICT
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: ${appName}-authz
+spec:
+  selector:
+    matchLabels:
+      app: ${appName}
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/default/sa/${appName}"]
+    to:
+    - operation:
+        methods: ["GET", "POST", "PUT", "DELETE"]
+`;
+
+  files.push({
+    fileName: 'istio.yaml',
+    filePath: 'k8s/istio.yaml',
+    content: istioVirtualService,
+    language: 'yaml',
+    category: 'infrastructure'
+  });
+
+  const helmChart = `apiVersion: v2
+name: ${appName}
+description: A Helm chart for ${spec.name}
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+
+dependencies:
+  - name: postgresql
+    version: "12.x.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled
+  - name: redis
+    version: "17.x.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled
+`;
+
+  files.push({
+    fileName: 'Chart.yaml',
+    filePath: 'helm/Chart.yaml',
+    content: helmChart,
+    language: 'yaml',
+    category: 'infrastructure'
+  });
+
+  const helmValues = `replicaCount: 3
+
+image:
+  repository: ${appName}
+  pullPolicy: Always
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: ${appName}.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: ${appName}-tls
+      hosts:
+        - ${appName}.example.com
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: ""
+    username: app
+    password: ""
+    database: ${appName}
+
+redis:
+  enabled: true
+  auth:
+    enabled: false
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  fsGroup: 1001
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /health/ready
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+`;
+
+  files.push({
+    fileName: 'values.yaml',
+    filePath: 'helm/values.yaml',
+    content: helmValues,
+    language: 'yaml',
+    category: 'infrastructure'
+  });
+
+  const cicdPipeline = `name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: \${{ github.repository }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run build
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          ignore-unfixed: true
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  build-and-push:
+    needs: [test, security-scan]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: \${{ env.REGISTRY }}
+          username: \${{ github.actor }}
+          password: \${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: \${{ env.REGISTRY }}/\${{ env.IMAGE_NAME }}:\${{ github.sha }}
+
+  deploy-staging:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to staging
+        run: |
+          helm upgrade --install ${appName}-staging ./helm \\
+            --namespace staging --create-namespace \\
+            --set image.tag=\${{ github.sha }} \\
+            --set ingress.hosts[0].host=${appName}-staging.example.com
+
+  deploy-production:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to production
+        run: |
+          helm upgrade --install ${appName} ./helm \\
+            --namespace production --create-namespace \\
+            --set image.tag=\${{ github.sha }} \\
+            --set replicaCount=5 \\
+            --set autoscaling.minReplicas=3
+`;
+
+  files.push({
+    fileName: 'ci-cd.yml',
+    filePath: '.github/workflows/ci-cd.yml',
+    content: cicdPipeline,
+    language: 'yaml',
+    category: 'infrastructure'
+  });
+
+  return files;
+}
+
+function generateFrontendApp(spec: PlatformSpec): GeneratedFile[] {
+  const files: GeneratedFile[] = [];
+
+  const appTsx = `import { Switch, Route } from "wouter";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "./lib/queryClient";
+import { Toaster } from "@/components/ui/toaster";
+import Home from "./pages/Home";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Dashboard from "./pages/Dashboard";
+
+function Router() {
+  return (
+    <Switch>
+      <Route path="/" component={Home} />
+      <Route path="/login" component={Login} />
+      <Route path="/register" component={Register} />
+      <Route path="/dashboard" component={Dashboard} />
+    </Switch>
+  );
+}
+
+export default function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <Router />
+      <Toaster />
+    </QueryClientProvider>
+  );
+}
+`;
+
+  files.push({
+    fileName: 'App.tsx',
+    filePath: 'client/src/App.tsx',
+    content: appTsx,
+    language: 'typescript',
+    category: 'frontend'
+  });
+
+  const homePage = `import { Button } from "@/components/ui/button";
+import { Link } from "wouter";
+
+export default function Home() {
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted">
+      <header className="container mx-auto px-4 py-6 flex items-center justify-between">
+        <h1 className="text-2xl font-bold">${spec.name}</h1>
+        <nav className="flex gap-4">
+          <Link href="/login">
+            <Button variant="ghost" data-testid="button-login">Login</Button>
+          </Link>
+          <Link href="/register">
+            <Button data-testid="button-register">Get Started</Button>
+          </Link>
+        </nav>
+      </header>
+      
+      <main className="container mx-auto px-4 py-20 text-center">
+        <h2 className="text-5xl font-bold mb-6" data-testid="text-hero-title">
+          ${spec.description}
+        </h2>
+        <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+          Built with modern technology for scale, security, and speed.
+        </p>
+        <Link href="/register">
+          <Button size="lg" data-testid="button-cta">
+            Start Free Trial
+          </Button>
+        </Link>
+      </main>
+    </div>
+  );
+}
+`;
+
+  files.push({
+    fileName: 'Home.tsx',
+    filePath: 'client/src/pages/Home.tsx',
+    content: homePage,
+    language: 'typescript',
+    category: 'frontend'
+  });
+
+  // Login Page
+  const loginPage = `import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Link, useLocation } from "wouter";
+import { useMutation } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+
+export default function Login() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+
+  const loginMutation = useMutation({
+    mutationFn: async (data: { email: string; password: string }) => {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include"
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Login failed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Welcome back!", description: "Login successful" });
+      setLocation("/dashboard");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Login failed", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    loginMutation.mutate({ email, password });
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background to-muted p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl">${spec.name}</CardTitle>
+          <CardDescription>Sign in to your account</CardDescription>
+        </CardHeader>
+        <form onSubmit={handleSubmit}>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                data-testid="input-email"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                data-testid="input-password"
+              />
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col gap-4">
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={loginMutation.isPending}
+              data-testid="button-submit"
+            >
+              {loginMutation.isPending ? "Signing in..." : "Sign In"}
+            </Button>
+            <p className="text-sm text-muted-foreground text-center">
+              Don't have an account?{" "}
+              <Link href="/register" className="text-primary hover:underline">
+                Sign up
+              </Link>
+            </p>
+          </CardFooter>
+        </form>
+      </Card>
+    </div>
+  );
+}
+`;
+
+  files.push({
+    fileName: 'Login.tsx',
+    filePath: 'client/src/pages/Login.tsx',
+    content: loginPage,
+    language: 'typescript',
+    category: 'frontend'
+  });
+
+  // Register Page
+  const registerPage = `import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Link, useLocation } from "wouter";
+import { useMutation } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+
+export default function Register() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+
+  const registerMutation = useMutation({
+    mutationFn: async (data: { email: string; password: string; firstName: string; lastName: string }) => {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Registration failed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Account created!", description: "Please sign in to continue" });
+      setLocation("/login");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Registration failed", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password !== confirmPassword) {
+      toast({ title: "Error", description: "Passwords do not match", variant: "destructive" });
+      return;
+    }
+    if (password.length < 8) {
+      toast({ title: "Error", description: "Password must be at least 8 characters", variant: "destructive" });
+      return;
+    }
+    registerMutation.mutate({ email, password, firstName, lastName });
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background to-muted p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl">Create Account</CardTitle>
+          <CardDescription>Join ${spec.name} today</CardDescription>
+        </CardHeader>
+        <form onSubmit={handleSubmit}>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">First Name</Label>
+                <Input
+                  id="firstName"
+                  placeholder="John"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  data-testid="input-first-name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input
+                  id="lastName"
+                  placeholder="Doe"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  data-testid="input-last-name"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                data-testid="input-email"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                data-testid="input-password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                data-testid="input-confirm-password"
+              />
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col gap-4">
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={registerMutation.isPending}
+              data-testid="button-submit"
+            >
+              {registerMutation.isPending ? "Creating account..." : "Create Account"}
+            </Button>
+            <p className="text-sm text-muted-foreground text-center">
+              Already have an account?{" "}
+              <Link href="/login" className="text-primary hover:underline">
+                Sign in
+              </Link>
+            </p>
+          </CardFooter>
+        </form>
+      </Card>
+    </div>
+  );
+}
+`;
+
+  files.push({
+    fileName: 'Register.tsx',
+    filePath: 'client/src/pages/Register.tsx',
+    content: registerPage,
+    language: 'typescript',
+    category: 'frontend'
+  });
+
+  // Dashboard Page
+  const dashboardPage = `import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useLocation } from "wouter";
+import { useToast } from "@/hooks/use-toast";
+import { User, LogOut, Settings, Activity } from "lucide-react";
+
+interface UserData {
+  id: number;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  role: string;
+}
+
+export default function Dashboard() {
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: user, isLoading, error } = useQuery<UserData>({
+    queryKey: ["/api/auth/me"],
+    retry: false
+  });
+
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include"
+      });
+      if (!res.ok) throw new Error("Logout failed");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.clear();
+      toast({ title: "Goodbye!", description: "You have been logged out" });
+      setLocation("/");
+    }
+  });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (error || !user) {
+    setLocation("/login");
+    return null;
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="border-b">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between gap-4">
+          <h1 className="text-xl font-bold">${spec.name}</h1>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-muted-foreground" data-testid="text-user-email">
+              {user.email}
+            </span>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => logoutMutation.mutate()}
+              disabled={logoutMutation.isPending}
+              data-testid="button-logout"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold mb-2" data-testid="text-welcome">
+            Welcome back, {user.firstName || user.email.split("@")[0]}!
+          </h2>
+          <p className="text-muted-foreground">Here's your dashboard overview</p>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <Card data-testid="card-profile">
+            <CardHeader className="flex flex-row items-center justify-between gap-2">
+              <CardTitle className="text-lg">Profile</CardTitle>
+              <User className="w-5 h-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <CardDescription>
+                <div className="space-y-2">
+                  <p><strong>Email:</strong> {user.email}</p>
+                  <p><strong>Name:</strong> {user.firstName} {user.lastName}</p>
+                  <p><strong>Role:</strong> {user.role}</p>
+                </div>
+              </CardDescription>
+            </CardContent>
+          </Card>
+
+          <Card data-testid="card-activity">
+            <CardHeader className="flex flex-row items-center justify-between gap-2">
+              <CardTitle className="text-lg">Activity</CardTitle>
+              <Activity className="w-5 h-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <CardDescription>
+                <p>Your recent activity will appear here.</p>
+              </CardDescription>
+            </CardContent>
+          </Card>
+
+          <Card data-testid="card-settings">
+            <CardHeader className="flex flex-row items-center justify-between gap-2">
+              <CardTitle className="text-lg">Settings</CardTitle>
+              <Settings className="w-5 h-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <CardDescription>
+                <p>Manage your account settings and preferences.</p>
+              </CardDescription>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+    </div>
+  );
+}
+`;
+
+  files.push({
+    fileName: 'Dashboard.tsx',
+    filePath: 'client/src/pages/Dashboard.tsx',
+    content: dashboardPage,
+    language: 'typescript',
+    category: 'frontend'
+  });
+
+  // Query Client
+  const queryClientTs = `import { QueryClient, QueryFunction } from "@tanstack/react-query";
+
+async function throwIfResNotOk(res: Response) {
+  if (!res.ok) {
+    const text = await res.text();
+    try {
+      const json = JSON.parse(text);
+      throw new Error(json.error || json.message || res.statusText);
+    } catch {
+      throw new Error(text || res.statusText);
+    }
+  }
+}
+
+export async function apiRequest(
+  method: string,
+  url: string,
+  data?: unknown
+): Promise<Response> {
+  const res = await fetch(url, {
+    method,
+    headers: data ? { "Content-Type": "application/json" } : {},
+    body: data ? JSON.stringify(data) : undefined,
+    credentials: "include",
+  });
+  await throwIfResNotOk(res);
+  return res;
+}
+
+const defaultQueryFn: QueryFunction = async ({ queryKey }) => {
+  const res = await fetch(queryKey[0] as string, {
+    credentials: "include",
+  });
+  await throwIfResNotOk(res);
+  return res.json();
+};
+
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      queryFn: defaultQueryFn,
+      refetchOnWindowFocus: false,
+      staleTime: 1000 * 60 * 5,
+      retry: false,
+    },
+  },
+});
+`;
+
+  files.push({
+    fileName: 'queryClient.ts',
+    filePath: 'client/src/lib/queryClient.ts',
+    content: queryClientTs,
+    language: 'typescript',
+    category: 'frontend'
+  });
+
+  // use-toast hook
+  const useToastHook = `import { useState, useCallback } from "react";
+
+interface Toast {
+  id: string;
+  title?: string;
+  description?: string;
+  variant?: "default" | "destructive";
+}
+
+interface ToastState {
+  toasts: Toast[];
+}
+
+let toastId = 0;
+
+export function useToast() {
+  const [state, setState] = useState<ToastState>({ toasts: [] });
+
+  const toast = useCallback(({ title, description, variant = "default" }: Omit<Toast, "id">) => {
+    const id = String(++toastId);
+    setState((prev) => ({
+      toasts: [...prev.toasts, { id, title, description, variant }],
+    }));
+    setTimeout(() => {
+      setState((prev) => ({
+        toasts: prev.toasts.filter((t) => t.id !== id),
+      }));
+    }, 5000);
+  }, []);
+
+  const dismiss = useCallback((id: string) => {
+    setState((prev) => ({
+      toasts: prev.toasts.filter((t) => t.id !== id),
+    }));
+  }, []);
+
+  return { toast, dismiss, toasts: state.toasts };
+}
+`;
+
+  files.push({
+    fileName: 'use-toast.ts',
+    filePath: 'client/src/hooks/use-toast.ts',
+    content: useToastHook,
+    language: 'typescript',
+    category: 'frontend'
+  });
+
+  // Tailwind Config
+  const tailwindConfig = `import type { Config } from "tailwindcss";
+
+export default {
+  darkMode: ["class"],
+  content: ["./client/src/**/*.{ts,tsx}"],
+  theme: {
+    extend: {
+      colors: {
+        border: "hsl(var(--border))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
+        },
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
+        },
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
+      },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+      },
+    },
+  },
+  plugins: [require("tailwindcss-animate")],
+} satisfies Config;
+`;
+
+  files.push({
+    fileName: 'tailwind.config.ts',
+    filePath: 'tailwind.config.ts',
+    content: tailwindConfig,
+    language: 'typescript',
+    category: 'config'
+  });
+
+  // Vite Config
+  const viteConfig = `import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import path from "path";
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./client/src"),
+      "@shared": path.resolve(__dirname, "./shared"),
+    },
+  },
+  server: {
+    proxy: {
+      "/api": "http://localhost:5000",
+    },
+  },
+});
+`;
+
+  files.push({
+    fileName: 'vite.config.ts',
+    filePath: 'vite.config.ts',
+    content: viteConfig,
+    language: 'typescript',
+    category: 'config'
+  });
+
+  // Index CSS
+  const indexCss = `@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+`;
+
+  files.push({
+    fileName: 'index.css',
+    filePath: 'client/src/index.css',
+    content: indexCss,
+    language: 'css',
+    category: 'frontend'
+  });
+
+  // Main entry
+  const mainTsx = `import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import App from "./App";
+import "./index.css";
+
+createRoot(document.getElementById("root")!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>
+);
+`;
+
+  files.push({
+    fileName: 'main.tsx',
+    filePath: 'client/src/main.tsx',
+    content: mainTsx,
+    language: 'typescript',
+    category: 'frontend'
+  });
+
+  // Index HTML
+  const indexHtml = `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${spec.name}</title>
+    <meta name="description" content="${spec.description}" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/client/src/main.tsx"></script>
+  </body>
+</html>
+`;
+
+  files.push({
+    fileName: 'index.html',
+    filePath: 'index.html',
+    content: indexHtml,
+    language: 'html',
+    category: 'frontend'
+  });
+
+  // TypeScript configs
+  const tsconfigJson = `{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./client/src/*"],
+      "@shared/*": ["./shared/*"]
+    }
+  },
+  "include": ["client/src", "shared"],
+  "references": [{ "path": "./tsconfig.server.json" }]
+}
+`;
+
+  files.push({
+    fileName: 'tsconfig.json',
+    filePath: 'tsconfig.json',
+    content: tsconfigJson,
+    language: 'json',
+    category: 'config'
+  });
+
+  const tsconfigServer = `{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "outDir": "./dist/server",
+    "rootDir": "./server",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@shared/*": ["./shared/*"]
+    }
+  },
+  "include": ["server"],
+  "exclude": ["node_modules"]
+}
+`;
+
+  files.push({
+    fileName: 'tsconfig.server.json',
+    filePath: 'tsconfig.server.json',
+    content: tsconfigServer,
+    language: 'json',
+    category: 'config'
+  });
+
+  // Drizzle config
+  const drizzleConfig = `import { defineConfig } from "drizzle-kit";
+
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL must be set");
+}
+
+export default defineConfig({
+  out: "./migrations",
+  schema: "./shared/schema.ts",
+  dialect: "postgresql",
+  dbCredentials: {
+    url: process.env.DATABASE_URL,
+  },
+});
+`;
+
+  files.push({
+    fileName: 'drizzle.config.ts',
+    filePath: 'drizzle.config.ts',
+    content: drizzleConfig,
+    language: 'typescript',
+    category: 'config'
+  });
+
+  // Database connection
+  const dbConnection = `import { drizzle } from "drizzle-orm/node-postgres";
+import pkg from "pg";
+const { Pool } = pkg;
+import * as schema from "@shared/schema";
+
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL must be set");
+}
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+export const db = drizzle(pool, { schema });
+`;
+
+  files.push({
+    fileName: 'db.ts',
+    filePath: 'server/db.ts',
+    content: dbConnection,
+    language: 'typescript',
+    category: 'backend'
+  });
+
+  return files;
+}
+
+function generateReadme(spec: PlatformSpec): GeneratedFile[] {
+  const content = `# ${spec.name}
+
+${spec.description}
+
+## Features
+
+${spec.features.map(f => `- ${f}`).join('\n')}
+
+## Quick Start
+
+\`\`\`bash
+# Install dependencies
+npm install
+
+# Set up environment
+cp .env.example .env
+# Edit .env with your values
+
+# Push database schema
+npm run db:push
+
+# Start development server
+npm run dev
+\`\`\`
+
+## Production Deployment
+
+\`\`\`bash
+# Build for production
+npm run build
+
+# Start production server
+npm start
+\`\`\`
+
+## Docker Deployment
+
+\`\`\`bash
+# Build and run with Docker Compose
+docker-compose up -d
+\`\`\`
+
+## Tech Stack
+
+- **Frontend**: React, TypeScript, TailwindCSS
+- **Backend**: Express.js, Node.js
+- **Database**: PostgreSQL with Drizzle ORM
+${spec.hasPayments ? '- **Payments**: Stripe' : ''}
+
+## Generated by INFERA WebNova
+
+This platform was generated by [INFERA WebNova](https://infera.dev) - The Sovereign Digital Platform Factory.
+`;
+
+  return [{
+    fileName: 'README.md',
+    filePath: 'README.md',
+    content,
+    language: 'markdown',
+    category: 'docs'
+  }];
+}
+
+function generatePreviewHtml(spec: PlatformSpec, files: GeneratedFile[]): string {
+  const primaryColor = spec.primaryColor || "#3B82F6";
+  const secondaryColor = spec.secondaryColor || "#8B5CF6";
+  const featuresHtml = spec.features.slice(0, 6).map((feature) => `
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+      <div class="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4 mx-auto">
+        <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+      </div>
+      <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">${feature}</h3>
+      <p class="text-gray-600 dark:text-gray-400 text-sm">Enterprise-grade capabilities.</p>
+    </div>`).join("");
+  
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${spec.name} - Interactive Preview</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: "${primaryColor}",
+            secondary: "${secondaryColor}",
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; }
+    .page { display: none; }
+    .page.active { display: block; }
+    .nav-link.active { background: ${primaryColor}20; color: ${primaryColor}; }
+  </style>
+</head>
+<body class="min-h-screen bg-gray-50 dark:bg-gray-900">
+  <header class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold" style="background:${primaryColor}">${spec.name.charAt(0)}</div>
+        <span class="text-xl font-bold text-gray-900 dark:text-white">${spec.name}</span>
+      </div>
+      <nav id="mainNav" class="hidden md:flex items-center gap-2">
+        <button onclick="showPage('home')" class="nav-link active px-3 py-2 rounded-lg text-sm font-medium transition">Home</button>
+        <button onclick="showPage('login')" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition">Login</button>
+        <button onclick="showPage('register')" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition">Register</button>
+        <button onclick="showPage('dashboard')" class="nav-link px-3 py-2 text-white rounded-lg text-sm font-medium transition" style="background:${primaryColor}">Dashboard</button>
+      </nav>
+    </div>
+  </header>
+
+  <div id="page-home" class="page active">
+    <div class="max-w-7xl mx-auto px-4 py-16 text-center">
+      <h1 class="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">${spec.description || spec.name}</h1>
+      <p class="text-lg text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">Built with modern technology. Secure, scalable, and ready for millions of users.</p>
+      <div class="flex gap-4 justify-center mb-12 flex-wrap">
+        <button onclick="showPage('register')" class="px-6 py-3 text-white rounded-lg font-medium transition hover:opacity-90" style="background:${primaryColor}">Get Started Free</button>
+        <button onclick="showPage('login')" class="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition">Sign In</button>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16">${featuresHtml}</div>
+      <div class="mt-20 p-8 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Complete Platform Architecture</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-left">
+          <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"><div class="font-semibold text-gray-900 dark:text-white">Database</div><div class="text-sm text-gray-500">PostgreSQL + Drizzle</div></div>
+          <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"><div class="font-semibold text-gray-900 dark:text-white">Authentication</div><div class="text-sm text-gray-500">Sessions + bcrypt</div></div>
+          <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"><div class="font-semibold text-gray-900 dark:text-white">Frontend</div><div class="text-sm text-gray-500">React + TypeScript</div></div>
+          <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"><div class="font-semibold text-gray-900 dark:text-white">Backend</div><div class="text-sm text-gray-500">Express.js + Node</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="page-login" class="page">
+    <div class="min-h-[80vh] flex items-center justify-center p-4">
+      <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8">
+        <div class="text-center mb-8">
+          <div class="w-12 h-12 rounded-xl mx-auto mb-4 flex items-center justify-center text-white font-bold text-xl" style="background:${primaryColor}">${spec.name.charAt(0)}</div>
+          <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Welcome Back</h2>
+          <p class="text-gray-500 dark:text-gray-400">Sign in to your ${spec.name} account</p>
+        </div>
+        <form onsubmit="event.preventDefault(); showPage('dashboard');">
+          <div class="space-y-4">
+            <div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label><input type="email" class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="you@example.com" required></div>
+            <div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label><input type="password" class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="••••••••" required></div>
+            <div class="flex items-center justify-between"><label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400"><input type="checkbox" class="rounded"> Remember me</label><a href="#" class="text-sm hover:underline" style="color:${primaryColor}">Forgot password?</a></div>
+            <button type="submit" class="w-full py-3 text-white rounded-lg font-medium transition hover:opacity-90" style="background:${primaryColor}">Sign In</button>
+          </div>
+        </form>
+        <p class="text-center text-sm text-gray-500 dark:text-gray-400 mt-6">Don't have an account? <button onclick="showPage('register')" class="hover:underline" style="color:${primaryColor}">Sign up</button></p>
+      </div>
+    </div>
+  </div>
+
+  <div id="page-register" class="page">
+    <div class="min-h-[80vh] flex items-center justify-center p-4">
+      <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8">
+        <div class="text-center mb-8">
+          <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Create Account</h2>
+          <p class="text-gray-500 dark:text-gray-400">Join ${spec.name} today</p>
+        </div>
+        <form onsubmit="event.preventDefault(); showPage('dashboard');">
+          <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-4"><div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">First Name</label><input type="text" class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="John"></div><div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Last Name</label><input type="text" class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="Doe"></div></div>
+            <div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label><input type="email" class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="you@example.com" required></div>
+            <div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label><input type="password" class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="••••••••" required></div>
+            <div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Confirm Password</label><input type="password" class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="••••••••" required></div>
+            <button type="submit" class="w-full py-3 text-white rounded-lg font-medium transition hover:opacity-90" style="background:${primaryColor}">Create Account</button>
+          </div>
+        </form>
+        <p class="text-center text-sm text-gray-500 dark:text-gray-400 mt-6">Already have an account? <button onclick="showPage('login')" class="hover:underline" style="color:${primaryColor}">Sign in</button></p>
+      </div>
+    </div>
+  </div>
+
+  <div id="page-dashboard" class="page">
+    <div class="flex">
+      <aside class="w-64 min-h-[calc(100vh-57px)] bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 p-4 hidden md:block">
+        <div class="space-y-1">
+          <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium" style="background:${primaryColor}20;color:${primaryColor}"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>Dashboard</a>
+          <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>Users</a>
+          <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>Analytics</a>
+          <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>Settings</a>
+        </div>
+      </aside>
+      <main class="flex-1 p-6">
+        <div class="mb-6"><h1 class="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1><p class="text-gray-500 dark:text-gray-400">Welcome back! Here's an overview of your platform.</p></div>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div class="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700"><div class="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Users</div><div class="text-3xl font-bold text-gray-900 dark:text-white">12,845</div><div class="text-sm text-green-500">+12% this month</div></div>
+          <div class="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700"><div class="text-sm text-gray-500 dark:text-gray-400 mb-1">Revenue</div><div class="text-3xl font-bold text-gray-900 dark:text-white">$48,290</div><div class="text-sm text-green-500">+8% this month</div></div>
+          <div class="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700"><div class="text-sm text-gray-500 dark:text-gray-400 mb-1">Active Sessions</div><div class="text-3xl font-bold text-gray-900 dark:text-white">2,453</div><div class="text-sm text-gray-500">Live now</div></div>
+          <div class="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700"><div class="text-sm text-gray-500 dark:text-gray-400 mb-1">API Calls</div><div class="text-3xl font-bold text-gray-900 dark:text-white">1.2M</div><div class="text-sm text-gray-500">This week</div></div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700"><h2 class="font-semibold text-gray-900 dark:text-white">Recent Activity</h2></div>
+          <table class="w-full"><thead class="bg-gray-50 dark:bg-gray-700"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">User</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Action</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Date</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th></tr></thead>
+          <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+            <tr><td class="px-6 py-4 text-sm text-gray-900 dark:text-white">john@example.com</td><td class="px-6 py-4 text-sm text-gray-500">Signed up</td><td class="px-6 py-4 text-sm text-gray-500">2 min ago</td><td class="px-6 py-4"><span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700">Active</span></td></tr>
+            <tr><td class="px-6 py-4 text-sm text-gray-900 dark:text-white">sarah@company.com</td><td class="px-6 py-4 text-sm text-gray-500">Upgraded plan</td><td class="px-6 py-4 text-sm text-gray-500">15 min ago</td><td class="px-6 py-4"><span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">Premium</span></td></tr>
+            <tr><td class="px-6 py-4 text-sm text-gray-900 dark:text-white">mike@startup.io</td><td class="px-6 py-4 text-sm text-gray-500">API Integration</td><td class="px-6 py-4 text-sm text-gray-500">1 hour ago</td><td class="px-6 py-4"><span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-700">Pending</span></td></tr>
+          </tbody></table>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <footer class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-6 mt-auto">
+    <div class="max-w-7xl mx-auto px-4 text-center text-gray-500 dark:text-gray-400 text-sm">
+      <p>&copy; ${new Date().getFullYear()} ${spec.name}. Generated by INFERA WebNova</p>
+    </div>
+  </footer>
+
+  <script>
+    function showPage(pageName) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+      document.getElementById('page-' + pageName).classList.add('active');
+      event.target.classList.add('active');
+    }
+  </script>
+</body>
+</html>`;
+}

@@ -1,0 +1,2356 @@
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useLocation } from "wouter";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/hooks/use-language";
+import { useAuth } from "@/hooks/use-auth";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Send, Bot, Brain, Sparkles, Code, Eye, Play, 
+  CheckCircle, Loader2, Terminal, Globe, Database,
+  GitBranch, Rocket, FileCode, Server, RefreshCw,
+  Smartphone, Monitor, Tablet, ExternalLink, Copy,
+  ChevronRight, Zap, Shield, Activity, Box, Layers,
+  Network, Cloud, Container, Lock, Users, CreditCard,
+  Video, MessageSquare, BarChart3, Settings, Download,
+  AlertTriangle, HardDrive, Cpu, Gauge, ShoppingCart,
+  Search, User, GraduationCap, Bell, Heart, FolderTree,
+  File, FileJson, FileType2, Save, Upload,
+  Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, GripVertical
+} from "lucide-react";
+import { generatePlatformCode, generatePackageJson, type GeneratedCode, type PlatformSpec } from "@/lib/platform-code-generator";
+import { GitHubRepoSelector } from "@/components/github-repo-selector";
+import { 
+  detectIntent, 
+  generateDiscussionPrompt, 
+  isInputMeaningless,
+  createContextMemory,
+  addToContext,
+  type ContextMemory,
+  type ConversationalIntent 
+} from "@/lib/conversational-context-layer";
+
+interface BuildMessage {
+  id: string;
+  role: 'user' | 'nova' | 'system';
+  content: string;
+  timestamp: Date;
+  status?: 'thinking' | 'building' | 'complete' | 'error';
+  buildProgress?: BuildProgress;
+}
+
+interface BuildProgress {
+  currentStep: string;
+  currentStepAr: string;
+  steps: BuildStep[];
+  previewUrl?: string;
+  githubUrl?: string;
+}
+
+interface BuildStep {
+  id: string;
+  name: string;
+  nameAr: string;
+  status: 'pending' | 'active' | 'complete' | 'error';
+  details?: string;
+}
+
+interface MicroserviceSpec {
+  id: string;
+  name: string;
+  nameAr: string;
+  type: 'api' | 'worker' | 'gateway' | 'database' | 'cache' | 'queue' | 'cdn' | 'storage';
+  replicas: number;
+  database?: string;
+  dependencies: string[];
+  port?: number;
+  icon: typeof Server;
+}
+
+interface ArchitectureAnalysis {
+  platformType: string;
+  platformTypeAr: string;
+  estimatedUsers: string;
+  complexity: 'simple' | 'medium' | 'enterprise';
+  microservices: MicroserviceSpec[];
+  databases: { type: string; purpose: string; purposeAr: string }[];
+  infrastructure: {
+    loadBalancer: boolean;
+    cdn: boolean;
+    cache: boolean;
+    queue: boolean;
+    containerized: boolean;
+  };
+  estimatedCost: string;
+  deploymentRegions: string[];
+}
+
+export default function PlatformBuilderPage() {
+  const { language } = useLanguage();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
+  const isRTL = language === 'ar';
+  
+  const [messages, setMessages] = useState<BuildMessage[]>([
+    {
+      id: 'welcome',
+      role: 'nova',
+      content: language === 'ar' 
+        ? 'مرحباً! أنا Nova. صف لي المنصة التي تريد بناءها وسأقوم بتحليل المتطلبات واقتراح البنية المثلى.\n\nيمكنني بناء منصات عملاقة تدعم ملايين المستخدمين مع:\n• بنية Microservices\n• Docker + Kubernetes\n• قواعد بيانات موزعة\n• موازنة التحميل\n\nمثال: "أنشئ منصة تعليمية تضم مليون مستخدم متزامن مع فيديو ستريمينج ونظام دفع"'
+        : 'Hello! I am Nova. Describe the platform you want to build and I will analyze requirements and suggest optimal architecture.\n\nI can build enterprise platforms supporting millions of users with:\n• Microservices Architecture\n• Docker + Kubernetes\n• Distributed Databases\n• Load Balancing\n\nExample: "Create an educational platform with 1M concurrent users, video streaming, and payment system"',
+      timestamp: new Date(),
+      status: 'complete'
+    }
+  ]);
+  const [inputValue, setInputValue] = useState('');
+  const [isBuilding, setIsBuilding] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+  const [buildSteps, setBuildSteps] = useState<BuildStep[]>([]);
+  const [activeTab, setActiveTab] = useState('preview');
+  const [generatedCode, setGeneratedCode] = useState<string>('');
+  const [architecture, setArchitecture] = useState<ArchitectureAnalysis | null>(null);
+  const [dockerCompose, setDockerCompose] = useState<string>('');
+  const [kubernetesManifest, setKubernetesManifest] = useState<string>('');
+  const [generatedFiles, setGeneratedFiles] = useState<GeneratedCode[]>([]);
+  const [selectedFile, setSelectedFile] = useState<GeneratedCode | null>(null);
+  const [platformSpec, setPlatformSpec] = useState<PlatformSpec | null>(null);
+  const [currentBuildId, setCurrentBuildId] = useState<string | null>(null);
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [projectName, setProjectName] = useState<string>('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [githubStatus, setGithubStatus] = useState<{ synced: boolean; repo?: string; url?: string; lastSync?: string } | null>(null);
+  const [conversationContext, setConversationContext] = useState<ContextMemory>(() => createContextMemory(language === 'ar' ? 'ar' : 'en'));
+  
+  // Panel control states
+  const [chatPanelVisible, setChatPanelVisible] = useState(true);
+  const [previewPanelVisible, setPreviewPanelVisible] = useState(true);
+  const [chatPanelMaximized, setChatPanelMaximized] = useState(false);
+  const [previewPanelMaximized, setPreviewPanelMaximized] = useState(false);
+  
+  // State restoration flag to prevent double initialization
+  const [isRestored, setIsRestored] = useState(false);
+  
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Storage key for persisting builder state
+  const STORAGE_KEY = 'infera_platform_builder_state';
+  
+  // Restore state from localStorage on mount
+  useEffect(() => {
+    if (isRestored) return;
+    
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const state = JSON.parse(saved);
+        
+        // Restore messages with proper Date objects
+        if (state.messages && Array.isArray(state.messages) && state.messages.length > 1) {
+          const restoredMessages = state.messages.map((m: any) => ({
+            ...m,
+            timestamp: new Date(m.timestamp)
+          }));
+          setMessages(restoredMessages);
+        }
+        
+        // Restore build identifiers
+        if (state.currentBuildId) setCurrentBuildId(state.currentBuildId);
+        if (state.projectId) setProjectId(state.projectId);
+        if (state.projectName) setProjectName(state.projectName);
+        if (state.previewUrl) setPreviewUrl(state.previewUrl);
+        
+        // Restore architecture
+        if (state.architecture) setArchitecture(state.architecture);
+        if (state.platformSpec) setPlatformSpec(state.platformSpec);
+        
+        // Restore generated files
+        if (state.generatedFiles && state.generatedFiles.length > 0) {
+          setGeneratedFiles(state.generatedFiles);
+          setSelectedFile(state.generatedFiles[0]);
+          setGeneratedCode(state.generatedFiles[0]?.content || '');
+        }
+        
+        // Restore other state
+        if (state.dockerCompose) setDockerCompose(state.dockerCompose);
+        if (state.kubernetesManifest) setKubernetesManifest(state.kubernetesManifest);
+        if (state.activeTab) setActiveTab(state.activeTab);
+        if (state.buildSteps) setBuildSteps(state.buildSteps);
+        if (state.githubStatus) setGithubStatus(state.githubStatus);
+        
+        // Restore conversation context for Nova's memory
+        if (state.conversationContext) {
+          setConversationContext(state.conversationContext);
+        }
+        
+        console.log('[PlatformBuilder] State restored from localStorage');
+      }
+    } catch (error) {
+      console.error('[PlatformBuilder] Failed to restore state:', error);
+    }
+    
+    setIsRestored(true);
+  }, [isRestored]);
+  
+  // Save state to localStorage when it changes
+  useEffect(() => {
+    if (!isRestored) return; // Don't save during initial restoration
+    
+    const stateToSave = {
+      messages: messages.map(m => ({ ...m, timestamp: m.timestamp.toISOString() })),
+      currentBuildId,
+      projectId,
+      projectName,
+      previewUrl,
+      architecture,
+      platformSpec,
+      generatedFiles,
+      dockerCompose,
+      kubernetesManifest,
+      activeTab,
+      buildSteps,
+      githubStatus,
+      conversationContext, // Save Nova's conversation memory
+      savedAt: new Date().toISOString()
+    };
+    
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+    } catch (error) {
+      console.error('[PlatformBuilder] Failed to save state:', error);
+    }
+  }, [
+    isRestored, messages, currentBuildId, projectId, projectName, previewUrl,
+    architecture, platformSpec, generatedFiles, dockerCompose, kubernetesManifest,
+    activeTab, buildSteps, githubStatus, conversationContext
+  ]);
+  
+  // Function to clear saved state (for "New Project" functionality)
+  const clearSavedState = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY);
+    // Reset to initial state
+    setMessages([{
+      id: 'welcome',
+      role: 'nova',
+      content: language === 'ar' 
+        ? 'مرحباً! أنا Nova. صف لي المنصة التي تريد بناءها وسأقوم بتحليل المتطلبات واقتراح البنية المثلى.\n\nيمكنني بناء منصات عملاقة تدعم ملايين المستخدمين مع:\n• بنية Microservices\n• Docker + Kubernetes\n• قواعد بيانات موزعة\n• موازنة التحميل\n\nمثال: "أنشئ منصة تعليمية تضم مليون مستخدم متزامن مع فيديو ستريمينج ونظام دفع"'
+        : 'Hello! I am Nova. Describe the platform you want to build and I will analyze requirements and suggest optimal architecture.\n\nI can build enterprise platforms supporting millions of users with:\n• Microservices Architecture\n• Docker + Kubernetes\n• Distributed Databases\n• Load Balancing\n\nExample: "Create an educational platform with 1M concurrent users, video streaming, and payment system"',
+      timestamp: new Date(),
+      status: 'complete'
+    }]);
+    setCurrentBuildId(null);
+    setProjectId(null);
+    setProjectName('');
+    setPreviewUrl(null);
+    setArchitecture(null);
+    setPlatformSpec(null);
+    setGeneratedFiles([]);
+    setSelectedFile(null);
+    setGeneratedCode('');
+    setDockerCompose('');
+    setKubernetesManifest('');
+    setBuildSteps([]);
+    setGithubStatus(null);
+    setActiveTab('preview');
+    setConversationContext(createContextMemory(language === 'ar' ? 'ar' : 'en'));
+  }, [language]);
+
+  const { data: githubConnectionStatus } = useQuery<{ connected: boolean; username?: string }>({
+    queryKey: ['/api/github/status'],
+    staleTime: 60000,
+  });
+
+  const saveProjectMutation = useMutation({
+    mutationFn: async (data: { name: string; description?: string; files: GeneratedCode[]; platformSpec?: any; dockerCompose?: string; kubernetesManifest?: string }) => {
+      const filesPayload = data.files.map(f => ({
+        path: f.filePath || f.fileName,
+        content: f.content,
+        type: f.category || 'config'
+      }));
+      
+      const currentProjectId = projectId;
+      if (currentProjectId) {
+        return apiRequest('PATCH', `/api/projects/${currentProjectId}`, {
+          name: data.name,
+          description: data.description,
+          generatedFiles: filesPayload,
+          platformSpec: data.platformSpec,
+          dockerCompose: data.dockerCompose,
+          kubernetesManifest: data.kubernetesManifest,
+        });
+      } else {
+        return apiRequest('POST', '/api/projects', {
+          name: data.name,
+          description: data.description,
+          generatedFiles: filesPayload,
+          platformSpec: data.platformSpec,
+          dockerCompose: data.dockerCompose,
+          kubernetesManifest: data.kubernetesManifest,
+        });
+      }
+    },
+    onSuccess: (data) => {
+      if (data && data.id) {
+        setProjectId(data.id);
+      }
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      toast({
+        title: language === 'ar' ? 'تم الحفظ!' : 'Saved!',
+        description: language === 'ar' ? 'تم حفظ المشروع بنجاح' : 'Project saved successfully',
+      });
+      return data;
+    },
+    onError: (error: any) => {
+      setIsSaving(false);
+      toast({
+        title: language === 'ar' ? 'خطأ في الحفظ' : 'Save Error',
+        description: error.message || 'Failed to save project',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const syncToGitHubMutation = useMutation({
+    mutationFn: async (data: { projectId: string; repoName?: string; commitMessage?: string }) => {
+      return apiRequest('POST', `/api/github/sync-project/${data.projectId}`, {
+        repoName: data.repoName,
+        commitMessage: data.commitMessage,
+        isPrivate: true,
+      });
+    },
+    onSuccess: (data) => {
+      setGithubStatus({
+        synced: true,
+        repo: data.repo,
+        url: data.url,
+        lastSync: new Date().toISOString(),
+      });
+      toast({
+        title: language === 'ar' ? 'تمت المزامنة!' : 'Synced!',
+        description: language === 'ar' ? `تم رفع المشروع إلى ${data.repo}` : `Project pushed to ${data.repo}`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: language === 'ar' ? 'خطأ في المزامنة' : 'Sync Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleSaveProject = async (): Promise<string | null> => {
+    if (generatedFiles.length === 0) {
+      toast({
+        title: language === 'ar' ? 'لا يوجد ملفات' : 'No Files',
+        description: language === 'ar' ? 'قم ببناء المنصة أولاً' : 'Build the platform first',
+        variant: 'destructive',
+      });
+      return null;
+    }
+
+    const name = projectName || (platformSpec?.name || 'New Platform');
+    setProjectName(name);
+    setIsSaving(true);
+    try {
+      const data = await saveProjectMutation.mutateAsync({
+        name,
+        description: `Platform: ${name}`,
+        files: generatedFiles,
+        platformSpec,
+        dockerCompose,
+        kubernetesManifest,
+      });
+      if (data && data.id) {
+        setProjectId(data.id);
+        return data.id;
+      }
+      return projectId;
+    } catch (error) {
+      return null;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSyncToGitHub = async () => {
+    if (!githubConnectionStatus?.connected) {
+      toast({
+        title: language === 'ar' ? 'GitHub غير متصل' : 'GitHub Not Connected',
+        description: language === 'ar' ? 'يرجى ربط حساب GitHub من الإعدادات' : 'Please connect GitHub from settings',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    let currentProjectId = projectId;
+    
+    if (!currentProjectId) {
+      currentProjectId = await handleSaveProject();
+      if (!currentProjectId) {
+        toast({
+          title: language === 'ar' ? 'فشل حفظ المشروع' : 'Failed to Save Project',
+          description: language === 'ar' ? 'يجب حفظ المشروع قبل المزامنة' : 'Project must be saved before syncing',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
+    setIsSyncing(true);
+    try {
+      const repoName = projectName || platformSpec?.name || 'nova-platform';
+      await syncToGitHubMutation.mutateAsync({
+        projectId: currentProjectId,
+        repoName: repoName.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+        commitMessage: `Update: ${new Date().toLocaleString()}`,
+      });
+    } catch (error) {
+      console.error('Sync error:', error);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const analyzeRequirements = (description: string): ArchitectureAnalysis => {
+    const lowerDesc = description.toLowerCase();
+    const hasArabic = /[\u0600-\u06FF]/.test(description);
+    
+    const keywords = {
+      users: /مليون|million|1m|100k|10k|مستخدم|users?|concurrent/i,
+      video: /فيديو|video|streaming|ستريمينج|بث/i,
+      payment: /دفع|payment|stripe|مدفوعات|checkout|cart|سلة/i,
+      auth: /تسجيل|login|auth|مصادقة|oauth|sso/i,
+      ecommerce: /متجر|store|ecommerce|منتجات|products|تجارة/i,
+      education: /تعليم|education|دورات|courses|طلاب|students/i,
+      social: /اجتماعي|social|chat|رسائل|messages|timeline/i,
+      analytics: /تحليلات|analytics|dashboard|لوحة|reports|تقارير/i,
+      api: /api|integration|تكامل|webhook/i,
+      realtime: /حي|realtime|live|مباشر|websocket/i,
+    };
+
+    const detectedFeatures = Object.entries(keywords).filter(([_, regex]) => regex.test(lowerDesc));
+    const isEnterprise = detectedFeatures.length >= 4 || /مليون|million|enterprise|عملاقة/i.test(lowerDesc);
+    const isMedium = detectedFeatures.length >= 2;
+
+    const microservices: MicroserviceSpec[] = [
+      { id: 'gateway', name: 'API Gateway', nameAr: 'بوابة API', type: 'gateway', replicas: 2, dependencies: [], port: 80, icon: Network },
+    ];
+
+    const needsUsers = keywords.users.test(lowerDesc);
+    const needsPayment = keywords.payment.test(lowerDesc) || keywords.ecommerce.test(lowerDesc);
+    const needsAuth = keywords.auth.test(lowerDesc) || needsUsers || needsPayment;
+    const needsVideo = keywords.video.test(lowerDesc);
+    const needsAnalytics = keywords.analytics.test(lowerDesc);
+    const needsQueue = needsVideo || needsAnalytics || isEnterprise;
+
+    if (needsAuth) {
+      microservices.push({ id: 'auth', name: 'Auth Service', nameAr: 'خدمة المصادقة', type: 'api', replicas: 3, database: 'postgres-auth', dependencies: ['gateway'], port: 3001, icon: Lock });
+    }
+
+    if (needsUsers) {
+      microservices.push({ id: 'users', name: 'User Service', nameAr: 'خدمة المستخدمين', type: 'api', replicas: 3, database: 'postgres-users', dependencies: ['auth'], port: 3002, icon: Users });
+    }
+
+    if (needsPayment) {
+      const paymentDeps = needsUsers ? ['auth', 'users'] : ['auth'];
+      microservices.push({ id: 'payment', name: 'Payment Service', nameAr: 'خدمة الدفع', type: 'api', replicas: 2, database: 'mysql-payment', dependencies: paymentDeps, port: 3003, icon: CreditCard });
+    }
+
+    if (needsVideo) {
+      microservices.push({ id: 'media', name: 'Media Service', nameAr: 'خدمة الوسائط', type: 'api', replicas: 5, dependencies: ['storage'], port: 3004, icon: Video });
+      microservices.push({ id: 'transcoder', name: 'Video Transcoder', nameAr: 'محول الفيديو', type: 'worker', replicas: 4, dependencies: ['media', 'kafka'], icon: Cpu });
+    }
+
+    if (keywords.realtime.test(lowerDesc) || keywords.social.test(lowerDesc)) {
+      microservices.push({ id: 'realtime', name: 'Realtime Service', nameAr: 'خدمة الوقت الحقيقي', type: 'api', replicas: 4, dependencies: ['redis'], port: 3005, icon: MessageSquare });
+    }
+
+    if (needsAnalytics) {
+      microservices.push({ id: 'analytics', name: 'Analytics Service', nameAr: 'خدمة التحليلات', type: 'api', replicas: 2, database: 'elasticsearch', dependencies: ['kafka'], port: 3006, icon: BarChart3 });
+    }
+
+    if (keywords.ecommerce.test(lowerDesc)) {
+      microservices.push({ id: 'catalog', name: 'Catalog Service', nameAr: 'خدمة المنتجات', type: 'api', replicas: 3, database: 'mongo-catalog', dependencies: ['gateway'], port: 3007, icon: Box });
+      microservices.push({ id: 'orders', name: 'Order Service', nameAr: 'خدمة الطلبات', type: 'api', replicas: 3, database: 'postgres-orders', dependencies: ['payment', 'catalog'], port: 3008, icon: Layers });
+    }
+
+    microservices.push({ id: 'redis', name: 'Redis Cluster', nameAr: 'مخزن Redis', type: 'cache', replicas: 3, dependencies: [], icon: HardDrive });
+    
+    if (needsQueue) {
+      microservices.push({ id: 'kafka', name: 'Kafka Cluster', nameAr: 'طابور Kafka', type: 'queue', replicas: 3, dependencies: [], icon: Activity });
+    }
+    
+    if (needsVideo || isEnterprise) {
+      microservices.push({ id: 'storage', name: 'Object Storage', nameAr: 'تخزين الملفات', type: 'storage', replicas: 1, dependencies: [], icon: Cloud });
+    }
+    
+    if (isEnterprise) {
+      microservices.push({ id: 'cdn', name: 'CDN Edge', nameAr: 'شبكة CDN', type: 'cdn', replicas: 1, dependencies: [], icon: Globe });
+    }
+
+    const databases: { type: string; purpose: string; purposeAr: string }[] = [];
+    if (microservices.some(s => s.database?.includes('postgres'))) {
+      databases.push({ type: 'PostgreSQL Cluster', purpose: 'Primary Data Store', purposeAr: 'قاعدة البيانات الرئيسية' });
+    }
+    if (microservices.some(s => s.database?.includes('mongo'))) {
+      databases.push({ type: 'MongoDB Cluster', purpose: 'Document Store', purposeAr: 'تخزين المستندات' });
+    }
+    if (microservices.some(s => s.database?.includes('elasticsearch'))) {
+      databases.push({ type: 'Elasticsearch', purpose: 'Search & Analytics', purposeAr: 'البحث والتحليلات' });
+    }
+    if (microservices.some(s => s.database?.includes('mysql'))) {
+      databases.push({ type: 'MySQL Master-Slave', purpose: 'Transactional Data', purposeAr: 'البيانات المالية' });
+    }
+
+    const platformTypes: Record<string, { en: string; ar: string }> = {
+      ecommerce: { en: 'E-commerce Platform', ar: 'منصة تجارة إلكترونية' },
+      education: { en: 'Educational Platform', ar: 'منصة تعليمية' },
+      social: { en: 'Social Platform', ar: 'منصة اجتماعية' },
+      saas: { en: 'SaaS Platform', ar: 'منصة SaaS' },
+      custom: { en: 'Custom Platform', ar: 'منصة مخصصة' },
+    };
+
+    let platformKey = 'custom';
+    if (keywords.ecommerce.test(lowerDesc)) platformKey = 'ecommerce';
+    else if (keywords.education.test(lowerDesc)) platformKey = 'education';
+    else if (keywords.social.test(lowerDesc)) platformKey = 'social';
+
+    return {
+      platformType: platformTypes[platformKey].en,
+      platformTypeAr: platformTypes[platformKey].ar,
+      estimatedUsers: isEnterprise ? '1M+' : isMedium ? '100K+' : '10K+',
+      complexity: isEnterprise ? 'enterprise' : isMedium ? 'medium' : 'simple',
+      microservices,
+      databases,
+      infrastructure: {
+        loadBalancer: true,
+        cdn: isEnterprise || needsVideo,
+        cache: true,
+        queue: needsQueue,
+        containerized: true,
+      },
+      estimatedCost: isEnterprise ? '$2,000-5,000/mo' : isMedium ? '$500-1,500/mo' : '$100-300/mo',
+      deploymentRegions: isEnterprise ? ['us-east-1', 'eu-west-1', 'ap-southeast-1'] : ['us-east-1'],
+    };
+  };
+
+  const generateDockerCompose = (arch: ArchitectureAnalysis): string => {
+    const services: string[] = [];
+    
+    const getDbServiceName = (db?: string): string => {
+      if (!db) return '';
+      if (db.includes('postgres')) return 'postgres';
+      if (db.includes('mongo')) return 'mongodb';
+      if (db.includes('mysql')) return 'mysql';
+      if (db.includes('elasticsearch')) return 'elasticsearch';
+      return db.split('-')[0];
+    };
+
+    const getServiceDependencies = (service: MicroserviceSpec): string[] => {
+      const deps: string[] = [];
+      
+      if (arch.infrastructure.cache) deps.push('redis');
+      
+      if (service.database) {
+        const dbService = getDbServiceName(service.database);
+        if (dbService) deps.push(dbService);
+      }
+      
+      service.dependencies.forEach(dep => {
+        if ((dep === 'kafka' || dep === 'queue') && arch.infrastructure.queue) {
+          deps.push('kafka');
+        } else if (dep === 'redis' && !deps.includes('redis')) {
+          deps.push('redis');
+        } else if (dep === 'storage') {
+          deps.push('minio');
+        } else if (dep === 'cdn') {
+          deps.push('nginx');
+        } else {
+          const microservice = arch.microservices.find(m => m.id === dep);
+          if (microservice && (microservice.type === 'api' || microservice.type === 'gateway')) {
+            deps.push(dep);
+          }
+        }
+      });
+      
+      return Array.from(new Set(deps));
+    };
+    
+    arch.microservices.forEach(service => {
+      if (service.type === 'api' || service.type === 'gateway' || service.type === 'worker') {
+        const deps = getServiceDependencies(service);
+        const dependsOnBlock = deps.length > 0 
+          ? `depends_on:\n      ${deps.map(d => `- ${d}`).join('\n      ')}`
+          : '';
+        
+        services.push(`  ${service.id}:
+    build: ./${service.id}-service
+    ports:
+      - "${service.port || 3000}:${service.port || 3000}"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=\${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+    ${dependsOnBlock}
+    deploy:
+      replicas: ${service.replicas}
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M`);
+      }
+    });
+
+    if (arch.infrastructure.cache) {
+      services.push(`  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes`);
+    }
+
+    if (arch.databases.some(d => d.type.includes('PostgreSQL'))) {
+      services.push(`  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: platform_db
+      POSTGRES_USER: \${POSTGRES_USER}
+      POSTGRES_PASSWORD: \${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"`);
+    }
+
+    if (arch.databases.some(d => d.type.includes('MongoDB'))) {
+      services.push(`  mongodb:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: \${MONGO_USER}
+      MONGO_INITDB_ROOT_PASSWORD: \${MONGO_PASSWORD}
+    volumes:
+      - mongo-data:/data/db
+    ports:
+      - "27017:27017"`);
+    }
+
+    if (arch.databases.some(d => d.type.includes('MySQL'))) {
+      services.push(`  mysql:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: \${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: platform_db
+    volumes:
+      - mysql-data:/var/lib/mysql
+    ports:
+      - "3306:3306"`);
+    }
+
+    if (arch.databases.some(d => d.type.includes('Elasticsearch'))) {
+      services.push(`  elasticsearch:
+    image: elasticsearch:8.11.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - elastic-data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"`);
+    }
+
+    if (arch.infrastructure.queue) {
+      services.push(`  kafka:
+    image: bitnami/kafka:latest
+    environment:
+      - KAFKA_CFG_NODE_ID=0
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+    ports:
+      - "9092:9092"`);
+    }
+
+    if (arch.microservices.some(s => s.dependencies.includes('storage')) || arch.infrastructure.cdn) {
+      services.push(`  minio:
+    image: minio/minio:latest
+    environment:
+      MINIO_ROOT_USER: \${MINIO_USER}
+      MINIO_ROOT_PASSWORD: \${MINIO_PASSWORD}
+    volumes:
+      - minio-data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    command: server /data --console-address ":9001"`);
+    }
+
+    if (arch.infrastructure.cdn) {
+      services.push(`  nginx:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    depends_on:
+      - gateway`);
+    }
+
+    const volumes: string[] = [];
+    if (arch.infrastructure.cache) volumes.push('redis-data:');
+    if (arch.databases.some(d => d.type.includes('PostgreSQL'))) volumes.push('postgres-data:');
+    if (arch.microservices.some(s => s.dependencies.includes('storage')) || arch.infrastructure.cdn) volumes.push('minio-data:');
+    if (arch.databases.some(d => d.type.includes('MongoDB'))) volumes.push('mongo-data:');
+    if (arch.databases.some(d => d.type.includes('MySQL'))) volumes.push('mysql-data:');
+    if (arch.databases.some(d => d.type.includes('Elasticsearch'))) volumes.push('elastic-data:');
+
+    return `version: '3.8'
+
+services:
+${services.join('\n\n')}
+
+volumes:
+  ${volumes.join('\n  ')}
+
+networks:
+  default:
+    driver: bridge
+`;
+  };
+
+  const generateKubernetesManifest = (arch: ArchitectureAnalysis): string => {
+    const deployments: string[] = [];
+    
+    arch.microservices.filter(s => s.type === 'api' || s.type === 'gateway').forEach(service => {
+      deployments.push(`---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${service.id}-deployment
+  labels:
+    app: ${service.id}
+spec:
+  replicas: ${service.replicas}
+  selector:
+    matchLabels:
+      app: ${service.id}
+  template:
+    metadata:
+      labels:
+        app: ${service.id}
+    spec:
+      containers:
+      - name: ${service.id}
+        image: infera/${service.id}-service:latest
+        ports:
+        - containerPort: ${service.port || 3000}
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: platform-secrets
+              key: database-url
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${service.id}-service
+spec:
+  selector:
+    app: ${service.id}
+  ports:
+  - port: ${service.port || 3000}
+    targetPort: ${service.port || 3000}
+  type: ClusterIP`);
+    });
+
+    if (arch.infrastructure.loadBalancer) {
+      deployments.push(`---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: platform-ingress
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  tls:
+  - hosts:
+    - api.platform.infera.dev
+    secretName: platform-tls
+  rules:
+  - host: api.platform.infera.dev
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: gateway-service
+            port:
+              number: 80`);
+    }
+
+    return deployments.join('\n');
+  };
+
+  const simulateBuild = async (description: string) => {
+    const hasArabic = /[\u0600-\u06FF]/.test(description);
+    const lang = hasArabic ? 'ar' : language;
+    
+    const arch = analyzeRequirements(description);
+    setArchitecture(arch);
+    
+    const steps: BuildStep[] = [
+      { id: 's1', name: 'Analyzing requirements', nameAr: 'تحليل المتطلبات', status: 'pending' },
+      { id: 's2', name: 'Designing microservices architecture', nameAr: 'تصميم بنية الخدمات المصغرة', status: 'pending' },
+      { id: 's3', name: 'Generating database schemas', nameAr: 'توليد مخططات قواعد البيانات', status: 'pending' },
+      { id: 's4', name: 'Building frontend (React + Tailwind)', nameAr: 'بناء الواجهة (React + Tailwind)', status: 'pending' },
+      { id: 's5', name: 'Building backend services (Node.js)', nameAr: 'بناء خدمات الخادم (Node.js)', status: 'pending' },
+      { id: 's6', name: 'Generating Docker containers', nameAr: 'توليد حاويات Docker', status: 'pending' },
+      { id: 's7', name: 'Creating Kubernetes manifests', nameAr: 'إنشاء ملفات Kubernetes', status: 'pending' },
+      { id: 's8', name: 'Configuring load balancer', nameAr: 'إعداد موازن التحميل', status: 'pending' },
+      { id: 's9', name: 'Deploying to cloud', nameAr: 'النشر على السحابة', status: 'pending' },
+    ];
+    
+    setBuildSteps(steps);
+    setActiveTab('architecture');
+    
+    for (let i = 0; i < steps.length; i++) {
+      await new Promise(resolve => setTimeout(resolve, 1200));
+      
+      setBuildSteps(prev => prev.map((step, idx) => ({
+        ...step,
+        status: idx < i ? 'complete' : idx === i ? 'active' : 'pending'
+      })));
+      
+      const stepMessage: BuildMessage = {
+        id: `step-${i}`,
+        role: 'system',
+        content: lang === 'ar' ? `✓ ${steps[i].nameAr}` : `✓ ${steps[i].name}`,
+        timestamp: new Date(),
+        status: 'building'
+      };
+      setMessages(prev => [...prev, stepMessage]);
+    }
+    
+    setBuildSteps(prev => prev.map(step => ({ ...step, status: 'complete' })));
+    
+    const projectName = arch.platformType.toLowerCase().replace(/\s+/g, '-');
+    
+    setDockerCompose(generateDockerCompose(arch));
+    setKubernetesManifest(generateKubernetesManifest(arch));
+    
+    const spec: PlatformSpec = {
+      name: arch.platformType,
+      nameAr: arch.platformTypeAr,
+      type: arch.platformType.toLowerCase().includes('commerce') ? 'ecommerce' : 
+            arch.platformType.toLowerCase().includes('education') ? 'education' :
+            arch.platformType.toLowerCase().includes('social') ? 'social' : 'saas',
+      features: arch.microservices.map(s => s.name),
+      hasAuth: arch.microservices.some(s => s.id === 'auth'),
+      hasSubscriptions: arch.microservices.some(s => s.id === 'payment'),
+      hasPayments: arch.microservices.some(s => s.id === 'payment'),
+      hasDashboard: true,
+      databases: arch.databases.map(db => ({
+        name: db.type,
+        type: db.type.includes('postgres') ? 'postgresql' as const : db.type.includes('redis') ? 'redis' as const : 'postgresql' as const,
+        tables: []
+      })),
+      microservices: arch.microservices.map(s => ({
+        id: s.id,
+        name: s.name,
+        type: s.type,
+        port: s.port || 3000,
+        endpoints: []
+      }))
+    };
+    setPlatformSpec(spec);
+    
+    const localFiles = generatePlatformCode(spec);
+    localFiles.push({
+      fileName: 'package.json',
+      filePath: 'package.json',
+      language: 'json',
+      content: generatePackageJson(spec),
+      category: 'config'
+    });
+    
+    try {
+      // Use AI-powered build orchestrator for real platform generation
+      const aiBuildRequest = {
+        requirements: description,
+        sector: spec.type,
+        locale: lang,
+      };
+      
+      // Try AI-powered build first
+      let useAIBuild = true;
+      let buildResponse: any = null;
+      
+      try {
+        buildResponse = await apiRequest('POST', '/api/platforms/ai-build', aiBuildRequest);
+        console.log('[AI-Build] Response:', buildResponse);
+        
+        // Poll for build completion (AI build is async)
+        if (buildResponse?.success && buildResponse.blueprintId) {
+          let attempts = 0;
+          const maxAttempts = 60; // Wait up to 60 seconds
+          let buildComplete = false;
+          
+          while (attempts < maxAttempts && !buildComplete) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            const statusResponse = await fetch(`/api/platforms/ai-build/${buildResponse.blueprintId}`);
+            if (statusResponse.ok) {
+              const statusData = await statusResponse.json();
+              console.log('[AI-Build] Status:', statusData.buildState?.stage, 'Progress:', statusData.buildState?.progress);
+              if (statusData.buildState?.stage === 'completed') {
+                buildComplete = true;
+              } else if (statusData.buildState?.stage === 'failed') {
+                console.warn('[AI-Build] Build failed, falling back to template');
+                useAIBuild = false;
+                break;
+              }
+            }
+            attempts++;
+          }
+          
+          if (!buildComplete && useAIBuild) {
+            console.warn('[AI-Build] Timeout waiting for build, falling back to template');
+            useAIBuild = false;
+          }
+        }
+      } catch (aiError) {
+        console.warn('[AI-Build] Falling back to template build:', aiError);
+        useAIBuild = false;
+      }
+      
+      // If AI build failed, fall back to template-based build
+      if (!useAIBuild || !buildResponse?.success) {
+        const apiSpec = {
+          name: spec.name,
+          nameAr: spec.nameAr,
+          description: `${spec.name} Platform`,
+          descriptionAr: `منصة ${spec.nameAr || spec.name}`,
+          sector: spec.type,
+          features: spec.features,
+          hasAuth: spec.hasAuth,
+          hasPayments: spec.hasPayments,
+          hasSubscriptions: spec.hasSubscriptions,
+          hasCMS: false,
+          hasAnalytics: spec.hasDashboard,
+        };
+        buildResponse = await apiRequest('POST', '/api/platforms/build', apiSpec);
+      }
+      
+      // Handle both AI build (blueprintId) and template build (buildId) responses
+      const buildId = buildResponse.buildId || buildResponse.blueprintId;
+      
+      if (buildResponse.success && buildId) {
+        setCurrentBuildId(buildId);
+        
+        // Set appropriate preview URL based on build type
+        // Use the new live preview endpoint that runs actual React code
+        if (buildResponse.blueprintId) {
+          setPreviewUrl(`/api/platforms/ai-build/${buildResponse.blueprintId}/preview`);
+        } else {
+          setPreviewUrl(`/api/platforms/preview/${buildId}`);
+        }
+        
+        // Check for AI-build artifacts first
+        if (buildResponse.blueprintId) {
+          const artifactsResponse = await fetch(`/api/platforms/ai-build/${buildResponse.blueprintId}/artifacts`);
+          if (artifactsResponse.ok) {
+            const artifactsData = await artifactsResponse.json();
+            const aiFiles: GeneratedCode[] = (artifactsData.files || []).map((f: any) => ({
+              fileName: f.path.split('/').pop() || f.path,
+              filePath: f.path,
+              language: f.language || f.path.split('.').pop() || 'typescript',
+              content: f.content,
+              category: f.category || 'generated'
+            }));
+            
+            if (aiFiles.length > 0) {
+              console.log('[AI-Build] Got', aiFiles.length, 'AI-generated files');
+              setGeneratedFiles(aiFiles);
+              setSelectedFile(aiFiles[0]);
+              setGeneratedCode(aiFiles[0].content);
+            } else {
+              setGeneratedFiles(localFiles);
+              setSelectedFile(localFiles[0]);
+              setGeneratedCode(localFiles[0]?.content || '');
+            }
+          } else {
+            setGeneratedFiles(localFiles);
+            setSelectedFile(localFiles[0]);
+            setGeneratedCode(localFiles[0]?.content || '');
+          }
+        } else {
+          // Template-based build files
+          const filesResponse = await fetch(`/api/platforms/build/${buildId}/files`);
+          if (filesResponse.ok) {
+            const filesData = await filesResponse.json();
+            const serverFiles: GeneratedCode[] = [];
+            
+            for (const fileMeta of filesData.files || []) {
+              const encodedPath = encodeURIComponent(fileMeta.filePath);
+              const fileResponse = await fetch(`/api/platforms/build/${buildId}/file/${encodedPath}`);
+              if (fileResponse.ok) {
+                const fileData = await fileResponse.json();
+                serverFiles.push({
+                  fileName: fileData.fileName,
+                  filePath: fileData.filePath,
+                  language: fileData.language,
+                  content: fileData.content,
+                  category: fileMeta.category || 'generated'
+                });
+              }
+            }
+            
+            if (serverFiles.length > 0) {
+              setGeneratedFiles(serverFiles);
+              setSelectedFile(serverFiles[0]);
+              setGeneratedCode(serverFiles[0].content);
+            } else {
+              setGeneratedFiles(localFiles);
+              setSelectedFile(localFiles[0]);
+              setGeneratedCode(localFiles[0]?.content || '');
+            }
+          }
+        }
+      } else {
+        setGeneratedFiles(localFiles);
+        if (localFiles.length > 0) {
+          setSelectedFile(localFiles[0]);
+          setGeneratedCode(localFiles[0].content);
+        }
+      }
+    } catch (error) {
+      console.error('API build error, using local generation:', error);
+      setGeneratedFiles(localFiles);
+      if (localFiles.length > 0) {
+        setSelectedFile(localFiles[0]);
+        setGeneratedCode(localFiles[0].content);
+      }
+    }
+    
+    setActiveTab('architecture');
+    
+    const dynamicPreviewUrl = previewUrl || `https://${projectName}.infera.dev`;
+    return {
+      success: true,
+      previewUrl: dynamicPreviewUrl,
+      githubUrl: `https://github.com/infera/${projectName}`,
+      projectName,
+      architecture: arch
+    };
+  };
+
+  const callNovaAI = async (userContent: string, lang: string): Promise<string> => {
+    try {
+      const response = await fetch('/api/nova/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userContent,
+          context: 'platform_builder',
+          language: lang,
+          conversationHistory: messages.slice(-10).map(m => ({
+            role: m.role === 'user' ? 'user' : 'assistant',
+            content: m.content
+          }))
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Nova API error');
+      }
+      
+      const data = await response.json();
+      return data.response || data.message || (lang === 'ar' 
+        ? 'عذراً، حدث خطأ. حاول مرة أخرى.' 
+        : 'Sorry, an error occurred. Please try again.');
+    } catch (error) {
+      console.error('Nova API error:', error);
+      return lang === 'ar'
+        ? `مرحباً! أنا Nova، مساعدك الذكي لبناء المنصات الرقمية.
+
+قدراتي تشمل:
+• بناء منصات عملاقة تدعم ملايين المستخدمين
+• تصميم بنية Microservices متكاملة
+• توليد ملفات Docker و Kubernetes
+• إنشاء قواعد بيانات موزعة
+• دعم أنظمة الدفع المتعددة
+• بناء واجهات مستخدم حديثة
+
+كيف يمكنني مساعدتك؟ صف لي المنصة التي تريد بناءها.`
+        : `Hello! I'm Nova, your intelligent assistant for building digital platforms.
+
+My capabilities include:
+• Building enterprise platforms supporting millions of users
+• Designing complete Microservices architecture
+• Generating Docker and Kubernetes manifests
+• Creating distributed database systems
+• Supporting multiple payment gateways
+• Building modern user interfaces
+
+How can I help you? Describe the platform you want to build.`;
+    }
+  };
+
+  const sendMessage = useCallback(async (content: string) => {
+    if (!content.trim() || isBuilding) return;
+    
+    // Check for meaningless input
+    if (isInputMeaningless(content)) {
+      return;
+    }
+    
+    const hasArabic = /[\u0600-\u06FF]/.test(content);
+    const lang = hasArabic ? 'ar' : language;
+    
+    // Detect intent using Conversational Context Layer
+    const intent = detectIntent(content, conversationContext.messages);
+    console.log('[sendMessage] Content:', content.substring(0, 100), '| Intent:', intent);
+    
+    // Update context memory with user message
+    setConversationContext(prev => addToContext(prev, 'user', content, intent));
+    
+    const userMessage: BuildMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: content.trim(),
+      timestamp: new Date(),
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    setInputValue('');
+    
+    // Handle based on detected intent
+    if (intent === 'discussion' || intent === 'inquiry') {
+      setIsBuilding(true);
+      const thinkingMessage: BuildMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'nova',
+        content: lang === 'ar' ? 'جاري التحليل...' : 'Analyzing...',
+        timestamp: new Date(),
+        status: 'thinking',
+      };
+      setMessages(prev => [...prev, thinkingMessage]);
+      
+      try {
+        // For discussion mode, send context summary with the user's message
+        // The AI should receive the message content, not instruction prompts
+        const aiResponse = await callNovaAI(content, lang);
+        setMessages(prev => prev.filter(m => m.id !== thinkingMessage.id));
+        
+        // Update context with Nova's response
+        setConversationContext(prev => addToContext(prev, 'nova', aiResponse, intent));
+        
+        const responseMessage: BuildMessage = {
+          id: (Date.now() + 2).toString(),
+          role: 'nova',
+          content: aiResponse,
+          timestamp: new Date(),
+          status: 'complete',
+        };
+        setMessages(prev => [...prev, responseMessage]);
+      } catch (error) {
+        setMessages(prev => prev.filter(m => m.id !== thinkingMessage.id));
+        const errorResponse: BuildMessage = {
+          id: (Date.now() + 2).toString(),
+          role: 'nova',
+          content: lang === 'ar' ? 'عذراً، حدث خطأ. كيف يمكنني مساعدتك في بناء منصتك؟' : 'Sorry, an error occurred. How can I help you build your platform?',
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, errorResponse]);
+      } finally {
+        setIsBuilding(false);
+      }
+      return;
+    }
+    
+    // Handle security intent
+    if (intent === 'security') {
+      const securityResponse: BuildMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'nova',
+        content: lang === 'ar' 
+          ? 'للوصول إلى لوحة الأمان والتدقيق، توجه إلى قسم المالك. هناك ستجد:\n\n- إدارة الصلاحيات\n- سجلات التدقيق\n- إعدادات الأمان\n- مراقبة التهديدات'
+          : 'For security and audit panel access, navigate to the Owner section. There you will find:\n\n- Permission Management\n- Audit Logs\n- Security Settings\n- Threat Monitoring',
+        timestamp: new Date(),
+        status: 'complete',
+      };
+      setMessages(prev => [...prev, securityResponse]);
+      setConversationContext(prev => addToContext(prev, 'nova', securityResponse.content, intent));
+      return;
+    }
+    
+    // Handle build/command intent - both trigger the build workflow
+    
+    setIsBuilding(true);
+    
+    const thinkingMessage: BuildMessage = {
+      id: (Date.now() + 1).toString(),
+      role: 'nova',
+      content: lang === 'ar' ? 'جاري تحليل المتطلبات وتصميم البنية المثلى...' : 'Analyzing requirements and designing optimal architecture...',
+      timestamp: new Date(),
+      status: 'thinking',
+    };
+    setMessages(prev => [...prev, thinkingMessage]);
+
+    try {
+      const result = await simulateBuild(content);
+      
+      setMessages(prev => prev.filter(m => m.id !== thinkingMessage.id));
+      
+      const arch = result.architecture;
+      const completionMessage: BuildMessage = {
+        id: (Date.now() + 2).toString(),
+        role: 'nova',
+        content: lang === 'ar' 
+          ? `✅ تم بناء المنصة بنجاح!\n\n📊 نوع المنصة: ${arch?.platformTypeAr}\n🔧 عدد الخدمات: ${arch?.microservices.length}\n👥 المستخدمين المتوقعين: ${arch?.estimatedUsers}\n💰 التكلفة المقدرة: ${arch?.estimatedCost}\n\n🔗 رابط المعاينة: ${result.previewUrl}\n📦 GitHub: ${result.githubUrl}\n\nيمكنك تحميل ملفات Docker و Kubernetes من تبويب "البنية".`
+          : `✅ Platform built successfully!\n\n📊 Platform Type: ${arch?.platformType}\n🔧 Services: ${arch?.microservices.length}\n👥 Expected Users: ${arch?.estimatedUsers}\n💰 Estimated Cost: ${arch?.estimatedCost}\n\n🔗 Preview URL: ${result.previewUrl}\n📦 GitHub: ${result.githubUrl}\n\nYou can download Docker and Kubernetes files from the "Architecture" tab.`,
+        timestamp: new Date(),
+        status: 'complete',
+      };
+      
+      setMessages(prev => [...prev, completionMessage]);
+      
+      // Update context with build completion
+      setConversationContext(prev => addToContext(prev, 'nova', completionMessage.content, 'build'));
+      
+      toast({
+        title: lang === 'ar' ? 'تم البناء بنجاح' : 'Build Complete',
+        description: lang === 'ar' ? `تم إنشاء ${arch?.microservices.length} خدمة مصغرة` : `Created ${arch?.microservices.length} microservices`,
+      });
+      
+    } catch (error) {
+      setMessages(prev => prev.filter(m => m.id !== thinkingMessage.id));
+      
+      const errorMessage: BuildMessage = {
+        id: (Date.now() + 2).toString(),
+        role: 'nova',
+        content: lang === 'ar' 
+          ? 'عذراً، حدث خطأ أثناء البناء. حاول مرة أخرى.'
+          : 'Sorry, an error occurred during build. Please try again.',
+        timestamp: new Date(),
+        status: 'error',
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      setConversationContext(prev => addToContext(prev, 'nova', errorMessage.content, 'build'));
+    } finally {
+      setIsBuilding(false);
+    }
+  }, [isBuilding, language, toast, conversationContext]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(inputValue);
+    }
+  }, [inputValue, sendMessage]);
+
+  const getDeviceWidth = () => {
+    switch (previewDevice) {
+      case 'mobile': return 'w-[375px]';
+      case 'tablet': return 'w-[768px]';
+      default: return 'w-full';
+    }
+  };
+
+  const t = (en: string, ar: string) => language === 'ar' ? ar : en;
+
+  const getServiceIcon = (type: MicroserviceSpec['type']) => {
+    const icons: Record<MicroserviceSpec['type'], typeof Server> = {
+      api: Server,
+      worker: Cpu,
+      gateway: Network,
+      database: Database,
+      cache: HardDrive,
+      queue: Activity,
+      cdn: Globe,
+      storage: Cloud,
+    };
+    return icons[type];
+  };
+
+  const getComplexityColor = (complexity: ArchitectureAnalysis['complexity']) => {
+    switch (complexity) {
+      case 'enterprise': return 'bg-purple-500/10 text-purple-600 border-purple-500/30';
+      case 'medium': return 'bg-blue-500/10 text-blue-600 border-blue-500/30';
+      default: return 'bg-green-500/10 text-green-600 border-green-500/30';
+    }
+  };
+
+  // Layout mode: 'split' (both visible), 'chat-only', or 'preview-only'
+  const layoutMode = chatPanelMaximized ? 'chat-only' : 
+                     previewPanelMaximized ? 'preview-only' : 
+                     (!chatPanelVisible && previewPanelVisible) ? 'preview-only' :
+                     (chatPanelVisible && !previewPanelVisible) ? 'chat-only' :
+                     'split';
+
+  // Handle panel maximize toggle - sync visibility with maximize state
+  const toggleChatMaximize = () => {
+    if (chatPanelMaximized) {
+      // Restore: show both panels
+      setChatPanelMaximized(false);
+      setChatPanelVisible(true);
+      setPreviewPanelVisible(true);
+    } else {
+      // Maximize chat: hide preview
+      setChatPanelMaximized(true);
+      setPreviewPanelMaximized(false);
+      setChatPanelVisible(true);
+      setPreviewPanelVisible(false);
+    }
+  };
+
+  const togglePreviewMaximize = () => {
+    if (previewPanelMaximized) {
+      // Restore: show both panels
+      setPreviewPanelMaximized(false);
+      setChatPanelVisible(true);
+      setPreviewPanelVisible(true);
+    } else {
+      // Maximize preview: hide chat
+      setPreviewPanelMaximized(true);
+      setChatPanelMaximized(false);
+      setPreviewPanelVisible(true);
+      setChatPanelVisible(false);
+    }
+  };
+
+  const toggleChatPanel = () => {
+    if (chatPanelVisible) {
+      // Hide chat panel
+      setChatPanelVisible(false);
+      setChatPanelMaximized(false);
+      // Ensure preview is visible
+      setPreviewPanelVisible(true);
+    } else {
+      // Show chat panel - restore split view
+      setChatPanelVisible(true);
+      setChatPanelMaximized(false);
+      setPreviewPanelMaximized(false);
+      setPreviewPanelVisible(true);
+    }
+  };
+
+  const togglePreviewPanel = () => {
+    if (previewPanelVisible) {
+      // Hide preview panel
+      setPreviewPanelVisible(false);
+      setPreviewPanelMaximized(false);
+      // Ensure chat is visible
+      setChatPanelVisible(true);
+    } else {
+      // Show preview panel - restore split view
+      setPreviewPanelVisible(true);
+      setChatPanelMaximized(false);
+      setPreviewPanelMaximized(false);
+      setChatPanelVisible(true);
+    }
+  };
+
+  return (
+    <div className="h-screen bg-background flex flex-col" dir={isRTL ? 'rtl' : 'ltr'}>
+      {/* Top Control Bar */}
+      <div className="h-10 border-b border-border bg-card/80 backdrop-blur-sm flex items-center justify-between px-3 shrink-0 z-50">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+            <Brain className="w-4 h-4 text-white" />
+          </div>
+          <h1 className="font-semibold text-foreground">Nova Enterprise Builder</h1>
+          {projectId && (
+            <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30 gap-1 text-xs">
+              <Save className="w-3 h-3" />
+              {t('Saved', 'محفوظ')}
+            </Badge>
+          )}
+          {githubStatus?.synced && (
+            <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/30 gap-1 text-xs">
+              <GitBranch className="w-3 h-3" />
+              {githubStatus.repo?.split('/')[1]}
+            </Badge>
+          )}
+        </div>
+        
+        <div className="flex items-center gap-2">
+          {/* Panel Toggle Controls */}
+          <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={chatPanelVisible ? 'secondary' : 'ghost'}
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={toggleChatPanel}
+                  data-testid="button-toggle-chat"
+                >
+                  {chatPanelVisible ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t('Toggle Chat Panel', 'إظهار/إخفاء صندوق الحوار')}</TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={previewPanelVisible ? 'secondary' : 'ghost'}
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={togglePreviewPanel}
+                  data-testid="button-toggle-preview"
+                >
+                  {previewPanelVisible ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t('Toggle Preview Panel', 'إظهار/إخفاء لوحة المعاينة')}</TooltipContent>
+            </Tooltip>
+          </div>
+          
+          <div className="h-6 w-px bg-border" />
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setLocation('/nova/permissions')}
+                data-testid="button-nova-permissions"
+              >
+                <Shield className="w-4 h-4 text-amber-500" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t('Nova Permissions', 'صلاحيات نوفا')}</TooltipContent>
+          </Tooltip>
+        </div>
+      </div>
+      
+      {/* Main Content with Resizable Panels */}
+      <ResizablePanelGroup 
+        direction="horizontal" 
+        className="flex-1 overflow-hidden"
+        data-testid="resizable-panel-group"
+        key={layoutMode}
+      >
+        {/* Chat Panel - only render when needed */}
+        {(layoutMode === 'split' || layoutMode === 'chat-only') && (
+        <ResizablePanel 
+          defaultSize={layoutMode === 'chat-only' ? 100 : 35} 
+          minSize={layoutMode === 'chat-only' ? 100 : 20}
+          maxSize={layoutMode === 'chat-only' ? 100 : 60}
+          className="flex flex-col h-full overflow-hidden bg-card/50"
+          data-testid="panel-chat"
+        >
+          <div className="flex-shrink-0 px-2 py-1.5 border-b border-border flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-violet-500" />
+              <span className="text-xs font-medium">{t('AI Chat', 'محادثة الذكاء الاصطناعي')}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={toggleChatMaximize}
+                    data-testid="button-maximize-chat"
+                  >
+                    {chatPanelMaximized ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{chatPanelMaximized ? t('Restore', 'استعادة') : t('Maximize', 'تكبير')}</TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
+
+        <ScrollArea className="flex-1 p-2">
+          <div className="space-y-2">
+            <AnimatePresence mode="popLayout">
+              {messages.map((message) => (
+                <motion.div
+                  key={message.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className={`flex gap-3 ${message.role === 'user' ? (isRTL ? 'flex-row-reverse' : '') : ''}`}
+                >
+                  {message.role !== 'user' && (
+                    <Avatar className="w-8 h-8 shrink-0">
+                      <AvatarFallback className={`text-xs ${message.role === 'system' ? 'bg-blue-500/20 text-blue-500' : 'bg-gradient-to-br from-violet-500 to-purple-600 text-white'}`}>
+                        {message.role === 'system' ? <Terminal className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+                  
+                  <div className={`flex-1 ${message.role === 'user' ? 'flex justify-end' : ''}`}>
+                    <div className={`rounded-lg p-3 max-w-[90%] ${
+                      message.role === 'user' 
+                        ? 'bg-primary text-primary-foreground' 
+                        : message.role === 'system'
+                        ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 text-sm'
+                        : 'bg-muted'
+                    }`}>
+                      {message.status === 'thinking' && (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>{message.content}</span>
+                        </div>
+                      )}
+                      {message.status !== 'thinking' && (
+                        <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {message.role === 'user' && (
+                    <Avatar className="w-8 h-8 shrink-0">
+                      <AvatarFallback className="bg-primary/20 text-primary text-xs">
+                        {user?.username?.[0]?.toUpperCase() || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+                </motion.div>
+              ))}
+            </AnimatePresence>
+            <div ref={messagesEndRef} />
+          </div>
+        </ScrollArea>
+
+        <div className="flex-shrink-0 border-t border-border bg-card/95 backdrop-blur-sm">
+          <div className="p-3 space-y-3">
+            <div className="flex gap-2 flex-wrap">
+              {[
+                { icon: Layers, label: t('E-commerce', 'متجر'), prompt: t('Create an enterprise e-commerce platform with 1M concurrent users, global CDN, multi-currency payments, real-time inventory, recommendation engine, and analytics dashboard', 'أنشئ منصة تجارة إلكترونية عملاقة تدعم مليون مستخدم متزامن مع CDN عالمي ودفع متعدد العملات ومخزون حي ومحرك توصيات ولوحة تحليلات') },
+                { icon: Video, label: t('Learning', 'تعليم'), prompt: t('Create an educational platform with video streaming, virtual classrooms, smart testing system, progress tracking, and payment integration for 500K users', 'أنشئ منصة تعليمية مع بث فيديو وفصول افتراضية ونظام اختبارات ذكي وتتبع التقدم ونظام دفع لـ 500 ألف مستخدم') },
+                { icon: Users, label: t('Social', 'اجتماعية'), prompt: t('Create a social platform with real-time messaging, content feed, live streaming, notifications, and moderation system', 'أنشئ منصة اجتماعية مع رسائل حية وتايملاين وبث مباشر وإشعارات ونظام إشراف') },
+              ].map((example, idx) => (
+                <Button
+                  key={idx}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => sendMessage(example.prompt)}
+                  className="text-xs gap-1.5 h-7"
+                  data-testid={`button-example-${idx}`}
+                >
+                  <example.icon className="w-3 h-3" />
+                  {example.label}
+                </Button>
+              ))}
+            </div>
+            
+            <div className="relative">
+              <Textarea
+                ref={inputRef}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={t('Describe your enterprise platform requirements...', 'صف متطلبات منصتك العملاقة...')}
+                className="resize-none min-h-[80px] text-sm pr-12"
+                disabled={isBuilding}
+                data-testid="input-chat"
+              />
+              <Button
+                size="icon"
+                onClick={() => sendMessage(inputValue)}
+                disabled={!inputValue.trim() || isBuilding}
+                className={`absolute ${isRTL ? 'left-2' : 'right-2'} bottom-2`}
+                data-testid="button-send"
+              >
+                {isBuilding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              </Button>
+            </div>
+          </div>
+          
+          <div className="px-3 py-2 border-t border-border/50 bg-muted/30 flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              {previewUrl && (
+                <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30 gap-1 text-xs">
+                  <CheckCircle className="w-2.5 h-2.5" />
+                  {t('Deployed', 'تم النشر')}
+                </Badge>
+              )}
+              {generatedFiles.length > 0 && (
+                <Badge variant="outline" className="bg-violet-500/10 text-violet-600 border-violet-500/30 gap-1 text-xs">
+                  <FileCode className="w-2.5 h-2.5" />
+                  {generatedFiles.length} {t('files', 'ملفات')}
+                </Badge>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="gap-1.5 h-8 text-xs" 
+                onClick={clearSavedState}
+                data-testid="button-new-project-chat"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                {t('New', 'جديد')}
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-1.5 h-8 text-xs" 
+                onClick={handleSaveProject}
+                disabled={isSaving || generatedFiles.length === 0}
+                data-testid="button-save-chat"
+              >
+                {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                {t('Save', 'حفظ')}
+              </Button>
+              <GitHubRepoSelector
+                projectId={projectId || undefined}
+                projectName={projectName || undefined}
+                language={language}
+                onSyncComplete={(result) => {
+                  setGithubStatus({
+                    synced: true,
+                    repo: result.repo,
+                    url: result.url,
+                    lastSync: new Date().toISOString()
+                  });
+                  toast({
+                    title: language === 'ar' ? 'تمت المزامنة' : 'Sync Complete',
+                    description: language === 'ar' 
+                      ? `تمت مزامنة المشروع إلى ${result.repo}` 
+                      : `Project synced to ${result.repo}`
+                  });
+                }}
+              />
+              {githubStatus?.url && (
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => window.open(githubStatus.url, '_blank')}
+                  data-testid="button-open-github"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </Button>
+              )}
+              <Button 
+                size="sm" 
+                className="gap-1.5 h-8 text-xs bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700" 
+                disabled={generatedFiles.length === 0}
+                data-testid="button-publish-chat"
+              >
+                <Rocket className="w-3.5 h-3.5" />
+                {t('Publish', 'نشر')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </ResizablePanel>
+        )}
+      
+        {/* Resize Handle - only shown in split mode */}
+        {layoutMode === 'split' && (
+          <ResizableHandle 
+            withHandle 
+            className="bg-border hover:bg-primary/20 transition-colors" 
+            data-testid="resize-handle-main" 
+          />
+        )}
+
+        {/* Preview Panel - only render when needed */}
+        {(layoutMode === 'split' || layoutMode === 'preview-only') && (
+          <ResizablePanel 
+            defaultSize={layoutMode === 'preview-only' ? 100 : 65} 
+            minSize={layoutMode === 'preview-only' ? 100 : 30}
+            className="flex flex-col h-full overflow-hidden bg-muted/30"
+            data-testid="panel-preview"
+          >
+            <div className="flex-shrink-0 px-2 py-1.5 border-b border-border bg-card/50 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
+                  <TabsList className="grid w-[320px] grid-cols-4 h-7">
+                    <TabsTrigger value="preview" className="gap-1 text-xs h-6" data-testid="tab-preview">
+                      <Eye className="w-3 h-3" />
+                      {t('Preview', 'معاينة')}
+                    </TabsTrigger>
+                    <TabsTrigger value="architecture" className="gap-1 text-xs h-6" data-testid="tab-architecture">
+                      <Network className="w-3 h-3" />
+                      {t('Architecture', 'البنية')}
+                    </TabsTrigger>
+                    <TabsTrigger value="code" className="gap-1 text-xs h-6" data-testid="tab-code">
+                      <Code className="w-3 h-3" />
+                      {t('Code', 'الكود')}
+                    </TabsTrigger>
+                    <TabsTrigger value="build" className="gap-1 text-xs h-6" data-testid="tab-build">
+                      <Activity className="w-3 h-3" />
+                      {t('Build', 'البناء')}
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+              
+              <div className="flex items-center gap-1">
+                <div className="flex items-center gap-0.5 bg-muted rounded-md p-0.5">
+                  <Button
+                    variant={previewDevice === 'desktop' ? 'secondary' : 'ghost'}
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => setPreviewDevice('desktop')}
+                    data-testid="button-device-desktop"
+                  >
+                    <Monitor className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    variant={previewDevice === 'tablet' ? 'secondary' : 'ghost'}
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => setPreviewDevice('tablet')}
+                    data-testid="button-device-tablet"
+                  >
+                    <Tablet className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    variant={previewDevice === 'mobile' ? 'secondary' : 'ghost'}
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => setPreviewDevice('mobile')}
+                    data-testid="button-device-mobile"
+                  >
+                    <Smartphone className="w-3 h-3" />
+                  </Button>
+                </div>
+                
+                {previewUrl && (
+                  <Button variant="outline" size="sm" className="gap-1 h-6 text-xs" data-testid="button-open-preview">
+                    <ExternalLink className="w-3 h-3" />
+                    {t('Open', 'فتح')}
+                  </Button>
+                )}
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={togglePreviewMaximize}
+                      data-testid="button-maximize-preview"
+                    >
+                      {previewPanelMaximized ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{previewPanelMaximized ? t('Restore', 'استعادة') : t('Maximize', 'تكبير')}</TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
+
+            <div className="flex-1 p-2 overflow-auto">
+          {activeTab === 'preview' && (
+            <div className="h-full flex flex-col">
+              {previewUrl && generatedFiles.length > 0 && (
+                <div className="bg-gradient-to-r from-green-500/10 via-emerald-500/10 to-green-500/10 border border-green-500/30 rounded-lg p-3 mb-3 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+                      <Eye className="w-4 h-4 text-green-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-green-600 dark:text-green-400">
+                        {t('Live Interactive Preview', 'معاينة تفاعلية حية')}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {t('This is a fully functional preview with sample data. Download the complete platform from "Code" tab', 'هذه معاينة تفاعلية كاملة مع بيانات تجريبية. يمكنك تحميل المنصة الكاملة من تبويب "الكود"')} ({generatedFiles.length} {t('files', 'ملف')})
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="gap-2 border-green-500/50 text-green-600 dark:text-green-400"
+                      onClick={() => setActiveTab('code')}
+                      data-testid="button-go-to-code"
+                    >
+                      <FileCode className="w-4 h-4" />
+                      {t('View Generated Code', 'عرض الكود المُولّد')}
+                    </Button>
+                    {currentBuildId && (
+                      <Button 
+                        variant="default" 
+                        size="sm" 
+                        className="gap-2 bg-green-600 hover:bg-green-700"
+                        onClick={async () => {
+                          try {
+                            const response = await fetch(`/api/platforms/ai-build/${currentBuildId}/download`);
+                            if (response.ok) {
+                              const blob = await response.blob();
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `${platformSpec?.name || 'platform'}-complete.zip`;
+                              a.click();
+                              URL.revokeObjectURL(url);
+                              toast({ title: t('Platform downloaded!', 'تم تحميل المنصة!') });
+                            } else {
+                              toast({ title: t('Download failed', 'فشل التحميل'), variant: 'destructive' });
+                            }
+                          } catch (error) {
+                            toast({ title: t('Download failed', 'فشل التحميل'), variant: 'destructive' });
+                          }
+                        }}
+                        data-testid="button-download-from-preview"
+                      >
+                        <Download className="w-4 h-4" />
+                        {t('Download for Deployment', 'تحميل للنشر')}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+              <div className="flex-1 flex items-center justify-center">
+              {previewUrl ? (
+                <div className={`${getDeviceWidth()} h-full bg-white dark:bg-zinc-900 rounded-lg border border-border shadow-lg overflow-hidden transition-all duration-300`}>
+                  <div className="h-8 bg-muted/50 border-b border-border flex items-center gap-2 px-3">
+                    <div className="flex gap-1.5">
+                      <div className="w-3 h-3 rounded-full bg-red-500" />
+                      <div className="w-3 h-3 rounded-full bg-yellow-500" />
+                      <div className="w-3 h-3 rounded-full bg-green-500" />
+                    </div>
+                    <div className="flex-1 mx-2">
+                      <div className="bg-background rounded px-2 py-0.5 text-xs text-muted-foreground text-center">
+                        {previewUrl}
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-6 w-6">
+                      <RefreshCw className="w-3 h-3" />
+                    </Button>
+                  </div>
+                  <iframe 
+                    src={previewUrl} 
+                    className="h-[calc(100%-2rem)] w-full border-0"
+                    title={t('Platform Preview', 'معاينة المنصة')}
+                    data-testid="iframe-platform-preview"
+                  />
+                </div>
+              ) : (
+                <div className="text-center p-8">
+                  <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
+                    <Layers className="w-10 h-10 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2">{t('Enterprise Platform Builder', 'باني المنصات العملاقة')}</h3>
+                  <p className="text-muted-foreground max-w-md mx-auto mb-6">
+                    {t('Describe your platform requirements and watch Nova design the perfect microservices architecture.', 'صف متطلبات منصتك وشاهد Nova تصمم بنية الخدمات المصغرة المثالية.')}
+                  </p>
+                  <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground flex-wrap">
+                    <Badge variant="outline" className="gap-1">
+                      <Container className="w-3 h-3" />
+                      Docker
+                    </Badge>
+                    <Badge variant="outline" className="gap-1">
+                      <Box className="w-3 h-3" />
+                      Kubernetes
+                    </Badge>
+                    <Badge variant="outline" className="gap-1">
+                      <Database className="w-3 h-3" />
+                      PostgreSQL
+                    </Badge>
+                    <Badge variant="outline" className="gap-1">
+                      <Activity className="w-3 h-3" />
+                      Kafka
+                    </Badge>
+                  </div>
+                </div>
+              )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'architecture' && (
+            <div className="space-y-4">
+              {architecture ? (
+                <>
+                  <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Gauge className="w-4 h-4 text-primary" />
+                          <span className="text-sm font-medium">{t('Complexity', 'التعقيد')}</span>
+                        </div>
+                        <Badge className={getComplexityColor(architecture.complexity)}>
+                          {architecture.complexity === 'enterprise' ? t('Enterprise', 'مؤسسي') : architecture.complexity === 'medium' ? t('Medium', 'متوسط') : t('Simple', 'بسيط')}
+                        </Badge>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Users className="w-4 h-4 text-primary" />
+                          <span className="text-sm font-medium">{t('Users', 'المستخدمين')}</span>
+                        </div>
+                        <p className="text-xl font-bold">{architecture.estimatedUsers}</p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Server className="w-4 h-4 text-primary" />
+                          <span className="text-sm font-medium">{t('Services', 'الخدمات')}</span>
+                        </div>
+                        <p className="text-xl font-bold">{architecture.microservices.length}</p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <CreditCard className="w-4 h-4 text-primary" />
+                          <span className="text-sm font-medium">{t('Est. Cost', 'التكلفة')}</span>
+                        </div>
+                        <p className="text-lg font-bold">{architecture.estimatedCost}</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Network className="w-4 h-4" />
+                        {t('Microservices Architecture', 'بنية الخدمات المصغرة')}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                        {architecture.microservices.map((service) => {
+                          const IconComponent = getServiceIcon(service.type);
+                          return (
+                            <div
+                              key={service.id}
+                              className="p-3 rounded-lg border border-border bg-card hover-elevate"
+                            >
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center">
+                                  <IconComponent className="w-4 h-4 text-primary" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">
+                                    {language === 'ar' ? service.nameAr : service.name}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">{service.type}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-xs">
+                                  x{service.replicas}
+                                </Badge>
+                                {service.port && (
+                                  <Badge variant="outline" className="text-xs">
+                                    :{service.port}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <Container className="w-4 h-4" />
+                            Docker Compose
+                          </CardTitle>
+                          <Button variant="outline" size="sm" className="gap-1" data-testid="button-download-docker">
+                            <Download className="w-3 h-3" />
+                            {t('Download', 'تحميل')}
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <ScrollArea className="h-[300px]">
+                          <pre className="text-xs font-mono text-muted-foreground whitespace-pre-wrap">
+                            {dockerCompose}
+                          </pre>
+                        </ScrollArea>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <Box className="w-4 h-4" />
+                            Kubernetes Manifests
+                          </CardTitle>
+                          <Button variant="outline" size="sm" className="gap-1" data-testid="button-download-k8s">
+                            <Download className="w-3 h-3" />
+                            {t('Download', 'تحميل')}
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <ScrollArea className="h-[300px]">
+                          <pre className="text-xs font-mono text-muted-foreground whitespace-pre-wrap">
+                            {kubernetesManifest}
+                          </pre>
+                        </ScrollArea>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Database className="w-4 h-4" />
+                        {t('Databases', 'قواعد البيانات')}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center gap-3 flex-wrap">
+                        {architecture.databases.map((db, idx) => (
+                          <div key={idx} className="flex items-center gap-2 p-2 rounded-lg border border-border bg-card">
+                            <Database className="w-4 h-4 text-primary" />
+                            <div>
+                              <p className="text-sm font-medium">{db.type}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {language === 'ar' ? db.purposeAr : db.purpose}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Globe className="w-4 h-4" />
+                        {t('Infrastructure', 'البنية التحتية')}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center gap-3 flex-wrap">
+                        {architecture.infrastructure.loadBalancer && (
+                          <Badge variant="outline" className="gap-1 bg-green-500/10 text-green-600 border-green-500/30">
+                            <CheckCircle className="w-3 h-3" />
+                            Load Balancer
+                          </Badge>
+                        )}
+                        {architecture.infrastructure.cdn && (
+                          <Badge variant="outline" className="gap-1 bg-green-500/10 text-green-600 border-green-500/30">
+                            <CheckCircle className="w-3 h-3" />
+                            CDN
+                          </Badge>
+                        )}
+                        {architecture.infrastructure.cache && (
+                          <Badge variant="outline" className="gap-1 bg-green-500/10 text-green-600 border-green-500/30">
+                            <CheckCircle className="w-3 h-3" />
+                            Redis Cache
+                          </Badge>
+                        )}
+                        {architecture.infrastructure.queue && (
+                          <Badge variant="outline" className="gap-1 bg-green-500/10 text-green-600 border-green-500/30">
+                            <CheckCircle className="w-3 h-3" />
+                            Message Queue
+                          </Badge>
+                        )}
+                        {architecture.infrastructure.containerized && (
+                          <Badge variant="outline" className="gap-1 bg-green-500/10 text-green-600 border-green-500/30">
+                            <CheckCircle className="w-3 h-3" />
+                            Containerized
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="mt-3">
+                        <p className="text-sm text-muted-foreground mb-2">{t('Deployment Regions:', 'مناطق النشر:')}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {architecture.deploymentRegions.map((region, idx) => (
+                            <Badge key={idx} variant="outline">
+                              {region}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              ) : (
+                <div className="text-center py-12">
+                  <Network className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <p className="text-muted-foreground">{t('Architecture will appear here after build', 'ستظهر البنية هنا بعد البناء')}</p>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {activeTab === 'code' && (
+            <div className="h-full flex gap-4">
+              <Card className="w-64 flex-shrink-0 h-full">
+                <CardHeader className="p-3 border-b">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <FolderTree className="w-4 h-4" />
+                    {t('Generated Files', 'الملفات المُولدة')}
+                  </CardTitle>
+                </CardHeader>
+                <ScrollArea className="h-[calc(100%-3rem)]">
+                  <div className="p-2 space-y-1">
+                    {generatedFiles.length > 0 ? (
+                      <>
+                        {['frontend', 'backend', 'shared', 'database', 'infrastructure', 'config', 'docs', 'generated'].map(category => {
+                          const categoryFiles = generatedFiles.filter(f => f.category === category);
+                          if (categoryFiles.length === 0) return null;
+                          return (
+                            <div key={category} className="mb-3">
+                              <div className="text-xs font-medium text-muted-foreground px-2 py-1 uppercase">
+                                {category === 'frontend' ? t('Frontend', 'الواجهة') :
+                                 category === 'backend' ? t('Backend', 'الخادم') :
+                                 category === 'shared' ? t('Shared', 'المشترك') :
+                                 category === 'database' ? t('Database', 'قاعدة البيانات') :
+                                 category === 'infrastructure' ? t('Infrastructure', 'البنية التحتية') :
+                                 category === 'docs' ? t('Documentation', 'التوثيق') :
+                                 category === 'generated' ? t('Generated', 'المولّد') :
+                                 t('Config', 'الإعدادات')}
+                              </div>
+                              {categoryFiles.map(file => (
+                                <button
+                                  key={file.filePath}
+                                  onClick={() => {
+                                    setSelectedFile(file);
+                                    setGeneratedCode(file.content);
+                                  }}
+                                  className={`w-full text-left px-2 py-1.5 rounded text-sm flex items-center gap-2 hover-elevate ${
+                                    selectedFile?.filePath === file.filePath ? 'bg-primary/10 text-primary' : ''
+                                  }`}
+                                  data-testid={`file-${file.fileName}`}
+                                >
+                                  {file.language === 'tsx' || file.language === 'typescript' ? (
+                                    <FileType2 className="w-4 h-4 text-blue-500" />
+                                  ) : file.language === 'json' ? (
+                                    <FileJson className="w-4 h-4 text-yellow-500" />
+                                  ) : file.language === 'yaml' || file.language === 'dockerfile' ? (
+                                    <FileCode className="w-4 h-4 text-green-500" />
+                                  ) : (
+                                    <File className="w-4 h-4 text-muted-foreground" />
+                                  )}
+                                  <span className="truncate">{file.fileName}</span>
+                                </button>
+                              ))}
+                            </div>
+                          );
+                        })}
+                      </>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground text-sm">
+                        {t('Files will appear after build', 'ستظهر الملفات بعد البناء')}
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </Card>
+              
+              <Card className="flex-1 h-full">
+                <CardContent className="p-0 h-full">
+                  <div className="h-10 bg-muted/50 border-b border-border flex items-center justify-between px-3">
+                    <div className="flex items-center gap-2">
+                      <FileCode className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">{selectedFile?.filePath || 'generated-code.ts'}</span>
+                      {selectedFile && (
+                        <Badge variant="outline" className="text-xs">
+                          {selectedFile.language}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="gap-1 h-7" 
+                        onClick={() => {
+                          if (generatedCode) {
+                            navigator.clipboard.writeText(generatedCode);
+                            toast({ title: t('Copied!', 'تم النسخ!') });
+                          }
+                        }}
+                        data-testid="button-copy-code"
+                      >
+                        <Copy className="w-3 h-3" />
+                        {t('Copy', 'نسخ')}
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="gap-1 h-7"
+                        onClick={() => {
+                          if (selectedFile) {
+                            const blob = new Blob([selectedFile.content], { type: 'text/plain' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = selectedFile.fileName;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                            toast({ title: t('Downloaded!', 'تم التحميل!') });
+                          }
+                        }}
+                        data-testid="button-download-file"
+                      >
+                        <Download className="w-3 h-3" />
+                        {t('Download', 'تحميل')}
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="gap-1 h-7"
+                        onClick={() => {
+                          if (generatedFiles.length > 0) {
+                            generatedFiles.forEach((file, index) => {
+                              setTimeout(() => {
+                                const blob = new Blob([file.content], { type: 'text/plain' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = file.fileName;
+                                a.click();
+                                URL.revokeObjectURL(url);
+                              }, index * 100);
+                            });
+                            toast({ title: t('Downloading all files...', 'جاري تحميل جميع الملفات...') });
+                          }
+                        }}
+                        data-testid="button-download-all"
+                      >
+                        <Download className="w-3 h-3" />
+                        {t('Download All', 'تحميل الكل')} ({generatedFiles.length})
+                      </Button>
+                      {currentBuildId && (
+                        <Button 
+                          variant="default" 
+                          size="sm" 
+                          className="gap-1 h-7"
+                          onClick={async () => {
+                            try {
+                              const response = await fetch(`/api/platforms/ai-build/${currentBuildId}/download`);
+                              if (response.ok) {
+                                const blob = await response.blob();
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `${platformSpec?.name || 'platform'}-complete.zip`;
+                                a.click();
+                                URL.revokeObjectURL(url);
+                                toast({ title: t('Platform downloaded!', 'تم تحميل المنصة!') });
+                              } else {
+                                toast({ title: t('Download failed', 'فشل التحميل'), variant: 'destructive' });
+                              }
+                            } catch (error) {
+                              toast({ title: t('Download failed', 'فشل التحميل'), variant: 'destructive' });
+                            }
+                          }}
+                          data-testid="button-download-platform-zip"
+                        >
+                          <Rocket className="w-3 h-3" />
+                          {t('Download Complete Platform', 'تحميل المنصة الكاملة')}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <ScrollArea className="h-[calc(100%-2.5rem)]">
+                    <pre className="p-4 text-sm font-mono text-foreground/90 whitespace-pre-wrap">
+                      {generatedCode || t('// Code will appear here after build', '// سيظهر الكود هنا بعد البناء')}
+                    </pre>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+          
+          {activeTab === 'build' && (
+            <Card className="h-full">
+              <CardContent className="p-4">
+                <h3 className="font-semibold mb-4 flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-primary" />
+                  {t('Build Progress', 'تقدم البناء')}
+                </h3>
+                
+                {buildSteps.length > 0 ? (
+                  <div className="space-y-3">
+                    {buildSteps.map((step, idx) => (
+                      <div 
+                        key={step.id}
+                        className={`flex items-center gap-3 p-3 rounded-lg border ${
+                          step.status === 'active' ? 'border-primary bg-primary/5' :
+                          step.status === 'complete' ? 'border-green-500/30 bg-green-500/5' :
+                          'border-border bg-muted/30'
+                        }`}
+                      >
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                          step.status === 'active' ? 'bg-primary text-primary-foreground' :
+                          step.status === 'complete' ? 'bg-green-500 text-white' :
+                          'bg-muted text-muted-foreground'
+                        }`}>
+                          {step.status === 'active' ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : step.status === 'complete' ? (
+                            <CheckCircle className="w-4 h-4" />
+                          ) : (
+                            <span className="text-sm font-medium">{idx + 1}</span>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <p className={`text-sm font-medium ${step.status === 'complete' ? 'text-green-600 dark:text-green-400' : ''}`}>
+                            {language === 'ar' ? step.nameAr : step.name}
+                          </p>
+                        </div>
+                        {step.status === 'complete' && (
+                          <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
+                            {t('Done', 'تم')}
+                          </Badge>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Terminal className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>{t('Build steps will appear here', 'ستظهر خطوات البناء هنا')}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </ResizablePanel>
+        )}
+    </ResizablePanelGroup>
+  </div>
+);
+}

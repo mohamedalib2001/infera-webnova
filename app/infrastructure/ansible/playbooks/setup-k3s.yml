@@ -1,0 +1,258 @@
+# INFERA WebNova - k3s Cluster Setup Playbook
+# Ansible playbook for installing and configuring k3s on Hetzner servers
+
+---
+- name: Setup k3s Master Node
+  hosts: masters
+  become: yes
+  vars:
+    k3s_version: "v1.28.4+k3s1"
+    cluster_cidr: "10.42.0.0/16"
+    service_cidr: "10.43.0.0/16"
+    
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install required packages
+      apt:
+        name:
+          - curl
+          - wget
+          - apt-transport-https
+          - ca-certificates
+          - gnupg
+          - lsb-release
+          - ufw
+          - fail2ban
+          - unattended-upgrades
+        state: present
+
+    - name: Configure UFW defaults
+      ufw:
+        direction: "{{ item.direction }}"
+        policy: "{{ item.policy }}"
+      loop:
+        - { direction: 'incoming', policy: 'deny' }
+        - { direction: 'outgoing', policy: 'allow' }
+
+    - name: Allow SSH through UFW
+      ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+
+    - name: Allow k3s API server
+      ufw:
+        rule: allow
+        port: "6443"
+        proto: tcp
+
+    - name: Allow k3s internal communication
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: any
+      loop:
+        - "10250"
+        - "8472"
+        - "51820"
+        - "51821"
+
+    - name: Allow HTTP/HTTPS
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - "80"
+        - "443"
+
+    - name: Enable UFW
+      ufw:
+        state: enabled
+
+    - name: Configure fail2ban
+      copy:
+        dest: /etc/fail2ban/jail.local
+        content: |
+          [DEFAULT]
+          bantime = 3600
+          findtime = 600
+          maxretry = 5
+          
+          [sshd]
+          enabled = true
+          port = ssh
+          filter = sshd
+          logpath = /var/log/auth.log
+          maxretry = 3
+
+    - name: Start fail2ban
+      systemd:
+        name: fail2ban
+        state: started
+        enabled: yes
+
+    - name: Install k3s on first master
+      shell: |
+        curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="{{ k3s_version }}" sh -s - server \
+          --cluster-init \
+          --disable traefik \
+          --disable servicelb \
+          --flannel-backend=wireguard-native \
+          --tls-san={{ ansible_host }} \
+          --tls-san={{ inventory_hostname }} \
+          --node-name={{ inventory_hostname }} \
+          --cluster-cidr={{ cluster_cidr }} \
+          --service-cidr={{ service_cidr }} \
+          --write-kubeconfig-mode=644
+      args:
+        creates: /etc/rancher/k3s/k3s.yaml
+      when: k3s_first_master | default(false)
+
+    - name: Get k3s token from first master
+      slurp:
+        src: /var/lib/rancher/k3s/server/node-token
+      register: k3s_token
+      when: k3s_first_master | default(false)
+
+    - name: Set k3s token fact
+      set_fact:
+        k3s_cluster_token: "{{ k3s_token.content | b64decode | trim }}"
+      when: k3s_first_master | default(false)
+
+    - name: Wait for k3s to be ready
+      wait_for:
+        port: 6443
+        host: 127.0.0.1
+        delay: 10
+        timeout: 300
+      when: k3s_first_master | default(false)
+
+    - name: Copy kubeconfig to user home
+      copy:
+        src: /etc/rancher/k3s/k3s.yaml
+        dest: /root/.kube/config
+        remote_src: yes
+        mode: '0600'
+      when: k3s_first_master | default(false)
+
+- name: Setup k3s Worker Nodes
+  hosts: workers
+  become: yes
+  vars:
+    k3s_version: "v1.28.4+k3s1"
+    
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install required packages
+      apt:
+        name:
+          - curl
+          - wget
+          - apt-transport-https
+          - ca-certificates
+          - ufw
+          - fail2ban
+        state: present
+
+    - name: Configure UFW for worker
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: any
+      loop:
+        - "22"
+        - "80"
+        - "443"
+        - "10250"
+        - "8472"
+        - "51820"
+        - "51821"
+        - "30000:32767"
+
+    - name: Enable UFW
+      ufw:
+        state: enabled
+
+    - name: Install k3s agent
+      shell: |
+        curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="{{ k3s_version }}" K3S_URL=https://{{ hostvars[groups['masters'][0]]['ansible_host'] }}:6443 K3S_TOKEN="{{ hostvars[groups['masters'][0]]['k3s_cluster_token'] }}" sh -s - agent \
+          --node-name={{ inventory_hostname }}
+      args:
+        creates: /var/lib/rancher/k3s/agent
+
+    - name: Wait for k3s agent to be ready
+      systemd:
+        name: k3s-agent
+        state: started
+        enabled: yes
+
+- name: Install Helm and Core Components
+  hosts: masters[0]
+  become: yes
+  
+  tasks:
+    - name: Install Helm
+      shell: |
+        curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      args:
+        creates: /usr/local/bin/helm
+
+    - name: Add Helm repositories
+      shell: |
+        helm repo add jetstack https://charts.jetstack.io
+        helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+        helm repo add longhorn https://charts.longhorn.io
+        helm repo update
+      environment:
+        KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+
+    - name: Install cert-manager
+      shell: |
+        helm upgrade --install cert-manager jetstack/cert-manager \
+          --namespace cert-manager \
+          --create-namespace \
+          --set installCRDs=true \
+          --wait
+      environment:
+        KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+
+    - name: Install ingress-nginx
+      shell: |
+        helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+          --namespace ingress-nginx \
+          --create-namespace \
+          --set controller.service.type=LoadBalancer \
+          --wait
+      environment:
+        KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+
+    - name: Install Longhorn storage
+      shell: |
+        helm upgrade --install longhorn longhorn/longhorn \
+          --namespace longhorn-system \
+          --create-namespace \
+          --set defaultSettings.defaultDataPath=/var/lib/longhorn \
+          --wait
+      environment:
+        KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+
+    - name: Create INFERA namespace
+      shell: kubectl create namespace infera --dry-run=client -o yaml | kubectl apply -f -
+      environment:
+        KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+
+    - name: Label INFERA namespace
+      shell: |
+        kubectl label namespace infera environment={{ environment }} --overwrite
+        kubectl label namespace infera platform=infera-webnova --overwrite
+      environment:
+        KUBECONFIG: /etc/rancher/k3s/k3s.yaml
