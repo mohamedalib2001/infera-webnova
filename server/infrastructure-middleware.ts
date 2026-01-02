@@ -149,27 +149,27 @@ export function csrfProtection(strict: boolean = true): RequestHandler {
     }
     
     const csrfToken = req.headers['x-csrf-token'] as string;
-    const sessionToken = (req.session as any)?.csrfToken;
+    let sessionToken = (req.session as any)?.csrfToken;
     
     // Generate token if not exists - always return in response header
     if (!sessionToken) {
       const newToken = crypto.randomUUID();
       (req.session as any).csrfToken = newToken;
+      sessionToken = newToken; // Update local reference
       res.setHeader('X-CSRF-Token', newToken);
       
-      // First request - allow through but require token next time
-      if (!strict) {
-        return next();
-      }
-    } else {
-      // Always expose current token for client sync
-      res.setHeader('X-CSRF-Token', sessionToken);
+      // First request - allow through but require token next time (handshake)
+      // This is the CSRF token handshake - client will use this token for subsequent requests
+      return next();
     }
+    
+    // Always expose current token for client sync
+    res.setHeader('X-CSRF-Token', sessionToken);
     
     // Check if path requires strict CSRF validation
     const requiresStrictCSRF = CSRF_PROTECTED_PATHS.some(path => req.path.includes(path));
     
-    // Validate token for protected routes
+    // Validate token for protected routes (after first handshake)
     if (requiresStrictCSRF && strict) {
       if (!csrfToken || csrfToken !== sessionToken) {
         console.warn(`[CSRF] Invalid token for ${req.method} ${req.path} from ${req.ip}`);
