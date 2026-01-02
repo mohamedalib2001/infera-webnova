@@ -37,8 +37,19 @@ const ENDPOINT_LIMITS: Record<string, { windowMs: number; maxRequests: number }>
   'default': { windowMs: 60000, maxRequests: 200 },
 };
 
+// Absolute caps per role (requests per window) - regardless of tier multiplier
+const ABSOLUTE_CAPS: Record<string, number> = {
+  free: 200,
+  basic: 500,
+  pro: 1000,
+  enterprise: 2000,
+  sovereign: 5000,
+  ROOT_OWNER: 10000,
+};
+
 class HttpRateLimiter {
   private store: Map<string, RateLimitEntry> = new Map();
+  private userStore: Map<string, RateLimitEntry> = new Map(); // Per-user rate limiting
   private stats = { totalRequests: 0, blockedRequests: 0 };
   
   constructor() {
@@ -64,13 +75,55 @@ class HttpRateLimiter {
     return { limited: false, remaining: config.maxRequests - entry.count, resetAt: entry.resetAt };
   }
   
+  // Check user-specific rate limit with absolute cap
+  isUserRateLimited(userId: string, userRole: string): { limited: boolean; remaining: number; resetAt: number } {
+    const now = Date.now();
+    const absoluteCap = ABSOLUTE_CAPS[userRole] || ABSOLUTE_CAPS.free;
+    const key = `user:${userId}`;
+    const entry = this.userStore.get(key);
+    
+    if (!entry || now >= entry.resetAt) {
+      this.userStore.set(key, { count: 1, resetAt: now + 60000 });
+      return { limited: false, remaining: absoluteCap - 1, resetAt: now + 60000 };
+    }
+    
+    entry.count++;
+    if (entry.count > absoluteCap) {
+      return { limited: true, remaining: 0, resetAt: entry.resetAt };
+    }
+    
+    return { limited: false, remaining: absoluteCap - entry.count, resetAt: entry.resetAt };
+  }
+  
   createMiddleware(config: RateLimitConfig) {
     return (req: Request, res: Response, next: NextFunction) => {
       const ip = this.getClientIP(req);
-      const userTier = (req as any).user?.role || 'free';
+      const user = (req as any).user;
+      const userId = user?.claims?.sub || user?.id;
+      const userTier = user?.role || 'free';
       const multiplier = TIER_MULTIPLIERS[userTier] || 1;
       
-      const result = this.isRateLimited(ip, { ...config, maxRequests: config.maxRequests * multiplier });
+      // Combined key: IP + user for authenticated, IP only for anonymous
+      const rateLimitKey = userId ? `${ip}:${userId}` : ip;
+      
+      const result = this.isRateLimited(rateLimitKey, { ...config, maxRequests: config.maxRequests * multiplier });
+      
+      // Also check user-specific absolute cap for authenticated users
+      if (userId) {
+        const userResult = this.isUserRateLimited(userId, userTier);
+        if (userResult.limited) {
+          res.setHeader('X-RateLimit-Limit', ABSOLUTE_CAPS[userTier] || ABSOLUTE_CAPS.free);
+          res.setHeader('X-RateLimit-Remaining', 0);
+          res.setHeader('X-RateLimit-Reset', Math.ceil(userResult.resetAt / 1000));
+          res.setHeader('Retry-After', Math.ceil((userResult.resetAt - Date.now()) / 1000));
+          return res.status(429).json({
+            success: false,
+            error: 'User rate limit exceeded',
+            errorAr: 'تم تجاوز الحد الأقصى للمستخدم',
+            retryAfter: Math.ceil((userResult.resetAt - Date.now()) / 1000),
+          });
+        }
+      }
       
       res.setHeader('X-RateLimit-Limit', config.maxRequests * multiplier);
       res.setHeader('X-RateLimit-Remaining', result.remaining);
@@ -105,6 +158,13 @@ class HttpRateLimiter {
       if (now >= entry.resetAt) keysToDelete.push(key);
     });
     keysToDelete.forEach(key => this.store.delete(key));
+    
+    // Also cleanup user store
+    const userKeysToDelete: string[] = [];
+    this.userStore.forEach((entry, key) => {
+      if (now >= entry.resetAt) userKeysToDelete.push(key);
+    });
+    userKeysToDelete.forEach(key => this.userStore.delete(key));
   }
   
   getStats() {

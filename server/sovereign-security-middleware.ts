@@ -93,10 +93,22 @@ export function getRoleLevel(role: string): number {
 }
 
 /**
+ * Get audit signing secret - NEVER use fallback in production
+ */
+function getAuditSecret(): string {
+  const secret = process.env.AUDIT_HMAC_SECRET || process.env.SESSION_SECRET;
+  if (!secret) {
+    console.error('[SECURITY CRITICAL] No AUDIT_HMAC_SECRET or SESSION_SECRET configured - audit logging disabled');
+    throw new Error('Audit signing secret not configured');
+  }
+  return secret;
+}
+
+/**
  * Generate HMAC signature for audit entries
  */
 function generateAuditSignature(entry: Omit<AuditEntry, 'signature'>): string {
-  const secret = process.env.SESSION_SECRET || 'sovereign-audit-secret';
+  const secret = getAuditSecret();
   const data = JSON.stringify({
     id: entry.id,
     timestamp: entry.timestamp.toISOString(),

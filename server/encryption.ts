@@ -8,9 +8,12 @@ const KEY_LENGTH = 32;
 const ITERATIONS = 100000;
 
 function getEncryptionKey(): string {
-  const key = process.env.SESSION_SECRET || process.env.ENCRYPTION_KEY;
+  const key = process.env.ENCRYPTION_KEY || process.env.SESSION_SECRET;
   if (!key) {
-    throw new Error('[Encryption] No encryption key found. Set SESSION_SECRET or ENCRYPTION_KEY');
+    throw new Error('[Encryption] No encryption key found. Set ENCRYPTION_KEY or SESSION_SECRET');
+  }
+  if (!process.env.ENCRYPTION_KEY) {
+    console.warn('[Security Warning] Using SESSION_SECRET for encryption - set separate ENCRYPTION_KEY for production');
   }
   return key;
 }

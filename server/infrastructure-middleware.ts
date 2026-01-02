@@ -125,8 +125,23 @@ export function bruteForceProtection(operationKey: string): RequestHandler {
   };
 }
 
+// Paths that require strict CSRF validation
+const CSRF_PROTECTED_PATHS = [
+  '/api/infrastructure/',
+  '/api/sovereign/',
+  '/api/owner/',
+  '/api/admin/',
+  '/api/ai/',
+  '/api/nova/',
+  '/api/deploy',
+  '/api/hetzner/',
+  '/api/servers/',
+  '/api/secrets/',
+  '/api/permissions/',
+];
+
 // CSRF token validation for state-changing operations
-export function csrfProtection(strict: boolean = false): RequestHandler {
+export function csrfProtection(strict: boolean = true): RequestHandler {
   return (req: Request, res: Response, next: NextFunction) => {
     // Only check for state-changing methods
     if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
@@ -136,7 +151,7 @@ export function csrfProtection(strict: boolean = false): RequestHandler {
     const csrfToken = req.headers['x-csrf-token'] as string;
     const sessionToken = (req.session as any)?.csrfToken;
     
-    // Generate token if not exists
+    // Generate token if not exists - always return in response header
     if (!sessionToken) {
       const newToken = crypto.randomUUID();
       (req.session as any).csrfToken = newToken;
@@ -146,25 +161,36 @@ export function csrfProtection(strict: boolean = false): RequestHandler {
       if (!strict) {
         return next();
       }
+    } else {
+      // Always expose current token for client sync
+      res.setHeader('X-CSRF-Token', sessionToken);
     }
     
-    // Validate token for infrastructure routes
-    if (req.path.includes('/infrastructure/') && strict) {
+    // Check if path requires strict CSRF validation
+    const requiresStrictCSRF = CSRF_PROTECTED_PATHS.some(path => req.path.includes(path));
+    
+    // Validate token for protected routes
+    if (requiresStrictCSRF && strict) {
       if (!csrfToken || csrfToken !== sessionToken) {
-        console.warn(`[CSRF] Invalid token for ${req.method} ${req.path}`);
+        console.warn(`[CSRF] Invalid token for ${req.method} ${req.path} from ${req.ip}`);
         return res.status(403).json({
           error: 'رمز CSRF غير صالح / Invalid CSRF token',
+          errorAr: 'رمز CSRF غير صالح',
           code: 'csrf_invalid',
+          hint: 'Refresh the page or include X-CSRF-Token header',
         });
       }
-    } else if (!csrfToken && req.path.includes('/infrastructure/')) {
-      // Warn but don't block during gradual rollout
+    } else if (!csrfToken && requiresStrictCSRF) {
+      // Warn for any protected route without token
       console.warn(`[CSRF] Missing token for ${req.method} ${req.path}`);
     }
     
     next();
   };
 }
+
+// Global CSRF middleware for all state-changing routes
+export const globalCsrfProtection = csrfProtection(true);
 
 // Get user's infrastructure role
 async function getUserInfraRole(userId: string): Promise<InfrastructureRole> {
@@ -242,12 +268,11 @@ export const requireProvidersManage = requireInfraPermission('providers:manage')
 export const requireTokensManage = requireInfraPermission('tokens:manage');
 export const requireLogsRead = requireInfraPermission('logs:read');
 
-// Combined middleware for infrastructure routes
-// Note: CSRF is lenient during initial rollout - will be strict once frontend implements token handshake
+// Combined middleware for infrastructure routes with strict CSRF
 export function infraSecurityChain(...permissions: string[]): RequestHandler[] {
   const middlewares: RequestHandler[] = [
     infraRateLimit,
-    csrfProtection(false), // Lenient during rollout - frontend needs X-CSRF-Token handshake
+    csrfProtection(true), // Strict CSRF enforcement
   ];
   
   permissions.forEach(perm => {
@@ -257,11 +282,11 @@ export function infraSecurityChain(...permissions: string[]): RequestHandler[] {
   return middlewares;
 }
 
-// Non-strict security chain for gradual rollout
+// Lenient security chain for public/read-only endpoints only
 export function infraSecurityChainLenient(...permissions: string[]): RequestHandler[] {
   const middlewares: RequestHandler[] = [
     infraRateLimit,
-    csrfProtection(false), // Lenient CSRF during rollout
+    csrfProtection(false), // Lenient for read-only operations
   ];
   
   permissions.forEach(perm => {
