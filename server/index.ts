@@ -109,6 +109,56 @@ app.use(
 
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
+// ==================== SECURITY HEADERS ====================
+// Comprehensive security headers for production-grade protection
+app.use((req: Request, res: Response, next: NextFunction) => {
+  // Prevent clickjacking attacks
+  res.setHeader('X-Frame-Options', 'DENY');
+  
+  // Prevent MIME type sniffing
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  
+  // Enable XSS protection
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  
+  // Referrer policy for privacy
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  
+  // Permissions policy (formerly Feature-Policy)
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=(), payment=()');
+  
+  // Content Security Policy (CSP) - strict but allows necessary resources
+  const cspDirectives = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data: https: blob:",
+    "connect-src 'self' wss: https://api.stripe.com https://api.anthropic.com https://api.openai.com",
+    "frame-src 'self' https://js.stripe.com",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "upgrade-insecure-requests"
+  ].join('; ');
+  res.setHeader('Content-Security-Policy', cspDirectives);
+  
+  // Strict Transport Security (HSTS) - enforce HTTPS
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  
+  // Cache control for sensitive data
+  if (req.path.startsWith('/api/sovereign') || req.path.startsWith('/api/owner')) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+  
+  // Remove server fingerprinting
+  res.removeHeader('X-Powered-By');
+  
+  next();
+});
+
 // Global rate limiting for all requests (scalability for 5M users)
 app.use(globalRateLimit);
 
