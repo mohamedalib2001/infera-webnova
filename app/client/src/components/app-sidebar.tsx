@@ -137,15 +137,10 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
 
   // Define sovereign safe zone routes - الصفحات السيادية المحمية
   const sovereignSafeZoneRoutes = [
-    "/owner", "/sovereign", "/sovereign-workspace", "/sovereign-chat", 
-    "/sovereign/command-center", "/sovereign/ai-governance", "/sovereign/digital-borders",
-    "/sovereign/policy-engine", "/sovereign/trust-compliance", "/sovereign/strategic-forecast",
-    "/owner/isds", "/owner/spom", "/owner/quality", "/owner/sidebar-manager",
-    "/owner/infrastructure", "/owner/policies", "/owner/integrations", "/owner/notifications",
-    "/owner/ai-sovereignty", "/owner/ai-capability-control", "/owner/assistant-governance",
-    "/owner/ai-settings", "/owner/ai-model-registry", "/owner/infera-intelligence",
-    "/owner/staff", "/owner/sovereign-permissions", "/owner/content-moderation", "/owner/control-center", "/owner/platform-maps",
-    "/api-keys", "/ssh-vault", "/github-sync", "/sovereign-plans", "/logo-factory", "/hetzner-cloud"
+    "/owner", "/sovereign", "/sovereign-workspace", "/isds",
+    "/owner/spom", "/owner/dynamic-control", "/owner/nova-permissions",
+    "/owner/ai-capability-control", "/owner/assistant-governance", "/owner/github-import",
+    "/api-keys", "/ssh-vault", "/github-sync", "/hetzner-cloud"
   ];
 
   // Check if current route is in sovereign safe zone
@@ -199,11 +194,8 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
 
   const developmentPages = [
     { title: language === "ar" ? "منشئ الروبوتات" : "Chatbot Builder", url: "/chatbot-builder", icon: Bot, testId: "nav-dev-chatbot" },
-    { title: language === "ar" ? "الأمان العسكري" : "Military Security", url: "/military-security", icon: ShieldCheck, testId: "nav-dev-military" },
     { title: language === "ar" ? "القوالب" : "Templates", url: "/templates", icon: LayoutTemplate, testId: "nav-dev-templates" },
     { title: language === "ar" ? "لوحة Nova AI" : "Nova AI Dashboard", url: "/nova/dashboard", icon: Brain, testId: "nav-dev-nova-dashboard" },
-    { title: language === "ar" ? "مراقبة أداء الصفحات" : "Page Performance", url: "/page-performance", icon: Activity, testId: "nav-dev-page-performance" },
-    { title: language === "ar" ? "تتبع نسب الإكتمال" : "Completion Tracker", url: "/pages-completion", icon: CheckCircle, testId: "nav-dev-completion-tracker" },
   ];
 
   const buildItems = [
@@ -596,30 +588,6 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                       <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={location === "/departments"}>
-                          <Link href="/departments" data-testid="nav-departments">
-                            <Building2 className="h-4 w-4 text-blue-500" />
-                            <span>{language === "ar" ? "الأقسام" : "Departments"}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={location === "/tasks"}>
-                          <Link href="/tasks" data-testid="nav-tasks">
-                            <ListTodo className="h-4 w-4 text-green-500" />
-                            <span>{language === "ar" ? "المهام" : "Tasks"}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={location === "/payments"}>
-                          <Link href="/payments" data-testid="nav-payments">
-                            <CreditCard className="h-4 w-4 text-green-500" />
-                            <span>{language === "ar" ? "لوحة الدفع" : "Payments"}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
                         <SidebarMenuButton asChild isActive={location === "/integrations"}>
                           <Link href="/integrations" data-testid="nav-integrations">
                             <Plug className="h-4 w-4 text-cyan-500" />
@@ -644,78 +612,6 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                       <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={location === "/sovereign-plans"}>
-                          <Link href="/sovereign-plans" data-testid="nav-sovereign-plans">
-                            <Rocket className="h-4 w-4 text-emerald-500" />
-                            <span>{language === "ar" ? "الخطط السيادية" : "Sovereign Plans"}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={location === "/logo-factory"}>
-                          <Link href="/logo-factory" data-testid="nav-logo-factory">
-                            <Crown className="h-4 w-4 text-amber-500" />
-                            <span>{language === "ar" ? "مصنع الشعارات" : "Logo Factory"}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={location === "/government-compliance"}>
-                          <Link href="/government-compliance" data-testid="nav-government-compliance">
-                            <Landmark className="h-4 w-4 text-emerald-600" />
-                            <span>{language === "ar" ? "الجاهزية الحكومية" : "Government Compliance"}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={location === "/owner/policies"}>
-                          <Link href="/owner/policies" data-testid="nav-owner-policies">
-                            <Gavel className="h-4 w-4 text-red-600" />
-                            <span>{language === "ar" ? "سياسات حساب المالك" : "Owner Policies"}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={location === "/domains"}>
-                          <Link href="/domains" data-testid="nav-sovereign-domains">
-                            <Globe className="h-4 w-4 text-emerald-500" />
-                            <span>{language === "ar" ? "النطاقات السيادية" : "Sovereign Domains"}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={location === "/owner/integrations"}>
-                          <Link href="/owner/integrations" data-testid="nav-owner-integrations">
-                            <Link2 className="h-4 w-4 text-orange-500" />
-                            <span>{language === "ar" ? "بوابة التكامل" : "Integration Gateway"}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={location === "/owner/notifications"}>
-                          <Link href="/owner/notifications" data-testid="nav-owner-notifications">
-                            <Bell className="h-4 w-4 text-yellow-500" />
-                            <span>{language === "ar" ? "الإشعارات" : "Notifications"}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={location === "/owner/ai-sovereignty"}>
-                          <Link href="/owner/ai-sovereignty" data-testid="nav-owner-ai-sovereignty">
-                            <Brain className="h-4 w-4 text-purple-500" />
-                            <span>{language === "ar" ? "سيادة الذكاء" : "AI Sovereignty"}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={location === "/page-performance"}>
-                          <Link href="/page-performance" data-testid="nav-page-performance">
-                            <Activity className="h-4 w-4 text-rose-500" />
-                            <span>{language === "ar" ? "مراقبة أداء الصفحات" : "Page Performance"}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
                         <SidebarMenuButton asChild isActive={location === "/owner/ai-capability-control"}>
                           <Link href="/owner/ai-capability-control" data-testid="nav-owner-ai-capability-control">
                             <Cpu className="h-4 w-4 text-indigo-500" />
@@ -728,86 +624,6 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                           <Link href="/owner/assistant-governance" data-testid="nav-owner-assistant-governance">
                             <Users className="h-4 w-4 text-cyan-500" />
                             <span>{language === "ar" ? "حوكمة المساعدين" : "Assistant Governance"}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={location === "/owner/ai-settings"}>
-                          <Link href="/owner/ai-settings" data-testid="nav-owner-ai-settings">
-                            <Key className="h-4 w-4 text-amber-500" />
-                            <span>{language === "ar" ? "مفاتيح AI" : "AI Keys"}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={location === "/owner/ai-model-registry"}>
-                          <Link href="/owner/ai-model-registry" data-testid="nav-owner-ai-model-registry">
-                            <Bot className="h-4 w-4 text-violet-500" />
-                            <span>{language === "ar" ? "سجل النماذج" : "Model Registry"}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={location === "/owner/infera-intelligence"}>
-                          <Link href="/owner/infera-intelligence" data-testid="nav-owner-infera-intelligence">
-                            <Brain className="h-4 w-4 text-amber-500" />
-                            <span>{language === "ar" ? "نماذج INFERA" : "INFERA Models"}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={location === "/admin/subscriptions"}>
-                          <Link href="/admin/subscriptions" data-testid="nav-admin-subscriptions">
-                            <Package className="h-4 w-4 text-blue-500" />
-                            <span>{language === "ar" ? "إدارة الاشتراكات" : "Subscriptions Manager"}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={location === "/owner/email-settings"}>
-                          <Link href="/owner/email-settings" data-testid="nav-owner-email-settings">
-                            <Mail className="h-4 w-4 text-teal-500" />
-                            <span>{language === "ar" ? "إعدادات البريد" : "Email Settings"}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={location === "/owner/deletion-management"}>
-                          <Link href="/owner/deletion-management" data-testid="nav-owner-deletion-management">
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                            <span>{language === "ar" ? "إدارة المحذوفات" : "Deletion Management"}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={location === "/owner/control-center"}>
-                          <Link href="/owner/control-center" data-testid="nav-owner-control-center">
-                            <Shield className="h-4 w-4 text-emerald-500" />
-                            <span>{language === "ar" ? "مركز تحكم المالك" : "Owner Control Center"}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={location === "/owner/platform-maps"}>
-                          <Link href="/owner/platform-maps" data-testid="nav-platform-maps">
-                            <Network className="h-4 w-4 text-blue-500" />
-                            <span>{language === "ar" ? "خرائط المنصة" : "Platform Maps"}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={location === "/support/agent"}>
-                          <Link href="/support/agent" data-testid="nav-support-agent">
-                            <Headphones className="h-4 w-4 text-green-500" />
-                            <span>{language === "ar" ? "لوحة الدعم" : "Support Dashboard"}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={location === "/support/command-center"}>
-                          <Link href="/support/command-center" data-testid="nav-command-center">
-                            <Headphones className="h-4 w-4 text-cyan-500" />
-                            <span>{language === "ar" ? "مركز القيادة" : "Command Center"}</span>
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
@@ -828,8 +644,8 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                   <SidebarGroupContent>
                 <SidebarMenu>
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={location === "/owner/isds"}>
-                      <Link href="/owner/isds" data-testid="nav-owner-isds">
+                    <SidebarMenuButton asChild isActive={location === "/isds"}>
+                      <Link href="/isds" data-testid="nav-isds">
                         <Code className="h-4 w-4 text-emerald-500" />
                         <span>{language === "ar" ? "استوديو التطوير" : "Dev Studio (ISDS)"}</span>
                       </Link>
@@ -843,137 +659,10 @@ export function AppSidebar({ side = "left" }: AppSidebarProps) {
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={location === "/owner/quality"}>
-                      <Link href="/owner/quality" data-testid="nav-owner-quality">
-                        <Scale className="h-4 w-4 text-green-500" />
-                        <span>{language === "ar" ? "ضمان الجودة" : "Quality Assurance"}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={location === "/owner/sidebar-manager"}>
-                      <Link href="/owner/sidebar-manager" data-testid="nav-sidebar-manager">
-                        <LayoutDashboard className="h-4 w-4 text-cyan-500" />
-                        <span>{language === "ar" ? "إدارة الصفحات" : "Sidebar Manager"}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={location === "/sovereign-chat"}>
-                      <Link href="/sovereign-chat" data-testid="nav-sovereign-chat">
-                        <MessageSquare className="h-4 w-4 text-violet-500" />
-                        <span>{language === "ar" ? "المساعدون السياديون" : "Sovereign Chat"}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={location === "/sovereign/command-center"}>
-                      <Link href="/sovereign/command-center" data-testid="nav-sovereign-command">
-                        <Crown className="h-4 w-4 text-amber-500" />
-                        <span>{language === "ar" ? "مركز القيادة" : "Command Center"}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={location === "/sovereign/ai-governance"}>
-                      <Link href="/sovereign/ai-governance" data-testid="nav-ai-governance">
-                        <Brain className="h-4 w-4 text-violet-500" />
-                        <span>{language === "ar" ? "حوكمة AI" : "AI Governance"}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={location === "/sovereign/digital-borders"}>
-                      <Link href="/sovereign/digital-borders" data-testid="nav-digital-borders">
-                        <Globe className="h-4 w-4 text-cyan-500" />
-                        <span>{language === "ar" ? "الحدود الرقمية" : "Digital Borders"}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={location === "/sovereign/policy-engine"}>
-                      <Link href="/sovereign/policy-engine" data-testid="nav-policy-engine">
-                        <Gavel className="h-4 w-4 text-amber-500" />
-                        <span>{language === "ar" ? "محرك السياسات" : "Policy Engine"}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={location === "/sovereign/trust-compliance"}>
-                      <Link href="/sovereign/trust-compliance" data-testid="nav-trust-compliance">
-                        <Scale className="h-4 w-4 text-emerald-500" />
-                        <span>{language === "ar" ? "الثقة والامتثال" : "Trust & Compliance"}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={location === "/sovereign/strategic-forecast"}>
-                      <Link href="/sovereign/strategic-forecast" data-testid="nav-strategic-forecast">
-                        <LineChart className="h-4 w-4 text-purple-500" />
-                        <span>{language === "ar" ? "التنبؤ الاستراتيجي" : "Strategic Forecast"}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
               )}
-
-              {/* Human Resources - for employees, managers, and owner */}
-              {shouldShowSection(["all", "employees", "managers", "owner"]) && isOwner && (
-                <SidebarGroup>
-                  <SidebarGroupLabel className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                    <Users className="h-3 w-3" />
-                    {language === "ar" ? "الموارد البشرية" : "Human Resources"}
-                  </SidebarGroupLabel>
-                  <SidebarGroupContent>
-                <SidebarMenu>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={location === "/departments"}>
-                      <Link href="/departments" data-testid="nav-departments">
-                        <Building2 className="h-4 w-4 text-blue-500" />
-                        <span>{language === "ar" ? "الأقسام" : "Departments"}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={location === "/tasks"}>
-                      <Link href="/tasks" data-testid="nav-tasks">
-                        <ListTodo className="h-4 w-4 text-green-500" />
-                        <span>{language === "ar" ? "المهام" : "Tasks"}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={location === "/owner/staff"}>
-                      <Link href="/owner/staff" data-testid="nav-owner-staff">
-                        <Users className="h-4 w-4 text-amber-500" />
-                        <span>{language === "ar" ? "إدارة الموظفين" : "Staff Management"}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={location === "/owner/sovereign-permissions"}>
-                      <Link href="/owner/sovereign-permissions" data-testid="nav-sovereign-permissions">
-                        <Key className="h-4 w-4 text-purple-500" />
-                        <span>{language === "ar" ? "صلاحيات السياديين" : "Sovereign Permissions"}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={location === "/owner/content-moderation"}>
-                      <Link href="/owner/content-moderation" data-testid="nav-content-moderation">
-                        <ShieldCheck className="h-4 w-4 text-red-500" />
-                        <span>{language === "ar" ? "مراقبة المحتوى" : "Content Moderation"}</span>
-                        <SidebarItemBadge roles={["owner"]} />
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          )}
             </>
           )}
         </SidebarContent>
