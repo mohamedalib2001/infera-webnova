@@ -22,6 +22,10 @@ import("./infera-agent/index").catch(err => {
 });
 
 const app = express();
+
+// Trust proxy for nginx reverse proxy (required for secure cookies behind proxy)
+app.set('trust proxy', 1);
+
 const httpServer = createServer(app);
 
 // Initialize all WebSocket services (without their own upgrade handlers)
@@ -195,7 +199,8 @@ app.use((req, res, next) => {
       saveUninitialized: false,
       cookie: {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: true,
+        sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
       },
     }));
