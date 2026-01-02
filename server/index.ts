@@ -183,7 +183,23 @@ app.use((req, res, next) => {
     console.warn('[Stripe] Initialization skipped:', err.message);
   });
   
-  await setupAuth(app);
+  // Only setup Replit auth when running on Replit (REPL_ID is set)
+  if (process.env.REPL_ID) {
+    await setupAuth(app);
+  } else {
+    // For external deployments, use basic session without Replit OIDC
+    const session = await import("express-session");
+    app.use(session.default({
+      secret: process.env.SESSION_SECRET || "infera-production-secret",
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
+      },
+    }));
+  }
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
